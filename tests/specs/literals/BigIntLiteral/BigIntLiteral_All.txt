@@ -1,0 +1,5 @@
+== should parse a big int literal ==
+90n + 80n;
+
+[expect]
+90n + 80n;

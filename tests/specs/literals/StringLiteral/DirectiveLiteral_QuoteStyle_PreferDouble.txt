@@ -1,0 +1,12 @@
+~~ quoteStyle: preferDouble ~~
+== should use double quotes by default ==
+'str';
+
+[expect]
+"str";
+
+== should handle double quotes inside the string ==
+'"';
+
+[expect]
+'"';

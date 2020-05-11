@@ -1,0 +1,35 @@
+~~ arrayPattern.trailingCommas: onlyMultiLine, lineWidth: 40 ~~
+== should format with trailing commas when multiline ==
+function test([
+    a    ,
+    b
+]) {
+}
+
+[expect]
+function test([
+    a,
+    b,
+]) {
+}
+
+== should not format with trailing commas when single line ==
+function test([a, b]) {
+}
+
+[expect]
+function test([a, b]) {
+}
+
+== should format with trailing commas when going from single line to multi-line ==
+function test([testingThisOut, withSomeTextThatWillMakeIt]) {
+}
+
+[expect]
+function test(
+    [
+        testingThisOut,
+        withSomeTextThatWillMakeIt,
+    ],
+) {
+}

@@ -1,0 +1,12 @@
+~~ forOfStatement.spaceAfterForKeyword: false ~~
+== should print ==
+for (const t    of   test) {
+    a;
+    b;
+}
+
+[expect]
+for(const t of test) {
+    a;
+    b;
+}

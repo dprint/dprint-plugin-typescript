@@ -1,0 +1,156 @@
+~~ lineWidth: 40 ~~
+== should print ==
+for (let i = 0; i < 5; i++) {
+    a;
+    b;
+}
+
+[expect]
+for (let i = 0; i < 5; i++) {
+    a;
+    b;
+}
+
+== should handle when going over the line width ==
+for (let testingThisOut = 0; testingThisOut < 5; i++) {
+    a;
+    b;
+}
+
+[expect]
+for (
+    let testingThisOut = 0;
+    testingThisOut < 5;
+    i++
+) {
+    a;
+    b;
+}
+
+== should handle multiple sequence expressions going over the line width ==
+for (var i = 0; i < 50000000000000, i < 10000000000000; ittttttttttttttttttttttttttttttt++, i++) {
+}
+
+[expect]
+for (
+    var i = 0;
+    i < 50000000000000,
+        i < 10000000000000;
+    ittttttttttttttttttttttttttttttt++,
+        i++
+) {
+}
+
+== should print when there is no init ==
+for (; i < 5; i++) {
+}
+
+[expect]
+for (; i < 5; i++) {
+}
+
+== should print when the init does not have a variable declaration ==
+for (i = 0; i < 5; i++) {
+}
+
+[expect]
+for (i = 0; i < 5; i++) {
+}
+
+== should print the inner header on next line when the open paren is on a different line ==
+for (
+i = 0; i < 5; i++) {
+}
+
+[expect]
+for (
+    i = 0;
+    i < 5;
+    i++
+) {
+}
+
+== should print the inner header on next line when the open paren is on a different line and there is no init ==
+for (
+; i < 5; i++) {
+}
+
+[expect]
+for (
+    ;
+    i < 5;
+    i++
+) {
+}
+
+== should print empty on same line when on same line ==
+for (; i < 5; i++) {}
+
+[expect]
+for (; i < 5; i++) {}
+
+== should print empty on different line when on different line ==
+for (; i < 5; i++) {
+}
+
+[expect]
+for (; i < 5; i++) {
+}
+
+== should print when only has init ==
+for (var i; ;) {
+}
+
+[expect]
+for (var i;;) {
+}
+
+== should print when only has test ==
+for (; i < 5;) {
+}
+
+[expect]
+for (; i < 5;) {
+}
+
+== should print when only has an empty statement ==
+for (;;);
+
+[expect]
+for (;;);
+
+== should print when only has an empty statement on next line ==
+for (;;)
+    ;
+
+[expect]
+for (;;);
+
+== should support comments inside ==
+for (
+    // testing
+    var i = 0; i < 5; i++) {
+}
+
+[expect]
+for (
+    // testing
+    var i = 0;
+    i < 5;
+    i++
+) {
+}
+
+== another comment scenario ==
+for ( // testing
+    var i = 0; i < 5; i++) {
+}
+
+[expect]
+for (
+    // testing
+    var i = 0;
+    i < 5;
+    i++
+) {
+}

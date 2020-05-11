@@ -1,0 +1,145 @@
+-- filePath: file.tsx --
+~~ lineWidth: 50 ~~
+== should format when single line ==
+const t = <Test>Test</Test>;
+
+[expect]
+const t = <Test>Test</Test>;
+
+== should format when multi line ==
+const t = <Test>
+Test</Test>;
+
+[expect]
+const t = <Test>
+    Test
+</Test>;
+
+== should use multi lines even when empty (since someone may want it that way in order to insert statements later) ==
+const t = <Test>
+</Test>;
+
+[expect]
+const t = <Test>
+</Test>;
+
+== should format elements inside ==
+const t = <Test>
+Text
+
+<Element />
+<Element />
+
+Text
+<Element />
+Text
+
+
+<Element />
+
+Text
+
+    </Test>;
+
+[expect]
+const t = <Test>
+    Text
+
+    <Element />
+    <Element />
+
+    Text
+    <Element />
+    Text
+
+    <Element />
+
+    Text
+</Test>;
+
+== should format when self closing ==
+const t = <Test />;
+
+[expect]
+const t = <Test />;
+
+== should make the children multi-line when they exceed the line width ==
+const t = <Test><Test /><Test /><Test /><Test /><Test /></Test>;
+
+[expect]
+const t = <Test>
+    <Test />
+    <Test />
+    <Test />
+    <Test />
+    <Test />
+</Test>;
+
+== should make the children multi-line when the header exceeds the line width ==
+const t = <Test testingThisOut={5} other={longVariable}><Test /></Test>;
+
+[expect]
+const t = <Test
+    testingThisOut={5}
+    other={longVariable}
+>
+    <Test />
+</Test>;
+
+== should keep jsx expressions on the same line if there is text separating them ==
+const t = <Element>
+    {title}:{other}
+</Element>;
+
+[expect]
+const t = <Element>
+    {title}:{other}
+</Element>;
+
+== should keep jsx text on the same line for a following text ==
+const t = <Element>
+    {title}:
+    {other}
+</Element>;
+
+[expect]
+const t = <Element>
+    {title}:
+    {other}
+</Element>;
+
+== should keep jsx text on the same line for a preceding text with and without a space ==
+const t = <Element>
+    Test: {title}
+    Test{other}
+</Element>;
+
+[expect]
+const t = <Element>
+    Test: {title}
+    Test{other}
+</Element>;
+
+== should keep jsx text on the same line for the following text with and without a space ==
+const t = <Element>
+    {title} test
+    {other}test
+</Element>;
+
+[expect]
+const t = <Element>
+    {title} test
+    {other}test
+</Element>;
+
+== should leave a space between the text and expression when single line ==
+return (<E>Test: {type}</E>);
+return (<E>Test:   {type}</E>);
+return (<E>{type} test</E>);
+return (<E>{type}  test</E>);
+
+[expect]
+return (<E>Test: {type}</E>);
+return (<E>Test: {type}</E>);
+return (<E>{type} test</E>);
+return (<E>{type} test</E>);

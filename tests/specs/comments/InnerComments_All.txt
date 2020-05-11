@@ -1,0 +1,10 @@
+== should put each comment on a separate line ==
+    // 1
+    /* 2 *//* 3 */
+    // 4
+
+[expect]
+// 1
+/* 2 */
+/* 3 */
+// 4

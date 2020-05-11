@@ -1,0 +1,71 @@
+~~ lineWidth: 50 ~~
+== should format ==
+const t = async function
+test<T, U>
+(p, u): s
+{
+};
+
+[expect]
+const t = async function test<T, U>(p, u): s {
+};
+
+== should format generator ==
+const t = function* test(p, u): string {
+};
+
+[expect]
+const t = function* test(p, u): string {
+};
+
+== should format async generators ==
+call(async function* agf() {})
+
+[expect]
+call(async function* agf() {});
+
+== should format the params as multi-line when the return type exceeds the line width ==
+const t = function(param: string): testing | this {
+
+}
+
+[expect]
+const t = function(
+    param: string,
+): testing | this {
+};
+
+== should format the return type on the same line when the rest of the header is multi-line ==
+const testing = function(param: string, other: number): testing | this {
+}
+
+[expect]
+const testing = function(
+    param: string,
+    other: number,
+): testing | this {
+};
+
+== should format the return type on a new line when it's multi-line and the rest of the header is multi-line ==
+const testing = function(param: string, other: number): testing | other | other | test | test | otherrr {
+}
+
+[expect]
+const testing = function(
+    param: string,
+    other: number,
+):
+    | testing
+    | other
+    | other
+    | test
+    | test
+    | otherrr
+{
+};
+
+== should allow keeping the close brace on the same line when empty and placing the close brace on the same line ==
+const t = function(testing, this) {};
+
+[expect]
+const t = function(testing, this) {};

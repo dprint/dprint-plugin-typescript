@@ -1,0 +1,31 @@
+== should print members ==
+class Test {
+    // other
+    prop: string;
+
+    /** testing */
+    method() {
+    }
+
+    otherProp: string;
+    // other
+}
+
+[expect]
+class Test {
+    // other
+    prop: string;
+
+    /** testing */
+    method() {
+    }
+
+    otherProp: string;
+    // other
+}
+
+== should leave an empty class declaration block on the same line ==
+class Test {}
+
+[expect]
+class Test {}

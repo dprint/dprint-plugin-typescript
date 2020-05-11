@@ -1,0 +1,212 @@
+~~ lineWidth: 60 ~~
+== should print with no members ==
+class Test {}
+
+[expect]
+class Test {}
+
+== should print with no name ==
+export default class {}
+
+[expect]
+export default class {}
+
+== should not print on single line with member ==
+class Test { prop; }
+
+[expect]
+class Test {
+    prop;
+}
+
+== should print abstract ==
+abstract class Test {
+}
+
+[expect]
+abstract class Test {
+}
+
+== should print declare ==
+declare class Test {
+}
+
+[expect]
+declare class Test {
+}
+
+== should print declare and abstract ==
+declare abstract class Test {
+}
+
+[expect]
+declare abstract class Test {
+}
+
+== should print an extends clause ==
+export class Test extends Other {
+}
+
+[expect]
+export class Test extends Other {
+}
+
+== should print a verly long extends clause so that it goes to the next line ==
+export class Test extends OtherOtherOtherOtherOtherOtherOtherOther {
+}
+
+[expect]
+export class Test
+    extends OtherOtherOtherOtherOtherOtherOtherOther
+{
+}
+
+== should not split up within an extends ==
+export class Test extends SomeClassWithAnotherClass<Testing, This> {
+}
+
+[expect]
+export class Test
+    extends SomeClassWithAnotherClass<Testing, This>
+{
+}
+
+== should print an implements clause ==
+export class Test implements Other {
+}
+
+[expect]
+export class Test implements Other {
+}
+
+== should print multiple implements ==
+export class Test implements Other, Other2 {
+}
+
+[expect]
+export class Test implements Other, Other2 {
+}
+
+== should print multiple implements that go over the line width ==
+export class Test implements Other, Other2, Other3, Other4, Other5 {
+}
+
+[expect]
+export class Test
+    implements Other, Other2, Other3, Other4, Other5
+{
+}
+
+== should not split up within an implements ==
+export class Test implements Testing, ThisOutABitHere<Tes, This, Out, With, A, Long> {
+}
+
+[expect]
+export class Test
+    implements
+        Testing,
+        ThisOutABitHere<Tes, This, Out, With, A, Long>
+{
+}
+
+== should print multiple implements that go over the line width twice ==
+export class Test implements Other, Other2, Other3, Other4, Other5, Other6, Other7 {
+}
+
+[expect]
+export class Test
+    implements
+        Other,
+        Other2,
+        Other3,
+        Other4,
+        Other5,
+        Other6,
+        Other7
+{
+}
+
+== should print long extends and then put implements on separate line ==
+export class Test extends OtherOtherOtherOtherOtherOtherOtherOther implements Other {
+}
+
+[expect]
+export class Test
+    extends OtherOtherOtherOtherOtherOtherOtherOther
+    implements Other
+{
+}
+
+== should print with type parameters ==
+export class Test< T  > {
+}
+
+[expect]
+export class Test<T> {
+}
+
+== should print type parameters when they go over the limit ==
+export class Test<TestingThisOut, WithVeryLong, TypeParameterList> {
+}
+
+[expect]
+export class Test<
+    TestingThisOut,
+    WithVeryLong,
+    TypeParameterList,
+> {
+}
+
+== should print with type parameters and extends when they go over the limit ==
+export class Test<TestingThisOut, WithVeryLong, TypeParameterList> extends Test {
+}
+
+[expect]
+export class Test<
+    TestingThisOut,
+    WithVeryLong,
+    TypeParameterList,
+> extends Test {
+}
+
+== should print with type parameters on multiple lines ==
+export class Test<
+TestingThisOut, WithVeryLong, TypeParameterList> {
+}
+
+[expect]
+export class Test<
+    TestingThisOut,
+    WithVeryLong,
+    TypeParameterList,
+> {
+}
+
+== should print with type parameters on multiple lines and extends ==
+export class Test<
+    TestingThisOut, WithVeryLong, TypeParameterList> extends Test {
+}
+
+[expect]
+export class Test<
+    TestingThisOut,
+    WithVeryLong,
+    TypeParameterList,
+> extends Test {
+}
+
+== should print a super's type argument ==
+export class Test extends Other<string> {
+}
+
+[expect]
+export class Test extends Other<string> {
+}
+
+== should print mixins ==
+export class Test extends MyMixin(OtherMixin())<string> {
+}
+
+[expect]
+export class Test extends MyMixin(OtherMixin())<string> {
+}

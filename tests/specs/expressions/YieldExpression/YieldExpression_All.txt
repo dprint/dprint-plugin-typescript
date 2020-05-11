@@ -1,0 +1,47 @@
+~~ lineWidth: 30 ~~
+== should print without a delegate ==
+function* test() {
+    yield   123456;
+}
+
+[expect]
+function* test() {
+    yield 123456;
+}
+
+== should print with a delegate ==
+function* test() {
+    yield *   func();
+}
+
+[expect]
+function* test() {
+    yield* func();
+}
+
+== should print with hanging indent ==
+function* test() {
+    yield *   func() && otherWithLongName();
+}
+
+[expect]
+function* test() {
+    yield* func()
+        && otherWithLongName();
+}
+
+== should not do a hanging indent when an object expression ==
+function* test() {
+    yield {
+        prop: 5,
+        prop2: 7
+    };
+}
+
+[expect]
+function* test() {
+    yield {
+        prop: 5,
+        prop2: 7,
+    };
+}

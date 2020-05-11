@@ -1,0 +1,58 @@
+~~ lineWidth: 40 ~~
+== should format ==
+type T = {
+    m1 ( ) : number;
+    m2  ? (arg, arg2:  number): number  ;
+    m3 ? <T , U> (  );
+    [ m4  ](): string;
+    m5<TestingThisOut, WithSomeTypeParams>(): string;
+};
+
+[expect]
+type T = {
+    m1(): number;
+    m2?(arg, arg2: number): number;
+    m3?<T, U>();
+    [m4](): string;
+    m5<
+        TestingThisOut,
+        WithSomeTypeParams,
+    >(): string;
+};
+
+== should format the params as multi-line when the return type exceeds the line width ==
+interface T {
+    method(param: string): test | number;
+}
+
+[expect]
+interface T {
+    method(
+        param: string,
+    ): test | number;
+}
+
+== should force multi-line parameters when exceeding the line width ==
+interface T {
+    method(testing, thisOut, byExceeding, theLineWidth): void;
+}
+
+[expect]
+interface T {
+    method(
+        testing,
+        thisOut,
+        byExceeding,
+        theLineWidth,
+    ): void;
+}
+
+== should not be multi-line when not exceeding the line width ==
+interface T {
+    method(testing, thisOut): void;
+}
+
+[expect]
+interface T {
+    method(testing, thisOut): void;
+}

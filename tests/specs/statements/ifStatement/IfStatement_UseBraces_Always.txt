@@ -1,0 +1,32 @@
+~~ ifStatement.useBraces: always ~~
+== should force the use of braces when not specified ==
+if (true)
+    a;
+else
+    b;
+
+[expect]
+if (true) {
+    a;
+} else {
+    b;
+}
+
+== should keep the comment on the inner statement when switching from no braces to having braces ==
+if (true)
+    console.log(5); // test
+
+[expect]
+if (true) {
+    console.log(5); // test
+}
+
+== should use even when single line ==
+if (true) console.log(5);
+else if (false) console.log(6);
+else console.log(7);
+
+[expect]
+if (true) { console.log(5); }
+else if (false) { console.log(6); }
+else { console.log(7); }

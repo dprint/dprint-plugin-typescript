@@ -1,0 +1,65 @@
+~~ lineWidth: 40 ~~
+== should format when using no named exports ==
+export {};
+
+[expect]
+export {};
+
+== should format when using named exports ==
+const test = 5;
+export {test};
+
+[expect]
+const test = 5;
+export { test };
+
+== should format when using a namespace export specifier ==
+export  *   as   ns   from   "package"  ;
+
+[expect]
+export * as ns from "package";
+
+== should format a type-only export ==
+export   type    { test };
+
+[expect]
+export type { test };
+
+== should format when has zero named exports ==
+export {} from "test";
+
+[expect]
+export {} from "test";
+
+== should format when has zero named exports and is type-only export ==
+export type {} from "test";
+
+[expect]
+export type {} from "test";
+
+== should remain single line when has no named exports and exceeding the line width ==
+export {} from "testingtttttttttttttttttttttttttttttt";
+
+[expect]
+export {} from "testingtttttttttttttttttttttttttttttt";
+
+== should remain single line when has one named export and exceeding the line width ==
+export { testingThisOut } from "testingtttttttttttttttttttttttttttttt";
+
+[expect]
+export { testingThisOut } from "testingtttttttttttttttttttttttttttttt";
+
+== should remain single line when has one named export with alias and exceeding the line width ==
+export { testingThisOut as alias } from "testingtttttttttttttttttttttttttttttt";
+
+[expect]
+export { testingThisOut as alias } from "testingtttttttttttttttttttttttttttttt";
+
+== should not be single line when has two named exports and exceeding the line width ==
+export { testingThisOut, test } from "testingtttttttttttttttttttttttttttttt";
+
+[expect]
+export {
+    testingThisOut,
+    test,
+} from "testingtttttttttttttttttttttttttttttt";

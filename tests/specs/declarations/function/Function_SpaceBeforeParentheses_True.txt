@@ -1,0 +1,26 @@
+~~ lineWidth: 40, functionDeclaration.spaceBeforeParentheses: true ~~
+== should format with a space before the parens ==
+function test<T>() {
+}
+
+[expect]
+function test<T> () {
+}
+
+== should format with a space before the parens even when multi-line ==
+function test(param, otherParam, testing) {
+}
+
+[expect]
+function test (
+    param,
+    otherParam,
+    testing,
+) {
+}
+
+== should format for a declaration function ==
+export declare function test(): void;
+
+[expect]
+export declare function test (): void;

@@ -1,0 +1,67 @@
+~~ lineWidth: 30 ~~
+== should print a decorator ==
+    @dec
+class T {
+}
+
+[expect]
+@dec
+class T {
+}
+
+== should print a decorator with a call expression ==
+@dec(testing)
+class T {
+}
+
+[expect]
+@dec(testing)
+class T {
+}
+
+== should print a decorator parameters on multiple lines when exceeding the line width ==
+@dec(testing, this, out, toSee)
+class T {
+}
+
+[expect]
+@dec(
+    testing,
+    this,
+    out,
+    toSee,
+)
+class T {
+}
+
+== should print decorator with comments surrounding for an export declaration ==
+@dec // test
+@dec2 // other
+/* comment here */
+@dec3
+export class Test {
+}
+
+[expect]
+@dec // test
+@dec2 // other
+/* comment here */
+@dec3
+export class Test {
+}
+
+== should print decorator with comments surrounding for an export default declaration ==
+@dec // test
+@dec2 // other
+/* comment here */
+@dec3
+export default class Test {
+}
+
+[expect]
+@dec // test
+@dec2 // other
+/* comment here */
+@dec3
+export default class Test {
+}

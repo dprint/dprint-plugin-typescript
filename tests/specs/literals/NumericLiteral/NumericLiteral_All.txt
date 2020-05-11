@@ -1,0 +1,15 @@
+== should parse different kinds of numeric literals ==
+10;
+10.883;
+10e5;
+10_200;
+0b10101_0001;
+0xa0_b0_c0;
+
+[expect]
+10;
+10.883;
+10e5;
+10_200;
+0b10101_0001;
+0xa0_b0_c0;

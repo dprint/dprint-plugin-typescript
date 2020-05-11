@@ -1,0 +1,45 @@
+~~ lineWidth: 55 ~~
+== should format ==
+type Type<T> = T   extends  string ?   number   :   boolean;
+
+[expect]
+type Type<T> = T extends string ? number : boolean;
+
+== should format when using newlines ==
+type Type<T> = T extends string ? number :
+    T extends number ? boolean :
+    T extends other ? string :
+    boolean;
+
+[expect]
+type Type<T> = T extends string ? number
+    : T extends number ? boolean
+    : T extends other ? string
+    : boolean;
+
+== should format an individual condition that goes over the limit ==
+type Type<T> = T extends string ? number
+    : T extends hereIsAVeryLongExtendsClause ? testingThis
+    : boolean;
+
+[expect]
+type Type<T> = T extends string ? number
+    : T extends hereIsAVeryLongExtendsClause
+        ? testingThis
+    : boolean;
+
+== should not line break before the extends keyword ==
+type Args<R> = R extends (messageArgs: string[]) => string[] ? A : [];
+
+[expect]
+type Args<R> = R extends
+    (messageArgs: string[]) => string[] ? A : [];
+
+== should format all as "multi-line" when going past line width ==
+type Type<T> = T extends string ? number : T extends number ? boolean : T extends other ? string : boolean;
+
+[expect]
+type Type<T> = T extends string ? number
+    : T extends number ? boolean
+    : T extends other ? string
+    : boolean;

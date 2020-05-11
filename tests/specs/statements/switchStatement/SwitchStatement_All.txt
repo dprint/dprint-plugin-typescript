@@ -1,0 +1,51 @@
+~~ lineWidth: 40 ~~
+== should print ==
+switch (expr) {
+}
+
+[expect]
+switch (expr) {
+}
+
+== should go multi-line when exceeding line width once ==
+switch (expr.testing.testing.testing.test) {
+}
+
+[expect]
+switch (
+    expr.testing.testing.testing.test
+) {
+}
+
+== should handle exceeding line width twice ==
+switch (expr.testing.testing.testing.testingg) {
+}
+
+[expect]
+switch (
+    expr.testing.testing.testing
+        .testingg
+) {
+}
+
+== should handle exceeding line width twice with a binary expression ==
+switch (testing && testing && testing && testing && testing) {
+}
+
+[expect]
+switch (
+    testing && testing && testing
+    && testing && testing
+) {
+}
+
+== should move the discriminant to a new line if the paren is on a different line ==
+switch (
+something.something) {
+}
+
+[expect]
+switch (
+    something.something
+) {
+}

@@ -1,0 +1,25 @@
+== should print the call expression ==
+test(a,
+b, c
+);
+
+[expect]
+test(a, b, c);
+
+== should print type arguments ==
+test< T,U >();
+
+[expect]
+test<T, U>();
+
+== should print when optional ==
+test?.(   )  ;
+
+[expect]
+test?.();
+
+== should support optional call expressions ==
+callExpr?.();
+
+[expect]
+callExpr?.();

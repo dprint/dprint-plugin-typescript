@@ -1,0 +1,136 @@
+~~ lineWidth: 40 ~~
+== should print ==
+switch (expr) {
+
+    case 5:
+    case 6: // other
+    /*test*/// testing
+    case 7: // test
+        6;
+
+    default:
+        console.log(5);
+
+        6;
+}
+
+[expect]
+switch (expr) {
+    case 5:
+    case 6: // other
+    /*test*/
+    // testing
+    case 7: // test
+        6;
+
+    default:
+        console.log(5);
+
+        6;
+}
+
+== should keep the comments at the same level as the case's body if the last comment is on that level ==
+switch (expr) {
+    case 1: {
+    }
+        // testing
+    // testing
+    case 5:
+        doSomething();
+    // testing
+        // fall through
+    case 6:
+        doSomething();
+        // testing
+    // other
+    case 7:
+        5;
+    // testing
+    case 8:
+        // testing
+    case 9:
+        // test
+    // test
+        // test
+    // test
+    case 10:
+        testing;
+    // this should increase because
+    // it's last
+}
+
+[expect]
+switch (expr) {
+    case 1: {
+    }
+    // testing
+    // testing
+    case 5:
+        doSomething();
+    // testing
+    // fall through
+    case 6:
+        doSomething();
+        // testing
+    // other
+    case 7:
+        5;
+    // testing
+    case 8:
+        // testing
+    case 9:
+        // test
+    // test
+    // test
+    // test
+    case 10:
+        testing;
+        // this should increase because
+        // it's last
+}
+
+== should preserve blank lines between switch cases except when the previous case has no body (issue #76) ==
+switch (n) {
+    case 1:
+        break;
+
+    case 2:
+        break;
+
+    case 3:
+        break;
+    case 4:
+
+    case 5:
+        break;
+
+    case 6:
+
+    case 7:
+        break;
+
+    default:
+        break;
+}
+
+[expect]
+switch (n) {
+    case 1:
+        break;
+
+    case 2:
+        break;
+
+    case 3:
+        break;
+    case 4:
+    case 5:
+        break;
+
+    case 6:
+    case 7:
+        break;
+
+    default:
+        break;
+}

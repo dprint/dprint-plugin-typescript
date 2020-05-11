@@ -1,0 +1,5 @@
+== should format ==
+export  *  from   "test"  ;
+
+[expect]
+export * from "test";

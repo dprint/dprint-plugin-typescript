@@ -1,0 +1,51 @@
+== should format ==
+module Test {
+}
+
+[expect]
+module Test {
+}
+
+== should format with namespace keyword ==
+namespace Test {
+}
+
+[expect]
+namespace Test {
+}
+
+== should format with declare keyword ==
+declare module Test {
+}
+
+[expect]
+declare module Test {
+}
+
+== should format with namespace keyword and a declare keyword ==
+declare namespace Test {
+}
+
+[expect]
+declare namespace Test {
+}
+
+== should format with nested declarations ==
+module Test.Test1.Test3 {
+}
+
+[expect]
+module Test.Test1.Test3 {
+}
+
+== should format a "global" namespace ==
+global   {
+    interface   Test   {
+    }
+}
+
+[expect]
+global {
+    interface Test {
+    }
+}

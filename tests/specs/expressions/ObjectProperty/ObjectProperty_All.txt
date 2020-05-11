@@ -1,0 +1,31 @@
+== should format ==
+const obj = {
+    prop   , // test
+    prop2   :    2,
+    [   "test"   ]   : 4
+};
+
+[expect]
+const obj = {
+    prop, // test
+    prop2: 2,
+    ["test"]: 4,
+};
+
+== should indent arrow function expression appropriately ==
+function test() {
+    return {
+        prop: () => {
+            return 5;
+        }
+    };
+}
+
+[expect]
+function test() {
+    return {
+        prop: () => {
+            return 5;
+        },
+    };
+}

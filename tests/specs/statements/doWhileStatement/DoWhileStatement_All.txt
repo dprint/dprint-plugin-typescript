@@ -1,0 +1,60 @@
+~~ lineWidth: 40 ~~
+== should print ==
+do
+{
+    a;
+    b;
+}
+while(true)
+
+[expect]
+do {
+    a;
+    b;
+} while (true);
+
+== should format on multiple lines when the test is on a different line than the paren ==
+do {
+} while(
+true);
+
+[expect]
+do {
+} while (
+    true
+);
+
+== should format hanging when condition spans multiple lines ==
+do {
+} while(true && testingThisOut && whith);
+
+[expect]
+do {
+} while (
+    true && testingThisOut && whith
+);
+
+== should format hanging when condition spans multiple lines twice ==
+do {
+} while(true && testingThisOut && whithSomeText);
+
+[expect]
+do {
+} while (
+    true && testingThisOut
+    && whithSomeText
+);
+
+== should format when empty and on the same line ==
+do {} while (true);
+
+[expect]
+do {} while (true);
+
+== should format when empty and on different lines ==
+do {
+} while (true);
+
+[expect]
+do {
+} while (true);

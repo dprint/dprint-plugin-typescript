@@ -1,0 +1,37 @@
+~~ lineWidth: 40 ~~
+== should format ==
+const { t=5, u=4, v: other } = obj;
+
+[expect]
+const { t = 5, u = 4, v: other } = obj;
+
+== should format multi-line ==
+const {
+    t=5,
+    u=4
+} = obj;
+
+[expect]
+const {
+    t = 5,
+    u = 4,
+} = obj;
+
+== should split up between the items when the line width is on the last brace (rather than splitting up right before the brace) ==
+const { testingThisOut, withAVeryLongNameeeeeeee } = obj;
+
+[expect]
+const {
+    testingThisOut,
+    withAVeryLongNameeeeeeee,
+} = obj;
+
+== should format when optional ==
+export declare class EventInit {
+    constructor({ t }?: { t?: any });
+}
+
+[expect]
+export declare class EventInit {
+    constructor({ t }?: { t?: any });
+}

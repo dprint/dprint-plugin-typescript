@@ -1,0 +1,26 @@
+~~ arrowFunction.useParentheses: maintain ~~
+== should allow arrow functions without parens ==
+const t = a => 5;
+
+[expect]
+const t = a => 5;
+
+== should use parens when specified ==
+const t = (a) => 5;
+
+[expect]
+const t = (a) => 5;
+
+== should use parens when has a type ==
+const t = (a: string) => 5;
+
+[expect]
+const t = (a: string) => 5;
+
+== should maintain when has an async keyword ==
+const t = async (a) => 5;
+const u = async a => 5;
+
+[expect]
+const t = async (a) => 5;
+const u = async a => 5;

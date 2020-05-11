@@ -1,0 +1,73 @@
+== should output with catch clause ==
+try{
+    a;
+}catch
+{
+    b;
+}
+
+[expect]
+try {
+    a;
+} catch {
+    b;
+}
+
+== should output with finally ==
+try{
+    a;
+} finally {
+    b;
+}
+
+[expect]
+try {
+    a;
+} finally {
+    b;
+}
+
+== should output with try and finally ==
+try{
+    a;
+}    catch (ex) {
+    b;
+}finally
+{
+    c;
+}
+
+[expect]
+try {
+    a;
+} catch (ex) {
+    b;
+} finally {
+    c;
+}
+
+== should format with an empty catch (issue #77) ==
+try {
+    test;
+} catch {}
+
+[expect]
+try {
+    test;
+} catch {}
+
+== should expand to try block being on one line when all are on one line ==
+try {} catch {}
+
+[expect]
+try {
+} catch {}
+
+== should expand to try block being on one line when all are on one line ==
+try {} catch {} finally {}
+
+[expect]
+try {
+} catch {
+} finally {
+}
