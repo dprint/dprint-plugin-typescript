@@ -4097,7 +4097,8 @@ fn parse_type_param<'a>(node: &'a TsTypeParam, context: &mut Context<'a>) -> Pri
 
 fn parse_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -> PrintItems {
     let params = node.params();
-    let force_use_new_lines = get_use_new_lines(&node.span().data(), &params, context);
+    let node_span_data = node.span().data();
+    let force_use_new_lines = get_use_new_lines(&node_span_data, &params, context);
     let mut items = PrintItems::new();
 
     items.push_str("<");
@@ -4106,7 +4107,7 @@ fn parse_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>)
         prefer_hanging: context.config.type_parameters_prefer_hanging,
         force_use_new_lines,
         allow_blank_lines: false,
-        trailing_commas: Some(get_trailing_commas(context)),
+        trailing_commas: Some(get_trailing_commas(&node_span_data, context)),
         semi_colons: None,
         single_line_space_at_start: false,
         single_line_space_at_end: false,
@@ -4118,20 +4119,18 @@ fn parse_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>)
 
     return items;
 
-    fn get_trailing_commas(context: &mut Context) -> TrailingCommas {
+    fn get_trailing_commas(node_span_data: &SpanData, context: &mut Context) -> TrailingCommas {
         let trailing_commas = context.config.type_parameters_trailing_commas;
         if trailing_commas == TrailingCommas::Never { return trailing_commas; }
-        let parent_kind = context.parent().kind();
-        match parent_kind {
-            NodeKind::ClassDecl | NodeKind::TsInterfaceDecl | NodeKind::FnDecl
-            | NodeKind::ClassExpr | NodeKind::ClassMethod | NodeKind::TsTypeAliasDecl
-            | NodeKind::ArrowExpr | NodeKind::TsCallSignatureDecl | NodeKind::TsConstructSignatureDecl
-            | NodeKind::TsMethodSignature | NodeKind::MethodProp | NodeKind::TsConstructorType
-            | NodeKind::TsFnType => trailing_commas,
-            // Gives a compile error by TS at the moment.
-            // See https://github.com/microsoft/TypeScript/issues/21984
-            _ => TrailingCommas::Never,
+
+        // trailing commas should be allowed in type parameters only—not arguments
+        if let Some(type_params) = context.parent().get_type_parameters() {
+            if type_params.lo() == node_span_data.lo() {
+                return trailing_commas;
+            }
         }
+
+        return TrailingCommas::Never;
     }
 
     fn get_use_new_lines(parent_span_data: &SpanData, params: &Vec<Node>, context: &mut Context) -> bool {

@@ -54,3 +54,31 @@ const test = (
 ): void => {
     test;
 };
+
+== should not use trailing comma in type argument in class decl ==
+export class DocumentCollection<
+    T extends object = any,
+> extends BaseCollection<
+    T
+> {}
+
+[expect]
+export class DocumentCollection<
+    T extends object = any,
+> extends BaseCollection<
+    T
+> {}
+
+== should not use trailing comma in type argument in class expr ==
+const t = class DocumentCollection<
+    T extends object = any,
+> extends BaseCollection<
+    T
+> {}
+
+[expect]
+const t = class DocumentCollection<
+    T extends object = any,
+> extends BaseCollection<
+    T
+> {};

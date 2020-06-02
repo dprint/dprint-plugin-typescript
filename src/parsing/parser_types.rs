@@ -677,6 +677,27 @@ fn get_inner_span_for_object_like(span: &Span) -> SpanData {
     }
 }
 
+impl<'a> Node<'a> {
+    pub fn get_type_parameters(&self) -> &Option<TsTypeParamDecl> {
+        match self {
+            Node::ClassDecl(node) => &node.class.type_params,
+            Node::TsInterfaceDecl(node) => &node.type_params,
+            Node::ClassExpr(node) => &node.class.type_params,
+            Node::FnDecl(node) => &node.function.type_params,
+            Node::ClassMethod(node) => &node.function.type_params,
+            Node::TsTypeAliasDecl(node) => &node.type_params,
+            Node::ArrowExpr(node) => &node.type_params,
+            Node::TsCallSignatureDecl(node) => &node.type_params,
+            Node::TsConstructSignatureDecl(node) => &node.type_params,
+            Node::TsMethodSignature(node) => &node.type_params,
+            Node::MethodProp(node) => &node.function.type_params,
+            Node::TsConstructorType(node) => &node.type_params,
+            Node::TsFnType(node) => &node.type_params,
+            _ => &None
+        }
+    }
+}
+
 /* ParametersSpanned */
 
 pub trait ParametersSpanned {
