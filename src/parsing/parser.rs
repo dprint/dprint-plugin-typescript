@@ -6010,7 +6010,15 @@ fn parse_jsx_children<'a>(opts: ParseJsxChildrenOptions<'a>, context: &mut Conte
         items.extend(parser_helpers::with_indent(parse_statements_or_members(ParseStatementsOrMembersOptions {
             inner_span_data,
             items: children.into_iter().map(|(a, b)| (a, Some(b.into()))).collect(),
-            should_use_space: Some(Box::new(|previous, next, context| should_use_space(previous, next, context))),
+            should_use_space: Some(Box::new(|previous, next, context| {
+                if let Node::JSXText(element) = previous {
+                    element.text(context).ends_with(" ")
+                } else if let Node::JSXText(element) = next {
+                    element.text(context).starts_with(" ")
+                } else {
+                    false
+                }
+            })),
             should_use_new_line: Some(Box::new(|previous, next, context| {
                 if let Node::JSXText(next) = next {
                     return !utils::has_no_new_lines_in_leading_whitespace(next.text(context));
@@ -6045,27 +6053,30 @@ fn parse_jsx_children<'a>(opts: ParseJsxChildrenOptions<'a>, context: &mut Conte
         if children.is_empty() {
             items.push_signal(Signal::PossibleNewLine);
         } else {
-            let mut previous_child: Option<Node<'a>> = None;
-            for (child, parsed_child) in children.into_iter() {
-                if let Some(previous_child) = previous_child {
-                    if should_use_space(&previous_child, &child, context) {
-                        items.push_signal(Signal::SpaceOrNewLine);
-                    }
+            for (index, (child, parsed_child)) in children.into_iter().enumerate() {
+                if index > 0 && should_use_space(&child, context) {
+                    items.push_signal(Signal::SpaceOrNewLine);
+                } else {
+                    items.push_signal(Signal::PossibleNewLine);
                 }
 
                 items.extend(parsed_child.into());
-                items.push_signal(Signal::PossibleNewLine);
-                previous_child = Some(child);
             }
+            items.push_signal(Signal::PossibleNewLine);
         }
         items
     }
 
-    fn should_use_space(previous_element: &Node, next_element: &Node, context: &mut Context) -> bool {
-        if let Node::JSXText(element) = previous_element {
-            element.text(context).ends_with(" ")
-        } else if let Node::JSXText(element) = next_element {
-            element.text(context).starts_with(" ")
+    fn should_use_space(child: &Node, context: &mut Context) -> bool {
+        let past_token = context.token_finder.get_previous_token(child);
+        if let Some(TokenAndSpan { token: swc_ecma_parser::token::Token::JSXText { .. }, span, had_line_break }) = past_token {
+            let text = span.text(context);
+            if !had_line_break && text.ends_with(" ") {
+                return true;
+            }
+        }
+        if let Node::JSXText(child) = child {
+            child.text(context).starts_with(" ")
         } else {
             false
         }

@@ -1,0 +1,22 @@
+-- filePath: file.tsx --
+~~ lineWidth: 40 ~~
+== should not remove spaces between ==
+const t = <div>{t} {u} {v}</div>;
+
+[expect]
+const t = <div>{t} {u} {v}</div>;
+
+== should remove spaces surrounding ==
+const t = <div> test </div>;
+
+[expect]
+const t = <div>test</div>;
+
+== should handle a space when exceeding the line width ==
+const t = <div>{test} {testsdffffffffffff}</div>;
+
+[expect]
+const t = <div>
+    {test}
+    {testsdffffffffffff}
+</div>;
