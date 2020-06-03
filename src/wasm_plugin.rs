@@ -3,8 +3,8 @@ use dprint_core::generate_plugin_code;
 use super::configuration::{Configuration, resolve_config};
 use super::formatter::Formatter;
 
-fn get_plugin_config_keys() -> Vec<String> {
-    vec![String::from("typescript"), String::from("javascript")]
+fn get_plugin_config_key() -> String {
+    String::from("typescript")
 }
 
 fn get_plugin_file_extensions() -> Vec<String> {
