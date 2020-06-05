@@ -1,6 +1,6 @@
 # dprint-plugin-typescript
 
-[![](https://img.shields.io/crates/v/dprint-plugin-typescript.svg)](https://crates.io/crates/dprint-plugin-typescript)
+[![](https://img.shields.io/crates/v/dprint-plugin-typescript.svg)](https://crates.io/crates/dprint-plugin-typescript) ![CI](https://github.com/dprint/dprint-plugin-typescript/workflows/CI/badge.svg)
 
 TypeScript formatting plugin for dprint.
 
