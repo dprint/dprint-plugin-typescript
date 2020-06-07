@@ -13,7 +13,7 @@ repository = "https://github.com/dprint/dprint-plugin-typescript"
 crate-type = ["lib", "cdylib"]
 
 [dependencies]
-dprint-core = "0.21.0"
+dprint-core = "0.21.1"
 swc_common = "=0.5.12"
 swc_ecma_ast = "=0.20.0"
 swc_ecma_parser = "=0.24.5"
