@@ -22,7 +22,8 @@ fn get_plugin_config_schema_url() -> String {
 static mut FORMATTER: Option<Formatter> = None;
 
 fn format_text(file_path: &PathBuf, file_text: &str, config: &Configuration) -> Result<String, String> {
-    let formatter = unsafe { if let Some(formatter) = FORMATTER.as_ref() {
+    let formatter = unsafe {
+        if let Some(formatter) = FORMATTER.as_ref() {
             formatter
         } else {
             let formatter = Formatter::new(config.clone());
@@ -31,6 +32,15 @@ fn format_text(file_path: &PathBuf, file_text: &str, config: &Configuration) -> 
         }
     };
     formatter.format_text(&file_path, &file_text)
+}
+
+// for clearing the configuration in the playground
+#[no_mangle]
+pub fn reset_config() {
+    unsafe {
+        RESOLVE_CONFIGURATION_RESULT.take();
+        FORMATTER.take();
+    }
 }
 
 generate_plugin_code!();
