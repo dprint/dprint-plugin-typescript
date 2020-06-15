@@ -34,6 +34,10 @@ fn format_text(file_path: &PathBuf, file_text: &str, config: &Configuration) -> 
     formatter.format_text(&file_path, &file_text)
 }
 
+fn get_plugin_license_text() -> String {
+    std::str::from_utf8(include_bytes!("../LICENSE")).unwrap().into()
+}
+
 // for clearing the configuration in the playground
 #[no_mangle]
 pub fn reset_config() {
