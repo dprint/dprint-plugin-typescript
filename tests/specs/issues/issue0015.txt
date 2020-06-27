@@ -1,0 +1,30 @@
+~~ deno: true ~~
+== should format key value pat properties in variables ==
+const {
+  errors: {
+    NotFound
+  },
+} = Deno;
+
+[expect]
+const {
+  errors: {
+    NotFound,
+  },
+} = Deno;
+
+== should format key value pat properties in functions ==
+function f({
+  options: {
+    Test
+  },
+}) {
+}
+
+[expect]
+function f({
+  options: {
+    Test,
+  },
+}) {
+}

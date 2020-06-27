@@ -1,0 +1,17 @@
+== should format on one line ==
+const { test: { Other = 5 }} = obj;
+
+[expect]
+const { test: { Other = 5 } } = obj;
+
+== should format on multiple lines ==
+const {
+    test: {
+        Other = 5 }} = obj;
+
+[expect]
+const {
+    test: {
+        Other = 5,
+    },
+} = obj;

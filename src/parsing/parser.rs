@@ -216,6 +216,7 @@ fn parse_node_with_inner_parse<'a>(node: Node<'a>, context: &mut Context<'a>, in
             Node::ArrayPat(node) => parse_array_pat(node, context),
             Node::AssignPat(node) => parse_assign_pat(node, context),
             Node::AssignPatProp(node) => parse_assign_pat_prop(node, context),
+            Node::KeyValuePatProp(node) => parse_key_value_pat_prop(node, context),
             Node::RestPat(node) => parse_rest_pat(node, context),
             Node::ObjectPat(node) => parse_object_pat(node, context),
             /* properties */
@@ -1863,7 +1864,7 @@ fn parse_key_value_prop<'a>(node: &'a KeyValueProp, context: &mut Context<'a>) -
     let mut items = PrintItems::new();
     items.extend(parse_node((&node.key).into(), context));
     items.extend(parse_assignment((&node.value).into(), ":", context));
-    return items;
+    items
 }
 
 fn parse_member_expr<'a>(node: &'a MemberExpr, context: &mut Context<'a>) -> PrintItems {
@@ -2724,23 +2725,26 @@ fn parse_array_pat<'a>(node: &'a ArrayPat, context: &mut Context<'a>) -> PrintIt
 }
 
 fn parse_assign_pat<'a>(node: &'a AssignPat, context: &mut Context<'a>) -> PrintItems {
-    parser_helpers::new_line_group({
-        let mut items = PrintItems::new();
-        items.extend(parse_node((&node.left).into(), context));
-        items.extend(parse_assignment((&node.right).into(), "=", context));
-        items
-    })
+    let mut items = PrintItems::new();
+    items.extend(parse_node((&node.left).into(), context));
+    items.extend(parse_assignment((&node.right).into(), "=", context));
+    items
 }
 
 fn parse_assign_pat_prop<'a>(node: &'a AssignPatProp, context: &mut Context<'a>) -> PrintItems {
-    parser_helpers::new_line_group({
-        let mut items = PrintItems::new();
-        items.extend(parse_node((&node.key).into(), context));
-        if let Some(value) = &node.value {
-            items.extend(parse_assignment(value.into(), "=", context));
-        }
-        items
-    })
+    let mut items = PrintItems::new();
+    items.extend(parse_node((&node.key).into(), context));
+    if let Some(value) = &node.value {
+        items.extend(parse_assignment(value.into(), "=", context));
+    }
+    items
+}
+
+fn parse_key_value_pat_prop<'a>(node: &'a KeyValuePatProp, context: &mut Context<'a>) -> PrintItems {
+    let mut items = PrintItems::new();
+    items.extend(parse_node((&node.key).into(), context));
+    items.extend(parse_assignment((&node.value).into(), ":", context));
+    items
 }
 
 fn parse_rest_pat<'a>(node: &'a RestPat, context: &mut Context<'a>) -> PrintItems {
@@ -5256,9 +5260,10 @@ fn parse_object_like_node<'a>(opts: ParseObjectLikeNodeOptions<'a>, context: &mu
     };
 
     items.extend(parse_surrounded_by_tokens(|context| {
-        let mut items = PrintItems::new();
-        if !opts.members.is_empty() {
-            items.extend(parse_separated_values(ParseSeparatedValuesOptions {
+        if opts.members.is_empty() {
+            PrintItems::new()
+        } else {
+            parse_separated_values(ParseSeparatedValuesOptions {
                 nodes: opts.members.into_iter().map(|x| Some(x)).collect(),
                 prefer_hanging: opts.prefer_hanging,
                 force_use_new_lines: force_multi_line,
@@ -5270,9 +5275,8 @@ fn parse_object_like_node<'a>(opts: ParseObjectLikeNodeOptions<'a>, context: &mu
                 custom_single_line_separator: None,
                 multi_line_options: parser_helpers::MultiLineOptions::surround_newlines_indented(),
                 force_possible_newline_at_start: false,
-            }, context));
+            }, context)
         }
-        items
     }, |_| None, ParseSurroundedByTokensOptions {
         open_token: "{",
         close_token: "}",
