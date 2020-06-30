@@ -35,3 +35,13 @@ a = ttttttttttttttttttttttttttttttttttttttttttttt;
 
 [expect]
 a = ttttttttttttttttttttttttttttttttttttttttttttt;
+
+== should support these new TS 4.0 assignments ==
+a &&= b;
+a ||= b;
+a ??= b;
+
+[expect]
+a &&= b;
+a ||= b;
+a ??= b;

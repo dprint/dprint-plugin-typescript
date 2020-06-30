@@ -52,3 +52,9 @@ type Test = Array<[
     number,
     string,
 ]>;
+
+== should support rest elements in tuples ==
+type Test = [...string, ...number];
+
+[expect]
+type Test = [...string, ...number];

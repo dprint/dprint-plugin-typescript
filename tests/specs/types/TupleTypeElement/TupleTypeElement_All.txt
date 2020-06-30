@@ -1,0 +1,5 @@
+== should format ==
+type Test = [label: string];
+
+[expect]
+type Test = [label: string];

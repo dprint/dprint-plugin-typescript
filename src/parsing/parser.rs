@@ -262,6 +262,7 @@ fn parse_node_with_inner_parse<'a>(node: Node<'a>, context: &mut Context<'a>, in
             Node::TsRestType(node) => parse_rest_type(node, context),
             Node::TsThisType(_) => "this".into(),
             Node::TsTupleType(node) => parse_tuple_type(node, context),
+            Node::TsTupleElement(node) => parse_tuple_element(node, context),
             Node::TsTypeAnn(node) => parse_type_ann(node, context),
             Node::TsTypeParam(node) => parse_type_param(node, context),
             Node::TsTypeParamDecl(node) => parse_type_parameters(TypeParamNode::Decl(node), context),
@@ -271,7 +272,6 @@ fn parse_node_with_inner_parse<'a>(node: Node<'a>, context: &mut Context<'a>, in
             Node::TsTypeQuery(node) => parse_type_query(node, context),
             Node::TsTypeRef(node) => parse_type_reference(node, context),
             Node::TsUnionType(node) => parse_union_type(node, context),
-            Node::TsTupleElement(node) => parse_node((&node.ty).into(), context),
             /* unknown */
             _ => parse_raw_string(node.text(context).into()),
         }
@@ -4069,6 +4069,17 @@ fn parse_tuple_type<'a>(node: &'a TsTupleType, context: &mut Context<'a>) -> Pri
     }, context)
 }
 
+fn parse_tuple_element<'a>(node: &'a TsTupleElement, context: &mut Context<'a>) -> PrintItems {
+    if let Some(label) = &node.label {
+        let mut items = PrintItems::new();
+        items.extend(parse_node(label.into(), context));
+        items.extend(parse_type_ann_with_colon_for_type(&node.ty, context));
+        items
+    } else {
+        parse_node((&node.ty).into(), context)
+    }
+}
+
 fn parse_type_ann<'a>(node: &'a TsTypeAnn, context: &mut Context<'a>) -> PrintItems {
     parse_node((&node.type_ann).into(), context)
 }
@@ -5055,18 +5066,24 @@ fn parse_node_with_semi_colon<'a>(value: Option<Node<'a>>, parsed_semi_colon: Pr
     }
 }
 
-/// For some reason, some nodes don't have a TsTypeAnn, but instead of a Box<TsType>
+/// Some nodes don't have a TsTypeAnn, but instead a Box<TsType>
 fn parse_type_ann_with_colon_if_exists_for_type<'a>(type_ann: &'a Option<Box<TsType>>, context: &mut Context<'a>) -> PrintItems {
-    let mut items = PrintItems::new();
     if let Some(type_ann) = type_ann {
-        if context.config.type_annotation_space_before_colon {
-            items.push_str(" ");
-        }
-        let colon_token = context.token_finder.get_previous_token_if_colon(&**type_ann);
-        #[cfg(debug_assertions)]
-        assert_has_op(":", colon_token, context);
-        items.extend(parse_type_ann_with_colon(type_ann.into(), colon_token, context));
+        parse_type_ann_with_colon_for_type(type_ann, context)
+    } else {
+        PrintItems::new()
     }
+}
+
+fn parse_type_ann_with_colon_for_type<'a>(type_ann: &'a TsType, context: &mut Context<'a>) -> PrintItems {
+    let mut items = PrintItems::new();
+    if context.config.type_annotation_space_before_colon {
+        items.push_str(" ");
+    }
+    let colon_token = context.token_finder.get_previous_token_if_colon(type_ann);
+    #[cfg(debug_assertions)]
+    assert_has_op(":", colon_token, context);
+    items.extend(parse_type_ann_with_colon(type_ann.into(), colon_token, context));
     items
 }
 
