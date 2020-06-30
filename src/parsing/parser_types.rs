@@ -533,6 +533,7 @@ generate_node! [
     TsTypeQuery,
     TsTypeRef,
     TsUnionType,
+    TsTupleElement,
     /* unknown */
     Span
 ];
