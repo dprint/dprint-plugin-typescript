@@ -271,6 +271,7 @@ fn parse_node_with_inner_parse<'a>(node: Node<'a>, context: &mut Context<'a>, in
             Node::TsTypeQuery(node) => parse_type_query(node, context),
             Node::TsTypeRef(node) => parse_type_reference(node, context),
             Node::TsUnionType(node) => parse_union_type(node, context),
+            Node::TsTupleElement(node) => parse_node((&node.ty).into(), context),
             /* unknown */
             _ => parse_raw_string(node.text(context).into()),
         }
@@ -6428,6 +6429,7 @@ fn allows_inline_multi_line(node: &Node, has_siblings: bool) -> bool {
         Node::AssignPat(node) => allows_inline_multi_line(&(&node.left).into(), has_siblings)
             || allows_inline_multi_line(&(&node.right).into(), has_siblings),
         Node::TsTypeAnn(type_ann) => allows_inline_multi_line(&(&type_ann.type_ann).into(), has_siblings),
+        Node::TsTupleElement(tuple_element) => allows_inline_multi_line(&(&tuple_element.ty).into(), has_siblings),
         _ => false,
     };
 
