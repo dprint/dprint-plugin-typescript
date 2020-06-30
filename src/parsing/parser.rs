@@ -6429,6 +6429,7 @@ fn allows_inline_multi_line(node: &Node, has_siblings: bool) -> bool {
         Node::AssignPat(node) => allows_inline_multi_line(&(&node.left).into(), has_siblings)
             || allows_inline_multi_line(&(&node.right).into(), has_siblings),
         Node::TsTypeAnn(type_ann) => allows_inline_multi_line(&(&type_ann.type_ann).into(), has_siblings),
+        Node::TsTupleElement(tuple_element) => allows_inline_multi_line(&(&tuple_element.ty).into(), has_siblings),
         _ => false,
     };
 
