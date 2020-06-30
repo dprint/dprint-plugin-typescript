@@ -271,6 +271,7 @@ fn parse_node_with_inner_parse<'a>(node: Node<'a>, context: &mut Context<'a>, in
             Node::TsTypeQuery(node) => parse_type_query(node, context),
             Node::TsTypeRef(node) => parse_type_reference(node, context),
             Node::TsUnionType(node) => parse_union_type(node, context),
+            Node::TsTupleElement(node) => parse_node((&node.ty).into(), context),
             /* unknown */
             _ => parse_raw_string(node.text(context).into()),
         }
