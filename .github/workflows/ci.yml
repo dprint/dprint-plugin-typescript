@@ -43,13 +43,18 @@ jobs:
     - name: Build debug
       if: matrix.config.kind == 'test_debug'
       run: cargo build --verbose
-    - name: Build release
-      if: matrix.config.kind == 'test_release'
-      run: cargo build --target wasm32-unknown-unknown --release --locked --verbose
-
     - name: Test debug
       if: matrix.config.kind == 'test_debug'
       run: cargo test --verbose
+
+    - name: Patch for WASM
+      if: matrix.config.kind == 'test_release'
+      run: |
+        chmod +x setup-wasm.sh
+        ./setup-wasm.sh
+    - name: Build release
+      if: matrix.config.kind == 'test_release'
+      run: cargo build --target wasm32-unknown-unknown --release --locked --verbose
     - name: Test release
       if: matrix.config.kind == 'test_release'
       run: cargo test --release --locked --verbose
