@@ -2,7 +2,7 @@
 name = "dprint-plugin-typescript"
 description = "TypeScript code formatting plugin for Dprint."
 keywords = ["formatting", "formatter", "typescript"]
-version = "0.19.4"
+version = "0.19.5"
 authors = ["David Sherret <dsherret@gmail.com>"]
 edition = "2018"
 license = "MIT"
