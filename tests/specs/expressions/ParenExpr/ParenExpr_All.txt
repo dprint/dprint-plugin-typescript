@@ -19,3 +19,9 @@ const test = (
     // test
     test
 );
+
+== should keep paren expr on left hand side of assignment ==
+(x.test as unknown) = 6;
+
+[expect]
+(x.test as unknown) = 6;
