@@ -1,28 +1,6 @@
 use serde::{Serialize, Deserialize};
+use dprint_core::generate_str_to_from;
 use dprint_core::configuration::*;
-
-macro_rules! generate_str_to_from {
-    ($enum_name:ident, $([$member_name:ident, $string_value:expr]),* ) => {
-        impl std::str::FromStr for $enum_name {
-            type Err = ParseConfigurationError;
-
-            fn from_str(s: &str) -> Result<Self, Self::Err> {
-                match s {
-                    $($string_value => Ok($enum_name::$member_name)),*,
-                    _ => Err(ParseConfigurationError(String::from(s))),
-                }
-            }
-        }
-
-        impl std::string::ToString for $enum_name {
-            fn to_string(&self) -> String {
-                match self {
-                    $($enum_name::$member_name => String::from($string_value)),*,
-                }
-            }
-        }
-    };
-}
 
 /// Semi colon possibilities.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
