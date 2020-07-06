@@ -1,5 +1,5 @@
 ~~ deno: true ~~
-== should format as-is. This could probably be better and note that the entire assignment is the conditional expression ==
+== should format with the test indented. Note the entire assignment is a conditional expr ==
 const es5Bundle = test === asdf ? true : false ||
   target === ts.ScriptTarget.ES2016
   ? true
@@ -7,11 +7,11 @@ const es5Bundle = test === asdf ? true : false ||
 
 [expect]
 const es5Bundle = test === asdf ? true : false ||
-  target === ts.ScriptTarget.ES2016
+    target === ts.ScriptTarget.ES2016
   ? true
   : false;
 
-== should format as-is ==
+== should format with the test indented ==
 const es5Bundle = target === ts.ScriptTarget.ES3 ||
   target === ts.ScriptTarget.ES5 ||
   target === ts.ScriptTarget.ES2015 ||
@@ -21,8 +21,8 @@ const es5Bundle = target === ts.ScriptTarget.ES3 ||
 
 [expect]
 const es5Bundle = target === ts.ScriptTarget.ES3 ||
-  target === ts.ScriptTarget.ES5 ||
-  target === ts.ScriptTarget.ES2015 ||
-  target === ts.ScriptTarget.ES2016
+    target === ts.ScriptTarget.ES5 ||
+    target === ts.ScriptTarget.ES2015 ||
+    target === ts.ScriptTarget.ES2016
   ? true
   : false;

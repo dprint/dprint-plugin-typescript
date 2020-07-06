@@ -1704,14 +1704,14 @@ fn parse_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> 
         items.push_info(top_most_data.top_most_info);
     }
 
-    items.extend(parser_helpers::new_line_group(parse_node_with_inner_parse((&node.test).into(), context, {
+    items.extend(parser_helpers::new_line_group(with_queued_indent(parse_node_with_inner_parse((&node.test).into(), context, {
         move |mut items, _| {
             if operator_position == OperatorPosition::SameLine {
                 items.push_str(" ?");
             }
             items
         }
-    })));
+    }))));
 
     // force re-evaluation of all the conditions below once the end info has been reached
     items.push_condition(conditions::force_reevaluation_once_resolved(context.end_statement_or_member_infos.peek().map(|x| x.clone()).unwrap_or(end_info)));
