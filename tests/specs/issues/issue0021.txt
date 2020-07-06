@@ -1,0 +1,31 @@
+== should format as-is ==
+// dprint-ignore
+const identity = [
+    1, 0, 0,
+    0, 1, 0,
+    0, 0, 1,
+];
+
+// or even...
+
+const identity = /* dprint-ignore */ [
+    1, 0, 0,
+    0, 1, 0,
+    0, 0, 1,
+];
+
+[expect]
+// dprint-ignore
+const identity = [
+    1, 0, 0,
+    0, 1, 0,
+    0, 0, 1,
+];
+
+// or even...
+
+const identity = /* dprint-ignore */ [
+    1, 0, 0,
+    0, 1, 0,
+    0, 0, 1,
+];
