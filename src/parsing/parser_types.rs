@@ -598,7 +598,7 @@ macro_rules! generate_traits {
 }
 
 generate_traits![BlockStmtOrExpr, BlockStmt, Expr];
-generate_traits![ClassMember, Constructor, Method, PrivateMethod, ClassProp, PrivateProp, TsIndexSignature];
+generate_traits![ClassMember, Constructor, Method, PrivateMethod, ClassProp, PrivateProp, TsIndexSignature, Empty];
 generate_traits![Decl, Class, Fn, Var, TsInterface, TsTypeAlias, TsEnum, TsModule];
 generate_traits![Lit, BigInt, Bool, JSXText, Null, Num, Regex, Str];
 generate_traits![ImportSpecifier, Named, Default, Namespace];
