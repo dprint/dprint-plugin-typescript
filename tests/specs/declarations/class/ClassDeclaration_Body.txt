@@ -29,3 +29,13 @@ class Test {}
 
 [expect]
 class Test {}
+
+== should remove empty semi-colons ==
+class Test {
+    ;
+    ;
+}
+
+[expect]
+class Test {
+}
