@@ -1,0 +1,28 @@
+~~ deno: true ~~
+== should format as-is. This could probably be better and note that the entire assignment is the conditional expression ==
+const es5Bundle = test === asdf ? true : false ||
+  target === ts.ScriptTarget.ES2016
+  ? true
+  : false
+
+[expect]
+const es5Bundle = test === asdf ? true : false ||
+  target === ts.ScriptTarget.ES2016
+  ? true
+  : false;
+
+== should format as-is ==
+const es5Bundle = target === ts.ScriptTarget.ES3 ||
+  target === ts.ScriptTarget.ES5 ||
+  target === ts.ScriptTarget.ES2015 ||
+  target === ts.ScriptTarget.ES2016
+  ? true
+  : false;
+
+[expect]
+const es5Bundle = target === ts.ScriptTarget.ES3 ||
+  target === ts.ScriptTarget.ES5 ||
+  target === ts.ScriptTarget.ES2015 ||
+  target === ts.ScriptTarget.ES2016
+  ? true
+  : false;

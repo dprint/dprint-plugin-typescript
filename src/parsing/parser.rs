@@ -1763,7 +1763,21 @@ fn parse_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> 
     if top_most_data.is_top_most {
         items.push_condition(conditions::indent_if_start_of_line(cons_and_alt_items));
     } else {
-        items.extend(cons_and_alt_items);
+        let cons_and_alt_items = cons_and_alt_items.into_rc_path();
+        let top_most_info = top_most_data.top_most_info;
+        items.push_condition(if_true_or(
+            "indentIfSameIndentationAsTopMostAndStartOfLine",
+            move |context| {
+                if context.writer_info.is_start_of_line() {
+                    let top_most_info = context.get_resolved_info(&top_most_info)?;
+                    Some(context.writer_info.indent_level == top_most_info.indent_level)
+                } else {
+                    Some(false)
+                }
+            },
+            with_indent(cons_and_alt_items.clone().into()),
+            cons_and_alt_items.into(),
+        ));
     }
 
     return items;
