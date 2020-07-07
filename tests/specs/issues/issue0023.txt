@@ -1,0 +1,12 @@
+~~ deno: true ~~
+== should stay formatting inline multi-lineable ==
+new ReadableStreamImpl({
+    async pull(controller: ReadableStreamDefaultController): Promise<void> {
+    },
+})
+
+[expect]
+new ReadableStreamImpl({
+  async pull(controller: ReadableStreamDefaultController): Promise<void> {
+  },
+});
