@@ -2,7 +2,7 @@
 name = "dprint-plugin-typescript"
 description = "TypeScript code formatting plugin for Dprint."
 keywords = ["formatting", "formatter", "typescript"]
-version = "0.19.8"
+version = "0.19.9"
 authors = ["David Sherret <dsherret@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -21,7 +21,7 @@ overflow-checks = false
 panic = "abort"
 
 [dependencies]
-dprint-core = "0.24.0"
+dprint-core = "0.24.1"
 swc_common = "=0.6.2"
 swc_ecma_ast = "=0.23.1"
 swc_ecma_parser = "=0.27.0"

@@ -1,0 +1,14 @@
+~~ deno: true ~~
+== should format as-is (previously it would move to next line) ==
+export function test(): boolean {
+  return (
+    typeof ttttttttttttttttttttvalue !== "object" && typeof value !== "function"
+  );
+}
+
+[expect]
+export function test(): boolean {
+  return (
+    typeof ttttttttttttttttttttvalue !== "object" && typeof value !== "function"
+  );
+}
