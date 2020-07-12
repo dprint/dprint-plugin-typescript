@@ -1,0 +1,18 @@
+~~ deno: true ~~
+== should format as-is with a comma at the end of the object property ==
+const files = [{
+  // deno-fmt-ignore
+  content: new Uint8Array([137,80,78,71,13,10,26,10, 137, 1, 25]),
+  type: "image/png",
+  name: "image",
+  fileName: "some-image.png",
+}];
+
+[expect]
+const files = [{
+  // deno-fmt-ignore
+  content: new Uint8Array([137,80,78,71,13,10,26,10, 137, 1, 25]),
+  type: "image/png",
+  name: "image",
+  fileName: "some-image.png",
+}];

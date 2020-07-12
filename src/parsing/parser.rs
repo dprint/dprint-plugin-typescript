@@ -82,7 +82,7 @@ fn parse_node_with_inner_parse<'a>(node: Node<'a>, context: &mut Context<'a>, in
     // parse the node
     if has_ignore_comment {
         items.push_str(""); // force the current line indentation
-        items.extend(parser_helpers::parse_raw_string(&node.text(context)));
+        items.extend(inner_parse(parser_helpers::parse_raw_string(&node.text(context)), context));
 
         // mark any previous comments as handled
         for comment in context.comments.trailing_comments_with_previous(node_hi) {
