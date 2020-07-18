@@ -1,5 +1,5 @@
-~~ enumDeclaration.memberSpacing: blankline ~~
-== should format with blanklines ==
+~~ enumDeclaration.memberSpacing: blankLine ~~
+== should format with blankLines ==
 declare enum Test {
     member1,
 

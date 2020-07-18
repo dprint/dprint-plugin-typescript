@@ -81,18 +81,18 @@ pub enum MemberSpacing {
     /// Maintains whether a newline or blankline is used.
     Maintain,
     /// Forces a new line between members.
-    #[serde(rename = "newline")]
+    #[serde(rename = "newLine")]
     NewLine,
     /// Forces a blank line between members.
-    #[serde(rename = "blankline")]
+    #[serde(rename = "blankLine")]
     BlankLine,
 }
 
 generate_str_to_from![
     MemberSpacing,
     [Maintain, "maintain"],
-    [BlankLine, "blankline"],
-    [NewLine, "newline"]
+    [BlankLine, "blankLine"],
+    [NewLine, "newLine"]
 ];
 
 /// Where to place the next control flow within a control flow statement.
