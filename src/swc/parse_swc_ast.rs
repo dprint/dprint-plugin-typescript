@@ -5,7 +5,7 @@ use swc_common::{
     FileName, comments::{Comment, Comments, CommentMap}, SourceFile, BytePos
 };
 use swc_ecma_ast::{Module};
-use swc_ecma_parser::{Parser, Session, SourceFileInput, Syntax, lexer::Lexer, Capturing, JscTarget, token::{TokenAndSpan}};
+use swc_ecma_parser::{Parser, SourceFileInput, Syntax, lexer::Lexer, Capturing, JscTarget, token::{TokenAndSpan}};
 
 pub struct ParsedSourceFile<'a> {
     pub module: Module,
@@ -36,8 +36,7 @@ pub fn parse_swc_ast<'a>(file_path: &PathBuf, file_text: &'a str) -> Result<Pars
 
 fn parse_inner<'a>(file_path: &PathBuf, file_text: &'a str) -> Result<ParsedSourceFile<'a>, String> {
     let handler = Handler::with_emitter(false, false, Box::new(EmptyEmitter {}));
-    let session = Session { handler: &handler };
-
+    
     let file_bytes = file_text.as_bytes();
     let source_file = SourceFile::new(
         FileName::Custom(file_path.to_string_lossy().into()),
@@ -54,23 +53,23 @@ fn parse_inner<'a>(file_path: &PathBuf, file_text: &'a str) -> Result<ParsedSour
         ts_config.dynamic_import = true;
         ts_config.decorators = true;
         let lexer = Lexer::new(
-            session,
             Syntax::Typescript(ts_config),
             JscTarget::Es2019,
             SourceFileInput::from(&source_file),
             Some(&comments)
         );
         let lexer = Capturing::new(lexer);
-        let mut parser = Parser::new_from(session, lexer);
+        let mut parser = Parser::new_from(lexer);
         let parse_module_result = parser.parse_module();
         let tokens = parser.input().take();
 
         match parse_module_result {
-            Err(mut error) => {
+            Err(error) => {
                 // mark the diagnostic as being handled (otherwise it will panic in its drop)
-                error.cancel();
+                let mut diagnostic = error.into_diagnostic(&handler);
+                diagnostic.cancel();
                 // return the formatted diagnostic string
-                Err(format_diagnostic(&error, file_text))
+                Err(format_diagnostic(&diagnostic, file_text))
             },
             Ok(module) => Ok((module, tokens))
         }
