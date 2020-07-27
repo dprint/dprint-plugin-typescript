@@ -409,6 +409,7 @@ fn parse_class_prop<'a>(node: &'a ClassProp, context: &mut Context<'a>) -> Print
         is_static: node.is_static,
         decorators: &node.decorators,
         computed: node.computed,
+        is_declare: node.declare,
         accessibility: &node.accessibility,
         is_abstract: node.is_abstract,
         is_optional: node.is_optional,
@@ -469,6 +470,7 @@ fn parse_private_prop<'a>(node: &'a PrivateProp, context: &mut Context<'a>) -> P
         is_static: node.is_static,
         decorators: &node.decorators,
         computed: node.computed,
+        is_declare: false,
         accessibility: &node.accessibility,
         is_abstract: node.is_abstract,
         is_optional: node.is_optional,
@@ -484,6 +486,7 @@ struct ParseClassPropCommon<'a> {
     pub is_static: bool,
     pub decorators: &'a Vec<Decorator>,
     pub computed: bool,
+    pub is_declare: bool,
     pub accessibility: &'a Option<Accessibility>,
     pub is_abstract: bool,
     pub is_optional: bool,
@@ -494,6 +497,7 @@ struct ParseClassPropCommon<'a> {
 fn parse_class_prop_common<'a>(node: ParseClassPropCommon<'a>, context: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
     items.extend(parse_decorators(node.decorators, false, context));
+    if node.is_declare { items.push_str("declare "); }
     if let Some(accessibility) = node.accessibility {
         items.push_str(&format!("{} ", accessibility_to_str(accessibility)));
     }

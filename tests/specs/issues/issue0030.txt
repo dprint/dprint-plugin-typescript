@@ -1,0 +1,11 @@
+== should keep declare public ==
+class Test {
+    declare public type: string;
+    declare other: string;
+}
+
+[expect]
+class Test {
+    declare public type: string;
+    declare other: string;
+}
