@@ -1,5 +1,6 @@
 use std::collections::{HashMap};
 use std::path::PathBuf;
+use std::rc::Rc;
 use swc_common::{
     errors::{Handler, Emitter, DiagnosticBuilder},
     FileName, comments::{Comment, SingleThreadedComments, SingleThreadedCommentsMap}, SourceFile, BytePos
@@ -100,8 +101,8 @@ fn parse_inner<'a>(file_path: &PathBuf, file_text: &'a str) -> Result<ParsedSour
         // It is much more performant to look into HashMaps instead of CHashMaps
         // because then locking on each comment lookup is not necessary. We don't
         // need to support multi-threading so convert to HashMap.
-        let cmts = &*comments.borrow();
-        cmts.into_iter().map(|(k, v)| (k.to_owned(), v.to_owned())).collect()
+        let comments = Rc::try_unwrap(comments).expect("Failed to unwrap comments Rc").into_inner();
+        comments.into_iter().collect()
     }
 }
 
