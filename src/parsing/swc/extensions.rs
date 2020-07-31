@@ -1,4 +1,4 @@
-use swc_ecma_ast::BinaryOp;
+use swc_ecmascript::ast::BinaryOp;
 
 pub trait BinaryOpExtensions {
     fn is_add_sub(&self) -> bool;

@@ -12,11 +12,3 @@ pub use formatter::Formatter;
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 pub use wasm_plugin::*;
-
-// Re-export swc for use in Deno
-#[doc(hidden)]
-pub use swc_common;
-#[doc(hidden)]
-pub use swc_ecma_ast;
-#[doc(hidden)]
-pub use swc_ecma_parser;

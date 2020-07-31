@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use super::*;
 use swc_common::{BytePos, comments::{Comment}};
-use swc_ecma_parser::{token::{Token, TokenAndSpan}};
+use swc_ecmascript::parser::{token::{Token, TokenAndSpan}};
 
 pub struct CommentCollection<'a> {
     leading: &'a HashMap<BytePos, Vec<Comment>>,
