@@ -1,6 +1,6 @@
 use std::str;
 use super::*;
-use swc_common::{BytePos, SpanData};
+use swc_common::{BytePos, Span};
 use swc_ecma_parser::{token::{Token, TokenAndSpan}};
 use dprint_core::tokens::{TokenFinder as CoreTokenFinder, TokenCollection};
 
@@ -191,7 +191,7 @@ impl<'a> TokenFinder<'a> {
     }
 }
 
-fn get_text<'a>(file_bytes: &'a [u8], span_data: &SpanData) -> &'a str {
+fn get_text<'a>(file_bytes: &'a [u8], span_data: &Span) -> &'a str {
     let bytes = &file_bytes[(span_data.lo.0 as usize)..(span_data.hi.0 as usize)];
     str::from_utf8(&bytes).unwrap()
 }

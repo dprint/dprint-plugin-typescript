@@ -2,10 +2,10 @@ use std::collections::{HashMap};
 use std::path::PathBuf;
 use swc_common::{
     errors::{Handler, Emitter, DiagnosticBuilder},
-    FileName, comments::{Comment, Comments, CommentMap}, SourceFile, BytePos
+    FileName, comments::{Comment, SingleThreadedComments, SingleThreadedCommentsMap}, SourceFile, BytePos
 };
 use swc_ecma_ast::{Module};
-use swc_ecma_parser::{Parser, SourceFileInput, Syntax, lexer::Lexer, Capturing, JscTarget, token::{TokenAndSpan}};
+use swc_ecma_parser::{Parser, StringInput, Syntax, lexer::Lexer, Capturing, JscTarget, token::{TokenAndSpan}};
 
 pub struct ParsedSourceFile<'a> {
     pub module: Module,
@@ -46,7 +46,7 @@ fn parse_inner<'a>(file_path: &PathBuf, file_text: &'a str) -> Result<ParsedSour
         BytePos(0),
     );
 
-    let comments: Comments = Default::default();
+    let comments: SingleThreadedComments = Default::default();
     let (module, tokens) = {
         let mut ts_config: swc_ecma_parser::TsConfig = Default::default();
         ts_config.tsx = should_parse_as_jsx(file_path);
@@ -55,7 +55,7 @@ fn parse_inner<'a>(file_path: &PathBuf, file_text: &'a str) -> Result<ParsedSour
         let lexer = Lexer::new(
             Syntax::Typescript(ts_config),
             JscTarget::Es2019,
-            SourceFileInput::from(&source_file),
+            StringInput::from(&source_file),
             Some(&comments)
         );
         let lexer = Capturing::new(lexer);
@@ -93,14 +93,15 @@ fn parse_inner<'a>(file_path: &PathBuf, file_text: &'a str) -> Result<ParsedSour
         return true;
     }
 
-    fn comment_map_to_hash_map(comments: CommentMap) -> HashMap<BytePos, Vec<Comment>> {
+    fn comment_map_to_hash_map(comments: SingleThreadedCommentsMap) -> HashMap<BytePos, Vec<Comment>> {
         // todo: This next comment needs updating because now it's a DashMap and
         // cloning is happening where previously it would take all the items out.
 
         // It is much more performant to look into HashMaps instead of CHashMaps
         // because then locking on each comment lookup is not necessary. We don't
         // need to support multi-threading so convert to HashMap.
-        comments.into_iter().collect()
+        let cmts = &*comments.borrow();
+        cmts.into_iter().map(|(k, v)| (k.to_owned(), v.to_owned())).collect()
     }
 }
 

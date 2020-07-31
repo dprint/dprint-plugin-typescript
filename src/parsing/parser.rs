@@ -2,7 +2,7 @@ use std::rc::Rc;
 use dprint_core::*;
 use dprint_core::{parser_helpers::*,condition_resolvers, conditions::*};
 use swc_ecma_ast::*;
-use swc_common::{comments::{Comment, CommentKind}, BytePos, Span, Spanned, SpanData};
+use swc_common::{comments::{Comment, CommentKind}, BytePos, Span, Spanned};
 use swc_ecma_parser::{token::{TokenAndSpan}};
 
 use super::*;
@@ -555,7 +555,7 @@ fn parse_catch_clause<'a>(node: &'a CatchClause, context: &mut Context<'a>) -> P
 
     // not conditional... required
     items.extend(parse_conditional_brace_body(ParseConditionalBraceBodyOptions {
-        parent: node.span.data(),
+        parent: node.span,
         body_node: (&node.body).into(),
         use_braces: UseBraces::Always,
         brace_position: context.config.try_statement_brace_position,
@@ -600,7 +600,7 @@ fn parse_identifier<'a>(node: &'a Ident, context: &mut Context<'a>) -> PrintItem
 
 fn parse_class_decl<'a>(node: &'a ClassDecl, context: &mut Context<'a>) -> PrintItems {
     return parse_class_decl_or_expr(ClassDeclOrExpr {
-        span_data: node.class.span.data(),
+        span_data: node.class.span,
         decorators: &node.class.decorators,
         is_class_expr: false,
         is_declare: node.declare,
@@ -616,7 +616,7 @@ fn parse_class_decl<'a>(node: &'a ClassDecl, context: &mut Context<'a>) -> Print
 }
 
 struct ClassDeclOrExpr<'a> {
-    span_data: SpanData,
+    span_data: Span,
     decorators: &'a Vec<Decorator>,
     is_class_expr: bool,
     is_declare: bool,
@@ -753,7 +753,7 @@ fn parse_enum_decl<'a>(node: &'a TsEnumDecl, context: &mut Context<'a>) -> Print
     // body
     let member_spacing = context.config.enum_declaration_member_spacing;
     items.extend(parse_membered_body(ParseMemberedBodyOptions {
-        span_data: node.span.data(),
+        span_data: node.span,
         members: node.members.iter().map(|x| x.into()).collect(),
         start_header_info: Some(start_header_info),
         brace_position: context.config.enum_declaration_brace_position,
@@ -1033,7 +1033,7 @@ fn parse_interface_decl<'a>(node: &'a TsInterfaceDecl, context: &mut Context<'a>
 
 fn parse_module_decl<'a>(node: &'a TsModuleDecl, context: &mut Context<'a>) -> PrintItems {
     parse_module_or_namespace_decl(ModuleOrNamespaceDecl {
-        span_data: node.span.data(),
+        span_data: node.span,
         declare: node.declare,
         global: node.global,
         id: (&node.id).into(),
@@ -1043,7 +1043,7 @@ fn parse_module_decl<'a>(node: &'a TsModuleDecl, context: &mut Context<'a>) -> P
 
 fn parse_namespace_decl<'a>(node: &'a TsNamespaceDecl, context: &mut Context<'a>) -> PrintItems {
     parse_module_or_namespace_decl(ModuleOrNamespaceDecl {
-        span_data: node.span.data(),
+        span_data: node.span,
         declare: node.declare,
         global: node.global,
         id: (&node.id).into(),
@@ -1052,7 +1052,7 @@ fn parse_namespace_decl<'a>(node: &'a TsNamespaceDecl, context: &mut Context<'a>
 }
 
 struct ModuleOrNamespaceDecl<'a> {
-    pub span_data: SpanData,
+    pub span_data: Span,
     pub declare: bool,
     pub global: bool,
     pub id: Node<'a>,
@@ -1083,7 +1083,7 @@ fn parse_module_or_namespace_decl<'a>(node: ModuleOrNamespaceDecl<'a>, context: 
             match body {
                 TsNamespaceBody::TsModuleBlock(block) => {
                     items.extend(parse_membered_body(ParseMemberedBodyOptions {
-                        span_data: block.span.data(),
+                        span_data: block.span,
                         members: block.body.iter().map(|x| x.into()).collect(),
                         start_header_info: Some(start_header_info),
                         brace_position: context.config.module_declaration_brace_position,
@@ -1175,7 +1175,7 @@ fn parse_named_import_or_export_specifiers<'a>(parent: &Node<'a>, specifiers: Ve
 
 fn parse_array_expr<'a>(node: &'a ArrayLit, context: &mut Context<'a>) -> PrintItems {
     parse_array_like_nodes(ParseArrayLikeNodesOptions {
-        parent_span_data: node.span.data(),
+        parent_span_data: node.span,
         nodes: node.elems.iter().map(|x| x.as_ref().map(|elem| elem.into())).collect(),
         prefer_hanging: context.config.array_expression_prefer_hanging,
         prefer_single_line: context.config.array_expression_prefer_single_line,
@@ -1676,7 +1676,7 @@ fn parse_call_expr<'a>(node: &'a CallExpr, context: &mut Context<'a>) -> PrintIt
 
 fn parse_class_expr<'a>(node: &'a ClassExpr, context: &mut Context<'a>) -> PrintItems {
     parse_class_decl_or_expr(ClassDeclOrExpr {
-        span_data: node.class.span.data(),
+        span_data: node.class.span,
         decorators: &node.class.decorators,
         is_class_expr: true,
         is_declare: false,
@@ -1935,7 +1935,7 @@ fn parse_non_null_expr<'a>(node: &'a TsNonNullExpr, context: &mut Context<'a>) -
 
 fn parse_object_lit<'a>(node: &'a ObjectLit, context: &mut Context<'a>) -> PrintItems {
     parse_object_like_node(ParseObjectLikeNodeOptions {
-        node_span_data: node.span.data(),
+        node_span_data: node.span,
         members: node.props.iter().map(|x| x.into()).collect(),
         trailing_commas: Some(context.config.object_expression_trailing_commas),
         semi_colons: None,
@@ -2382,7 +2382,7 @@ fn parse_interface_body<'a>(node: &'a TsInterfaceBody, context: &mut Context<'a>
     let start_header_info = get_parent_info(context);
 
     return parse_membered_body(ParseMemberedBodyOptions {
-        span_data: node.span.data(),
+        span_data: node.span,
         members: node.body.iter().map(|x| x.into()).collect(),
         start_header_info: start_header_info,
         brace_position: context.config.interface_declaration_brace_position,
@@ -2405,7 +2405,7 @@ fn parse_interface_body<'a>(node: &'a TsInterfaceBody, context: &mut Context<'a>
 
 fn parse_type_lit<'a>(node: &'a TsTypeLit, context: &mut Context<'a>) -> PrintItems {
     parse_object_like_node(ParseObjectLikeNodeOptions {
-        node_span_data: node.span.data(),
+        node_span_data: node.span,
         members: node.members.iter().map(|m| m.into()).collect(),
         trailing_commas: None,
         semi_colons: Some(context.config.semi_colons),
@@ -2728,7 +2728,7 @@ fn parse_module<'a>(node: &'a Module, context: &mut Context<'a>) -> PrintItems {
         }
     }
 
-    items.extend(parse_statements(node.span.data(), node.body.iter().map(|x| x.into()), context));
+    items.extend(parse_statements(node.span, node.body.iter().map(|x| x.into()), context));
 
     return items;
 }
@@ -2738,7 +2738,7 @@ fn parse_module<'a>(node: &'a Module, context: &mut Context<'a>) -> PrintItems {
 fn parse_array_pat<'a>(node: &'a ArrayPat, context: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
     items.extend(parse_array_like_nodes(ParseArrayLikeNodesOptions {
-        parent_span_data: node.span.data(),
+        parent_span_data: node.span,
         nodes: node.elems.iter().map(|x| x.as_ref().map(|elem| elem.into())).collect(),
         prefer_hanging: context.config.array_pattern_prefer_hanging,
         prefer_single_line: context.config.array_pattern_prefer_single_line,
@@ -2783,7 +2783,7 @@ fn parse_rest_pat<'a>(node: &'a RestPat, context: &mut Context<'a>) -> PrintItem
 fn parse_object_pat<'a>(node: &'a ObjectPat, context: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
     items.extend(parse_object_like_node(ParseObjectLikeNodeOptions {
-        node_span_data: node.span.data(),
+        node_span_data: node.span,
         members: node.props.iter().map(|x| x.into()).collect(),
         trailing_commas: Some(get_trailing_commas(node, context)),
         semi_colons: None,
@@ -2827,7 +2827,7 @@ fn parse_method_prop<'a>(node: &'a MethodProp, context: &mut Context<'a>) -> Pri
 }
 
 struct ClassOrObjectMethod<'a> {
-    parameters_span_data: Option<SpanData>,
+    parameters_span_data: Option<Span>,
     decorators: Option<&'a Vec<Decorator>>,
     accessibility: Option<Accessibility>,
     is_static: bool,
@@ -2955,7 +2955,7 @@ fn parse_block_stmt<'a>(node: &'a BlockStmt, context: &mut Context<'a>) -> Print
             context
         )
     }, ParseBlockOptions {
-        span_data: Some(node.span.data()),
+        span_data: Some(node.span),
         children: node.stmts.iter().map(|x| x.into()).collect(),
     }, context)
 }
@@ -3222,7 +3222,7 @@ fn parse_for_stmt<'a>(node: &'a ForStmt, context: &mut Context<'a>) -> PrintItem
     items.push_info(end_header_info);
 
     items.extend(parse_conditional_brace_body(ParseConditionalBraceBodyOptions {
-        parent: node.span.data(),
+        parent: node.span,
         body_node: (&node.body).into(),
         use_braces: context.config.for_statement_use_braces,
         brace_position: context.config.for_statement_brace_position,
@@ -3282,7 +3282,7 @@ fn parse_for_in_stmt<'a>(node: &'a ForInStmt, context: &mut Context<'a>) -> Prin
     items.push_info(end_header_info);
 
     items.extend(parse_conditional_brace_body(ParseConditionalBraceBodyOptions {
-        parent: node.span.data(),
+        parent: node.span,
         body_node: (&node.body).into(),
         use_braces: context.config.for_in_statement_use_braces,
         brace_position: context.config.for_in_statement_brace_position,
@@ -3333,7 +3333,7 @@ fn parse_for_of_stmt<'a>(node: &'a ForOfStmt, context: &mut Context<'a>) -> Prin
     items.push_info(end_header_info);
 
     items.extend(parse_conditional_brace_body(ParseConditionalBraceBodyOptions {
-        parent: node.span.data(),
+        parent: node.span,
         body_node: (&node.body).into(),
         use_braces: context.config.for_of_statement_use_braces,
         brace_position: context.config.for_of_statement_brace_position,
@@ -3352,7 +3352,7 @@ fn parse_if_stmt<'a>(node: &'a IfStmt, context: &mut Context<'a>) -> PrintItems 
     let cons = &*node.cons;
     let cons_span_data = cons.span_data();
     let result = parse_header_with_conditional_brace_body(ParseHeaderWithConditionalBraceBodyOptions {
-        parent: node.span.data(),
+        parent: node.span,
         body_node: cons.into(),
         parsed_header: {
             let mut items = PrintItems::new();
@@ -3411,7 +3411,7 @@ fn parse_if_stmt<'a>(node: &'a IfStmt, context: &mut Context<'a>) -> PrintItems 
             items.extend(parse_node(alt.into(), context));
         } else {
             items.extend(parse_conditional_brace_body(ParseConditionalBraceBodyOptions {
-                parent: node.span.data(),
+                parent: node.span,
                 body_node: alt.into(),
                 use_braces: context.config.if_statement_use_braces,
                 brace_position: context.config.if_statement_brace_position,
@@ -3470,7 +3470,7 @@ fn parse_switch_stmt<'a>(node: &'a SwitchStmt, context: &mut Context<'a>) -> Pri
         context
     ));
     items.extend(parse_membered_body(ParseMemberedBodyOptions {
-        span_data: node.span.data(),
+        span_data: node.span,
         members: node.cases.iter().map(|x| x.into()).collect(),
         start_header_info: Some(start_header_info),
         brace_position: context.config.switch_statement_brace_position,
@@ -3509,7 +3509,7 @@ fn parse_switch_case<'a>(node: &'a SwitchCase, context: &mut Context<'a>) -> Pri
         items.push_str("default:");
     }
 
-    items.extend(parse_first_line_trailing_comments(&node.span.data(), node.cons.get(0).map(|x| x.span_data()), context));
+    items.extend(parse_first_line_trailing_comments(&node.span, node.cons.get(0).map(|x| x.span_data()), context));
     let parsed_trailing_comments = parse_trailing_comments_for_case(node.span_data(), &block_stmt_body, context);
     if !node.cons.is_empty() {
         if let Some(block_stmt_body) = block_stmt_body {
@@ -3547,7 +3547,7 @@ fn parse_switch_case<'a>(node: &'a SwitchCase, context: &mut Context<'a>) -> Pri
         return None;
     }
 
-    fn parse_trailing_comments_for_case<'a>(node_span_data: SpanData, block_stmt_body: &Option<Span>, context: &mut Context<'a>) -> PrintItems {
+    fn parse_trailing_comments_for_case<'a>(node_span_data: Span, block_stmt_body: &Option<Span>, context: &mut Context<'a>) -> PrintItems {
         let mut items = PrintItems::new();
         // parse the trailing comments as statements
         let trailing_comments = get_trailing_comments_as_statements(&node_span_data, context);
@@ -3589,14 +3589,14 @@ fn parse_try_stmt<'a>(node: &'a TryStmt, context: &mut Context<'a>) -> PrintItem
     let mut items = PrintItems::new();
     let brace_position = context.config.try_statement_brace_position;
     let next_control_flow_position = context.config.try_statement_next_control_flow_position;
-    let mut last_block_span_data = node.block.span.data();
+    let mut last_block_span_data = node.block.span;
     let mut last_block_start_info = Info::new("tryStart");
 
     items.push_info(last_block_start_info);
     items.push_str("try");
 
     items.extend(parse_conditional_brace_body(ParseConditionalBraceBodyOptions {
-        parent: node.span.data(),
+        parent: node.span,
         body_node: (&node.block).into(),
         use_braces: UseBraces::Always, // braces required
         brace_position: context.config.try_statement_brace_position,
@@ -3618,7 +3618,7 @@ fn parse_try_stmt<'a>(node: &'a TryStmt, context: &mut Context<'a>) -> PrintItem
             None,
             context
         ));
-        last_block_span_data = handler.span.data();
+        last_block_span_data = handler.span;
         items.extend(parse_node(handler.into(), context));
 
         // set the next block to check the handler start info
@@ -3636,7 +3636,7 @@ fn parse_try_stmt<'a>(node: &'a TryStmt, context: &mut Context<'a>) -> PrintItem
         ));
         items.push_str("finally");
         items.extend(parse_conditional_brace_body(ParseConditionalBraceBodyOptions {
-            parent: node.span.data(),
+            parent: node.span,
             body_node: finalizer.into(),
             use_braces: UseBraces::Always, // braces required
             brace_position,
@@ -3681,11 +3681,11 @@ fn parse_var_decl<'a>(node: &'a VarDecl, context: &mut Context<'a>) -> PrintItem
         }, context));
     }
 
-    if requires_semi_colon(&node.span.data(), context) { items.push_str(";"); }
+    if requires_semi_colon(&node.span, context) { items.push_str(";"); }
 
     return items;
 
-    fn requires_semi_colon(var_decl_span_data: &SpanData, context: &mut Context) -> bool {
+    fn requires_semi_colon(var_decl_span_data: &Span, context: &mut Context) -> bool {
         let use_semi_colons = context.config.semi_colons.is_true();
         use_semi_colons && match context.parent() {
             Node::ForInStmt(node) => var_decl_span_data.lo >= node.body.span().lo(),
@@ -3749,7 +3749,7 @@ fn parse_while_stmt<'a>(node: &'a WhileStmt, context: &mut Context<'a>) -> Print
     ));
     items.push_info(end_header_info);
     items.extend(parse_conditional_brace_body(ParseConditionalBraceBodyOptions {
-        parent: node.span.data(),
+        parent: node.span,
         body_node: (&node.body).into(),
         use_braces: context.config.while_statement_use_braces,
         brace_position: context.config.while_statement_brace_position,
@@ -3972,7 +3972,7 @@ fn parse_infer_type<'a>(node: &'a TsInferType, context: &mut Context<'a>) -> Pri
 
 fn parse_intersection_type<'a>(node: &'a TsIntersectionType, context: &mut Context<'a>) -> PrintItems {
     parse_union_or_intersection_type(UnionOrIntersectionType {
-        span_data: node.span.data(),
+        span_data: node.span,
         types: &node.types,
         is_union: false,
     }, context)
@@ -4085,7 +4085,7 @@ fn parse_rest_type<'a>(node: &'a TsRestType, context: &mut Context<'a>) -> Print
 
 fn parse_tuple_type<'a>(node: &'a TsTupleType, context: &mut Context<'a>) -> PrintItems {
     parse_array_like_nodes(ParseArrayLikeNodesOptions {
-        parent_span_data: node.span.data(),
+        parent_span_data: node.span,
         nodes: node.elem_types.iter().map(|x| Some(x.into())).collect(),
         prefer_hanging: context.config.tuple_type_prefer_hanging,
         prefer_single_line: context.config.tuple_type_prefer_single_line,
@@ -4137,7 +4137,7 @@ fn parse_type_param<'a>(node: &'a TsTypeParam, context: &mut Context<'a>) -> Pri
 
 fn parse_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -> PrintItems {
     let params = node.params();
-    let node_span_data = node.span().data();
+    let node_span_data = node.span();
     let force_use_new_lines = get_use_new_lines(&node_span_data, &params, context);
     let mut items = PrintItems::new();
 
@@ -4159,7 +4159,7 @@ fn parse_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>)
 
     return items;
 
-    fn get_trailing_commas(node_span_data: &SpanData, context: &mut Context) -> TrailingCommas {
+    fn get_trailing_commas(node_span_data: &Span, context: &mut Context) -> TrailingCommas {
         let trailing_commas = context.config.type_parameters_trailing_commas;
         if trailing_commas == TrailingCommas::Never { return trailing_commas; }
 
@@ -4173,7 +4173,7 @@ fn parse_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>)
         return TrailingCommas::Never;
     }
 
-    fn get_use_new_lines(parent_span_data: &SpanData, params: &Vec<Node>, context: &mut Context) -> bool {
+    fn get_use_new_lines(parent_span_data: &Span, params: &Vec<Node>, context: &mut Context) -> bool {
         if context.config.type_parameters_prefer_single_line || params.is_empty() {
             false
         } else {
@@ -4227,14 +4227,14 @@ fn parse_type_reference<'a>(node: &'a TsTypeRef, context: &mut Context<'a>) -> P
 
 fn parse_union_type<'a>(node: &'a TsUnionType, context: &mut Context<'a>) -> PrintItems {
     parse_union_or_intersection_type(UnionOrIntersectionType {
-        span_data: node.span.data(),
+        span_data: node.span,
         types: &node.types,
         is_union: true,
     }, context)
 }
 
 struct UnionOrIntersectionType<'a> {
-    pub span_data: SpanData,
+    pub span_data: Span,
     pub types: &'a Vec<Box<TsType>>,
     pub is_union: bool,
 }
@@ -4276,7 +4276,7 @@ fn parse_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, conte
                 let is_last_value = i + 1 == types_count; // allow the last type to be single line
                 (allows_inline_multi_line(&(&**type_node).into(), types_count > 1), is_last_value)
             };
-            let separator_token = context.token_finder.get_previous_token_if_operator(&type_node.span().data(), separator);
+            let separator_token = context.token_finder.get_previous_token_if_operator(&type_node.span(), separator);
             let start_info = Info::new("startInfo");
             let after_separator_info = Info::new("afterSeparatorInfo");
             let mut items = PrintItems::new();
@@ -4486,7 +4486,7 @@ fn parse_comment(comment: &Comment, context: &mut Context) -> Option<PrintItems>
     }
 }
 
-fn parse_first_line_trailing_comments<'a>(node: &dyn SpanDataContainer, first_member: Option<SpanData>, context: &mut Context<'a>) -> PrintItems {
+fn parse_first_line_trailing_comments<'a>(node: &dyn SpanDataContainer, first_member: Option<Span>, context: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
     let node_start_line = node.start_line(context);
 
@@ -4503,7 +4503,7 @@ fn parse_first_line_trailing_comments<'a>(node: &dyn SpanDataContainer, first_me
 
     return items;
 
-    fn get_comments<'a>(node: &dyn SpanDataContainer, first_member: &Option<SpanData>, context: &mut Context<'a>) -> Vec<&'a Comment> {
+    fn get_comments<'a>(node: &dyn SpanDataContainer, first_member: &Option<Span>, context: &mut Context<'a>) -> Vec<&'a Comment> {
         let mut comments = Vec::new();
         if let Some(first_member) = first_member {
             comments.extend(first_member.leading_comments(context));
@@ -4545,7 +4545,7 @@ fn get_jsx_empty_expr_comments<'a>(node: &JSXEmptyExpr, context: &mut Context<'a
 /* helpers */
 
 struct ParseArrayLikeNodesOptions<'a> {
-    parent_span_data: SpanData,
+    parent_span_data: Span,
     nodes: Vec<Option<Node<'a>>>,
     prefer_hanging: bool,
     prefer_single_line: bool,
@@ -4623,7 +4623,7 @@ fn parse_array_like_nodes<'a>(opts: ParseArrayLikeNodesOptions<'a>, context: &mu
 }
 
 struct ParseMemberedBodyOptions<'a, FShouldUseBlankLine> where FShouldUseBlankLine : Fn(&Node, &Node, &mut Context) -> bool {
-    span_data: SpanData,
+    span_data: Span,
     members: Vec<Node<'a>>,
     start_header_info: Option<Info>,
     brace_position: BracePosition,
@@ -4672,7 +4672,7 @@ fn parse_membered_body<'a, FShouldUseBlankLine>(
     items
 }
 
-fn parse_statements<'a>(inner_span_data: SpanData, stmts: impl Iterator<Item=Node<'a>>, context: &mut Context<'a>) -> PrintItems {
+fn parse_statements<'a>(inner_span_data: Span, stmts: impl Iterator<Item=Node<'a>>, context: &mut Context<'a>) -> PrintItems {
     parse_statements_or_members(ParseStatementsOrMembersOptions {
         inner_span_data,
         items: stmts.map(|stmt| (stmt, None)).collect(),
@@ -4685,7 +4685,7 @@ fn parse_statements<'a>(inner_span_data: SpanData, stmts: impl Iterator<Item=Nod
 }
 
 struct ParseStatementsOrMembersOptions<'a, FShouldUseBlankLine> where FShouldUseBlankLine : Fn(&Node, &Node, &mut Context) -> bool {
-    inner_span_data: SpanData,
+    inner_span_data: Span,
     items: Vec<(Node<'a>, Option<PrintItems>)>,
     should_use_space: Option<Box<dyn Fn(&Node, &Node, &mut Context) -> bool>>, // todo: Remove putting functions on heap by using type parameters?
     should_use_new_line: Option<Box<dyn Fn(&Node, &Node, &mut Context) -> bool>>,
@@ -4775,7 +4775,7 @@ fn parse_statements_or_members<'a, FShouldUseBlankLine>(
 }
 
 struct ParseParametersOrArgumentsOptions<'a, F> where F : FnOnce(&mut Context<'a>) -> Option<PrintItems> {
-    span_data: Option<SpanData>,
+    span_data: Option<Span>,
     nodes: Vec<Node<'a>>,
     custom_close_paren: F,
     is_parameters: bool,
@@ -5177,7 +5177,7 @@ fn parse_brace_separator<'a>(opts: ParseBraceSeparatorOptions<'a>, context: &mut
 }
 
 struct ParseNodeInParensOptions {
-    inner_span: SpanData,
+    inner_span: Span,
     prefer_hanging: bool,
     allow_open_paren_trailing_comments: bool,
 }
@@ -5209,7 +5209,7 @@ fn parse_node_in_parens<'a>(
         allow_open_token_trailing_comments: opts.allow_open_paren_trailing_comments,
     }, context);
 
-    fn get_force_use_new_lines(inner_span: SpanData, paren_span: &Option<SpanData>, context: &mut Context) -> bool {
+    fn get_force_use_new_lines(inner_span: Span, paren_span: &Option<Span>, context: &mut Context) -> bool {
         if !context.config.parentheses_prefer_single_line {
             if let Some(paren_span) = &paren_span {
                 if node_helpers::get_use_new_lines_for_nodes(&paren_span.lo(), &inner_span, context) {
@@ -5222,7 +5222,7 @@ fn parse_node_in_parens<'a>(
     }
 }
 
-fn get_paren_span<'a>(inner_span: &SpanData, context: &mut Context<'a>) -> Option<SpanData> {
+fn get_paren_span<'a>(inner_span: &Span, context: &mut Context<'a>) -> Option<Span> {
     let open_paren = context.token_finder.get_previous_token_if_open_paren(inner_span);
     let close_paren = context.token_finder.get_next_token_if_close_paren(inner_span);
 
@@ -5278,7 +5278,7 @@ fn parse_extends_or_implements<'a>(opts: ParseExtendsOrImplementsOptions<'a>, co
 }
 
 struct ParseObjectLikeNodeOptions<'a> {
-    node_span_data: SpanData,
+    node_span_data: Span,
     members: Vec<Node<'a>>,
     trailing_commas: Option<TrailingCommas>,
     semi_colons: Option<SemiColons>,
@@ -5453,7 +5453,7 @@ fn parse_for_member_like_expr<'a>(node: MemberLikeExpr<'a>, context: &mut Contex
 }
 
 struct ParseComputedPropLikeOptions {
-    inner_node_span_data: SpanData,
+    inner_node_span_data: Span,
     inner_items: PrintItems,
 }
 
@@ -5483,7 +5483,7 @@ fn parse_computed_prop_like<'a>(opts: ParseComputedPropLikeOptions, context: &mu
         allow_open_token_trailing_comments: true,
     }, context));
 
-    fn get_bracket_span(node: &dyn Ranged, context: &mut Context) -> Option<SpanData> {
+    fn get_bracket_span(node: &dyn Ranged, context: &mut Context) -> Option<Span> {
         let open_bracket = context.token_finder.get_previous_token_if_open_bracket(node);
         let close_bracket = context.token_finder.get_next_token_if_close_bracket(node);
         if let Some(open_bracket) = open_bracket {
@@ -5540,7 +5540,7 @@ fn parse_decorators<'a>(decorators: &'a Vec<Decorator>, is_inline: bool, context
 
 fn parse_control_flow_separator(
     next_control_flow_position: NextControlFlowPosition,
-    previous_node_block: &SpanData,
+    previous_node_block: &Span,
     token_text: &str,
     previous_start_info: Info,
     previous_close_brace_condition_ref: Option<ConditionReference>,
@@ -5585,7 +5585,7 @@ fn parse_control_flow_separator(
 }
 
 struct ParseHeaderWithConditionalBraceBodyOptions<'a> {
-    parent: SpanData,
+    parent: Span,
     body_node: Node<'a>,
     parsed_header: PrintItems,
     use_braces: UseBraces,
@@ -5629,7 +5629,7 @@ fn parse_header_with_conditional_brace_body<'a>(opts: ParseHeaderWithConditional
 }
 
 struct ParseConditionalBraceBodyOptions<'a> {
-    parent: SpanData,
+    parent: Span,
     body_node: Node<'a>,
     use_braces: UseBraces,
     brace_position: BracePosition,
@@ -5856,7 +5856,7 @@ fn parse_conditional_brace_body<'a>(opts: ParseConditionalBraceBodyOptions<'a>, 
         body_should_be_multi_line: bool,
         single_body_position: &Option<SingleBodyPosition>,
         header_start_token: &Option<&'a TokenAndSpan>,
-        parent: &SpanData,
+        parent: &Span,
         context: &mut Context<'a>
     ) -> bool {
         if body_should_be_multi_line {
@@ -5895,7 +5895,7 @@ fn parse_conditional_brace_body<'a>(opts: ParseConditionalBraceBodyOptions<'a>, 
             return body_node.start_line(context);
         }
 
-        fn get_header_start_line<'a>(header_start_token: &Option<&'a TokenAndSpan>, parent: &SpanData, context: &mut Context<'a>) -> usize {
+        fn get_header_start_line<'a>(header_start_token: &Option<&'a TokenAndSpan>, parent: &Span, context: &mut Context<'a>) -> usize {
             if let Some(header_start_token) = header_start_token {
                 return header_start_token.start_line(context);
             }
@@ -6012,7 +6012,7 @@ fn parse_jsx_with_opening_and_closing<'a>(opts: ParseJsxWithOpeningAndClosingOpt
 }
 
 struct ParseJsxChildrenOptions<'a> {
-    inner_span_data: SpanData,
+    inner_span_data: Span,
     children: Vec<Node<'a>>,
     parent_start_info: Info,
     parent_end_info: Info,
@@ -6049,7 +6049,7 @@ fn parse_jsx_children<'a>(opts: ParseJsxChildrenOptions<'a>, context: &mut Conte
         ).into();
     }
 
-    fn parse_for_new_lines<'a>(children: Vec<(Node<'a>, Option<PrintItemPath>)>, inner_span_data: SpanData, context: &mut Context<'a>) -> PrintItems {
+    fn parse_for_new_lines<'a>(children: Vec<(Node<'a>, Option<PrintItemPath>)>, inner_span_data: Span, context: &mut Context<'a>) -> PrintItems {
         let mut items = PrintItems::new();
         let has_children = !children.is_empty();
         items.push_signal(Signal::NewLine);
@@ -6215,7 +6215,7 @@ fn parse_assignment_like_with_token<'a>(expr: Node<'a>, op: &str, op_token: Opti
 }
 
 struct ParseBlockOptions<'a> {
-    span_data: Option<SpanData>,
+    span_data: Option<Span>,
     children: Vec<Node<'a>>,
 }
 
@@ -6272,8 +6272,8 @@ struct ParseSurroundedByTokensOptions {
     open_token: &'static str,
     close_token: &'static str,
     /// When `None`, means the tokens are missing
-    span_data: Option<SpanData>,
-    first_member: Option<SpanData>,
+    span_data: Option<Span>,
+    first_member: Option<Span>,
     prefer_single_line_when_empty: bool,
     allow_open_token_trailing_comments: bool,
 }
@@ -6613,6 +6613,6 @@ fn get_parsed_semi_colon(option: SemiColons, is_trailing: bool, is_multi_line: &
     }
 }
 
-fn create_span_data(lo: BytePos, hi: BytePos) -> SpanData {
-    SpanData { lo, hi, ctxt: Default::default() }
+fn create_span_data(lo: BytePos, hi: BytePos) -> Span {
+    Span { lo, hi, ctxt: Default::default() }
 }

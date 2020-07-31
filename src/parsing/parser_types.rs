@@ -1,7 +1,7 @@
 use std::str;
 use std::collections::{HashSet, HashMap};
 use dprint_core::{Info, ConditionReference};
-use swc_common::{SpanData, BytePos, comments::{Comment, CommentKind}, SourceFile, Spanned, Span};
+use swc_common::{BytePos, comments::{Comment, CommentKind}, SourceFile, Spanned, Span};
 use swc_ecma_ast::*;
 use swc_ecma_parser::{token::TokenAndSpan};
 use super::*;
@@ -20,7 +20,7 @@ pub struct Context<'a> {
     stored_infos: HashMap<(BytePos, BytePos), Info>,
     stored_info_ranges: HashMap<(BytePos, BytePos), (Info, Info)>,
     pub end_statement_or_member_infos: Stack<Info>,
-    before_comments_start_info_stack: Stack<(SpanData, Info)>,
+    before_comments_start_info_stack: Stack<(Span, Info)>,
     if_stmt_last_brace_condition_ref: Option<ConditionReference>,
     /// Used for ensuring nodes are parsed in order.
     #[cfg(debug_assertions)]
@@ -147,37 +147,31 @@ pub trait NodeKinded {
 }
 
 pub trait SpanDataContainer {
-    fn span_data(&self) -> SpanData;
+    fn span_data(&self) -> Span;
 }
 
 impl SpanDataContainer for &dyn SpanDataContainer {
-    fn span_data(&self) -> SpanData {
+    fn span_data(&self) -> Span {
         (**self).span_data()
     }
 }
 
 impl SpanDataContainer for TokenAndSpan {
-    fn span_data(&self) -> SpanData {
+    fn span_data(&self) -> Span {
         self.span
     }
 }
 
 impl SpanDataContainer for Comment {
-    fn span_data(&self) -> SpanData {
-        self.span.data()
-    }
-}
-
-impl SpanDataContainer for SpanData {
-    fn span_data(&self) -> SpanData {
-        self.clone()
+    fn span_data(&self) -> Span {
+        self.span
     }
 }
 
 impl SpanDataContainer for BytePos {
-    fn span_data(&self) -> SpanData {
+    fn span_data(&self) -> Span {
         // todo: change this so this allocation isn't necessary
-        SpanData {
+        Span {
             lo: *self,
             hi: *self,
             ctxt: Default::default(),
@@ -186,7 +180,7 @@ impl SpanDataContainer for BytePos {
 }
 
 impl<T> SpanDataContainer for std::boxed::Box<T> where T : SpanDataContainer {
-    fn span_data(&self) -> SpanData {
+    fn span_data(&self) -> Span {
         (**self).span_data()
     }
 }
@@ -332,8 +326,8 @@ macro_rules! generate_node {
             }
         }
         impl SpanDataContainer for $node_name {
-            fn span_data(&self) -> SpanData {
-                self.span().data()
+            fn span_data(&self) -> Span {
+                self.span()
             }
         }
         )*
@@ -353,9 +347,9 @@ macro_rules! generate_node {
         )*
 
         impl<'a> SpanDataContainer for Node<'a> {
-            fn span_data(&self) -> SpanData {
+            fn span_data(&self) -> Span {
                 match self {
-                    $(Node::$node_name(node) => node.span().data()),*
+                    $(Node::$node_name(node) => node.span()),*
                 }
             }
         }
@@ -588,9 +582,9 @@ macro_rules! generate_traits {
         }
 
         impl SpanDataContainer for $enum_name {
-            fn span_data(&self) -> SpanData {
+            fn span_data(&self) -> Span {
                 match self {
-                    $($enum_name::$member_name(node) => node.span().data()),*
+                    $($enum_name::$member_name(node) => node.span()),*
                 }
             }
         }
@@ -648,32 +642,31 @@ generate_traits![JSXObject, JSXMemberExpr, Ident];
 /* InnerSpanned */
 
 pub trait InnerSpanned {
-    fn get_inner_span_data(&self, context: &mut Context) -> SpanData;
+    fn get_inner_span_data(&self, context: &mut Context) -> Span;
 }
 
 impl InnerSpanned for BlockStmt {
-    fn get_inner_span_data(&self, _: &mut Context) -> SpanData {
+    fn get_inner_span_data(&self, _: &mut Context) -> Span {
         get_inner_span_for_object_like(&self.span)
     }
 }
 
 impl InnerSpanned for ObjectLit {
-    fn get_inner_span_data(&self, _: &mut Context) -> SpanData {
+    fn get_inner_span_data(&self, _: &mut Context) -> Span {
         get_inner_span_for_object_like(&self.span)
     }
 }
 
 impl InnerSpanned for ObjectPat {
-    fn get_inner_span_data(&self, _: &mut Context) -> SpanData {
+    fn get_inner_span_data(&self, _: &mut Context) -> Span {
         get_inner_span_for_object_like(&self.span)
     }
 }
 
-fn get_inner_span_for_object_like(span: &Span) -> SpanData {
-    let span_data = span.data();
-    SpanData {
-        lo: BytePos(span_data.lo.0 + 1),
-        hi: BytePos(span_data.hi.0 - 1),
+fn get_inner_span_for_object_like(span: &Span) -> Span {
+    Span {
+        lo: BytePos(span.lo.0 + 1),
+        hi: BytePos(span.hi.0 - 1),
         ctxt: Default::default()
     }
 }
@@ -702,11 +695,11 @@ impl<'a> Node<'a> {
 /* ParametersSpanned */
 
 pub trait ParametersSpanned {
-    fn get_parameters_span_data(&self, context: &mut Context) -> Option<SpanData>;
+    fn get_parameters_span_data(&self, context: &mut Context) -> Option<Span>;
 }
 
 impl ParametersSpanned for Function {
-    fn get_parameters_span_data(&self, context: &mut Context) -> Option<SpanData> {
+    fn get_parameters_span_data(&self, context: &mut Context) -> Option<Span> {
         get_params_or_args_span_data(
             self.lo(),
             self.params.iter().map(|x| x.span_data()).collect(),
@@ -719,13 +712,13 @@ impl ParametersSpanned for Function {
 }
 
 impl ParametersSpanned for ClassMethod {
-    fn get_parameters_span_data(&self, context: &mut Context) -> Option<SpanData> {
+    fn get_parameters_span_data(&self, context: &mut Context) -> Option<Span> {
         self.function.get_parameters_span_data(context)
     }
 }
 
 impl ParametersSpanned for Constructor {
-    fn get_parameters_span_data(&self, context: &mut Context) -> Option<SpanData> {
+    fn get_parameters_span_data(&self, context: &mut Context) -> Option<Span> {
         get_params_or_args_span_data(
             self.lo(),
             self.params.iter().map(|x| x.span_data()).collect(),
@@ -737,13 +730,13 @@ impl ParametersSpanned for Constructor {
 }
 
 impl ParametersSpanned for MethodProp {
-    fn get_parameters_span_data(&self, context: &mut Context) -> Option<SpanData> {
+    fn get_parameters_span_data(&self, context: &mut Context) -> Option<Span> {
         self.function.get_parameters_span_data(context)
     }
 }
 
 impl ParametersSpanned for GetterProp {
-    fn get_parameters_span_data(&self, context: &mut Context) -> Option<SpanData> {
+    fn get_parameters_span_data(&self, context: &mut Context) -> Option<Span> {
         get_params_or_args_span_data(
             self.lo(),
             vec![],
@@ -756,7 +749,7 @@ impl ParametersSpanned for GetterProp {
 }
 
 impl ParametersSpanned for SetterProp {
-    fn get_parameters_span_data(&self, context: &mut Context) -> Option<SpanData> {
+    fn get_parameters_span_data(&self, context: &mut Context) -> Option<Span> {
         get_params_or_args_span_data(
             self.lo(),
             vec![self.param.span_data()],
@@ -767,7 +760,7 @@ impl ParametersSpanned for SetterProp {
 }
 
 impl ParametersSpanned for ArrowExpr {
-    fn get_parameters_span_data(&self, context: &mut Context) -> Option<SpanData> {
+    fn get_parameters_span_data(&self, context: &mut Context) -> Option<Span> {
         get_params_or_args_span_data(
             self.lo(),
             self.params.iter().map(|x| x.span_data()).collect(),
@@ -778,7 +771,7 @@ impl ParametersSpanned for ArrowExpr {
 }
 
 impl ParametersSpanned for CallExpr {
-    fn get_parameters_span_data(&self, context: &mut Context) -> Option<SpanData> {
+    fn get_parameters_span_data(&self, context: &mut Context) -> Option<Span> {
         get_params_or_args_span_data(
             self.lo(),
             self.args.iter().map(|a| a.span_data()).collect(),
@@ -789,7 +782,7 @@ impl ParametersSpanned for CallExpr {
 }
 
 impl ParametersSpanned for NewExpr {
-    fn get_parameters_span_data(&self, context: &mut Context) -> Option<SpanData> {
+    fn get_parameters_span_data(&self, context: &mut Context) -> Option<Span> {
         get_params_or_args_span_data(
             self.lo(),
             self.args.as_ref().map(|args| args.iter().map(|a| a.span_data()).collect()).unwrap_or_default(),
@@ -800,7 +793,7 @@ impl ParametersSpanned for NewExpr {
 }
 
 impl ParametersSpanned for TsCallSignatureDecl {
-    fn get_parameters_span_data(&self, context: &mut Context) -> Option<SpanData> {
+    fn get_parameters_span_data(&self, context: &mut Context) -> Option<Span> {
         get_params_or_args_span_data(
             self.lo(),
             self.params.iter().map(|x| x.span_data()).collect(),
@@ -811,7 +804,7 @@ impl ParametersSpanned for TsCallSignatureDecl {
 }
 
 impl ParametersSpanned for TsConstructSignatureDecl {
-    fn get_parameters_span_data(&self, context: &mut Context) -> Option<SpanData> {
+    fn get_parameters_span_data(&self, context: &mut Context) -> Option<Span> {
         get_params_or_args_span_data(
             self.lo(),
             self.params.iter().map(|x| x.span_data()).collect(),
@@ -822,7 +815,7 @@ impl ParametersSpanned for TsConstructSignatureDecl {
 }
 
 impl ParametersSpanned for TsMethodSignature {
-    fn get_parameters_span_data(&self, context: &mut Context) -> Option<SpanData> {
+    fn get_parameters_span_data(&self, context: &mut Context) -> Option<Span> {
         get_params_or_args_span_data(
             self.lo(),
             self.params.iter().map(|x| x.span_data()).collect(),
@@ -833,7 +826,7 @@ impl ParametersSpanned for TsMethodSignature {
 }
 
 impl ParametersSpanned for TsConstructorType {
-    fn get_parameters_span_data(&self, context: &mut Context) -> Option<SpanData> {
+    fn get_parameters_span_data(&self, context: &mut Context) -> Option<Span> {
         get_params_or_args_span_data(
             self.lo(),
             self.params.iter().map(|x| x.span_data()).collect(),
@@ -844,7 +837,7 @@ impl ParametersSpanned for TsConstructorType {
 }
 
 impl ParametersSpanned for TsFnType {
-    fn get_parameters_span_data(&self, context: &mut Context) -> Option<SpanData> {
+    fn get_parameters_span_data(&self, context: &mut Context) -> Option<Span> {
         get_params_or_args_span_data(
             self.lo(),
             self.params.iter().map(|x| x.span_data()).collect(),
@@ -854,7 +847,7 @@ impl ParametersSpanned for TsFnType {
     }
 }
 
-fn get_params_or_args_span_data(start_pos: BytePos, params: Vec<SpanData>, following_pos: BytePos, context: &mut Context) -> Option<SpanData> {
+fn get_params_or_args_span_data(start_pos: BytePos, params: Vec<Span>, following_pos: BytePos, context: &mut Context) -> Option<Span> {
     let close_token_end = {
         let close_paren = if let Some(last_param) = params.last() {
             context.token_finder.get_first_close_paren_after(last_param)
@@ -893,7 +886,7 @@ fn get_params_or_args_span_data(start_pos: BytePos, params: Vec<SpanData>, follo
         }
     }?;
 
-    Some(SpanData {
+    Some(Span {
         lo: close_token_start,
         hi: close_token_end,
         ctxt: Default::default(),
