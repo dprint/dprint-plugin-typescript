@@ -1,5 +1,5 @@
-use swc_ecma_ast::*;
-use swc_ecma_parser::{token::{TokenAndSpan}};
+use swc_ecmascript::ast::*;
+use swc_ecmascript::parser::{token::{TokenAndSpan}};
 
 use super::*;
 use super::super::*;

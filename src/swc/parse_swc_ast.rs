@@ -5,8 +5,8 @@ use swc_common::{
     errors::{Handler, Emitter, DiagnosticBuilder},
     FileName, comments::{Comment, SingleThreadedComments, SingleThreadedCommentsMap}, SourceFile, BytePos
 };
-use swc_ecma_ast::{Module};
-use swc_ecma_parser::{Parser, StringInput, Syntax, lexer::Lexer, Capturing, JscTarget, token::{TokenAndSpan}};
+use swc_ecmascript::ast::{Module};
+use swc_ecmascript::parser::{Parser, StringInput, Syntax, lexer::Lexer, Capturing, JscTarget, token::{TokenAndSpan}};
 
 pub struct ParsedSourceFile<'a> {
     pub module: Module,
@@ -49,7 +49,7 @@ fn parse_inner<'a>(file_path: &PathBuf, file_text: &'a str) -> Result<ParsedSour
 
     let comments: SingleThreadedComments = Default::default();
     let (module, tokens) = {
-        let mut ts_config: swc_ecma_parser::TsConfig = Default::default();
+        let mut ts_config: swc_ecmascript::parser::TsConfig = Default::default();
         ts_config.tsx = should_parse_as_jsx(file_path);
         ts_config.dynamic_import = true;
         ts_config.decorators = true;

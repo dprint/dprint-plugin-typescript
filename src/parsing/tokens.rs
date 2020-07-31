@@ -1,7 +1,7 @@
 use std::str;
 use super::*;
 use swc_common::{BytePos, Span};
-use swc_ecma_parser::{token::{Token, TokenAndSpan}};
+use swc_ecmascript::parser::{token::{Token, TokenAndSpan}};
 use dprint_core::tokens::{TokenFinder as CoreTokenFinder, TokenCollection};
 
 pub struct TokenFinder<'a> {

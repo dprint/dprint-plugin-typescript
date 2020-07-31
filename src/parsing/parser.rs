@@ -1,9 +1,9 @@
 use std::rc::Rc;
 use dprint_core::*;
 use dprint_core::{parser_helpers::*,condition_resolvers, conditions::*};
-use swc_ecma_ast::*;
+use swc_ecmascript::ast::*;
 use swc_common::{comments::{Comment, CommentKind}, BytePos, Span, Spanned};
-use swc_ecma_parser::{token::{TokenAndSpan}};
+use swc_ecmascript::parser::{token::{TokenAndSpan}};
 
 use super::*;
 use super::swc::*;
@@ -6115,7 +6115,7 @@ fn parse_jsx_children<'a>(opts: ParseJsxChildrenOptions<'a>, context: &mut Conte
 
     fn should_use_space(child: &Node, context: &mut Context) -> bool {
         let past_token = context.token_finder.get_previous_token(child);
-        if let Some(TokenAndSpan { token: swc_ecma_parser::token::Token::JSXText { .. }, span, had_line_break }) = past_token {
+        if let Some(TokenAndSpan { token: swc_ecmascript::parser::token::Token::JSXText { .. }, span, had_line_break }) = past_token {
             let text = span.text(context);
             if !had_line_break && text.ends_with(" ") {
                 return true;
