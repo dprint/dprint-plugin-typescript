@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use dprint_core::configuration::*;
 use super::builder::*;
 use super::types::*;
@@ -25,7 +24,7 @@ use super::types::*;
 ///
 /// // check config_result.diagnostics here and use config_result.config
 /// ```
-pub fn resolve_config(config: HashMap<String, String>, global_config: &GlobalConfiguration) -> ResolveConfigurationResult<Configuration> {
+pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration) -> ResolveConfigurationResult<Configuration> {
     let mut diagnostics = Vec::new();
     let mut config = config;
 
@@ -195,7 +194,7 @@ pub fn resolve_config(config: HashMap<String, String>, global_config: &GlobalCon
         diagnostics,
     };
 
-    fn fill_deno_config(config: &mut HashMap<String, String>) {
+    fn fill_deno_config(config: &mut ConfigKeyMap) {
         for (key, value) in ConfigurationBuilder::new().deno().config.iter() {
             if !config.contains_key(key) {
                 config.insert(key.clone(), value.clone());
@@ -217,10 +216,10 @@ mod tests {
     #[test]
     fn handle_global_config() {
         let mut global_config = HashMap::new();
-        global_config.insert(String::from("lineWidth"), String::from("80"));
-        global_config.insert(String::from("indentWidth"), String::from("8"));
-        global_config.insert(String::from("newLineKind"), String::from("crlf"));
-        global_config.insert(String::from("useTabs"), String::from("true"));
+        global_config.insert(String::from("lineWidth"), ConfigKeyValue::from_i32(80));
+        global_config.insert(String::from("indentWidth"), ConfigKeyValue::from_i32(8));
+        global_config.insert(String::from("newLineKind"), ConfigKeyValue::from_str("crlf"));
+        global_config.insert(String::from("useTabs"), ConfigKeyValue::from_bool(true));
         let global_config = resolve_global_config(global_config).config;
         let mut config_builder = ConfigurationBuilder::new();
         let config = config_builder.global_config(global_config).build();
@@ -233,7 +232,7 @@ mod tests {
     #[test]
     fn handle_deno_config() {
         let mut config = HashMap::new();
-        config.insert(String::from("deno"), String::from("true"));
+        config.insert(String::from("deno"), ConfigKeyValue::from_bool(true));
         let global_config = resolve_global_config(HashMap::new()).config;
         let result = resolve_config(config, &global_config);
         let expected_config = ConfigurationBuilder::new().deno().build();
@@ -246,8 +245,8 @@ mod tests {
     #[test]
     fn handle_deno_config_with_overwrites() {
         let mut config = HashMap::new();
-        config.insert(String::from("deno"), String::from("true"));
-        config.insert(String::from("indentWidth"), String::from("8"));
+        config.insert(String::from("deno"), ConfigKeyValue::from_bool(true));
+        config.insert(String::from("indentWidth"), ConfigKeyValue::from_i32(8));
         let global_config = resolve_global_config(HashMap::new()).config;
         let result = resolve_config(config, &global_config);
         let expected_config = ConfigurationBuilder::new().deno().build();

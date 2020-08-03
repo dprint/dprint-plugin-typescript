@@ -19,7 +19,7 @@ use super::types::*;
 ///     .build();
 /// ```
 pub struct ConfigurationBuilder {
-    pub(super) config: HashMap<String, String>,
+    pub(super) config: ConfigKeyMap,
     global_config: Option<GlobalConfiguration>,
 }
 
@@ -72,91 +72,91 @@ impl ConfigurationBuilder {
     ///
     /// Default: `120`
     pub fn line_width(&mut self, value: u32) -> &mut Self {
-        self.insert("lineWidth", value)
+        self.insert("lineWidth", (value as i32).into())
     }
 
     /// Whether to use tabs (true) or spaces (false).
     ///
     /// Default: `false`
     pub fn use_tabs(&mut self, value: bool) -> &mut Self {
-        self.insert("useTabs", value)
+        self.insert("useTabs", value.into())
     }
 
     /// The number of columns for an indent.
     ///
     /// Default: `4`
     pub fn indent_width(&mut self, value: u8) -> &mut Self {
-        self.insert("indentWidth", value)
+        self.insert("indentWidth", (value as i32).into())
     }
 
     /// The kind of newline to use.
     ///
     /// Default: `NewLineKind::LineFeed`
     pub fn new_line_kind(&mut self, value: NewLineKind) -> &mut Self {
-        self.insert("newLineKind", value)
+        self.insert("newLineKind", value.to_string().into())
     }
 
     /// The quote style to use.
     ///
     /// Default: `QuoteStyle::AlwaysDouble`
     pub fn quote_style(&mut self, value: QuoteStyle) -> &mut Self {
-        self.insert("quoteStyle", value)
+        self.insert("quoteStyle", value.to_string().into())
     }
 
     /// Whether statements should end in a semi-colon.
     ///
     /// Default: `SemiColons::Prefer`
     pub fn semi_colons(&mut self, value: SemiColons) -> &mut Self {
-        self.insert("semiColons", value)
+        self.insert("semiColons", value.to_string().into())
     }
 
     /// Set to prefer hanging indentation when exceeding the line width.
     ///
     /// Default: `false`
     pub fn prefer_hanging(&mut self, value: bool) -> &mut Self {
-        self.insert("preferHanging", value)
+        self.insert("preferHanging", value.into())
     }
 
     /// Where to place the opening brace.
     ///
     /// Default: `BracePosition::SameLineUnlessHanging`
     pub fn brace_position(&mut self, value: BracePosition) -> &mut Self {
-        self.insert("bracePosition", value)
+        self.insert("bracePosition", value.to_string().into())
     }
 
     /// Where to place the next control flow within a control flow statement.
     ///
     /// Default: `NextControlFlowPosition::NextLine`
     pub fn next_control_flow_position(&mut self, value: NextControlFlowPosition) -> &mut Self {
-        self.insert("nextControlFlowPosition", value)
+        self.insert("nextControlFlowPosition", value.to_string().into())
     }
 
     /// Where to place the operator for expressions that span multiple lines.
     ///
     /// Default: `OperatorPosition::NextLine`
     pub fn operator_position(&mut self, value: OperatorPosition) -> &mut Self {
-        self.insert("operatorPosition", value)
+        self.insert("operatorPosition", value.to_string().into())
     }
 
     /// Where to place the expression of a statement that could possibly be on one line (ex. `if (true) console.log(5);`).
     ///
     /// Default: SingleBodyPosition::Maintain
     pub fn single_body_position(&mut self, value: SingleBodyPosition) -> &mut Self {
-        self.insert("singleBodyPosition", value)
+        self.insert("singleBodyPosition", value.to_string().into())
     }
 
     /// If trailing commas should be used.
     ///
     /// Default: `TrailingCommas::OnlyMultiLine`
     pub fn trailing_commas(&mut self, value: TrailingCommas) -> &mut Self {
-        self.insert("trailingCommas", value)
+        self.insert("trailingCommas", value.to_string().into())
     }
 
     /// If braces should be used or not.
     ///
     /// Default: `UseBraces::WhenNotSingleLine`
     pub fn use_braces(&mut self, value: UseBraces) -> &mut Self {
-        self.insert("useBraces", value)
+        self.insert("useBraces", value.to_string().into())
     }
 
     /// If code should revert back from being on multiple lines to
@@ -164,7 +164,7 @@ impl ConfigurationBuilder {
     ///
     /// Default: `false`
     pub fn prefer_single_line(&mut self, value: bool) -> &mut Self {
-        self.insert("preferSingleLine", value)
+        self.insert("preferSingleLine", value.into())
     }
 
     /* space settings */
@@ -174,7 +174,7 @@ impl ConfigurationBuilder {
     /// * `true` (default) - Ex. `1 + 2`
     /// * `false` - Ex. `1+2`
     pub fn binary_expression_space_surrounding_bitwise_and_arithmetic_operator(&mut self, value: bool) -> &mut Self {
-        self.insert("binaryExpression.spaceSurroundingBitwiseAndArithmeticOperator", value)
+        self.insert("binaryExpression.spaceSurroundingBitwiseAndArithmeticOperator", value.into())
     }
 
     /// Forces a space after the double slash in a comment line.
@@ -182,7 +182,7 @@ impl ConfigurationBuilder {
     /// `true` (default) - Ex. `//test` -> `// test`
     /// `false` - Ex. `//test` -> `//test`
     pub fn comment_line_force_space_after_slashes(&mut self, value: bool) -> &mut Self {
-        self.insert("commentLine.forceSpaceAfterSlashes", value)
+        self.insert("commentLine.forceSpaceAfterSlashes", value.into())
     }
 
     /// Whether to add a space after the `new` keyword in a construct signature.
@@ -190,7 +190,7 @@ impl ConfigurationBuilder {
     /// `true` - Ex. `new (): MyClass;`
     /// `false` (default) - Ex. `new(): MyClass;`
     pub fn construct_signature_space_after_new_keyword(&mut self, value: bool) -> &mut Self {
-        self.insert("constructSignature.spaceAfterNewKeyword", value)
+        self.insert("constructSignature.spaceAfterNewKeyword", value.into())
     }
 
     /// Whether to add a space before the parentheses of a constructor.
@@ -198,7 +198,7 @@ impl ConfigurationBuilder {
     /// `true` - Ex. `constructor ()`
     /// `false` (false) - Ex. `constructor()`
     pub fn constructor_space_before_parentheses(&mut self, value: bool) -> &mut Self {
-        self.insert("constructor.spaceBeforeParentheses", value)
+        self.insert("constructor.spaceBeforeParentheses", value.into())
     }
 
     /// Whether to add a space after the `new` keyword in a constructor type.
@@ -206,7 +206,7 @@ impl ConfigurationBuilder {
     /// `true` - Ex. `type MyClassCtor = new () => MyClass;`
     /// `false` (default) - Ex. `type MyClassCtor = new() => MyClass;`
     pub fn constructor_type_space_after_new_keyword(&mut self, value: bool) -> &mut Self {
-        self.insert("constructorType.spaceAfterNewKeyword", value)
+        self.insert("constructorType.spaceAfterNewKeyword", value.into())
     }
 
     /// Whether to add a space after the `while` keyword in a do while statement.
@@ -214,7 +214,7 @@ impl ConfigurationBuilder {
     /// `true` (true) - Ex. `do {\n} while (condition);`
     /// `false` - Ex. `do {\n} while(condition);`
     pub fn do_while_statement_space_after_while_keyword(&mut self, value: bool) -> &mut Self {
-        self.insert("doWhileStatement.spaceAfterWhileKeyword", value)
+        self.insert("doWhileStatement.spaceAfterWhileKeyword", value.into())
     }
 
     /// Whether to add spaces around named exports in an export declaration.
@@ -222,7 +222,7 @@ impl ConfigurationBuilder {
     /// * `true` (default) - Ex. `export { SomeExport, OtherExport };`
     /// * `false` - Ex. `export {SomeExport, OtherExport};`
     pub fn export_declaration_space_surrounding_named_exports(&mut self, value: bool) -> &mut Self {
-        self.insert("exportDeclaration.spaceSurroundingNamedExports", value)
+        self.insert("exportDeclaration.spaceSurroundingNamedExports", value.into())
     }
 
     /// Whether to add a space after the `for` keyword in a "for" statement.
@@ -230,7 +230,7 @@ impl ConfigurationBuilder {
     /// * `true` (default) - Ex. `for (let i = 0; i < 5; i++)`
     /// * `false` - Ex. `for(let i = 0; i < 5; i++)`
     pub fn for_statement_space_after_for_keyword(&mut self, value: bool) -> &mut Self {
-        self.insert("forStatement.spaceAfterForKeyword", value)
+        self.insert("forStatement.spaceAfterForKeyword", value.into())
     }
 
     /// Whether to add a space after the semi-colons in a "for" statement.
@@ -238,7 +238,7 @@ impl ConfigurationBuilder {
     /// * `true` (default) - Ex. `for (let i = 0; i < 5; i++)`
     /// * `false` - Ex. `for (let i = 0;i < 5;i++)`
     pub fn for_statement_space_after_semi_colons(&mut self, value: bool) -> &mut Self {
-        self.insert("forStatement.spaceAfterSemiColons", value)
+        self.insert("forStatement.spaceAfterSemiColons", value.into())
     }
 
     /// Whether to add a space after the `for` keyword in a "for in" statement.
@@ -246,7 +246,7 @@ impl ConfigurationBuilder {
     /// * `true` (default) - Ex. `for (const prop in obj)`
     /// * `false` - Ex. `for(const prop in obj)`
     pub fn for_in_statement_space_after_for_keyword(&mut self, value: bool) -> &mut Self {
-        self.insert("forInStatement.spaceAfterForKeyword", value)
+        self.insert("forInStatement.spaceAfterForKeyword", value.into())
     }
 
     /// Whether to add a space after the `for` keyword in a "for of" statement.
@@ -254,7 +254,7 @@ impl ConfigurationBuilder {
     /// * `true` (default) - Ex. `for (const value of myArray)`
     /// * `false` - Ex. `for(const value of myArray)`
     pub fn for_of_statement_space_after_for_keyword(&mut self, value: bool) -> &mut Self {
-        self.insert("forOfStatement.spaceAfterForKeyword", value)
+        self.insert("forOfStatement.spaceAfterForKeyword", value.into())
     }
 
     /// Whether to add a space before the parentheses of a function declaration.
@@ -262,7 +262,7 @@ impl ConfigurationBuilder {
     /// * `true` - Ex. `function myFunction ()`
     /// * `false` (default) - Ex. `function myFunction()`
     pub fn function_declaration_space_before_parentheses(&mut self, value: bool) -> &mut Self {
-        self.insert("functionDeclaration.spaceBeforeParentheses", value)
+        self.insert("functionDeclaration.spaceBeforeParentheses", value.into())
     }
 
     /// Whether to add a space before the parentheses of a function expression.
@@ -270,7 +270,7 @@ impl ConfigurationBuilder {
     /// `true` - Ex. `function<T> ()`
     /// `false` (default) - Ex. `function<T> ()`
     pub fn function_expression_space_before_parentheses(&mut self, value: bool) -> &mut Self {
-        self.insert("functionExpression.spaceBeforeParentheses", value)
+        self.insert("functionExpression.spaceBeforeParentheses", value.into())
     }
 
     /// Whether to add a space after the function keyword of a function expression.
@@ -278,7 +278,7 @@ impl ConfigurationBuilder {
     /// `true` - Ex. `function <T>()`.
     /// `false` (default) - Ex. `function<T>()`
     pub fn function_expression_space_after_function_keyword(&mut self, value: bool) -> &mut Self {
-        self.insert("functionExpression.spaceAfterFunctionKeyword", value)
+        self.insert("functionExpression.spaceAfterFunctionKeyword", value.into())
     }
 
     /// Whether to add a space before the parentheses of a get accessor.
@@ -286,7 +286,7 @@ impl ConfigurationBuilder {
     /// `true` - Ex. `get myProp ()`
     /// `false` (false) - Ex. `get myProp()`
     pub fn get_accessor_space_before_parentheses(&mut self, value: bool) -> &mut Self {
-        self.insert("getAccessor.spaceBeforeParentheses", value)
+        self.insert("getAccessor.spaceBeforeParentheses", value.into())
     }
 
     /// Whether to add a space after the `if` keyword in an "if" statement.
@@ -294,7 +294,7 @@ impl ConfigurationBuilder {
     /// `true` (default) - Ex. `if (true)`
     /// `false` - Ex. `if(true)`
     pub fn if_statement_space_after_if_keyword(&mut self, value: bool) -> &mut Self {
-        self.insert("ifStatement.spaceAfterIfKeyword", value)
+        self.insert("ifStatement.spaceAfterIfKeyword", value.into())
     }
 
     /// Whether to add spaces around named imports in an import declaration.
@@ -302,7 +302,7 @@ impl ConfigurationBuilder {
     /// * `true` (default) - Ex. `import { SomeExport, OtherExport } from "my-module";`
     /// * `false` - Ex. `import {SomeExport, OtherExport} from "my-module";`
     pub fn import_declaration_space_surrounding_named_imports(&mut self, value: bool) -> &mut Self {
-        self.insert("importDeclaration.spaceSurroundingNamedImports", value)
+        self.insert("importDeclaration.spaceSurroundingNamedImports", value.into())
     }
 
     /// Whether to add a space surrounding the expression of a JSX container.
@@ -310,7 +310,7 @@ impl ConfigurationBuilder {
     /// * `true` - Ex. `{ myValue }`
     /// * `false` (default) - Ex. `{myValue}`
     pub fn jsx_expression_container_space_surrounding_expression(&mut self, value: bool) -> &mut Self {
-        self.insert("jsxExpressionContainer.spaceSurroundingExpression", value)
+        self.insert("jsxExpressionContainer.spaceSurroundingExpression", value.into())
     }
 
     /// Whether to add a space before the parentheses of a method.
@@ -318,7 +318,7 @@ impl ConfigurationBuilder {
     /// `true` - Ex. `myMethod ()`
     /// `false` - Ex. `myMethod()`
     pub fn method_space_before_parentheses(&mut self, value: bool) -> &mut Self {
-        self.insert("method.spaceBeforeParentheses", value)
+        self.insert("method.spaceBeforeParentheses", value.into())
     }
 
     /// Whether to add a space before the parentheses of a set accessor.
@@ -326,7 +326,7 @@ impl ConfigurationBuilder {
     /// `true` - Ex. `set myProp (value: string)`
     /// `false` (default) - Ex. `set myProp(value: string)`
     pub fn set_accessor_space_before_parentheses(&mut self, value: bool) -> &mut Self {
-        self.insert("setAccessor.spaceBeforeParentheses", value)
+        self.insert("setAccessor.spaceBeforeParentheses", value.into())
     }
 
     /// Whether to add a space before the literal in a tagged template.
@@ -334,7 +334,7 @@ impl ConfigurationBuilder {
     /// * `true` (default) - Ex. `html \`<element />\``
     /// * `false` - Ex. `html\`<element />\``
     pub fn tagged_template_space_before_literal(&mut self, value: bool) -> &mut Self {
-        self.insert("taggedTemplate.spaceBeforeLiteral", value)
+        self.insert("taggedTemplate.spaceBeforeLiteral", value.into())
     }
 
     /// Whether to add a space before the colon of a type annotation.
@@ -342,7 +342,7 @@ impl ConfigurationBuilder {
     /// * `true` - Ex. `function myFunction() : string`
     /// * `false` (default) - Ex. `function myFunction(): string`
     pub fn type_annotation_space_before_colon(&mut self, value: bool) -> &mut Self {
-        self.insert("typeAnnotation.spaceBeforeColon", value)
+        self.insert("typeAnnotation.spaceBeforeColon", value.into())
     }
 
     /// Whether to add a space before the expression in a type assertion.
@@ -350,7 +350,7 @@ impl ConfigurationBuilder {
     /// * `true` (default) - Ex. `<string> myValue`
     /// * `false` - Ex. `<string>myValue`
     pub fn type_assertion_space_before_expression(&mut self, value: bool) -> &mut Self {
-        self.insert("typeAssertion.spaceBeforeExpression", value)
+        self.insert("typeAssertion.spaceBeforeExpression", value.into())
     }
 
     /// Whether to add a space after the `while` keyword in a while statement.
@@ -358,7 +358,7 @@ impl ConfigurationBuilder {
     /// * `true` (default) - Ex. `while (true)`
     /// * `false` - Ex. `while(true)`
     pub fn while_statement_space_after_while_keyword(&mut self, value: bool) -> &mut Self {
-        self.insert("whileStatement.spaceAfterWhileKeyword", value)
+        self.insert("whileStatement.spaceAfterWhileKeyword", value.into())
     }
 
     /* situational */
@@ -367,7 +367,7 @@ impl ConfigurationBuilder {
     ///
     /// Default: `UseParentheses::Maintain`
     pub fn arrow_function_use_parentheses(&mut self, value: UseParentheses) -> &mut Self {
-        self.insert("arrowFunction.useParentheses", value)
+        self.insert("arrowFunction.useParentheses", value.to_string().into())
     }
 
     /// Whether to force a line per expression when spanning multiple lines.
@@ -375,7 +375,7 @@ impl ConfigurationBuilder {
     /// * `true` - Formats with each part on a new line.
     /// * `false` (default) - Maintains the line breaks as written by the programmer.
     pub fn binary_expression_line_per_expression(&mut self, value: bool) -> &mut Self {
-        self.insert("binaryExpression.linePerExpression", value)
+        self.insert("binaryExpression.linePerExpression", value.into())
     }
 
     /// Whether to force a line per expression when spanning multiple lines.
@@ -383,7 +383,7 @@ impl ConfigurationBuilder {
     /// * `true` - Formats with each part on a new line.
     /// * `false` (default) - Maintains the line breaks as written by the programmer.
     pub fn member_expression_line_per_expression(&mut self, value: bool) -> &mut Self {
-        self.insert("memberExpression.linePerExpression", value)
+        self.insert("memberExpression.linePerExpression", value.into())
     }
 
     /* ignore comments */
@@ -392,421 +392,421 @@ impl ConfigurationBuilder {
     ///
     /// Default: `"dprint-ignore"`
     pub fn ignore_node_comment_text(&mut self, value: &str) -> &mut Self {
-        self.insert("ignoreNodeCommentText", value)
+        self.insert("ignoreNodeCommentText", value.into())
     }
 
     /// The text to use for a file ignore comment (ex. `// dprint-ignore-file`).
     ///
     /// Default: `"dprint-ignore-file"`
     pub fn ignore_file_comment_text(&mut self, value: &str) -> &mut Self {
-        self.insert("ignoreFileCommentText", value)
+        self.insert("ignoreFileCommentText", value.into())
     }
 
     /* brace position */
 
     pub fn arrow_function_brace_position(&mut self, value: BracePosition) -> &mut Self {
-        self.insert("arrowFunction.bracePosition", value)
+        self.insert("arrowFunction.bracePosition", value.to_string().into())
     }
 
     pub fn class_declaration_brace_position(&mut self, value: BracePosition) -> &mut Self {
-        self.insert("classDeclaration.bracePosition", value)
+        self.insert("classDeclaration.bracePosition", value.to_string().into())
     }
 
     pub fn class_expression_brace_position(&mut self, value: BracePosition) -> &mut Self {
-        self.insert("classExpression.bracePosition", value)
+        self.insert("classExpression.bracePosition", value.to_string().into())
     }
 
     pub fn constructor_brace_position(&mut self, value: BracePosition) -> &mut Self {
-        self.insert("constructor.bracePosition", value)
+        self.insert("constructor.bracePosition", value.to_string().into())
     }
 
     pub fn do_while_statement_brace_position(&mut self, value: BracePosition) -> &mut Self {
-        self.insert("doWhileStatement.bracePosition", value)
+        self.insert("doWhileStatement.bracePosition", value.to_string().into())
     }
 
     pub fn enum_declaration_brace_position(&mut self, value: BracePosition) -> &mut Self {
-        self.insert("enumDeclaration.bracePosition", value)
+        self.insert("enumDeclaration.bracePosition", value.to_string().into())
     }
 
     pub fn for_statement_brace_position(&mut self, value: BracePosition) -> &mut Self {
-        self.insert("forStatement.bracePosition", value)
+        self.insert("forStatement.bracePosition", value.to_string().into())
     }
 
     pub fn for_in_statement_brace_position(&mut self, value: BracePosition) -> &mut Self {
-        self.insert("forInStatement.bracePosition", value)
+        self.insert("forInStatement.bracePosition", value.to_string().into())
     }
 
     pub fn for_of_statement_brace_position(&mut self, value: BracePosition) -> &mut Self {
-        self.insert("forOfStatement.bracePosition", value)
+        self.insert("forOfStatement.bracePosition", value.to_string().into())
     }
 
     pub fn get_accessor_brace_position(&mut self, value: BracePosition) -> &mut Self {
-        self.insert("getAccessor.bracePosition", value)
+        self.insert("getAccessor.bracePosition", value.to_string().into())
     }
 
     pub fn if_statement_brace_position(&mut self, value: BracePosition) -> &mut Self {
-        self.insert("ifStatement.bracePosition", value)
+        self.insert("ifStatement.bracePosition", value.to_string().into())
     }
 
     pub fn interface_declaration_brace_position(&mut self, value: BracePosition) -> &mut Self {
-        self.insert("interfaceDeclaration.bracePosition", value)
+        self.insert("interfaceDeclaration.bracePosition", value.to_string().into())
     }
 
     pub fn function_declaration_brace_position(&mut self, value: BracePosition) -> &mut Self {
-        self.insert("functionDeclaration.bracePosition", value)
+        self.insert("functionDeclaration.bracePosition", value.to_string().into())
     }
 
     pub fn function_expression_brace_position(&mut self, value: BracePosition) -> &mut Self {
-        self.insert("functionExpression.bracePosition", value)
+        self.insert("functionExpression.bracePosition", value.to_string().into())
     }
 
     pub fn method_brace_position(&mut self, value: BracePosition) -> &mut Self {
-        self.insert("method.bracePosition", value)
+        self.insert("method.bracePosition", value.to_string().into())
     }
 
     pub fn module_declaration_brace_position(&mut self, value: BracePosition) -> &mut Self {
-        self.insert("moduleDeclaration.bracePosition", value)
+        self.insert("moduleDeclaration.bracePosition", value.to_string().into())
     }
 
     pub fn set_accessor_brace_position(&mut self, value: BracePosition) -> &mut Self {
-        self.insert("setAccessor.bracePosition", value)
+        self.insert("setAccessor.bracePosition", value.to_string().into())
     }
 
     pub fn switch_case_brace_position(&mut self, value: BracePosition) -> &mut Self {
-        self.insert("switchCase.bracePosition", value)
+        self.insert("switchCase.bracePosition", value.to_string().into())
     }
 
     pub fn switch_statement_brace_position(&mut self, value: BracePosition) -> &mut Self {
-        self.insert("switchStatement.bracePosition", value)
+        self.insert("switchStatement.bracePosition", value.to_string().into())
     }
 
     pub fn try_statement_brace_position(&mut self, value: BracePosition) -> &mut Self {
-        self.insert("tryStatement.bracePosition", value)
+        self.insert("tryStatement.bracePosition", value.to_string().into())
     }
 
     pub fn while_statement_brace_position(&mut self, value: BracePosition) -> &mut Self {
-        self.insert("whileStatement.bracePosition", value)
+        self.insert("whileStatement.bracePosition", value.to_string().into())
     }
 
     /* prefer hanging */
 
     pub fn arguments_prefer_hanging(&mut self, value: bool) -> &mut Self {
-        self.insert("arguments.preferHanging", value)
+        self.insert("arguments.preferHanging", value.into())
     }
 
     pub fn array_expression_prefer_hanging(&mut self, value: bool) -> &mut Self {
-        self.insert("arrayExpression.preferHanging", value)
+        self.insert("arrayExpression.preferHanging", value.into())
     }
 
     pub fn array_pattern_prefer_hanging(&mut self, value: bool) -> &mut Self {
-        self.insert("arrayPattern.preferHanging", value)
+        self.insert("arrayPattern.preferHanging", value.into())
     }
 
     pub fn do_while_statement_prefer_hanging(&mut self, value: bool) -> &mut Self {
-        self.insert("doWhileStatement.preferHanging", value)
+        self.insert("doWhileStatement.preferHanging", value.into())
     }
 
     pub fn export_declaration_prefer_hanging(&mut self, value: bool) -> &mut Self {
-        self.insert("exportDeclaration.preferHanging", value)
+        self.insert("exportDeclaration.preferHanging", value.into())
     }
 
     pub fn extends_clause_prefer_hanging(&mut self, value: bool) -> &mut Self {
-        self.insert("extendsClause.preferHanging", value)
+        self.insert("extendsClause.preferHanging", value.into())
     }
 
     pub fn for_in_statement_prefer_hanging(&mut self, value: bool) -> &mut Self {
-        self.insert("forInStatement.preferHanging", value)
+        self.insert("forInStatement.preferHanging", value.into())
     }
 
     pub fn for_of_statement_prefer_hanging(&mut self, value: bool) -> &mut Self {
-        self.insert("forOfStatement.preferHanging", value)
+        self.insert("forOfStatement.preferHanging", value.into())
     }
 
     pub fn for_statement_prefer_hanging(&mut self, value: bool) -> &mut Self {
-        self.insert("forStatement.preferHanging", value)
+        self.insert("forStatement.preferHanging", value.into())
     }
 
     pub fn if_statement_prefer_hanging(&mut self, value: bool) -> &mut Self {
-        self.insert("ifStatement.preferHanging", value)
+        self.insert("ifStatement.preferHanging", value.into())
     }
 
     pub fn implements_clause_prefer_hanging(&mut self, value: bool) -> &mut Self {
-        self.insert("implementsClause.preferHanging", value)
+        self.insert("implementsClause.preferHanging", value.into())
     }
 
     pub fn import_declaration_prefer_hanging(&mut self, value: bool) -> &mut Self {
-        self.insert("importDeclaration.preferHanging", value)
+        self.insert("importDeclaration.preferHanging", value.into())
     }
 
     pub fn jsx_attributes_prefer_hanging(&mut self, value: bool) -> &mut Self {
-        self.insert("jsxAttributes.preferHanging", value)
+        self.insert("jsxAttributes.preferHanging", value.into())
     }
 
     pub fn object_expression_prefer_hanging(&mut self, value: bool) -> &mut Self {
-        self.insert("objectExpression.preferHanging", value)
+        self.insert("objectExpression.preferHanging", value.into())
     }
 
     pub fn object_pattern_prefer_hanging(&mut self, value: bool) -> &mut Self {
-        self.insert("objectPattern.preferHanging", value)
+        self.insert("objectPattern.preferHanging", value.into())
     }
 
     pub fn parameters_prefer_hanging(&mut self, value: bool) -> &mut Self {
-        self.insert("parameters.preferHanging", value)
+        self.insert("parameters.preferHanging", value.into())
     }
 
     pub fn sequence_expression_prefer_hanging(&mut self, value: bool) -> &mut Self {
-        self.insert("sequenceExpression.preferHanging", value)
+        self.insert("sequenceExpression.preferHanging", value.into())
     }
 
     pub fn switch_statement_prefer_hanging(&mut self, value: bool) -> &mut Self {
-        self.insert("switchStatement.preferHanging", value)
+        self.insert("switchStatement.preferHanging", value.into())
     }
 
     pub fn tuple_type_prefer_hanging(&mut self, value: bool) -> &mut Self {
-        self.insert("tupleType.preferHanging", value)
+        self.insert("tupleType.preferHanging", value.into())
     }
 
     pub fn type_literal_prefer_hanging(&mut self, value: bool) -> &mut Self {
-        self.insert("typeLiteral.preferHanging", value)
+        self.insert("typeLiteral.preferHanging", value.into())
     }
 
     pub fn type_parameters_prefer_hanging(&mut self, value: bool) -> &mut Self {
-        self.insert("typeParameters.preferHanging", value)
+        self.insert("typeParameters.preferHanging", value.into())
     }
 
     pub fn union_and_intersection_type_prefer_hanging(&mut self, value: bool) -> &mut Self {
-        self.insert("unionAndIntersectionType.preferHanging", value)
+        self.insert("unionAndIntersectionType.preferHanging", value.into())
     }
 
     pub fn variable_statement_prefer_hanging(&mut self, value: bool) -> &mut Self {
-        self.insert("variableStatement.preferHanging", value)
+        self.insert("variableStatement.preferHanging", value.into())
     }
 
     pub fn while_statement_prefer_hanging(&mut self, value: bool) -> &mut Self {
-        self.insert("whileStatement.preferHanging", value)
+        self.insert("whileStatement.preferHanging", value.into())
     }
 
     /* member spacing */
 
     pub fn enum_declaration_member_spacing(&mut self, value: MemberSpacing) -> &mut Self {
-        self.insert("enumDeclaration.memberSpacing", value)
+        self.insert("enumDeclaration.memberSpacing", value.to_string().into())
     }
 
     /* next control flow position */
 
     pub fn if_statement_next_control_flow_position(&mut self, value: NextControlFlowPosition) -> &mut Self {
-        self.insert("ifStatement.nextControlFlowPosition", value)
+        self.insert("ifStatement.nextControlFlowPosition", value.to_string().into())
     }
 
     pub fn try_statement_next_control_flow_position(&mut self, value: NextControlFlowPosition) -> &mut Self {
-        self.insert("tryStatement.nextControlFlowPosition", value)
+        self.insert("tryStatement.nextControlFlowPosition", value.to_string().into())
     }
 
     /* operator position */
 
     pub fn binary_expression_operator_position(&mut self, value: OperatorPosition) -> &mut Self {
-        self.insert("binaryExpression.operatorPosition", value)
+        self.insert("binaryExpression.operatorPosition", value.to_string().into())
     }
 
     pub fn conditional_expression_operator_position(&mut self, value: OperatorPosition) -> &mut Self {
-        self.insert("conditionalExpression.operatorPosition", value)
+        self.insert("conditionalExpression.operatorPosition", value.to_string().into())
     }
 
     /* single body position */
 
     pub fn if_statement_single_body_position(&mut self, value: SingleBodyPosition) -> &mut Self {
-        self.insert("ifStatement.singleBodyPosition", value)
+        self.insert("ifStatement.singleBodyPosition", value.to_string().into())
     }
 
     pub fn for_statement_single_body_position(&mut self, value: SingleBodyPosition) -> &mut Self {
-        self.insert("forStatement.singleBodyPosition", value)
+        self.insert("forStatement.singleBodyPosition", value.to_string().into())
     }
 
     pub fn for_in_statement_single_body_position(&mut self, value: SingleBodyPosition) -> &mut Self {
-        self.insert("forInStatement.singleBodyPosition", value)
+        self.insert("forInStatement.singleBodyPosition", value.to_string().into())
     }
 
     pub fn for_of_statement_single_body_position(&mut self, value: SingleBodyPosition) -> &mut Self {
-        self.insert("forOfStatement.singleBodyPosition", value)
+        self.insert("forOfStatement.singleBodyPosition", value.to_string().into())
     }
 
     pub fn while_statement_single_body_position(&mut self, value: SingleBodyPosition) -> &mut Self {
-        self.insert("whileStatement.singleBodyPosition", value)
+        self.insert("whileStatement.singleBodyPosition", value.to_string().into())
     }
 
     /* trailing commas */
 
     pub fn arguments_trailing_commas(&mut self, value: TrailingCommas) -> &mut Self {
-        self.insert("arguments.trailingCommas", value)
+        self.insert("arguments.trailingCommas", value.to_string().into())
     }
 
     pub fn parameters_trailing_commas(&mut self, value: TrailingCommas) -> &mut Self {
-        self.insert("parameters.trailingCommas", value)
+        self.insert("parameters.trailingCommas", value.to_string().into())
     }
 
     pub fn array_expression_trailing_commas(&mut self, value: TrailingCommas) -> &mut Self {
-        self.insert("arrayExpression.trailingCommas", value)
+        self.insert("arrayExpression.trailingCommas", value.to_string().into())
     }
 
     pub fn array_pattern_trailing_commas(&mut self, value: TrailingCommas) -> &mut Self {
-        self.insert("arrayPattern.trailingCommas", value)
+        self.insert("arrayPattern.trailingCommas", value.to_string().into())
     }
 
     pub fn enum_declaration_trailing_commas(&mut self, value: TrailingCommas) -> &mut Self {
-        self.insert("enumDeclaration.trailingCommas", value)
+        self.insert("enumDeclaration.trailingCommas", value.to_string().into())
     }
 
     pub fn export_declaration_trailing_commas(&mut self, value: TrailingCommas) -> &mut Self {
-        self.insert("exportDeclaration.trailingCommas", value)
+        self.insert("exportDeclaration.trailingCommas", value.to_string().into())
     }
 
     pub fn import_declaration_trailing_commas(&mut self, value: TrailingCommas) -> &mut Self {
-        self.insert("importDeclaration.trailingCommas", value)
+        self.insert("importDeclaration.trailingCommas", value.to_string().into())
     }
 
     pub fn object_expression_trailing_commas(&mut self, value: TrailingCommas) -> &mut Self {
-        self.insert("objectExpression.trailingCommas", value)
+        self.insert("objectExpression.trailingCommas", value.to_string().into())
     }
 
     pub fn object_pattern_trailing_commas(&mut self, value: TrailingCommas) -> &mut Self {
-        self.insert("objectPattern.trailingCommas", value)
+        self.insert("objectPattern.trailingCommas", value.to_string().into())
     }
 
     pub fn tuple_type_trailing_commas(&mut self, value: TrailingCommas) -> &mut Self {
-        self.insert("tupleType.trailingCommas", value)
+        self.insert("tupleType.trailingCommas", value.to_string().into())
     }
 
     pub fn type_parameters_trailing_commas(&mut self, value: TrailingCommas) -> &mut Self {
-        self.insert("typeParameters.trailingCommas", value)
+        self.insert("typeParameters.trailingCommas", value.to_string().into())
     }
 
     /* use braces */
 
     pub fn if_statement_use_braces(&mut self, value: UseBraces) -> &mut Self {
-        self.insert("ifStatement.useBraces", value)
+        self.insert("ifStatement.useBraces", value.to_string().into())
     }
 
     pub fn for_statement_use_braces(&mut self, value: UseBraces) -> &mut Self {
-        self.insert("forStatement.useBraces", value)
+        self.insert("forStatement.useBraces", value.to_string().into())
     }
 
     pub fn for_in_statement_use_braces(&mut self, value: UseBraces) -> &mut Self {
-        self.insert("forInStatement.useBraces", value)
+        self.insert("forInStatement.useBraces", value.to_string().into())
     }
 
     pub fn for_of_statement_use_braces(&mut self, value: UseBraces) -> &mut Self {
-        self.insert("forOfStatement.useBraces", value)
+        self.insert("forOfStatement.useBraces", value.to_string().into())
     }
 
     pub fn while_statement_use_braces(&mut self, value: UseBraces) -> &mut Self {
-        self.insert("whileStatement.useBraces", value)
+        self.insert("whileStatement.useBraces", value.to_string().into())
     }
 
     /* prefer single line */
 
     pub fn array_expression_prefer_single_line(&mut self, value: bool) -> &mut Self {
-        self.insert("arrayExpression.preferSingleLine", value)
+        self.insert("arrayExpression.preferSingleLine", value.into())
     }
 
     pub fn array_pattern_prefer_single_line(&mut self, value: bool) -> &mut Self {
-        self.insert("arrayPattern.preferSingleLine", value)
+        self.insert("arrayPattern.preferSingleLine", value.into())
     }
 
     pub fn arguments_prefer_single_line(&mut self, value: bool) -> &mut Self {
-        self.insert("arguments.preferSingleLine", value)
+        self.insert("arguments.preferSingleLine", value.into())
     }
 
     pub fn binary_expression_prefer_single_line(&mut self, value: bool) -> &mut Self {
-        self.insert("binaryExpression.preferSingleLine", value)
+        self.insert("binaryExpression.preferSingleLine", value.into())
     }
 
     pub fn computed_prefer_single_line(&mut self, value: bool) -> &mut Self {
-        self.insert("computed.preferSingleLine", value)
+        self.insert("computed.preferSingleLine", value.into())
     }
 
     pub fn conditional_expression_prefer_single_line(&mut self, value: bool) -> &mut Self {
-        self.insert("conditionalExpression.preferSingleLine", value)
+        self.insert("conditionalExpression.preferSingleLine", value.into())
     }
 
     pub fn conditional_type_prefer_single_line(&mut self, value: bool) -> &mut Self {
-        self.insert("conditionalType.preferSingleLine", value)
+        self.insert("conditionalType.preferSingleLine", value.into())
     }
 
     pub fn decorators_prefer_single_line(&mut self, value: bool) -> &mut Self {
-        self.insert("decorators.preferSingleLine", value)
+        self.insert("decorators.preferSingleLine", value.into())
     }
 
     pub fn export_declaration_prefer_single_line(&mut self, value: bool) -> &mut Self {
-        self.insert("exportDeclaration.preferSingleLine", value)
+        self.insert("exportDeclaration.preferSingleLine", value.into())
     }
 
     pub fn for_statement_prefer_single_line(&mut self, value: bool) -> &mut Self {
-        self.insert("forStatement.preferSingleLine", value)
+        self.insert("forStatement.preferSingleLine", value.into())
     }
 
     pub fn import_declaration_prefer_single_line(&mut self, value: bool) -> &mut Self {
-        self.insert("importDeclaration.preferSingleLine", value)
+        self.insert("importDeclaration.preferSingleLine", value.into())
     }
 
     pub fn jsx_attributes_prefer_single_line(&mut self, value: bool) -> &mut Self {
-        self.insert("jsxAttributes.preferSingleLine", value)
+        self.insert("jsxAttributes.preferSingleLine", value.into())
     }
 
     pub fn jsx_element_prefer_single_line(&mut self, value: bool) -> &mut Self {
-        self.insert("jsxElement.preferSingleLine", value)
+        self.insert("jsxElement.preferSingleLine", value.into())
     }
 
     pub fn mapped_type_prefer_single_line(&mut self, value: bool) -> &mut Self {
-        self.insert("mappedType.preferSingleLine", value)
+        self.insert("mappedType.preferSingleLine", value.into())
     }
 
     pub fn member_expression_prefer_single_line(&mut self, value: bool) -> &mut Self {
-        self.insert("memberExpression.preferSingleLine", value)
+        self.insert("memberExpression.preferSingleLine", value.into())
     }
 
     pub fn object_expression_prefer_single_line(&mut self, value: bool) -> &mut Self {
-        self.insert("objectExpression.preferSingleLine", value)
+        self.insert("objectExpression.preferSingleLine", value.into())
     }
 
     pub fn object_pattern_prefer_single_line(&mut self, value: bool) -> &mut Self {
-        self.insert("objectPattern.preferSingleLine", value)
+        self.insert("objectPattern.preferSingleLine", value.into())
     }
 
     pub fn parameters_prefer_single_line(&mut self, value: bool) -> &mut Self {
-        self.insert("parameters.preferSingleLine", value)
+        self.insert("parameters.preferSingleLine", value.into())
     }
 
     pub fn parentheses_prefer_single_line(&mut self, value: bool) -> &mut Self {
-        self.insert("parentheses.preferSingleLine", value)
+        self.insert("parentheses.preferSingleLine", value.into())
     }
 
     pub fn tuple_type_prefer_single_line(&mut self, value: bool) -> &mut Self {
-        self.insert("tupleType.preferSingleLine", value)
+        self.insert("tupleType.preferSingleLine", value.into())
     }
 
     pub fn type_literal_prefer_single_line(&mut self, value: bool) -> &mut Self {
-        self.insert("typeLiteral.preferSingleLine", value)
+        self.insert("typeLiteral.preferSingleLine", value.into())
     }
 
     pub fn type_parameters_prefer_single_line(&mut self, value: bool) -> &mut Self {
-        self.insert("typeParameters.preferSingleLine", value)
+        self.insert("typeParameters.preferSingleLine", value.into())
     }
 
     pub fn union_and_intersection_type_prefer_single_line(&mut self, value: bool) -> &mut Self {
-        self.insert("unionAndIntersectionType.preferSingleLine", value)
+        self.insert("unionAndIntersectionType.preferSingleLine", value.into())
     }
 
     pub fn variable_statement_prefer_single_line(&mut self, value: bool) -> &mut Self {
-        self.insert("variableStatement.preferSingleLine", value)
+        self.insert("variableStatement.preferSingleLine", value.into())
     }
 
     #[cfg(test)]
-    pub(super) fn get_inner_config(&self) -> HashMap<String, String> {
+    pub(super) fn get_inner_config(&self) -> ConfigKeyMap {
         self.config.clone()
     }
 
-    fn insert<T>(&mut self, name: &str, value: T) -> &mut Self where T : std::string::ToString {
-        self.config.insert(String::from(name), value.to_string());
+    fn insert(&mut self, name: &str, value: ConfigKeyValue) -> &mut Self {
+        self.config.insert(String::from(name), value);
         self
     }
 }
