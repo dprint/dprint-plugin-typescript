@@ -21,14 +21,14 @@ overflow-checks = false
 panic = "abort"
 
 [features]
-wasm = []
+wasm = ["serde_json"]
 
 [dependencies]
 dprint-core = "0.24.1"
 swc_common = "=0.8.0"
 swc_ecmascript = { version = "=0.1.0", features = ["parser"] }
 serde = { version = "1.0.88", features = ["derive"] }
-serde_json = "1.0"
+serde_json = { version = "1.0", optional = true }
 
 [dev-dependencies]
 dprint-development = "0.2.2"
