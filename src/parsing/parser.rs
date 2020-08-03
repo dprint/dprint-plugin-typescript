@@ -5137,7 +5137,7 @@ struct ParseBraceSeparatorOptions<'a> {
 
 fn parse_brace_separator<'a>(opts: ParseBraceSeparatorOptions<'a>, context: &mut Context) -> PrintItems {
     return match opts.brace_position {
-        BracePosition::NextLineIfHanging => {
+        BracePosition::SameLineUnlessHanging => {
             if let Some(start_header_info) = opts.start_header_info {
                 conditions::new_line_if_hanging_space_otherwise(conditions::NewLineIfHangingSpaceOtherwiseOptions {
                     start_info: start_header_info,

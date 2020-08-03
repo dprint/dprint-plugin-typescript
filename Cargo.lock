@@ -164,7 +164,7 @@ checksum = "417ed417346ddd21939fd451061d93d13e9df53c97dc15a2c71faa9c9881710e"
 
 [[package]]
 name = "dprint-plugin-typescript"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "debug-here",
  "dprint-core",

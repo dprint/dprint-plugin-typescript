@@ -119,7 +119,7 @@ impl ConfigurationBuilder {
 
     /// Where to place the opening brace.
     ///
-    /// Default: `BracePosition::NextLineIfHanging`
+    /// Default: `BracePosition::SameLineUnlessHanging`
     pub fn brace_position(&mut self, value: BracePosition) -> &mut Self {
         self.insert("bracePosition", value)
     }

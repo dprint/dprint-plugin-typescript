@@ -62,8 +62,8 @@ pub enum BracePosition {
     SameLine,
     /// Forces the brace to be on the next line.
     NextLine,
-    /// Forces the brace to be on the next line if the same line is hanging, but otherwise uses the next.
-    NextLineIfHanging,
+    /// Forces the brace to be on the next line if the same line is hanging, but otherwise uses the same line.
+    SameLineUnlessHanging,
 }
 
 generate_str_to_from![
@@ -71,7 +71,7 @@ generate_str_to_from![
     [Maintain, "maintain"],
     [SameLine, "sameLine"],
     [NextLine, "nextLine"],
-    [NextLineIfHanging, "nextLineIfHanging"]
+    [SameLineUnlessHanging, "sameLineUnlessHanging"]
 ];
 
 /// How to space members.
