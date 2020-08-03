@@ -1,4 +1,3 @@
-use swc_common::{GLOBALS, Globals};
 use dprint_core::*;
 use dprint_core::configuration::{resolve_new_line_kind};
 use std::path::PathBuf;
@@ -35,7 +34,6 @@ use super::configuration::Configuration;
 /// }
 /// ```
 pub struct Formatter {
-    globals: Globals,
     config: Configuration,
 }
 
@@ -43,7 +41,6 @@ impl Formatter {
     /// Creates a new formatter with the specified configuration.
     pub fn new(config: Configuration) -> Self {
         Formatter {
-            globals: Globals::new(),
             config,
         }
     }
@@ -52,23 +49,21 @@ impl Formatter {
     ///
     /// Returns the file text `Ok(formatted_text) or an error when it failed to parse.
     pub fn format_text(&self, file_path: &PathBuf, file_text: &str) -> Result<String, String> {
-        return self.run(|| {
-            if has_ignore_comment(file_text, &self.config) {
-                return Ok(String::from(file_text));
-            }
+        if has_ignore_comment(file_text, &self.config) {
+            return Ok(String::from(file_text));
+        }
 
-            let parsed_source_file = parse_swc_ast(&file_path, &file_text)?;
-            let print_items = parse(&parsed_source_file, &self.config);
+        let parsed_source_file = parse_swc_ast(&file_path, &file_text)?;
+        let print_items = parse(&parsed_source_file, &self.config);
 
-            // println!("{}", print_items.get_as_text());
+        // println!("{}", print_items.get_as_text());
 
-            Ok(print(print_items, PrintOptions {
-                indent_width: self.config.indent_width,
-                max_width: self.config.line_width,
-                use_tabs: self.config.use_tabs,
-                new_line_text: resolve_new_line_kind(file_text, self.config.new_line_kind),
-            }))
-        });
+        return Ok(print(print_items, PrintOptions {
+            indent_width: self.config.indent_width,
+            max_width: self.config.line_width,
+            use_tabs: self.config.use_tabs,
+            new_line_text: resolve_new_line_kind(file_text, self.config.new_line_kind),
+        }));
 
         fn has_ignore_comment(file_text: &str, config: &Configuration) -> bool {
             let mut iterator = super::utils::CharIterator::new(file_text.chars());
@@ -81,10 +76,5 @@ impl Formatter {
             iterator.skip_whitespace();
             iterator.check_text(&config.ignore_file_comment_text)
         }
-    }
-
-    fn run<F, TReturn>(&self, action: F) -> TReturn where F: FnOnce() -> TReturn {
-        // this is what swc does internally
-        GLOBALS.set(&self.globals, action)
     }
 }

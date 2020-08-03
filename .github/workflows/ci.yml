@@ -47,17 +47,12 @@ jobs:
       if: matrix.config.kind == 'test_debug'
       run: cargo test --verbose
 
-    - name: Patch for WASM build
-      if: matrix.config.kind == 'test_release'
-      run: |
-        chmod +x setup-wasm.sh
-        ./setup-wasm.sh
     - name: Build release
       if: matrix.config.kind == 'test_release'
-      run: cargo build --target wasm32-unknown-unknown --release --verbose # --locked # add back after removing wasm patch
+      run: cargo build --target wasm32-unknown-unknown --features "wasm" --release --verbose --locked
     - name: Test release
       if: matrix.config.kind == 'test_release'
-      run: cargo test --release --verbose # --locked # add back after removing wasm patch
+      run: cargo test --release --verbose --locked
 
     - name: Get tag version
       if: matrix.config.kind == 'test_release' && startsWith(github.ref, 'refs/tags/')

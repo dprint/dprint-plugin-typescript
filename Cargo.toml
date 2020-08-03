@@ -20,6 +20,9 @@ debug-assertions = false
 overflow-checks = false
 panic = "abort"
 
+[features]
+wasm = []
+
 [dependencies]
 dprint-core = "0.24.1"
 swc_common = "=0.8.0"
