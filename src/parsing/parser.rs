@@ -1,6 +1,6 @@
 use std::rc::Rc;
-use dprint_core::*;
-use dprint_core::{parser_helpers::*,condition_resolvers, conditions::*};
+use dprint_core::formatting::*;
+use dprint_core::formatting::{parser_helpers::*,condition_resolvers, conditions::*};
 use swc_ecmascript::ast::*;
 use swc_common::{comments::{Comment, CommentKind}, BytePos, Span, Spanned};
 use swc_ecmascript::parser::{token::{TokenAndSpan}};

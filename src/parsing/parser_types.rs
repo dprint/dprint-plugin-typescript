@@ -1,6 +1,6 @@
 use std::str;
 use std::collections::{HashSet, HashMap};
-use dprint_core::{Info, ConditionReference};
+use dprint_core::formatting::{Info, ConditionReference};
 use swc_common::{BytePos, comments::{Comment, CommentKind}, SourceFile, Spanned, Span};
 use swc_ecmascript::ast::*;
 use swc_ecmascript::parser::{token::TokenAndSpan};

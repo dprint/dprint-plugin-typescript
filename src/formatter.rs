@@ -1,4 +1,4 @@
-use dprint_core::*;
+use dprint_core::formatting::*;
 use dprint_core::configuration::{resolve_new_line_kind};
 use std::path::PathBuf;
 use super::parsing::parse;

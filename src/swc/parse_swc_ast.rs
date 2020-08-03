@@ -37,7 +37,7 @@ pub fn parse_swc_ast<'a>(file_path: &PathBuf, file_text: &'a str) -> Result<Pars
 
 fn parse_inner<'a>(file_path: &PathBuf, file_text: &'a str) -> Result<ParsedSourceFile<'a>, String> {
     let handler = Handler::with_emitter(false, false, Box::new(EmptyEmitter {}));
-    
+
     let file_bytes = file_text.as_bytes();
     let source_file = SourceFile::new(
         FileName::Custom(file_path.to_string_lossy().into()),
@@ -125,7 +125,7 @@ impl Emitter for EmptyEmitter {
 
 fn format_diagnostic(error: &DiagnosticBuilder, file_text: &str) -> String {
     // todo: handling sub diagnostics?
-    dprint_core::utils::string_utils::format_diagnostic(
+    dprint_core::formatting::utils::string_utils::format_diagnostic(
         error.span.primary_span().map(|span| (span.lo().0 as usize, span.hi().0 as usize)),
         &error.message(),
         file_text
