@@ -27,3 +27,15 @@ try {
 } catch (ex) {
     b;
 }
+
+== should output with type on param ==
+try {
+    a
+} catch (  ex    :unknown ) {
+}
+
+[expect]
+try {
+    a;
+} catch (ex: unknown) {
+}
