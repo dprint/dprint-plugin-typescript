@@ -386,6 +386,21 @@ impl ConfigurationBuilder {
         self.insert("memberExpression.linePerExpression", value.into())
     }
 
+    /// The kind of separator to use in type literals.
+    pub fn type_literal_separator_kind(&mut self, value: SemiColonOrComma) -> &mut Self {
+        self.insert("typeLiteral.separatorKind", value.to_string().into())
+    }
+
+    /// The kind of separator to use in type literals when single line.
+    pub fn type_literal_separator_kind_single_line(&mut self, value: SemiColonOrComma) -> &mut Self {
+        self.insert("typeLiteral.separatorKind.singleLine", value.to_string().into())
+    }
+
+    /// The kind of separator to use in type literals when multi-line.
+    pub fn type_literal_separator_kind_multi_line(&mut self, value: SemiColonOrComma) -> &mut Self {
+        self.insert("typeLiteral.separatorKind.multiLine", value.to_string().into())
+    }
+
     /* ignore comments */
 
     /// The text to use for an ignore comment (ex. `// dprint-ignore`).
@@ -836,6 +851,9 @@ mod tests {
             .arrow_function_use_parentheses(UseParentheses::Maintain)
             .binary_expression_line_per_expression(false)
             .member_expression_line_per_expression(false)
+            .type_literal_separator_kind(SemiColonOrComma::Comma)
+            .type_literal_separator_kind_single_line(SemiColonOrComma::Comma)
+            .type_literal_separator_kind_multi_line(SemiColonOrComma::Comma)
             /* ignore comments */
             .ignore_node_comment_text("ignore")
             .ignore_file_comment_text("ignore-file")
@@ -970,7 +988,7 @@ mod tests {
             .while_statement_space_after_while_keyword(true);
 
         let inner_config = config.get_inner_config();
-        assert_eq!(inner_config.len(), 137);
+        assert_eq!(inner_config.len(), 140);
         let diagnostics = resolve_config(inner_config, &resolve_global_config(HashMap::new()).config).diagnostics;
         assert_eq!(diagnostics.len(), 0);
     }
