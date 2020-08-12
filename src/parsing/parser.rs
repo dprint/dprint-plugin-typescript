@@ -2409,10 +2409,10 @@ fn parse_type_lit<'a>(node: &'a TsTypeLit, context: &mut Context<'a>) -> PrintIt
         surround_single_line_with_spaces: true,
     }, context);
 
-    fn semi_colon_or_comma_to_separator_value(value: SemiColonOrComma, context: &mut Context) -> SeparatorValue {
+    fn semi_colon_or_comma_to_separator_value(value: SemiColonsOrCommas, context: &mut Context) -> SeparatorValue {
         match value {
-            SemiColonOrComma::Comma => SeparatorValue::Comma(context.config.type_literal_trailing_commas),
-            SemiColonOrComma::SemiColon => SeparatorValue::SemiColon(context.config.semi_colons),
+            SemiColonsOrCommas::Commas => SeparatorValue::Comma(context.config.type_literal_trailing_commas),
+            SemiColonsOrCommas::SemiColons => SeparatorValue::SemiColon(context.config.semi_colons),
         }
     }
 }

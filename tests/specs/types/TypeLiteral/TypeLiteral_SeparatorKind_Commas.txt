@@ -1,11 +1,11 @@
-~~ typeLiteral.separatorKind: comma ~~
-== should use a comma when single line ==
+~~ typeLiteral.separatorKind: commas ~~
+== should use commas when single line ==
 type Test = { p: string, u: number };
 
 [expect]
 type Test = { p: string, u: number };
 
-== should use a comma when multi-line ==
+== should use commas when multi-line ==
 type Test = {
     p: string, u: number };
 

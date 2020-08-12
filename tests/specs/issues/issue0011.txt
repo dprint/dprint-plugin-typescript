@@ -1,5 +1,5 @@
-~~ semiColons: asi, typeLiteral.separatorKind.singleLine: comma ~~
-== should use a comma when single line ==
+~~ semiColons: asi, typeLiteral.separatorKind.singleLine: commas ~~
+== should use commas when single line ==
 type Test = { p: string, u: number };
 
 [expect]

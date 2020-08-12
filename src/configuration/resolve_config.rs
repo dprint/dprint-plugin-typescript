@@ -41,7 +41,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     let use_braces = get_value(&mut config, "useBraces", UseBraces::WhenNotSingleLine, &mut diagnostics);
     let prefer_hanging = get_value(&mut config, "preferHanging", false, &mut diagnostics);
     let prefer_single_line = get_value(&mut config, "preferSingleLine", false, &mut diagnostics);
-    let type_literal_separator_kind = get_value(&mut config, "typeLiteral.separatorKind", SemiColonOrComma::SemiColon, &mut diagnostics);
+    let type_literal_separator_kind = get_value(&mut config, "typeLiteral.separatorKind", SemiColonsOrCommas::SemiColons, &mut diagnostics);
 
     let resolved_config = Configuration {
         line_width: get_value(&mut config, "lineWidth", global_config.line_width.unwrap_or(DEFAULT_GLOBAL_CONFIGURATION.line_width), &mut diagnostics),

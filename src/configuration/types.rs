@@ -217,20 +217,20 @@ generate_str_to_from![
     [PreferSingle, "preferSingle"]
 ];
 
-/// Whether to use a semi-colon or comma.
+/// Whether to use semi-colons or commas.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum SemiColonOrComma {
+pub enum SemiColonsOrCommas {
     /// Use semi colons (default).
-    SemiColon,
+    SemiColons,
     /// Use commas.
-    Comma,
+    Commas,
 }
 
 generate_str_to_from![
-    SemiColonOrComma,
-    [SemiColon, "semiColon"],
-    [Comma, "comma"]
+    SemiColonsOrCommas,
+    [SemiColons, "semiColons"],
+    [Commas, "commas"]
 ];
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -250,9 +250,9 @@ pub struct Configuration {
     #[serde(rename = "memberExpression.linePerExpression")]
     pub member_expression_line_per_expression: bool,
     #[serde(rename = "typeLiteral.separatorKind.singleLine")]
-    pub type_literal_separator_kind_single_line: SemiColonOrComma,
+    pub type_literal_separator_kind_single_line: SemiColonsOrCommas,
     #[serde(rename = "typeLiteral.separatorKind.multiLine")]
-    pub type_literal_separator_kind_multi_line: SemiColonOrComma,
+    pub type_literal_separator_kind_multi_line: SemiColonsOrCommas,
     /* ignore comments */
     pub ignore_node_comment_text: String,
     pub ignore_file_comment_text: String,

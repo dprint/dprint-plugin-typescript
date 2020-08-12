@@ -1,11 +1,11 @@
-~~ typeLiteral.separatorKind.singleLine: semiColon, typeLiteral.separatorKind.multiLine: comma, lineWidth: 40 ~~
-== should use a comma when single line ==
+~~ typeLiteral.separatorKind.singleLine: semiColons, typeLiteral.separatorKind.multiLine: commas, lineWidth: 40 ~~
+== should use commas when single line ==
 type Test = { p: string, u: number };
 
 [expect]
 type Test = { p: string; u: number };
 
-== should use semi-colon when multi-line ==
+== should use semi-colons when multi-line ==
 type Test = {
     p: string, u: number };
 
@@ -15,7 +15,7 @@ type Test = {
     u: number,
 };
 
-== should use a comma going from single line to multi ==
+== should use commas going from single line to multi ==
 type Test = { p: string; u: number; test: other };
 
 [expect]
