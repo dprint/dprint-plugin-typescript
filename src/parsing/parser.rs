@@ -2397,14 +2397,24 @@ fn parse_interface_body<'a>(node: &'a TsInterfaceBody, context: &mut Context<'a>
 }
 
 fn parse_type_lit<'a>(node: &'a TsTypeLit, context: &mut Context<'a>) -> PrintItems {
-    parse_object_like_node(ParseObjectLikeNodeOptions {
+    return parse_object_like_node(ParseObjectLikeNodeOptions {
         node_span_data: node.span,
         members: node.members.iter().map(|m| m.into()).collect(),
-        separator: context.config.semi_colons.into(),
+        separator: Separator {
+            single_line: Some(semi_colon_or_comma_to_separator_value(context.config.type_literal_separator_kind_single_line, context)),
+            multi_line: Some(semi_colon_or_comma_to_separator_value(context.config.type_literal_separator_kind_multi_line, context)),
+        },
         prefer_hanging: context.config.type_literal_prefer_hanging,
         prefer_single_line: context.config.type_literal_prefer_single_line,
         surround_single_line_with_spaces: true,
-    }, context)
+    }, context);
+
+    fn semi_colon_or_comma_to_separator_value(value: SemiColonOrComma, context: &mut Context) -> SeparatorValue {
+        match value {
+            SemiColonOrComma::Comma => SeparatorValue::Comma(context.config.type_literal_trailing_commas),
+            SemiColonOrComma::SemiColon => SeparatorValue::SemiColon(context.config.semi_colons),
+        }
+    }
 }
 
 /* jsx */
@@ -5062,6 +5072,13 @@ fn parse_node_with_separator<'a>(value: Option<Node<'a>>, parsed_separator: Prin
     let mut items = PrintItems::new();
     let comma_token = get_comma_token(&value, context);
 
+    // get the trailing comments after the comma token (if the separator in the file is currently a comma)
+    let parsed_trailing_comments = if let Some(comma_token) = comma_token {
+        parse_trailing_comments(comma_token, context)
+    } else {
+        PrintItems::new()
+    };
+
     if let Some(element) = value {
         let parsed_separator = parsed_separator.into_rc_path();
         items.extend(parse_node_with_inner_parse(element, context, move |mut items, _| {
@@ -5073,16 +5090,16 @@ fn parse_node_with_separator<'a>(value: Option<Node<'a>>, parsed_separator: Prin
         items.extend(parsed_separator);
     }
 
-    // get the trailing comments after the comma token (if the separator in the file is currently a comma)
-    if let Some(comma_token) = comma_token {
-        items.extend(parse_trailing_comments(comma_token, context));
-    }
+    items.extend(parsed_trailing_comments);
 
     return items;
 
     fn get_comma_token<'a>(element: &Option<Node<'a>>, context: &mut Context<'a>) -> Option<&'a TokenAndSpan> {
         if let Some(element) = element {
-            context.token_finder.get_next_token_if_comma(element)
+            match context.token_finder.get_next_token_if_comma(element) {
+                Some(comma) => Some(comma),
+                None => context.token_finder.get_last_comma_token_within(element), // may occur for type literals
+            }
         } else {
             None // not a comma separated node
         }

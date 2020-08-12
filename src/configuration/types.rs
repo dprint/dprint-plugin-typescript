@@ -393,6 +393,8 @@ pub struct Configuration {
     pub object_expression_trailing_commas: TrailingCommas,
     #[serde(rename = "tupleType.trailingCommas")]
     pub tuple_type_trailing_commas: TrailingCommas,
+    #[serde(rename = "typeLiteral.trailingCommas")]
+    pub type_literal_trailing_commas: TrailingCommas,
     #[serde(rename = "typeParameters.trailingCommas")]
     pub type_parameters_trailing_commas: TrailingCommas,
     /* use braces */

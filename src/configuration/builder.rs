@@ -691,6 +691,11 @@ impl ConfigurationBuilder {
         self.insert("tupleType.trailingCommas", value.to_string().into())
     }
 
+    /// Only applies when using commas on type literals.
+    pub fn type_literal_trailing_commas(&mut self, value: TrailingCommas) -> &mut Self {
+        self.insert("typeLiteral.trailingCommas", value.to_string().into())
+    }
+
     pub fn type_parameters_trailing_commas(&mut self, value: TrailingCommas) -> &mut Self {
         self.insert("typeParameters.trailingCommas", value.to_string().into())
     }
@@ -930,6 +935,7 @@ mod tests {
             .object_pattern_trailing_commas(TrailingCommas::Never)
             .type_parameters_trailing_commas(TrailingCommas::Never)
             .tuple_type_trailing_commas(TrailingCommas::Never)
+            .type_literal_trailing_commas(TrailingCommas::Never)
             /* use braces */
             .if_statement_use_braces(UseBraces::Always)
             .for_statement_use_braces(UseBraces::Always)
@@ -988,7 +994,7 @@ mod tests {
             .while_statement_space_after_while_keyword(true);
 
         let inner_config = config.get_inner_config();
-        assert_eq!(inner_config.len(), 140);
+        assert_eq!(inner_config.len(), 141);
         let diagnostics = resolve_config(inner_config, &resolve_global_config(HashMap::new()).config).diagnostics;
         assert_eq!(diagnostics.len(), 0);
     }

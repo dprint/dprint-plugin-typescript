@@ -131,6 +131,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
         object_expression_trailing_commas: get_value(&mut config, "objectExpression.trailingCommas", trailing_commas, &mut diagnostics),
         object_pattern_trailing_commas: get_value(&mut config, "objectPattern.trailingCommas", trailing_commas, &mut diagnostics),
         tuple_type_trailing_commas: get_value(&mut config, "tupleType.trailingCommas", trailing_commas, &mut diagnostics),
+        type_literal_trailing_commas: get_value(&mut config, "typeLiteral.trailingCommas", trailing_commas, &mut diagnostics),
         type_parameters_trailing_commas: get_value(&mut config, "typeParameters.trailingCommas", trailing_commas, &mut diagnostics),
         /* use braces */
         if_statement_use_braces: get_value(&mut config, "ifStatement.useBraces", use_braces, &mut diagnostics),
