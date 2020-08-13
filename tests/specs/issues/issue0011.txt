@@ -1,0 +1,16 @@
+~~ semiColons: asi, typeLiteral.separatorKind.singleLine: commas ~~
+== should use commas when single line ==
+type Test = { p: string, u: number };
+
+[expect]
+type Test = { p: string, u: number }
+
+== should not use anything multi-line ==
+type Test = {
+    p: string, u: number };
+
+[expect]
+type Test = {
+    p: string
+    u: number
+}

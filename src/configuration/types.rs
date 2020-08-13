@@ -217,6 +217,22 @@ generate_str_to_from![
     [PreferSingle, "preferSingle"]
 ];
 
+/// Whether to use semi-colons or commas.
+#[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SemiColonsOrCommas {
+    /// Use semi colons (default).
+    SemiColons,
+    /// Use commas.
+    Commas,
+}
+
+generate_str_to_from![
+    SemiColonsOrCommas,
+    [SemiColons, "semiColons"],
+    [Commas, "commas"]
+];
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Configuration {
@@ -233,6 +249,10 @@ pub struct Configuration {
     pub binary_expression_line_per_expression: bool,
     #[serde(rename = "memberExpression.linePerExpression")]
     pub member_expression_line_per_expression: bool,
+    #[serde(rename = "typeLiteral.separatorKind.singleLine")]
+    pub type_literal_separator_kind_single_line: SemiColonsOrCommas,
+    #[serde(rename = "typeLiteral.separatorKind.multiLine")]
+    pub type_literal_separator_kind_multi_line: SemiColonsOrCommas,
     /* ignore comments */
     pub ignore_node_comment_text: String,
     pub ignore_file_comment_text: String,
@@ -373,6 +393,8 @@ pub struct Configuration {
     pub object_expression_trailing_commas: TrailingCommas,
     #[serde(rename = "tupleType.trailingCommas")]
     pub tuple_type_trailing_commas: TrailingCommas,
+    #[serde(rename = "typeLiteral.trailingCommas")]
+    pub type_literal_trailing_commas: TrailingCommas,
     #[serde(rename = "typeParameters.trailingCommas")]
     pub type_parameters_trailing_commas: TrailingCommas,
     /* use braces */

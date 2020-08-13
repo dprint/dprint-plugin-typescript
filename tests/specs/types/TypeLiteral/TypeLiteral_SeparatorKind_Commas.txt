@@ -1,0 +1,16 @@
+~~ typeLiteral.separatorKind: commas ~~
+== should use commas when single line ==
+type Test = { p: string, u: number };
+
+[expect]
+type Test = { p: string, u: number };
+
+== should use commas when multi-line ==
+type Test = {
+    p: string, u: number };
+
+[expect]
+type Test = {
+    p: string,
+    u: number,
+};

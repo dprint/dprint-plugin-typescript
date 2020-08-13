@@ -76,6 +76,10 @@ impl<'a> TokenFinder<'a> {
         self.get_last_token_within(node, |token| token.token == Token::RBrace)
     }
 
+    pub fn get_last_comma_token_within(&mut self, node: &dyn Ranged) -> Option<&'a TokenAndSpan> {
+        self.get_last_token_within(node, |token| token.token == Token::Comma)
+    }
+
     pub fn get_first_open_bracket_token_within(&mut self, node: &dyn Ranged) -> Option<&'a TokenAndSpan> {
         self.get_first_token_within(node, |token| token.token == Token::LBracket)
     }

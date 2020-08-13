@@ -690,8 +690,7 @@ fn parse_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context
         should_use_blank_line: move |previous, next, context| {
             node_helpers::has_separating_blank_line(previous, next, context)
         },
-        trailing_commas: None,
-        semi_colons: None,
+        separator: Separator::none(),
     }, context));
 
     if node.is_class_expr {
@@ -764,8 +763,7 @@ fn parse_enum_decl<'a>(node: &'a TsEnumDecl, context: &mut Context<'a>) -> Print
                 MemberSpacing::Maintain => node_helpers::has_separating_blank_line(previous, next, context),
             }
         },
-        trailing_commas: Some(context.config.enum_declaration_trailing_commas),
-        semi_colons: None,
+        separator: context.config.enum_declaration_trailing_commas.into(),
     }, context));
 
     return items;
@@ -1090,8 +1088,7 @@ fn parse_module_or_namespace_decl<'a>(node: ModuleOrNamespaceDecl<'a>, context: 
                         should_use_blank_line: move |previous, next, context| {
                             node_helpers::has_separating_blank_line(previous, next, context)
                         },
-                        trailing_commas: None,
-                        semi_colons: None,
+                        separator: Separator::none(),
                     }, context));
                 },
                 TsNamespaceBody::TsNamespaceDecl(decl) => {
@@ -1131,8 +1128,7 @@ fn parse_named_import_or_export_specifiers<'a>(parent: &Node<'a>, specifiers: Ve
     return parse_object_like_node(ParseObjectLikeNodeOptions {
         node_span_data: parent.span_data(),
         members: specifiers,
-        trailing_commas: Some(get_trailing_commas(parent, context)),
-        semi_colons: None,
+        separator: get_trailing_commas(parent, context).into(),
         prefer_hanging: get_prefer_hanging(parent, context),
         prefer_single_line: get_prefer_single_line(parent, context),
         surround_single_line_with_spaces: get_use_space(parent, context),
@@ -1937,8 +1933,7 @@ fn parse_object_lit<'a>(node: &'a ObjectLit, context: &mut Context<'a>) -> Print
     parse_object_like_node(ParseObjectLikeNodeOptions {
         node_span_data: node.span,
         members: node.props.iter().map(|x| x.into()).collect(),
-        trailing_commas: Some(context.config.object_expression_trailing_commas),
-        semi_colons: None,
+        separator: context.config.object_expression_trailing_commas.into(),
         prefer_hanging: context.config.object_expression_prefer_hanging,
         prefer_single_line: context.config.object_expression_prefer_single_line,
         surround_single_line_with_spaces: true,
@@ -1978,8 +1973,7 @@ fn parse_sequence_expr<'a>(node: &'a SeqExpr, context: &mut Context<'a>) -> Prin
         prefer_hanging: context.config.sequence_expression_prefer_hanging,
         force_use_new_lines: false,
         allow_blank_lines: false,
-        trailing_commas: Some(TrailingCommas::Never),
-        semi_colons: None,
+        separator: TrailingCommas::Never.into(),
         single_line_space_at_start: false,
         single_line_space_at_end: false,
         custom_single_line_separator: None,
@@ -2389,8 +2383,7 @@ fn parse_interface_body<'a>(node: &'a TsInterfaceBody, context: &mut Context<'a>
         should_use_blank_line: move |previous, next, context| {
             node_helpers::has_separating_blank_line(previous, next, context)
         },
-        trailing_commas: None,
-        semi_colons: Some(context.config.semi_colons),
+        separator: context.config.semi_colons.into(),
     }, context);
 
     fn get_parent_info(context: &mut Context) -> Option<Info> {
@@ -2404,15 +2397,24 @@ fn parse_interface_body<'a>(node: &'a TsInterfaceBody, context: &mut Context<'a>
 }
 
 fn parse_type_lit<'a>(node: &'a TsTypeLit, context: &mut Context<'a>) -> PrintItems {
-    parse_object_like_node(ParseObjectLikeNodeOptions {
+    return parse_object_like_node(ParseObjectLikeNodeOptions {
         node_span_data: node.span,
         members: node.members.iter().map(|m| m.into()).collect(),
-        trailing_commas: None,
-        semi_colons: Some(context.config.semi_colons),
+        separator: Separator {
+            single_line: Some(semi_colon_or_comma_to_separator_value(context.config.type_literal_separator_kind_single_line, context)),
+            multi_line: Some(semi_colon_or_comma_to_separator_value(context.config.type_literal_separator_kind_multi_line, context)),
+        },
         prefer_hanging: context.config.type_literal_prefer_hanging,
         prefer_single_line: context.config.type_literal_prefer_single_line,
         surround_single_line_with_spaces: true,
-    }, context)
+    }, context);
+
+    fn semi_colon_or_comma_to_separator_value(value: SemiColonsOrCommas, context: &mut Context) -> SeparatorValue {
+        match value {
+            SemiColonsOrCommas::Commas => SeparatorValue::Comma(context.config.type_literal_trailing_commas),
+            SemiColonsOrCommas::SemiColons => SeparatorValue::SemiColon(context.config.semi_colons),
+        }
+    }
 }
 
 /* jsx */
@@ -2527,8 +2529,7 @@ fn parse_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Cont
             prefer_hanging: context.config.jsx_attributes_prefer_hanging,
             force_use_new_lines,
             allow_blank_lines: false,
-            trailing_commas: None,
-            semi_colons: None,
+            separator: Separator::none(),
             single_line_space_at_start: true,
             single_line_space_at_end: node.self_closing,
             custom_single_line_separator: None,
@@ -2785,8 +2786,7 @@ fn parse_object_pat<'a>(node: &'a ObjectPat, context: &mut Context<'a>) -> Print
     items.extend(parse_object_like_node(ParseObjectLikeNodeOptions {
         node_span_data: node.span,
         members: node.props.iter().map(|x| x.into()).collect(),
-        trailing_commas: Some(get_trailing_commas(node, context)),
-        semi_colons: None,
+        separator: get_trailing_commas(node, context).into(),
         prefer_hanging: context.config.object_pattern_prefer_hanging,
         prefer_single_line: context.config.object_pattern_prefer_single_line,
         surround_single_line_with_spaces: true,
@@ -3483,8 +3483,7 @@ fn parse_switch_stmt<'a>(node: &'a SwitchStmt, context: &mut Context<'a>) -> Pri
             }
             node_helpers::has_separating_blank_line(previous, next, context)
         },
-        trailing_commas: None,
-        semi_colons: None,
+        separator: Separator::none(),
     }, context));
     return items;
 }
@@ -3527,8 +3526,7 @@ fn parse_switch_case<'a>(node: &'a SwitchCase, context: &mut Context<'a>) -> Pri
                 should_use_space: None,
                 should_use_new_line: None,
                 should_use_blank_line: |previous, next, context| node_helpers::has_separating_blank_line(previous, next, context),
-                trailing_commas: None,
-                semi_colons: None,
+                separator: Separator::none(),
             }, context)));
         }
     }
@@ -3671,8 +3669,7 @@ fn parse_var_decl<'a>(node: &'a VarDecl, context: &mut Context<'a>) -> PrintItem
             prefer_hanging: context.config.variable_statement_prefer_hanging,
             force_use_new_lines,
             allow_blank_lines: false,
-            trailing_commas: Some(TrailingCommas::Never),
-            semi_colons: None,
+            separator: TrailingCommas::Never.into(),
             single_line_space_at_start: false,
             single_line_space_at_end: false,
             custom_single_line_separator: None,
@@ -4147,8 +4144,7 @@ fn parse_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>)
         prefer_hanging: context.config.type_parameters_prefer_hanging,
         force_use_new_lines,
         allow_blank_lines: false,
-        trailing_commas: Some(get_trailing_commas(&node_span_data, context)),
-        semi_colons: None,
+        separator: get_trailing_commas(&node_span_data, context).into(),
         single_line_space_at_start: false,
         single_line_space_at_end: false,
         custom_single_line_separator: None,
@@ -4573,8 +4569,7 @@ fn parse_array_like_nodes<'a>(opts: ParseArrayLikeNodesOptions<'a>, context: &mu
             prefer_hanging,
             force_use_new_lines,
             allow_blank_lines: true,
-            trailing_commas: Some(trailing_commas),
-            semi_colons: None,
+            separator: trailing_commas.into(),
             single_line_space_at_start: false,
             single_line_space_at_end: false,
             custom_single_line_separator: None,
@@ -4628,8 +4623,7 @@ struct ParseMemberedBodyOptions<'a, FShouldUseBlankLine> where FShouldUseBlankLi
     start_header_info: Option<Info>,
     brace_position: BracePosition,
     should_use_blank_line: FShouldUseBlankLine,
-    trailing_commas: Option<TrailingCommas>,
-    semi_colons: Option<SemiColons>,
+    separator: Separator,
 }
 
 fn parse_membered_body<'a, FShouldUseBlankLine>(
@@ -4651,8 +4645,7 @@ fn parse_membered_body<'a, FShouldUseBlankLine>(
     }, context));
 
     let should_use_blank_line = opts.should_use_blank_line;
-    let trailing_commas = opts.trailing_commas;
-    let semi_colons = opts.semi_colons;
+    let separator = opts.separator;
 
     items.extend(parse_block(|members, context| {
         parse_statements_or_members(ParseStatementsOrMembersOptions {
@@ -4661,8 +4654,7 @@ fn parse_membered_body<'a, FShouldUseBlankLine>(
             should_use_space: None,
             should_use_new_line: None,
             should_use_blank_line,
-            trailing_commas,
-            semi_colons,
+            separator,
         }, context)
     }, ParseBlockOptions {
         span_data: Some(create_span_data(open_brace_token.lo(), BytePos(close_brace_token_pos.hi().0 + 1))),
@@ -4679,8 +4671,7 @@ fn parse_statements<'a>(inner_span_data: Span, stmts: impl Iterator<Item=Node<'a
         should_use_space: None,
         should_use_new_line: None,
         should_use_blank_line: |previous, next, context| node_helpers::has_separating_blank_line(previous, next, context),
-        trailing_commas: None,
-        semi_colons: None,
+        separator: Separator::none(),
     }, context)
 }
 
@@ -4690,8 +4681,7 @@ struct ParseStatementsOrMembersOptions<'a, FShouldUseBlankLine> where FShouldUse
     should_use_space: Option<Box<dyn Fn(&Node, &Node, &mut Context) -> bool>>, // todo: Remove putting functions on heap by using type parameters?
     should_use_new_line: Option<Box<dyn Fn(&Node, &Node, &mut Context) -> bool>>,
     should_use_blank_line: FShouldUseBlankLine,
-    trailing_commas: Option<TrailingCommas>,
-    semi_colons: Option<SemiColons>,
+    separator: Separator,
 }
 
 fn parse_statements_or_members<'a, FShouldUseBlankLine>(
@@ -4726,14 +4716,11 @@ fn parse_statements_or_members<'a, FShouldUseBlankLine>(
             items.extend(if let Some(print_items) = optional_print_items {
                 print_items
             } else {
-                if let Some(trailing_commas) = opts.trailing_commas {
-                    let parsed_comma = get_parsed_trailing_comma(trailing_commas, i == children_len - 1, &|_| Some(true));
-                    parse_comma_separated_value(Some(node.clone()), parsed_comma, context)
-                } else if let Some(semi_colons) = opts.semi_colons {
-                    let parsed_semi_colon = get_parsed_semi_colon(semi_colons, i == children_len - 1, &|_| Some(true));
-                    parse_node_with_semi_colon(Some(node.clone()), parsed_semi_colon, context)
-                } else {
+                if opts.separator.is_none() {
                     parse_node(node.clone(), context)
+                } else {
+                    let parsed_separator = get_parsed_separator(&opts.separator, i == children_len - 1, &|_| Some(true));
+                    parse_node_with_separator(Some(node.clone()), parsed_separator, context)
                 }
             });
             items.push_info(end_info);
@@ -4818,8 +4805,7 @@ fn parse_parameters_or_arguments<'a, F>(opts: ParseParametersOrArgumentsOptions<
                 prefer_hanging,
                 force_use_new_lines,
                 allow_blank_lines: false,
-                trailing_commas: Some(trailing_commas),
-                semi_colons: None,
+                separator: trailing_commas.into(),
                 single_line_space_at_start: false,
                 single_line_space_at_end: false,
                 custom_single_line_separator: None,
@@ -4964,13 +4950,54 @@ fn parse_close_paren_with_type<'a>(opts: ParseCloseParenWithTypeOptions<'a>, con
     }
 }
 
+#[derive(PartialEq)]
+enum SeparatorValue {
+    SemiColon(SemiColons),
+    Comma(TrailingCommas),
+}
+
+struct Separator {
+    single_line: Option<SeparatorValue>,
+    multi_line: Option<SeparatorValue>,
+}
+
+impl Separator {
+    pub fn none() -> Self {
+        Separator {
+            single_line: None,
+            multi_line: None,
+        }
+    }
+
+    pub fn is_none(&self) -> bool {
+        self.single_line.is_none() && self.multi_line.is_none()
+    }
+}
+
+impl From<SemiColons> for Separator {
+    fn from(value: SemiColons) -> Separator {
+        Separator {
+            single_line: Some(SeparatorValue::SemiColon(value)),
+            multi_line: Some(SeparatorValue::SemiColon(value)),
+        }
+    }
+}
+
+impl From<TrailingCommas> for Separator {
+    fn from(value: TrailingCommas) -> Separator {
+        Separator {
+            single_line: Some(SeparatorValue::Comma(value)),
+            multi_line: Some(SeparatorValue::Comma(value)),
+        }
+    }
+}
+
 struct ParseSeparatedValuesOptions<'a> {
     nodes: Vec<Option<Node<'a>>>,
     prefer_hanging: bool,
     force_use_new_lines: bool,
     allow_blank_lines: bool,
-    trailing_commas: Option<TrailingCommas>,
-    semi_colons: Option<SemiColons>,
+    separator: Separator,
     single_line_space_at_start: bool,
     single_line_space_at_end: bool,
     custom_single_line_separator: Option<PrintItems>,
@@ -4991,8 +5018,7 @@ fn parse_separated_values_with_result<'a>(
     context: &mut Context<'a>
 ) -> ParseSeparatedValuesResult {
     let nodes = opts.nodes;
-    let semi_colons = opts.semi_colons;
-    let trailing_commas = opts.trailing_commas;
+    let separator = opts.separator;
     let indent_width = context.config.indent_width;
     let compute_lines_span = opts.allow_blank_lines; // save time otherwise
     parser_helpers::parse_separated_values(|is_multi_line_or_hanging_ref| {
@@ -5010,18 +5036,15 @@ fn parse_separated_values_with_result<'a>(
                     end_line: x.end_line_with_comments(context)
                 })
             } else { None };
-            let items = parser_helpers::new_line_group(if let Some(trailing_commas) = trailing_commas {
-                let parsed_comma = get_parsed_trailing_comma(trailing_commas, i == nodes_count - 1, &is_multi_line_or_hanging);
-                parse_comma_separated_value(value, parsed_comma, context)
-            } else if let Some(semi_colons) = semi_colons {
-                let parsed_semi_colon = get_parsed_semi_colon(semi_colons, i == nodes_count - 1, &is_multi_line_or_hanging);
-                parse_node_with_semi_colon(value, parsed_semi_colon, context)
-            } else {
+            let items = parser_helpers::new_line_group(if separator.is_none() {
                 if let Some(value) = value {
                     parse_node(value, context)
                 } else {
                     PrintItems::new()
                 }
+            } else {
+                let parsed_separator = get_parsed_separator(&separator, i == nodes_count - 1, &is_multi_line_or_hanging);
+                parse_node_with_separator(value, parsed_separator, context)
             });
             parsed_nodes.push(parser_helpers::ParsedValue {
                 items,
@@ -5045,48 +5068,41 @@ fn parse_separated_values_with_result<'a>(
     })
 }
 
-fn parse_comma_separated_value<'a>(value: Option<Node<'a>>, parsed_comma: PrintItems, context: &mut Context<'a>) -> PrintItems {
+fn parse_node_with_separator<'a>(value: Option<Node<'a>>, parsed_separator: PrintItems, context: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
     let comma_token = get_comma_token(&value, context);
 
+    // get the trailing comments after the comma token (if the separator in the file is currently a comma)
+    let parsed_trailing_comments = if let Some(comma_token) = comma_token {
+        parse_trailing_comments(comma_token, context)
+    } else {
+        PrintItems::new()
+    };
+
     if let Some(element) = value {
-        let parsed_comma = parsed_comma.into_rc_path();
+        let parsed_separator = parsed_separator.into_rc_path();
         items.extend(parse_node_with_inner_parse(element, context, move |mut items, _| {
             // this Rc clone is necessary because we can't move the captured parsed_comma out of this closure
-            items.push_optional_path(parsed_comma.clone());
+            items.push_optional_path(parsed_separator.clone());
             items
         }));
     } else {
-        items.extend(parsed_comma);
+        items.extend(parsed_separator);
     }
 
-    // get the trailing comments after the comma token
-    if let Some(comma_token) = comma_token {
-        items.extend(parse_trailing_comments(comma_token, context));
-    }
+    items.extend(parsed_trailing_comments);
 
     return items;
 
     fn get_comma_token<'a>(element: &Option<Node<'a>>, context: &mut Context<'a>) -> Option<&'a TokenAndSpan> {
         if let Some(element) = element {
-            context.token_finder.get_next_token_if_comma(element)
+            match context.token_finder.get_next_token_if_comma(element) {
+                Some(comma) => Some(comma),
+                None => context.token_finder.get_last_comma_token_within(element), // may occur for type literals
+            }
         } else {
-            // todo: handle this
-            None
+            None // not a comma separated node
         }
-    }
-}
-
-fn parse_node_with_semi_colon<'a>(value: Option<Node<'a>>, parsed_semi_colon: PrintItems, context: &mut Context<'a>) -> PrintItems {
-    if let Some(element) = value {
-        let parsed_semi_colon = parsed_semi_colon.into_rc_path();
-        parse_node_with_inner_parse(element, context, move |mut items, _| {
-            // this Rc clone is necessary because we can't move the captured parsed_semi_colon out of this closure
-            items.push_optional_path(parsed_semi_colon.clone());
-            items
-        })
-    } else {
-        parsed_semi_colon
     }
 }
 
@@ -5263,8 +5279,7 @@ fn parse_extends_or_implements<'a>(opts: ParseExtendsOrImplementsOptions<'a>, co
             prefer_hanging: opts.prefer_hanging,
             force_use_new_lines: false,
             allow_blank_lines: false,
-            trailing_commas: Some(TrailingCommas::Never),
-            semi_colons: None,
+            separator: TrailingCommas::Never.into(),
             single_line_space_at_start: true,
             single_line_space_at_end: false,
             custom_single_line_separator: None,
@@ -5280,8 +5295,7 @@ fn parse_extends_or_implements<'a>(opts: ParseExtendsOrImplementsOptions<'a>, co
 struct ParseObjectLikeNodeOptions<'a> {
     node_span_data: Span,
     members: Vec<Node<'a>>,
-    trailing_commas: Option<TrailingCommas>,
-    semi_colons: Option<SemiColons>,
+    separator: Separator,
     prefer_hanging: bool,
     prefer_single_line: bool,
     surround_single_line_with_spaces: bool,
@@ -5310,8 +5324,7 @@ fn parse_object_like_node<'a>(opts: ParseObjectLikeNodeOptions<'a>, context: &mu
                 prefer_hanging: opts.prefer_hanging,
                 force_use_new_lines: force_multi_line,
                 allow_blank_lines: true,
-                trailing_commas: opts.trailing_commas,
-                semi_colons: opts.semi_colons,
+                separator: opts.separator,
                 single_line_space_at_start: opts.surround_single_line_with_spaces,
                 single_line_space_at_end: opts.surround_single_line_with_spaces,
                 custom_single_line_separator: None,
@@ -5511,8 +5524,7 @@ fn parse_decorators<'a>(decorators: &'a Vec<Decorator>, is_inline: bool, context
         prefer_hanging: false, // would need to think about the design because prefer_hanging causes a hanging indent
         force_use_new_lines,
         allow_blank_lines: false,
-        trailing_commas: None,
-        semi_colons: None,
+        separator: Separator::none(),
         single_line_space_at_start: false,
         single_line_space_at_end: is_inline,
         custom_single_line_separator: None,
@@ -6083,8 +6095,7 @@ fn parse_jsx_children<'a>(opts: ParseJsxChildrenOptions<'a>, context: &mut Conte
                 }
                 return node_helpers::has_separating_blank_line(previous, next, context);
             },
-            trailing_commas: None,
-            semi_colons: None,
+            separator: Separator::none(),
         }, context)));
 
         if has_children {
@@ -6578,6 +6589,29 @@ fn has_any_node_comment_on_different_line(nodes: &Vec<impl Ranged>, context: &mu
 }
 
 /* config helpers */
+
+fn get_parsed_separator(separator: &Separator, is_trailing: bool, is_multi_line: &(impl Fn(&mut ConditionResolverContext) -> Option<bool> + Clone + 'static)) -> PrintItems {
+    debug_assert!(!separator.is_none());
+    // performance optimization
+    return if separator.single_line == separator.multi_line {
+        get_items(&separator.single_line, is_trailing, is_multi_line)
+    } else {
+        if_true_or(
+            "is_multi_line",
+            is_multi_line.clone(),
+            get_items(&separator.multi_line, is_trailing, is_multi_line),
+            get_items(&separator.single_line, is_trailing, is_multi_line),
+        ).into()
+    };
+
+    fn get_items(value: &Option<SeparatorValue>, is_trailing: bool, is_multi_line: &(impl Fn(&mut ConditionResolverContext) -> Option<bool> + Clone + 'static)) -> PrintItems {
+        match value {
+            Some(SeparatorValue::Comma(trailing_comma)) => get_parsed_trailing_comma(*trailing_comma, is_trailing, is_multi_line),
+            Some(SeparatorValue::SemiColon(semi_colons)) => get_parsed_semi_colon(*semi_colons, is_trailing, is_multi_line),
+            None => PrintItems::new(),
+        }
+    }
+}
 
 fn get_parsed_trailing_comma(option: TrailingCommas, is_trailing: bool, is_multi_line: &(impl Fn(&mut ConditionResolverContext) -> Option<bool> + Clone + 'static)) -> PrintItems {
     if !is_trailing { return ",".into(); }

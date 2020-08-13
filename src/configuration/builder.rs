@@ -386,6 +386,21 @@ impl ConfigurationBuilder {
         self.insert("memberExpression.linePerExpression", value.into())
     }
 
+    /// The kind of separator to use in type literals.
+    pub fn type_literal_separator_kind(&mut self, value: SemiColonsOrCommas) -> &mut Self {
+        self.insert("typeLiteral.separatorKind", value.to_string().into())
+    }
+
+    /// The kind of separator to use in type literals when single line.
+    pub fn type_literal_separator_kind_single_line(&mut self, value: SemiColonsOrCommas) -> &mut Self {
+        self.insert("typeLiteral.separatorKind.singleLine", value.to_string().into())
+    }
+
+    /// The kind of separator to use in type literals when multi-line.
+    pub fn type_literal_separator_kind_multi_line(&mut self, value: SemiColonsOrCommas) -> &mut Self {
+        self.insert("typeLiteral.separatorKind.multiLine", value.to_string().into())
+    }
+
     /* ignore comments */
 
     /// The text to use for an ignore comment (ex. `// dprint-ignore`).
@@ -676,6 +691,11 @@ impl ConfigurationBuilder {
         self.insert("tupleType.trailingCommas", value.to_string().into())
     }
 
+    /// Only applies when using commas on type literals.
+    pub fn type_literal_trailing_commas(&mut self, value: TrailingCommas) -> &mut Self {
+        self.insert("typeLiteral.trailingCommas", value.to_string().into())
+    }
+
     pub fn type_parameters_trailing_commas(&mut self, value: TrailingCommas) -> &mut Self {
         self.insert("typeParameters.trailingCommas", value.to_string().into())
     }
@@ -836,6 +856,9 @@ mod tests {
             .arrow_function_use_parentheses(UseParentheses::Maintain)
             .binary_expression_line_per_expression(false)
             .member_expression_line_per_expression(false)
+            .type_literal_separator_kind(SemiColonsOrCommas::Commas)
+            .type_literal_separator_kind_single_line(SemiColonsOrCommas::Commas)
+            .type_literal_separator_kind_multi_line(SemiColonsOrCommas::Commas)
             /* ignore comments */
             .ignore_node_comment_text("ignore")
             .ignore_file_comment_text("ignore-file")
@@ -912,6 +935,7 @@ mod tests {
             .object_pattern_trailing_commas(TrailingCommas::Never)
             .type_parameters_trailing_commas(TrailingCommas::Never)
             .tuple_type_trailing_commas(TrailingCommas::Never)
+            .type_literal_trailing_commas(TrailingCommas::Never)
             /* use braces */
             .if_statement_use_braces(UseBraces::Always)
             .for_statement_use_braces(UseBraces::Always)
@@ -970,7 +994,7 @@ mod tests {
             .while_statement_space_after_while_keyword(true);
 
         let inner_config = config.get_inner_config();
-        assert_eq!(inner_config.len(), 137);
+        assert_eq!(inner_config.len(), 141);
         let diagnostics = resolve_config(inner_config, &resolve_global_config(HashMap::new()).config).diagnostics;
         assert_eq!(diagnostics.len(), 0);
     }
