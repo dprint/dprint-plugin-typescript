@@ -711,6 +711,12 @@ impl ParametersSpanned for Function {
     }
 }
 
+impl ParametersSpanned for PrivateMethod {
+    fn get_parameters_span_data(&self, context: &mut Context) -> Option<Span> {
+        self.function.get_parameters_span_data(context)
+    }
+}
+
 impl ParametersSpanned for ClassMethod {
     fn get_parameters_span_data(&self, context: &mut Context) -> Option<Span> {
         self.function.get_parameters_span_data(context)

@@ -122,6 +122,7 @@ fn parse_node_with_inner_parse<'a>(node: Node<'a>, context: &mut Context<'a>, in
             Node::Constructor(node) => parse_constructor(node, context),
             Node::Decorator(node) => parse_decorator(node, context),
             Node::TsParamProp(node) => parse_parameter_prop(node, context),
+            Node::PrivateMethod(node) => parse_private_method(node, context),
             Node::PrivateName(node) => parse_private_name(node, context),
             Node::PrivateProp(node) => parse_private_prop(node, context),
             /* clauses */
@@ -383,6 +384,26 @@ fn parse_node_with_inner_parse<'a>(node: Node<'a>, context: &mut Context<'a>, in
 /* class */
 
 fn parse_class_method<'a>(node: &'a ClassMethod, context: &mut Context<'a>) -> PrintItems {
+    // todo: consolidate with private method
+    return parse_class_or_object_method(ClassOrObjectMethod {
+        parameters_span_data: node.get_parameters_span_data(context),
+        decorators: Some(&node.function.decorators),
+        accessibility: node.accessibility,
+        is_static: node.is_static,
+        is_async: node.function.is_async,
+        is_abstract: node.is_abstract,
+        kind: node.kind.into(),
+        is_generator: node.function.is_generator,
+        is_optional: node.is_optional,
+        key: (&node.key).into(),
+        type_params: node.function.type_params.as_ref().map(|x| x.into()),
+        params: node.function.params.iter().map(|x| x.into()).collect(),
+        return_type: node.function.return_type.as_ref().map(|x| x.into()),
+        body: node.function.body.as_ref().map(|x| x.into()),
+    }, context);
+}
+
+fn parse_private_method<'a>(node: &'a PrivateMethod, context: &mut Context<'a>) -> PrintItems {
     return parse_class_or_object_method(ClassOrObjectMethod {
         parameters_span_data: node.get_parameters_span_data(context),
         decorators: Some(&node.function.decorators),

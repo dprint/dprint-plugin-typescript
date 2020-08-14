@@ -1,0 +1,14 @@
+~~ lineWidth: 50 ~~
+== should format private methods ==
+abstract class Test {
+    #method1(   arg   : string  )   : test {
+        return    5   ;
+    }
+}
+
+[expect]
+abstract class Test {
+    #method1(arg: string): test {
+        return 5;
+    }
+}
