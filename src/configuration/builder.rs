@@ -387,17 +387,17 @@ impl ConfigurationBuilder {
     }
 
     /// The kind of separator to use in type literals.
-    pub fn type_literal_separator_kind(&mut self, value: SemiColonsOrCommas) -> &mut Self {
+    pub fn type_literal_separator_kind(&mut self, value: SemiColonOrComma) -> &mut Self {
         self.insert("typeLiteral.separatorKind", value.to_string().into())
     }
 
     /// The kind of separator to use in type literals when single line.
-    pub fn type_literal_separator_kind_single_line(&mut self, value: SemiColonsOrCommas) -> &mut Self {
+    pub fn type_literal_separator_kind_single_line(&mut self, value: SemiColonOrComma) -> &mut Self {
         self.insert("typeLiteral.separatorKind.singleLine", value.to_string().into())
     }
 
     /// The kind of separator to use in type literals when multi-line.
-    pub fn type_literal_separator_kind_multi_line(&mut self, value: SemiColonsOrCommas) -> &mut Self {
+    pub fn type_literal_separator_kind_multi_line(&mut self, value: SemiColonOrComma) -> &mut Self {
         self.insert("typeLiteral.separatorKind.multiLine", value.to_string().into())
     }
 
@@ -856,9 +856,9 @@ mod tests {
             .arrow_function_use_parentheses(UseParentheses::Maintain)
             .binary_expression_line_per_expression(false)
             .member_expression_line_per_expression(false)
-            .type_literal_separator_kind(SemiColonsOrCommas::Commas)
-            .type_literal_separator_kind_single_line(SemiColonsOrCommas::Commas)
-            .type_literal_separator_kind_multi_line(SemiColonsOrCommas::Commas)
+            .type_literal_separator_kind(SemiColonOrComma::Comma)
+            .type_literal_separator_kind_single_line(SemiColonOrComma::Comma)
+            .type_literal_separator_kind_multi_line(SemiColonOrComma::Comma)
             /* ignore comments */
             .ignore_node_comment_text("ignore")
             .ignore_file_comment_text("ignore-file")

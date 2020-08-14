@@ -1,4 +1,4 @@
-~~ semiColons: asi, typeLiteral.separatorKind.singleLine: commas ~~
+~~ semiColons: asi, typeLiteral.separatorKind.singleLine: comma ~~
 == should use commas when single line ==
 type Test = { p: string, u: number };
 
