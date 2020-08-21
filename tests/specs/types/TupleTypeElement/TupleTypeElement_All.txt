@@ -3,3 +3,9 @@ type Test = [label: string];
 
 [expect]
 type Test = [label: string];
+
+== should support optional and rest elements ==
+type Foo = [  first  : number  ,   second  ?  :   string  , ...rest   : any[]   ];
+
+[expect]
+type Foo = [first: number, second?: string, ...rest: any[]];
