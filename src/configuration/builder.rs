@@ -401,6 +401,22 @@ impl ConfigurationBuilder {
         self.insert("typeLiteral.separatorKind.multiLine", value.to_string().into())
     }
 
+    /* sorting */
+
+    /// Alphabetically sorts the import declaration's named imports.
+    ///
+    /// Default: true
+    pub fn import_declaration_sort_named_imports(&mut self, value: bool) -> &mut Self {
+        self.insert("importDeclaration.sortNamedImports", value.into())
+    }
+
+    /// Alphabetically sorts the export declaration's named exports.
+    ///
+    /// Default: true
+    pub fn export_declaration_sort_named_exports(&mut self, value: bool) -> &mut Self {
+        self.insert("exportDeclaration.sortNamedExports", value.into())
+    }
+
     /* ignore comments */
 
     /// The text to use for an ignore comment (ex. `// dprint-ignore`).
@@ -859,6 +875,9 @@ mod tests {
             .type_literal_separator_kind(SemiColonOrComma::Comma)
             .type_literal_separator_kind_single_line(SemiColonOrComma::Comma)
             .type_literal_separator_kind_multi_line(SemiColonOrComma::Comma)
+            /* sorting */
+            .import_declaration_sort_named_imports(false)
+            .export_declaration_sort_named_exports(false)
             /* ignore comments */
             .ignore_node_comment_text("ignore")
             .ignore_file_comment_text("ignore-file")
@@ -994,7 +1013,7 @@ mod tests {
             .while_statement_space_after_while_keyword(true);
 
         let inner_config = config.get_inner_config();
-        assert_eq!(inner_config.len(), 141);
+        assert_eq!(inner_config.len(), 143);
         let diagnostics = resolve_config(inner_config, &resolve_global_config(HashMap::new()).config).diagnostics;
         assert_eq!(diagnostics.len(), 0);
     }

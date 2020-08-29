@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::rc::Rc;
 use dprint_core::formatting::*;
 use dprint_core::formatting::{parser_helpers::*,condition_resolvers, conditions::*};
@@ -1153,6 +1154,7 @@ fn parse_named_import_or_export_specifiers<'a>(parent: &Node<'a>, specifiers: Ve
         prefer_hanging: get_prefer_hanging(parent, context),
         prefer_single_line: get_prefer_single_line(parent, context),
         surround_single_line_with_spaces: get_use_space(parent, context),
+        node_sorter: if should_sort_specifiers(parent, context) { Some(sort_by_text_case_insensitive()) } else { None },
     }, context);
 
     fn get_trailing_commas(parent_decl: &Node, context: &Context) -> TrailingCommas {
@@ -1183,6 +1185,14 @@ fn parse_named_import_or_export_specifiers<'a>(parent: &Node<'a>, specifiers: Ve
         match parent_decl {
             Node::NamedExport(_) => context.config.export_declaration_prefer_single_line,
             Node::ImportDecl(_) => context.config.import_declaration_prefer_single_line,
+            _ => unreachable!(),
+        }
+    }
+
+    fn should_sort_specifiers(parent_decl: &Node, context: &Context) -> bool {
+        match parent_decl {
+            Node::NamedExport(_) => context.config.export_declaration_sort_named_exports,
+            Node::ImportDecl(_) => context.config.import_declaration_sort_named_imports,
             _ => unreachable!(),
         }
     }
@@ -1958,6 +1968,7 @@ fn parse_object_lit<'a>(node: &'a ObjectLit, context: &mut Context<'a>) -> Print
         prefer_hanging: context.config.object_expression_prefer_hanging,
         prefer_single_line: context.config.object_expression_prefer_single_line,
         surround_single_line_with_spaces: true,
+        node_sorter: None,
     }, context)
 }
 
@@ -2000,6 +2011,7 @@ fn parse_sequence_expr<'a>(node: &'a SeqExpr, context: &mut Context<'a>) -> Prin
         custom_single_line_separator: None,
         multi_line_options: parser_helpers::MultiLineOptions::same_line_start_hanging_indent(),
         force_possible_newline_at_start: false,
+        node_sorter: None,
     }, context)
 }
 
@@ -2428,6 +2440,7 @@ fn parse_type_lit<'a>(node: &'a TsTypeLit, context: &mut Context<'a>) -> PrintIt
         prefer_hanging: context.config.type_literal_prefer_hanging,
         prefer_single_line: context.config.type_literal_prefer_single_line,
         surround_single_line_with_spaces: true,
+        node_sorter: None,
     }, context);
 
     fn semi_colon_or_comma_to_separator_value(value: SemiColonOrComma, context: &mut Context) -> SeparatorValue {
@@ -2556,6 +2569,7 @@ fn parse_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Cont
             custom_single_line_separator: None,
             multi_line_options: parser_helpers::MultiLineOptions::surround_newlines_indented(),
             force_possible_newline_at_start: false,
+            node_sorter: None,
         }, context));
     } else {
         if node.self_closing {
@@ -2811,6 +2825,7 @@ fn parse_object_pat<'a>(node: &'a ObjectPat, context: &mut Context<'a>) -> Print
         prefer_hanging: context.config.object_pattern_prefer_hanging,
         prefer_single_line: context.config.object_pattern_prefer_single_line,
         surround_single_line_with_spaces: true,
+        node_sorter: None,
     }, context));
     if node.optional { items.push_str("?"); }
     items.extend(parse_type_ann_with_colon_if_exists(&node.type_ann, context));
@@ -3696,6 +3711,7 @@ fn parse_var_decl<'a>(node: &'a VarDecl, context: &mut Context<'a>) -> PrintItem
             custom_single_line_separator: None,
             multi_line_options: parser_helpers::MultiLineOptions::same_line_start_hanging_indent(),
             force_possible_newline_at_start: false,
+            node_sorter: None,
         }, context));
     }
 
@@ -4171,6 +4187,7 @@ fn parse_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>)
         custom_single_line_separator: None,
         multi_line_options: parser_helpers::MultiLineOptions::surround_newlines_indented(),
         force_possible_newline_at_start: false,
+        node_sorter: None,
     }, context));
     items.push_str(">");
 
@@ -4596,6 +4613,7 @@ fn parse_array_like_nodes<'a>(opts: ParseArrayLikeNodesOptions<'a>, context: &mu
             custom_single_line_separator: None,
             multi_line_options: parser_helpers::MultiLineOptions::surround_newlines_indented(),
             force_possible_newline_at_start: false,
+            node_sorter: None,
         }, context)
     }, |_| None, ParseSurroundedByTokensOptions {
         open_token: "[",
@@ -4832,6 +4850,7 @@ fn parse_parameters_or_arguments<'a, F>(opts: ParseParametersOrArgumentsOptions<
                 custom_single_line_separator: None,
                 multi_line_options: parser_helpers::MultiLineOptions::surround_newlines_indented(),
                 force_possible_newline_at_start: is_parameters,
+                node_sorter: None,
             }, context));
         }
 
@@ -5024,6 +5043,7 @@ struct ParseSeparatedValuesOptions<'a> {
     custom_single_line_separator: Option<PrintItems>,
     multi_line_options: parser_helpers::MultiLineOptions,
     force_possible_newline_at_start: bool,
+    node_sorter: Option<Box<dyn Fn(&Option<Node<'a>>, &Option<Node<'a>>, &mut Context<'a>) -> std::cmp::Ordering>>,
 }
 
 #[inline]
@@ -5042,13 +5062,33 @@ fn parse_separated_values_with_result<'a>(
     let separator = opts.separator;
     let indent_width = context.config.indent_width;
     let compute_lines_span = opts.allow_blank_lines; // save time otherwise
+    let node_sorter = opts.node_sorter;
     parser_helpers::parse_separated_values(|is_multi_line_or_hanging_ref| {
         let is_multi_line_or_hanging = is_multi_line_or_hanging_ref.create_resolver();
         let mut parsed_nodes = Vec::new();
         let nodes_count = nodes.len();
+        let sorted_indexes = match node_sorter {
+            Some(sorter) => {
+                let mut nodes_with_indexes = nodes.iter().enumerate().collect::<Vec<_>>();
+                nodes_with_indexes.sort_by(|a, b| sorter(a.1, b.1, context));
+                let mut old_to_new_index = HashMap::new();
+
+                for (new_index, old_index) in nodes_with_indexes.into_iter().map(|(index, _)| index).enumerate() {
+                    old_to_new_index.insert(old_index, new_index);
+                }
+
+                Some(old_to_new_index)
+            },
+            None => None,
+        };
+
         for (i, value) in nodes.into_iter().enumerate() {
+            let node_index = match &sorted_indexes {
+                Some(old_to_new_index) => *old_to_new_index.get(&i).unwrap(),
+                None => i,
+            };
             let (allow_inline_multi_line, allow_inline_single_line) = if let Some(value) = &value {
-                let is_last_value = i + 1 == nodes_count; // allow the last node to be single line
+                let is_last_value = node_index + 1 == nodes_count; // allow the last node to be single line
                 (allows_inline_multi_line(value, nodes_count > 1), is_last_value)
             } else { (false, false) };
             let lines_span = if compute_lines_span {
@@ -5064,7 +5104,7 @@ fn parse_separated_values_with_result<'a>(
                     PrintItems::new()
                 }
             } else {
-                let parsed_separator = get_parsed_separator(&separator, i == nodes_count - 1, &is_multi_line_or_hanging);
+                let parsed_separator = get_parsed_separator(&separator, node_index == nodes_count - 1, &is_multi_line_or_hanging);
                 parse_node_with_separator(value, parsed_separator, context)
             });
             parsed_nodes.push(parser_helpers::ParsedValue {
@@ -5075,7 +5115,21 @@ fn parse_separated_values_with_result<'a>(
             });
         }
 
-        parsed_nodes
+        match sorted_indexes {
+            Some(sorted_indexes) => {
+                let mut sorted_parsed_nodes = Vec::with_capacity(parsed_nodes.len());
+                for _ in 0..parsed_nodes.len() {
+                    sorted_parsed_nodes.push(None);
+                }
+
+                for (i, parsed_node) in parsed_nodes.into_iter().enumerate() {
+                    sorted_parsed_nodes[*sorted_indexes.get(&i).unwrap()] = Some(parsed_node);
+                }
+
+                sorted_parsed_nodes.into_iter().map(|x| x.unwrap()).collect()
+            },
+            None => parsed_nodes,
+        }
     }, parser_helpers::ParseSeparatedValuesOptions {
         prefer_hanging: opts.prefer_hanging,
         force_use_new_lines: opts.force_use_new_lines,
@@ -5306,6 +5360,7 @@ fn parse_extends_or_implements<'a>(opts: ParseExtendsOrImplementsOptions<'a>, co
             custom_single_line_separator: None,
             multi_line_options: parser_helpers::MultiLineOptions::new_line_start(),
             force_possible_newline_at_start: false,
+            node_sorter: None,
         }, context));
         items
     })));
@@ -5320,6 +5375,7 @@ struct ParseObjectLikeNodeOptions<'a> {
     prefer_hanging: bool,
     prefer_single_line: bool,
     surround_single_line_with_spaces: bool,
+    node_sorter: Option<Box<dyn Fn(&Option<Node<'a>>, &Option<Node<'a>>, &mut Context<'a>) -> std::cmp::Ordering>>,
 }
 
 fn parse_object_like_node<'a>(opts: ParseObjectLikeNodeOptions<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -5351,6 +5407,7 @@ fn parse_object_like_node<'a>(opts: ParseObjectLikeNodeOptions<'a>, context: &mu
                 custom_single_line_separator: None,
                 multi_line_options: parser_helpers::MultiLineOptions::surround_newlines_indented(),
                 force_possible_newline_at_start: false,
+                node_sorter: opts.node_sorter,
             }, context)
         }
     }, |_| None, ParseSurroundedByTokensOptions {
@@ -5551,6 +5608,7 @@ fn parse_decorators<'a>(decorators: &'a Vec<Decorator>, is_inline: bool, context
         custom_single_line_separator: None,
         multi_line_options: parser_helpers::MultiLineOptions::same_line_no_indent(),
         force_possible_newline_at_start: false,
+        node_sorter: None,
     }, context);
 
     items.extend(separated_values_result.items);
@@ -6670,4 +6728,29 @@ fn get_parsed_semi_colon(option: SemiColons, is_trailing: bool, is_multi_line: &
 
 fn create_span_data(lo: BytePos, hi: BytePos) -> Span {
     Span { lo, hi, ctxt: Default::default() }
+}
+
+/* sort functions */
+
+fn sort_by_text_case_insensitive<'a>() -> Box<dyn Fn(&Option<Node<'a>>, &Option<Node<'a>>, &mut Context<'a>) -> std::cmp::Ordering> {
+    Box::new(|a, b, context| {
+        if let Some(a) = a.as_ref() {
+            if let Some(b) = b.as_ref() {
+                let case_insensitive_result = a.text(context).to_lowercase().cmp(&b.text(context).to_lowercase());
+                if case_insensitive_result == std::cmp::Ordering::Equal {
+                    a.text(context).cmp(&b.text(context)) // do a case sensitive comparison at this point
+                } else {
+                    case_insensitive_result
+                }
+            } else {
+                std::cmp::Ordering::Greater
+            }
+        } else {
+            if b.is_none() {
+                std::cmp::Ordering::Equal
+            } else {
+                std::cmp::Ordering::Less
+            }
+        }
+    })
 }

@@ -79,10 +79,16 @@ import { testingThisOut as alias } from "testingtttttttttttttttttttttttttttttt";
 import { testingThisOut as alias } from "testingtttttttttttttttttttttttttttttt";
 
 == should not be single line when has two named imports and exceeding the line width ==
-import { testingThisOut, test } from "testingtttttttttttttttttttttttttttttt";
+import { test, testingThisOut } from "testingtttttttttttttttttttttttttttttt";
 
 [expect]
 import {
-    testingThisOut,
     test,
+    testingThisOut,
 } from "testingtttttttttttttttttttttttttttttt";
+
+== should sort the imports in alphabetical order ==
+import { d, c, B, a, E, f2, f, f1} from "test";
+
+[expect]
+import { a, B, c, d, E, f, f1, f2 } from "test";

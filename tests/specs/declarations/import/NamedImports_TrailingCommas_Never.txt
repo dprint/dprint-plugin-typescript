@@ -10,3 +10,15 @@ import {
     n2,
     n3
 } from "test";
+
+== should sort the imports in alphabetical order taking into account the comma ==
+import {
+    n3, n2, n1
+} from "test";
+
+[expect]
+import {
+    n1,
+    n2,
+    n3
+} from "test";

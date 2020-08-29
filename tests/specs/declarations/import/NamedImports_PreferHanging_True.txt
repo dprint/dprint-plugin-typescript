@@ -7,11 +7,11 @@ import { n1, n2,
 import { n1, n2, n3 } from "test";
 
 == should format hanging when long enough ==
-import { testing, thisOut, aBit as something } from "test";
+import { test1, test2, test3 as something } from "test";
 
 [expect]
-import { testing, thisOut,
-    aBit as something } from "test";
+import { test1, test2,
+    test3 as something } from "test";
 
 == should break up on `as` when really long on the same line ==
 import { loooooooooooooooooooooooooooooooooooong as alias, test } from "test";

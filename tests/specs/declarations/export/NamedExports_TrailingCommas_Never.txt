@@ -10,3 +10,15 @@ export {
     n2,
     n3
 } from "test";
+
+== should sort the exports in alphabetical order taking into account the comma ==
+export {
+    n3, n2, n1
+} from "test";
+
+[expect]
+export {
+    n1,
+    n2,
+    n3
+} from "test";

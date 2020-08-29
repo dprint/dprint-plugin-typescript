@@ -56,10 +56,10 @@ export { testingThisOut as alias } from "testingtttttttttttttttttttttttttttttt";
 export { testingThisOut as alias } from "testingtttttttttttttttttttttttttttttt";
 
 == should not be single line when has two named exports and exceeding the line width ==
-export { testingThisOut, test } from "testingtttttttttttttttttttttttttttttt";
+export { test, testingThisOut } from "testingtttttttttttttttttttttttttttttt";
 
 [expect]
 export {
-    testingThisOut,
     test,
+    testingThisOut,
 } from "testingtttttttttttttttttttttttttttttt";

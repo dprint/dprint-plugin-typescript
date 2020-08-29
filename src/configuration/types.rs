@@ -253,6 +253,11 @@ pub struct Configuration {
     pub type_literal_separator_kind_single_line: SemiColonOrComma,
     #[serde(rename = "typeLiteral.separatorKind.multiLine")]
     pub type_literal_separator_kind_multi_line: SemiColonOrComma,
+    /* sorting */
+    #[serde(rename = "importDeclaration.sortNamedImports")]
+    pub import_declaration_sort_named_imports: bool,
+    #[serde(rename = "exportDeclaration.sortNamedExports")]
+    pub export_declaration_sort_named_exports: bool,
     /* ignore comments */
     pub ignore_node_comment_text: String,
     pub ignore_file_comment_text: String,
