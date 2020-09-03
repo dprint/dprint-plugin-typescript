@@ -600,7 +600,7 @@ generate_traits![ModuleItem, Stmt, ModuleDecl];
 generate_traits![ObjectPatProp, KeyValue, Assign, Rest];
 generate_traits![PatOrExpr, Pat, Expr];
 generate_traits![TsEnumMemberId, Ident, Str];
-generate_traits![TsLit, Number, Str, Bool, Tpl];
+generate_traits![TsLit, Number, Str, Bool, Tpl, BigInt];
 generate_traits![TsTypeElement, TsCallSignatureDecl, TsConstructSignatureDecl, TsPropertySignature, TsMethodSignature, TsIndexSignature];
 generate_traits![TsFnParam, Ident, Array, Rest, Object];
 generate_traits![Expr, This, Array, Object, Fn, Unary, Update, Bin, Assign, Member, Cond, Call, New, Seq, Ident, Lit, Tpl, TaggedTpl, Arrow,
