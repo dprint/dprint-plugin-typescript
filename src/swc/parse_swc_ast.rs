@@ -1,5 +1,5 @@
 use std::collections::{HashMap};
-use std::path::PathBuf;
+use std::path::Path;
 use std::rc::Rc;
 use swc_common::{
     errors::{Handler, Emitter, DiagnosticBuilder},
@@ -17,7 +17,7 @@ pub struct ParsedSourceFile<'a> {
     pub trailing_comments: HashMap<BytePos, Vec<Comment>>,
 }
 
-pub fn parse_swc_ast<'a>(file_path: &PathBuf, file_text: &'a str) -> Result<ParsedSourceFile<'a>, String> {
+pub fn parse_swc_ast<'a>(file_path: &Path, file_text: &'a str) -> Result<ParsedSourceFile<'a>, String> {
     match parse_inner(file_path, file_text) {
         Ok(result) => Ok(result),
         Err(err) => {
@@ -35,7 +35,7 @@ pub fn parse_swc_ast<'a>(file_path: &PathBuf, file_text: &'a str) -> Result<Pars
     }
 }
 
-fn parse_inner<'a>(file_path: &PathBuf, file_text: &'a str) -> Result<ParsedSourceFile<'a>, String> {
+fn parse_inner<'a>(file_path: &Path, file_text: &'a str) -> Result<ParsedSourceFile<'a>, String> {
     let handler = Handler::with_emitter(false, false, Box::new(EmptyEmitter {}));
 
     let file_bytes = file_text.as_bytes();
@@ -87,9 +87,9 @@ fn parse_inner<'a>(file_path: &PathBuf, file_text: &'a str) -> Result<ParsedSour
         file_bytes,
     });
 
-    fn should_parse_as_jsx(file_path: &PathBuf) -> bool {
+    fn should_parse_as_jsx(file_path: &Path) -> bool {
         if let Some(extension) = get_lowercase_extension(file_path) {
-            return extension == "tsx" || extension == "jsx" || extension == "js";
+            return extension == "tsx" || extension == "jsx" || extension == "js" || extension == "mjs";
         }
         return true;
     }
@@ -106,7 +106,7 @@ fn parse_inner<'a>(file_path: &PathBuf, file_text: &'a str) -> Result<ParsedSour
     }
 }
 
-fn get_lowercase_extension(file_path: &PathBuf) -> Option<String> {
+fn get_lowercase_extension(file_path: &Path) -> Option<String> {
     file_path.extension().and_then(|e| e.to_str()).map(|f| f.to_lowercase())
 }
 
@@ -135,6 +135,7 @@ fn format_diagnostic(error: &DiagnosticBuilder, file_text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     #[test]
     fn should_error_on_syntax_diagnostic() {

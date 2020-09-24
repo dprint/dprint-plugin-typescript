@@ -1,0 +1,14 @@
+-- fileName: test.mjs --
+== should format mjs file ==
+class Test{ prop = 5}
+
+[expect]
+class Test {
+    prop = 5;
+}
+
+== should support JSX in mjs file ==
+const test     = <Test>Test</Test>;
+
+[expect]
+const test = <Test>Test</Test>;

@@ -24,13 +24,12 @@ fn test_performance() {
         .quote_style(QuoteStyle::PreferSingle)
         .build();
     let file_text = fs::read_to_string("tests/performance/checker.txt").expect("Expected to read.");
-    let formatter = Formatter::new(config);
 
     //debug_here!();
 
     for i in 0..10 {
         let start = Instant::now();
-        let result = formatter.format_text(&PathBuf::from("checker.ts"), &file_text).expect("Could not parse...");
+        let result = format_text(&PathBuf::from("checker.ts"), &file_text, &config).expect("Could not parse...");
 
         println!("{}ms", start.elapsed().as_millis());
         println!("---");
@@ -54,8 +53,7 @@ fn test_specs() {
             let config_result = resolve_config(parse_config_key_map(spec_config), &global_config);
             ensure_no_diagnostics(&config_result.diagnostics);
 
-            let formatter = Formatter::new(config_result.config);
-            formatter.format_text(&file_name, &file_text)
+            format_text(&file_name, &file_text, &config_result.config)
         }
     )
 }
