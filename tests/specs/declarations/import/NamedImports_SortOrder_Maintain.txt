@@ -1,0 +1,15 @@
+~~ lineWidth: 40, importDeclaration.sortNamedImports: maintain ~~
+== should maintain sort order ==
+import {
+    n2,n1,
+    n3, N2, N3, N1} from "test";
+
+[expect]
+import {
+    n2,
+    n1,
+    n3,
+    N2,
+    N3,
+    N1,
+} from "test";

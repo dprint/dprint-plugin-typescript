@@ -4556,13 +4556,22 @@ fn parse_trailing_comments<'a>(node: &dyn SpanDataContainer, context: &mut Conte
 }
 
 fn parse_comments_as_trailing<'a>(node: &dyn SpanDataContainer, trailing_comments: CommentsIterator<'a>, context: &mut Context<'a>) -> PrintItems {
-    // use the roslyn definition of trailing comments
-    let node_end_line = node.end_line(context);
-    let trailing_comments_on_same_line = trailing_comments.into_iter()
-        .filter(|c|c.start_line(context) <= node_end_line) // less than or equal instead of just equal in order to include "forgotten" comments
-        .collect::<Vec<_>>();
-    let first_unhandled_comment = trailing_comments_on_same_line.iter().filter(|c| !context.has_handled_comment(&c)).next();
     let mut items = PrintItems::new();
+
+    // don't do extra work
+    if trailing_comments.is_empty() {
+        return items;
+    }
+
+    let trailing_comments_on_same_line = get_trailing_comments_same_line(node, trailing_comments, context);
+
+    // don't do extra work
+    if trailing_comments_on_same_line.is_empty() {
+        return items;
+    }
+
+    // now handle the comments
+    let first_unhandled_comment = trailing_comments_on_same_line.iter().filter(|c| !context.has_handled_comment(&c)).next();
 
     if let Some(first_unhandled_comment) = first_unhandled_comment {
         if first_unhandled_comment.kind == CommentKind::Block {
@@ -4572,7 +4581,43 @@ fn parse_comments_as_trailing<'a>(node: &dyn SpanDataContainer, trailing_comment
 
     items.extend(parse_comment_collection(trailing_comments_on_same_line.into_iter(), Some(node), None, context));
 
-    items
+    return items;
+
+    fn get_trailing_comments_same_line<'a>(
+        node: &dyn SpanDataContainer,
+        trailing_comments: CommentsIterator<'a>,
+        context: &mut Context<'a>,
+    ) -> Vec<&'a Comment> {
+        // use the roslyn definition of trailing comments
+        let node_end_line = node.end_line(context);
+        let trailing_comments_on_same_line = trailing_comments.into_iter()
+            .filter(|c|c.start_line(context) <= node_end_line) // less than or equal instead of just equal in order to include "forgotten" comments
+            .collect::<Vec<_>>();
+
+        // don't do extra work
+        if trailing_comments_on_same_line.is_empty() {
+            return trailing_comments_on_same_line;
+        }
+
+        // block comments after a comma on the same line as the next token are not considered a trailing comment of this node
+        // ex. `a, /* 1 */ b`, the comment belongs to `b` and not `a`
+        let comma_end = if node.text(context) == "," {
+            Some(node.hi())
+        } else {
+            context.token_finder.get_next_token_if_comma(&node.span_data()).map(|t| t.hi())
+        };
+        if let Some(comma_end) = comma_end {
+            let next_token_pos = context.token_finder.get_next_token_pos_after(&comma_end);
+            let next_token_pos_line_start = next_token_pos.start_line(context);
+            if next_token_pos_line_start == node_end_line {
+                return trailing_comments_on_same_line
+                    .into_iter()
+                    .filter(|c| c.lo() < comma_end)
+                    .collect::<Vec<_>>()
+            }
+        }
+        return trailing_comments_on_same_line;
+    }
 }
 
 fn get_jsx_empty_expr_comments<'a>(node: &JSXEmptyExpr, context: &mut Context<'a>) -> CommentsIterator<'a> {
