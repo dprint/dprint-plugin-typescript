@@ -11,16 +11,16 @@ export { n1, n2, n3 } from "test";
 
 == should format on multiple lines when long enough ==
 export {
-    testing,
-    thisOut,
-    aBit,
+    test1,
+    test2,
+    test3,
 } from "test";
 
 [expect]
 export {
-    testing,
-    thisOut,
-    aBit,
+    test1,
+    test2,
+    test3,
 } from "test";
 
 == should format on multiple lines when short enough, but there's a comment ==

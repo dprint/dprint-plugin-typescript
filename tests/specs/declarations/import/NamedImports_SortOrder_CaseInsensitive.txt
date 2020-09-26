@@ -1,0 +1,74 @@
+~~ lineWidth: 40, importDeclaration.sortNamedImports: caseInsensitive ~~
+== should sort case insensitive ==
+import {
+    n2,n1,
+    n3, N2, N3, N1} from "test";
+
+[expect]
+import {
+    N1,
+    n1,
+    N2,
+    n2,
+    N3,
+    n3,
+} from "test";
+
+== should handle and move around comments ==
+import {/*1*/
+    /*2*/ n2 /*3*/,n1, // 4
+    /*5*/n3/*6*/, /*7*/N2/*8*/} from "test";
+
+[expect]
+import {
+    n1, // 4
+    /*7*/ N2, /*8*/
+    /*1*/
+    /*2*/ n2, /*3*/
+    /*5*/ n3, /*6*/
+} from "test";
+
+== should handle and move around line comments ==
+import {delta, // 4
+    charlie, // 3
+    Bravo, // 2
+    alpha, // 1
+} from "test";
+
+[expect]
+import {
+    alpha, // 1
+    Bravo, // 2
+    charlie, // 3
+    delta, // 4
+} from "test";
+
+== should move around comments on single line ==
+import {/*1*/b, a} from "test";
+import {b/*2*/, a} from "test";
+import {b, /*3*/a} from "test";
+// this change is ok... people shouldn't place comments
+// after the identifier and before the token
+import {b/*4*/, a, c} from "test";
+
+[expect]
+import { a, /*1*/ b } from "test";
+import { a, b /*2*/ } from "test";
+import { /*3*/ a, b } from "test";
+// this change is ok... people shouldn't place comments
+// after the identifier and before the token
+import { a, b, /*4*/ c } from "test";
+
+== should not move a leading comment line ==
+import { // test
+    testing,
+    other,
+    outttttttttttttttt
+} from "asdf";
+
+[expect]
+import { // test
+    other,
+    outttttttttttttttt,
+    testing,
+} from "asdf";

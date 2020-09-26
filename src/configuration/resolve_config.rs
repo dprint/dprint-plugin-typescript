@@ -56,6 +56,9 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
         member_expression_line_per_expression: get_value(&mut config, "memberExpression.linePerExpression", false, &mut diagnostics),
         type_literal_separator_kind_single_line: get_value(&mut config, "typeLiteral.separatorKind.singleLine", type_literal_separator_kind, &mut diagnostics),
         type_literal_separator_kind_multi_line: get_value(&mut config, "typeLiteral.separatorKind.multiLine", type_literal_separator_kind, &mut diagnostics),
+        /* sorting */
+        import_declaration_sort_named_imports: get_value(&mut config, "importDeclaration.sortNamedImports", SortOrder::CaseInsensitive, &mut diagnostics),
+        export_declaration_sort_named_exports: get_value(&mut config, "exportDeclaration.sortNamedExports", SortOrder::CaseInsensitive, &mut diagnostics),
         /* ignore comments */
         ignore_node_comment_text: get_value(&mut config, "ignoreNodeCommentText", String::from("dprint-ignore"), &mut diagnostics),
         ignore_file_comment_text: get_value(&mut config, "ignoreFileCommentText", String::from("dprint-ignore-file"), &mut diagnostics),

@@ -1,0 +1,15 @@
+~~ lineWidth: 40, exportDeclaration.sortNamedExports: caseSensitive ~~
+== should sort case sensitive ==
+export {
+    n2,n1,
+    n3, N2, N3, N1} from "test";
+
+[expect]
+export {
+    N1,
+    N2,
+    N3,
+    n1,
+    n2,
+    n3,
+} from "test";

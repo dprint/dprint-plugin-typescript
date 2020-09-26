@@ -11,16 +11,16 @@ import { n1, n2, n3 } from "test";
 
 == should format on multiple lines when long enough ==
 import {
-    testing,
-    thisOut,
-    aBit,
+    test1,
+    test2,
+    test3,
 } from "test";
 
 [expect]
 import {
-    testing,
-    thisOut,
-    aBit,
+    test1,
+    test2,
+    test3,
 } from "test";
 
 == should format on multiple lines when short enough, but there's a comment ==

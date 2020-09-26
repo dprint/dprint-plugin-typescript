@@ -1,0 +1,74 @@
+~~ lineWidth: 40, exportDeclaration.sortNamedExports: caseInsensitive ~~
+== should sort case insensitive ==
+export {
+    n2,n1,
+    n3, N2, N3, N1} from "test";
+
+[expect]
+export {
+    N1,
+    n1,
+    N2,
+    n2,
+    N3,
+    n3,
+} from "test";
+
+== should handle and move around comments ==
+export {/*1*/
+    /*2*/ n2 /*3*/,n1, // 4
+    /*5*/n3/*6*/, /*7*/N2/*8*/} from "test";
+
+[expect]
+export {
+    n1, // 4
+    /*7*/ N2, /*8*/
+    /*1*/
+    /*2*/ n2, /*3*/
+    /*5*/ n3, /*6*/
+} from "test";
+
+== should handle and move around line comments ==
+export {delta, // 4
+    charlie, // 3
+    Bravo, // 2
+    alpha, // 1
+} from "test";
+
+[expect]
+export {
+    alpha, // 1
+    Bravo, // 2
+    charlie, // 3
+    delta, // 4
+} from "test";
+
+== should move around comments on single line ==
+export {/*1*/b, a} from "test";
+export {b/*2*/, a} from "test";
+export {b, /*3*/a} from "test";
+// this change is ok... people shouldn't place comments
+// after the identifier and before the token
+export {b/*4*/, a, c} from "test";
+
+[expect]
+export { a, /*1*/ b } from "test";
+export { a, b /*2*/ } from "test";
+export { /*3*/ a, b } from "test";
+// this change is ok... people shouldn't place comments
+// after the identifier and before the token
+export { a, b, /*4*/ c } from "test";
+
+== should not move a leading comment line ==
+export { // test
+    testing,
+    other,
+    outttttttttttttttt
+} from "asdf";
+
+[expect]
+export { // test
+    other,
+    outttttttttttttttt,
+    testing,
+} from "asdf";

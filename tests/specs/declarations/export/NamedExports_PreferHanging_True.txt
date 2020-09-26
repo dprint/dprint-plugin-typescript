@@ -27,11 +27,11 @@ export {
 } from "test";
 
 == should always do a newline as a unit ==
-export { testing, thisOut, here as alias } from "test";
+export { test1, test2, test3 as alias } from "test";
 
 [expect]
-export { testing, thisOut,
-    here as alias } from "test";
+export { test1, test2,
+    test3 as alias } from "test";
 
 == should break up on `as` when really long on the same line ==
 export { loooooooooooooonnnnnnngggggggg as alias, t } from "test";

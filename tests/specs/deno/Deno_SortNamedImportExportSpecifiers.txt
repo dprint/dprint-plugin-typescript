@@ -1,0 +1,8 @@
+~~ deno: true ~~
+== should sort named imports and exports case insensitive with deno config ==
+import { C, c, A, a, B, b} from "test.ts";
+export { C, c, A, a, B, b} from "test.ts";
+
+[expect]
+import { A, a, B, b, C, c } from "test.ts";
+export { A, a, B, b, C, c } from "test.ts";

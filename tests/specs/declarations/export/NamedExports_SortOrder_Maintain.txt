@@ -1,0 +1,15 @@
+~~ lineWidth: 40, exportDeclaration.sortNamedExports: maintain ~~
+== should maintain sort order ==
+export {
+    n2,n1,
+    n3, N2, N3, N1} from "test";
+
+[expect]
+export {
+    n2,
+    n1,
+    n3,
+    N2,
+    N3,
+    N1,
+} from "test";
