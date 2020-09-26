@@ -233,6 +233,25 @@ generate_str_to_from![
     [Comma, "comma"]
 ];
 
+/// The kind of sort ordering to use.
+#[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SortOrder {
+    /// Maintains the current ordering.
+    Maintain,
+    /// Alphabetically and case sensitive.
+    CaseSensitive,
+    /// Alphabetically and case insensitive.
+    CaseInsensitive,
+}
+
+generate_str_to_from![
+    SortOrder,
+    [Maintain, "maintain"],
+    [CaseSensitive, "caseSensitive"],
+    [CaseInsensitive, "caseInsensitive"]
+];
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Configuration {
@@ -255,9 +274,9 @@ pub struct Configuration {
     pub type_literal_separator_kind_multi_line: SemiColonOrComma,
     /* sorting */
     #[serde(rename = "importDeclaration.sortNamedImports")]
-    pub import_declaration_sort_named_imports: bool,
+    pub import_declaration_sort_named_imports: SortOrder,
     #[serde(rename = "exportDeclaration.sortNamedExports")]
-    pub export_declaration_sort_named_exports: bool,
+    pub export_declaration_sort_named_exports: SortOrder,
     /* ignore comments */
     pub ignore_node_comment_text: String,
     pub ignore_file_comment_text: String,

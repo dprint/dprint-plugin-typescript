@@ -405,16 +405,16 @@ impl ConfigurationBuilder {
 
     /// Alphabetically sorts the import declaration's named imports.
     ///
-    /// Default: true
-    pub fn import_declaration_sort_named_imports(&mut self, value: bool) -> &mut Self {
-        self.insert("importDeclaration.sortNamedImports", value.into())
+    /// Default: Case insensitive
+    pub fn import_declaration_sort_named_imports(&mut self, value: SortOrder) -> &mut Self {
+        self.insert("importDeclaration.sortNamedImports", value.to_string().into())
     }
 
     /// Alphabetically sorts the export declaration's named exports.
     ///
-    /// Default: true
-    pub fn export_declaration_sort_named_exports(&mut self, value: bool) -> &mut Self {
-        self.insert("exportDeclaration.sortNamedExports", value.into())
+    /// Default: Case insensitive
+    pub fn export_declaration_sort_named_exports(&mut self, value: SortOrder) -> &mut Self {
+        self.insert("exportDeclaration.sortNamedExports", value.to_string().into())
     }
 
     /* ignore comments */
@@ -876,8 +876,8 @@ mod tests {
             .type_literal_separator_kind_single_line(SemiColonOrComma::Comma)
             .type_literal_separator_kind_multi_line(SemiColonOrComma::Comma)
             /* sorting */
-            .import_declaration_sort_named_imports(false)
-            .export_declaration_sort_named_exports(false)
+            .import_declaration_sort_named_imports(SortOrder::Maintain)
+            .export_declaration_sort_named_exports(SortOrder::Maintain)
             /* ignore comments */
             .ignore_node_comment_text("ignore")
             .ignore_file_comment_text("ignore-file")
