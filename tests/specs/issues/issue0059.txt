@@ -1,0 +1,18 @@
+~~ deno: true ~~
+== should format without adding newlines ==
+import {
+  assert,
+  assertThrows,
+  assertEquals,
+  assertStringContains,
+  unitTest,
+} from "./test_util.ts";
+
+[expect]
+import {
+  assert,
+  assertEquals,
+  assertStringContains,
+  assertThrows,
+  unitTest,
+} from "./test_util.ts";

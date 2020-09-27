@@ -1154,6 +1154,7 @@ fn parse_named_import_or_export_specifiers<'a>(parent: &Node<'a>, specifiers: Ve
         prefer_hanging: get_prefer_hanging(parent, context),
         prefer_single_line: get_prefer_single_line(parent, context),
         surround_single_line_with_spaces: get_use_space(parent, context),
+        allow_blank_lines: false,
         node_sorter: get_node_sorter(parent, context),
     }, context);
 
@@ -1971,6 +1972,7 @@ fn parse_object_lit<'a>(node: &'a ObjectLit, context: &mut Context<'a>) -> Print
         prefer_hanging: context.config.object_expression_prefer_hanging,
         prefer_single_line: context.config.object_expression_prefer_single_line,
         surround_single_line_with_spaces: true,
+        allow_blank_lines: true,
         node_sorter: None,
     }, context)
 }
@@ -2443,6 +2445,7 @@ fn parse_type_lit<'a>(node: &'a TsTypeLit, context: &mut Context<'a>) -> PrintIt
         prefer_hanging: context.config.type_literal_prefer_hanging,
         prefer_single_line: context.config.type_literal_prefer_single_line,
         surround_single_line_with_spaces: true,
+        allow_blank_lines: true,
         node_sorter: None,
     }, context);
 
@@ -2828,6 +2831,7 @@ fn parse_object_pat<'a>(node: &'a ObjectPat, context: &mut Context<'a>) -> Print
         prefer_hanging: context.config.object_pattern_prefer_hanging,
         prefer_single_line: context.config.object_pattern_prefer_single_line,
         surround_single_line_with_spaces: true,
+        allow_blank_lines: true,
         node_sorter: None,
     }, context));
     if node.optional { items.push_str("?"); }
@@ -5111,6 +5115,13 @@ fn parse_separated_values_with_result<'a>(
     let indent_width = context.config.indent_width;
     let compute_lines_span = opts.allow_blank_lines; // save time otherwise
     let node_sorter = opts.node_sorter;
+
+    // would need to make this take into account the new position of the nodes
+    #[cfg(debug_assertions)]
+    if node_sorter.is_some() && compute_lines_span {
+        panic!("Not implemented scenario. Cannot computed lines span and allow blank lines");
+    }
+
     parser_helpers::parse_separated_values(|is_multi_line_or_hanging_ref| {
         let is_multi_line_or_hanging = is_multi_line_or_hanging_ref.create_resolver();
         let mut parsed_nodes = Vec::new();
@@ -5423,6 +5434,7 @@ struct ParseObjectLikeNodeOptions<'a> {
     prefer_hanging: bool,
     prefer_single_line: bool,
     surround_single_line_with_spaces: bool,
+    allow_blank_lines: bool,
     node_sorter: Option<Box<dyn Fn(&Option<Node<'a>>, &Option<Node<'a>>, &mut Context<'a>) -> std::cmp::Ordering>>,
 }
 
@@ -5448,7 +5460,7 @@ fn parse_object_like_node<'a>(opts: ParseObjectLikeNodeOptions<'a>, context: &mu
                 nodes: opts.members.into_iter().map(|x| Some(x)).collect(),
                 prefer_hanging: opts.prefer_hanging,
                 force_use_new_lines: force_multi_line,
-                allow_blank_lines: true,
+                allow_blank_lines: opts.allow_blank_lines,
                 separator: opts.separator,
                 single_line_space_at_start: opts.surround_single_line_with_spaces,
                 single_line_space_at_end: opts.surround_single_line_with_spaces,
