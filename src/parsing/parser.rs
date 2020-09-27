@@ -1193,7 +1193,7 @@ fn parse_named_import_or_export_specifiers<'a>(parent: &Node<'a>, specifiers: Ve
     fn get_node_sorter<'a>(
         parent_decl: &Node,
         context: &Context<'a>,
-    ) -> Option<Box<dyn Fn(&Option<Node<'a>>, &Option<Node<'a>>, &mut Context<'a>) -> std::cmp::Ordering>> {
+    ) -> Option<Box<dyn Fn(&Option<Node<'a>>, &Option<Node<'a>>, &Context<'a>) -> std::cmp::Ordering>> {
         match parent_decl {
             Node::NamedExport(_) => get_node_sorter_from_order(context.config.export_declaration_sort_named_exports),
             Node::ImportDecl(_) => get_node_sorter_from_order(context.config.import_declaration_sort_named_imports),
@@ -5095,7 +5095,7 @@ struct ParseSeparatedValuesOptions<'a> {
     custom_single_line_separator: Option<PrintItems>,
     multi_line_options: parser_helpers::MultiLineOptions,
     force_possible_newline_at_start: bool,
-    node_sorter: Option<Box<dyn Fn(&Option<Node<'a>>, &Option<Node<'a>>, &mut Context<'a>) -> std::cmp::Ordering>>,
+    node_sorter: Option<Box<dyn Fn(&Option<Node<'a>>, &Option<Node<'a>>, &Context<'a>) -> std::cmp::Ordering>>,
 }
 
 #[inline]
@@ -5435,7 +5435,7 @@ struct ParseObjectLikeNodeOptions<'a> {
     prefer_single_line: bool,
     surround_single_line_with_spaces: bool,
     allow_blank_lines: bool,
-    node_sorter: Option<Box<dyn Fn(&Option<Node<'a>>, &Option<Node<'a>>, &mut Context<'a>) -> std::cmp::Ordering>>,
+    node_sorter: Option<Box<dyn Fn(&Option<Node<'a>>, &Option<Node<'a>>, &Context<'a>) -> std::cmp::Ordering>>,
 }
 
 fn parse_object_like_node<'a>(opts: ParseObjectLikeNodeOptions<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -6788,55 +6788,4 @@ fn get_parsed_semi_colon(option: SemiColons, is_trailing: bool, is_multi_line: &
 
 fn create_span_data(lo: BytePos, hi: BytePos) -> Span {
     Span { lo, hi, ctxt: Default::default() }
-}
-
-/* sort functions */
-
-fn get_node_sorter_from_order<'a>(order: SortOrder) -> Option<Box<dyn Fn(&Option<Node<'a>>, &Option<Node<'a>>, &mut Context<'a>) -> std::cmp::Ordering>> {
-    match order {
-        SortOrder::Maintain => None,
-        SortOrder::CaseInsensitive => Some(sort_by_text_case_insensitive()),
-        SortOrder::CaseSensitive => Some(sort_by_text_case_sensitive()),
-    }
-}
-
-fn sort_by_text_case_insensitive<'a>() -> Box<dyn Fn(&Option<Node<'a>>, &Option<Node<'a>>, &mut Context<'a>) -> std::cmp::Ordering> {
-    Box::new(|a, b, context| {
-        if let Some(a) = a.as_ref() {
-            if let Some(b) = b.as_ref() {
-                let case_insensitive_result = a.text(context).to_lowercase().cmp(&b.text(context).to_lowercase());
-                if case_insensitive_result == std::cmp::Ordering::Equal {
-                    a.text(context).cmp(&b.text(context)) // do a case sensitive comparison at this point
-                } else {
-                    case_insensitive_result
-                }
-            } else {
-                std::cmp::Ordering::Greater
-            }
-        } else {
-            if b.is_none() {
-                std::cmp::Ordering::Equal
-            } else {
-                std::cmp::Ordering::Less
-            }
-        }
-    })
-}
-
-fn sort_by_text_case_sensitive<'a>() -> Box<dyn Fn(&Option<Node<'a>>, &Option<Node<'a>>, &mut Context<'a>) -> std::cmp::Ordering> {
-    Box::new(|a, b, context| {
-        if let Some(a) = a.as_ref() {
-            if let Some(b) = b.as_ref() {
-                a.text(context).cmp(&b.text(context)) // do a case sensitive comparison at this point
-            } else {
-                std::cmp::Ordering::Greater
-            }
-        } else {
-            if b.is_none() {
-                std::cmp::Ordering::Equal
-            } else {
-                std::cmp::Ordering::Less
-            }
-        }
-    })
 }

@@ -77,3 +77,19 @@ export { a } from "test";
 export {
     b, // test
 } from "test";
+
+== should sort the exports in alphabetical order ==
+export { c, B, a, f2, f, f1} from "a";
+export { b as a, a as b } from "test";
+export { a as ab, a as aa } from "test";
+export { a as   ab, a as aa } from "test";
+export { a as   ab, a } from "test";
+export { a, a as   ab } from "test";
+
+[expect]
+export { a, B, c, f, f1, f2 } from "a";
+export { a as b, b as a } from "test";
+export { a as aa, a as ab } from "test";
+export { a as aa, a as ab } from "test";
+export { a, a as ab } from "test";
+export { a, a as ab } from "test";

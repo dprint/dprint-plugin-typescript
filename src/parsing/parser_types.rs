@@ -8,6 +8,8 @@ use super::*;
 use super::super::configuration::*;
 use super::super::utils::Stack;
 
+// todo: the span_data() should be changed to span() -- This was previously based on how swc used to work
+
 pub struct Context<'a> {
     pub config: &'a Configuration,
     pub comments: CommentCollection<'a>,
