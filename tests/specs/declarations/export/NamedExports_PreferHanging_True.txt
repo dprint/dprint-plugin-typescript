@@ -12,19 +12,13 @@ export { n1, n2,   n3,   n4  , n5, n6} from   "test";
 export { n1, n2, n3, n4, n5,
     n6 } from "test";
 
-== should format with newlines if the first is on a different line ==
+== should not format with newlines if the first is on a different line since preferSingleLine is true by default for export decls ==
 export {
     n1, n2,   n3,   n4  , n5, n6} from   "test";
 
 [expect]
-export {
-    n1,
-    n2,
-    n3,
-    n4,
-    n5,
-    n6,
-} from "test";
+export { n1, n2, n3, n4, n5,
+    n6 } from "test";
 
 == should always do a newline as a unit ==
 export { test1, test2, test3 as alias } from "test";

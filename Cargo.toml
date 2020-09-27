@@ -24,7 +24,7 @@ panic = "abort"
 wasm = ["serde_json", "dprint-core/wasm"]
 
 [dependencies]
-dprint-core = { version = "0.28.0", features = ["formatting"] }
+dprint-core = { version = "0.31.0", features = ["formatting"] }
 swc_common = "=0.10.2"
 swc_ecmascript = { version = "=0.7.7", features = ["parser"] }
 serde = { version = "1.0.88", features = ["derive"] }

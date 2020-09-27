@@ -40,7 +40,8 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     let trailing_commas = get_value(&mut config, "trailingCommas", TrailingCommas::OnlyMultiLine, &mut diagnostics);
     let use_braces = get_value(&mut config, "useBraces", UseBraces::WhenNotSingleLine, &mut diagnostics);
     let prefer_hanging = get_value(&mut config, "preferHanging", false, &mut diagnostics);
-    let prefer_single_line = get_value(&mut config, "preferSingleLine", false, &mut diagnostics);
+    let prefer_single_line_nullable = get_nullable_value(&mut config, "preferSingleLine", &mut diagnostics);
+    let prefer_single_line = prefer_single_line_nullable.unwrap_or(false);
     let type_literal_separator_kind = get_value(&mut config, "typeLiteral.separatorKind", SemiColonOrComma::SemiColon, &mut diagnostics);
 
     let resolved_config = Configuration {
@@ -151,9 +152,9 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
         conditional_expression_prefer_single_line: get_value(&mut config, "conditionalExpression.preferSingleLine", prefer_single_line, &mut diagnostics),
         conditional_type_prefer_single_line: get_value(&mut config, "conditionalType.preferSingleLine", prefer_single_line, &mut diagnostics),
         decorators_prefer_single_line: get_value(&mut config, "decorators.preferSingleLine", prefer_single_line, &mut diagnostics),
-        export_declaration_prefer_single_line: get_value(&mut config, "exportDeclaration.preferSingleLine", prefer_single_line, &mut diagnostics),
+        export_declaration_prefer_single_line: get_value(&mut config, "exportDeclaration.preferSingleLine", prefer_single_line_nullable.unwrap_or(true), &mut diagnostics),
         for_statement_prefer_single_line: get_value(&mut config, "forStatement.preferSingleLine", prefer_single_line, &mut diagnostics),
-        import_declaration_prefer_single_line: get_value(&mut config, "importDeclaration.preferSingleLine", prefer_single_line, &mut diagnostics),
+        import_declaration_prefer_single_line: get_value(&mut config, "importDeclaration.preferSingleLine", prefer_single_line_nullable.unwrap_or(true), &mut diagnostics),
         jsx_attributes_prefer_single_line: get_value(&mut config, "jsxAttributes.preferSingleLine", prefer_single_line, &mut diagnostics),
         jsx_element_prefer_single_line: get_value(&mut config, "jsxElement.preferSingleLine", prefer_single_line, &mut diagnostics),
         mapped_type_prefer_single_line: get_value(&mut config, "mappedType.preferSingleLine", prefer_single_line, &mut diagnostics),

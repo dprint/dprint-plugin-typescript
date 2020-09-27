@@ -63,3 +63,17 @@ export {
     test,
     testingThisOut,
 } from "testingtttttttttttttttttttttttttttttt";
+
+== should prefer single line by default ==
+export {
+    a
+} from "test";
+export {
+    b // test
+} from "test";
+
+[expect]
+export { a } from "test";
+export {
+    b, // test
+} from "test";

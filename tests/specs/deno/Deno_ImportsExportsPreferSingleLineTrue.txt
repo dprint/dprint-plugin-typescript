@@ -1,0 +1,14 @@
+~~ deno: true ~~
+== should collapse imports and exports when able ==
+import {
+    testing,
+    thisOut,
+} from "test.ts";
+export {
+    testing,
+    thisOut,
+} from "test.ts";
+
+[expect]
+import { testing, thisOut } from "test.ts";
+export { testing, thisOut } from "test.ts";

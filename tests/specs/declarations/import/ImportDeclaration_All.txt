@@ -92,3 +92,17 @@ import { d, c, B, a, E, f2, f, f1} from "test";
 
 [expect]
 import { a, B, c, d, E, f, f1, f2 } from "test";
+
+== should prefer single line by default ==
+import {
+    a
+} from "test";
+import {
+    b // test
+} from "test";
+
+[expect]
+import { a } from "test";
+import {
+    b, // test
+} from "test";
