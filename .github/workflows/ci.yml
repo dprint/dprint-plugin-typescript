@@ -86,7 +86,7 @@ jobs:
                  "**/*.{ts,tsx,js,jsx,mjs}"
                ],
                "plugins": [
-                 "https://plugins.dprint.dev/json-${{ steps.get_tag_version.outputs.TAG_VERSION }}.wasm"
+                 "https://plugins.dprint.dev/typescript-${{ steps.get_tag_version.outputs.TAG_VERSION }}.wasm"
                ]
              }
              ```
