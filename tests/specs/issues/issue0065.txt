@@ -1,0 +1,11 @@
+== should not move comment ==
+this.test.push({
+    name: test,
+    count: 5, // update 5 times
+});
+
+[expect]
+this.test.push({
+    name: test,
+    count: 5, // update 5 times
+});

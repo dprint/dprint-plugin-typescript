@@ -76,8 +76,8 @@ impl<'a> TokenFinder<'a> {
         self.get_last_token_within(node, |token| token.token == Token::RBrace)
     }
 
-    pub fn get_last_comma_token_within(&mut self, node: &dyn Ranged) -> Option<&'a TokenAndSpan> {
-        self.get_last_token_within(node, |token| token.token == Token::Comma)
+    pub fn get_last_token_within_if_comma(&mut self, node: &dyn Ranged) -> Option<&'a TokenAndSpan> {
+        self.get_last_token_within_if(node, |token| token.token == Token::Comma)
     }
 
     pub fn get_first_open_bracket_token_within(&mut self, node: &dyn Ranged) -> Option<&'a TokenAndSpan> {
@@ -192,6 +192,13 @@ impl<'a> TokenFinder<'a> {
     fn get_last_token_within(&mut self, node: &dyn Ranged, is_match: impl Fn(&'a TokenAndSpan) -> bool) -> Option<&'a TokenAndSpan> {
         let node_span_data = node.span_data();
         self.inner.get_last_token_within(node_span_data.lo, node_span_data.hi, is_match)
+    }
+
+    #[inline]
+    fn get_last_token_within_if(&mut self, node: &dyn Ranged, is_match: impl Fn(&'a TokenAndSpan) -> bool) -> Option<&'a TokenAndSpan> {
+        let node_span_data = node.span_data();
+        let last_token = self.inner.get_last_token_within(node_span_data.lo, node_span_data.hi, |_| true);
+        last_token.filter(|token| is_match(&token))
     }
 }
 

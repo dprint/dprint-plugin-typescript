@@ -5232,7 +5232,7 @@ fn parse_node_with_separator<'a>(value: Option<Node<'a>>, parsed_separator: Prin
         if let Some(element) = element {
             match context.token_finder.get_next_token_if_comma(element) {
                 Some(comma) => Some(comma),
-                None => context.token_finder.get_last_comma_token_within(element), // may occur for type literals
+                None => context.token_finder.get_last_token_within_if_comma(element), // may occur for type literals
             }
         } else {
             None // not a comma separated node
