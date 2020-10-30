@@ -519,6 +519,7 @@ generate_node! [
     TsParenthesizedType,
     TsRestType,
     TsThisType,
+    TsTplLitType,
     TsTupleType,
     TsTypeAnn,
     TsTypeOperator,
