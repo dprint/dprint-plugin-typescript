@@ -611,7 +611,7 @@ generate_traits![Expr, This, Array, Object, Fn, Unary, Update, Bin, Assign, Memb
     TsNonNull, TsTypeCast, TsAs, PrivateName, OptChain, Invalid];
 generate_traits![PropOrSpread, Spread, Prop];
 generate_traits![Prop, Shorthand, KeyValue, Assign, Getter, Setter, Method];
-generate_traits![PropName, Ident, Str, Num, Computed];
+generate_traits![PropName, Ident, Str, Num, Computed, BigInt];
 generate_traits![Pat, Ident, Array, Rest, Object, Assign, Invalid, Expr];
 generate_traits![TsType, TsKeywordType, TsThisType, TsFnOrConstructorType, TsTypeRef, TsTypeQuery, TsTypeLit, TsArrayType, TsTupleType,
     TsOptionalType, TsRestType, TsUnionOrIntersectionType, TsConditionalType, TsInferType, TsParenthesizedType, TsTypeOperator, TsIndexedAccessType,
