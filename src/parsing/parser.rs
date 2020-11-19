@@ -2598,6 +2598,12 @@ fn parse_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Cont
         if context.config.jsx_attributes_prefer_single_line {
             false
         } else if let Some(first_attrib) = node.attrs.first() {
+            if first_attrib.leading_comments(context).count() != 0 {
+                return true
+            }
+            if node.text(context).len() + first_attrib.text(context).len() <= context.config.line_width as usize {
+                return false
+            }
             node_helpers::get_use_new_lines_for_nodes(&node.name, first_attrib, context)
         } else {
             false
