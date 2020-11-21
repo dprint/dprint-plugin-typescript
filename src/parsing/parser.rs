@@ -270,6 +270,7 @@ fn parse_node_with_inner_parse<'a>(node: Node<'a>, context: &mut Context<'a>, in
             Node::TsParenthesizedType(node) => parse_parenthesized_type(node, context),
             Node::TsRestType(node) => parse_rest_type(node, context),
             Node::TsThisType(_) => "this".into(),
+            Node::TsTplLitType(node) => parse_tpl_lit_type(node, context),
             Node::TsTupleType(node) => parse_tuple_type(node, context),
             Node::TsTupleElement(node) => parse_tuple_element(node, context),
             Node::TsTypeAnn(node) => parse_type_ann(node, context),
@@ -2062,19 +2063,27 @@ fn parse_tagged_tpl<'a>(node: &'a TaggedTpl, context: &mut Context<'a>) -> Print
         if use_space { " ".into() } else { PrintItems::new() }
     ));
 
-    items.push_condition(conditions::indent_if_start_of_line(parse_template_literal(&node.quasis, &node.exprs.iter().map(|x| &**x).collect(), context)));
+    items.push_condition(conditions::indent_if_start_of_line(parse_template_literal(
+        node.quasis.iter().map(|n| n.into()).collect(),
+        node.exprs.iter().map(|x| (&**x).into()).collect(),
+        context,
+    )));
     items
 }
 
 fn parse_tpl<'a>(node: &'a Tpl, context: &mut Context<'a>) -> PrintItems {
-    parse_template_literal(&node.quasis, &node.exprs.iter().map(|x| &**x).collect(), context)
+    parse_template_literal(
+        node.quasis.iter().map(|n| n.into()).collect(),
+        node.exprs.iter().map(|x| (&**x).into()).collect(),
+        context,
+    )
 }
 
 fn parse_tpl_element<'a>(node: &'a TplElement, context: &mut Context<'a>) -> PrintItems {
     parse_raw_string(node.text(context).into())
 }
 
-fn parse_template_literal<'a>(quasis: &'a Vec<TplElement>, exprs: &Vec<&'a Expr>, context: &mut Context<'a>) -> PrintItems {
+fn parse_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
     items.push_str("`");
     items.push_signal(Signal::StartIgnoringIndent);
@@ -2104,16 +2113,18 @@ fn parse_template_literal<'a>(quasis: &'a Vec<TplElement>, exprs: &Vec<&'a Expr>
     items.push_signal(Signal::FinishIgnoringIndent);
     return items;
 
-    fn get_nodes<'a>(quasis: &'a Vec<TplElement>, exprs: &Vec<&'a Expr>) -> Vec<Node<'a>> {
-        let quasis = quasis;
-        let exprs = exprs;
+    fn get_nodes<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>) -> Vec<Node<'a>> {
+        let mut quasis = quasis;
+        let mut exprs = exprs;
         let mut nodes = Vec::new();
-        let mut quasis_index = 0;
-        let mut exprs_index = 0;
 
-        while quasis_index < quasis.len() || exprs_index < exprs.len() {
-            let current_quasis = quasis.get(quasis_index);
-            let current_expr = exprs.get(exprs_index);
+        // reverse the vectors and iterate from the back
+        quasis.reverse();
+        exprs.reverse();
+
+        while !quasis.is_empty() || !exprs.is_empty() {
+            let current_quasis = quasis.last();
+            let current_expr = exprs.last();
 
             let is_quasis = if let Some(current_quasis) = current_quasis {
                 if let Some(current_expr) = current_expr {
@@ -2130,11 +2141,9 @@ fn parse_template_literal<'a>(quasis: &'a Vec<TplElement>, exprs: &Vec<&'a Expr>
             };
 
             if is_quasis {
-                nodes.push((&quasis[quasis_index]).into());
-                quasis_index += 1;
+                nodes.push(quasis.pop().unwrap());
             } else {
-                nodes.push(exprs[exprs_index].into());
-                exprs_index += 1;
+                nodes.push(exprs.pop().unwrap());
             }
         }
 
@@ -4122,6 +4131,14 @@ fn parse_rest_type<'a>(node: &'a TsRestType, context: &mut Context<'a>) -> Print
     items.push_str("...");
     items.extend(parse_node((&node.type_ann).into(), context));
     return items;
+}
+
+fn parse_tpl_lit_type<'a>(node: &'a TsTplLitType, context: &mut Context<'a>) -> PrintItems {
+    parse_template_literal(
+        node.quasis.iter().map(|x| x.into()).collect(),
+        node.types.iter().map(|x| (&**x).into()).collect(),
+        context,
+    )
 }
 
 fn parse_tuple_type<'a>(node: &'a TsTupleType, context: &mut Context<'a>) -> PrintItems {
