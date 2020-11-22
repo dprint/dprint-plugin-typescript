@@ -1,0 +1,10 @@
+-- filePath: file.tsx --
+== should format top level nodes properly ==
+<div
+    class="bg-gradient-to-tr from-teal-500 to-teal-700 h-14 my-6"
+>
+</div>
+
+[expect]
+<div class="bg-gradient-to-tr from-teal-500 to-teal-700 h-14 my-6">
+</div>;

@@ -39,16 +39,3 @@ const t = (
         Test
     </Test>
 );
-
-== should make the attribs multi-line when first is on a different line ==
-const t = <Test
-attrib={5} other={6}><Test /><Test /></Test>;
-
-[expect]
-const t = <Test
-    attrib={5}
-    other={6}
->
-    <Test />
-    <Test />
-</Test>;
