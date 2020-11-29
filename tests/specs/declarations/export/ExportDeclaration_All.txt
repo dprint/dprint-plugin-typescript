@@ -1,0 +1,7 @@
+== should format ==
+export { n1 } from "test";
+export { n1 };
+
+[expect]
+export { n1 } from "test";
+export { n1 };

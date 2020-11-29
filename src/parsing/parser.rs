@@ -4410,14 +4410,6 @@ fn parse_leading_comments<'a>(node: &dyn SpanDataContainer, context: &mut Contex
     parse_comments_as_leading(node, leading_comments, context)
 }
 
-fn parse_leading_comments_on_previous_lines<'a>(node: &dyn SpanDataContainer, last_node: Option<&dyn SpanDataContainer>, context: &mut Context<'a>) -> PrintItems {
-    let node_start_line = node.start_line(context);
-    let leading_comments_on_previous_lines = node.leading_comments(context)
-        .take_while(|c| c.kind == CommentKind::Line || c.start_line(context) < node_start_line)
-        .collect::<Vec<&'a Comment>>();
-    parse_comment_collection(leading_comments_on_previous_lines.into_iter(), last_node, None, context)
-}
-
 fn parse_comments_as_leading<'a>(node: &dyn SpanDataContainer, comments: CommentsIterator<'a>, context: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
     if let Some(last_comment) = comments.get_last_comment() {
@@ -4448,6 +4440,13 @@ fn parse_comments_as_leading<'a>(node: &dyn SpanDataContainer, comments: Comment
 fn parse_trailing_comments_as_statements<'a>(node: &dyn SpanDataContainer, context: &mut Context<'a>) -> PrintItems {
     let unhandled_comments = get_trailing_comments_as_statements(node, context);
     parse_comments_as_statements(unhandled_comments.into_iter(), Some(node), context)
+}
+
+fn get_leading_comments_on_previous_lines<'a>(node: &dyn SpanDataContainer, context: &mut Context<'a>) -> Vec<&'a Comment> {
+    let node_start_line = node.start_line(context);
+    node.leading_comments(context)
+        .take_while(|c| c.kind == CommentKind::Line || c.start_line(context) < node_start_line)
+        .collect::<Vec<_>>()
 }
 
 fn get_trailing_comments_as_statements<'a>(node: &dyn SpanDataContainer, context: &mut Context<'a>) -> Vec<&'a Comment> {
@@ -4791,12 +4790,18 @@ fn parse_statements<'a>(inner_span_data: Span, stmts: Vec<Node<'a>>, context: &m
     for (stmt_group_index, stmt_group) in stmt_groups.into_iter().enumerate() {
         if stmt_group.kind == StmtGroupKind::Imports || stmt_group.kind == StmtGroupKind::Exports {
             // keep the leading comments of the stmt group on the same line
-            items.extend(parse_leading_comments_on_previous_lines(&stmt_group.nodes.first().as_ref().unwrap().lo(), if let Some(last_node) = &last_node {
-                // todo: why can't I just use .as_ref() here and why does this need to be inlined?
+            let comments = get_leading_comments_on_previous_lines(&stmt_group.nodes.first().as_ref().unwrap().lo(), context);
+            let last_comment = comments.iter()
+                .filter(|c| !context.has_handled_comment(c))
+                .last()
+                .map(|c| (&c.span).into());
+            items.extend(parse_comments_as_statements(comments.into_iter(), if let Some(last_node) = &last_node {
+                // todo: why can't I just use .as_ref() here?
                 Some(last_node)
             } else {
                 None
             }, context));
+            last_node = last_comment.or(last_node);
         }
 
         let nodes_len = stmt_group.nodes.len();
@@ -4900,7 +4905,11 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<S
         let last_end_line = previous_last_end_line.take();
         let stmt_group_kind = match stmt {
             Node::ImportDecl(_) => StmtGroupKind::Imports,
-            Node::NamedExport(_) | Node::ExportAll(_) => StmtGroupKind::Exports,
+            Node::ExportAll(_) => StmtGroupKind::Exports,
+            Node::NamedExport(NamedExport {
+                src: Some(_),
+                ..
+            }) => StmtGroupKind::Exports,
             _ => StmtGroupKind::Other,
         };
         previous_last_end_line = match stmt_group_kind {

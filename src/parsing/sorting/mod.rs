@@ -108,7 +108,14 @@ fn get_comparison_nodes<'a>(node: &Node<'a>) -> Vec<Span> {
             vec![node.src.span()]
         },
         Node::NamedExport(node) => {
-            vec![node.src.span()]
+            if let Some(src) = &node.src {
+                vec![src.span()]
+            } else {
+                #[cfg(debug_assertions)]
+                unimplemented!("Should not call this for named exports with src.");
+                #[cfg(not(debug_assertions))]
+                vec![node.span_data()]
+            }
         },
         Node::ExportAll(node) => {
             vec![node.src.span()]

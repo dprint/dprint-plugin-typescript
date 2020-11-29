@@ -57,3 +57,37 @@ import "n";
 // group 2
 import "a";
 import "b";
+
+== should keep leading comment block on separate line ==
+/**
+ * testing
+ */
+import * as test from "b";
+import * as test from "a";
+
+[expect]
+/**
+ * testing
+ */
+import * as test from "a";
+import * as test from "b";
+
+== should handle comments in between on different lines ==
+import { a } from "test";
+
+/* barrel:ignore */
+import { a } from "test";
+
+// other
+
+import { a } from "test";
+
+[expect]
+import { a } from "test";
+
+/* barrel:ignore */
+import { a } from "test";
+
+// other
+
+import { a } from "test";
