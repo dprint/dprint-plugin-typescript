@@ -1,0 +1,59 @@
+== should sort groups of many kinds of statements ==
+// testing
+import "./a";
+import "../a";
+import "../../b";
+import "b";
+import "a";
+import "../../a";
+export * from "c";
+export * from "a";
+test;
+export * from "aa";
+
+import "c";
+export * from "b";
+import "a";
+
+[expect]
+// testing
+import "a";
+import "b";
+import "../../a";
+import "../../b";
+import "../a";
+import "./a";
+export * from "a";
+export * from "c";
+test;
+export * from "aa";
+
+import "c";
+export * from "b";
+import "a";
+
+== should keep comments on same line as part of the node ==
+// testing
+/* a */ import "./a"; /* a */ // a
+/* b */ import "b"; /* b */ // b
+
+[expect]
+// testing
+/* b */ import "b"; /* b */ // b
+/* a */ import "./a"; /* a */ // a
+
+== should allow placing a comment to break up the sorting ==
+// group 1
+import "n";
+import "m";
+// group 2
+import "b";
+import "a";
+
+[expect]
+// group 1
+import "m";
+import "n";
+// group 2
+import "a";
+import "b";

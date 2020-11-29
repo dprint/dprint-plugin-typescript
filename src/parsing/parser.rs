@@ -7,6 +7,7 @@ use swc_common::{comments::{Comment, CommentKind}, BytePos, Span, Spanned};
 use swc_ecmascript::parser::{token::{TokenAndSpan}};
 
 use super::*;
+use super::sorting::*;
 use super::swc::*;
 use super::super::configuration::*;
 use super::super::swc::ParsedSourceFile;
@@ -42,7 +43,8 @@ fn parse_node<'a>(node: Node<'a>, context: &mut Context<'a>) -> PrintItems {
 }
 
 fn parse_node_with_inner_parse<'a>(node: Node<'a>, context: &mut Context<'a>, inner_parse: impl FnOnce(PrintItems, &mut Context<'a>) -> PrintItems) -> PrintItems {
-    // println!("Node kind: {:?}", node.kind());
+    let node_kind = node.kind();
+    // println!("Node kind: {:?}", node_kind);
     // println!("Text: {:?}", node.text(context));
 
     // store info
@@ -61,23 +63,26 @@ fn parse_node_with_inner_parse<'a>(node: Node<'a>, context: &mut Context<'a>, in
     let node_span_data = node.span_data();
     let node_hi = node_span_data.hi;
     let node_lo = node_span_data.lo;
-    let has_ignore_comment: bool;
+    let mut has_ignore_comment = false;
 
-    // get the leading comments
-    if get_first_child_owns_leading_comments_on_same_line(&node, context) {
-        // Some block comments should belong to the first child rather than the
-        // parent node because their first child may end up on the next line.
-        let leading_comments = context.comments.leading_comments(node_lo);
-        has_ignore_comment = get_has_ignore_comment(&leading_comments, &node_lo, context);
-        let node_start_line = node.start_line(context);
-        let leading_comments_on_previous_lines = leading_comments
-            .take_while(|c| c.kind == CommentKind::Line || c.start_line(context) < node_start_line)
-            .collect::<Vec<&'a Comment>>();
-        items.extend(parse_comment_collection(leading_comments_on_previous_lines.into_iter(), None, None, context));
-    } else {
-        let leading_comments = context.comments.leading_comments_with_previous(node_lo);
-        has_ignore_comment = get_has_ignore_comment(&leading_comments, &node_lo, context);
-        items.extend(parse_comments_as_leading(&node_span_data, leading_comments, context));
+    // do not get the comments for modules as this will be handled in parse_statements
+    if node_kind != NodeKind::Module {
+        // get the leading comments
+        if get_first_child_owns_leading_comments_on_same_line(&node, context) {
+            // Some block comments should belong to the first child rather than the
+            // parent node because their first child may end up on the next line.
+            let leading_comments = context.comments.leading_comments(node_lo);
+            has_ignore_comment = get_has_ignore_comment(&leading_comments, &node_lo, context);
+            let node_start_line = node.start_line(context);
+            let leading_comments_on_previous_lines = leading_comments
+                .take_while(|c| c.kind == CommentKind::Line || c.start_line(context) < node_start_line)
+                .collect::<Vec<&'a Comment>>();
+            items.extend(parse_comment_collection(leading_comments_on_previous_lines.into_iter(), None, None, context));
+        } else {
+            let leading_comments = context.comments.leading_comments_with_previous(node_lo);
+            has_ignore_comment = get_has_ignore_comment(&leading_comments, &node_lo, context);
+            items.extend(parse_comments_as_leading(&node_span_data, leading_comments, context));
+        }
     }
 
     // parse the node
@@ -1194,7 +1199,7 @@ fn parse_named_import_or_export_specifiers<'a>(parent: &Node<'a>, specifiers: Ve
     fn get_node_sorter<'a>(
         parent_decl: &Node,
         context: &Context<'a>,
-    ) -> Option<Box<dyn Fn(&Option<Node<'a>>, &Option<Node<'a>>, &Context<'a>) -> std::cmp::Ordering>> {
+    ) -> Option<Box<dyn Fn((usize, Option<&Node<'a>>), (usize, Option<&Node<'a>>), &Context<'a>) -> std::cmp::Ordering>> {
         match parent_decl {
             Node::NamedExport(_) => get_node_sorter_from_order(context.config.export_declaration_sort_named_exports),
             Node::ImportDecl(_) => get_node_sorter_from_order(context.config.import_declaration_sort_named_imports),
@@ -2779,7 +2784,7 @@ fn parse_module<'a>(node: &'a Module, context: &mut Context<'a>) -> PrintItems {
         }
     }
 
-    items.extend(parse_statements(node.span, node.body.iter().map(|x| x.into()), context));
+    items.extend(parse_statements(node.span, node.body.iter().map(|x| x.into()).collect(), context));
 
     return items;
 }
@@ -3003,7 +3008,7 @@ fn parse_block_stmt<'a>(node: &'a BlockStmt, context: &mut Context<'a>) -> Print
     parse_block(|stmts, context| {
         parse_statements(
             node.get_inner_span_data(context),
-            stmts.into_iter(),
+            stmts,
             context
         )
     }, ParseBlockOptions {
@@ -3572,14 +3577,11 @@ fn parse_switch_case<'a>(node: &'a SwitchCase, context: &mut Context<'a>) -> Pri
             items.extend(parse_node(node.cons.iter().next().unwrap().into(), context));
         } else {
             items.push_signal(Signal::NewLine);
-            items.extend(parser_helpers::with_indent(parse_statements_or_members(ParseStatementsOrMembersOptions {
-                inner_span_data: create_span_data(colon_token.hi(), node.span.hi()),
-                items: node.cons.iter().map(|node| (node.into(), None)).collect(),
-                should_use_space: None,
-                should_use_new_line: None,
-                should_use_blank_line: |previous, next, context| node_helpers::has_separating_blank_line(previous, next, context),
-                separator: Separator::none(),
-            }, context)));
+            items.extend(parser_helpers::with_indent(parse_statements(
+                create_span_data(colon_token.hi(), node.span.hi()),
+                node.cons.iter().map(|node| node.into()).collect(),
+                context,
+            )));
         }
     }
 
@@ -4408,6 +4410,14 @@ fn parse_leading_comments<'a>(node: &dyn SpanDataContainer, context: &mut Contex
     parse_comments_as_leading(node, leading_comments, context)
 }
 
+fn parse_leading_comments_on_previous_lines<'a>(node: &dyn SpanDataContainer, last_node: Option<&dyn SpanDataContainer>, context: &mut Context<'a>) -> PrintItems {
+    let node_start_line = node.start_line(context);
+    let leading_comments_on_previous_lines = node.leading_comments(context)
+        .take_while(|c| c.kind == CommentKind::Line || c.start_line(context) < node_start_line)
+        .collect::<Vec<&'a Comment>>();
+    parse_comment_collection(leading_comments_on_previous_lines.into_iter(), last_node, None, context)
+}
+
 fn parse_comments_as_leading<'a>(node: &dyn SpanDataContainer, comments: CommentsIterator<'a>, context: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
     if let Some(last_comment) = comments.get_last_comment() {
@@ -4756,7 +4766,7 @@ fn parse_membered_body<'a, FShouldUseBlankLine>(
     let separator = opts.separator;
 
     items.extend(parse_block(|members, context| {
-        parse_statements_or_members(ParseStatementsOrMembersOptions {
+        parse_members(ParseMembersOptions {
             inner_span_data: create_span_data(open_brace_token.hi(), close_brace_token_pos.lo()),
             items: members.into_iter().map(|node| (node, None)).collect(),
             should_use_space: None,
@@ -4772,18 +4782,164 @@ fn parse_membered_body<'a, FShouldUseBlankLine>(
     items
 }
 
-fn parse_statements<'a>(inner_span_data: Span, stmts: impl Iterator<Item=Node<'a>>, context: &mut Context<'a>) -> PrintItems {
-    parse_statements_or_members(ParseStatementsOrMembersOptions {
-        inner_span_data,
-        items: stmts.map(|stmt| (stmt, None)).collect(),
-        should_use_space: None,
-        should_use_new_line: None,
-        should_use_blank_line: |previous, next, context| node_helpers::has_separating_blank_line(previous, next, context),
-        separator: Separator::none(),
-    }, context)
+fn parse_statements<'a>(inner_span_data: Span, stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> PrintItems {
+    let stmt_groups = get_stmt_groups(stmts, context);
+    let mut items = PrintItems::new();
+    let mut last_node: Option<Node<'a>> = None;
+    let stmt_group_len = stmt_groups.len();
+
+    for (stmt_group_index, stmt_group) in stmt_groups.into_iter().enumerate() {
+        if stmt_group.kind == StmtGroupKind::Imports || stmt_group.kind == StmtGroupKind::Exports {
+            // keep the leading comments of the stmt group on the same line
+            items.extend(parse_leading_comments_on_previous_lines(&stmt_group.nodes.first().as_ref().unwrap().lo(), if let Some(last_node) = &last_node {
+                // todo: why can't I just use .as_ref() here and why does this need to be inlined?
+                Some(last_node)
+            } else {
+                None
+            }, context));
+        }
+
+        let nodes_len = stmt_group.nodes.len();
+        let mut parsed_nodes = Vec::with_capacity(nodes_len);
+        let mut parsed_line_separators = HashMap::with_capacity(if nodes_len == 0 { 0 } else { nodes_len - 1 });
+        let sorter = get_node_sorter(stmt_group.kind, context);
+        let sorted_indexes = match sorter {
+            Some(sorter) => Some(get_sorted_indexes(stmt_group.nodes.iter().map(|n| Some(n)), sorter, context)),
+            None => None,
+        };
+        for (i, node) in stmt_group.nodes.into_iter().enumerate() {
+            let is_empty_stmt = match node { Node::EmptyStmt(_) => true, _ => false };
+            if !is_empty_stmt {
+                let mut separator_items = PrintItems::new();
+                if let Some(last_node) = &last_node {
+                    separator_items.push_signal(Signal::NewLine);
+                    if node_helpers::has_separating_blank_line(last_node, &node, context) {
+                        separator_items.push_signal(Signal::NewLine);
+                    }
+                    parsed_line_separators.insert(i, separator_items);
+                }
+
+                let mut items = PrintItems::new();
+                let end_info = Info::new("endStatementInfo");
+                context.end_statement_or_member_infos.push(end_info);
+                items.extend(parse_node(node.clone(), context));
+                items.push_info(end_info);
+                parsed_nodes.push(items);
+                context.end_statement_or_member_infos.pop();
+
+                last_node = Some(node);
+            } else {
+                let mut items = PrintItems::new();
+                let mut comments = node.leading_comments(context);
+                comments.extend(node.trailing_comments(context));
+                items.extend(parse_comments_as_statements(comments, None, context));
+                parsed_nodes.push(items);
+
+                // ensure if this is last that it parses the trailing comment statements
+                if stmt_group_index == stmt_group_len - 1 && i == nodes_len - 1 {
+                    last_node = Some(node);
+                }
+            }
+        }
+
+        // Get the parsed statements/members sorted
+        let parsed_nodes = match sorted_indexes {
+            Some(sorted_indexes) => sort_by_sorted_indexes(parsed_nodes, sorted_indexes),
+            None => parsed_nodes,
+        };
+
+        // Now combine everything
+        for (i, parsed_node) in parsed_nodes.into_iter().enumerate() {
+            if let Some(parsed_separator) = parsed_line_separators.remove(&i) {
+                items.extend(parsed_separator);
+            }
+            items.extend(parsed_node);
+        }
+    }
+
+    if let Some(last_node) = &last_node {
+        items.extend(parse_trailing_comments_as_statements(last_node, context));
+    }
+
+    if stmt_group_len == 0 {
+        items.extend(parse_comments_as_statements(inner_span_data.hi.leading_comments(context), None, context));
+    }
+
+    return items;
+
+    fn get_node_sorter<'a>(
+        group_kind: StmtGroupKind,
+        context: &Context<'a>,
+    ) -> Option<Box<dyn Fn((usize, Option<&Node<'a>>), (usize, Option<&Node<'a>>), &Context<'a>) -> std::cmp::Ordering>> {
+        match group_kind {
+            StmtGroupKind::Imports => get_node_sorter_from_order(context.config.statements_sort_import_declarations),
+            StmtGroupKind::Exports => get_node_sorter_from_order(context.config.statements_sort_export_declarations),
+            StmtGroupKind::Other => None,
+        }
+    }
 }
 
-struct ParseStatementsOrMembersOptions<'a, FShouldUseBlankLine> where FShouldUseBlankLine : Fn(&Node, &Node, &mut Context) -> bool {
+#[derive(PartialEq, Debug)]
+enum StmtGroupKind {
+   Imports,
+   Exports,
+   Other,
+}
+
+struct StmtGroup<'a> {
+    kind: StmtGroupKind,
+    nodes: Vec<Node<'a>>,
+}
+
+fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<StmtGroup<'a>> {
+    let mut groups: Vec<StmtGroup<'a>> = Vec::new();
+    let mut current_group: Option<StmtGroup> = None;
+    let mut previous_last_end_line: Option<usize> = None;
+
+    for stmt in stmts {
+        let last_end_line = previous_last_end_line.take();
+        let stmt_group_kind = match stmt {
+            Node::ImportDecl(_) => StmtGroupKind::Imports,
+            Node::NamedExport(_) | Node::ExportAll(_) => StmtGroupKind::Exports,
+            _ => StmtGroupKind::Other,
+        };
+        previous_last_end_line = match stmt_group_kind {
+            StmtGroupKind::Imports | StmtGroupKind::Exports => Some(stmt.end_line(context)),
+            StmtGroupKind::Other => None,
+        };
+
+        if let Some(group) = current_group.as_mut() {
+            let is_same_group = group.kind == stmt_group_kind
+                && (
+                    stmt_group_kind == StmtGroupKind::Other
+                    || last_end_line.is_none()
+                    || last_end_line.unwrap() + 1 >= stmt.start_line(context)
+                );
+            if is_same_group {
+                group.nodes.push(stmt);
+            } else {
+                groups.push(current_group.take().unwrap());
+                current_group = Some(StmtGroup {
+                    kind: stmt_group_kind,
+                    nodes: vec![stmt]
+                })
+            }
+        } else {
+            current_group = Some(StmtGroup {
+                kind: stmt_group_kind,
+                nodes: vec![stmt],
+            });
+        }
+    }
+
+    if let Some(current_group) = current_group {
+        groups.push(current_group);
+    }
+
+    groups
+}
+
+struct ParseMembersOptions<'a, FShouldUseBlankLine> where FShouldUseBlankLine : Fn(&Node, &Node, &mut Context) -> bool {
     inner_span_data: Span,
     items: Vec<(Node<'a>, Option<PrintItems>)>,
     should_use_space: Option<Box<dyn Fn(&Node, &Node, &mut Context) -> bool>>, // todo: Remove putting functions on heap by using type parameters?
@@ -4792,8 +4948,8 @@ struct ParseStatementsOrMembersOptions<'a, FShouldUseBlankLine> where FShouldUse
     separator: Separator,
 }
 
-fn parse_statements_or_members<'a, FShouldUseBlankLine>(
-    opts: ParseStatementsOrMembersOptions<'a, FShouldUseBlankLine>,
+fn parse_members<'a, FShouldUseBlankLine>(
+    opts: ParseMembersOptions<'a, FShouldUseBlankLine>,
     context: &mut Context<'a>
 ) -> PrintItems where FShouldUseBlankLine : Fn(&Node, &Node, &mut Context) -> bool
 {
@@ -4802,6 +4958,7 @@ fn parse_statements_or_members<'a, FShouldUseBlankLine>(
     let children_len = opts.items.len();
 
     for (i, (node, optional_print_items)) in opts.items.into_iter().enumerate() {
+        // class declarations may have empty statements
         let is_empty_stmt = match node { Node::EmptyStmt(_) => true, _ => false };
         if !is_empty_stmt {
             if let Some(last_node) = last_node {
@@ -4819,7 +4976,7 @@ fn parse_statements_or_members<'a, FShouldUseBlankLine>(
                 }
             }
 
-            let end_info = Info::new("endStatementOrMemberInfo");
+            let end_info = Info::new("endMemberInfo");
             context.end_statement_or_member_infos.push(end_info);
             items.extend(if let Some(print_items) = optional_print_items {
                 print_items
@@ -4836,8 +4993,9 @@ fn parse_statements_or_members<'a, FShouldUseBlankLine>(
 
             last_node = Some(node);
         } else {
-            items.extend(parse_comments_as_statements(node.leading_comments(context), None, context));
-            items.extend(parse_comments_as_statements(node.trailing_comments(context), None, context));
+            let mut comments = node.leading_comments(context);
+            comments.extend(node.trailing_comments(context));
+            items.extend(parse_comments_as_statements(comments, None, context));
 
             // ensure if this is last that it parses the trailing comment statements
             if i == children_len - 1 {
@@ -5112,7 +5270,7 @@ struct ParseSeparatedValuesOptions<'a> {
     custom_single_line_separator: Option<PrintItems>,
     multi_line_options: parser_helpers::MultiLineOptions,
     force_possible_newline_at_start: bool,
-    node_sorter: Option<Box<dyn Fn(&Option<Node<'a>>, &Option<Node<'a>>, &Context<'a>) -> std::cmp::Ordering>>,
+    node_sorter: Option<Box<dyn Fn((usize, Option<&Node<'a>>), (usize, Option<&Node<'a>>), &Context<'a>) -> std::cmp::Ordering>>,
 }
 
 #[inline]
@@ -5144,17 +5302,7 @@ fn parse_separated_values_with_result<'a>(
         let mut parsed_nodes = Vec::new();
         let nodes_count = nodes.len();
         let sorted_indexes = match node_sorter {
-            Some(sorter) => {
-                let mut nodes_with_indexes = nodes.iter().enumerate().collect::<Vec<_>>();
-                nodes_with_indexes.sort_by(|a, b| sorter(a.1, b.1, context));
-                let mut old_to_new_index = HashMap::new();
-
-                for (new_index, old_index) in nodes_with_indexes.into_iter().map(|(index, _)| index).enumerate() {
-                    old_to_new_index.insert(old_index, new_index);
-                }
-
-                Some(old_to_new_index)
-            },
+            Some(sorter) => Some(get_sorted_indexes(nodes.iter().map(|d| d.as_ref()), sorter, context)),
             None => None,
         };
 
@@ -5192,18 +5340,7 @@ fn parse_separated_values_with_result<'a>(
         }
 
         match sorted_indexes {
-            Some(sorted_indexes) => {
-                let mut sorted_parsed_nodes = Vec::with_capacity(parsed_nodes.len());
-                for _ in 0..parsed_nodes.len() {
-                    sorted_parsed_nodes.push(None);
-                }
-
-                for (i, parsed_node) in parsed_nodes.into_iter().enumerate() {
-                    sorted_parsed_nodes[*sorted_indexes.get(&i).unwrap()] = Some(parsed_node);
-                }
-
-                sorted_parsed_nodes.into_iter().map(|x| x.unwrap()).collect()
-            },
+            Some(sorted_indexes) => sort_by_sorted_indexes(parsed_nodes, sorted_indexes),
             None => parsed_nodes,
         }
     }, parser_helpers::ParseSeparatedValuesOptions {
@@ -5217,6 +5354,35 @@ fn parse_separated_values_with_result<'a>(
         multi_line_options: opts.multi_line_options,
         force_possible_newline_at_start: opts.force_possible_newline_at_start,
     })
+}
+
+fn get_sorted_indexes<'a: 'b, 'b>(
+    nodes: impl Iterator<Item=Option<&'b Node<'a>>>,
+    sorter: Box<dyn Fn((usize, Option<&Node<'a>>), (usize, Option<&Node<'a>>), &Context<'a>) -> std::cmp::Ordering>,
+    context: &mut Context<'a>,
+) -> HashMap<usize, usize> {
+    let mut nodes_with_indexes = nodes.enumerate().collect::<Vec<_>>();
+    nodes_with_indexes.sort_unstable_by(|a, b| sorter((a.0, a.1), (b.0, b.1), context));
+    let mut old_to_new_index = HashMap::new();
+
+    for (new_index, old_index) in nodes_with_indexes.into_iter().map(|(index, _)| index).enumerate() {
+        old_to_new_index.insert(old_index, new_index);
+    }
+
+    old_to_new_index
+}
+
+fn sort_by_sorted_indexes<T>(items: Vec<T>, sorted_indexes: HashMap<usize, usize>) -> Vec<T> {
+    let mut sorted_items = Vec::with_capacity(items.len());
+    for _ in 0..items.len() {
+        sorted_items.push(None);
+    }
+
+    for (i, parsed_node) in items.into_iter().enumerate() {
+        sorted_items[*sorted_indexes.get(&i).unwrap_or(&i)] = Some(parsed_node);
+    }
+
+    sorted_items.into_iter().map(|x| x.unwrap()).collect()
 }
 
 fn parse_node_with_separator<'a>(value: Option<Node<'a>>, parsed_separator: PrintItems, context: &mut Context<'a>) -> PrintItems {
@@ -5452,7 +5618,7 @@ struct ParseObjectLikeNodeOptions<'a> {
     prefer_single_line: bool,
     surround_single_line_with_spaces: bool,
     allow_blank_lines: bool,
-    node_sorter: Option<Box<dyn Fn(&Option<Node<'a>>, &Option<Node<'a>>, &Context<'a>) -> std::cmp::Ordering>>,
+    node_sorter: Option<Box<dyn Fn((usize, Option<&Node<'a>>), (usize, Option<&Node<'a>>), &Context<'a>) -> std::cmp::Ordering>>,
 }
 
 fn parse_object_like_node<'a>(opts: ParseObjectLikeNodeOptions<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -5964,7 +6130,7 @@ fn parse_conditional_brace_body<'a>(opts: ParseConditionalBraceBodyOptions<'a>, 
             // parse the remaining trailing comments inside because some of them are parsed already
             // by parsing the header trailing comments
             items.extend(parse_leading_comments(body_node, context));
-            items.extend(parse_statements(body_node.get_inner_span_data(context), body_node.stmts.iter().map(|x| x.into()), context));
+            items.extend(parse_statements(body_node.get_inner_span_data(context), body_node.stmts.iter().map(|x| x.into()).collect(), context));
             items
         }));
     } else {
@@ -6221,7 +6387,7 @@ fn parse_jsx_children<'a>(opts: ParseJsxChildrenOptions<'a>, context: &mut Conte
         let mut items = PrintItems::new();
         let has_children = !children.is_empty();
         items.push_signal(Signal::NewLine);
-        items.extend(parser_helpers::with_indent(parse_statements_or_members(ParseStatementsOrMembersOptions {
+        items.extend(parser_helpers::with_indent(parse_members(ParseMembersOptions {
             inner_span_data,
             items: children.into_iter().map(|(a, b)| (a, Some(b.into()))).collect(),
             should_use_space: Some(Box::new(|previous, next, context| {

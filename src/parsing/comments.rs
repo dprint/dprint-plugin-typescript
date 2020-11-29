@@ -142,6 +142,10 @@ impl<'a> CommentsIterator<'a> {
         }
     }
 
+    pub fn extend(&mut self, iterator: CommentsIterator<'a>) {
+        self.comment_vecs.extend(iterator.comment_vecs);
+    }
+
     pub fn is_empty(&self) -> bool {
         for comments in self.comment_vecs.iter() {
             if !comments.is_empty() {

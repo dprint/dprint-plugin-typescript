@@ -1,0 +1,8 @@
+~~ statements.sortExportDeclarations: caseInsensitive ~~
+== should sort the export declarations ==
+export {} from "a1.ts";
+export {} from "A2.ts";
+
+[expect]
+export {} from "a1.ts";
+export {} from "A2.ts";

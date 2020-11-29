@@ -93,3 +93,49 @@ export { a as aa, a as ab } from "test";
 export { a as aa, a as ab } from "test";
 export { a, a as ab } from "test";
 export { a, a as ab } from "test";
+
+== should sort the declarations by their module specifiers ==
+export * from "./a";
+export {} from "./a";
+export * from "a";
+
+[expect]
+export * from "a";
+export * from "./a";
+export {} from "./a";
+
+== should sort the declarations by their module specifiers ==
+export * from "./b";
+export * from "./a";
+export * from "b";
+export * from "a";
+export * from "../b";
+export * from "../a";
+export * from "../../b";
+export * from "../../a";
+export {} from "./b";
+export {} from "./a";
+export {} from "b";
+export {} from "a";
+export {} from "../b";
+export {} from "../a";
+export {} from "../../b";
+export {} from "../../a";
+
+[expect]
+export * from "a";
+export {} from "a";
+export * from "b";
+export {} from "b";
+export * from "../../a";
+export {} from "../../a";
+export * from "../../b";
+export {} from "../../b";
+export * from "../a";
+export {} from "../a";
+export * from "../b";
+export {} from "../b";
+export * from "./a";
+export {} from "./a";
+export * from "./b";
+export {} from "./b";

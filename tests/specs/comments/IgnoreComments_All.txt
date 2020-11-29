@@ -64,3 +64,13 @@ call(5, 6, 7,
     5,
     6,
 ];
+
+== ignore comment at top of file should not ignore everything ==
+// dprint-ignore
+testing ;
+testing ;
+
+[expect]
+// dprint-ignore
+testing ;
+testing;

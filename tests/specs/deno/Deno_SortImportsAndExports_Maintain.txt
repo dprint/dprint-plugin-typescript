@@ -1,0 +1,12 @@
+~~ deno: true ~~
+== should keep the imports and export declaration sort order as-is ==
+import {} from "b.ts";
+import {} from "a.ts";
+export {} from "b.ts";
+export {} from "a.ts";
+
+[expect]
+import {} from "b.ts";
+import {} from "a.ts";
+export {} from "b.ts";
+export {} from "a.ts";

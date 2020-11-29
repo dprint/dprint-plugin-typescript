@@ -1,0 +1,8 @@
+~~ statements.sortExportDeclarations: maintain ~~
+== should keep the imports declaration sort order as-is ==
+export {} from "b.ts";
+export {} from "a.ts";
+
+[expect]
+export {} from "b.ts";
+export {} from "a.ts";
