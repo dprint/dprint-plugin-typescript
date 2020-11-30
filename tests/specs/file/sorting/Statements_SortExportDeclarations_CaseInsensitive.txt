@@ -1,8 +1,8 @@
-~~ statements.sortExportDeclarations: caseSensitive ~~
+~~ module.sortExportDeclarations: caseInsensitive ~~
 == should sort the export declarations ==
 export {} from "a1.ts";
 export {} from "A2.ts";
 
 [expect]
-export {} from "A2.ts";
 export {} from "a1.ts";
+export {} from "A2.ts";

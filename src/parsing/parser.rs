@@ -4877,8 +4877,8 @@ fn parse_statements<'a>(inner_span_data: Span, stmts: Vec<Node<'a>>, context: &m
         context: &Context<'a>,
     ) -> Option<Box<dyn Fn((usize, Option<&Node<'a>>), (usize, Option<&Node<'a>>), &Context<'a>) -> std::cmp::Ordering>> {
         match group_kind {
-            StmtGroupKind::Imports => get_node_sorter_from_order(context.config.statements_sort_import_declarations),
-            StmtGroupKind::Exports => get_node_sorter_from_order(context.config.statements_sort_export_declarations),
+            StmtGroupKind::Imports => get_node_sorter_from_order(context.config.module_sort_import_declarations),
+            StmtGroupKind::Exports => get_node_sorter_from_order(context.config.module_sort_export_declarations),
             StmtGroupKind::Other => None,
         }
     }

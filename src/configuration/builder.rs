@@ -66,8 +66,8 @@ impl ConfigurationBuilder {
             .quote_style(QuoteStyle::PreferDouble)
             .ignore_node_comment_text("deno-fmt-ignore")
             .ignore_file_comment_text("deno-fmt-ignore-file")
-            .statements_sort_import_declarations(SortOrder::Maintain)
-            .statements_sort_export_declarations(SortOrder::Maintain)
+            .module_sort_import_declarations(SortOrder::Maintain)
+            .module_sort_export_declarations(SortOrder::Maintain)
     }
 
     /// The width of a line the printer will try to stay under. Note that the printer may exceed this width in certain cases.
@@ -408,15 +408,15 @@ impl ConfigurationBuilder {
     /// Alphabetically sorts the import declarations based on their module specifiers.
     ///
     /// Default: Case insensitive
-    pub fn statements_sort_import_declarations(&mut self, value: SortOrder) -> &mut Self {
-        self.insert("statements.sortImportDeclarations", value.to_string().into())
+    pub fn module_sort_import_declarations(&mut self, value: SortOrder) -> &mut Self {
+        self.insert("module.sortImportDeclarations", value.to_string().into())
     }
 
     /// Alphabetically sorts the export declarations based on their module specifiers.
     ///
     /// Default: Case insensitive
-    pub fn statements_sort_export_declarations(&mut self, value: SortOrder) -> &mut Self {
-        self.insert("statements.sortExportDeclarations", value.to_string().into())
+    pub fn module_sort_export_declarations(&mut self, value: SortOrder) -> &mut Self {
+        self.insert("module.sortExportDeclarations", value.to_string().into())
     }
 
     /// Alphabetically sorts the import declaration's named imports.
@@ -892,8 +892,8 @@ mod tests {
             .type_literal_separator_kind_single_line(SemiColonOrComma::Comma)
             .type_literal_separator_kind_multi_line(SemiColonOrComma::Comma)
             /* sorting */
-            .statements_sort_import_declarations(SortOrder::Maintain)
-            .statements_sort_export_declarations(SortOrder::Maintain)
+            .module_sort_import_declarations(SortOrder::Maintain)
+            .module_sort_export_declarations(SortOrder::Maintain)
             .import_declaration_sort_named_imports(SortOrder::Maintain)
             .export_declaration_sort_named_exports(SortOrder::Maintain)
             /* ignore comments */

@@ -44,6 +44,10 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     let prefer_single_line = prefer_single_line_nullable.unwrap_or(false);
     let type_literal_separator_kind = get_value(&mut config, "typeLiteral.separatorKind", SemiColonOrComma::SemiColon, &mut diagnostics);
 
+    // todo: remove these two lines after 2021-03
+    handle_renamed_config_property(&mut config, "statements.sortImportDeclarations", "module.sortImportDeclarations", &mut diagnostics);
+    handle_renamed_config_property(&mut config, "statements.sortExportDeclarations", "module.sortExportDeclarations", &mut diagnostics);
+
     let resolved_config = Configuration {
         line_width: get_value(&mut config, "lineWidth", global_config.line_width.unwrap_or(DEFAULT_GLOBAL_CONFIGURATION.line_width), &mut diagnostics),
         use_tabs: get_value(&mut config, "useTabs", global_config.use_tabs.unwrap_or(DEFAULT_GLOBAL_CONFIGURATION.use_tabs), &mut diagnostics),
@@ -58,8 +62,8 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
         type_literal_separator_kind_single_line: get_value(&mut config, "typeLiteral.separatorKind.singleLine", type_literal_separator_kind, &mut diagnostics),
         type_literal_separator_kind_multi_line: get_value(&mut config, "typeLiteral.separatorKind.multiLine", type_literal_separator_kind, &mut diagnostics),
         /* sorting */
-        statements_sort_import_declarations: get_value(&mut config, "statements.sortImportDeclarations", SortOrder::CaseInsensitive, &mut diagnostics),
-        statements_sort_export_declarations: get_value(&mut config, "statements.sortExportDeclarations", SortOrder::CaseInsensitive, &mut diagnostics),
+        module_sort_import_declarations: get_value(&mut config, "module.sortImportDeclarations", SortOrder::CaseInsensitive, &mut diagnostics),
+        module_sort_export_declarations: get_value(&mut config, "module.sortExportDeclarations", SortOrder::CaseInsensitive, &mut diagnostics),
         import_declaration_sort_named_imports: get_value(&mut config, "importDeclaration.sortNamedImports", SortOrder::CaseInsensitive, &mut diagnostics),
         export_declaration_sort_named_exports: get_value(&mut config, "exportDeclaration.sortNamedExports", SortOrder::CaseInsensitive, &mut diagnostics),
         /* ignore comments */

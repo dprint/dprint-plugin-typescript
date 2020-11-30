@@ -2,7 +2,7 @@
 name = "dprint-plugin-typescript"
 description = "TypeScript code formatting plugin for dprint."
 keywords = ["formatting", "formatter", "typescript"]
-version = "0.34.0"
+version = "0.35.0"
 authors = ["David Sherret <dsherret@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -24,7 +24,7 @@ panic = "abort"
 wasm = ["serde_json", "dprint-core/wasm"]
 
 [dependencies]
-dprint-core = { version = "0.31.0", features = ["formatting"] }
+dprint-core = { version = "0.33.1", features = ["formatting"] }
 swc_common = "0.10.6"
 swc_ecmascript = { version = "0.14.4", features = ["parser"] }
 serde = { version = "1.0.88", features = ["derive"] }

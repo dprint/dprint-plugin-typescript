@@ -273,10 +273,10 @@ pub struct Configuration {
     #[serde(rename = "typeLiteral.separatorKind.multiLine")]
     pub type_literal_separator_kind_multi_line: SemiColonOrComma,
     /* sorting */
-    #[serde(rename = "statements.sortImportDeclarations")]
-    pub statements_sort_import_declarations: SortOrder,
-    #[serde(rename = "statements.sortExportDeclarations")]
-    pub statements_sort_export_declarations: SortOrder,
+    #[serde(rename = "module.sortImportDeclarations")]
+    pub module_sort_import_declarations: SortOrder,
+    #[serde(rename = "module.sortExportDeclarations")]
+    pub module_sort_export_declarations: SortOrder,
     #[serde(rename = "importDeclaration.sortNamedImports")]
     pub import_declaration_sort_named_imports: SortOrder,
     #[serde(rename = "exportDeclaration.sortNamedExports")]
