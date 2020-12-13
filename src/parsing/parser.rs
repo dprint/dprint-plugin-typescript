@@ -77,7 +77,7 @@ fn parse_node_with_inner_parse<'a>(node: Node<'a>, context: &mut Context<'a>, in
             // Some block comments should belong to the first child rather than the
             // parent node because their first child may end up on the next line.
             let leading_comments = node_lo.leading_comments_fast(context.module);
-            has_ignore_comment = get_has_ignore_comment(&leading_comments, &node_lo, context);
+            has_ignore_comment = get_has_ignore_comment(&leading_comments, &node, context);
             let node_start_line = node.start_line_fast(context.module);
             let leading_comments_on_previous_lines = leading_comments
                 .take_while(|c| c.kind == CommentKind::Line || c.start_line_fast(context.module) < node_start_line)
@@ -85,7 +85,7 @@ fn parse_node_with_inner_parse<'a>(node: Node<'a>, context: &mut Context<'a>, in
             items.extend(parse_comment_collection(leading_comments_on_previous_lines.into_iter(), None, None, context));
         } else {
             let leading_comments = context.comments.leading_comments_with_previous(node_lo);
-            has_ignore_comment = get_has_ignore_comment(&leading_comments, &node_lo, context);
+            has_ignore_comment = get_has_ignore_comment(&leading_comments, &node, context);
             items.extend(parse_comments_as_leading(&node_span, leading_comments, context));
         }
     }
@@ -105,7 +105,8 @@ fn parse_node_with_inner_parse<'a>(node: Node<'a>, context: &mut Context<'a>, in
         items.extend(inner_parse(parse_node_inner(node, context), context));
     }
 
-    // get the trailing comments
+    // Get the trailing comments -- This needs to be done based on the parse
+    // stack order because certain nodes like binary expressions are flattened
     if node_hi != parent_hi || context.parent().kind() == NodeKind::Module {
         let trailing_comments = context.comments.trailing_comments_with_previous(node_hi);
         items.extend(parse_comments_as_trailing(&node_span, trailing_comments, context));
@@ -329,18 +330,18 @@ fn parse_node_with_inner_parse<'a>(node: Node<'a>, context: &mut Context<'a>, in
     }
 
     #[inline]
-    fn get_has_ignore_comment<'a>(leading_comments: &CommentsIterator<'a>, node_lo: &BytePos, context: &mut Context<'a>) -> bool {
-        return if let Some(last_comment) = get_last_comment(leading_comments, node_lo, context) {
+    fn get_has_ignore_comment<'a>(leading_comments: &CommentsIterator<'a>, node: &Node<'a>, context: &mut Context<'a>) -> bool {
+        return if let Some(last_comment) = get_last_comment(leading_comments, node, context) {
             parser_helpers::text_has_dprint_ignore(&last_comment.text, &context.config.ignore_node_comment_text)
         } else {
             false
         };
 
         #[inline]
-        fn get_last_comment<'a>(leading_comments: &CommentsIterator<'a>, node_lo: &BytePos, context: &mut Context<'a>) -> Option<&'a Comment> {
-            return match context.parent() {
-                Node::JSXElement(jsx_element) => get_last_comment_for_jsx_children(&jsx_element.children, node_lo, context),
-                Node::JSXFragment(jsx_fragment) => get_last_comment_for_jsx_children(&jsx_fragment.children, node_lo, context),
+        fn get_last_comment<'a>(leading_comments: &CommentsIterator<'a>, node: &Node, context: &mut Context<'a>) -> Option<&'a Comment> {
+            return match node.parent() {
+                Some(Node::JSXElement(jsx_element)) => get_last_comment_for_jsx_children(&jsx_element.children, &node.lo(), context),
+                Some(Node::JSXFragment(jsx_fragment)) => get_last_comment_for_jsx_children(&jsx_fragment.children, &node.lo(), context),
                 _ => leading_comments.peek_last_comment(),
             };
 
@@ -398,6 +399,7 @@ fn parse_node_with_inner_parse<'a>(node: Node<'a>, context: &mut Context<'a>, in
 fn parse_class_method<'a>(node: &'a ClassMethod, context: &mut Context<'a>) -> PrintItems {
     // todo: consolidate with private method
     return parse_class_or_object_method(ClassOrObjectMethod {
+        node: node.into(),
         parameters_span: node.get_parameters_span(context),
         decorators: Some(&node.function.decorators),
         accessibility: node.accessibility(),
@@ -417,6 +419,7 @@ fn parse_class_method<'a>(node: &'a ClassMethod, context: &mut Context<'a>) -> P
 
 fn parse_private_method<'a>(node: &'a PrivateMethod, context: &mut Context<'a>) -> PrintItems {
     return parse_class_or_object_method(ClassOrObjectMethod {
+        node: node.into(),
         parameters_span: node.get_parameters_span(context),
         decorators: Some(&node.function.decorators),
         accessibility: node.accessibility(),
@@ -453,6 +456,7 @@ fn parse_class_prop<'a>(node: &'a ClassProp, context: &mut Context<'a>) -> Print
 
 fn parse_constructor<'a>(node: &'a Constructor, context: &mut Context<'a>) -> PrintItems {
     parse_class_or_object_method(ClassOrObjectMethod {
+        node: node.into(),
         parameters_span: node.get_parameters_span(context),
         decorators: None,
         accessibility: node.accessibility(),
@@ -580,7 +584,7 @@ fn parse_catch_clause<'a>(node: &'a CatchClause, context: &mut Context<'a>) -> P
     }
     items.push_info(end_header_info);
 
-    let single_body_position = if let Node::TryStmt(try_stmt) = context.parent() {
+    let single_body_position = if let Node::TryStmt(try_stmt) = node.parent().unwrap() {
         if try_stmt.finalizer.is_some() { Some(SingleBodyPosition::NextLine) } else { None }
     } else {
         None
@@ -618,7 +622,7 @@ fn parse_identifier<'a>(node: &'a Ident, context: &mut Context<'a>) -> PrintItem
     if node.optional() {
         items.push_str("?");
     }
-    if let Node::VarDeclarator(node) = context.parent() {
+    if let Node::VarDeclarator(node) = node.parent().unwrap() {
         if node.definite() {
             items.push_str("!");
         }
@@ -633,7 +637,8 @@ fn parse_identifier<'a>(node: &'a Ident, context: &mut Context<'a>) -> PrintItem
 
 fn parse_class_decl<'a>(node: &'a ClassDecl, context: &mut Context<'a>) -> PrintItems {
     return parse_class_decl_or_expr(ClassDeclOrExpr {
-        span: node.class.span(),
+        node: node.into(),
+        member_span: node.class.span(),
         decorators: &node.class.decorators,
         is_class_expr: false,
         is_declare: node.declare(),
@@ -649,7 +654,8 @@ fn parse_class_decl<'a>(node: &'a ClassDecl, context: &mut Context<'a>) -> Print
 }
 
 struct ClassDeclOrExpr<'a> {
-    span: Span,
+    node: Node<'a>,
+    member_span: Span,
     decorators: &'a Vec<&'a Decorator<'a>>,
     is_class_expr: bool,
     is_declare: bool,
@@ -668,7 +674,7 @@ fn parse_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context
     let start_before_owned_comments_info = context.get_or_create_current_before_comments_start_info();
 
     // parse decorators
-    let parent_kind = context.parent().kind();
+    let parent_kind = node.node.parent().unwrap().kind();
     if parent_kind != NodeKind::ExportDecl && parent_kind != NodeKind::ExportDefaultDecl {
         items.extend(parse_decorators(node.decorators, node.is_class_expr, context));
     }
@@ -716,7 +722,7 @@ fn parse_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context
         prefer_hanging: context.config.implements_clause_prefer_hanging,
     }, context));
     items.extend(parse_membered_body(ParseMemberedBodyOptions {
-        span: node.span,
+        span: node.member_span,
         members: node.members,
         start_header_info: Some(start_header_info),
         brace_position: node.brace_position,
@@ -869,6 +875,7 @@ fn parse_export_named_decl<'a>(node: &'a NamedExport, context: &mut Context<'a>)
 
 fn parse_function_decl<'a>(node: &'a FnDecl, context: &mut Context<'a>) -> PrintItems {
     parse_function_decl_or_expr(FunctionDeclOrExprNode {
+        node: node.into(),
         is_func_decl: true,
         ident: Some(node.ident),
         declare: node.declare(),
@@ -877,6 +884,7 @@ fn parse_function_decl<'a>(node: &'a FnDecl, context: &mut Context<'a>) -> Print
 }
 
 struct FunctionDeclOrExprNode<'a> {
+    node: Node<'a>,
     is_func_decl: bool,
     ident: Option<&'a Ident<'a>>,
     declare: bool,
@@ -911,6 +919,7 @@ fn parse_function_decl_or_expr<'a>(node: FunctionDeclOrExprNode<'a>, context: &m
     }
 
     items.extend(parse_parameters_or_arguments(ParseParametersOrArgumentsOptions {
+        node: node.node,
         nodes: func.params.iter().map(|&node| node.into()).collect(),
         span: func.get_parameters_span(context),
         custom_close_paren: |context| Some(parse_close_paren_with_type(ParseCloseParenWithTypeOptions {
@@ -1238,6 +1247,7 @@ fn parse_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> 
         // need to check if there are parens because parse_parameters_or_arguments depends on the parens existing
         if has_parens(node, context) {
             items.extend(parse_parameters_or_arguments(ParseParametersOrArgumentsOptions {
+                node: node.into(),
                 span: node.get_parameters_span(context),
                 nodes: node.params.iter().map(|node| node.into()).collect(),
                 custom_close_paren: |context| Some(parse_close_paren_with_type(ParseCloseParenWithTypeOptions {
@@ -1389,9 +1399,9 @@ fn parse_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintI
         }, context.module);
     let indent_width = context.config.indent_width;
     let binary_expr_start_info = Info::new("binExprStartInfo");
-    let allow_no_indent = get_allow_no_indent(node, context);
+    let allow_no_indent = get_allow_no_indent(node);
     let use_space_surrounding_operator = get_use_space_surrounding_operator(&node.op(), context);
-    let is_parent_bin_expr = context.parent().kind() == NodeKind::BinExpr;
+    let is_parent_bin_expr = node.parent().unwrap().kind() == NodeKind::BinExpr;
     let multi_line_options = {
         let mut options = if line_per_expression {
             parser_helpers::MultiLineOptions::same_line_no_indent()
@@ -1533,8 +1543,9 @@ fn parse_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintI
 
     return if node.op().is_equality() { parser_helpers::new_line_group(items) } else { items };
 
-    fn get_allow_no_indent(node: &BinExpr, context: &mut Context) -> bool {
-        let parent_kind = context.parent().kind();
+    fn get_allow_no_indent(node: &BinExpr) -> bool {
+        let parent = node.parent().unwrap();
+        let parent_kind = parent.kind();
         if !node.op().is_add_sub()
             && !node.op().is_mul_div()
             && !node.op().is_logical()
@@ -1547,9 +1558,9 @@ fn parse_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintI
             false
         } else {
             // get if in an argument
-            match context.parent() {
-                Node::ExprOrSpread(_) => {
-                    match context.parent_stack.get(1).expect("Expr or spread should always have a parent.").kind() {
+            match parent {
+                Node::ExprOrSpread(expr_or_spread) => {
+                    match expr_or_spread.parent().unwrap().kind() {
                         NodeKind::CallExpr | NodeKind::NewExpr => false,
                         _ => true,
                     }
@@ -1599,11 +1610,12 @@ fn parse_call_expr<'a>(node: &'a CallExpr, context: &mut Context<'a>) -> PrintIt
             items.extend(parse_node(type_args.into(), context));
         }
 
-        if is_optional(context) {
+        if is_optional(node) {
             items.push_str("?.");
         }
 
         items.push_condition(conditions::with_indent_if_start_of_line_indented(parse_parameters_or_arguments(ParseParametersOrArgumentsOptions {
+            node: node.into(),
             span: node.get_parameters_span(context),
             nodes: node.args.iter().map(|&node| node.into()).collect(),
             custom_close_paren: |_| None,
@@ -1656,7 +1668,7 @@ fn parse_call_expr<'a>(node: &'a CallExpr, context: &mut Context<'a>) -> PrintIt
     // Tests if this is a call expression from common test libraries.
     // Be very strict here to allow the user to opt out if they'd like.
     fn is_test_library_call_expr(node: &CallExpr, context: &mut Context) -> bool {
-        if node.args.len() != 2 || node.type_args.is_some() || !is_valid_callee(&node.callee) || is_optional(context) {
+        if node.args.len() != 2 || node.type_args.is_some() || !is_valid_callee(&node.callee) || is_optional(node) {
             return false;
         }
         if node.args[0].expr.kind() != NodeKind::Str && !node.args[0].expr.is::<Tpl>() {
@@ -1710,14 +1722,15 @@ fn parse_call_expr<'a>(node: &'a CallExpr, context: &mut Context<'a>) -> PrintIt
         }
     }
 
-    fn is_optional(context: &Context) -> bool {
-        return context.parent().kind() == NodeKind::OptChainExpr;
+    fn is_optional(node: &CallExpr) -> bool {
+        return node.parent().unwrap().kind() == NodeKind::OptChainExpr;
     }
 }
 
 fn parse_class_expr<'a>(node: &'a ClassExpr, context: &mut Context<'a>) -> PrintItems {
     parse_class_decl_or_expr(ClassDeclOrExpr {
-        span: node.class.span(),
+        node: node.into(),
+        member_span: node.class.span(),
         decorators: &node.class.decorators,
         is_class_expr: true,
         is_declare: false,
@@ -1900,6 +1913,7 @@ fn parse_expr_with_type_args<'a>(node: &'a TsExprWithTypeArgs, context: &mut Con
 
 fn parse_fn_expr<'a>(node: &'a FnExpr, context: &mut Context<'a>) -> PrintItems {
     parse_function_decl_or_expr(FunctionDeclOrExprNode {
+        node: node.into(),
         is_func_decl: false,
         ident: node.ident,
         declare: false,
@@ -1909,6 +1923,7 @@ fn parse_fn_expr<'a>(node: &'a FnExpr, context: &mut Context<'a>) -> PrintItems 
 
 fn parse_getter_prop<'a>(node: &'a GetterProp, context: &mut Context<'a>) -> PrintItems {
     return parse_class_or_object_method(ClassOrObjectMethod {
+        node: node.into(),
         parameters_span: node.get_parameters_span(context),
         decorators: None,
         accessibility: None,
@@ -1935,6 +1950,7 @@ fn parse_key_value_prop<'a>(node: &'a KeyValueProp, context: &mut Context<'a>) -
 
 fn parse_member_expr<'a>(node: &'a MemberExpr, context: &mut Context<'a>) -> PrintItems {
     parse_for_member_like_expr(MemberLikeExpr {
+        node: node.into(),
         left_node: node.obj.into(),
         right_node: node.prop.into(),
         is_computed: node.computed(),
@@ -1943,6 +1959,7 @@ fn parse_member_expr<'a>(node: &'a MemberExpr, context: &mut Context<'a>) -> Pri
 
 fn parse_meta_prop_expr<'a>(node: &'a MetaPropExpr, context: &mut Context<'a>) -> PrintItems {
     parse_for_member_like_expr(MemberLikeExpr {
+        node: node.into(),
         left_node: node.meta.into(),
         right_node: node.prop.into(),
         is_computed: false,
@@ -1959,6 +1976,7 @@ fn parse_new_expr<'a>(node: &'a NewExpr, context: &mut Context<'a>) -> PrintItem
         None => Vec::new(),
     };
     items.extend(parse_parameters_or_arguments(ParseParametersOrArgumentsOptions {
+        node: node.into(),
         span: node.get_parameters_span(context),
         nodes: args,
         custom_close_paren: |_| None,
@@ -1998,14 +2016,14 @@ fn parse_paren_expr<'a>(node: &'a ParenExpr, context: &mut Context<'a>) -> Print
         context
     )).into();
 
-    return if get_use_new_line_group(node, context) {
+    return if get_use_new_line_group(node) {
         new_line_group(parsed_items)
     } else {
         parsed_items
     };
 
-    fn get_use_new_line_group(node: &ParenExpr, context: &mut Context) -> bool {
-        if let Node::ArrowExpr(arrow_expr) = context.parent() {
+    fn get_use_new_line_group(node: &ParenExpr) -> bool {
+        if let Some(Node::ArrowExpr(arrow_expr)) = node.parent() {
             debug_assert!(arrow_expr.body.lo() == node.lo());
             use_new_line_group_for_arrow_body(arrow_expr)
         } else {
@@ -2032,6 +2050,7 @@ fn parse_sequence_expr<'a>(node: &'a SeqExpr, context: &mut Context<'a>) -> Prin
 
 fn parse_setter_prop<'a>(node: &'a SetterProp, context: &mut Context<'a>) -> PrintItems {
     parse_class_or_object_method(ClassOrObjectMethod {
+        node: node.into(),
         parameters_span: node.get_parameters_span(context),
         decorators: None,
         accessibility: None,
@@ -2054,7 +2073,7 @@ fn parse_spread_element<'a>(node: &'a SpreadElement, context: &mut Context<'a>) 
     items.push_str("...");
     items.extend(parse_node(node.expr.into(), context));
 
-    if context.parent().kind() == NodeKind::JSXOpeningElement {
+    if node.parent().unwrap().kind() == NodeKind::JSXOpeningElement {
         parse_as_jsx_expr_container(items, context)
     } else {
         items
@@ -2319,6 +2338,7 @@ fn parse_call_signature_decl<'a>(node: &'a TsCallSignatureDecl, context: &mut Co
     items.push_info(start_info);
     if let Some(type_params) = node.type_params { items.extend(parse_node(type_params.into(), context)); }
     items.extend(parse_parameters_or_arguments(ParseParametersOrArgumentsOptions {
+        node: node.into(),
         span: node.get_parameters_span(context),
         nodes: node.params.iter().map(|node| node.into()).collect(),
         custom_close_paren: |context| Some(parse_close_paren_with_type(ParseCloseParenWithTypeOptions {
@@ -2342,6 +2362,7 @@ fn parse_construct_signature_decl<'a>(node: &'a TsConstructSignatureDecl, contex
     if context.config.construct_signature_space_after_new_keyword { items.push_str(" "); }
     if let Some(type_params) = node.type_params { items.extend(parse_node(type_params.into(), context)); }
     items.extend(parse_parameters_or_arguments(ParseParametersOrArgumentsOptions {
+        node: node.into(),
         span: node.get_parameters_span(context),
         nodes: node.params.iter().map(|node| node.into()).collect(),
         custom_close_paren: |context| Some(parse_close_paren_with_type(ParseCloseParenWithTypeOptions {
@@ -2390,6 +2411,7 @@ fn parse_method_signature<'a>(node: &'a TsMethodSignature, context: &mut Context
     if let Some(type_params) = node.type_params { items.extend(parse_node(type_params.into(), context)); }
 
     items.extend(parse_parameters_or_arguments(ParseParametersOrArgumentsOptions {
+        node: node.into(),
         span: node.get_parameters_span(context),
         nodes: node.params.iter().map(|node| node.into()).collect(),
         custom_close_paren: |context| Some(parse_close_paren_with_type(ParseCloseParenWithTypeOptions {
@@ -2429,7 +2451,7 @@ fn parse_property_signature<'a>(node: &'a TsPropertySignature, context: &mut Con
 }
 
 fn parse_interface_body<'a>(node: &'a TsInterfaceBody, context: &mut Context<'a>) -> PrintItems {
-    let start_header_info = get_parent_info(context);
+    let start_header_info = get_parent_info(node, context);
 
     return parse_membered_body(ParseMemberedBodyOptions {
         span: node.span(),
@@ -2442,7 +2464,7 @@ fn parse_interface_body<'a>(node: &'a TsInterfaceBody, context: &mut Context<'a>
         separator: context.config.semi_colons.into(),
     }, context);
 
-    fn get_parent_info(context: &mut Context) -> Option<Info> {
+    fn get_parent_info(node: &TsInterfaceBody, context: &mut Context) -> Option<Info> {
         for ancestor in context.parent_stack.iter() {
             if let Node::TsInterfaceDecl(ancestor) = ancestor {
                 return context.get_info_for_node(ancestor).map(|x| x.to_owned());
@@ -2870,6 +2892,7 @@ fn parse_object_pat<'a>(node: &'a ObjectPat, context: &mut Context<'a>) -> Print
 
 fn parse_method_prop<'a>(node: &'a MethodProp, context: &mut Context<'a>) -> PrintItems {
     return parse_class_or_object_method(ClassOrObjectMethod {
+        node: node.into(),
         parameters_span: node.get_parameters_span(context),
         decorators: None,
         accessibility: None,
@@ -2888,6 +2911,7 @@ fn parse_method_prop<'a>(node: &'a MethodProp, context: &mut Context<'a>) -> Pri
 }
 
 struct ClassOrObjectMethod<'a> {
+    node: Node<'a>,
     parameters_span: Option<Span>,
     decorators: Option<&'a Vec<&'a Decorator<'a>>>,
     accessibility: Option<Accessibility>,
@@ -2951,6 +2975,7 @@ fn parse_class_or_object_method<'a>(node: ClassOrObjectMethod<'a>, context: &mut
 
     let param_count = node.params.len();
     items.extend(parse_parameters_or_arguments(ParseParametersOrArgumentsOptions {
+        node: node.node,
         span: node.parameters_span,
         nodes: node.params.into_iter().map(|node| node.into()).collect(),
         custom_close_paren: {
@@ -3569,7 +3594,7 @@ fn parse_switch_case<'a>(node: &'a SwitchCase, context: &mut Context<'a>) -> Pri
     }
 
     items.extend(parse_first_line_trailing_comments(&node.span(), node.cons.get(0).map(|x| x.span()), context));
-    let parsed_trailing_comments = parse_trailing_comments_for_case(node.span(), &block_stmt_body, context);
+    let parsed_trailing_comments = parse_trailing_comments_for_case(node, &block_stmt_body, context);
     if !node.cons.is_empty() {
         if let Some(block_stmt_body) = block_stmt_body {
             items.extend(parse_brace_separator(ParseBraceSeparatorOptions {
@@ -3602,12 +3627,13 @@ fn parse_switch_case<'a>(node: &'a SwitchCase, context: &mut Context<'a>) -> Pri
         return None;
     }
 
-    fn parse_trailing_comments_for_case<'a>(node_span: Span, block_stmt_body: &Option<Span>, context: &mut Context<'a>) -> PrintItems {
+    fn parse_trailing_comments_for_case<'a>(node: &'a SwitchCase, block_stmt_body: &Option<Span>, context: &mut Context<'a>) -> PrintItems {
+        let node_span = node.span();
         let mut items = PrintItems::new();
         // parse the trailing comments as statements
         let trailing_comments = get_trailing_comments_as_statements(&node_span, context);
         if !trailing_comments.is_empty() {
-            if let Node::SwitchStmt(stmt) = context.parent() {
+            if let Some(Node::SwitchStmt(stmt)) = node.parent() {
                 let last_case = stmt.cases.iter().last();
                 let is_last_case = match last_case { Some(last_case) => last_case.lo() == node_span.lo, _=> false };
                 let mut is_equal_indent = block_stmt_body.is_some();
@@ -3736,16 +3762,16 @@ fn parse_var_decl<'a>(node: &'a VarDecl, context: &mut Context<'a>) -> PrintItem
         }, context));
     }
 
-    if requires_semi_colon(&node.span(), context) { items.push_str(";"); }
+    if requires_semi_colon(node, context) { items.push_str(";"); }
 
     return items;
 
-    fn requires_semi_colon(var_decl_span: &Span, context: &mut Context) -> bool {
+    fn requires_semi_colon(node: &VarDecl, context: &mut Context) -> bool {
         let use_semi_colons = context.config.semi_colons.is_true();
-        use_semi_colons && match context.parent() {
-            Node::ForInStmt(node) => var_decl_span.lo >= node.body.lo(),
-            Node::ForOfStmt(node) => var_decl_span.lo >= node.body.lo(),
-            Node::ForStmt(node) => var_decl_span.lo >= node.body.lo(),
+        use_semi_colons && match node.parent().unwrap() {
+            Node::ForInStmt(node) => node.lo() >= node.body.lo(),
+            Node::ForOfStmt(node) => node.lo() >= node.body.lo(),
+            Node::ForStmt(node) => node.lo() >= node.body.lo(),
             _ => use_semi_colons,
         }
     }
@@ -3767,7 +3793,7 @@ fn parse_var_declarator<'a>(node: &'a VarDeclarator, context: &mut Context<'a>) 
     // Indent the first variable declarator when there are multiple.
     // Not ideal, but doing this here because of the abstraction used in
     // `parse_var_decl`. In the future this should probably be moved away.
-    if let Node::VarDecl(var_dec) = context.parent() {
+    if let Node::VarDecl(var_dec) = node.parent().unwrap() {
         if var_dec.decls.len() > 1 && var_dec.decls[0].span() == node.span() {
             let items = items.into_rc_path();
             if_true_or(
@@ -3830,7 +3856,7 @@ fn parse_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context
     let use_new_lines = !context.config.conditional_type_prefer_single_line
         && node_helpers::get_use_new_lines_for_nodes(&node.true_type, &node.false_type, context.module);
     let top_most_data = get_top_most_data(node, context);
-    let is_parent_conditional_type = context.parent().kind() == NodeKind::TsConditionalType;
+    let is_parent_conditional_type = node.parent().unwrap().kind() == NodeKind::TsConditionalType;
     let mut items = PrintItems::new();
     let before_false_info = Info::new("beforeFalse");
 
@@ -3929,6 +3955,7 @@ fn parse_constructor_type<'a>(node: &'a TsConstructorType, context: &mut Context
     }
 
     items.extend(parse_parameters_or_arguments(ParseParametersOrArgumentsOptions {
+        node: node.into(),
         span: node.get_parameters_span(context),
         nodes: node.params.iter().map(|node| node.into()).collect(),
         custom_close_paren: |context| Some(parse_close_paren_with_type(ParseCloseParenWithTypeOptions {
@@ -3964,6 +3991,7 @@ fn parse_function_type<'a>(node: &'a TsFnType, context: &mut Context<'a>) -> Pri
         items.extend(parse_node(type_params.into(), context));
     }
     items.extend(parse_parameters_or_arguments(ParseParametersOrArgumentsOptions {
+        node: node.into(),
         span: node.get_parameters_span(context),
         nodes: node.params.iter().map(|node| node.into()).collect(),
         custom_close_paren: |context| Some(parse_close_paren_with_type(ParseCloseParenWithTypeOptions {
@@ -4027,7 +4055,7 @@ fn parse_infer_type<'a>(node: &'a TsInferType, context: &mut Context<'a>) -> Pri
 
 fn parse_intersection_type<'a>(node: &'a TsIntersectionType, context: &mut Context<'a>) -> PrintItems {
     parse_union_or_intersection_type(UnionOrIntersectionType {
-        span: node.span(),
+        node: node.into(),
         types: &node.types,
         is_union: false,
     }, context)
@@ -4121,10 +4149,10 @@ fn parse_parenthesized_type<'a>(node: &'a TsParenthesizedType, context: &mut Con
         context
     )).into();
 
-    return if use_new_line_group(context) { new_line_group(parsed_type) } else { parsed_type };
+    return if use_new_line_group(node) { new_line_group(parsed_type) } else { parsed_type };
 
-    fn use_new_line_group(context: &mut Context) -> bool {
-        match context.parent() {
+    fn use_new_line_group(node: &TsParenthesizedType) -> bool {
+        match node.parent().unwrap() {
             Node::TsTypeAliasDecl(_) => false,
             _ => true,
         }
@@ -4180,7 +4208,7 @@ fn parse_type_param<'a>(node: &'a TsTypeParam, context: &mut Context<'a>) -> Pri
         items.push_signal(Signal::SpaceOrNewLine);
         items.push_condition(conditions::indent_if_start_of_line({
             let mut items = PrintItems::new();
-            items.push_str(if context.parent().kind() == NodeKind::TsMappedType {
+            items.push_str(if node.parent().unwrap().kind() == NodeKind::TsMappedType {
                 "in"
             } else {
                 "extends"
@@ -4289,14 +4317,14 @@ fn parse_type_reference<'a>(node: &'a TsTypeRef, context: &mut Context<'a>) -> P
 
 fn parse_union_type<'a>(node: &'a TsUnionType, context: &mut Context<'a>) -> PrintItems {
     parse_union_or_intersection_type(UnionOrIntersectionType {
-        span: node.span(),
+        node: node.into(),
         types: &node.types,
         is_union: true,
     }, context)
 }
 
 struct UnionOrIntersectionType<'a> {
-    pub span: Span,
+    pub node: Node<'a>,
     pub types: &'a Vec<TsType<'a>>,
     pub is_union: bool,
 }
@@ -4307,17 +4335,17 @@ fn parse_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, conte
     let force_use_new_lines = get_use_new_lines_for_nodes(&node.types, context.config.union_and_intersection_type_prefer_single_line, context);
     let separator = if node.is_union { "|" } else { "&" };
 
-    let leading_comments = node.span.leading_comments_fast(context.module);
+    let leading_comments = node.node.span().leading_comments_fast(context.module);
     let has_leading_comments = !leading_comments.is_empty();
 
     let indent_width = context.config.indent_width;
     let prefer_hanging = context.config.union_and_intersection_type_prefer_hanging;
-    let is_parent_union_or_intersection = match context.parent().kind() {
+    let is_parent_union_or_intersection = match node.node.parent().unwrap().kind() {
         NodeKind::TsUnionType | NodeKind::TsIntersectionType => true,
         _ => false,
     };
     let multi_line_options = if !is_parent_union_or_intersection {
-        if use_surround_newlines(context) {
+        if use_surround_newlines(&node.node) {
             parser_helpers::MultiLineOptions::surround_newlines_indented()
         } else if has_leading_comments {
             parser_helpers::MultiLineOptions::same_line_no_indent()
@@ -4397,8 +4425,8 @@ fn parse_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, conte
 
     return items;
 
-    fn use_surround_newlines(context: &mut Context) -> bool {
-        match context.parent() {
+    fn use_surround_newlines(node: &Node) -> bool {
+        match node.parent().unwrap() {
             Node::TsTypeAssertion(_) | Node::TsParenthesizedType(_) => true,
             _ => false,
         }
@@ -5039,6 +5067,7 @@ fn parse_members<'a, FShouldUseBlankLine>(
 }
 
 struct ParseParametersOrArgumentsOptions<'a, F> where F : FnOnce(&mut Context<'a>) -> Option<PrintItems> {
+    node: Node<'a>,
     span: Option<Span>,
     nodes: Vec<Node<'a>>,
     custom_close_paren: F,
@@ -5054,7 +5083,7 @@ fn parse_parameters_or_arguments<'a, F>(opts: ParseParametersOrArgumentsOptions<
     let first_member_span = opts.nodes.iter().map(|n| n.span()).next();
     let nodes = opts.nodes;
     let prefer_hanging = if is_parameters { context.config.parameters_prefer_hanging } else { context.config.arguments_prefer_hanging };
-    let trailing_commas = get_trailing_commas(&nodes, is_parameters, context);
+    let trailing_commas = get_trailing_commas(&opts.node, &nodes, is_parameters, context);
 
     return parse_surrounded_by_tokens(|context| {
         let mut items = PrintItems::new();
@@ -5102,7 +5131,7 @@ fn parse_parameters_or_arguments<'a, F>(opts: ParseParametersOrArgumentsOptions<
         allow_open_token_trailing_comments: true,
     }, context);
 
-    fn get_trailing_commas(nodes: &Vec<Node>, is_parameters: bool, context: &mut Context) -> TrailingCommas {
+    fn get_trailing_commas(node: &Node, nodes: &Vec<Node>, is_parameters: bool, context: &mut Context) -> TrailingCommas {
         if let Some(last) = nodes.last() {
             // this would be a syntax error
             if is_param_rest_pat(last) {
@@ -5110,7 +5139,7 @@ fn parse_parameters_or_arguments<'a, F>(opts: ParseParametersOrArgumentsOptions<
             }
         }
 
-        return if is_dynamic_import(&context.current_node) {
+        return if is_dynamic_import(node) {
             TrailingCommas::Never // not allowed
         } else if is_parameters {
             context.config.parameters_trailing_commas
@@ -5677,6 +5706,7 @@ fn parse_object_like_node<'a>(opts: ParseObjectLikeNodeOptions<'a>, context: &mu
 }
 
 struct MemberLikeExpr<'a> {
+    node: Node<'a>,
     left_node: Node<'a>,
     right_node: Node<'a>,
     is_computed: bool,
@@ -5686,8 +5716,8 @@ fn parse_for_member_like_expr<'a>(node: MemberLikeExpr<'a>, context: &mut Contex
     let mut items = PrintItems::new();
     let force_use_new_line = !context.config.member_expression_prefer_single_line
         && node_helpers::get_use_new_lines_for_nodes(&node.left_node, &node.right_node, context.module);
-    let is_optional = context.parent().kind() == NodeKind::OptChainExpr;
-    let top_most_data = get_top_most_data(context);
+    let is_optional = node.node.parent().unwrap().kind() == NodeKind::OptChainExpr;
+    let top_most_data = get_top_most_data(&node, context);
 
     if top_most_data.is_top_most {
         items.push_info(top_most_data.top_most_start_info);
@@ -5754,7 +5784,7 @@ fn parse_for_member_like_expr<'a>(node: MemberLikeExpr<'a>, context: &mut Contex
         is_top_most: bool,
     }
 
-    fn get_top_most_data(context: &mut Context) -> TopMostData {
+    fn get_top_most_data(node: &MemberLikeExpr, context: &mut Context) -> TopMostData {
         // The "top most" node follows the ancestors up through the left expressions...
         //
         //  member.expression.test
@@ -5762,8 +5792,8 @@ fn parse_for_member_like_expr<'a>(node: MemberLikeExpr<'a>, context: &mut Contex
         //            left: member
         //            right: expression
         //    right: test
-        let current_node = &context.current_node;
-        let mut top_most_node = &context.current_node;
+        let current_node = node.node;
+        let mut top_most_node = &node.node;
 
         for ancestor in context.parent_stack.iter() {
             if let Node::MemberExpr(_) = ancestor {
