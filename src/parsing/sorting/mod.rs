@@ -114,7 +114,7 @@ fn get_comparison_nodes<'a>(node: &Node<'a>) -> Vec<Span> {
                 #[cfg(debug_assertions)]
                 unimplemented!("Should not call this for named exports with src.");
                 #[cfg(not(debug_assertions))]
-                vec![node.span_data()]
+                vec![node.span()]
             }
         },
         Node::ExportAll(node) => {
@@ -124,7 +124,7 @@ fn get_comparison_nodes<'a>(node: &Node<'a>) -> Vec<Span> {
             #[cfg(debug_assertions)]
             unimplemented!("Not implemented sort node.");
             #[cfg(not(debug_assertions))]
-            vec![node.span_data()]
+            vec![node.span()]
         }
     }
 }

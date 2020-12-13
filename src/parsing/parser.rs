@@ -2465,7 +2465,7 @@ fn parse_interface_body<'a>(node: &'a TsInterfaceBody, context: &mut Context<'a>
     }, context);
 
     fn get_parent_info(node: &TsInterfaceBody, context: &mut Context) -> Option<Info> {
-        for ancestor in context.parent_stack.iter() {
+        for ancestor in node.ancestors() {
             if let Node::TsInterfaceDecl(ancestor) = ancestor {
                 return context.get_info_for_node(ancestor).map(|x| x.to_owned());
             }

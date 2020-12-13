@@ -1,4 +1,3 @@
-use std::str;
 use std::collections::{HashSet, HashMap};
 use dprint_core::formatting::{Info, ConditionReference};
 use swc_common::SourceFile;
