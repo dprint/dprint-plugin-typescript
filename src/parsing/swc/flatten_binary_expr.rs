@@ -1,9 +1,8 @@
-use swc_ecmascript::ast::*;
-use swc_ecmascript::parser::{token::{TokenAndSpan}};
+use swc_ast_view::*;
+use super::super::Context;
 
-use super::*;
-use super::super::*;
-use super::super::super::configuration::*;
+use super::extensions::*;
+use crate::configuration::*;
 
 pub struct BinExprItem<'a> {
     pub pre_op: Option<BinExprOp<'a>>,
@@ -20,15 +19,15 @@ pub struct BinExprOp<'a> {
 pub fn get_flattened_bin_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> Vec<BinExprItem<'a>> {
     let mut items = Vec::new();
     let operator_token = BinExprOp {
-        token: context.token_finder.get_first_operator_after(&*node.left, node.op.as_str()).unwrap(),
-        op: node.op,
+        token: context.token_finder.get_first_operator_after(&node.left, node.op().as_str()).unwrap(),
+        op: node.op(),
     };
     let is_op_same_line = get_operator_position(&node, &operator_token.token, context) == OperatorPosition::SameLine;
     let mut handled_left = false;
     let mut handled_right = false;
 
-    if let Expr::Bin(left_bin) = &*node.left {
-        if is_expression_breakable(&node.op, &left_bin.op) {
+    if let Expr::Bin(left_bin) = node.left {
+        if is_expression_breakable(node.op(), left_bin.op()) {
             items.extend(get_flattened_bin_expr(left_bin, context));
             if is_op_same_line {
                 items.last_mut().unwrap().post_op = Some(operator_token.clone());
@@ -41,12 +40,12 @@ pub fn get_flattened_bin_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) 
         items.push(BinExprItem {
             pre_op: None,
             post_op: if is_op_same_line { Some(operator_token.clone()) } else { None },
-            expr: (&*node.left).into(),
+            expr: node.left.into(),
         });
     }
 
-    if let Expr::Bin(right_bin) = &*node.right {
-        if is_expression_breakable(&node.op, &right_bin.op) {
+    if let Expr::Bin(right_bin) = node.right {
+        if is_expression_breakable(node.op(), right_bin.op()) {
             let mut right_items = get_flattened_bin_expr(right_bin, context);
             if !is_op_same_line {
                 right_items.first_mut().unwrap().pre_op = Some(operator_token.clone());
@@ -60,13 +59,13 @@ pub fn get_flattened_bin_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) 
         items.push(BinExprItem {
             pre_op: if !is_op_same_line { Some(operator_token) } else { None },
             post_op: None,
-            expr: (&*node.right).into(),
+            expr: node.right.into(),
         });
     }
 
     return items;
 
-    fn is_expression_breakable(top_op: &BinaryOp, op: &BinaryOp) -> bool {
+    fn is_expression_breakable(top_op: BinaryOp, op: BinaryOp) -> bool {
         if top_op.is_add_sub() {
             op.is_add_sub()
         } else if top_op.is_mul_div() {
@@ -76,12 +75,12 @@ pub fn get_flattened_bin_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) 
         }
     }
 
-    fn get_operator_position(node: &BinExpr, operator_token: &TokenAndSpan, context: &mut Context) -> OperatorPosition {
+    fn get_operator_position(node: &BinExpr, operator_token: &TokenAndSpan, context: &Context) -> OperatorPosition {
         match context.config.binary_expression_operator_position {
             OperatorPosition::NextLine => OperatorPosition::NextLine,
             OperatorPosition::SameLine => OperatorPosition::SameLine,
             OperatorPosition::Maintain => {
-                if node.left.end_line(context) == operator_token.start_line(context) {
+                if node.left.end_line_fast(context.module) == operator_token.start_line_fast(context.module) {
                     OperatorPosition::SameLine
                 } else {
                     OperatorPosition::NextLine
