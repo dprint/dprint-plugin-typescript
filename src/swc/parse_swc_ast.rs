@@ -1,23 +1,18 @@
-use std::collections::{HashMap};
 use std::path::Path;
-use std::rc::Rc;
 use swc_common::{
     errors::{Handler, Emitter, DiagnosticBuilder},
-    FileName, comments::{Comment, SingleThreadedComments, SingleThreadedCommentsMap}, SourceFile, BytePos
+    FileName, comments::SingleThreadedComments, SourceFile, BytePos
 };
-use swc_ecmascript::ast::{Module};
 use swc_ecmascript::parser::{Parser, StringInput, Syntax, lexer::Lexer, Capturing, JscTarget, token::{TokenAndSpan}};
 
-pub struct ParsedSourceFile<'a> {
-    pub module: Module,
+pub struct ParsedSourceFile {
+    pub module: swc_ecmascript::ast::Module,
     pub info: SourceFile,
-    pub file_bytes: &'a [u8],
     pub tokens: Vec<TokenAndSpan>,
-    pub leading_comments: HashMap<BytePos, Vec<Comment>>,
-    pub trailing_comments: HashMap<BytePos, Vec<Comment>>,
+    pub comments: SingleThreadedComments,
 }
 
-pub fn parse_swc_ast<'a>(file_path: &Path, file_text: &'a str) -> Result<ParsedSourceFile<'a>, String> {
+pub fn parse_swc_ast(file_path: &Path, file_text: &str) -> Result<ParsedSourceFile, String> {
     match parse_inner(file_path, file_text) {
         Ok(result) => Ok(result),
         Err(err) => {
@@ -35,10 +30,9 @@ pub fn parse_swc_ast<'a>(file_path: &Path, file_text: &'a str) -> Result<ParsedS
     }
 }
 
-fn parse_inner<'a>(file_path: &Path, file_text: &'a str) -> Result<ParsedSourceFile<'a>, String> {
+fn parse_inner(file_path: &Path, file_text: &str) -> Result<ParsedSourceFile, String> {
     let handler = Handler::with_emitter(false, false, Box::new(EmptyEmitter {}));
 
-    let file_bytes = file_text.as_bytes();
     let source_file = SourceFile::new(
         FileName::Custom(file_path.to_string_lossy().into()),
         false,
@@ -76,15 +70,11 @@ fn parse_inner<'a>(file_path: &Path, file_text: &'a str) -> Result<ParsedSourceF
         }
     }?;
 
-    let (leading_comments, trailing_comments) = comments.take_all();
-
     return Ok(ParsedSourceFile {
-        leading_comments: comment_map_to_hash_map(leading_comments),
-        trailing_comments: comment_map_to_hash_map(trailing_comments),
+        comments,
         module,
         info: source_file,
         tokens,
-        file_bytes,
     });
 
     fn should_parse_as_jsx(file_path: &Path) -> bool {
@@ -92,17 +82,6 @@ fn parse_inner<'a>(file_path: &Path, file_text: &'a str) -> Result<ParsedSourceF
             return extension == "tsx" || extension == "jsx" || extension == "js" || extension == "mjs";
         }
         return true;
-    }
-
-    fn comment_map_to_hash_map(comments: SingleThreadedCommentsMap) -> HashMap<BytePos, Vec<Comment>> {
-        // todo: This next comment needs updating because now it's a DashMap and
-        // cloning is happening where previously it would take all the items out.
-
-        // It is much more performant to look into HashMaps instead of CHashMaps
-        // because then locking on each comment lookup is not necessary. We don't
-        // need to support multi-threading so convert to HashMap.
-        let comments = Rc::try_unwrap(comments).expect("Failed to unwrap comments Rc").into_inner();
-        comments.into_iter().collect()
     }
 }
 

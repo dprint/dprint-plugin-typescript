@@ -27,6 +27,7 @@ wasm = ["serde_json", "dprint-core/wasm"]
 dprint-core = { version = "0.33.1", features = ["formatting"] }
 swc_common = "0.10.7"
 swc_ecmascript = { version = "0.16.0", features = ["parser"] }
+swc_ast_view = { version = "0.3.0", package = "dprint-swc-ecma-ast-view" }
 serde = { version = "1.0.118", features = ["derive"] }
 serde_json = { version = "1.0", optional = true }
 

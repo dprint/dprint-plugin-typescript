@@ -3,21 +3,21 @@ use module_specifiers::*;
 
 use swc_common::{Span, Spanned};
 use std::cmp::Ordering;
+use swc_ast_view::*;
 
-use super::*;
 use crate::configuration::*;
 
 // a little rough, but good enough for our purposes
 
-pub fn get_node_sorter_from_order<'a>(order: SortOrder) -> Option<Box<dyn Fn((usize, Option<&Node<'a>>), (usize, Option<&Node<'a>>), &Context<'a>) -> Ordering>> {
+pub fn get_node_sorter_from_order<'a>(order: SortOrder) -> Option<Box<dyn Fn((usize, Option<&Node<'a>>), (usize, Option<&Node<'a>>), &Module<'a>) -> Ordering>> {
     // todo: how to reduce code duplication here?
     match order {
         SortOrder::Maintain => None,
-        SortOrder::CaseInsensitive => Some(Box::new(|(a_index, a), (b_index, b), context| {
+        SortOrder::CaseInsensitive => Some(Box::new(|(a_index, a), (b_index, b), module| {
             let result = if is_import_or_export_declaration(&a) {
-                cmp_optional_nodes(a, b, context, |a, b, context| cmp_module_specifiers(a.text(context), b.text(context), cmp_text_case_insensitive))
+                cmp_optional_nodes(a, b, module, |a, b, module| cmp_module_specifiers(a.text_fast(module), b.text_fast(module), cmp_text_case_insensitive))
             } else {
-                cmp_optional_nodes(a, b, context, |a, b, context| cmp_text_case_insensitive(a.text(context), b.text(context)))
+                cmp_optional_nodes(a, b, module, |a, b, module| cmp_text_case_insensitive(a.text_fast(module), b.text_fast(module)))
             };
             if result == Ordering::Equal {
                 a_index.cmp(&b_index)
@@ -25,11 +25,11 @@ pub fn get_node_sorter_from_order<'a>(order: SortOrder) -> Option<Box<dyn Fn((us
                 result
             }
         })),
-        SortOrder::CaseSensitive => Some(Box::new(|(a_index, a), (b_index, b), context| {
+        SortOrder::CaseSensitive => Some(Box::new(|(a_index, a), (b_index, b), module| {
             let result = if is_import_or_export_declaration(&a) {
-                cmp_optional_nodes(a, b, context, |a, b, context| cmp_module_specifiers(a.text(context), b.text(context), cmp_text_case_sensitive))
+                cmp_optional_nodes(a, b, module, |a, b, module| cmp_module_specifiers(a.text_fast(module), b.text_fast(module), cmp_text_case_sensitive))
             } else {
-                cmp_optional_nodes(a, b, context, |a, b, context| cmp_text_case_sensitive(a.text(context), b.text(context)))
+                cmp_optional_nodes(a, b, module, |a, b, module| cmp_text_case_sensitive(a.text_fast(module), b.text_fast(module)))
             };
             if result == Ordering::Equal {
                 a_index.cmp(&b_index)
@@ -43,12 +43,12 @@ pub fn get_node_sorter_from_order<'a>(order: SortOrder) -> Option<Box<dyn Fn((us
 fn cmp_optional_nodes<'a>(
     a: Option<&Node<'a>>,
     b: Option<&Node<'a>>,
-    context: &Context<'a>,
-    cmp_func: impl Fn(&dyn Ranged, &dyn Ranged, &Context<'a>) -> Ordering,
+    module: &Module<'a>,
+    cmp_func: impl Fn(&dyn Spanned, &dyn Spanned, &Module<'a>) -> Ordering,
 ) -> Ordering {
     if let Some(a) = a {
         if let Some(b) = b {
-            cmp_nodes(&a, &b, context, cmp_func)
+            cmp_nodes(&a, &b, module, cmp_func)
         } else {
             Ordering::Greater
         }
@@ -64,15 +64,15 @@ fn cmp_optional_nodes<'a>(
 fn cmp_nodes<'a>(
     a: &Node<'a>,
     b: &Node<'a>,
-    context: &Context<'a>,
-    cmp_func: impl Fn(&dyn Ranged, &dyn Ranged, &Context<'a>) -> Ordering,
+    module: &Module<'a>,
+    cmp_func: impl Fn(&dyn Spanned, &dyn Spanned, &Module<'a>) -> Ordering,
 ) -> Ordering {
     let a_nodes = get_comparison_nodes(a);
     let b_nodes = get_comparison_nodes(b);
 
     for (i, a) in a_nodes.iter().enumerate() {
         if let Some(b) = b_nodes.get(i) {
-            let cmp_result = cmp_func(a, b, context);
+            let cmp_result = cmp_func(a, b, module);
             if cmp_result != Ordering::Equal {
                 return cmp_result;
             }
@@ -114,7 +114,7 @@ fn get_comparison_nodes<'a>(node: &Node<'a>) -> Vec<Span> {
                 #[cfg(debug_assertions)]
                 unimplemented!("Should not call this for named exports with src.");
                 #[cfg(not(debug_assertions))]
-                vec![node.span_data()]
+                vec![node.span()]
             }
         },
         Node::ExportAll(node) => {
@@ -124,7 +124,7 @@ fn get_comparison_nodes<'a>(node: &Node<'a>) -> Vec<Span> {
             #[cfg(debug_assertions)]
             unimplemented!("Not implemented sort node.");
             #[cfg(not(debug_assertions))]
-            vec![node.span_data()]
+            vec![node.span()]
         }
     }
 }
