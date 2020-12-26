@@ -1,21 +1,19 @@
 use swc_ast_view::*;
 
-// todo: Remove this or rename (maybe CommentTracker) (it's legacy)
-
-pub struct CommentCollection<'a> {
+pub struct CommentTracker<'a> {
     module: &'a Module<'a>,
     tokens: &'a [TokenAndSpan],
     token_index: usize,
 }
 
-impl<'a> CommentCollection<'a> {
+impl<'a> CommentTracker<'a> {
     pub fn new(
         module: &'a Module<'a>,
         tokens: &'a [TokenAndSpan],
-    ) -> CommentCollection<'a> {
+    ) -> CommentTracker<'a> {
         // println!("Leading: {:?}", leading);
         // println!("Trailing: {:?}", trailing);
-        CommentCollection {
+        CommentTracker {
             module,
             tokens,
             token_index: 0,
@@ -79,12 +77,6 @@ impl<'a> CommentCollection<'a> {
                 break;
             }
         }
-
-        // get any comments stored at the end of the file
-        /*if self.token_index >= self.tokens.len() {
-            let file_end = self.module.hi();
-            iterator.extend(file_end.leading_comments_fast(self.module));
-        }*/
 
         iterator
     }

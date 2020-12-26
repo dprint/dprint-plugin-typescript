@@ -4,13 +4,13 @@ use swc_common::SourceFile;
 use swc_ast_view::*;
 
 use super::*;
-use super::super::configuration::*;
-use super::super::utils::Stack;
+use crate::configuration::*;
+use crate::utils::Stack;
 
 pub struct Context<'a> {
     pub module: &'a Module<'a>,
     pub config: &'a Configuration,
-    pub comments: CommentCollection<'a>,
+    pub comments: CommentTracker<'a>,
     pub token_finder: TokenFinder<'a>,
     pub current_node: Node<'a>,
     pub parent_stack: Stack<Node<'a>>,
@@ -37,8 +37,8 @@ impl<'a> Context<'a> {
         Context {
             module,
             config,
-            comments: CommentCollection::new(module, tokens),
-            token_finder: TokenFinder::new(tokens, info.src.as_bytes()),
+            comments: CommentTracker::new(module, tokens),
+            token_finder: TokenFinder::new(module),
             current_node,
             parent_stack: Stack::new(),
             handled_comments: HashSet::new(),
