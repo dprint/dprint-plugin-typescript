@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::rc::Rc;
 use dprint_core::formatting::*;
 use dprint_core::formatting::{parser_helpers::*,condition_resolvers, conditions::*};
@@ -4848,7 +4847,7 @@ fn parse_statements<'a>(inner_span: Span, stmts: Vec<Node<'a>>, context: &mut Co
 
         let nodes_len = stmt_group.nodes.len();
         let mut parsed_nodes = Vec::with_capacity(nodes_len);
-        let mut parsed_line_separators = HashMap::with_capacity(if nodes_len == 0 { 0 } else { nodes_len - 1 });
+        let mut parsed_line_separators = utils::VecMap::with_capacity(nodes_len);
         let sorter = get_node_sorter(stmt_group.kind, context);
         let sorted_indexes = match sorter {
             Some(sorter) => Some(get_sorted_indexes(stmt_group.nodes.iter().map(|n| Some(n)), sorter, context)),
@@ -4897,7 +4896,7 @@ fn parse_statements<'a>(inner_span: Span, stmts: Vec<Node<'a>>, context: &mut Co
 
         // Now combine everything
         for (i, parsed_node) in parsed_nodes.into_iter().enumerate() {
-            if let Some(parsed_separator) = parsed_line_separators.remove(&i) {
+            if let Some(parsed_separator) = parsed_line_separators.remove(i) {
                 items.extend(parsed_separator);
             }
             items.extend(parsed_node);
@@ -5360,7 +5359,7 @@ fn parse_separated_values_with_result<'a>(
 
         for (i, value) in nodes.into_iter().enumerate() {
             let node_index = match &sorted_indexes {
-                Some(old_to_new_index) => *old_to_new_index.get(&i).unwrap(),
+                Some(old_to_new_index) => *old_to_new_index.get(i).unwrap(),
                 None => i,
             };
             let (allow_inline_multi_line, allow_inline_single_line) = if let Some(value) = &value {
@@ -5412,10 +5411,10 @@ fn get_sorted_indexes<'a: 'b, 'b>(
     nodes: impl Iterator<Item=Option<&'b Node<'a>>>,
     sorter: Box<dyn Fn((usize, Option<&Node<'a>>), (usize, Option<&Node<'a>>), &Module<'a>) -> std::cmp::Ordering>,
     context: &mut Context<'a>,
-) -> HashMap<usize, usize> {
+) -> utils::VecMap<usize> {
     let mut nodes_with_indexes = nodes.enumerate().collect::<Vec<_>>();
     nodes_with_indexes.sort_unstable_by(|a, b| sorter((a.0, a.1), (b.0, b.1), context.module));
-    let mut old_to_new_index = HashMap::new();
+    let mut old_to_new_index = utils::VecMap::with_capacity(nodes_with_indexes.len());
 
     for (new_index, old_index) in nodes_with_indexes.into_iter().map(|(index, _)| index).enumerate() {
         old_to_new_index.insert(old_index, new_index);
@@ -5424,14 +5423,14 @@ fn get_sorted_indexes<'a: 'b, 'b>(
     old_to_new_index
 }
 
-fn sort_by_sorted_indexes<T>(items: Vec<T>, sorted_indexes: HashMap<usize, usize>) -> Vec<T> {
+fn sort_by_sorted_indexes<T>(items: Vec<T>, sorted_indexes: utils::VecMap<usize>) -> Vec<T> {
     let mut sorted_items = Vec::with_capacity(items.len());
     for _ in 0..items.len() {
         sorted_items.push(None);
     }
 
     for (i, parsed_node) in items.into_iter().enumerate() {
-        sorted_items[*sorted_indexes.get(&i).unwrap_or(&i)] = Some(parsed_node);
+        sorted_items[*sorted_indexes.get(i).unwrap_or(&i)] = Some(parsed_node);
     }
 
     sorted_items.into_iter().map(|x| x.unwrap()).collect()

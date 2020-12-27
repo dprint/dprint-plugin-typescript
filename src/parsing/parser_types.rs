@@ -1,7 +1,7 @@
-use std::collections::{HashSet, HashMap};
 use dprint_core::formatting::{Info, ConditionReference};
 use swc_common::SourceFile;
 use swc_ast_view::*;
+use fnv::{FnvHashMap, FnvHashSet};
 
 use super::*;
 use crate::configuration::*;
@@ -14,10 +14,10 @@ pub struct Context<'a> {
     pub token_finder: TokenFinder<'a>,
     pub current_node: Node<'a>,
     pub parent_stack: Stack<Node<'a>>,
-    handled_comments: HashSet<BytePos>,
+    handled_comments: FnvHashSet<BytePos>,
     pub info: &'a SourceFile,
-    stored_infos: HashMap<(BytePos, BytePos), Info>,
-    stored_info_ranges: HashMap<(BytePos, BytePos), (Info, Info)>,
+    stored_infos: FnvHashMap<(BytePos, BytePos), Info>,
+    stored_info_ranges: FnvHashMap<(BytePos, BytePos), (Info, Info)>,
     pub end_statement_or_member_infos: Stack<Info>,
     before_comments_start_info_stack: Stack<(Span, Info)>,
     if_stmt_last_brace_condition_ref: Option<ConditionReference>,
@@ -41,10 +41,10 @@ impl<'a> Context<'a> {
             token_finder: TokenFinder::new(module),
             current_node,
             parent_stack: Stack::new(),
-            handled_comments: HashSet::new(),
+            handled_comments: FnvHashSet::default(),
             info,
-            stored_infos: HashMap::new(),
-            stored_info_ranges: HashMap::new(),
+            stored_infos: FnvHashMap::default(),
+            stored_info_ranges: FnvHashMap::default(),
             end_statement_or_member_infos: Stack::new(),
             before_comments_start_info_stack: Stack::new(),
             if_stmt_last_brace_condition_ref: None,
