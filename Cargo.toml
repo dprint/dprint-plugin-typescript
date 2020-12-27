@@ -1,8 +1,8 @@
 [package]
 name = "dprint-plugin-typescript"
-description = "TypeScript code formatting plugin for dprint."
-keywords = ["formatting", "formatter", "typescript"]
-version = "0.36.0"
+description = "TypeScript and JavaScript code formatter."
+keywords = ["formatting", "formatter", "typescript", "javascript"]
+version = "0.37.0"
 authors = ["David Sherret <dsherret@gmail.com>"]
 edition = "2018"
 license = "MIT"
