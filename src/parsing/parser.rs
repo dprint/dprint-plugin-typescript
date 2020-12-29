@@ -1408,6 +1408,7 @@ fn parse_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintI
     let binary_expr_start_info = Info::new("binExprStartInfo");
     let allow_no_indent = get_allow_no_indent(node);
     let use_space_surrounding_operator = get_use_space_surrounding_operator(&node.op(), context);
+    let is_argument = context.parent().kind() == NodeKind::ExprOrSpread;
     let is_parent_bin_expr = node.parent().unwrap().kind() == NodeKind::BinExpr;
     let multi_line_options = {
         let mut options = if line_per_expression {
@@ -1548,7 +1549,7 @@ fn parse_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintI
         force_possible_newline_at_start: false,
     }).items);
 
-    return if node.op().is_equality() { parser_helpers::new_line_group(items) } else { items };
+    return if node.op().is_equality() || is_argument { parser_helpers::new_line_group(items) } else { items };
 
     fn get_allow_no_indent(node: &BinExpr) -> bool {
         let parent = node.parent().unwrap();
