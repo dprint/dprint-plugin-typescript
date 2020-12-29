@@ -5138,7 +5138,7 @@ fn parse_parameters_or_arguments<'a, F>(opts: ParseParametersOrArgumentsOptions<
                 multi_line_options: parser_helpers::MultiLineOptions::surround_newlines_indented(),
                 force_possible_newline_at_start: is_parameters,
                 node_sorter: None,
-                prefer_inline_multi_line: false,
+                prefer_inline_multi_line: !is_parameters,
             }, context));
         }
 
