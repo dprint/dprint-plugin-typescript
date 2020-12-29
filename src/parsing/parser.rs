@@ -1763,6 +1763,7 @@ fn parse_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> 
     let top_most_data = get_top_most_data(node, context);
     let before_alternate_info = Info::new("beforeAlternateInfo");
     let end_info = Info::new("endConditionalExpression");
+    let is_argument = context.parent().kind() == NodeKind::ExprOrSpread;
     let mut items = PrintItems::new();
 
     if top_most_data.is_top_most {
@@ -1845,7 +1846,7 @@ fn parse_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> 
         ));
     }
 
-    return items;
+    return if is_argument { parser_helpers::new_line_group(items) } else { items };
 
     struct TopMostData {
         top_most_info: Info,
