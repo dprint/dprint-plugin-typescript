@@ -5401,9 +5401,10 @@ fn parse_separated_values_with_result<'a>(
                 parse_node_with_separator(value, parsed_separator, context)
             };
 
-            let items = match context.current_node.kind() {
-                NodeKind::ObjectLit if prefer_inline_multi_line => items,
-                _ => parser_helpers::new_line_group(items),
+            let items = if prefer_inline_multi_line {
+                items
+            } else {
+                parser_helpers::new_line_group(items)
             };
 
             parsed_nodes.push(parser_helpers::ParsedValue {
