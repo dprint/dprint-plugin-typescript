@@ -5372,6 +5372,7 @@ fn parse_separated_values_with_result<'a>(
                     end_line: x.end_line_with_comments(context)
                 })
             } else { None };
+            // TODO: Check if parent is call expr
             let items = parser_helpers::new_line_group(if separator.is_none() {
                 if let Some(value) = value {
                     parse_node(value, context)
