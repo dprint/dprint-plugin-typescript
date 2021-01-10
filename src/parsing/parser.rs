@@ -1175,7 +1175,6 @@ fn parse_named_import_or_export_specifiers<'a>(parent: Node<'a>, specifiers: Vec
         surround_single_line_with_spaces: get_use_space(&parent, context),
         allow_blank_lines: false,
         node_sorter: get_node_sorter(&parent, context),
-        use_new_line_groups: true,
     }, context);
 
     fn get_trailing_commas(parent_decl: &Node, context: &Context) -> TrailingCommas {
@@ -1408,7 +1407,6 @@ fn parse_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintI
     let binary_expr_start_info = Info::new("binExprStartInfo");
     let allow_no_indent = get_allow_no_indent(node);
     let use_space_surrounding_operator = get_use_space_surrounding_operator(&node.op(), context);
-    let is_argument = context.parent().kind() == NodeKind::ExprOrSpread;
     let is_parent_bin_expr = node.parent().unwrap().kind() == NodeKind::BinExpr;
     let multi_line_options = {
         let mut options = if line_per_expression {
@@ -1549,7 +1547,7 @@ fn parse_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintI
         force_possible_newline_at_start: false,
     }).items);
 
-    return if node.op().is_equality() || is_argument { parser_helpers::new_line_group(items) } else { items };
+    return if node.op().is_equality() { parser_helpers::new_line_group(items) } else { items };
 
     fn get_allow_no_indent(node: &BinExpr) -> bool {
         let parent = node.parent().unwrap();
@@ -1763,7 +1761,6 @@ fn parse_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> 
     let top_most_data = get_top_most_data(node, context);
     let before_alternate_info = Info::new("beforeAlternateInfo");
     let end_info = Info::new("endConditionalExpression");
-    let is_argument = context.parent().kind() == NodeKind::ExprOrSpread;
     let mut items = PrintItems::new();
 
     if top_most_data.is_top_most {
@@ -1846,7 +1843,7 @@ fn parse_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> 
         ));
     }
 
-    return if is_argument { parser_helpers::new_line_group(items) } else { items };
+    return items;
 
     struct TopMostData {
         top_most_info: Info,
@@ -2011,7 +2008,6 @@ fn parse_object_lit<'a>(node: &'a ObjectLit, context: &mut Context<'a>) -> Print
         surround_single_line_with_spaces: true,
         allow_blank_lines: true,
         node_sorter: None,
-        use_new_line_groups: false,
     }, context)
 }
 
@@ -2055,7 +2051,6 @@ fn parse_sequence_expr<'a>(node: &'a SeqExpr, context: &mut Context<'a>) -> Prin
         multi_line_options: parser_helpers::MultiLineOptions::same_line_start_hanging_indent(),
         force_possible_newline_at_start: false,
         node_sorter: None,
-        use_new_line_groups: true
     }, context)
 }
 
@@ -2498,7 +2493,6 @@ fn parse_type_lit<'a>(node: &'a TsTypeLit, context: &mut Context<'a>) -> PrintIt
         surround_single_line_with_spaces: true,
         allow_blank_lines: true,
         node_sorter: None,
-        use_new_line_groups: true,
     }, context);
 
     fn semi_colon_or_comma_to_separator_value(value: SemiColonOrComma, context: &mut Context) -> SeparatorValue {
@@ -2628,7 +2622,6 @@ fn parse_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Cont
             multi_line_options: parser_helpers::MultiLineOptions::surround_newlines_indented(),
             force_possible_newline_at_start: false,
             node_sorter: None,
-            use_new_line_groups: true,
         }, context));
     } else {
         if node.self_closing() {
@@ -2886,7 +2879,6 @@ fn parse_object_pat<'a>(node: &'a ObjectPat, context: &mut Context<'a>) -> Print
         surround_single_line_with_spaces: true,
         allow_blank_lines: true,
         node_sorter: None,
-        use_new_line_groups: true,
     }, context));
     if node.optional() { items.push_str("?"); }
     items.extend(parse_type_ann_with_colon_if_exists(&node.type_ann, context));
@@ -3776,7 +3768,6 @@ fn parse_var_decl<'a>(node: &'a VarDecl, context: &mut Context<'a>) -> PrintItem
             multi_line_options: parser_helpers::MultiLineOptions::same_line_start_hanging_indent(),
             force_possible_newline_at_start: false,
             node_sorter: None,
-            use_new_line_groups: true,
         }, context));
     }
 
@@ -4262,7 +4253,6 @@ fn parse_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>)
         multi_line_options: parser_helpers::MultiLineOptions::surround_newlines_indented(),
         force_possible_newline_at_start: false,
         node_sorter: None,
-        use_new_line_groups: true,
     }, context));
     items.push_str(">");
 
@@ -4741,7 +4731,6 @@ fn parse_array_like_nodes<'a>(opts: ParseArrayLikeNodesOptions<'a>, context: &mu
             multi_line_options: parser_helpers::MultiLineOptions::surround_newlines_indented(),
             force_possible_newline_at_start: false,
             node_sorter: None,
-            use_new_line_groups: true,
         }, context)
     }, |_| None, ParseSurroundedByTokensOptions {
         open_token: "[",
@@ -5140,7 +5129,6 @@ fn parse_parameters_or_arguments<'a, F>(opts: ParseParametersOrArgumentsOptions<
                 multi_line_options: parser_helpers::MultiLineOptions::surround_newlines_indented(),
                 force_possible_newline_at_start: is_parameters,
                 node_sorter: None,
-                use_new_line_groups: is_parameters,
             }, context));
         }
 
@@ -5334,7 +5322,6 @@ struct ParseSeparatedValuesOptions<'a> {
     multi_line_options: parser_helpers::MultiLineOptions,
     force_possible_newline_at_start: bool,
     node_sorter: Option<Box<dyn Fn((usize, Option<&Node<'a>>), (usize, Option<&Node<'a>>), &Module<'a>) -> std::cmp::Ordering>>,
-    use_new_line_groups: bool,
 }
 
 #[inline]
@@ -5354,7 +5341,6 @@ fn parse_separated_values_with_result<'a>(
     let indent_width = context.config.indent_width;
     let compute_lines_span = opts.allow_blank_lines; // save time otherwise
     let node_sorter = opts.node_sorter;
-    let use_new_line_groups = opts.use_new_line_groups;
 
     // would need to make this take into account the new position of the nodes
     #[cfg(debug_assertions)]
@@ -5386,12 +5372,7 @@ fn parse_separated_values_with_result<'a>(
                     end_line: x.end_line_with_comments(context)
                 })
             } else { None };
-            
-            // Prefer call({
-            // }) over call(
-            //      {
-            //      }
-            // )
+
             let items = if separator.is_none() {
                 if let Some(value) = value {
                     parse_node(value, context)
@@ -5403,14 +5384,23 @@ fn parse_separated_values_with_result<'a>(
                 parse_node_with_separator(value, parsed_separator, context)
             };
 
-            let items = if use_new_line_groups {
-                parser_helpers::new_line_group(items)
+            let use_new_line_group = if let Some(value) = value {
+                // Prefer going inline multi-line for certain expressions in arguments
+                // when initially single line.
+                // Example: call({\n}) instead of call(\n  {\n  }\n)
+                match value {
+                    Node::ExprOrSpread(expr_or_spread) => match expr_or_spread.expr {
+                        Expr::Object(_) | Expr::Array(_) => false,
+                        _ => true,
+                    },
+                    _ => true,
+                }
             } else {
-                items
+                true
             };
 
             parsed_nodes.push(parser_helpers::ParsedValue {
-                items,
+                items: if use_new_line_group { parser_helpers::new_line_group(items) } else { items },
                 lines_span,
                 allow_inline_multi_line,
                 allow_inline_single_line,
@@ -5681,7 +5671,6 @@ fn parse_extends_or_implements<'a>(opts: ParseExtendsOrImplementsOptions<'a>, co
             multi_line_options: parser_helpers::MultiLineOptions::new_line_start(),
             force_possible_newline_at_start: false,
             node_sorter: None,
-            use_new_line_groups: true,
         }, context));
         items
     })));
@@ -5698,7 +5687,6 @@ struct ParseObjectLikeNodeOptions<'a> {
     surround_single_line_with_spaces: bool,
     allow_blank_lines: bool,
     node_sorter: Option<Box<dyn Fn((usize, Option<&Node<'a>>), (usize, Option<&Node<'a>>), &Module<'a>) -> std::cmp::Ordering>>,
-    use_new_line_groups: bool,
 }
 
 fn parse_object_like_node<'a>(opts: ParseObjectLikeNodeOptions<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -5732,7 +5720,6 @@ fn parse_object_like_node<'a>(opts: ParseObjectLikeNodeOptions<'a>, context: &mu
                 multi_line_options: parser_helpers::MultiLineOptions::surround_newlines_indented(),
                 force_possible_newline_at_start: false,
                 node_sorter: opts.node_sorter,
-                use_new_line_groups: opts.use_new_line_groups,
             }, context)
         }
     }, |_| None, ParseSurroundedByTokensOptions {
@@ -5935,7 +5922,6 @@ fn parse_decorators<'a>(decorators: &Vec<&'a Decorator<'a>>, is_inline: bool, co
         multi_line_options: parser_helpers::MultiLineOptions::same_line_no_indent(),
         force_possible_newline_at_start: false,
         node_sorter: None,
-        use_new_line_groups: true,
     }, context);
 
     items.extend(separated_values_result.items);

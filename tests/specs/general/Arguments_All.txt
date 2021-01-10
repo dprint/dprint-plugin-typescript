@@ -106,3 +106,49 @@ setTimeout(
     0,
     0,
 );
+
+== should keep object literal inline when going multi-line ==
+testing({ testttttttttttt: "", other: 533 })
+
+[expect]
+testing({
+    testttttttttttt: "",
+    other: 533,
+});
+
+== should keep array literal inline when going multi-line ==
+testing([testing, this, out, with, some, text]);
+
+[expect]
+testing([
+    testing,
+    this,
+    out,
+    with,
+    some,
+    text,
+]);
+
+== should handle going multi-line for a template literal ==
+testing(`test testing testing ${[4]} test`);
+
+[expect]
+testing(
+    `test testing testing ${[4]} test`,
+);
+
+== should handle going multi-line for conditional expr ==
+testing(testinggggg ? testttttt : testing);
+
+[expect]
+testing(
+    testinggggg ? testttttt : testing,
+);
+
+== should handle going multi-line for binary expr ==
+testing(testing + thisout + withsometext);
+
+[expect]
+testing(
+    testing + thisout + withsometext,
+);
