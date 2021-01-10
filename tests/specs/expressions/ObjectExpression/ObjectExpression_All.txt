@@ -56,3 +56,12 @@ const obj = {
 
     testing: 5,
 };
+
+== should prefer to be inline multi-line when exceeding line width ==
+asdfasdf({ name: "Test", aliases: "testtttttttttttt" });
+
+[expect]
+asdfasdf({
+    name: "Test",
+    aliases: "testtttttttttttt",
+});
