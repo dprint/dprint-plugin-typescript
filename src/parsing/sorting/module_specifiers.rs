@@ -45,13 +45,17 @@ fn get_module_specifier_info<'a>(text: &'a str) -> ModuleSpecifierInfo<'a> {
     if parts[0] == "." || parts[0] == ".." {
         let mut relative_count = 0;
         let mut start_index = 0;
-        for part in parts {
+        let parts_len = parts.len();
+        for (i, part) in parts.into_iter().enumerate() {
             if part == ".." {
                 relative_count += 1;
             } else if part != "." {
                 break;
             }
-            start_index += part.len() + 1;
+
+            // use 0 for last part since it does not have a slash after it
+            let next_slash_width = if i == parts_len - 1 { 0 } else { 1 };
+            start_index += part.len() + next_slash_width;
         }
 
         ModuleSpecifierInfo {
@@ -83,6 +87,7 @@ mod test {
         assert_eq!(cmp_module_specifiers("'./a'", "'../a'", |a, b| a.cmp(b)), Ordering::Greater);
         assert_eq!(cmp_module_specifiers("'../../a'", "'../a'", |a, b| a.cmp(b)), Ordering::Less);
         assert_eq!(cmp_module_specifiers("'../a'", "'../../a'", |a, b| a.cmp(b)), Ordering::Greater);
+        assert_eq!(cmp_module_specifiers("'..'", "'test'", |a, b| a.cmp(b)), Ordering::Greater);
     }
 
     #[test]

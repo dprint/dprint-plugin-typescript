@@ -1,0 +1,10 @@
+~~ importDeclaration.sortNamedImports: caseSensitive ~~
+== should not panic when sorting a module specifier that ends with a period ==
+import { apiV1 } from "..";
+import { apiV2 } from ".";
+import { test } from "test";
+
+[expect]
+import { test } from "test";
+import { apiV1 } from "..";
+import { apiV2 } from ".";
