@@ -40,11 +40,11 @@ pub fn format_text(file_path: &Path, file_text: &str, config: &Configuration) ->
     }
 
     let parsed_source_file = parse_swc_ast(file_path, file_text)?;
-    let print_items = parse(&parsed_source_file, config);
-
-    // println!("{}", print_items.get_as_text());
-
-    return Ok(print(print_items, PrintOptions {
+    return Ok(dprint_core::formatting::format(|| {
+        let print_items = parse(&parsed_source_file, config);
+        // println!("{}", print_items.get_as_text());
+        print_items
+    }, PrintOptions {
         indent_width: config.indent_width,
         max_width: config.line_width,
         use_tabs: config.use_tabs,
