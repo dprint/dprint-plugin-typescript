@@ -618,7 +618,7 @@ fn parse_identifier<'a>(node: &'a Ident, context: &mut Context<'a>) -> PrintItem
     let mut items = PrintItems::new();
     items.push_str(node.sym() as &str);
 
-    if node.optional() && !node.parent().unwrap().is::<ClassProp>() {
+    if node.optional() && !node.parent().unwrap().is::<ClassProp>() && !node.parent().unwrap().is::<ClassMethod>() {
         items.push_str("?");
     }
     if let Node::VarDeclarator(node) = node.parent().unwrap() {

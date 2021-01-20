@@ -33,6 +33,9 @@ abstract class Test {
     method8(): string | number | string | number | string {
     }
 
+    method9?() {
+    }
+
     get getSet(): string {
     }
 
@@ -80,6 +83,9 @@ abstract class Test {
         | number
         | string
     {
+    }
+
+    method9?() {
     }
 
     get getSet(): string {
