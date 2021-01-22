@@ -3957,6 +3957,7 @@ fn parse_constructor_type<'a>(node: &'a TsConstructorType, context: &mut Context
     let start_info = Info::new("startConstructorType");
     let mut items = PrintItems::new();
     items.push_info(start_info);
+    if node.is_abstract() { items.push_str("abstract "); }
     items.push_str("new");
     if context.config.constructor_type_space_after_new_keyword { items.push_str(" "); }
     if let Some(type_params) = node.type_params {
