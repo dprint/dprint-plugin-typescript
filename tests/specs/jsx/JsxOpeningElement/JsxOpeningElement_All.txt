@@ -52,3 +52,87 @@ const t = <Test
     <Test />
     <Test />
 </Test>;
+
+== should support a comment on the next line after the name ==
+function Test() {
+    return <View
+        // comment
+    ></View>;
+}
+
+[expect]
+function Test() {
+    return <View
+        // comment
+    >
+    </View>;
+}
+
+== should support a comment on the same line as the name ==
+function Test() {
+    return <View // comment
+    ></View>;
+}
+
+[expect]
+function Test() {
+    return <View // comment
+    >
+    </View>;
+}
+
+== should support comments surrounding attributes ==
+function Test() {
+    return <View
+        // comment
+        test={5} // test
+        // other
+    ></View>;
+}
+
+[expect]
+function Test() {
+    return <View
+        // comment
+        test={5} // test
+        // other
+    >
+    </View>;
+}
+
+== should support a block comment after the name ==
+function Test() {
+    return <View /* test */
+    />;
+}
+
+[expect]
+function Test() {
+    return <View /* test */ />;
+}
+
+== should support a comment on the next line after the name when self closing ==
+function Test() {
+    return <View
+        // comment
+    />;
+}
+
+[expect]
+function Test() {
+    return <View
+        // comment
+    />;
+}
+
+== should support a comment on the same line as the name when self closing ==
+function Test() {
+    return <View // comment
+    />;
+}
+
+[expect]
+function Test() {
+    return <View // comment
+    />;
+}

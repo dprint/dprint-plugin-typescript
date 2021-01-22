@@ -2623,13 +2623,26 @@ fn parse_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Cont
             force_possible_newline_at_start: false,
             node_sorter: None,
         }, context));
-    } else {
-        if node.self_closing() {
-            items.push_str(" ");
+    }
+
+    // parse trailing comments on different lines
+    let name_or_type_arg_end = node.type_args.map(|t| t.hi()).unwrap_or(node.name.hi());
+    let last_node_end = node.attrs.last().map(|n| n.hi()).unwrap_or(name_or_type_arg_end);
+
+    let parsed_comments = parse_comments_as_statements(last_node_end.trailing_comments_fast(context.module), None, context);
+    if !parsed_comments.is_empty() {
+        if node.attrs.is_empty() {
+            items.push_signal(Signal::NewLine);
         }
+        items.extend(with_indent(parsed_comments));
+        items.push_signal(Signal::NewLine);
     }
 
     if node.self_closing() {
+        if node.attrs.is_empty() {
+            items.push_str(""); // force current line indentation
+            items.extend(space_if_not_start_line());
+        }
         items.push_str("/");
     } else {
         if context.config.jsx_attributes_prefer_hanging {
@@ -5568,14 +5581,14 @@ fn parse_brace_separator<'a>(opts: ParseBraceSeparatorOptions<'a>, context: &mut
             }
         },
     };
+}
 
-    fn space_if_not_start_line() -> PrintItems {
-        if_true(
-            "spaceIfNotStartLine",
-            |context| Some(!context.writer_info.is_start_of_line()),
-            " ".into()
-        ).into()
-    }
+fn space_if_not_start_line() -> PrintItems {
+    if_true(
+        "spaceIfNotStartLine",
+        |context| Some(!context.writer_info.is_start_of_line()),
+        " ".into()
+    ).into()
 }
 
 struct ParseNodeInParensOptions {
