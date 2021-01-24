@@ -148,14 +148,14 @@ function test() {
 
 == should move a space from before a jsx space expr into the expression ==
 function test() {
-    return <div>{test} {" "} {other}</div>;
+    const t1 = <a>{t} {" "} {u}</a>;
+    const t2 = <a>{t} {" "}     {" "} {u}</a>;
 }
 
 [expect]
 function test() {
-    return <div>
-        {test}{"   "}{other}
-    </div>;
+    const t1 = <a>{t}{"   "}{u}</a>;
+    const t2 = <a>{t}{"     "}{u}</a>;
 }
 
 == should combine spaces when surrounded by text ==
