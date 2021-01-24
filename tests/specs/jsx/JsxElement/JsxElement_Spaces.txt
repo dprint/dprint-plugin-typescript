@@ -12,11 +12,136 @@ const t = <div> test </div>;
 [expect]
 const t = <div>test</div>;
 
-== should handle a space when exceeding the line width ==
+== should handle a space when exceeding the line width with only the parent when the parent and children are on the same line ==
 const t = <div>{test} {testsdffffffffffff}</div>;
 
 [expect]
 const t = <div>
-    {test}
+    {test} {testsdffffffffffff}
+</div>;
+
+== should handle a space when exceeding the line width within the children ==
+const t = <div>
+    {testtestingting} {testsdffffffffffff}
+</div>;
+
+[expect]
+const t = <div>
+    {testtestingting}{" "}
     {testsdffffffffffff}
 </div>;
+
+== should add a jsx space expression when going to two lines with a space in between ==
+function test() {
+    return <div>{testasdfasdfas} {othertestsettest}</div>
+}
+
+[expect]
+function test() {
+    return <div>
+        {testasdfasdfas}{" "}
+        {othertestsettest}
+    </div>;
+}
+
+== should add jsx space expr between expr and text when going to two lines ==
+function test() {
+    return <div>
+        {testingthisout} Testingthisouttt
+    </div>;
+}
+
+[expect]
+function test() {
+    return <div>
+        {testingthisout}{" "}
+        Testingthisouttt
+    </div>;
+}
+
+== should add jsx space expr between text and expr when going to two lines ==
+function test() {
+    return <div>
+        Testingthisouttt {testingthisout}
+    </div>;
+}
+
+[expect]
+function test() {
+    return <div>
+        Testingthisouttt{" "}
+        {testingthisout}
+    </div>;
+}
+
+== should move jsx space expr to same line ==
+function test() {
+    return <div>
+        {testasdfasdfas}
+        {" "}
+        {othertestsettest}
+    </div>;
+}
+
+[expect]
+function test() {
+    return <div>
+        {testasdfasdfas}{" "}
+        {othertestsettest}
+    </div>;
+}
+
+== should collapse a blank line when there's a space expr ==
+function test() {
+    return <div>
+        {testasdfasdfas}
+        {" "}
+
+        {othertestsettest}
+
+        {" "}
+        {test}
+    </div>;
+}
+
+[expect]
+function test() {
+    return <div>
+        {testasdfasdfas}{" "}
+        {othertestsettest} {test}
+    </div>;
+}
+
+== should collapse and remove the jsx space expr when it's not necessary ==
+function test() {
+    return <div>
+        {test}
+        {" "}
+        {test}
+    </div>;
+}
+
+[expect]
+function test() {
+    return <div>
+        {test} {test}
+    </div>;
+}
+
+== should combine multiple jsx space exprs together ==
+function test() {
+    return <div>
+        {test}
+        {" "}
+        {" "} {" "}
+        {" "}
+        {test}
+    </div>;
+}
+
+[expect]
+function test() {
+    return <div>
+        {test}{"     "}{test}
+    </div>;
+}

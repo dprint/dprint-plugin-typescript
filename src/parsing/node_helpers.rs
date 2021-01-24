@@ -56,3 +56,12 @@ pub fn get_leading_comment_on_different_line<'a>(node: &dyn Spanned, comments_to
 
     return None;
 }
+
+pub fn nodes_have_only_spaces_between(previous_node: &Node, next_node: &Node, module: &Module) -> bool {
+    crate::utils::is_not_empty_and_only_spaces(&module.text()[previous_node.hi().0 as usize..next_node.lo().0 as usize])
+}
+
+pub fn get_siblings_between<'a>(node_a: &Node<'a>, node_b: &Node<'a>) -> Vec<Node<'a>> {
+    let mut parent_children = node_a.parent().unwrap().children();
+    parent_children.drain(node_a.child_index() + 1..node_b.child_index()).collect()
+}
