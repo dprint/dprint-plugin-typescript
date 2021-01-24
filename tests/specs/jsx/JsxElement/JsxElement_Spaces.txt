@@ -157,3 +157,17 @@ function test() {
         {test}{"   "}{other}
     </div>;
 }
+
+== should combine spaces when surrounded by text ==
+function test() {
+    const t1 = <div>A {" "} B</div>;
+    const t2 = <div>A{" "} B</div>;
+    const t3 = <div>A{" "}B</div>;
+}
+
+[expect]
+function test() {
+    const t1 = <div>A{"   "}B</div>;
+    const t2 = <div>A{"  "}B</div>;
+    const t3 = <div>A B</div>;
+}
