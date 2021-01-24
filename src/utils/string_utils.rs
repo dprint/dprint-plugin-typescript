@@ -67,7 +67,7 @@ pub fn has_no_new_lines_in_trailing_whitespace(text: &str) -> bool {
 }
 
 pub fn is_not_empty_and_only_spaces(text: &str) -> bool {
-    if text.len() == 0 {
+    if text.is_empty() {
         return false;
     }
 

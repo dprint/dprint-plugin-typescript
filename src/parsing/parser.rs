@@ -6481,13 +6481,13 @@ fn parse_jsx_children<'a>(opts: ParseJsxChildrenOptions<'a>, context: &mut Conte
 
     /// JSX children includes JSXText whitespace nodes that overly complicates things.
     /// This function will filter out those nodes along with filtering out any jsx space expression
-    /// nodes that we don't care about.
+    /// nodes that may not appear in the final output.
     fn get_filtered_jsx_children<'a>(real_children: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<Node<'a>> {
         let real_children_len = real_children.len();
         let mut children: Vec<Node<'a>> = Vec::with_capacity(real_children_len);
 
         for child in real_children.into_iter() {
-            if has_jsx_space_expr_text(&child) {
+            if node_helpers::has_jsx_space_expr_text(&child) {
                 continue;
             }
             let child_text = child.text_fast(context.module);
@@ -6509,7 +6509,7 @@ fn parse_jsx_children<'a>(opts: ParseJsxChildrenOptions<'a>, context: &mut Conte
             inner_span,
             items: children.into_iter().map(|(a, b)| (a, Some(b.into()))).collect(),
             should_use_space: Some(Box::new(|previous, next, context| {
-                if has_jsx_space_between(previous, next, context) {
+                if has_jsx_space_between(previous, next, &context.module) {
                     true
                 } else if let Node::JSXText(element) = previous {
                     element.text_fast(context.module).ends_with(" ")
@@ -6520,7 +6520,7 @@ fn parse_jsx_children<'a>(opts: ParseJsxChildrenOptions<'a>, context: &mut Conte
                 }
             })),
             should_use_new_line: Some(Box::new(|previous, next, context| {
-                if has_jsx_space_between(previous, next, context) {
+                if has_jsx_space_between(previous, next, &context.module) {
                     false // prefer collapsing
                 } else if let Node::JSXText(next) = next {
                     !utils::has_no_new_lines_in_leading_whitespace(next.text_fast(context.module))
@@ -6531,7 +6531,7 @@ fn parse_jsx_children<'a>(opts: ParseJsxChildrenOptions<'a>, context: &mut Conte
                 }
             })),
             should_use_blank_line: |previous, next, context| {
-                if has_jsx_space_between(previous, next, context) {
+                if has_jsx_space_between(previous, next, &context.module) {
                     false // prefer collapsing
                 } else if let Node::JSXText(previous) = previous {
                     utils::has_new_line_occurrences_in_trailing_whitespace(previous.text_fast(context.module), 2)
@@ -6579,7 +6579,7 @@ fn parse_jsx_children<'a>(opts: ParseJsxChildrenOptions<'a>, context: &mut Conte
     }
 
     fn should_use_space(previous_child: &Node, current: &Node, context: &mut Context) -> bool {
-        if has_jsx_space_between(previous_child, current, context) {
+        if has_jsx_space_between(previous_child, current, &context.module) {
             return true;
         }
 
@@ -6598,49 +6598,21 @@ fn parse_jsx_children<'a>(opts: ParseJsxChildrenOptions<'a>, context: &mut Conte
     }
 
     /// If the node has a "JSX space expression" between or text that's only spaces between.
-    fn has_jsx_space_between(previous_node: &Node, next_node: &Node, context: &Context) -> bool {
-        return node_helpers::nodes_have_only_spaces_between(previous_node, next_node, &context.module)
+    fn has_jsx_space_between(previous_node: &Node, next_node: &Node, module: &Module) -> bool {
+        return node_helpers::nodes_have_only_spaces_between(previous_node, next_node, module)
             || has_jsx_space_expr_between(previous_node, next_node);
 
         fn has_jsx_space_expr_between(previous_node: &Node, next_node: &Node) -> bool {
             let nodes_between = node_helpers::get_siblings_between(previous_node, next_node);
 
             for node_between in nodes_between {
-                if has_jsx_space_expr_text(&node_between) {
+                if node_helpers::has_jsx_space_expr_text(&node_between) {
                     return true;
                 }
             }
 
             false
         }
-    }
-}
-
-fn has_jsx_space_expr_text(node: &Node) -> bool {
-    get_jsx_space_expr_space_count(node) > 0
-}
-
-fn get_jsx_space_expr_space_count(node: &Node) -> usize {
-    // A "JSX space expression" is a JSXExprContainer with
-    // a string literal containing only spaces.
-    // * {" "}
-    // * {"      "}
-    match node {
-        Node::JSXExprContainer(JSXExprContainer {
-            expr: JSXExpr::Expr(Expr::Lit(Lit::Str(text))),
-            ..
-        }) => {
-            let mut space_count = 0;
-            for c in text.value().chars() {
-                if c == ' ' {
-                    space_count += 1;
-                } else {
-                    return 0;
-                }
-            }
-            space_count
-        },
-        _ => 0,
     }
 }
 
@@ -6699,13 +6671,13 @@ fn jsx_space_or_newline_or_expr_space(previous_node: &Node, current_node: &Node,
             .iter()
             .filter(|n| !n.text_fast(&context.module).trim().is_empty())
             .collect::<Vec<_>>();
-        all_nodes.push(next_node); // need to count spaces between the next_node and the previous node
+        all_nodes.push(next_node); // need to count spaces between the next_node and its previous as well
 
         let mut count = 0;
         let mut previous_node = previous_node;
 
         for node in all_nodes {
-            count += get_jsx_space_expr_space_count(node);
+            count += node_helpers::get_jsx_space_expr_space_count(node);
 
             if node_helpers::nodes_have_only_spaces_between(previous_node, node, &context.module) {
                 count += 1;

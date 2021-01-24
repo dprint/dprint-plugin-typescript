@@ -75,3 +75,31 @@ pub fn get_siblings_between<'a>(node_a: &Node<'a>, node_b: &Node<'a>) -> Vec<Nod
     let mut parent_children = node_a.parent().unwrap().children();
     parent_children.drain(node_a.child_index() + 1..node_b.child_index()).collect()
 }
+
+pub fn has_jsx_space_expr_text(node: &Node) -> bool {
+    get_jsx_space_expr_space_count(node) > 0
+}
+
+pub fn get_jsx_space_expr_space_count(node: &Node) -> usize {
+    // A "JSX space expression" is a JSXExprContainer with
+    // a string literal containing only spaces.
+    // * {" "}
+    // * {"      "}
+    match node {
+        Node::JSXExprContainer(JSXExprContainer {
+            expr: JSXExpr::Expr(Expr::Lit(Lit::Str(text))),
+            ..
+        }) => {
+            let mut space_count = 0;
+            for c in text.value().chars() {
+                if c == ' ' {
+                    space_count += 1;
+                } else {
+                    return 0; // must be all spaces
+                }
+            }
+            space_count
+        },
+        _ => 0,
+    }
+}

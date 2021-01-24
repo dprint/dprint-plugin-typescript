@@ -171,3 +171,24 @@ function test() {
     const t2 = <div>A{"  "}B</div>;
     const t3 = <div>A B</div>;
 }
+
+== should handle the added space exceeding the line width ==
+const t1 = <div>
+    <TestingThisOutttttttttttttt />{" "}
+    <Test />
+</div>;
+const t2 = <div>
+    <TestingThisOuttttttttttttttt />{" "}
+    <Test />
+</div>;
+
+[expect]
+const t1 = <div>
+    <TestingThisOutttttttttttttt />{" "}
+    <Test />
+</div>;
+const t2 = <div>
+    <TestingThisOuttttttttttttttt />
+    {" "}
+    <Test />
+</div>;
