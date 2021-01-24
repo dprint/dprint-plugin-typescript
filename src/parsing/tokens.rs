@@ -150,7 +150,7 @@ impl<'a> TokenFinder<'a> {
 
     #[inline]
     fn get_first_token_before(&self, node: &dyn Spanned, is_match: impl Fn(&TokenAndSpan) -> bool) -> Option<&'a TokenAndSpan> {
-        node.previous_tokens_fast(self.module).iter().find(|token_and_span| is_match(token_and_span))
+        node.previous_tokens_fast(self.module).iter().rev().find(|token_and_span| is_match(token_and_span))
     }
 
     #[inline]
