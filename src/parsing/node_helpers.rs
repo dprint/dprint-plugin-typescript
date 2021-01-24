@@ -56,3 +56,50 @@ pub fn get_leading_comment_on_different_line<'a>(node: &dyn Spanned, comments_to
 
     return None;
 }
+
+pub fn nodes_have_only_spaces_between(previous_node: &Node, next_node: &Node, module: &Module) -> bool {
+    if let Node::JSXText(previous_node) = previous_node {
+        let previous_node_text = previous_node.text_fast(module);
+        crate::utils::has_no_new_lines_in_trailing_whitespace(previous_node_text)
+            && previous_node_text.chars().last() == Some(' ')
+    } else if let Node::JSXText(next_node) = next_node {
+        let next_node_text = next_node.text_fast(module);
+        crate::utils::has_no_new_lines_in_leading_whitespace(next_node_text)
+            && next_node_text.chars().next() == Some(' ')
+    } else {
+        crate::utils::is_not_empty_and_only_spaces(&module.text()[previous_node.hi().0 as usize..next_node.lo().0 as usize])
+    }
+}
+
+pub fn get_siblings_between<'a>(node_a: &Node<'a>, node_b: &Node<'a>) -> Vec<Node<'a>> {
+    let mut parent_children = node_a.parent().unwrap().children();
+    parent_children.drain(node_a.child_index() + 1..node_b.child_index()).collect()
+}
+
+pub fn has_jsx_space_expr_text(node: &Node) -> bool {
+    get_jsx_space_expr_space_count(node) > 0
+}
+
+pub fn get_jsx_space_expr_space_count(node: &Node) -> usize {
+    // A "JSX space expression" is a JSXExprContainer with
+    // a string literal containing only spaces.
+    // * {" "}
+    // * {"      "}
+    match node {
+        Node::JSXExprContainer(JSXExprContainer {
+            expr: JSXExpr::Expr(Expr::Lit(Lit::Str(text))),
+            ..
+        }) => {
+            let mut space_count = 0;
+            for c in text.value().chars() {
+                if c == ' ' {
+                    space_count += 1;
+                } else {
+                    return 0; // must be all spaces
+                }
+            }
+            space_count
+        },
+        _ => 0,
+    }
+}
