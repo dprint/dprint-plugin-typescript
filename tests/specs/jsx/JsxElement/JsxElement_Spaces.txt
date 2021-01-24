@@ -145,3 +145,15 @@ function test() {
         {test}{"     "}{test}
     </div>;
 }
+
+== should move a space from before a jsx space expr into the expression ==
+function test() {
+    return <div>{test} {" "} {other}</div>;
+}
+
+[expect]
+function test() {
+    return <div>
+        {test}{"   "}{other}
+    </div>;
+}
