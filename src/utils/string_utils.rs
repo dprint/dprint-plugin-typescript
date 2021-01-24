@@ -65,3 +65,17 @@ pub fn has_no_new_lines_in_trailing_whitespace(text: &str) -> bool {
 
     return true;
 }
+
+pub fn is_not_empty_and_only_spaces(text: &str) -> bool {
+    if text.len() == 0 {
+        return false;
+    }
+
+    for c in text.chars() {
+        if c != ' ' {
+            return false;
+        }
+    }
+
+    return true;
+}
