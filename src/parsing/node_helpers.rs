@@ -58,7 +58,17 @@ pub fn get_leading_comment_on_different_line<'a>(node: &dyn Spanned, comments_to
 }
 
 pub fn nodes_have_only_spaces_between(previous_node: &Node, next_node: &Node, module: &Module) -> bool {
-    crate::utils::is_not_empty_and_only_spaces(&module.text()[previous_node.hi().0 as usize..next_node.lo().0 as usize])
+    if let Node::JSXText(previous_node) = previous_node {
+        let previous_node_text = previous_node.text_fast(module);
+        crate::utils::has_no_new_lines_in_trailing_whitespace(previous_node_text)
+            && previous_node_text.chars().last() == Some(' ')
+    } else if let Node::JSXText(next_node) = next_node {
+        let next_node_text = next_node.text_fast(module);
+        crate::utils::has_no_new_lines_in_leading_whitespace(next_node_text)
+            && next_node_text.chars().next() == Some(' ')
+    } else {
+        crate::utils::is_not_empty_and_only_spaces(&module.text()[previous_node.hi().0 as usize..next_node.lo().0 as usize])
+    }
 }
 
 pub fn get_siblings_between<'a>(node_a: &Node<'a>, node_b: &Node<'a>) -> Vec<Node<'a>> {
