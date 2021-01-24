@@ -6695,21 +6695,23 @@ fn jsx_space_or_newline_or_expr_space(previous_node: &Node, current_node: &Node,
 
     fn count_spaces_between(previous_node: &Node, next_node: &Node, context: &Context) -> usize {
         let nodes_between = node_helpers::get_siblings_between(previous_node, next_node);
-        let nodes_between = nodes_between
-            .into_iter()
+        let mut all_nodes = nodes_between
+            .iter()
             .filter(|n| !n.text_fast(&context.module).trim().is_empty())
             .collect::<Vec<_>>();
+        all_nodes.push(next_node); // need to count spaces between the next_node and the previous node
+
         let mut count = 0;
         let mut previous_node = previous_node;
 
-        for node_between in nodes_between.iter() {
-            count += get_jsx_space_expr_space_count(node_between);
+        for node in all_nodes {
+            count += get_jsx_space_expr_space_count(node);
 
-            if node_helpers::nodes_have_only_spaces_between(previous_node, node_between, &context.module) {
+            if node_helpers::nodes_have_only_spaces_between(previous_node, node, &context.module) {
                 count += 1;
             }
 
-            previous_node = node_between;
+            previous_node = node;
         }
 
         count
