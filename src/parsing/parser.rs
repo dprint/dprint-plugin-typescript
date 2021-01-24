@@ -6485,9 +6485,11 @@ fn parse_jsx_children<'a>(opts: ParseJsxChildrenOptions<'a>, context: &mut Conte
     fn get_filtered_jsx_children<'a>(real_children: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<Node<'a>> {
         let real_children_len = real_children.len();
         let mut children: Vec<Node<'a>> = Vec::with_capacity(real_children_len);
+        let mut current_jsx_space_exprs = Vec::new();
 
         for child in real_children.into_iter() {
             if node_helpers::has_jsx_space_expr_text(&child) {
+                current_jsx_space_exprs.push(child);
                 continue;
             }
             let child_text = child.text_fast(context.module);
@@ -6496,7 +6498,11 @@ fn parse_jsx_children<'a>(opts: ParseJsxChildrenOptions<'a>, context: &mut Conte
             }
 
             children.push(child);
+            current_jsx_space_exprs.clear();
         }
+
+        // include any jsx space expressions that had no regular nodes following
+        children.extend(current_jsx_space_exprs);
 
         children
     }
@@ -6666,17 +6672,17 @@ fn jsx_space_or_newline_or_expr_space(previous_node: &Node, current_node: &Node,
     return items;
 
     fn count_spaces_between(previous_node: &Node, next_node: &Node, context: &Context) -> usize {
-        let nodes_between = node_helpers::get_siblings_between(previous_node, next_node);
-        let mut all_nodes = nodes_between
+        let all_siblings_between = node_helpers::get_siblings_between(previous_node, next_node);
+        let siblings_between = all_siblings_between
             .iter()
+            // ignore empty JSXText
             .filter(|n| !n.text_fast(&context.module).trim().is_empty())
             .collect::<Vec<_>>();
-        all_nodes.push(next_node); // need to count spaces between the next_node and its previous as well
 
         let mut count = 0;
         let mut previous_node = previous_node;
 
-        for node in all_nodes {
+        for node in siblings_between {
             count += node_helpers::get_jsx_space_expr_space_count(node);
 
             if node_helpers::nodes_have_only_spaces_between(previous_node, node, &context.module) {
@@ -6684,6 +6690,11 @@ fn jsx_space_or_newline_or_expr_space(previous_node: &Node, current_node: &Node,
             }
 
             previous_node = node;
+        }
+
+        // check the spaces between the previously looked at node and last node
+        if node_helpers::nodes_have_only_spaces_between(previous_node, next_node, &context.module) {
+            count += 1;
         }
 
         count
