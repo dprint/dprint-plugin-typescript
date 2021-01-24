@@ -203,6 +203,18 @@ const t1 = <div>
     {" "}
 </div>;
 
+== should keep a space expr that's at the start ==
+const t1 = <div>
+    {" "}
+    {other}
+</div>;
+
+[expect]
+const t1 = <div>
+    {" "}
+    {other}
+</div>;
+
 == should keep a space expr that's at the end ==
 const t1 = <div>
     {other}

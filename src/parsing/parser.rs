@@ -6486,9 +6486,10 @@ fn parse_jsx_children<'a>(opts: ParseJsxChildrenOptions<'a>, context: &mut Conte
         let real_children_len = real_children.len();
         let mut children: Vec<Node<'a>> = Vec::with_capacity(real_children_len);
         let mut current_jsx_space_exprs = Vec::new();
+        let mut found_non_space_child = false; // include space expressions at the start
 
         for child in real_children.into_iter() {
-            if node_helpers::has_jsx_space_expr_text(&child) {
+            if found_non_space_child && node_helpers::has_jsx_space_expr_text(&child) {
                 current_jsx_space_exprs.push(child);
                 continue;
             }
@@ -6499,6 +6500,7 @@ fn parse_jsx_children<'a>(opts: ParseJsxChildrenOptions<'a>, context: &mut Conte
 
             children.push(child);
             current_jsx_space_exprs.clear();
+            found_non_space_child = true;
         }
 
         // include any jsx space expressions that had no regular nodes following
