@@ -6420,6 +6420,13 @@ fn parse_jsx_with_opening_and_closing<'a>(opts: ParseJsxWithOpeningAndClosingOpt
     return items;
 
     fn get_force_use_multi_lines(opening_element: &Node, children: &Vec<Node>, context: &mut Context) -> bool {
+        // if any of the children are a jsx element or jsx fragment, then force multi-line
+        for child in children {
+            if matches!(child, Node::JSXElement(_) | Node::JSXFragment(_)) {
+                return true;
+            }
+        }
+
         if context.config.jsx_element_prefer_single_line {
             false
         } else if let Some(first_child) = children.get(0) {
@@ -6452,7 +6459,13 @@ fn parse_jsx_children<'a>(opts: ParseJsxChildrenOptions<'a>, context: &mut Conte
     // the handled comments collection and the second time they won't be parsed out.
     let parsed_children = filtered_children
         .into_iter()
-        .map(|c| (c, parse_node(c, context).into_rc_path()))
+        .map(|child| (child, {
+            let items = parse_node(child, context);
+            match child {
+                Node::JSXText(_) => items,
+                _ => new_line_group(items),
+            }.into_rc_path()
+        }))
         .collect::<Vec<_>>();
     let parent_start_info = opts.parent_start_info;
     let parent_end_info = opts.parent_end_info;

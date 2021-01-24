@@ -42,15 +42,3 @@ const t = <Test>
         </Test>
     </Test>
 </Test>;
-
-== should handle multiple nested elements going single-line ==
-const t = <A>
-    <B>
-        <C>
-            <D>Asdf</D>
-        </C>
-    </B>
-</A>;
-
-[expect]
-const t = <A><B><C><D>Asdf</D></C></B></A>;

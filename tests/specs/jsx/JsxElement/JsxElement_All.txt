@@ -75,6 +75,43 @@ const t = <Test>
     <Test />
 </Test>;
 
+== should make the jsx element multi-line once it contains a jsx element or fragment ==
+const t1 = <div><test /></div>;
+const t2 = <div><a>Test</a></div>;
+const t3 = <div><></></div>;
+
+[expect]
+const t1 = <div>
+    <test />
+</div>;
+const t2 = <div>
+    <a>Test</a>
+</div>;
+const t3 = <div>
+    <></>
+</div>;
+
+== should make JSX elements that are beside each other multi-line ==
+const t = <div>
+    <Test /><Test />
+</div>;
+
+[expect]
+const t = <div>
+    <Test />
+    <Test />
+</div>;
+
+== should make JSX elements that have a space between them not multi-line ==
+const t = <div>
+    <Test /> <Test />
+</div>;
+
+[expect]
+const t = <div>
+    <Test /> <Test />
+</div>;
+
 == should make the children multi-line when the header exceeds the line width ==
 const t = <Test testingThisOut={5} other={longVariable}><Test /></Test>;
 

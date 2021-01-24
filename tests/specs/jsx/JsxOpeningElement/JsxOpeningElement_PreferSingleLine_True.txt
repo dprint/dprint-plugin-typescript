@@ -40,4 +40,6 @@ const t = <A
 attrib={5} other={6}><B /></A>;
 
 [expect]
-const t = <A attrib={5} other={6}><B /></A>;
+const t = <A attrib={5} other={6}>
+    <B />
+</A>;
