@@ -226,3 +226,99 @@ const t1 = <div>
     {other}
     {" "}
 </div>;
+
+== should always use a space with newline after a multi-line jsx element ==
+const t1 = <div>
+    <input
+        type="checkbox"
+        data-test-id="some-identifier-text"
+        checked={someCondition}
+        onChange={someHandler}
+    /> This is a test.
+</div>;
+
+[expect]
+const t1 = <div>
+    <input
+        type="checkbox"
+        data-test-id="some-identifier-text"
+        checked={someCondition}
+        onChange={someHandler}
+    />{" "}
+    This is a test.
+</div>;
+
+== should always use a space with newline after a multi-line jsx fragment ==
+const t1 = <div>
+    <>
+        <Test />
+    </> This is a test.
+</div>;
+
+[expect]
+const t1 = <div>
+    <>
+        <Test />
+    </>{" "}
+    This is a test.
+</div>;
+
+== should always use a space with a newline before a multi-line jsx element ==
+const t1 = <div>
+    Testing <input
+        type="checkbox"
+        data-test-id="some-identifier-text"
+        checked={someCondition}
+        onChange={someHandler}
+    /> this out.
+</div>;
+
+[expect]
+const t1 = <div>
+    Testing{" "}
+    <input
+        type="checkbox"
+        data-test-id="some-identifier-text"
+        checked={someCondition}
+        onChange={someHandler}
+    />{" "}
+    this out.
+</div>;
+
+== should always use a space with a newline before a multi-line jsx fragment ==
+const t1 = <div>Testing <><Test /></> this out.</div>;
+
+[expect]
+const t1 = <div>
+    Testing{" "}
+    <>
+        <Test />
+    </>{" "}
+    this out.
+</div>;
+
+== should handle scenario where jsx element is single line and inline between text ==
+const t1 = <div>
+    Testing <TestingThisOutTestingTest /> Test
+</div>;
+const t2 = <div>
+    Test <TestingThisOutTesting /> Testing
+</div>;
+const t3 = <div>
+    Test <TestingThisOutTestingTest /> Testing
+</div>;
+
+[expect]
+const t1 = <div>
+    Testing{" "}
+    <TestingThisOutTestingTest /> Test
+</div>;
+const t2 = <div>
+    Test <TestingThisOutTesting />{" "}
+    Testing
+</div>;
+const t3 = <div>
+    Test <TestingThisOutTestingTest />
+    {" "}
+    Testing
+</div>;

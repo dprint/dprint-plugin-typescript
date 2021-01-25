@@ -2535,13 +2535,24 @@ fn parse_jsx_closing_fragment<'a>(_: &'a JSXClosingFragment, _: &mut Context<'a>
 
 fn parse_jsx_element<'a>(node: &'a JSXElement, context: &mut Context<'a>) -> PrintItems {
     if let Some(closing) = node.closing {
-        parse_jsx_with_opening_and_closing(ParseJsxWithOpeningAndClosingOptions {
+        let result = parse_jsx_with_opening_and_closing(ParseJsxWithOpeningAndClosingOptions {
             opening_element: node.opening.into(),
             closing_element: closing.into(),
             children: node.children.iter().map(|x| x.into()).collect(),
-        }, context)
+        }, context);
+        context.store_info_range_for_node(node, (result.start_info, result.end_info));
+        result.items
     } else {
-        parse_node(node.opening.into(), context)
+        let start_info = Info::new("jsxElementStart");
+        let end_info = Info::new("jsxElementEnd");
+        let mut items = PrintItems::new();
+
+        context.store_info_range_for_node(node, (start_info, end_info));
+
+        items.push_info(start_info);
+        items.extend(parse_node(node.opening.into(), context));
+        items.push_info(end_info);
+        items
     }
 }
 
@@ -2574,11 +2585,15 @@ fn parse_as_jsx_expr_container(parsed_node: PrintItems, context: &mut Context) -
 }
 
 fn parse_jsx_fragment<'a>(node: &'a JSXFragment, context: &mut Context<'a>) -> PrintItems {
-    parse_jsx_with_opening_and_closing(ParseJsxWithOpeningAndClosingOptions {
+    let result = parse_jsx_with_opening_and_closing(ParseJsxWithOpeningAndClosingOptions {
         opening_element: node.opening.into(),
         closing_element: node.closing.into(),
         children: node.children.iter().map(|x| x.into()).collect(),
-    }, context)
+    }, context);
+
+    context.store_info_range_for_node(node, (result.start_info, result.end_info));
+
+    result.items
 }
 
 fn parse_jsx_member_expr<'a>(node: &'a JSXMemberExpr, context: &mut Context<'a>) -> PrintItems {
@@ -5038,7 +5053,7 @@ fn parse_members<'a, FShouldUseBlankLine>(
                 else if let Some(should_use_space) = &opts.should_use_space {
                     if should_use_space(&last_node, &node, context) {
                         if opts.is_jsx_children {
-                            items.extend(jsx_space_or_newline_or_expr_space(
+                            items.extend(jsx_space_separator(
                                 &last_node,
                                 &node,
                                 context,
@@ -6398,7 +6413,16 @@ struct ParseJsxWithOpeningAndClosingOptions<'a> {
     children: Vec<Node<'a>>,
 }
 
-fn parse_jsx_with_opening_and_closing<'a>(opts: ParseJsxWithOpeningAndClosingOptions<'a>, context: &mut Context<'a>) -> PrintItems {
+struct ParseJsxWithOpeningAndClosingResult {
+    items: PrintItems,
+    start_info: Info,
+    end_info: Info,
+}
+
+fn parse_jsx_with_opening_and_closing<'a>(
+    opts: ParseJsxWithOpeningAndClosingOptions<'a>,
+    context: &mut Context<'a>,
+) -> ParseJsxWithOpeningAndClosingResult {
     let force_use_multi_lines = get_force_use_multi_lines(&opts.opening_element, &opts.children, context);
     let start_info = Info::new("startInfo");
     let end_info = Info::new("endInfo");
@@ -6417,7 +6441,11 @@ fn parse_jsx_with_opening_and_closing<'a>(opts: ParseJsxWithOpeningAndClosingOpt
     items.extend(parse_node(opts.closing_element, context));
     items.push_info(end_info);
 
-    return items;
+    return ParseJsxWithOpeningAndClosingResult {
+        items,
+        start_info,
+        end_info,
+    };
 
     fn get_force_use_multi_lines(opening_element: &Node, children: &Vec<Node>, context: &mut Context) -> bool {
         // if any of the children are a jsx element or jsx fragment, then force multi-line
@@ -6582,7 +6610,7 @@ fn parse_jsx_children<'a>(opts: ParseJsxChildrenOptions<'a>, context: &mut Conte
             let mut previous_child = None;
             for (index, (child, parsed_child)) in children.into_iter().enumerate() {
                 if index > 0 && should_use_space(previous_child.as_ref().unwrap(), &child, context) {
-                    items.extend(jsx_space_or_newline_or_expr_space(
+                    items.extend(jsx_space_separator(
                         previous_child.as_ref().unwrap(),
                         &child,
                         context,
@@ -6592,6 +6620,7 @@ fn parse_jsx_children<'a>(opts: ParseJsxChildrenOptions<'a>, context: &mut Conte
                 }
 
                 items.extend(parsed_child.into());
+
                 previous_child = Some(child);
             }
             items.push_signal(Signal::PossibleNewLine);
@@ -6637,82 +6666,138 @@ fn parse_jsx_children<'a>(opts: ParseJsxChildrenOptions<'a>, context: &mut Conte
     }
 }
 
-fn jsx_space_or_newline_or_expr_space(previous_node: &Node, current_node: &Node, context: &Context) -> PrintItems {
-    let spaces_between_count = count_spaces_between(previous_node, current_node, context);
-    let mut items = PrintItems::new();
+fn jsx_space_separator(previous_node: &Node, current_node: &Node, context: &Context) -> PrintItems {
+    return if node_should_force_newline_if_multi_line(previous_node) || node_should_force_newline_if_multi_line(current_node) {
+        jsx_force_space_with_newline_if_either_node_multi_line(
+            previous_node,
+            current_node,
+            context,
+        )
+    } else {
+        jsx_space_or_newline_or_expr_space(
+            previous_node,
+            current_node,
+            context,
+        )
+    };
 
-    if spaces_between_count > 1 {
-        items.push_signal(Signal::PossibleNewLine);
-        items.push_str(&format!("{{\"{}\"}}", " ".repeat(spaces_between_count)));
-        return items;
+    fn node_should_force_newline_if_multi_line(node: &Node) -> bool {
+        matches!(node, Node::JSXElement(_) | Node::JSXFragment(_))
     }
 
-    let start_info = Info::new("jsxSpaceStartInfo");
-    let end_info = Info::new("jsxSpaceEtartInfo");
+    fn get_node_info_range(node: &Node, context: &Context) -> Option<(Info, Info)> {
+        if node_should_force_newline_if_multi_line(node) {
+            context.get_info_range_for_node(node)
+        } else {
+            None
+        }
+    }
 
-    // Force resolving the end_info again when the start_info changes its position
-    // Note: This actually might not be required, but probably good to do just in case
-    // todo: This probably could be pushed down into dprint_core with better design.
-    // The true and false path being blank implies that probably a new kind of print item
-    // should be introduced
-    items.push_condition(Condition::new("resetEndInfoOnStartInfoLineNumberChange", ConditionProperties {
-        condition: Rc::new(Box::new(move |condition_context| {
-            let resolved_start_info = condition_context.get_resolved_info(&start_info)?;
-            if resolved_start_info.line_number != condition_context.writer_info.line_number {
-                condition_context.clear_info(&end_info);
-            }
-            Some(false)
-        })),
-        true_path: None,
-        false_path: None,
-    }));
-    items.push_info(start_info);
+    fn jsx_force_space_with_newline_if_either_node_multi_line(
+        previous_node: &Node,
+        current_node: &Node,
+        context: &Context
+    ) -> PrintItems {
+        let previous_node_info_range = get_node_info_range(previous_node, context);
+        let current_node_info_range = get_node_info_range(current_node, context);
+        let spaces_between_count = node_helpers::count_spaces_between_jsx_children(
+            previous_node,
+            current_node,
+            &context.module
+        );
+        let jsx_space_expr_text = format!("{{\"{}\"}}", " ".repeat(spaces_between_count));
+        if_true_or(
+            "jsxIsLastChildMultiLine",
+            move |condition_context| {
+                if let Some((start_info, end_info)) = previous_node_info_range {
+                    let result = condition_resolvers::is_multiple_lines(condition_context, &start_info, &end_info)?;
+                    if result {
+                        return Some(true);
+                    }
+                }
+                if let Some((start_info, end_info)) = current_node_info_range {
+                    let result = condition_resolvers::is_multiple_lines(condition_context, &start_info, &end_info)?;
+                    if result {
+                        return Some(true);
+                    }
+                }
 
-    items.push_condition(Condition::new_with_dependent_infos("jsxSpaceOrNewLineIsMultipleLines", ConditionProperties {
-        condition: Rc::new(Box::new(move |context| {
-            let resolved_start_info = context.get_resolved_info(&start_info)?;
-            let resolved_end_info = context.get_resolved_info(&end_info)?;
-            Some(resolved_start_info.line_number < resolved_end_info.line_number)
-        })),
-        true_path: {
-            let mut items = PrintItems::new();
+                return Some(false);
+            },
+            {
+                let mut items = PrintItems::new();
+                items.push_signal(Signal::PossibleNewLine);
+                items.push_str(&jsx_space_expr_text);
+                items.push_signal(Signal::NewLine);
+                items
+            },
+            {
+                let mut items = PrintItems::new();
+                if spaces_between_count > 1 {
+                    items.push_signal(Signal::PossibleNewLine);
+                    items.push_str(&jsx_space_expr_text);
+                    items.push_signal(Signal::PossibleNewLine);
+                } else {
+                    items.extend(jsx_space_or_newline_or_expr_space(
+                        previous_node,
+                        current_node,
+                        context
+                    ));
+                }
+                items
+            },
+        ).into()
+    }
+
+    fn jsx_space_or_newline_or_expr_space(previous_node: &Node, current_node: &Node, context: &Context) -> PrintItems {
+        let spaces_between_count = node_helpers::count_spaces_between_jsx_children(previous_node, current_node, &context.module);
+        let mut items = PrintItems::new();
+
+        if spaces_between_count > 1 {
             items.push_signal(Signal::PossibleNewLine);
-            items.push_str("{\" \"}");
-            items.push_signal(Signal::NewLine);
-            Some(items)
-        },
-        false_path: Some(Signal::SpaceOrNewLine.into()),
-    }, vec![end_info]));
-    items.push_info(end_info);
-    return items;
-
-    fn count_spaces_between(previous_node: &Node, next_node: &Node, context: &Context) -> usize {
-        let all_siblings_between = node_helpers::get_siblings_between(previous_node, next_node);
-        let siblings_between = all_siblings_between
-            .iter()
-            // ignore empty JSXText
-            .filter(|n| !n.text_fast(&context.module).trim().is_empty())
-            .collect::<Vec<_>>();
-
-        let mut count = 0;
-        let mut previous_node = previous_node;
-
-        for node in siblings_between {
-            count += node_helpers::get_jsx_space_expr_space_count(node);
-
-            if node_helpers::nodes_have_only_spaces_between(previous_node, node, &context.module) {
-                count += 1;
-            }
-
-            previous_node = node;
+            items.push_str(&format!("{{\"{}\"}}", " ".repeat(spaces_between_count)));
+            items.push_signal(Signal::PossibleNewLine);
+            return items;
         }
 
-        // check the spaces between the previously looked at node and last node
-        if node_helpers::nodes_have_only_spaces_between(previous_node, next_node, &context.module) {
-            count += 1;
-        }
+        let start_info = Info::new("jsxSpaceStartInfo");
+        let end_info = Info::new("jsxSpaceEndInfo");
 
-        count
+        // Force resolving the end_info again when the start_info changes its position
+        // Note: This actually might not be required, but probably good to do just in case
+        // todo: This probably could be pushed down into dprint_core with better design.
+        // The true and false path being blank implies that probably a new kind of print item
+        // should be introduced
+        items.push_condition(Condition::new("resetEndInfoOnStartInfoLineNumberChange", ConditionProperties {
+            condition: Rc::new(Box::new(move |condition_context| {
+                let resolved_start_info = condition_context.get_resolved_info(&start_info)?;
+                if resolved_start_info.line_number != condition_context.writer_info.line_number {
+                    condition_context.clear_info(&end_info);
+                }
+                Some(false)
+            })),
+            true_path: None,
+            false_path: None,
+        }));
+        items.push_info(start_info);
+
+        items.push_condition(Condition::new_with_dependent_infos("jsxSpaceOrNewLineIsMultipleLines", ConditionProperties {
+            condition: Rc::new(Box::new(move |context| {
+                let resolved_start_info = context.get_resolved_info(&start_info)?;
+                let resolved_end_info = context.get_resolved_info(&end_info)?;
+                Some(resolved_start_info.line_number < resolved_end_info.line_number)
+            })),
+            true_path: {
+                let mut items = PrintItems::new();
+                items.push_signal(Signal::PossibleNewLine);
+                items.push_str("{\" \"}");
+                items.push_signal(Signal::NewLine);
+                Some(items)
+            },
+            false_path: Some(Signal::SpaceOrNewLine.into()),
+        }, vec![end_info]));
+        items.push_info(end_info);
+        items
     }
 }
 

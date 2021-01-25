@@ -103,3 +103,32 @@ pub fn get_jsx_space_expr_space_count(node: &Node) -> usize {
         _ => 0,
     }
 }
+
+pub fn count_spaces_between_jsx_children(previous_node: &Node, next_node: &Node, module: &Module) -> usize {
+    let all_siblings_between = get_siblings_between(previous_node, next_node);
+    let siblings_between = all_siblings_between
+        .iter()
+        // ignore empty JSXText
+        .filter(|n| !n.text_fast(module).trim().is_empty())
+        .collect::<Vec<_>>();
+
+    let mut count = 0;
+    let mut previous_node = previous_node;
+
+    for node in siblings_between {
+        count += get_jsx_space_expr_space_count(node);
+
+        if nodes_have_only_spaces_between(previous_node, node, module) {
+            count += 1;
+        }
+
+        previous_node = node;
+    }
+
+    // check the spaces between the previously looked at node and last node
+    if nodes_have_only_spaces_between(previous_node, next_node, module) {
+        count += 1;
+    }
+
+    count
+}
