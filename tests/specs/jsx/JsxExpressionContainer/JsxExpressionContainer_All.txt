@@ -4,3 +4,62 @@ const t = <test other={   4  } />;
 
 [expect]
 const t = <test other={4} />;
+
+== should keep comments within the expression ==
+const t1 = <div>
+    {
+        test
+        /* test */
+    }
+</div>;
+const t2 = <div>
+    {/* test */test}
+</div>;
+const t3 = <div>
+    {test/* test */}
+</div>;
+const t4 = <div>
+    {
+        /* test */
+        test
+    }
+</div>;
+const t5 = <div>
+{//test
+t}
+</div>;
+const t6 = <div>
+{t//test
+}
+</div>;
+
+[expect]
+const t1 = <div>
+    {
+        test
+        /* test */
+    }
+</div>;
+const t2 = <div>
+    {/* test */ test}
+</div>;
+const t3 = <div>
+    {test /* test */}
+</div>;
+const t4 = <div>
+    {
+        /* test */
+        test
+    }
+</div>;
+const t5 = <div>
+    {
+        // test
+        t
+    }
+</div>;
+const t6 = <div>
+    {
+        t // test
+    }
+</div>;

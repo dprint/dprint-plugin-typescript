@@ -2080,7 +2080,7 @@ fn parse_spread_element<'a>(node: &'a SpreadElement, context: &mut Context<'a>) 
     items.extend(parse_node(node.expr.into(), context));
 
     if node.parent().unwrap().kind() == NodeKind::JSXOpeningElement {
-        parse_as_jsx_expr_container(items, context)
+        parse_as_jsx_expr_container(node.into(), items, context)
     } else {
         items
     }
@@ -2511,11 +2511,11 @@ fn parse_jsx_attribute<'a>(node: &'a JSXAttr, context: &mut Context<'a>) -> Prin
     if let Some(value) = &node.value {
         items.push_str("=");
         let surround_with_braces = context.token_finder.get_previous_token_if_open_brace(value).is_some();
-        let parsed_value = parse_node(value.into(), context);
+        let inner_items = parse_node(value.into(), context);
         items.extend(if surround_with_braces {
-            parse_as_jsx_expr_container(parsed_value, context)
+            parse_as_jsx_expr_container(node.into(), inner_items, context)
         } else {
-            parsed_value
+            inner_items
         });
     }
     items
@@ -2563,25 +2563,57 @@ fn parse_jsx_empty_expr<'a>(node: &'a JSXEmptyExpr, context: &mut Context<'a>) -
 fn parse_jsx_expr_container<'a>(node: &'a JSXExprContainer, context: &mut Context<'a>) -> PrintItems {
     // Don't send JSX empty expressions to parse_node because it will not handle comments
     // the way they should be specifically handled for empty expressions.
-    let expr_items = match &node.expr {
+    let parse_inner = match &node.expr {
         JSXExpr::JSXEmptyExpr(expr) => parse_jsx_empty_expr(expr, context),
         JSXExpr::Expr(expr) => parse_node(expr.into(), context),
     };
 
-    parse_as_jsx_expr_container(expr_items, context)
+    parse_as_jsx_expr_container(node.expr.into(), parse_inner, context)
 }
 
-fn parse_as_jsx_expr_container(parsed_node: PrintItems, context: &mut Context) -> PrintItems {
+fn parse_as_jsx_expr_container(expr: Node, inner_items: PrintItems, context: &mut Context) -> PrintItems {
     let surround_with_space = context.config.jsx_expression_container_space_surrounding_expression;
+    let surround_with_new_lines = should_surround_with_newlines(expr, &context.module);
     let mut items = PrintItems::new();
-
     items.push_str("{");
-    if surround_with_space { items.push_str(" "); }
-    items.extend(parsed_node);
-    if surround_with_space { items.push_str(" "); }
+    if surround_with_new_lines {
+        items.push_signal(Signal::NewLine);
+        items.push_signal(Signal::StartIndent);
+    } else if surround_with_space {
+        items.push_str(" ");
+    }
+    items.extend(inner_items);
+    if surround_with_new_lines {
+        items.extend(parse_trailing_comments_as_statements(&expr, context));
+        items.push_signal(Signal::NewLine);
+        items.push_signal(Signal::FinishIndent);
+    } else if surround_with_space {
+        items.push_str(" ");
+    }
     items.push_str("}");
 
-    items
+    return items;
+
+    fn should_surround_with_newlines(expr: Node, module: &Module) -> bool {
+        let expr_start_line = expr.start_line_fast(module);
+        for comment in expr.leading_comments_fast(module) {
+            if comment.kind == CommentKind::Line {
+                return true;
+            } else if comment.start_line_fast(module) < expr_start_line {
+                return true;
+            }
+        }
+        let expr_end_line = expr.start_line_fast(module);
+        for comment in expr.trailing_comments_fast(module) {
+            if comment.kind == CommentKind::Line {
+                return true;
+            } else if comment.end_line_fast(module) > expr_end_line {
+                return true;
+            }
+        }
+
+        false
+    }
 }
 
 fn parse_jsx_fragment<'a>(node: &'a JSXFragment, context: &mut Context<'a>) -> PrintItems {
@@ -2684,7 +2716,7 @@ fn parse_jsx_opening_fragment<'a>(_: &'a JSXOpeningFragment, _: &mut Context<'a>
 }
 
 fn parse_jsx_spread_child<'a>(node: &'a JSXSpreadChild, context: &mut Context<'a>) -> PrintItems {
-    parse_as_jsx_expr_container({
+    parse_as_jsx_expr_container(node.into(), {
         let mut items = PrintItems::new();
         items.push_str("...");
         items.extend(parse_node(node.expr.into(), context));
@@ -6589,7 +6621,6 @@ fn parse_jsx_children<'a>(opts: ParseJsxChildrenOptions<'a>, context: &mut Conte
                 } else {
                     node_helpers::has_separating_blank_line(previous, next, context.module)
                 }
-
             },
             separator: Separator::none(),
             is_jsx_children: true,
