@@ -121,7 +121,7 @@ impl<'a> Context<'a> {
     #[cfg(debug_assertions)]
     pub fn assert_end_of_file_state(&self) {
         if self.before_comments_start_info_stack.iter().next().is_some() {
-            panic!("There were infos in the before comments start info stack.");
+            panic!("Debug panic! There were infos in the before comments start info stack.");
         }
     }
 
@@ -129,7 +129,7 @@ impl<'a> Context<'a> {
     pub fn assert_text(&self, span: Span, expected_text: &str) {
         let actual_text = span.text_fast(self.module);
         if actual_text != expected_text {
-            panic!("Expected text `{}`, but found `{}`", expected_text, actual_text)
+            panic!("Debug Panic Expected text `{}`, but found `{}`", expected_text, actual_text)
         }
     }
 }

@@ -1,0 +1,5 @@
+== should not panic ==
+const a = <T>(value: T): any => {};
+
+[expect]
+const a = <T>(value: T): any => {};
