@@ -123,7 +123,13 @@ fn parse_node_with_inner_parse<'a>(node: Node<'a>, context: &mut Context<'a>, in
     // pop info
     context.current_node = context.parent_stack.pop();
 
-    return items;
+    // need to ensure a jsx spread element's comments are parsed within the braces since swc
+    // has no representation of a JSX spread attribute and goes straight to the spread element
+    return if node_kind == NodeKind::SpreadElement && node.parent().unwrap().kind() == NodeKind::JSXOpeningElement {
+        parse_as_jsx_expr_container(node, items, context)
+    } else  {
+        items
+    };
 
     fn parse_node_inner<'a>(node: Node<'a>, context: &mut Context<'a>) -> PrintItems {
         match node {
@@ -2078,12 +2084,7 @@ fn parse_spread_element<'a>(node: &'a SpreadElement, context: &mut Context<'a>) 
     let mut items = PrintItems::new();
     items.push_str("...");
     items.extend(parse_node(node.expr.into(), context));
-
-    if node.parent().unwrap().kind() == NodeKind::JSXOpeningElement {
-        parse_as_jsx_expr_container(node.into(), items, context)
-    } else {
-        items
-    }
+    items
 }
 
 fn parse_tagged_tpl<'a>(node: &'a TaggedTpl, context: &mut Context<'a>) -> PrintItems {

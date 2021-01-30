@@ -1,0 +1,26 @@
+-- fileName: test.jsx --
+== should format block comments in jsx expr container ==
+const render = items => (
+  <div>{ /* eslint-disable */
+     items.map(item => null)
+      /* eslint-enable */    }</div>
+);
+
+[expect]
+const render = items => (
+    <div>
+        {
+            /* eslint-disable */
+            items.map(item => null)
+            /* eslint-enable */
+        }
+    </div>
+);
+
+== should handle comment before and after spread ==
+<div {/* c */...a}/>;
+<div {...a /* c */}/>;
+
+[expect]
+<div {/* c */ ...a} />;
+<div {...a /* c */} />;
