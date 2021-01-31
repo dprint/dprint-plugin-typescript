@@ -2,10 +2,11 @@ use swc_ast_view::*;
 
 pub fn is_first_node_on_line(node: &dyn Spanned, module: &Module) -> bool {
     let start = node.lo().0 as usize;
-    let module_text = module.text().as_bytes();
+    let source_file = module.source_file.as_ref().unwrap();
+    let source_file_text = source_file.src.as_bytes();
 
     for i in (0..start).rev() {
-        let c = module_text[i];
+        let c = source_file_text[i];
         if c != ' ' as u8 && c != '\t' as u8 {
             return c == '\n' as u8;
         }
@@ -67,7 +68,8 @@ pub fn nodes_have_only_spaces_between(previous_node: &Node, next_node: &Node, mo
         crate::utils::has_no_new_lines_in_leading_whitespace(next_node_text)
             && next_node_text.chars().next() == Some(' ')
     } else {
-        crate::utils::is_not_empty_and_only_spaces(&module.text()[previous_node.hi().0 as usize..next_node.lo().0 as usize])
+        let source_file = module.source_file.as_ref().unwrap();
+        crate::utils::is_not_empty_and_only_spaces(&source_file.src[previous_node.hi().0 as usize..next_node.lo().0 as usize])
     }
 }
 

@@ -1,4 +1,5 @@
 -- fileName: test.jsx --
+~~ lineWidth: 80 ~~
 == should format block comments in jsx expr container ==
 const render = items => (
   <div>{ /* eslint-disable */
@@ -24,3 +25,20 @@ const render = items => (
 [expect]
 <div {/* c */ ...a} />;
 <div {...a /* c */} />;
+
+== should not panic and put space in correct spot ==
+// Test
+
+// Test
+x = <div>
+    <first>f</first> <first>f</first> <first>f</first> <first>f</first> <first>f</first> <first>f</first>
+  </div>;
+
+[expect]
+// Test
+
+// Test
+x = <div>
+    <first>f</first> <first>f</first> <first>f</first> <first>f</first>{" "}
+    <first>f</first> <first>f</first>
+</div>;
