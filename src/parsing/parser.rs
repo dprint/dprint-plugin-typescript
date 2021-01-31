@@ -2855,9 +2855,30 @@ fn parse_string_literal<'a>(node: &'a Str, context: &mut Context<'a>) -> PrintIt
         let string_value = raw_string_text.chars().skip(1).take(raw_string_text.chars().count() - 2).collect::<String>();
         let is_double_quote = raw_string_text.chars().next().unwrap() == '"';
 
-        match is_double_quote {
-            true => string_value.replace("\\\"", "\""),
-            false => string_value.replace("\\'", "'"),
+        return match is_double_quote {
+            true => remove_needless_quote_backslashes(string_value.replace("\\\"", "\"")),
+            false => remove_needless_quote_backslashes(string_value.replace("\\'", "'")),
+        };
+
+        fn remove_needless_quote_backslashes(text: String) -> String {
+            // People may write string literals that look like the following:
+            // * "test \' test"
+            // * 'test \" test'
+            // ...if so, remove these backslashes
+            let mut new_string = String::with_capacity(text.len());
+            let mut was_last_backslash = false;
+            for c in text.chars() {
+                if c == '\\' && !was_last_backslash {
+                    was_last_backslash = true;
+                } else {
+                    if was_last_backslash && c != '\'' && c != '"' {
+                        new_string.push('\\');
+                    }
+                    new_string.push(c);
+                    was_last_backslash = false;
+                }
+            }
+            new_string
         }
     }
 }

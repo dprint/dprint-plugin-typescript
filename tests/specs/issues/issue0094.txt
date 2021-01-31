@@ -42,3 +42,9 @@ x = <div>
     <first>f</first> <first>f</first> <first>f</first> <first>f</first>{" "}
     <first>f</first> <first>f</first>
 </div>;
+
+== should use the proper number of backslashes when converting this scenario ==
+<div id={'\'\"\\\''} />;
+
+[expect]
+<div id={"'\"\\'"} />;
