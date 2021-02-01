@@ -12,14 +12,14 @@ use super::swc::{get_flattened_bin_expr};
 use super::*;
 
 pub fn parse<'a>(source_file: &'a ParsedSourceFile, config: &Configuration) -> PrintItems {
-    let source_file_info = swc_ast_view::SourceFileInfo {
+    let source_file_info = swc_ast_view::ModuleInfo {
         module: &source_file.module,
         source_file: Some(&source_file.info),
         tokens: Some(&source_file.tokens),
         comments: Some(&source_file.comments),
     };
 
-    swc_ast_view::with_ast_view(source_file_info, |module| {
+    swc_ast_view::with_ast_view_for_module(source_file_info, |module| {
         let module_node = Node::Module(module);
         let mut context = Context::new(
             config,
@@ -1326,7 +1326,7 @@ fn parse_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> 
         }
     }
 
-    fn get_should_use_parens(node: &ArrowExpr, context: &mut Context) -> bool {
+    fn get_should_use_parens<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> bool {
         let requires_parens = node.params.len() != 1 || node.return_type.is_some() || is_first_param_not_identifier_or_has_type_annotation(&node.params);
 
         return if requires_parens {
@@ -1348,7 +1348,7 @@ fn parse_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> 
         }
     }
 
-    fn has_parens(node: &ArrowExpr, context: &mut Context) -> bool {
+    fn has_parens<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> bool {
         if node.params.len() != 1 {
             true
         } else {
