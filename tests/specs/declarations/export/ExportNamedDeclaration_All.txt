@@ -139,3 +139,18 @@ export * from "./a";
 export {} from "./a";
 export * from "./b";
 export {} from "./b";
+
+== should format assertions ==
+export { } from "a" assert {a: "a"};
+export { asdf } from "test" assert { type: "json" };
+export { n1, n2, n3, n4 } from "test" assert { type: "json" };
+
+[expect]
+export {} from "a" assert { a: "a" };
+export { asdf } from "test" assert { type: "json" };
+export {
+    n1,
+    n2,
+    n3,
+    n4,
+} from "test" assert { type: "json" };

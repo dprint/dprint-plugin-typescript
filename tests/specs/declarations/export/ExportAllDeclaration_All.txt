@@ -1,0 +1,16 @@
+~~ lineWidth: 50 ~~
+== should format ==
+export  *  from   "test"  ;
+
+[expect]
+export * from "test";
+
+== should format assertions ==
+export * from "a" assert {type: "json"};
+export * from "testingtesttest" assert { type: "json" };
+
+[expect]
+export * from "a" assert { type: "json" };
+export * from "testingtesttest" assert {
+    type: "json",
+};

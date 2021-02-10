@@ -47,6 +47,7 @@ fn parse_inner(file_path: &Path, file_text: &str) -> Result<ParsedSourceFile, St
         ts_config.tsx = should_parse_as_jsx(file_path);
         ts_config.dynamic_import = true;
         ts_config.decorators = true;
+        ts_config.import_assertions = true;
         let lexer = Lexer::new(
             Syntax::Typescript(ts_config),
             JscTarget::Es2019,

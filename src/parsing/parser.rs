@@ -867,6 +867,11 @@ fn parse_export_named_decl<'a>(node: &'a NamedExport, context: &mut Context<'a>)
         items.extend(parse_node(src.into(), context));
     }
 
+    if let Some(asserts) = node.asserts {
+        items.push_str(" assert ");
+        items.extend(parse_node(asserts.into(), context));
+    }
+
     if context.config.semi_colons.is_true() {
         items.push_str(";");
     }
@@ -1027,6 +1032,11 @@ fn parse_import_decl<'a>(node: &'a ImportDecl, context: &mut Context<'a>) -> Pri
     if has_from { items.push_str(" from "); }
 
     items.extend(parse_node(node.src.into(), context));
+
+    if let Some(asserts) = node.asserts {
+        items.push_str(" assert ");
+        items.extend(parse_node(asserts.into(), context));
+    }
 
     if context.config.semi_colons.is_true() {
         items.push_str(";");
@@ -3208,6 +3218,11 @@ fn parse_export_all<'a>(node: &'a ExportAll, context: &mut Context<'a>) -> Print
     let mut items = PrintItems::new();
     items.push_str("export * from ");
     items.extend(parse_node(node.src.into(), context));
+
+    if let Some(asserts) = node.asserts {
+        items.push_str(" assert ");
+        items.extend(parse_node(asserts.into(), context));
+    }
 
     if context.config.semi_colons.is_true() {
         items.push_str(";");

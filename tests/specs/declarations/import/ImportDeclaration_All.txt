@@ -138,3 +138,13 @@ import { a } from "test";
 import {
     b, // test
 } from "test";
+
+== should support import assertions ==
+import test from "a" assert {type: "json"};
+import asdf from "testing.json" assert {type:"json"};
+
+[expect]
+import test from "a" assert { type: "json" };
+import asdf from "testing.json" assert {
+    type: "json",
+};
