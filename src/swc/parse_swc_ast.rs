@@ -1,9 +1,8 @@
 use std::path::Path;
 use swc_common::{
-    errors::{Handler, Emitter, DiagnosticBuilder},
-    FileName, comments::SingleThreadedComments, SourceFile, BytePos
+    FileName, comments::SingleThreadedComments, SourceFile, BytePos, Spanned
 };
-use swc_ecmascript::parser::{Parser, StringInput, Syntax, lexer::Lexer, Capturing, JscTarget, token::{TokenAndSpan}};
+use swc_ecmascript::parser::{Parser, StringInput, Syntax, error::{SyntaxError, Error as SwcError}, lexer::Lexer, Capturing, JscTarget, token::{TokenAndSpan}};
 
 pub struct ParsedSourceFile {
     pub module: swc_ecmascript::ast::Module,
@@ -31,8 +30,6 @@ pub fn parse_swc_ast(file_path: &Path, file_text: &str) -> Result<ParsedSourceFi
 }
 
 fn parse_inner(file_path: &Path, file_text: &str) -> Result<ParsedSourceFile, String> {
-    let handler = Handler::with_emitter(false, false, Box::new(EmptyEmitter {}));
-
     let source_file = SourceFile::new(
         FileName::Custom(file_path.to_string_lossy().into()),
         false,
@@ -43,11 +40,14 @@ fn parse_inner(file_path: &Path, file_text: &str) -> Result<ParsedSourceFile, St
 
     let comments: SingleThreadedComments = Default::default();
     let (module, tokens) = {
-        let mut ts_config: swc_ecmascript::parser::TsConfig = Default::default();
-        ts_config.tsx = should_parse_as_jsx(file_path);
-        ts_config.dynamic_import = true;
-        ts_config.decorators = true;
-        ts_config.import_assertions = true;
+        let ts_config = swc_ecmascript::parser::TsConfig {
+            tsx: should_parse_as_jsx(file_path),
+            dynamic_import: true,
+            decorators: true,
+            import_assertions: true,
+            dts: false,
+            no_early_errors: false,
+        };
         let lexer = Lexer::new(
             Syntax::Typescript(ts_config),
             JscTarget::Es2019,
@@ -57,16 +57,11 @@ fn parse_inner(file_path: &Path, file_text: &str) -> Result<ParsedSourceFile, St
         let lexer = Capturing::new(lexer);
         let mut parser = Parser::new_from(lexer);
         let parse_module_result = parser.parse_module();
+        ensure_no_specific_syntax_errors(parser.take_errors(), file_text)?;
         let tokens = parser.input().take();
 
         match parse_module_result {
-            Err(error) => {
-                // mark the diagnostic as being handled (otherwise it will panic in its drop)
-                let mut diagnostic = error.into_diagnostic(&handler);
-                diagnostic.cancel();
-                // return the formatted diagnostic string
-                Err(format_diagnostic(&diagnostic, file_text))
-            },
+            Err(error) => Err(format_swc_error(error, file_text)),
             Ok(module) => Ok((module, tokens))
         }
     }?;
@@ -84,30 +79,40 @@ fn parse_inner(file_path: &Path, file_text: &str) -> Result<ParsedSourceFile, St
         }
         return true;
     }
+
+    fn ensure_no_specific_syntax_errors(errors: Vec<SwcError>, file_text: &str) -> Result<(), String> {
+        let errors = errors.into_iter().filter(|e| match e.clone().kind() { // todo: remove clone once PR #1396 lands in swc
+            // expected identifier
+            SyntaxError::TS1003 => true,
+            // expected semi-colon
+            SyntaxError::TS1005 => true,
+            _ => false,
+        }).collect::<Vec<_>>();
+
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            let mut final_message = String::new();
+            for error in errors {
+                if !final_message.is_empty() {
+                    final_message.push_str("\n\n");
+                }
+                final_message.push_str(&format_swc_error(error, file_text));
+            }
+            Err(final_message)
+        }
+    }
 }
 
 fn get_lowercase_extension(file_path: &Path) -> Option<String> {
     file_path.extension().and_then(|e| e.to_str()).map(|f| f.to_lowercase())
 }
 
-pub struct EmptyEmitter {
-}
-
-impl Emitter for EmptyEmitter {
-    fn emit(&mut self, _: &DiagnosticBuilder<'_>) {
-        // for now, we don't care about diagnostics so do nothing
-    }
-
-    fn should_show_explain(&self) -> bool {
-        false
-    }
-}
-
-fn format_diagnostic(error: &DiagnosticBuilder, file_text: &str) -> String {
-    // todo: handling sub diagnostics?
+fn format_swc_error(error: SwcError, file_text: &str) -> String {
+    let error_span = error.span();
     dprint_core::formatting::utils::string_utils::format_diagnostic(
-        error.span.primary_span().map(|span| (span.lo().0 as usize, span.hi().0 as usize)),
-        &error.message(),
+        Some((error_span.lo().0 as usize, error_span.hi().0 as usize)),
+        &error.kind().msg(),
         file_text
     )
 }
@@ -127,6 +132,34 @@ mod tests {
                 "\n",
                 "  as#;\n",
                 "    ~"
+            )
+        );
+    }
+
+    #[test]
+    fn it_should_error_for_no_equals_sign_in_var_decl() {
+        let message = parse_swc_ast(&PathBuf::from("./test.ts"), "const Methods {\nf: (x, y) => x + y,\n};").err().unwrap();
+        assert_eq!(
+            message,
+            concat!(
+                "Line 1, column 15: Expected a semicolon\n",
+                "\n",
+                "  const Methods {\n",
+                "                ~"
+            )
+        );
+    }
+
+    #[test]
+    fn it_should_error_when_var_stmts_sep_by_comma() {
+        let message = parse_swc_ast(&PathBuf::from("./test.ts"), "let a = 0, let b = 1;").err().unwrap();
+        assert_eq!(
+            message,
+            concat!(
+                "Line 1, column 16: Expected a semicolon\n",
+                "\n",
+                "  let a = 0, let b = 1;\n",
+                "                 ~"
             )
         );
     }
