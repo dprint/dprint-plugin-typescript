@@ -35,7 +35,7 @@ use super::configuration::Configuration;
 /// }
 /// ```
 pub fn format_text(file_path: &Path, file_text: &str, config: &Configuration) -> Result<String, String> {
-    if has_ignore_comment(file_text, config) {
+    if super::utils::file_text_has_ignore_comment(file_text, &config.ignore_file_comment_text) {
         return Ok(String::from(file_text));
     }
 
@@ -50,16 +50,4 @@ pub fn format_text(file_path: &Path, file_text: &str, config: &Configuration) ->
         use_tabs: config.use_tabs,
         new_line_text: resolve_new_line_kind(file_text, config.new_line_kind),
     }));
-
-    fn has_ignore_comment(file_text: &str, config: &Configuration) -> bool {
-        let mut iterator = super::utils::CharIterator::new(file_text.chars());
-        iterator.skip_whitespace();
-        if iterator.move_next() != Some('/') { return false; }
-        match iterator.move_next() {
-            Some('/') | Some('*') => {},
-            _ => return false,
-        }
-        iterator.skip_whitespace();
-        iterator.check_text(&config.ignore_file_comment_text)
-    }
 }

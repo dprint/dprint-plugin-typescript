@@ -40,7 +40,7 @@
 /*dprint-ignore-file */
 1 + 2 +         5;
 
-== should not skip when it's not the first comment (doesn't bother searching for these) ==
+== should skip even when it's not the first comment ==
 // testing
 /* dprint-ignore-file */
 /* other */
@@ -50,7 +50,7 @@
 // testing
 /* dprint-ignore-file */
 /* other */
-1 + 2 + 5;
+1 + 2 +         5;
 
 == should skip when there are only comments ==
 /* dprint-ignore-file */
