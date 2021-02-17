@@ -5517,7 +5517,9 @@ fn parse_separated_values_with_result<'a>(
                     },
                     NodeOrSeparator::Separator(separator_token) => {
                         let mut items = PrintItems::new();
-                        items.extend(parse_leading_comments(separator_token, context));
+                        // don't use parse_leading_comments here because we don't want a space between the block comment and separator (comma)
+                        let leading_comments = separator_token.leading_comments_fast(context.module);
+                        items.extend(parse_comment_collection(leading_comments, None, Some(separator_token), context));
                         items.extend(parsed_separator);
                         items.extend(parse_first_line_trailing_comments(separator_token, None, context));
                         items

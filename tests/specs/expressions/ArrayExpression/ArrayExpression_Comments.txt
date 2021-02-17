@@ -70,3 +70,21 @@ const u = [
     // 5
     /*test*/
 ];
+
+== should handle comments in the place of a member ==
+const u = [
+    /* 0 */,
+    // test
+    /* 1 */, // 2
+    /* 3 */, // 4
+    /* 5 */
+];
+
+[expect]
+const u = [
+    /* 0 */,
+    // test
+    /* 1 */, // 2
+    /* 3 */, // 4
+    /* 5 */
+];
