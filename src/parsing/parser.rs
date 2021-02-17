@@ -2055,8 +2055,8 @@ fn parse_paren_expr<'a>(node: &'a ParenExpr, context: &mut Context<'a>) -> Print
 }
 
 fn parse_sequence_expr<'a>(node: &'a SeqExpr, context: &mut Context<'a>) -> PrintItems {
-    parse_separated_values(ParseSeparatedValuesOptions {
-        nodes: node.exprs.iter().map(|x| Some(x.into())).collect(),
+    parse_separated_values(ParseSeparatedValuesParams {
+        nodes: node.exprs.iter().map(|x| NodeOrSeparator::Node(x.into())).collect(),
         prefer_hanging: context.config.sequence_expression_prefer_hanging,
         force_use_new_lines: false,
         allow_blank_lines: false,
@@ -2668,8 +2668,8 @@ fn parse_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Cont
     }
 
     if !node.attrs.is_empty() {
-        items.extend(parse_separated_values(ParseSeparatedValuesOptions {
-            nodes: node.attrs.iter().map(|p| Some(p.into())).collect(),
+        items.extend(parse_separated_values(ParseSeparatedValuesParams {
+            nodes: node.attrs.iter().map(|p| NodeOrSeparator::Node(p.into())).collect(),
             prefer_hanging: context.config.jsx_attributes_prefer_hanging,
             force_use_new_lines,
             allow_blank_lines: false,
@@ -3853,8 +3853,8 @@ fn parse_var_decl<'a>(node: &'a VarDecl, context: &mut Context<'a>) -> PrintItem
         // be lightweight by default
         items.extend(parse_node(node.decls[0].into(), context));
     } else if decls_len > 1 {
-        items.extend(parse_separated_values(ParseSeparatedValuesOptions {
-            nodes: node.decls.iter().map(|&p| Some(p.into())).collect(),
+        items.extend(parse_separated_values(ParseSeparatedValuesParams {
+            nodes: node.decls.iter().map(|&p| NodeOrSeparator::Node(p.into())).collect(),
             prefer_hanging: context.config.variable_statement_prefer_hanging,
             force_use_new_lines,
             allow_blank_lines: false,
@@ -4339,8 +4339,8 @@ fn parse_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>)
     let mut items = PrintItems::new();
 
     items.push_str("<");
-    items.extend(parse_separated_values(ParseSeparatedValuesOptions {
-        nodes: params.into_iter().map(|p| Some(p)).collect(),
+    items.extend(parse_separated_values(ParseSeparatedValuesParams {
+        nodes: params.into_iter().map(|p| NodeOrSeparator::Node(p)).collect(),
         prefer_hanging: context.config.type_parameters_prefer_hanging,
         force_use_new_lines,
         allow_blank_lines: false,
@@ -4804,20 +4804,27 @@ struct ParseArrayLikeNodesOptions<'a> {
 fn parse_array_like_nodes<'a>(opts: ParseArrayLikeNodesOptions<'a>, context: &mut Context<'a>) -> PrintItems {
     let node = opts.node;
     let nodes = opts.nodes;
+    let nodes = if nodes.iter().any(|n| n.is_none()) {
+        let commas = get_comma_tokens_from_children_with_tokens(&opts.node, context.module);
+        nodes.into_iter().enumerate().map(|(i, node)| {
+            match node {
+                Some(node) => NodeOrSeparator::Node(node),
+                None => NodeOrSeparator::Separator(&commas[i]),
+            }
+        }).collect::<Vec<_>>()
+    } else {
+        // faster
+        nodes.into_iter().map(|n| NodeOrSeparator::Node(n.unwrap())).collect::<Vec<_>>()
+    };
+
     let trailing_commas = if allow_trailing_commas(&nodes) { opts.trailing_commas } else { TrailingCommas::Never };
     let prefer_hanging = opts.prefer_hanging;
     let force_use_new_lines = get_force_use_new_lines(&node, &nodes, opts.prefer_single_line, context);
     let mut items = PrintItems::new();
-    let mut first_member = nodes.get(0).map(|x| x.as_ref().map(|y| y.span())).flatten();
-
-    if first_member.is_none() {
-        if let Some(comma_token) = node.tokens_fast(context.module).iter().find(|t| t.token == Token::Comma) {
-            first_member.replace(comma_token.span());
-        }
-    }
+    let first_member = nodes.get(0).map(|x| x.span());
 
     items.extend(parse_surrounded_by_tokens(|context| {
-        parse_separated_values(ParseSeparatedValuesOptions {
+        parse_separated_values(ParseSeparatedValuesParams {
             nodes: nodes,
             prefer_hanging,
             force_use_new_lines,
@@ -4841,7 +4848,7 @@ fn parse_array_like_nodes<'a>(opts: ParseArrayLikeNodesOptions<'a>, context: &mu
 
     return items;
 
-    fn get_force_use_new_lines(node: &dyn Spanned, nodes: &Vec<Option<Node>>, prefer_single_line: bool, context: &mut Context) -> bool {
+    fn get_force_use_new_lines(node: &dyn Spanned, nodes: &Vec<NodeOrSeparator>, prefer_single_line: bool, context: &mut Context) -> bool {
         if prefer_single_line || nodes.is_empty() {
             false
         } else {
@@ -4849,22 +4856,14 @@ fn parse_array_like_nodes<'a>(opts: ParseArrayLikeNodesOptions<'a>, context: &mu
                 .iter()
                 .find(|t| t.token == Token::LBracket)
                 .expect("Expected to find an open bracket token.");
-            if let Some(first_node) = &nodes[0] {
-                node_helpers::get_use_new_lines_for_nodes(open_bracket_token, first_node, context.module)
-            } else {
-                // todo: tests for this (ex. [\n,] -> [\n    ,\n])
-                let first_comma = node.tokens_fast(context.module).iter().find(|t| t.token == Token::Comma);
-                if let Some(first_comma) = first_comma {
-                    node_helpers::get_use_new_lines_for_nodes(open_bracket_token, first_comma, context.module)
-                } else {
-                    false
-                }
-            }
+
+            // todo: tests for this (ex. [\n,] -> [\n    ,\n])
+            node_helpers::get_use_new_lines_for_nodes(open_bracket_token, &nodes[0], context.module)
         }
     }
 
-    fn allow_trailing_commas(nodes: &Vec<Option<Node>>) -> bool {
-        if let Some(Some(last)) = nodes.last() {
+    fn allow_trailing_commas(nodes: &Vec<NodeOrSeparator>) -> bool {
+        if let Some(NodeOrSeparator::Node(last)) = nodes.last() {
             // this would be a syntax error
             if last.kind() == NodeKind::RestPat {
                 return false;
@@ -5143,7 +5142,7 @@ fn parse_members<'a, FShouldUseBlankLine>(
                     parse_node(node, context)
                 } else {
                     let parsed_separator = get_parsed_separator(&opts.separator, i == children_len - 1, &|_| Some(true));
-                    parse_node_with_separator(Some(node), parsed_separator, context)
+                    parse_node_with_separator(node, parsed_separator, context)
                 }
             });
             items.push_info(end_info);
@@ -5225,8 +5224,8 @@ fn parse_parameters_or_arguments<'a, F>(opts: ParseParametersOrArgumentsOptions<
                 Signal::NewLine.into()
             ));
         } else {
-            items.extend(parse_separated_values(ParseSeparatedValuesOptions {
-                nodes: nodes.into_iter().map(|x| Some(x)).collect(),
+            items.extend(parse_separated_values(ParseSeparatedValuesParams {
+                nodes: nodes.into_iter().map(|x| NodeOrSeparator::Node(x)).collect(),
                 prefer_hanging,
                 force_use_new_lines,
                 allow_blank_lines: false,
@@ -5418,8 +5417,8 @@ impl From<TrailingCommas> for Separator {
     }
 }
 
-struct ParseSeparatedValuesOptions<'a> {
-    nodes: Vec<Option<Node<'a>>>,
+struct ParseSeparatedValuesParams<'a> {
+    nodes: Vec<NodeOrSeparator<'a>>,
     prefer_hanging: bool,
     force_use_new_lines: bool,
     allow_blank_lines: bool,
@@ -5432,16 +5431,39 @@ struct ParseSeparatedValuesOptions<'a> {
     node_sorter: Option<Box<dyn Fn((usize, Option<&Node<'a>>), (usize, Option<&Node<'a>>), &Module<'a>) -> std::cmp::Ordering>>,
 }
 
+enum NodeOrSeparator<'a> {
+    Node(Node<'a>),
+    Separator(&'a TokenAndSpan)
+}
+
+impl<'a> Spanned for NodeOrSeparator<'a> {
+    fn span(&self) -> Span {
+        match self {
+            NodeOrSeparator::Node(node) => node.span(),
+            NodeOrSeparator::Separator(token) => token.span(),
+        }
+    }
+}
+
+impl<'a> NodeOrSeparator<'a> {
+    pub fn as_node(&self) -> Option<&Node<'a>> {
+        match self {
+            NodeOrSeparator::Node(node) => Some(node),
+            _ => None,
+        }
+    }
+}
+
 #[inline]
 fn parse_separated_values<'a>(
-    opts: ParseSeparatedValuesOptions<'a>,
+    opts: ParseSeparatedValuesParams<'a>,
     context: &mut Context<'a>
 ) -> PrintItems {
     parse_separated_values_with_result(opts, context).items
 }
 
 fn parse_separated_values_with_result<'a>(
-    opts: ParseSeparatedValuesOptions<'a>,
+    opts: ParseSeparatedValuesParams<'a>,
     context: &mut Context<'a>
 ) -> ParseSeparatedValuesResult {
     let nodes = opts.nodes;
@@ -5461,7 +5483,7 @@ fn parse_separated_values_with_result<'a>(
         let mut parsed_nodes = Vec::new();
         let nodes_count = nodes.len();
         let sorted_indexes = match node_sorter {
-            Some(sorter) => Some(get_sorted_indexes(nodes.iter().map(|d| d.as_ref()), sorter, context)),
+            Some(sorter) => Some(get_sorted_indexes(nodes.iter().map(|d| d.as_node()), sorter, context)),
             None => None,
         };
 
@@ -5470,41 +5492,50 @@ fn parse_separated_values_with_result<'a>(
                 Some(old_to_new_index) => *old_to_new_index.get(i).unwrap(),
                 None => i,
             };
-            let (allow_inline_multi_line, allow_inline_single_line) = if let Some(value) = &value {
+            let (allow_inline_multi_line, allow_inline_single_line) = if let NodeOrSeparator::Node(value) = &value {
                 let is_last_value = node_index + 1 == nodes_count; // allow the last node to be single line
                 (allows_inline_multi_line(value, nodes_count > 1), is_last_value)
             } else { (false, false) };
             let lines_span = if compute_lines_span {
-                value.as_ref().map(|x| parser_helpers::LinesSpan{
+                value.as_node().map(|x| parser_helpers::LinesSpan{
                     start_line: x.start_line_with_comments(context),
                     end_line: x.end_line_with_comments(context)
                 })
             } else { None };
 
             let items = if separator.is_none() {
-                if let Some(value) = value {
+                if let NodeOrSeparator::Node(value) = value {
                     parse_node(value, context)
                 } else {
-                    PrintItems::new()
+                    panic!("Unsupported scenario.")
                 }
             } else {
                 let parsed_separator = get_parsed_separator(&separator, node_index == nodes_count - 1, &is_multi_line_or_hanging);
-                parse_node_with_separator(value, parsed_separator, context)
+                match value {
+                    NodeOrSeparator::Node(value) => {
+                        parse_node_with_separator(value, parsed_separator, context)
+                    },
+                    NodeOrSeparator::Separator(separator_token) => {
+                        let mut items = PrintItems::new();
+                        // don't use parse_leading_comments here because we don't want a space between the block comment and separator (comma)
+                        let leading_comments = separator_token.leading_comments_fast(context.module);
+                        items.extend(parse_comment_collection(leading_comments, None, Some(separator_token), context));
+                        items.extend(parsed_separator);
+                        items.extend(parse_first_line_trailing_comments(separator_token, None, context));
+                        items
+                    }
+                }
             };
 
-            let use_new_line_group = if let Some(value) = value {
+            let use_new_line_group = match value {
                 // Prefer going inline multi-line for certain expressions in arguments
                 // when initially single line.
                 // Example: call({\n}) instead of call(\n  {\n  }\n)
-                match value {
-                    Node::ExprOrSpread(expr_or_spread) => match expr_or_spread.expr {
-                        Expr::Object(_) | Expr::Array(_) => false,
-                        _ => true,
-                    },
+                NodeOrSeparator::Node(Node::ExprOrSpread(expr_or_spread)) => match expr_or_spread.expr {
+                    Expr::Object(_) | Expr::Array(_) => false,
                     _ => true,
-                }
-            } else {
-                true
+                },
+                _ => true,
             };
 
             parsed_nodes.push(parser_helpers::ParsedValue {
@@ -5561,7 +5592,7 @@ fn sort_by_sorted_indexes<T>(items: Vec<T>, sorted_indexes: utils::VecMap<usize>
     sorted_items.into_iter().map(|x| x.unwrap()).collect()
 }
 
-fn parse_node_with_separator<'a>(value: Option<Node<'a>>, parsed_separator: PrintItems, context: &mut Context<'a>) -> PrintItems {
+fn parse_node_with_separator<'a>(value: Node<'a>, parsed_separator: PrintItems, context: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
     let comma_token = get_comma_token(&value, context);
 
@@ -5572,29 +5603,21 @@ fn parse_node_with_separator<'a>(value: Option<Node<'a>>, parsed_separator: Prin
         PrintItems::new()
     };
 
-    if let Some(element) = value {
-        let parsed_separator = parsed_separator.into_rc_path();
-        items.extend(parse_node_with_inner_parse(element, context, move |mut items, _| {
-            // this Rc clone is necessary because we can't move the captured parsed_comma out of this closure
-            items.push_optional_path(parsed_separator.clone());
-            items
-        }));
-    } else {
-        items.extend(parsed_separator);
-    }
+    let parsed_separator = parsed_separator.into_rc_path();
+    items.extend(parse_node_with_inner_parse(value, context, move |mut items, _| {
+        // this Rc clone is necessary because we can't move the captured parsed_comma out of this closure
+        items.push_optional_path(parsed_separator.clone());
+        items
+    }));
 
     items.extend(parsed_trailing_comments);
 
     return items;
 
-    fn get_comma_token<'a>(element: &Option<Node<'a>>, context: &mut Context<'a>) -> Option<&'a TokenAndSpan> {
-        if let Some(element) = element {
-            match context.token_finder.get_next_token_if_comma(element) {
-                Some(comma) => Some(comma),
-                None => context.token_finder.get_last_token_within_if_comma(element), // may occur for type literals
-            }
-        } else {
-            None // not a comma separated node
+    fn get_comma_token<'a>(element: &Node<'a>, context: &mut Context<'a>) -> Option<&'a TokenAndSpan> {
+        match context.token_finder.get_next_token_if_comma(element) {
+            Some(comma) => Some(comma),
+            None => context.token_finder.get_last_token_within_if_comma(element), // may occur for type literals
         }
     }
 }
@@ -5767,8 +5790,8 @@ fn parse_extends_or_implements<'a>(opts: ParseExtendsOrImplementsOptions<'a>, co
     items.push_condition(conditions::indent_if_start_of_line(parser_helpers::new_line_group({
         let mut items = PrintItems::new();
         items.push_str(opts.text);
-        items.extend(parse_separated_values(ParseSeparatedValuesOptions {
-            nodes: opts.type_items.into_iter().map(|x| Some(x)).collect(),
+        items.extend(parse_separated_values(ParseSeparatedValuesParams {
+            nodes: opts.type_items.into_iter().map(|x| NodeOrSeparator::Node(x)).collect(),
             prefer_hanging: opts.prefer_hanging,
             force_use_new_lines: false,
             allow_blank_lines: false,
@@ -5816,8 +5839,8 @@ fn parse_object_like_node<'a>(opts: ParseObjectLikeNodeOptions<'a>, context: &mu
         if opts.members.is_empty() {
             PrintItems::new()
         } else {
-            parse_separated_values(ParseSeparatedValuesOptions {
-                nodes: opts.members.into_iter().map(|x| Some(x)).collect(),
+            parse_separated_values(ParseSeparatedValuesParams {
+                nodes: opts.members.into_iter().map(|x| NodeOrSeparator::Node(x)).collect(),
                 prefer_hanging: opts.prefer_hanging,
                 force_use_new_lines: force_multi_line,
                 allow_blank_lines: opts.allow_blank_lines,
@@ -6018,8 +6041,8 @@ fn parse_decorators<'a>(decorators: &Vec<&'a Decorator<'a>>, is_inline: bool, co
         && decorators.len() >= 2
         && node_helpers::get_use_new_lines_for_nodes(&decorators[0], &decorators[1], context.module);
 
-    let separated_values_result = parse_separated_values_with_result(ParseSeparatedValuesOptions {
-        nodes: decorators.iter().map(|&p| Some(p.into())).collect(),
+    let separated_values_result = parse_separated_values_with_result(ParseSeparatedValuesParams {
+        nodes: decorators.iter().map(|&p| NodeOrSeparator::Node(p.into())).collect(),
         prefer_hanging: false, // would need to think about the design because prefer_hanging causes a hanging indent
         force_use_new_lines,
         allow_blank_lines: false,
@@ -7368,6 +7391,17 @@ fn get_parsed_semi_colon(option: SemiColons, is_trailing: bool, is_multi_line: &
             }
         },
     }
+}
+
+fn get_comma_tokens_from_children_with_tokens<'a>(node: &Node<'a>, module: &Module<'a>) -> Vec<&'a TokenAndSpan> {
+    node.children_with_tokens_fast(module).into_iter().filter_map(|c| match c {
+        NodeOrToken::Token(token) => if token.token == Token::Comma {
+            Some(token)
+        } else {
+            None
+        },
+        _ => None,
+    }).collect::<Vec<_>>()
 }
 
 fn get_tokens_from_children_with_tokens<'a>(node: &Node<'a>, module: &Module<'a>) -> Vec<&'a TokenAndSpan> {
