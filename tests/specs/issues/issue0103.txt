@@ -1,0 +1,16 @@
+~~ deno: true ~~
+== should not delete comment in place of array element ==
+const _ = [
+  1,
+  /* 2 */,
+  3,
+  4,
+];
+
+[expect]
+const _ = [
+  1,
+  /* 2 */,
+  3,
+  4,
+];
