@@ -1617,35 +1617,20 @@ fn parse_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintI
 }
 
 fn parse_call_expr<'a>(node: &'a CallExpr, context: &mut Context<'a>) -> PrintItems {
-    return if is_test_library_call_expr(&node, context) {
+    return if node_helpers::is_test_library_call_expr(&node, context.module) {
         parse_test_library_call_expr(node, context)
     } else {
-        inner_parse(node, context)
+        // flatten the call expression and check if it should be parsed as a flattened member like expression
+        let flattened_call_expr = flatten_member_like_expr(node.into(), context.module);
+        if flattened_call_expr.nodes.len() > 1 {
+            parse_for_flattened_member_like_expr(flattened_call_expr, context)
+        } else {
+            parse_call_expr_like(CallExprLike {
+                original_call_expr: node,
+                parsed_callee: parse_node(node.callee.into(), context),
+            }, context)
+        }
     };
-
-    fn inner_parse<'a>(node: &'a CallExpr, context: &mut Context<'a>) -> PrintItems {
-        let mut items = PrintItems::new();
-
-        items.extend(parse_node(node.callee.into(), context));
-
-        if let Some(type_args) = node.type_args {
-            items.extend(parse_node(type_args.into(), context));
-        }
-
-        if is_optional(node) {
-            items.push_str("?.");
-        }
-
-        items.push_condition(conditions::with_indent_if_start_of_line_indented(parse_parameters_or_arguments(ParseParametersOrArgumentsOptions {
-            node: node.into(),
-            span: node.get_parameters_span(context),
-            nodes: node.args.iter().map(|&node| node.into()).collect(),
-            custom_close_paren: |_| None,
-            is_parameters: false,
-        }, context)));
-
-        items
-    }
 
     fn parse_test_library_call_expr<'a>(node: &'a CallExpr, context: &mut Context<'a>) -> PrintItems {
         let mut items = PrintItems::new();
@@ -1686,67 +1671,36 @@ fn parse_call_expr<'a>(node: &'a CallExpr, context: &mut Context<'a>) -> PrintIt
             return items;
         }
     }
+}
 
-    // Tests if this is a call expression from common test libraries.
-    // Be very strict here to allow the user to opt out if they'd like.
-    fn is_test_library_call_expr(node: &CallExpr, context: &mut Context) -> bool {
-        if node.args.len() != 2 || node.type_args.is_some() || !is_valid_callee(&node.callee) || is_optional(node) {
-            return false;
-        }
-        if node.args[0].expr.kind() != NodeKind::Str && !node.args[0].expr.is::<Tpl>() {
-            return false;
-        }
-        if node.args[1].expr.kind() != NodeKind::FnExpr && node.args[1].expr.kind() != NodeKind::ArrowExpr {
-            return false;
-        }
+struct CallExprLike<'a> {
+    original_call_expr: &'a CallExpr<'a>,
+    parsed_callee: PrintItems,
+}
 
-        return node.start_line_fast(context.module) == node.args[1].start_line_fast(context.module);
+fn parse_call_expr_like<'a>(node: CallExprLike<'a>, context: &mut Context<'a>) -> PrintItems {
+    let mut items = PrintItems::new();
+    let call_expr = node.original_call_expr;
 
-        fn is_valid_callee(callee: &ExprOrSuper) -> bool {
-            return match get_first_identifier_text(&callee) {
-                Some("it") | Some("describe") | Some("test") => true,
-                _ => {
-                    // support call expressions like `Deno.test("description", ...)`
-                    match get_last_identifier_text(&callee) {
-                        Some("test") => true,
-                        _ => false,
-                    }
-                },
-            };
+    items.extend(node.parsed_callee);
 
-            fn get_first_identifier_text<'a>(callee: &'a ExprOrSuper<'a>) -> Option<&'a str> {
-                return match callee {
-                    ExprOrSuper::Super(_) => None,
-                    ExprOrSuper::Expr(expr) => {
-                        match expr {
-                            Expr::Ident(ident) => Some(ident.sym()),
-                            Expr::Member(member) if member.prop.kind() == NodeKind::Ident => get_first_identifier_text(&member.obj),
-                            _ => None,
-                        }
-                    }
-                };
-            }
-
-            fn get_last_identifier_text<'a>(callee: &'a ExprOrSuper<'a>) -> Option<&'a str> {
-                return match callee {
-                    ExprOrSuper::Super(_) => None,
-                    ExprOrSuper::Expr(expr) => get_last_identifier_text_from_expr(expr),
-                };
-
-                fn get_last_identifier_text_from_expr<'a>(expr: &'a Expr<'a>) -> Option<&'a str> {
-                    match expr {
-                        Expr::Ident(ident) => Some(ident.sym()),
-                        Expr::Member(member) if (member.obj).kind() == NodeKind::Ident => get_last_identifier_text_from_expr(&member.prop),
-                        _ => None,
-                    }
-                }
-            }
-        }
+    if let Some(type_args) = call_expr.type_args {
+        items.extend(parse_node(type_args.into(), context));
     }
 
-    fn is_optional(node: &CallExpr) -> bool {
-        return node.parent().unwrap().kind() == NodeKind::OptChainExpr;
+    if node_helpers::is_optional_call_expr(call_expr) {
+        items.push_str("?.");
     }
+
+    items.push_condition(conditions::with_indent_if_start_of_line_indented(parse_parameters_or_arguments(ParseParametersOrArgumentsOptions {
+        node: call_expr.into(),
+        span: call_expr.get_parameters_span(context),
+        nodes: call_expr.args.iter().map(|&node| node.into()).collect(),
+        custom_close_paren: |_| None,
+        is_parameters: false,
+    }, context)));
+
+    items
 }
 
 fn parse_class_expr<'a>(node: &'a ClassExpr, context: &mut Context<'a>) -> PrintItems {
@@ -1971,12 +1925,12 @@ fn parse_key_value_prop<'a>(node: &'a KeyValueProp, context: &mut Context<'a>) -
 }
 
 fn parse_member_expr<'a>(node: &'a MemberExpr, context: &mut Context<'a>) -> PrintItems {
-    let flattened_member_expr = flatten_member_expr(node);
+    let flattened_member_expr = flatten_member_like_expr(node.into(), context.module);
     parse_for_flattened_member_like_expr(flattened_member_expr, context)
 }
 
 fn parse_meta_prop_expr<'a>(node: &'a MetaPropExpr, context: &mut Context<'a>) -> PrintItems {
-    let flattened_meta_prop_expr = flatten_meta_prop_expr(node);
+    let flattened_meta_prop_expr = flatten_member_like_expr(node.into(), context.module);
     parse_for_flattened_member_like_expr(flattened_meta_prop_expr, context)
 }
 
@@ -5857,21 +5811,57 @@ fn parse_object_like_node<'a>(opts: ParseObjectLikeNodeOptions<'a>, context: &mu
     items
 }
 
+fn parse_for_member_like_expr_item<'a>(item: &MemberLikeExprItem<'a>, context: &mut Context<'a>, is_first: bool) -> PrintItems {
+    match item {
+        MemberLikeExprItem::Node(node) | MemberLikeExprItem::Computed(node) => {
+            let is_computed = item.is_computed();
+            let is_optional = item.is_optional();
+            parse_node_with_inner_parse(*node, context, |node_items, context| {
+                let mut items = PrintItems::new();
+                if !is_first && is_optional {
+                    items.push_str("?");
+                    if is_computed { items.push_str("."); }
+                }
+                if is_computed {
+                    items.extend(parse_computed_prop_like(ParseComputedPropLikeOptions {
+                        inner_node_span: node.span(),
+                        inner_items: node_items,
+                    }, context));
+                } else {
+                    if !is_first {
+                        items.push_str(".");
+                    }
+                    items.extend(node_items);
+                }
+                items
+            })
+        }
+        MemberLikeExprItem::CallExpr(node) => {
+            parse_call_expr_like(CallExprLike {
+                original_call_expr: node.original_call_expr,
+                parsed_callee: parse_for_member_like_expr_item(&node.callee, context, is_first),
+            }, context)
+        }
+    }
+}
+
 fn parse_for_flattened_member_like_expr<'a>(node: FlattenedMemberLikeExpr<'a>, context: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
     let member_expr_start_info = Info::new("member_expr_start");
     let member_expr_end_info = Info::new("member_expr_start_last_item");
-
-    items.push_info(member_expr_start_info);
-
-    items.extend(parse_node(node.nodes[0].node, context));
-
     let total_items_len = node.nodes.len();
+
+    if total_items_len > 1 {
+        items.push_info(member_expr_start_info);
+    }
+
+    items.extend(parse_for_member_like_expr_item(&node.nodes[0], context, true));
+
     for (i, item) in node.nodes.iter().enumerate().skip(1) {
         let force_use_new_line = !context.config.member_expression_prefer_single_line
-            && node_helpers::get_use_new_lines_for_nodes(&node.nodes[i - 1].node, &node.nodes[i].node, context.module);
-        let is_optional = item.node.parent().unwrap().parent().unwrap().kind() == NodeKind::OptChainExpr;
-        if is_optional || !item.is_computed {
+            && node_helpers::get_use_new_lines_for_nodes(&node.nodes[i - 1], &node.nodes[i], context.module);
+        let is_optional = item.is_optional();
+        if is_optional || !item.is_computed() {
             if force_use_new_line {
                 items.push_signal(Signal::NewLine);
             } else if !context.config.member_expression_line_per_expression {
@@ -5896,29 +5886,7 @@ fn parse_for_flattened_member_like_expr<'a>(node: FlattenedMemberLikeExpr<'a>, c
         }
 
         items.push_condition(conditions::indent_if_start_of_line({
-            let mut items = PrintItems::new();
-            let is_computed = item.is_computed;
-            let computed_span = item.node.span();
-
-            items.extend(parse_node_with_inner_parse(item.node, context, |node_items, context| {
-                let mut items = PrintItems::new();
-                if is_optional {
-                    items.push_str("?");
-                    if is_computed { items.push_str("."); }
-                }
-                if is_computed {
-                    items.extend(parse_computed_prop_like(ParseComputedPropLikeOptions {
-                        inner_node_span: computed_span,
-                        inner_items: node_items,
-                    }, context));
-                } else {
-                    items.push_str(".");
-                    items.extend(node_items);
-                }
-                items
-            }));
-
-            items
+            parse_for_member_like_expr_item(item, context, false)
         }));
     }
 
