@@ -147,6 +147,7 @@ fn parse_node_with_inner_parse<'a>(node: Node<'a>, context: &mut Context<'a>, in
             /* common */
             Node::ComputedPropName(node) => parse_computed_prop_name(node, context),
             Node::Ident(node) => parse_identifier(node, context),
+            Node::BindingIdent(node) => parse_binding_identifier(node, context),
             /* declarations */
             Node::ClassDecl(node) => parse_class_decl(node, context),
             Node::ExportDecl(node) => parse_export_decl(node, context),
@@ -620,13 +621,21 @@ fn parse_computed_prop_name<'a>(node: &'a ComputedPropName, context: &mut Contex
     }, context)
 }
 
-fn parse_identifier<'a>(node: &'a Ident, context: &mut Context<'a>) -> PrintItems {
+fn parse_identifier<'a>(node: &'a Ident, _: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
     items.push_str(node.sym() as &str);
 
     if node.optional() && !node.parent().unwrap().is::<ClassProp>() && !node.parent().unwrap().is::<ClassMethod>() {
         items.push_str("?");
     }
+
+    return items;
+}
+
+fn parse_binding_identifier<'a>(node: &'a BindingIdent, context: &mut Context<'a>) -> PrintItems {
+    let mut items = PrintItems::new();
+    items.extend(parse_node(node.id.into(), context));
+
     if let Node::VarDeclarator(node) = node.parent().unwrap() {
         if node.definite() {
             items.push_str("!");
@@ -7129,7 +7138,7 @@ fn allows_inline_multi_line(node: &Node, has_siblings: bool) -> bool {
         Node::ExprOrSpread(node) => allows_inline_multi_line(&node.expr.into(), has_siblings),
         Node::TaggedTpl(_) | Node::Tpl(_) => !has_siblings,
         Node::CallExpr(node) => !has_siblings && allow_inline_for_call_expr(node),
-        Node::Ident(node) => match &node.type_ann {
+        Node::BindingIdent(node) => match &node.type_ann {
             Some(type_ann) => allows_inline_multi_line(&type_ann.type_ann.into(), has_siblings),
             None => false,
         },
