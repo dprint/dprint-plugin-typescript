@@ -134,3 +134,64 @@ pub fn count_spaces_between_jsx_children(previous_node: &Node, next_node: &Node,
 
     count
 }
+
+/// Tests if this is a call expression from common test libraries.
+pub fn is_test_library_call_expr(node: &CallExpr, module: &Module) -> bool {
+    // Be very strict here to allow the user to opt out if they'd like.
+    if node.args.len() != 2 || node.type_args.is_some() || !is_valid_callee(&node.callee) || is_optional_call_expr(node) {
+        return false;
+    }
+    if node.args[0].expr.kind() != NodeKind::Str && !node.args[0].expr.is::<Tpl>() {
+        return false;
+    }
+    if node.args[1].expr.kind() != NodeKind::FnExpr && node.args[1].expr.kind() != NodeKind::ArrowExpr {
+        return false;
+    }
+
+    return node.start_line_fast(module) == node.args[1].start_line_fast(module);
+
+    fn is_valid_callee(callee: &ExprOrSuper) -> bool {
+        return match get_first_identifier_text(&callee) {
+            Some("it") | Some("describe") | Some("test") => true,
+            _ => {
+                // support call expressions like `Deno.test("description", ...)`
+                match get_last_identifier_text(&callee) {
+                    Some("test") => true,
+                    _ => false,
+                }
+            },
+        };
+
+        fn get_first_identifier_text<'a>(callee: &'a ExprOrSuper<'a>) -> Option<&'a str> {
+            return match callee {
+                ExprOrSuper::Super(_) => None,
+                ExprOrSuper::Expr(expr) => {
+                    match expr {
+                        Expr::Ident(ident) => Some(ident.sym()),
+                        Expr::Member(member) if member.prop.kind() == NodeKind::Ident => get_first_identifier_text(&member.obj),
+                        _ => None,
+                    }
+                }
+            };
+        }
+
+        fn get_last_identifier_text<'a>(callee: &'a ExprOrSuper<'a>) -> Option<&'a str> {
+            return match callee {
+                ExprOrSuper::Super(_) => None,
+                ExprOrSuper::Expr(expr) => get_last_identifier_text_from_expr(expr),
+            };
+
+            fn get_last_identifier_text_from_expr<'a>(expr: &'a Expr<'a>) -> Option<&'a str> {
+                match expr {
+                    Expr::Ident(ident) => Some(ident.sym()),
+                    Expr::Member(member) if (member.obj).kind() == NodeKind::Ident => get_last_identifier_text_from_expr(&member.prop),
+                    _ => None,
+                }
+            }
+        }
+    }
+}
+
+pub fn is_optional_call_expr<'a>(node: &dyn NodeTrait<'a>) -> bool {
+    return node.parent().unwrap().kind() == NodeKind::OptChainExpr;
+}
