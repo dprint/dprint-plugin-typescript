@@ -1,0 +1,82 @@
+== should print ==
+#!/usr/bin/env node
+1+2;
+
+[expect]
+#!/usr/bin/env node
+1 + 2;
+
+== should print with a blank line separating ==
+#!/usr/bin/env node
+
+1+2;
+
+[expect]
+#!/usr/bin/env node
+
+1 + 2;
+
+== should not allow multiple blank lines ==
+#!/usr/bin/env node
+
+
+1+2;
+
+[expect]
+#!/usr/bin/env node
+
+1 + 2;
+
+== should print with a directive ==
+#!/usr/bin/env node
+"use strict";
+
+[expect]
+#!/usr/bin/env node
+"use strict";
+
+== should print with a blank line separating the shebang ==
+#!/usr/bin/env node
+
+"use strict";
+
+[expect]
+#!/usr/bin/env node
+
+"use strict";
+
+== should not remove comments in file with only shebang ==
+#!/foo/bar
+
+// A comment
+/* A block comment */
+
+[expect]
+#!/foo/bar
+
+// A comment
+/* A block comment */
+
+== should handle comment after shebang with blank line before statement ==
+#!/foo/bar
+// A comment
+
+testing;
+
+[expect]
+#!/foo/bar
+// A comment
+
+testing;
+
+== should handle comment after shebang with blank line before comment ==
+#!/foo/bar
+
+// A comment
+testing;
+
+[expect]
+#!/foo/bar
+
+// A comment
+testing;

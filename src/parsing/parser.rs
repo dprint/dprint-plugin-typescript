@@ -2846,11 +2846,15 @@ fn parse_module<'a>(node: &'a Module, context: &mut Context<'a>) -> PrintItems {
     if let Some(shebang) = node.shebang() {
         items.push_str("#!");
         items.push_str(&shebang as &str);
-        items.push_signal(Signal::NewLine);
+        items.push_signal(Signal::ExpectNewLine);
         if let Some(first_statement) = node.body.first() {
             if node_helpers::has_separating_blank_line(&node.lo(), first_statement, context.module) {
                 items.push_signal(Signal::NewLine);
+                items.push_signal(Signal::NewLine);
             }
+        } else {
+            let shebang_end = BytePos(("#!".len() + shebang.len()) as u32);
+            items.extend(parse_trailing_comments_as_statements(&shebang_end, context));
         }
     }
 

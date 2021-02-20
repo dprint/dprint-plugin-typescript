@@ -11,8 +11,6 @@ impl<'a> CommentTracker<'a> {
         module: &'a Module<'a>,
         tokens: &'a [TokenAndSpan],
     ) -> CommentTracker<'a> {
-        // println!("Leading: {:?}", leading);
-        // println!("Trailing: {:?}", trailing);
         CommentTracker {
             module,
             tokens,

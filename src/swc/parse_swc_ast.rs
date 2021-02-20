@@ -66,6 +66,12 @@ fn parse_inner(file_path: &Path, file_text: &str) -> Result<ParsedSourceFile, St
         }
     }?;
 
+    // {
+    //     let (leading, trailing) = comments.borrow_all();
+    //     println!("Leading: {:?}", leading);
+    //     println!("Trailing: {:?}", trailing);
+    // }
+
     return Ok(ParsedSourceFile {
         comments,
         module,
