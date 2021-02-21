@@ -1,0 +1,11 @@
+== should not add an additional semi-colon when ignoring the property signature ==
+interface Test {
+    // dprint-ignore
+    test   : string;
+}
+
+[expect]
+interface Test {
+    // dprint-ignore
+    test   : string;
+}

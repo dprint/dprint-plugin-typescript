@@ -344,46 +344,6 @@ fn parse_node_with_inner_parse<'a>(node: Node<'a>, context: &mut Context<'a>, in
         }
     }
 
-    #[inline]
-    fn get_has_ignore_comment<'a>(leading_comments: &CommentsIterator<'a>, node: &Node<'a>, context: &mut Context<'a>) -> bool {
-        return if let Some(last_comment) = get_last_comment(leading_comments, node, context) {
-            parser_helpers::text_has_dprint_ignore(&last_comment.text, &context.config.ignore_node_comment_text)
-        } else {
-            false
-        };
-
-        #[inline]
-        fn get_last_comment<'a>(leading_comments: &CommentsIterator<'a>, node: &Node, context: &mut Context<'a>) -> Option<&'a Comment> {
-            return match node.parent() {
-                Some(Node::JSXElement(jsx_element)) => get_last_comment_for_jsx_children(&jsx_element.children, &node.lo(), context),
-                Some(Node::JSXFragment(jsx_fragment)) => get_last_comment_for_jsx_children(&jsx_fragment.children, &node.lo(), context),
-                _ => leading_comments.peek_last_comment(),
-            };
-
-            fn get_last_comment_for_jsx_children<'a>(children: &Vec<JSXElementChild>, node_lo: &BytePos, context: &mut Context<'a>) -> Option<&'a Comment> {
-                let index = children.binary_search_by_key(node_lo, |child| child.lo()).ok()?;
-                for i in (0..index).rev() {
-                    match children.get(i)? {
-                        JSXElementChild::JSXExprContainer(expr_container) => {
-                            return match expr_container.expr {
-                                JSXExpr::JSXEmptyExpr(empty_expr) => {
-                                    get_jsx_empty_expr_comments(&empty_expr, context).last()
-                                },
-                                _ => None,
-                            };
-                        },
-                        JSXElementChild::JSXText(jsx_text) => {
-                            if !jsx_text.text_fast(context.module).trim().is_empty() { return None; }
-                        }
-                        _=> return None,
-                    }
-                }
-
-                None
-            }
-        }
-    }
-
     #[cfg(debug_assertions)]
     fn assert_parsed_in_order(node: &Node, context: &mut Context) {
         let node_pos = node.lo().0;
@@ -406,6 +366,45 @@ fn parse_node_with_inner_parse<'a>(node: Node<'a>, context: &mut Context<'a>, in
             panic!("Debug panic! Node comments retrieved out of order!");
         }
         context.last_parsed_node_pos = node_pos;
+    }
+}
+
+fn get_has_ignore_comment<'a>(leading_comments: &CommentsIterator<'a>, node: &Node<'a>, context: &mut Context<'a>) -> bool {
+    return if let Some(last_comment) = get_last_comment(leading_comments, node, context) {
+        parser_helpers::text_has_dprint_ignore(&last_comment.text, &context.config.ignore_node_comment_text)
+    } else {
+        false
+    };
+
+    #[inline]
+    fn get_last_comment<'a>(leading_comments: &CommentsIterator<'a>, node: &Node, context: &mut Context<'a>) -> Option<&'a Comment> {
+        return match node.parent() {
+            Some(Node::JSXElement(jsx_element)) => get_last_comment_for_jsx_children(&jsx_element.children, &node.lo(), context),
+            Some(Node::JSXFragment(jsx_fragment)) => get_last_comment_for_jsx_children(&jsx_fragment.children, &node.lo(), context),
+            _ => leading_comments.peek_last_comment(),
+        };
+
+        fn get_last_comment_for_jsx_children<'a>(children: &Vec<JSXElementChild>, node_lo: &BytePos, context: &mut Context<'a>) -> Option<&'a Comment> {
+            let index = children.binary_search_by_key(node_lo, |child| child.lo()).ok()?;
+            for i in (0..index).rev() {
+                match children.get(i)? {
+                    JSXElementChild::JSXExprContainer(expr_container) => {
+                        return match expr_container.expr {
+                            JSXExpr::JSXEmptyExpr(empty_expr) => {
+                                get_jsx_empty_expr_comments(&empty_expr, context).last()
+                            },
+                            _ => None,
+                        };
+                    },
+                    JSXElementChild::JSXText(jsx_text) => {
+                        if !jsx_text.text_fast(context.module).trim().is_empty() { return None; }
+                    }
+                    _=> return None,
+                }
+            }
+
+            None
+        }
     }
 }
 
@@ -5631,12 +5630,19 @@ fn parse_node_with_separator<'a>(value: Node<'a>, parsed_separator: PrintItems, 
         PrintItems::new()
     };
 
-    let parsed_separator = parsed_separator.into_rc_path();
-    items.extend(parse_node_with_inner_parse(value, context, move |mut items, _| {
-        // this Rc clone is necessary because we can't move the captured parsed_comma out of this closure
-        items.push_optional_path(parsed_separator.clone());
-        items
-    }));
+    // if the current node is ignored and already has a semi-colon, then skip adding a separator
+    let is_ignored_with_semi_colon = value.text_fast(context.module).ends_with(";")
+        && get_has_ignore_comment(&value.leading_comments_fast(context.module), &value, context);
+    if is_ignored_with_semi_colon {
+        items.extend(parse_node(value, context));
+    } else {
+        let parsed_separator = parsed_separator.into_rc_path();
+        items.extend(parse_node_with_inner_parse(value, context, move |mut items, _| {
+            // this Rc clone is necessary because we can't move the captured parsed_comma out of this closure
+            items.push_optional_path(parsed_separator.clone());
+            items
+        }));
+    }
 
     items.extend(parsed_trailing_comments);
 
