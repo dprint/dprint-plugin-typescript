@@ -557,14 +557,12 @@ fn parse_class_prop_common<'a>(node: ParseClassPropCommon<'a>, context: &mut Con
     if node.is_abstract { items.push_str("abstract "); }
     if node.readonly { items.push_str("readonly "); }
     let key_span = node.key.span();
-    let key_items = parse_node(node.key, context);
     items.extend(if node.computed {
-        parse_computed_prop_like(ParseComputedPropLikeOptions {
+        parse_computed_prop_like(|context| parse_node(node.key, context), ParseComputedPropLikeOptions {
             inner_node_span: key_span,
-            inner_items: key_items
         }, context)
     } else {
-        key_items
+        parse_node(node.key, context)
     });
     if node.is_optional { items.push_str("?"); }
     if node.definite { items.push_str("!"); }
@@ -624,9 +622,8 @@ fn parse_catch_clause<'a>(node: &'a CatchClause, context: &mut Context<'a>) -> P
 /* common */
 
 fn parse_computed_prop_name<'a>(node: &'a ComputedPropName, context: &mut Context<'a>) -> PrintItems {
-    parse_computed_prop_like(ParseComputedPropLikeOptions {
+    parse_computed_prop_like(|context| parse_node(node.expr.into(), context), ParseComputedPropLikeOptions {
         inner_node_span: node.expr.span(),
-        inner_items: parse_node(node.expr.into(), context),
     }, context)
 }
 
@@ -2376,9 +2373,8 @@ fn parse_index_signature<'a>(node: &'a TsIndexSignature, context: &mut Context<'
     if node.readonly() { items.push_str("readonly "); }
 
     let param: Node<'a> = node.params.iter().next().expect("Expected the index signature to have one parameter.").into();
-    items.extend(parse_computed_prop_like(ParseComputedPropLikeOptions {
+    items.extend(parse_computed_prop_like(|context| parse_node(param, context), ParseComputedPropLikeOptions {
         inner_node_span: param.span(),
-        inner_items: parse_node(param, context)
     }, context));
     items.extend(parse_type_ann_with_colon_if_exists(&node.type_ann, context));
 
@@ -2390,14 +2386,12 @@ fn parse_method_signature<'a>(node: &'a TsMethodSignature, context: &mut Context
     let start_info = Info::new("startMethodSignature");
     items.push_info(start_info);
 
-    let key_items = parse_node(node.key.into(), context);
     items.extend(if node.computed() {
-        parse_computed_prop_like(ParseComputedPropLikeOptions {
+        parse_computed_prop_like(|context| parse_node(node.key.into(), context), ParseComputedPropLikeOptions {
             inner_node_span: node.key.span(),
-            inner_items: key_items
         }, context)
     } else {
-        key_items
+        parse_node(node.key.into(), context)
     });
 
     if node.optional() { items.push_str("?"); }
@@ -2423,14 +2417,12 @@ fn parse_property_signature<'a>(node: &'a TsPropertySignature, context: &mut Con
     let mut items = PrintItems::new();
     if node.readonly() { items.push_str("readonly "); }
 
-    let key_items = parse_node(node.key.into(), context);
     items.extend(if node.computed() {
-        parse_computed_prop_like(ParseComputedPropLikeOptions {
+        parse_computed_prop_like(|context| parse_node(node.key.into(), context), ParseComputedPropLikeOptions {
             inner_node_span: node.key.span(),
-            inner_items: key_items
         }, context)
     } else {
-        key_items
+        parse_node(node.key.into(), context)
     });
 
     if node.optional() { items.push_str("?"); }
@@ -4131,9 +4123,8 @@ fn parse_import_type<'a>(node: &'a TsImportType, context: &mut Context<'a>) -> P
 fn parse_indexed_access_type<'a>(node: &'a TsIndexedAccessType, context: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
     items.extend(parse_node(node.obj_type.into(), context));
-    items.extend(parse_computed_prop_like(ParseComputedPropLikeOptions {
+    items.extend(parse_computed_prop_like(|context| parse_node(node.index_type.into(), context), ParseComputedPropLikeOptions {
         inner_node_span: node.index_type.span(),
-        inner_items: parse_node(node.index_type.into(), context),
     }, context));
     return items;
 }
@@ -4193,9 +4184,8 @@ fn parse_mapped_type<'a>(node: &'a TsMappedType, context: &mut Context<'a>) -> P
             });
         }
 
-        items.extend(parse_computed_prop_like(ParseComputedPropLikeOptions {
+        items.extend(parse_computed_prop_like(|context| parse_node(node.type_param.into(), context), ParseComputedPropLikeOptions {
             inner_node_span: node.type_param.span(),
-            inner_items: parse_node(node.type_param.into(), context),
         }, context));
 
         if let Some(optional) = node.optional() {
@@ -5852,34 +5842,51 @@ fn parse_object_like_node<'a>(opts: ParseObjectLikeNodeOptions<'a>, context: &mu
 
 fn parse_for_member_like_expr_item<'a>(item: &MemberLikeExprItem<'a>, context: &mut Context<'a>, is_first: bool) -> PrintItems {
     match item {
-        MemberLikeExprItem::Node(node) | MemberLikeExprItem::Computed(node) => {
-            let is_computed = item.is_computed();
+        MemberLikeExprItem::Node(node) => {
             let is_optional = item.is_optional();
-            parse_node_with_inner_parse(*node, context, |node_items, context| {
+            parse_node_with_inner_parse(*node, context, |node_items, _| {
                 let mut items = PrintItems::new();
-                if !is_first && is_optional {
-                    items.push_str("?");
-                    if is_computed { items.push_str("."); }
-                }
-                if is_computed {
-                    items.extend(parse_computed_prop_like(ParseComputedPropLikeOptions {
-                        inner_node_span: node.span(),
-                        inner_items: node_items,
-                    }, context));
-                } else {
-                    if !is_first {
+                if !is_first {
+                    if is_optional {
+                        items.push_str("?.");
+                    } else {
                         items.push_str(".");
                     }
-                    items.extend(node_items);
                 }
+                items.extend(node_items);
                 items
             })
         }
+        MemberLikeExprItem::Computed(node) => {
+            let is_optional = item.is_optional();
+            let mut items = PrintItems::new();
+
+            if is_optional {
+                items.push_str("?.");
+            }
+            items.extend(parse_computed_prop_like(|context| parse_node(node.inner_node, context), ParseComputedPropLikeOptions {
+                inner_node_span: node.inner_node.span(),
+            }, context));
+
+            // Manually parse the trailing comments of the close bracket token
+            // because it doesn't go through the parse_node method
+            items.extend(parse_trailing_comments(item, context));
+
+            items
+        }
         MemberLikeExprItem::CallExpr(node) => {
-            parse_call_expr_like(CallExprLike {
+            let mut items = PrintItems::new();
+
+            items.extend(parse_call_expr_like(CallExprLike {
                 original_call_expr: node.original_call_expr,
                 parsed_callee: parse_for_member_like_expr_item(&node.callee, context, is_first),
-            }, context)
+            }, context));
+
+            // Need to manually parse the trailing comments here because
+            // this doesn't go through the parse_node method
+            items.extend(parse_trailing_comments(item, context));
+
+            items
         }
     }
 }
@@ -5924,9 +5931,14 @@ fn parse_for_flattened_member_like_expr<'a>(node: FlattenedMemberLikeExpr<'a>, c
             items.push_info(member_expr_end_info);
         }
 
-        items.push_condition(conditions::indent_if_start_of_line({
-            parse_for_member_like_expr_item(item, context, false)
-        }));
+        let parsed_item = parse_for_member_like_expr_item(item, context, false);
+        if item.is_computed() {
+            items.push_condition(indent_if_start_of_line_or_start_of_line_indented(parsed_item));
+        } else {
+            items.push_condition(conditions::indent_if_start_of_line({
+                parsed_item
+            }));
+        }
     }
 
     items
@@ -5934,12 +5946,14 @@ fn parse_for_flattened_member_like_expr<'a>(node: FlattenedMemberLikeExpr<'a>, c
 
 struct ParseComputedPropLikeOptions {
     inner_node_span: Span,
-    inner_items: PrintItems,
 }
 
-fn parse_computed_prop_like<'a>(opts: ParseComputedPropLikeOptions, context: &mut Context<'a>) -> PrintItems {
+fn parse_computed_prop_like<'a>(
+    parse_inner: impl FnOnce(&mut Context<'a>) -> PrintItems,
+    opts: ParseComputedPropLikeOptions,
+    context: &mut Context<'a>,
+) -> PrintItems {
     let inner_node_span = opts.inner_node_span;
-    let inner_items = opts.inner_items;
     let span = get_bracket_span(&inner_node_span, context);
     let force_use_new_lines = !context.config.computed_prefer_single_line
         && if let Some(span) = &span {
@@ -5950,9 +5964,9 @@ fn parse_computed_prop_like<'a>(opts: ParseComputedPropLikeOptions, context: &mu
 
     return new_line_group(parse_surrounded_by_tokens(|context| {
         if force_use_new_lines {
-            surround_with_new_lines(with_indent(inner_items))
+            surround_with_new_lines(with_indent(parse_inner(context)))
         } else {
-            parser_helpers::surround_with_newlines_indented_if_multi_line(inner_items, context.config.indent_width)
+            parser_helpers::surround_with_newlines_indented_if_multi_line(parse_inner(context), context.config.indent_width)
         }
     }, |_| None, ParseSurroundedByTokensOptions {
         open_token: "[",
@@ -5972,7 +5986,11 @@ fn parse_computed_prop_like<'a>(opts: ParseComputedPropLikeOptions, context: &mu
             }
         }
 
-        None
+        if cfg!(debug_assertions) {
+            panic!("Debug panic! Could not find open and/or close bracket token.");
+        } else {
+            None
+        }
     }
 }
 
