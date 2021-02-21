@@ -4165,68 +4165,97 @@ fn parse_lit_type<'a>(node: &'a TsLitType, context: &mut Context<'a>) -> PrintIt
 }
 
 fn parse_mapped_type<'a>(node: &'a TsMappedType, context: &mut Context<'a>) -> PrintItems {
+    let force_use_new_lines = !context.config.mapped_type_prefer_single_line && node_helpers::get_use_new_lines_for_nodes(&node.lo(), &node.type_param, context.module);
+
+    let span = node.span();
     let mut items = PrintItems::new();
     let start_info = Info::new("startMappedType");
-    let end_info = Info::new("endMappedType");
-    let open_brace_token = context.token_finder.get_first_open_brace_token_within(node).expect("Expected to find an open brace token in the mapped type.");
-    let force_use_new_lines = !context.config.mapped_type_prefer_single_line && node_helpers::get_use_new_lines_for_nodes(open_brace_token, &node.type_param, context.module);
-    let mut is_multiple_lines_condition = if_true_or(
-        "mappedTypeNewLine",
-        move |context| {
+    items.push_info(start_info);
+    items.extend(parse_surrounded_by_tokens(|context| {
+        let is_different_line_than_start = move |context: &mut ConditionResolverContext| {
             if force_use_new_lines {
                 Some(true)
             } else {
-                condition_resolvers::is_multiple_lines(context, &start_info, &end_info)
+                condition_resolvers::is_on_different_line(context, &start_info)
             }
-        },
-        Signal::NewLine.into(),
-        Signal::SpaceOrNewLine.into(),
-    );
-    let is_multiple_lines = is_multiple_lines_condition.get_reference().create_resolver();
-    items.push_info(start_info);
-    items.push_str("{");
-    items.push_condition(is_multiple_lines_condition.clone());
-    items.push_condition(conditions::indent_if_start_of_line(parser_helpers::new_line_group({
-        let mut items = PrintItems::new();
-        if let Some(readonly) = node.readonly() {
-            items.push_str(match readonly {
-                TruePlusMinus::True => "readonly ",
-                TruePlusMinus::Plus => "+readonly ",
-                TruePlusMinus::Minus => "-readonly ",
-            });
-        }
-
-        let computed_inner_span = Span::new(node.type_param.lo(), node.name_type.map(|t| t.hi()).unwrap_or(node.type_param.hi()), Default::default());
-        items.extend(parse_computed_prop_like(|context| {
+        };
+        let inner_items = {
             let mut items = PrintItems::new();
-            if let Some(name_type) = node.name_type {
-                items.extend(parse_as_expr_like(AsExprLike {
-                    expr: node.type_param.into(),
-                    type_ann: name_type.into(),
-                }, context));
-            } else {
-                items.extend(parse_node(node.type_param.into(), context));
-            }
-            items
-        }, ParseComputedPropLikeOptions {
-            inner_node_span: computed_inner_span,
-        }, context));
 
-        if let Some(optional) = node.optional() {
-            items.push_str(match optional {
-                TruePlusMinus::True => "?",
-                TruePlusMinus::Plus => "+?",
-                TruePlusMinus::Minus => "-?",
-            });
+            // There could be, or could not be a semi-colon here. Parse the second
+            // last token's trailing comments in order to get the comments that
+            // should always appear after a semi-colon when it appears and potentially
+            // steal the inner node's comments.
+            let parsed_semi_colon_comments = {
+                let node_tokens = node.tokens_fast(context.module);
+                parse_trailing_comments(&node_tokens[node_tokens.len() - 2], context)
+            };
+
+            if let Some(readonly) = node.readonly() {
+                items.push_str(match readonly {
+                    TruePlusMinus::True => "readonly ",
+                    TruePlusMinus::Plus => "+readonly ",
+                    TruePlusMinus::Minus => "-readonly ",
+                });
+            }
+
+            let computed_inner_span = Span::new(node.type_param.lo(), node.name_type.map(|t| t.hi()).unwrap_or(node.type_param.hi()), Default::default());
+            items.extend(parse_computed_prop_like(|context| {
+                let mut items = PrintItems::new();
+                if let Some(name_type) = node.name_type {
+                    items.extend(parse_as_expr_like(AsExprLike {
+                        expr: node.type_param.into(),
+                        type_ann: name_type.into(),
+                    }, context));
+                } else {
+                    items.extend(parse_node(node.type_param.into(), context));
+                }
+                items
+            }, ParseComputedPropLikeOptions {
+                inner_node_span: computed_inner_span,
+            }, context));
+
+            if let Some(optional) = node.optional() {
+                items.push_str(match optional {
+                    TruePlusMinus::True => "?",
+                    TruePlusMinus::Plus => "+?",
+                    TruePlusMinus::Minus => "-?",
+                });
+            }
+
+            items.extend(parse_type_ann_with_colon_if_exists_for_type(&node.type_ann, context));
+            items.extend(get_parsed_semi_colon(context.config.semi_colons, true, &is_different_line_than_start));
+            items.extend(parsed_semi_colon_comments);
+
+            let inner_items = items.into_rc_path();
+            if_true_or(
+                "noSpacesWhenMultiLine",
+                is_different_line_than_start,
+                inner_items.clone().into(),
+                {
+                    let mut items = PrintItems::new();
+                    items.push_signal(Signal::SpaceOrNewLine);
+                    items.push_optional_path(inner_items);
+                    items.push_signal(Signal::SpaceOrNewLine);
+                    items
+                }
+            ).into()
+        };
+
+        if force_use_new_lines {
+            surround_with_new_lines(with_indent(inner_items))
+        } else {
+            parser_helpers::surround_with_newlines_indented_if_multi_line(inner_items, context.config.indent_width)
         }
-        items.extend(parse_type_ann_with_colon_if_exists_for_type(&node.type_ann, context));
-        items.extend(get_parsed_semi_colon(context.config.semi_colons, true, &is_multiple_lines));
-        items
-    })));
-    items.push_condition(is_multiple_lines_condition);
-    items.push_str("}");
-    items.push_info(end_info);
-    return items;
+    }, |_| None, ParseSurroundedByTokensOptions {
+        open_token: "{",
+        close_token: "}",
+        span: Some(span),
+        first_member: Some(node.type_param.span()),
+        prefer_single_line_when_empty: false,
+        allow_open_token_trailing_comments: true,
+    }, context));
+    items
 }
 
 fn parse_optional_type<'a>(node: &'a TsOptionalType, context: &mut Context<'a>) -> PrintItems {
@@ -7054,6 +7083,7 @@ fn parse_surrounded_by_tokens<'a>(
         // parse
         let open_token_start_line = open_token_end.start_line_fast(context.module);
 
+        items.extend(parse_leading_comments(&span, context));
         items.push_str(opts.open_token);
         if let Some(first_member) = opts.first_member {
             let first_member_start_line = first_member.start_line_fast(context.module);

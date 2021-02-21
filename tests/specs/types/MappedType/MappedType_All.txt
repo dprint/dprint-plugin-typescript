@@ -62,3 +62,27 @@ type Test = {
 type Test = {
     [K in T as U]: undefined;
 };
+
+== should support comments at different points ==
+type Test = { // 1
+    // 2
+    [K in T as U]: undefined; // 3
+    // 4
+};
+
+[expect]
+type Test = { // 1
+    // 2
+    [K in T as U]: undefined; // 3
+    // 4
+};
+
+== should put a comment after the semi-colon when adding one ==
+type Test = {
+    [K in T as U]: undefined // test
+}
+
+[expect]
+type Test = {
+    [K in T as U]: undefined; // test
+};
