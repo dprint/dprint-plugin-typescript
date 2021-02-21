@@ -1397,11 +1397,23 @@ fn parse_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> 
 }
 
 fn parse_as_expr<'a>(node: &'a TsAsExpr, context: &mut Context<'a>) -> PrintItems {
+    parse_as_expr_like(AsExprLike {
+        expr: node.expr.into(),
+        type_ann: node.type_ann.into(),
+    }, context)
+}
+
+struct AsExprLike<'a> {
+    expr: Node<'a>,
+    type_ann: Node<'a>,
+}
+
+fn parse_as_expr_like<'a>(node: AsExprLike<'a>, context: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
-    items.extend(parse_node(node.expr.into(), context));
+    items.extend(parse_node(node.expr, context));
     items.push_str(" as");
     items.push_signal(Signal::SpaceIfNotTrailing);
-    items.push_condition(conditions::with_indent_if_start_of_line_indented(parse_node(node.type_ann.into(), context)));
+    items.push_condition(conditions::with_indent_if_start_of_line_indented(parse_node(node.type_ann, context)));
     items
 }
 
@@ -4184,8 +4196,20 @@ fn parse_mapped_type<'a>(node: &'a TsMappedType, context: &mut Context<'a>) -> P
             });
         }
 
-        items.extend(parse_computed_prop_like(|context| parse_node(node.type_param.into(), context), ParseComputedPropLikeOptions {
-            inner_node_span: node.type_param.span(),
+        let computed_inner_span = Span::new(node.type_param.lo(), node.name_type.map(|t| t.hi()).unwrap_or(node.type_param.hi()), Default::default());
+        items.extend(parse_computed_prop_like(|context| {
+            let mut items = PrintItems::new();
+            if let Some(name_type) = node.name_type {
+                items.extend(parse_as_expr_like(AsExprLike {
+                    expr: node.type_param.into(),
+                    type_ann: name_type.into(),
+                }, context));
+            } else {
+                items.extend(parse_node(node.type_param.into(), context));
+            }
+            items
+        }, ParseComputedPropLikeOptions {
+            inner_node_span: computed_inner_span,
         }, context));
 
         if let Some(optional) = node.optional() {

@@ -52,3 +52,13 @@ type Partial<T> = {
     readonly [TESTINGTHISOUT in keyof T]?:
         T[TESTINGTHISOUT];
 };
+
+== should format mapped type with name type ==
+type Test = {
+    [K in T as U]: undefined
+};
+
+[expect]
+type Test = {
+    [K in T as U]: undefined;
+};
