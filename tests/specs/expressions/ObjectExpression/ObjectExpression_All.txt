@@ -65,3 +65,17 @@ asdfasdf({
     name: "Test",
     aliases: "testtttttttttttt",
 });
+
+== should turn an assignment prop into a key value prop ==
+asdf({
+    testing = 5,
+    other = "testing",
+    asdf: "asdf",
+});
+
+[expect]
+asdf({
+    testing: 5,
+    other: "testing",
+    asdf: "asdf",
+});

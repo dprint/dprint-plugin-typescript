@@ -153,6 +153,7 @@ fn parse_node_with_inner_parse<'a>(node: Node<'a>, context: &mut Context<'a>, in
             Node::ExportDecl(node) => parse_export_decl(node, context),
             Node::ExportDefaultDecl(node) => parse_export_default_decl(node, context),
             Node::ExportDefaultExpr(node) => parse_export_default_expr(node, context),
+            Node::ExportDefaultSpecifier(node) => parse_export_default_specifier(node, context),
             Node::FnDecl(node) => parse_function_decl(node, context),
             Node::ImportDecl(node) => parse_import_decl(node, context),
             Node::NamedExport(node) => parse_export_named_decl(node, context),
@@ -177,6 +178,7 @@ fn parse_node_with_inner_parse<'a>(node: Node<'a>, context: &mut Context<'a>, in
             Node::FnExpr(node) => parse_fn_expr(node, context),
             Node::GetterProp(node) => parse_getter_prop(node, context),
             Node::KeyValueProp(node) => parse_key_value_prop(node, context),
+            Node::AssignProp(node) => parse_assign_prop(node, context),
             Node::MemberExpr(node) => parse_member_expr(node, context),
             Node::MetaPropExpr(node) => parse_meta_prop_expr(node, context),
             Node::NewExpr(node) => parse_new_expr(node, context),
@@ -276,6 +278,7 @@ fn parse_node_with_inner_parse<'a>(node: Node<'a>, context: &mut Context<'a>, in
             Node::TsConditionalType(node) => parse_conditional_type(node, context),
             Node::TsConstructorType(node) => parse_constructor_type(node, context),
             Node::TsFnType(node) => parse_function_type(node, context),
+            Node::TsKeywordType(node) => parse_keyword_type(node, context),
             Node::TsImportType(node) => parse_import_type(node, context),
             Node::TsIndexedAccessType(node) => parse_indexed_access_type(node, context),
             Node::TsInferType(node) => parse_infer_type(node, context),
@@ -299,8 +302,14 @@ fn parse_node_with_inner_parse<'a>(node: Node<'a>, context: &mut Context<'a>, in
             Node::TsTypeQuery(node) => parse_type_query(node, context),
             Node::TsTypeRef(node) => parse_type_reference(node, context),
             Node::TsUnionType(node) => parse_union_type(node, context),
-            /* unknown */
-            _ => parse_raw_string(node.text_fast(context.module).into()),
+            /* These should never be matched. Return its text if so */
+            Node::Class(_) | Node::Function(_) | Node::Invalid(_) | Node::Script(_) | Node::WithStmt(_) | Node::TsModuleBlock(_) | Node::TsTypeCastExpr(_) => {
+                if cfg!(debug_assertions) {
+                    panic!("Debug panic! Did not expect to parse node of type {}.", node.kind());
+                }
+
+                parse_raw_string(node.text_fast(context.module).into())
+            },
         }
     }
 
@@ -788,6 +797,10 @@ fn parse_export_default_expr<'a>(node: &'a ExportDefaultExpr, context: &mut Cont
     items.extend(parse_node(node.expr.into(), context));
     if context.config.semi_colons.is_true() { items.push_str(";"); }
     items
+}
+
+fn parse_export_default_specifier<'a>(node: &'a ExportDefaultSpecifier, context: &mut Context<'a>) -> PrintItems {
+    parse_node(node.exported.into(), context)
 }
 
 fn parse_enum_decl<'a>(node: &'a TsEnumDecl, context: &mut Context<'a>) -> PrintItems {
@@ -1930,6 +1943,14 @@ fn parse_key_value_prop<'a>(node: &'a KeyValueProp, context: &mut Context<'a>) -
     let mut items = PrintItems::new();
     items.extend(parse_node(node.key.into(), context));
     items.extend(parse_assignment(node.value.into(), ":", context));
+    items
+}
+
+fn parse_assign_prop<'a>(node: &'a AssignProp, context: &mut Context<'a>) -> PrintItems {
+    // assignment properties are not valid, so turn this into a key value property
+    let mut items = PrintItems::new();
+    items.extend(parse_node(node.key.into(), context));
+    items.extend(parse_assignment_op_to(node.value.into(), "=", ":", context)); // go from = to :
     items
 }
 
@@ -4083,6 +4104,11 @@ fn parse_function_type<'a>(node: &'a TsFnType, context: &mut Context<'a>) -> Pri
     ));
 
     return items;
+}
+
+fn parse_keyword_type<'a>(node: &'a TsKeywordType, context: &mut Context<'a>) -> PrintItems {
+    // will be a keyword like "any", "unknown", "number", etc...
+    node.text_fast(context.module).into()
 }
 
 fn parse_import_type<'a>(node: &'a TsImportType, context: &mut Context<'a>) -> PrintItems {
@@ -6811,12 +6837,18 @@ fn jsx_space_separator(previous_node: &Node, current_node: &Node, context: &Cont
     }
 }
 
+#[inline]
 fn parse_assignment<'a>(expr: Node<'a>, op: &str, context: &mut Context<'a>) -> PrintItems {
+    parse_assignment_op_to(expr, op, op, context)
+}
+
+#[inline]
+fn parse_assignment_op_to<'a>(expr: Node<'a>, op: &str, op_to: &str, context: &mut Context<'a>) -> PrintItems {
     let op_token = context.token_finder.get_previous_token(&expr);
     #[cfg(debug_assertions)]
     assert_has_op(op, op_token, context);
 
-    parse_assignment_like_with_token(expr, op, op_token, context)
+    parse_assignment_like_with_token(expr, op_to, op_token, context)
 }
 
 fn parse_assignment_like_with_token<'a>(expr: Node<'a>, op: &str, op_token: Option<&TokenAndSpan>, context: &mut Context<'a>) -> PrintItems {
