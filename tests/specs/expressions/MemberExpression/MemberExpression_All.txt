@@ -55,3 +55,55 @@ test!.test;
 [expect]
 test![0];
 test!.test;
+
+== should keep comments in long chains==
+member
+    .test() // 1
+    // 2
+    .testing // 3
+    // 4
+    /* 5 */ .asdf() // 6
+    .test[  1  ] // 7
+    .other;
+
+[expect]
+member
+    .test() // 1
+    // 2
+    .testing // 3
+    // 4
+    /* 5 */ .asdf() // 6
+    .test[1] // 7
+    .other;
+
+== should keep comments inside computed properties in long chains ==
+member
+    .test[ // 1
+        /* 2*/
+        // other
+        inner // test
+        // asdf
+    ] // other
+    .asdf;
+
+[expect]
+member
+    .test[ // 1
+        /* 2*/
+        // other
+        inner // test
+        // asdf
+    ] // other
+    .asdf;
+
+== should look at computed property end for determining whether to go to a newline or not ==
+member.testing[
+    // test
+    4
+].test;
+
+[expect]
+member.testing[
+    // test
+    4
+].test;
