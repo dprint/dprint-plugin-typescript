@@ -303,7 +303,7 @@ fn parse_node_with_inner_parse<'a>(node: Node<'a>, context: &mut Context<'a>, in
             Node::TsTypeRef(node) => parse_type_reference(node, context),
             Node::TsUnionType(node) => parse_union_type(node, context),
             /* These should never be matched. Return its text if so */
-            Node::Class(_) | Node::Function(_) | Node::Invalid(_) | Node::Script(_) | Node::WithStmt(_) | Node::TsModuleBlock(_) | Node::TsTypeCastExpr(_) => {
+            Node::Class(_) | Node::Function(_) | Node::Invalid(_) | Node::Script(_) | Node::WithStmt(_) | Node::TsModuleBlock(_) => {
                 if cfg!(debug_assertions) {
                     panic!("Debug panic! Did not expect to parse node of type {}.", node.kind());
                 }
