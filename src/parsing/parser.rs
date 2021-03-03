@@ -2005,7 +2005,7 @@ fn parse_object_lit<'a>(node: &'a ObjectLit, context: &mut Context<'a>) -> Print
         separator: context.config.object_expression_trailing_commas.into(),
         prefer_hanging: context.config.object_expression_prefer_hanging,
         prefer_single_line: context.config.object_expression_prefer_single_line,
-        surround_single_line_with_spaces: true,
+        surround_single_line_with_spaces: context.config.object_expression_space_surrounding_properties,
         allow_blank_lines: true,
         node_sorter: None,
     }, context)
@@ -2480,7 +2480,7 @@ fn parse_type_lit<'a>(node: &'a TsTypeLit, context: &mut Context<'a>) -> PrintIt
         },
         prefer_hanging: context.config.type_literal_prefer_hanging,
         prefer_single_line: context.config.type_literal_prefer_single_line,
-        surround_single_line_with_spaces: true,
+        surround_single_line_with_spaces: context.config.type_literal_space_surrounding_properties,
         allow_blank_lines: true,
         node_sorter: None,
     }, context);
@@ -2951,7 +2951,7 @@ fn parse_object_pat<'a>(node: &'a ObjectPat, context: &mut Context<'a>) -> Print
         separator: get_trailing_commas(node, context).into(),
         prefer_hanging: context.config.object_pattern_prefer_hanging,
         prefer_single_line: context.config.object_pattern_prefer_single_line,
-        surround_single_line_with_spaces: true,
+        surround_single_line_with_spaces: context.config.object_pattern_space_surrounding_properties,
         allow_blank_lines: true,
         node_sorter: None,
     }, context));

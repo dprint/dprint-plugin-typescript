@@ -194,10 +194,13 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
         import_declaration_space_surrounding_named_imports: get_value(&mut config, "importDeclaration.spaceSurroundingNamedImports", true, &mut diagnostics),
         jsx_expression_container_space_surrounding_expression: get_value(&mut config, "jsxExpressionContainer.spaceSurroundingExpression", false, &mut diagnostics),
         method_space_before_parentheses: get_value(&mut config, "method.spaceBeforeParentheses", false, &mut diagnostics),
+        object_expression_space_surrounding_properties: get_value(&mut config, "objectExpression.spaceSurroundingProperties", true, &mut diagnostics),
+        object_pattern_space_surrounding_properties: get_value(&mut config, "objectPattern.spaceSurroundingProperties", true, &mut diagnostics),
         set_accessor_space_before_parentheses: get_value(&mut config, "setAccessor.spaceBeforeParentheses", false, &mut diagnostics),
         tagged_template_space_before_literal: get_value(&mut config, "taggedTemplate.spaceBeforeLiteral", true, &mut diagnostics),
         type_annotation_space_before_colon: get_value(&mut config, "typeAnnotation.spaceBeforeColon", false, &mut diagnostics),
         type_assertion_space_before_expression: get_value(&mut config, "typeAssertion.spaceBeforeExpression", true, &mut diagnostics),
+        type_literal_space_surrounding_properties: get_value(&mut config, "typeLiteral.spaceSurroundingProperties", true, &mut diagnostics),
         while_statement_space_after_while_keyword: get_value(&mut config, "whileStatement.spaceAfterWhileKeyword", true, &mut diagnostics),
     };
 

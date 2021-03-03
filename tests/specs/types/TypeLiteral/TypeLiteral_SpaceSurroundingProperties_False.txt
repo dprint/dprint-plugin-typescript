@@ -1,0 +1,6 @@
+~~ typeLiteral.spaceSurroundingProperties: false ~~
+== should format ==
+let value: { key: Type };
+
+[expect]
+let value: {key: Type};

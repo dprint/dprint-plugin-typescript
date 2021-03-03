@@ -526,6 +526,10 @@ pub struct Configuration {
     pub jsx_expression_container_space_surrounding_expression: bool,
     #[serde(rename = "method.spaceBeforeParentheses")]
     pub method_space_before_parentheses: bool,
+    #[serde(rename = "objectExpression.spaceSurroundingProperties")]
+    pub object_expression_space_surrounding_properties: bool,
+    #[serde(rename = "objectPattern.spaceSurroundingProperties")]
+    pub object_pattern_space_surrounding_properties: bool,
     #[serde(rename = "setAccessor.spaceBeforeParentheses")]
     pub set_accessor_space_before_parentheses: bool,
     #[serde(rename = "taggedTemplate.spaceBeforeLiteral")]
@@ -534,6 +538,8 @@ pub struct Configuration {
     pub type_annotation_space_before_colon: bool,
     #[serde(rename = "typeAssertion.spaceBeforeExpression")]
     pub type_assertion_space_before_expression: bool,
+    #[serde(rename = "typeLiteral.spaceSurroundingProperties")]
+    pub type_literal_space_surrounding_properties: bool,
     #[serde(rename = "whileStatement.spaceAfterWhileKeyword")]
     pub while_statement_space_after_while_keyword: bool,
 }
