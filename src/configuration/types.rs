@@ -532,6 +532,8 @@ pub struct Configuration {
     pub object_pattern_space_surrounding_properties: bool,
     #[serde(rename = "setAccessor.spaceBeforeParentheses")]
     pub set_accessor_space_before_parentheses: bool,
+    #[serde(rename = "spaceSurroundingProperties")]
+    pub space_surrounding_properties: bool,
     #[serde(rename = "taggedTemplate.spaceBeforeLiteral")]
     pub tagged_template_space_before_literal: bool,
     #[serde(rename = "typeAnnotation.spaceBeforeColon")]

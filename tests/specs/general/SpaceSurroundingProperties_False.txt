@@ -1,0 +1,10 @@
+~~ spaceSurroundingProperties: false ~~
+== should format ==
+const obj = { key: value };
+const { key: value } = obj;
+let value: { key: Type };
+
+[expect]
+const obj = {key: value};
+const {key: value} = obj;
+let value: {key: Type};

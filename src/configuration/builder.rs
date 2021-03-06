@@ -347,6 +347,14 @@ impl ConfigurationBuilder {
         self.insert("setAccessor.spaceBeforeParentheses", value.into())
     }
 
+    /// Whether to add a space surrounding the properties of object-like nodes.
+    ///
+    /// * `true` (default) - Ex. `{ key: value }`
+    /// * `false` - Ex. `{key: value}`
+    pub fn space_surrounding_properties(&mut self, value: bool) -> &mut Self {
+        self.insert("spaceSurroundingProperties", value.into())
+    }
+
     /// Whether to add a space before the literal in a tagged template.
     ///
     /// * `true` (default) - Ex. `html \`<element />\``
@@ -1051,6 +1059,7 @@ mod tests {
             .object_expression_space_surrounding_properties(false)
             .object_pattern_space_surrounding_properties(false)
             .set_accessor_space_before_parentheses(true)
+            .space_surrounding_properties(false)
             .tagged_template_space_before_literal(false)
             .type_annotation_space_before_colon(true)
             .type_assertion_space_before_expression(true)
@@ -1058,7 +1067,7 @@ mod tests {
             .while_statement_space_after_while_keyword(true);
 
         let inner_config = config.get_inner_config();
-        assert_eq!(inner_config.len(), 148);
+        assert_eq!(inner_config.len(), 149);
         let diagnostics = resolve_config(inner_config, &resolve_global_config(HashMap::new()).config).diagnostics;
         assert_eq!(diagnostics.len(), 0);
     }
