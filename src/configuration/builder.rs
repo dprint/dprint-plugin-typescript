@@ -315,6 +315,22 @@ impl ConfigurationBuilder {
         self.insert("jsxExpressionContainer.spaceSurroundingExpression", value.into())
     }
 
+    /// Whether to add a space surrounding the properties of an object expression.
+    ///
+    /// * `true` (default) - Ex. `{ key: value }`
+    /// * `false` - Ex. `{key: value}`
+    pub fn object_expression_space_surrounding_properties(&mut self, value: bool) -> &mut Self {
+        self.insert("objectExpression.spaceSurroundingProperties", value.into())
+    }
+
+    /// Whether to add a space surrounding the properties of an object pattern.
+    ///
+    /// * `true` (default) - Ex. `{ key: value } = obj`
+    /// * `false` - Ex. `{key: value} = obj`
+    pub fn object_pattern_space_surrounding_properties(&mut self, value: bool) -> &mut Self {
+        self.insert("objectPattern.spaceSurroundingProperties", value.into())
+    }
+
     /// Whether to add a space before the parentheses of a method.
     ///
     /// `true` - Ex. `myMethod ()`
@@ -353,6 +369,14 @@ impl ConfigurationBuilder {
     /// * `false` - Ex. `<string>myValue`
     pub fn type_assertion_space_before_expression(&mut self, value: bool) -> &mut Self {
         self.insert("typeAssertion.spaceBeforeExpression", value.into())
+    }
+
+    /// Whether to add a space surrounding the properties of a type literal.
+    ///
+    /// * `true` (default) - Ex. `value: { key: Type }`
+    /// * `false` - Ex. `value: {key: Type}`
+    pub fn type_literal_space_surrounding_properties(&mut self, value: bool) -> &mut Self {
+        self.insert("typeLiteral.spaceSurroundingProperties", value.into())
     }
 
     /// Whether to add a space after the `while` keyword in a while statement.

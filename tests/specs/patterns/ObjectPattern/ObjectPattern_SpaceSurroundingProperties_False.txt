@@ -1,0 +1,6 @@
+~~ objectPattern.spaceSurroundingProperties: false ~~
+== should format ==
+const { key: value } = obj;
+
+[expect]
+const {key: value} = obj;
