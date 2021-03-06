@@ -169,4 +169,27 @@ mod tests {
             )
         );
     }
+
+    #[test]
+    fn it_should_error_without_issue_when_there_exists_multi_byte_char_on_line_with_syntax_error() {
+        let message = parse_swc_ast(
+            &PathBuf::from("./test.ts"),
+            concat!(
+                "test;\n",
+                r#"console.log("x", `duration ${d} not in range - ${min} ≥ ${d} && ${max} ≥ ${d}`),;"#,
+            )
+        ).err().unwrap();
+        assert_eq!(
+            message,
+            concat!(
+                // quite the diagnostic!
+                "Line 2, column 81: Unexpected token `;`. Expected this, import, async, function, [ for array literal, ",
+                "{ for object literal, @ for decorator, function, class, null, true, false, number, bigint, string, ",
+                "regexp, ` for template literal, (, or an identifier\n",
+                "\n",
+                "  & ${max} ≥ ${d}`),;\n",
+                "                    ~"
+            )
+        );
+    }
 }
