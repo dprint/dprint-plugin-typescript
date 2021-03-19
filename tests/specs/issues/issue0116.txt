@@ -1,0 +1,6 @@
+~~ deno: true ~~
+== should not add semi-colon after comment when statement has a call expr and no semi-colon ==
+a.b() //
+
+[expect]
+a.b(); //

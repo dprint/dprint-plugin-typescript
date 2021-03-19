@@ -5899,7 +5899,14 @@ fn parse_object_like_node<'a>(opts: ParseObjectLikeNodeOptions<'a>, context: &mu
     items
 }
 
-fn parse_for_member_like_expr_item<'a>(item: &MemberLikeExprItem<'a>, context: &mut Context<'a>, is_first: bool) -> PrintItems {
+fn parse_for_member_like_expr_item<'a>(
+    item: &MemberLikeExprItem<'a>,
+    context: &mut Context<'a>,
+    index: usize,
+    item_count: usize,
+) -> PrintItems {
+    let is_first = index == 0;
+    let is_last = index == item_count - 1;
     match item {
         MemberLikeExprItem::Node(node) => {
             let is_optional = item.is_optional();
@@ -5927,9 +5934,11 @@ fn parse_for_member_like_expr_item<'a>(item: &MemberLikeExprItem<'a>, context: &
                 inner_node_span: node.inner_node.span(),
             }, context));
 
-            // Manually parse the trailing comments of the close bracket token
-            // because it doesn't go through the parse_node method
-            items.extend(parse_trailing_comments(item, context));
+            if !is_last {
+                // Manually parse the trailing comments of the close bracket token
+                // because it doesn't go through the parse_node method
+                items.extend(parse_trailing_comments(item, context));
+            }
 
             items
         }
@@ -5938,12 +5947,14 @@ fn parse_for_member_like_expr_item<'a>(item: &MemberLikeExprItem<'a>, context: &
 
             items.extend(parse_call_expr_like(CallExprLike {
                 original_call_expr: node.original_call_expr,
-                parsed_callee: parse_for_member_like_expr_item(&node.callee, context, is_first),
+                parsed_callee: parse_for_member_like_expr_item(&node.callee, context, index, item_count),
             }, context));
 
-            // Need to manually parse the trailing comments here because
-            // this doesn't go through the parse_node method
-            items.extend(parse_trailing_comments(item, context));
+            if !is_last {
+                // Need to manually parse the trailing comments here because
+                // this doesn't go through the parse_node method
+                items.extend(parse_trailing_comments(item, context));
+            }
 
             items
         }
@@ -5960,7 +5971,7 @@ fn parse_for_flattened_member_like_expr<'a>(node: FlattenedMemberLikeExpr<'a>, c
         items.push_info(member_expr_start_info);
     }
 
-    items.extend(parse_for_member_like_expr_item(&node.nodes[0], context, true));
+    items.extend(parse_for_member_like_expr_item(&node.nodes[0], context, 0, total_items_len));
 
     for (i, item) in node.nodes.iter().enumerate().skip(1) {
         let force_use_new_line = !context.config.member_expression_prefer_single_line
@@ -5990,7 +6001,7 @@ fn parse_for_flattened_member_like_expr<'a>(node: FlattenedMemberLikeExpr<'a>, c
             items.push_info(member_expr_end_info);
         }
 
-        let parsed_item = parse_for_member_like_expr_item(item, context, false);
+        let parsed_item = parse_for_member_like_expr_item(item, context, i, total_items_len);
         if item.is_computed() {
             items.push_condition(indent_if_start_of_line_or_start_of_line_indented(parsed_item));
         } else {
