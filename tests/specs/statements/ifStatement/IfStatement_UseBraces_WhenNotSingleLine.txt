@@ -42,14 +42,13 @@ if (testingThisOut && otherTest) { // testing this out
     logger;
 }
 
-== for now, it does this when going over the line width on the second space ==
+== should maintain the comment when going over the line width on the comment space ==
 if (testingThisOut && otherTestTesttt) { // testing this out
     logger;
 }
 
 [expect]
-if (testingThisOut && otherTestTesttt) {
-    // testing this out
+if (testingThisOut && otherTestTesttt) { // testing this out
     logger;
 }
 

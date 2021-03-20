@@ -1,0 +1,8 @@
+~~ lineWidth: 40 ~~
+== should move a single line if statement to be multi-line when exceeding line width ==
+if (test && other && test && other) testing;
+
+[expect]
+if (test && other && test && other) {
+    testing;
+}
