@@ -6174,7 +6174,7 @@ fn parse_header_with_conditional_brace_body<'a>(opts: ParseHeaderWithConditional
     let mut items = PrintItems::new();
 
     items.push_info(start_header_info);
-    items.extend(opts.parsed_header);
+    items.extend(new_line_group(opts.parsed_header));
     items.push_info(end_header_info);
     let result = parse_conditional_brace_body(ParseConditionalBraceBodyOptions {
         parent: opts.parent,
@@ -6222,7 +6222,6 @@ fn parse_conditional_brace_body<'a>(opts: ParseConditionalBraceBodyOptions<'a>, 
     let end_header_info = opts.end_header_info;
     let requires_braces_condition = opts.requires_braces_condition_ref;
     let start_inner_text_info = Info::new("startInnerText");
-    let end_first_line_comments_info = Info::new("endFirstLineComments");
     let start_statements_info = Info::new("startStatements");
     let end_statements_info = Info::new("endStatements");
     let header_trailing_comments = get_header_trailing_comments(&opts.body_node, context);
@@ -6238,17 +6237,10 @@ fn parse_conditional_brace_body<'a>(opts: ParseConditionalBraceBodyOptions<'a>, 
     let open_brace_token = get_open_brace_token(&opts.body_node, context);
     let use_braces = opts.use_braces;
     let is_body_empty_stmt = opts.body_node.kind() == NodeKind::EmptyStmt;
-    let mut space_condition = if_true(
+    let mut inner_brace_space_condition = if_true(
         "spaceCondition",
         move |condition_context| {
             if is_body_empty_stmt { return Some(false); }
-
-            if let Some(has_first_line_comments) = condition_resolvers::are_infos_not_equal(condition_context, &start_inner_text_info, &end_first_line_comments_info) {
-                if has_first_line_comments {
-                    return Some(true);
-                }
-            }
-
             let start_inner_text_info = condition_context.get_resolved_info(&start_inner_text_info)?;
             let end_statements_info = condition_context.get_resolved_info(&end_statements_info)?;
             if start_inner_text_info.line_number < end_statements_info.line_number {
@@ -6258,7 +6250,7 @@ fn parse_conditional_brace_body<'a>(opts: ParseConditionalBraceBodyOptions<'a>, 
         },
         Signal::SpaceOrNewLine.into(),
     );
-    let space_condition_ref = space_condition.get_reference();
+    let inner_brace_space_condition_ref = inner_brace_space_condition.get_reference();
     let mut newline_condition = if_true(
         "newLineCondition",
         move |condition_context| {
@@ -6338,6 +6330,7 @@ fn parse_conditional_brace_body<'a>(opts: ParseConditionalBraceBodyOptions<'a>, 
                 start_header_info,
             }, context));
             items.push_str("{");
+            items.push_condition(inner_brace_space_condition);
             Some(items)
         },
         false_path: None,
@@ -6348,13 +6341,14 @@ fn parse_conditional_brace_body<'a>(opts: ParseConditionalBraceBodyOptions<'a>, 
     let mut items = PrintItems::new();
     items.push_info(start_info);
     items.push_condition(open_brace_condition);
-    items.push_condition(space_condition);
     items.push_info(start_inner_text_info);
     let parsed_comments = parse_comment_collection(header_trailing_comments.into_iter(), None, None, context);
     if !parsed_comments.is_empty() {
-        items.push_condition(conditions::indent_if_start_of_line(parsed_comments));
+        items.push_signal(Signal::StartForceNoNewLines);
+        items.push_str(" ");
+        items.extend(parsed_comments);
+        items.push_signal(Signal::FinishForceNoNewLines);
     }
-    items.push_info(end_first_line_comments_info);
     items.push_condition(newline_condition);
     items.push_info(start_statements_info);
 
@@ -6371,6 +6365,13 @@ fn parse_conditional_brace_body<'a>(opts: ParseConditionalBraceBodyOptions<'a>, 
         items.extend(parser_helpers::with_indent({
             let mut items = PrintItems::new();
             let body_node_span = opts.body_node.span();
+            if !is_body_empty_stmt {
+                items.push_condition(if_true(
+                    "spaceIfAtStart",
+                    move |context| condition_resolvers::is_at_same_position(context, &start_info),
+                    Signal::SpaceOrNewLine.into(),
+                ));
+            }
             items.extend(parse_node(opts.body_node, context));
             items.extend(parse_trailing_comments(&body_node_span, context));
             items
@@ -6398,7 +6399,7 @@ fn parse_conditional_brace_body<'a>(opts: ParseConditionalBraceBodyOptions<'a>, 
                         if condition_resolvers::is_at_same_position(condition_context, &start_inner_text_info)? {
                             return Some(false);
                         }
-                        let had_space = condition_context.get_resolved_condition(&space_condition_ref)?;
+                        let had_space = condition_context.get_resolved_condition(&inner_brace_space_condition_ref)?;
                         return Some(had_space);
                     },
                     " ".into(),
