@@ -6,6 +6,7 @@ import "../../b";
 import "b";
 import "a";
 import "../../a";
+import "../../a/b";
 export * from "c";
 export * from "a";
 test;
@@ -19,6 +20,7 @@ import "a";
 // testing
 import "a";
 import "b";
+import "../../a/b";
 import "../../a";
 import "../../b";
 import "../a";
@@ -91,3 +93,13 @@ import { a } from "test";
 // other
 
 import { a } from "test";
+
+== should put folders above files ==
+import * as t from "https://deno.land/x/a.ts";
+import * as u from "https://deno.land/x/sub-dir/a.ts";
+import * as u from "https://deno.land/x/sub-dir/other/a.ts";
+
+[expect]
+import * as u from "https://deno.land/x/sub-dir/other/a.ts";
+import * as u from "https://deno.land/x/sub-dir/a.ts";
+import * as t from "https://deno.land/x/a.ts";

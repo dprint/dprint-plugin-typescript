@@ -4,10 +4,10 @@ pub fn cmp_module_specifiers(a: &str, b: &str, cmp_text: impl Fn(&str, &str) -> 
     let a_info = get_module_specifier_info(a);
     let b_info = get_module_specifier_info(b);
 
-    match a_info.kind {
+    return match a_info.kind {
         ModuleSpecifierKind::Absolute => {
             match b_info.kind {
-                ModuleSpecifierKind::Absolute => cmp_text(a_info.comparison_text, b_info.comparison_text),
+                ModuleSpecifierKind::Absolute => compare_folder_items(&a_info, &b_info, cmp_text),
                 ModuleSpecifierKind::Relative(_) => Ordering::Less,
             }
         },
@@ -20,17 +20,42 @@ pub fn cmp_module_specifiers(a: &str, b: &str, cmp_text: impl Fn(&str, &str) -> 
                     } else if a_relative_count < b_relative_count {
                         Ordering::Greater
                     } else {
-                        cmp_text(a_info.comparison_text, b_info.comparison_text)
+                        compare_folder_items(&a_info, &b_info, cmp_text)
                     }
                 },
             }
+        }
+    };
+
+    fn compare_folder_items(a_info: &ModuleSpecifierInfo, b_info: &ModuleSpecifierInfo, cmp_text: impl Fn(&str, &str) -> Ordering) -> Ordering {
+        let max_len = std::cmp::min(a_info.folder_items.len(), b_info.folder_items.len());
+        // compare the common items except for the potential file name at the end
+        for i in 0..max_len - 1 {
+            let a_text = a_info.folder_items[i];
+            let b_text = b_info.folder_items[i];
+            let ordering = cmp_text(a_text, b_text);
+            if ordering != Ordering::Equal {
+                return ordering;
+            }
+        }
+
+        if a_info.folder_items.len() != b_info.folder_items.len() {
+            // the import that has a folder name should appear before the one with a file name
+            if a_info.folder_items.len() > b_info.folder_items.len() {
+                Ordering::Less
+            } else {
+                Ordering::Greater
+            }
+        } else {
+            // compare the file names
+            cmp_text(a_info.folder_items.last().unwrap(), b_info.folder_items.last().unwrap())
         }
     }
 }
 
 struct ModuleSpecifierInfo<'a> {
-    comparison_text: &'a str,
     kind: ModuleSpecifierKind,
+    folder_items: Vec<&'a str>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -59,12 +84,12 @@ fn get_module_specifier_info<'a>(text: &'a str) -> ModuleSpecifierInfo<'a> {
         }
 
         ModuleSpecifierInfo {
-            comparison_text: &no_quotes_text[start_index..],
+            folder_items: no_quotes_text[start_index..].split('/').collect(),
             kind: ModuleSpecifierKind::Relative(relative_count),
         }
     } else {
         ModuleSpecifierInfo {
-            comparison_text: no_quotes_text,
+            folder_items: no_quotes_text.split('/').collect(),
             kind: ModuleSpecifierKind::Absolute,
         }
     }
@@ -93,7 +118,7 @@ mod test {
     #[test]
     fn it_should_get_module_specifier_info_when_empty() {
         let result = get_module_specifier_info("''");
-        assert_eq!(result.comparison_text, "");
+        assert_eq!(result.folder_items, vec![""]);
         assert_eq!(result.kind, ModuleSpecifierKind::Absolute);
     }
 
@@ -101,31 +126,31 @@ mod test {
     fn it_should_get_module_specifier_info_for_absolute() {
         // double quotes
         let result = get_module_specifier_info(r#""testing/asdf""#);
-        assert_eq!(result.comparison_text, "testing/asdf");
+        assert_eq!(result.folder_items, vec!["testing", "asdf"]);
         assert_eq!(result.kind, ModuleSpecifierKind::Absolute);
 
         // single quotes
         let result = get_module_specifier_info("'testing'");
-        assert_eq!(result.comparison_text, "testing");
+        assert_eq!(result.folder_items, vec!["testing"]);
         assert_eq!(result.kind, ModuleSpecifierKind::Absolute);
     }
 
     #[test]
     fn it_should_get_module_specifier_info_for_relative() {
         let result = get_module_specifier_info("'./a'");
-        assert_eq!(result.comparison_text, "a");
+        assert_eq!(result.folder_items, vec!["a"]);
         assert_eq!(result.kind, ModuleSpecifierKind::Relative(0));
 
         let result = get_module_specifier_info("'./../testing-test/t'");
-        assert_eq!(result.comparison_text, "testing-test/t");
+        assert_eq!(result.folder_items, vec!["testing-test", "t"]);
         assert_eq!(result.kind, ModuleSpecifierKind::Relative(1));
 
         let result = get_module_specifier_info("'../asdf'");
-        assert_eq!(result.comparison_text, "asdf");
+        assert_eq!(result.folder_items, vec!["asdf"]);
         assert_eq!(result.kind, ModuleSpecifierKind::Relative(1));
 
         let result = get_module_specifier_info("'../../../test'");
-        assert_eq!(result.comparison_text, "test");
+        assert_eq!(result.folder_items, vec!["test"]);
         assert_eq!(result.kind, ModuleSpecifierKind::Relative(3));
     }
 }
