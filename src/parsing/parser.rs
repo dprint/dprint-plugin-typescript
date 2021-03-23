@@ -1333,7 +1333,7 @@ fn parse_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> 
         let end_body_info = Info::new("endBody");
         items.push_info(start_body_info);
 
-        if should_not_newline_after_arrow(&node.body) || true {
+        if should_not_newline_after_arrow(&node.body) {
             items.push_str(" ");
         } else {
             items.push_condition(conditions::if_above_width_or(
@@ -1356,7 +1356,7 @@ fn parse_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> 
             BlockStmtOrExpr::BlockStmt(_) => true,
             BlockStmtOrExpr::Expr(expr) => {
                 match expr {
-                    Expr::Paren(_) | Expr::Array(_) => true,
+                    Expr::Paren(_) | Expr::Array(_)| Expr::Tpl(_) => true,
                     _ => false,
                 }
             }
