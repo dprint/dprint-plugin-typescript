@@ -135,3 +135,13 @@ myCustomTag
 `${date.getUTCDay()}, ${d} ${
     date.getUTCMonth(test)
 } ${y} ${h}:${testtt}:${s} GMT`;
+
+== should place opening backtick in arrow expression properly ==
+const b = () => `
+    test
+`;
+
+[expect]
+const b = () => `
+    test
+`;
