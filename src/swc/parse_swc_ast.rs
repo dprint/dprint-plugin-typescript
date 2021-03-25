@@ -87,11 +87,13 @@ fn parse_inner(file_path: &Path, file_text: &str) -> Result<ParsedSourceFile, St
     }
 
     fn ensure_no_specific_syntax_errors(errors: Vec<SwcError>, file_text: &str) -> Result<(), String> {
-        let errors = errors.into_iter().filter(|e| match e.clone().kind() { // todo: remove clone once PR #1396 lands in swc
+        let errors = errors.into_iter().filter(|e| match e.kind() {
             // expected identifier
             SyntaxError::TS1003 => true,
             // expected semi-colon
             SyntaxError::TS1005 => true,
+            // expected expression
+            SyntaxError::TS1109 => true,
             _ => false,
         }).collect::<Vec<_>>();
 
@@ -189,6 +191,20 @@ mod tests {
                 "\n",
                 "  & ${max} ≥ ${d}`),;\n",
                 "                    ~"
+            )
+        );
+    }
+
+    #[test]
+    fn it_should_error_for_exected_expr_issue_121() {
+        let message = parse_swc_ast(&PathBuf::from("./test.ts"), "type T =\n  | unknown\n  { } & unknown;").err().unwrap();
+        assert_eq!(
+            message,
+            concat!(
+                "Line 3, column 7: Expression expected\n",
+                "\n",
+                "    { } & unknown;\n",
+                "        ~"
             )
         );
     }
