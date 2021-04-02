@@ -1,0 +1,22 @@
+~~ lineWidth: 40 ~~
+== should format ==
+type T = {
+    get m1 ( ) : number;
+    get m2  ? (): number  ;
+    get [ m3  ](): string
+};
+
+interface T {
+    get m1 ( ) : number;
+};
+
+[expect]
+type T = {
+    get m1(): number;
+    get m2?(): number;
+    get [m3](): string;
+};
+
+interface T {
+    get m1(): number;
+}

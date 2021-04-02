@@ -278,6 +278,8 @@ fn parse_node_with_inner_parse<'a>(node: Node<'a>, context: &mut Context<'a>, in
             Node::TsConditionalType(node) => parse_conditional_type(node, context),
             Node::TsConstructorType(node) => parse_constructor_type(node, context),
             Node::TsFnType(node) => parse_function_type(node, context),
+            Node::TsGetterSignature(node) => parse_getter_signature(node, context),
+            Node::TsSetterSignature(node) => parse_setter_signature(node, context),
             Node::TsKeywordType(node) => parse_keyword_type(node, context),
             Node::TsImportType(node) => parse_import_type(node, context),
             Node::TsIndexedAccessType(node) => parse_indexed_access_type(node, context),
@@ -303,7 +305,7 @@ fn parse_node_with_inner_parse<'a>(node: Node<'a>, context: &mut Context<'a>, in
             Node::TsTypeRef(node) => parse_type_reference(node, context),
             Node::TsUnionType(node) => parse_union_type(node, context),
             /* These should never be matched. Return its text if so */
-            Node::Class(_) | Node::Function(_) | Node::Invalid(_) | Node::Script(_) | Node::WithStmt(_) | Node::TsModuleBlock(_) | Node::TsGetterSignature(_) | Node::TsSetterSignature(_) => {
+            Node::Class(_) | Node::Function(_) | Node::Invalid(_) | Node::Script(_) | Node::WithStmt(_) | Node::TsModuleBlock(_) => {
                 if cfg!(debug_assertions) {
                     panic!("Debug panic! Did not expect to parse node of type {}.", node.kind());
                 }
@@ -2394,31 +2396,73 @@ fn parse_index_signature<'a>(node: &'a TsIndexSignature, context: &mut Context<'
 }
 
 fn parse_method_signature<'a>(node: &'a TsMethodSignature, context: &mut Context<'a>) -> PrintItems {
+    parse_method_signature_like(MethodSignatureLike {
+        node: node.into(),
+        method_kind: MethodSignatureLikeKind::Method,
+        computed: node.computed(),
+        optional: node.optional(),
+        key: node.key.into(),
+        parameters_span: node.get_parameters_span(context),
+        type_params: node.type_params.map(|p| p.into()),
+        params: node.params.iter().map(|p| p.into()).collect(),
+        type_ann: node.type_ann.map(|p| p.into()),
+    }, context)
+}
+
+enum MethodSignatureLikeKind {
+    Method,
+    Getter,
+    Setter,
+}
+
+struct MethodSignatureLike<'a> {
+    node: Node<'a>,
+    method_kind: MethodSignatureLikeKind,
+    computed: bool,
+    optional: bool,
+    key: Node<'a>,
+    type_params: Option<Node<'a>>,
+    parameters_span: Option<Span>,
+    params: Vec<Node<'a>>,
+    type_ann: Option<Node<'a>>,
+}
+
+fn parse_method_signature_like<'a>(node: MethodSignatureLike<'a>, context: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
     let start_info = Info::new("startMethodSignature");
     items.push_info(start_info);
 
-    items.extend(if node.computed() {
-        parse_computed_prop_like(|context| parse_node(node.key.into(), context), ParseComputedPropLikeOptions {
+    match node.method_kind {
+        MethodSignatureLikeKind::Getter => items.push_str("get "),
+        MethodSignatureLikeKind::Setter => items.push_str("set "),
+        MethodSignatureLikeKind::Method => {},
+    }
+
+    items.extend(if node.computed {
+        parse_computed_prop_like(|context| parse_node(node.key, context), ParseComputedPropLikeOptions {
             inner_node_span: node.key.span(),
         }, context)
     } else {
-        parse_node(node.key.into(), context)
+        parse_node(node.key, context)
     });
 
-    if node.optional() { items.push_str("?"); }
+    if node.optional { items.push_str("?"); }
     if let Some(type_params) = node.type_params { items.extend(parse_node(type_params.into(), context)); }
 
+    let param_count = node.params.len();
     items.extend(parse_parameters_or_arguments(ParseParametersOrArgumentsOptions {
-        node: node.into(),
-        span: node.get_parameters_span(context),
-        nodes: node.params.iter().map(|node| node.into()).collect(),
-        custom_close_paren: |context| Some(parse_close_paren_with_type(ParseCloseParenWithTypeOptions {
-            start_info,
-            type_node: node.type_ann.map(|x| x.into()),
-            type_node_separator: None,
-            param_count: node.params.len(),
-        }, context)),
+        node: node.node,
+        span: node.parameters_span,
+        nodes: node.params,
+        custom_close_paren: {
+            let type_node = node.type_ann;
+            move |context| Some(parse_close_paren_with_type(ParseCloseParenWithTypeOptions {
+                start_info,
+                type_node,
+                type_node_separator: None,
+                param_count,
+            }, context))
+        },
         is_parameters: true,
     }, context));
 
@@ -4108,6 +4152,34 @@ fn parse_function_type<'a>(node: &'a TsFnType, context: &mut Context<'a>) -> Pri
     ));
 
     return items;
+}
+
+fn parse_getter_signature<'a>(node: &'a TsGetterSignature, context: &mut Context<'a>) -> PrintItems {
+    parse_method_signature_like(MethodSignatureLike {
+        node: node.into(),
+        method_kind: MethodSignatureLikeKind::Getter,
+        computed: node.computed(),
+        optional: node.optional(),
+        key: node.key.into(),
+        parameters_span: node.get_parameters_span(context),
+        type_params: None,
+        params: Vec::with_capacity(0),
+        type_ann: node.type_ann.map(|p| p.into()),
+    }, context)
+}
+
+fn parse_setter_signature<'a>(node: &'a TsSetterSignature, context: &mut Context<'a>) -> PrintItems {
+    parse_method_signature_like(MethodSignatureLike {
+        node: node.into(),
+        method_kind: MethodSignatureLikeKind::Setter,
+        computed: node.computed(),
+        optional: node.optional(),
+        key: node.key.into(),
+        parameters_span: node.get_parameters_span(context),
+        type_params: None,
+        params: vec![node.param.into()],
+        type_ann: None,
+    }, context)
 }
 
 fn parse_keyword_type<'a>(node: &'a TsKeywordType, context: &mut Context<'a>) -> PrintItems {

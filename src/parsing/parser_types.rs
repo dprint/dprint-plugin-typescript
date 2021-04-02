@@ -418,6 +418,28 @@ impl<'a> ParametersSpanned for &TsConstructSignatureDecl<'a> {
     }
 }
 
+impl<'a> ParametersSpanned for &TsGetterSignature<'a> {
+    fn get_parameters_span(&self, context: &mut Context) -> Option<Span> {
+        get_params_or_args_span(
+            self.lo(),
+            Vec::with_capacity(0),
+            self.type_ann.as_ref().map(|t| t.lo()).unwrap_or(self.hi()),
+            context
+        )
+    }
+}
+
+impl<'a> ParametersSpanned for &TsSetterSignature<'a> {
+    fn get_parameters_span(&self, context: &mut Context) -> Option<Span> {
+        get_params_or_args_span(
+            self.lo(),
+            vec![self.param.span()],
+            self.hi(),
+            context
+        )
+    }
+}
+
 impl<'a> ParametersSpanned for &TsMethodSignature<'a> {
     fn get_parameters_span(&self, context: &mut Context) -> Option<Span> {
         get_params_or_args_span(
