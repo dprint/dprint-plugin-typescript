@@ -30,3 +30,22 @@ tag `ttttttttttttttttttttttttttttttttttt`;
 
 [expect]
 tag `ttttttttttttttttttttttttttttttttttt`;
+
+== should handle block comments between the tag and tpl on the same line ==
+tag /* 1 */ `testing`
+tag /* 1 */
+`testing`
+
+[expect]
+tag /* 1 */ `testing`;
+tag /* 1 */ `testing`;
+
+== should handle line comments between the tag and tpl ==
+tag // 1
+// 2
+/* 3 */ `testing` // 4
+
+[expect]
+tag // 1
+    // 2
+    /* 3 */ `testing`; // 4

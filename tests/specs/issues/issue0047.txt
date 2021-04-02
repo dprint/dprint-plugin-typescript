@@ -1,0 +1,13 @@
+== should keep the comment as-is before a template literal in a tagged template ==
+const t = {
+    t: String.raw // 1
+    // 2
+    /* 3 */ `testing` // 4
+}
+
+[expect]
+const t = {
+    t: String.raw // 1
+        // 2
+        /* 3 */ `testing`, // 4
+};

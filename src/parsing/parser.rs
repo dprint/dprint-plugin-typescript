@@ -303,7 +303,7 @@ fn parse_node_with_inner_parse<'a>(node: Node<'a>, context: &mut Context<'a>, in
             Node::TsTypeRef(node) => parse_type_reference(node, context),
             Node::TsUnionType(node) => parse_union_type(node, context),
             /* These should never be matched. Return its text if so */
-            Node::Class(_) | Node::Function(_) | Node::Invalid(_) | Node::Script(_) | Node::WithStmt(_) | Node::TsModuleBlock(_) => {
+            Node::Class(_) | Node::Function(_) | Node::Invalid(_) | Node::Script(_) | Node::WithStmt(_) | Node::TsModuleBlock(_) | Node::TsGetterSignature(_) | Node::TsSetterSignature(_) => {
                 if cfg!(debug_assertions) {
                     panic!("Debug panic! Did not expect to parse node of type {}.", node.kind());
                 }
@@ -420,7 +420,7 @@ fn parse_class_method<'a>(node: &'a ClassMethod, context: &mut Context<'a>) -> P
         is_static: node.is_static(),
         is_async: node.function.is_async(),
         is_abstract: node.is_abstract(),
-        kind: node.kind().into(),
+        kind: node.method_kind().into(),
         is_generator: node.function.is_generator(),
         is_optional: node.is_optional(),
         key: node.key.into(),
@@ -440,7 +440,7 @@ fn parse_private_method<'a>(node: &'a PrivateMethod, context: &mut Context<'a>) 
         is_static: node.is_static(),
         is_async: node.function.is_async(),
         is_abstract: node.is_abstract(),
-        kind: node.kind().into(),
+        kind: node.method_kind().into(),
         is_generator: node.function.is_generator(),
         is_optional: node.is_optional(),
         key: node.key.into(),
@@ -2086,17 +2086,18 @@ fn parse_tagged_tpl<'a>(node: &'a TaggedTpl, context: &mut Context<'a>) -> Print
     let mut items = parse_node(node.tag.into(), context);
     if let Some(type_params) = node.type_params { items.extend(parse_node(type_params.into(), context)); }
 
-    items.push_condition(conditions::if_above_width_or(
-        context.config.indent_width,
-        if use_space { Signal::SpaceOrNewLine } else { Signal::PossibleNewLine }.into(),
-        if use_space { " ".into() } else { PrintItems::new() }
-    ));
+    let parsed_between_comments = parse_comments_between_lines_indented(node.tag.hi(), context);
+    if parsed_between_comments.is_empty() {
+        items.push_condition(conditions::if_above_width_or(
+            context.config.indent_width,
+            if use_space { Signal::SpaceOrNewLine } else { Signal::PossibleNewLine }.into(),
+            if use_space { Signal::SpaceIfNotTrailing.into() } else { PrintItems::new() }
+        ));
+    } else {
+        items.extend(parsed_between_comments);
+    }
 
-    items.push_condition(conditions::indent_if_start_of_line(parse_template_literal(
-        node.quasis.iter().map(|&n| n.into()).collect(),
-        node.exprs.iter().map(|x| x.into()).collect(),
-        context,
-    )));
+    items.push_condition(conditions::indent_if_start_of_line(parse_node(node.tpl.into(), context)));
     items
 }
 
@@ -3825,7 +3826,7 @@ fn parse_var_decl<'a>(node: &'a VarDecl, context: &mut Context<'a>) -> PrintItem
     let mut items = PrintItems::new();
     let force_use_new_lines = get_use_new_lines(&node.decls, context);
     if node.declare() { items.push_str("declare "); }
-    items.push_str(match node.kind() {
+    items.push_str(match node.decl_kind() {
         VarDeclKind::Const => "const ",
         VarDeclKind::Let => "let ",
         VarDeclKind::Var => "var ",
@@ -4636,6 +4637,43 @@ fn parse_comments_as_statements<'a>(comments: impl Iterator<Item=&'a Comment>, l
         }
     }
     items
+}
+
+fn parse_comments_between_lines_indented<'a>(start_between_pos: BytePos, context: &mut Context<'a>) -> PrintItems {
+    let trailing_comments = get_comments_between_lines(start_between_pos, context);
+    let mut items = PrintItems::new();
+
+    if !trailing_comments.is_empty() {
+        items.extend(with_indent({
+            let mut items = PrintItems::new();
+            if let Some(first_comment) = trailing_comments.iter().next() {
+                if first_comment.kind == CommentKind::Block {
+                    items.push_signal(Signal::SpaceIfNotTrailing);
+                }
+            }
+            items.extend(parse_comment_collection(trailing_comments.into_iter(), Some(&start_between_pos), None, context));
+            items
+        }));
+        items.push_signal(Signal::NewLine);
+    }
+
+    return items;
+
+    fn get_comments_between_lines<'a>(previous_token_end: BytePos, context: &mut Context<'a>) -> Vec<&'a Comment> {
+        let mut comments = Vec::new();
+        let trailing_comments = previous_token_end.trailing_comments_fast(context.module);
+        if !trailing_comments.is_empty() {
+            let next_token_pos = context.token_finder.get_next_token_pos_after(&previous_token_end);
+            let next_token_start_line = next_token_pos.start_line_fast(context.module);
+
+            for comment in trailing_comments {
+                if !context.has_handled_comment(comment) && comment.start_line_fast(context.module) < next_token_start_line {
+                    comments.push(comment);
+                }
+            }
+        }
+        comments
+    }
 }
 
 fn parse_comment_collection<'a>(comments: impl Iterator<Item=&'a Comment>, last_node: Option<&dyn Spanned>, next_node: Option<&dyn Spanned>, context: &mut Context<'a>) -> PrintItems {
@@ -6947,21 +6985,9 @@ fn parse_assignment_like_with_token<'a>(expr: Node<'a>, op: &str, op_token: Opti
     if op == ":" { items.push_str(op) } else { items.push_str(&format!(" {}", op)) }; // good enough for now...
 
     let op_end = op_token.map(|x| x.hi()).unwrap_or_else(|| context.token_finder.get_previous_token_end_before(&expr));
-    let op_trailing_comments = get_op_trailing_comments(op_end, context);
+    let op_trailing_comments = parse_comments_between_lines_indented(op_end, context);
     let had_op_trailing_comments = !op_trailing_comments.is_empty();
-    if !op_trailing_comments.is_empty() {
-        items.extend(with_indent({
-            let mut items = PrintItems::new();
-            if let Some(first_comment) = op_trailing_comments.iter().next() {
-                if first_comment.kind == CommentKind::Block {
-                    items.push_signal(Signal::SpaceIfNotTrailing);
-                }
-            }
-            items.extend(parse_comment_collection(op_trailing_comments.into_iter(), Some(&op_end), None, context));
-            items
-        }));
-        items.push_signal(Signal::NewLine);
-    }
+    items.extend(op_trailing_comments);
 
     let parsed_assignment = {
         let mut items = PrintItems::new();
@@ -6998,22 +7024,6 @@ fn parse_assignment_like_with_token<'a>(expr: Node<'a>, op: &str, op_token: Opti
             Node::MemberExpr(_) => true,
             _ => false,
         }
-    }
-
-    fn get_op_trailing_comments<'a>(previous_token_end: BytePos, context: &mut Context<'a>) -> Vec<&'a Comment> {
-        let mut comments = Vec::new();
-        let trailing_comments = previous_token_end.trailing_comments_fast(context.module);
-        if !trailing_comments.is_empty() {
-            let next_token_pos = context.token_finder.get_next_token_pos_after(&previous_token_end);
-            let next_token_start_line = next_token_pos.start_line_fast(context.module);
-
-            for comment in trailing_comments {
-                if !context.has_handled_comment(comment) && comment.start_line_fast(context.module) < next_token_start_line {
-                    comments.push(comment);
-                }
-            }
-        }
-        comments
     }
 }
 

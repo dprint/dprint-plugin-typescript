@@ -1,0 +1,13 @@
+== should not panic -- this was an swc issue ==
+import assert from './index'
+
+assert<123>(123)
+assert<123>(123, 123)
+assert<123>(123, 123, 123)
+
+[expect]
+import assert from "./index";
+
+assert<123>(123);
+assert<123>(123, 123);
+assert<123>(123, 123, 123);
