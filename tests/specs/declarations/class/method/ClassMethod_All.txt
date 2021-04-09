@@ -1,12 +1,12 @@
 ~~ lineWidth: 50 ~~
 == should format different kinds of class methods ==
-abstract class Test {
+abstract class Test extends Base {
     constructor() {
         super(5, 4);
     }
 
     @dec
-    public static async method1(): string {
+    public static override async method1(): 2 {
         // test
     }
 
@@ -46,13 +46,13 @@ abstract class Test {
 }
 
 [expect]
-abstract class Test {
+abstract class Test extends Base {
     constructor() {
         super(5, 4);
     }
 
     @dec
-    public static async method1(): string {
+    public static override async method1(): 2 {
         // test
     }
 

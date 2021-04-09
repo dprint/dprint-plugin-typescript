@@ -1,10 +1,11 @@
 ~~ lineWidth: 40 ~~
 == should format ==
-class Test {
+class Test extends Base {
     #p1;
     #p2 : string;
     #p3    =   4;
     #p4 ?  : string;
+    override #p5;
 
     constructor() {
         this.#p1 = "test";
@@ -12,11 +13,12 @@ class Test {
 }
 
 [expect]
-class Test {
+class Test extends Base {
     #p1;
     #p2: string;
     #p3 = 4;
     #p4?: string;
+    override #p5;
 
     constructor() {
         this.#p1 = "test";

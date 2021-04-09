@@ -425,6 +425,7 @@ fn parse_class_method<'a>(node: &'a ClassMethod, context: &mut Context<'a>) -> P
         kind: node.method_kind().into(),
         is_generator: node.function.is_generator(),
         is_optional: node.is_optional(),
+        is_override: node.is_override(),
         key: node.key.into(),
         type_params: node.function.type_params.map(|x| x.into()),
         params: node.function.params.iter().map(|&x| x.into()).collect(),
@@ -445,6 +446,7 @@ fn parse_private_method<'a>(node: &'a PrivateMethod, context: &mut Context<'a>) 
         kind: node.method_kind().into(),
         is_generator: node.function.is_generator(),
         is_optional: node.is_optional(),
+        is_override: node.is_override(),
         key: node.key.into(),
         type_params: node.function.type_params.map(|x| x.into()),
         params: node.function.params.iter().map(|&x| x.into()).collect(),
@@ -465,6 +467,7 @@ fn parse_class_prop<'a>(node: &'a ClassProp, context: &mut Context<'a>) -> Print
         accessibility: node.accessibility(),
         is_abstract: node.is_abstract(),
         is_optional: node.is_optional(),
+        is_override: node.is_override(),
         readonly: node.readonly(),
         definite: node.definite(),
     }, context)
@@ -482,6 +485,7 @@ fn parse_constructor<'a>(node: &'a Constructor, context: &mut Context<'a>) -> Pr
         kind: ClassOrObjectMethodKind::Constructor,
         is_generator: false,
         is_optional: node.is_optional(),
+        is_override: false,
         key: node.key.into(),
         type_params: None,
         params: node.params.iter().map(|x| x.into()).collect(),
@@ -527,6 +531,7 @@ fn parse_private_prop<'a>(node: &'a PrivateProp, context: &mut Context<'a>) -> P
         accessibility: node.accessibility(),
         is_abstract: node.is_abstract(),
         is_optional: node.is_optional(),
+        is_override: node.is_override(),
         readonly: node.readonly(),
         definite: node.definite(),
     }, context)
@@ -543,6 +548,7 @@ struct ParseClassPropCommon<'a> {
     pub accessibility: Option<Accessibility>,
     pub is_abstract: bool,
     pub is_optional: bool,
+    pub is_override: bool,
     pub readonly: bool,
     pub definite: bool,
 }
@@ -556,6 +562,7 @@ fn parse_class_prop_common<'a>(node: ParseClassPropCommon<'a>, context: &mut Con
     }
     if node.is_static { items.push_str("static "); }
     if node.is_abstract { items.push_str("abstract "); }
+    if node.is_override { items.push_str("override "); }
     if node.readonly { items.push_str("readonly "); }
     let key_span = node.key.span();
     items.extend(if node.computed {
@@ -1941,6 +1948,7 @@ fn parse_getter_prop<'a>(node: &'a GetterProp, context: &mut Context<'a>) -> Pri
         kind: ClassOrObjectMethodKind::Getter,
         is_generator: false,
         is_optional: false,
+        is_override: false,
         key: node.key.into(),
         type_params: None,
         params: Vec::new(),
@@ -2068,6 +2076,7 @@ fn parse_setter_prop<'a>(node: &'a SetterProp, context: &mut Context<'a>) -> Pri
         kind: ClassOrObjectMethodKind::Setter,
         is_generator: false,
         is_optional: false,
+        is_override: false,
         key: node.key.into(),
         type_params: None,
         params: vec![node.param.into()],
@@ -2384,6 +2393,7 @@ fn parse_construct_signature_decl<'a>(node: &'a TsConstructSignatureDecl, contex
 fn parse_index_signature<'a>(node: &'a TsIndexSignature, context: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
 
+    if node.is_static() { items.push_str("static "); }
     if node.readonly() { items.push_str("readonly "); }
 
     let param: Node<'a> = node.params.iter().next().expect("Expected the index signature to have one parameter.").into();
@@ -3025,6 +3035,7 @@ fn parse_method_prop<'a>(node: &'a MethodProp, context: &mut Context<'a>) -> Pri
         is_static: false,
         is_async: node.function.is_async(),
         is_abstract: false,
+        is_override: false,
         kind: ClassOrObjectMethodKind::Method,
         is_generator: node.function.is_generator(),
         is_optional: false,
@@ -3047,6 +3058,7 @@ struct ClassOrObjectMethod<'a> {
     kind: ClassOrObjectMethodKind,
     is_generator: bool,
     is_optional: bool,
+    is_override: bool,
     key: Node<'a>,
     type_params: Option<Node<'a>>,
     params: Vec<Node<'a>>,
@@ -3085,6 +3097,7 @@ fn parse_class_or_object_method<'a>(node: ClassOrObjectMethod<'a>, context: &mut
     }
     if node.is_static { items.push_str("static "); }
     if node.is_abstract { items.push_str("abstract "); }
+    if node.is_override { items.push_str("override "); }
     if node.is_async { items.push_str("async "); }
 
     match node.kind {

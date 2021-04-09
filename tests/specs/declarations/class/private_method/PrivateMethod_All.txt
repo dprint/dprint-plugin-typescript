@@ -1,20 +1,26 @@
 ~~ lineWidth: 50 ~~
 == should format private methods ==
-abstract class Test {
+abstract class Test extends Base {
     #method1(   arg   : string  )   : test {
         return    5   ;
     }
 
     #method2?() {
     }
+
+    override async #method3() {
+    }
 }
 
 [expect]
-abstract class Test {
+abstract class Test extends Base {
     #method1(arg: string): test {
         return 5;
     }
 
     #method2?() {
+    }
+
+    override async #method3() {
     }
 }

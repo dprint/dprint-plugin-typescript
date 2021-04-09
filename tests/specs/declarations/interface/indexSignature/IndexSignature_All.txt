@@ -6,6 +6,10 @@ interface T {
     readonly [index]: string;
 }
 
+class Test {
+    static readonly [index]: number;
+}
+
 [expect]
 interface T {
     [index: number]: string;
@@ -14,4 +18,8 @@ interface T {
         | number
         | boolean;
     readonly [index]: string;
+}
+
+class Test {
+    static readonly [index]: number;
 }
