@@ -49,11 +49,24 @@ fn test_specs() {
         &PathBuf::from("./tests/specs"),
         &ParseSpecOptions { default_file_name: "file.ts" },
         &RunSpecsOptions { fix_failures: false, format_twice: true },
-        move |file_name, file_text, spec_config| {
-            let config_result = resolve_config(parse_config_key_map(spec_config), &global_config);
-            ensure_no_diagnostics(&config_result.diagnostics);
+        {
+            let global_config = global_config.clone();
+            move |file_name, file_text, spec_config| {
+                let config_result = resolve_config(parse_config_key_map(spec_config), &global_config);
+                ensure_no_diagnostics(&config_result.diagnostics);
 
-            format_text(&file_name, &file_text, &config_result.config)
+                format_text(&file_name, &file_text, &config_result.config)
+            }
+        },
+        move |file_name, file_text, spec_config| {
+            #[cfg(debug_assertions)]
+            {
+                let config_result = resolve_config(parse_config_key_map(spec_config), &global_config);
+                ensure_no_diagnostics(&config_result.diagnostics);
+                return serde_json::to_string(&trace_file(&file_name, &file_text, &config_result.config)).unwrap();
+            }
+            #[cfg(not(debug_assertions))]
+            panic!("Not implemented.")
         }
     )
 }

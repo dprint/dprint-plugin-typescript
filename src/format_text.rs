@@ -40,14 +40,27 @@ pub fn format_text(file_path: &Path, file_text: &str, config: &Configuration) ->
     }
 
     let parsed_source_file = parse_swc_ast(file_path, file_text)?;
-    return Ok(dprint_core::formatting::format(|| {
+    Ok(dprint_core::formatting::format(|| {
         let print_items = parse(&parsed_source_file, config);
         // println!("{}", print_items.get_as_text());
         print_items
-    }, PrintOptions {
+    }, config_to_print_options(file_text, config)))
+}
+
+#[cfg(debug_assertions)]
+pub fn trace_file(file_path: &Path, file_text: &str, config: &Configuration) -> dprint_core::formatting::TracingResult {
+    let parsed_source_file = parse_swc_ast(file_path, file_text).expect("Expected to parse to SWC AST.");
+    dprint_core::formatting::trace_printing(
+        || parse(&parsed_source_file, config),
+        config_to_print_options(file_text, config),
+    )
+}
+
+fn config_to_print_options(file_text: &str, config: &Configuration) -> PrintOptions {
+    PrintOptions {
         indent_width: config.indent_width,
         max_width: config.line_width,
         use_tabs: config.use_tabs,
         new_line_text: resolve_new_line_kind(file_text, config.new_line_kind),
-    }));
+    }
 }
