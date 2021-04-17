@@ -47,7 +47,7 @@ pub fn format_text(file_path: &Path, file_text: &str, config: &Configuration) ->
     }, config_to_print_options(file_text, config)))
 }
 
-#[cfg(debug_assertions)]
+#[cfg(feature = "tracing")]
 pub fn trace_file(file_path: &Path, file_text: &str, config: &Configuration) -> dprint_core::formatting::TracingResult {
     let parsed_source_file = parse_swc_ast(file_path, file_text).expect("Expected to parse to SWC AST.");
     dprint_core::formatting::trace_printing(

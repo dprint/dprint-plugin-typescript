@@ -7055,10 +7055,10 @@ fn parse_assignment<'a>(expr: Node<'a>, op: &str, context: &mut Context<'a>) -> 
 }
 
 #[inline]
-fn parse_assignment_op_to<'a>(expr: Node<'a>, op: &str, op_to: &str, context: &mut Context<'a>) -> PrintItems {
+fn parse_assignment_op_to<'a>(expr: Node<'a>, _op: &str, op_to: &str, context: &mut Context<'a>) -> PrintItems {
     let op_token = context.token_finder.get_previous_token(&expr);
     #[cfg(debug_assertions)]
-    assert_has_op(op, op_token, context);
+    assert_has_op(_op, op_token, context);
 
     parse_assignment_like_with_token(expr, op_to, op_token, context)
 }

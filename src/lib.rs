@@ -8,7 +8,7 @@ mod utils;
 
 pub use format_text::format_text;
 
-#[cfg(debug_assertions)]
+#[cfg(feature = "tracing")]
 pub use format_text::trace_file;
 
 #[cfg(feature = "wasm")]
