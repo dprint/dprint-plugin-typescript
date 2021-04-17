@@ -1,0 +1,19 @@
+== should not have an extra whitespace after extends ==
+type EnumerableValueOfT<T> = T extends [unknown, infer V][] ? V
+    : T extends
+        | ArrayLike<infer V>
+        | Iterable<infer V>
+        | AsyncIterable<infer V>
+        | IterableIterator<infer V>
+        | AsyncIterableIterator<infer V> ? V
+    : unknown;
+
+[expect]
+type EnumerableValueOfT<T> = T extends [unknown, infer V][] ? V
+    : T extends
+        | ArrayLike<infer V>
+        | Iterable<infer V>
+        | AsyncIterable<infer V>
+        | IterableIterator<infer V>
+        | AsyncIterableIterator<infer V> ? V
+    : unknown;
