@@ -52,12 +52,6 @@ jobs:
       id: get_tag_version
       run: echo ::set-output name=TAG_VERSION::${GITHUB_REF/refs\/tags\//}
 
-    - name: Pre-release
-      if: matrix.config.kind == 'test_release' && startsWith(github.ref, 'refs/tags/')
-      run: |
-        cd target/wasm32-unknown-unknown/release/
-        mv dprint_plugin_typescript.wasm typescript-${{ steps.get_tag_version.outputs.TAG_VERSION }}.wasm
-
     - name: Release
       uses: softprops/action-gh-release@v1
       if: matrix.config.kind == 'test_release' && startsWith(github.ref, 'refs/tags/')
@@ -65,7 +59,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         files: |
-          target/wasm32-unknown-unknown/release/typescript-${{ steps.get_tag_version.outputs.TAG_VERSION }}.wasm
+          target/wasm32-unknown-unknown/release/typescript.wasm
         body: |
           ## Install
 
@@ -86,7 +80,7 @@ jobs:
                  "**/*.{ts,tsx,js,jsx,mjs}"
                ],
                "excludes": [
-                 "**/node_modules" // if necessary
+                 "**/node_modules"
                ],
                "plugins": [
                  "https://plugins.dprint.dev/typescript-${{ steps.get_tag_version.outputs.TAG_VERSION }}.wasm"
