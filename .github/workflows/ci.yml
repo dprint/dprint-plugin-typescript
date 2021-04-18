@@ -62,6 +62,11 @@ jobs:
       run: cargo publish
 
       # GITHUB RELEASE
+    - name: Pre-release
+      if: matrix.config.kind == 'test_release' && startsWith(github.ref, 'refs/tags/')
+      run: |
+        cd target/wasm32-unknown-unknown/release/
+        mv dprint_plugin_typescript.wasm typescript.wasm
     - name: Release
       uses: softprops/action-gh-release@v1
       if: matrix.config.kind == 'test_release' && startsWith(github.ref, 'refs/tags/')
