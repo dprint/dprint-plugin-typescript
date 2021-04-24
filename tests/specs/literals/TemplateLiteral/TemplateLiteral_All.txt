@@ -135,3 +135,20 @@ myCustomTag
 `${date.getUTCDay()}, ${d} ${
     date.getUTCMonth(test)
 } ${y} ${h}:${testtt}:${s} GMT`;
+
+== should place opening backtick in same line if it starts with newline ==
+const b = () => `
+    test
+`;
+
+[expect]
+const b = () => `
+    test
+`;
+
+== should place opening backtick in different line if it starts with a non-newline character ==
+const test = () => `testing this out testing testing testing testin gtesting testing`
+
+[expect]
+const test = () =>
+    `testing this out testing testing testing testin gtesting testing`;

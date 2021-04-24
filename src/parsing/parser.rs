@@ -1357,6 +1357,9 @@ fn parse_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> 
             BlockStmtOrExpr::Expr(expr) => {
                 match expr {
                     Expr::Paren(_) | Expr::Array(_) => true,
+                    Expr::Tpl(tpl)=>{
+                        tpl.quasis[0].raw.value().starts_with(|c:char| c == '\n' || c == '\r')
+                    }
                     _ => false,
                 }
             }
