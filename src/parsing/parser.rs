@@ -4829,18 +4829,10 @@ fn parse_comment(comment: &Comment, context: &mut Context) -> Option<PrintItems>
 
     // mark handled and parse
     context.mark_comment_handled(comment);
-    return Some(match comment.kind {
-        CommentKind::Block => parse_comment_block(comment),
+    Some(match comment.kind {
+        CommentKind::Block => parser_helpers::parse_js_like_comment_block(&comment.text),
         CommentKind::Line => parser_helpers::parse_js_like_comment_line(&comment.text, context.config.comment_line_force_space_after_slashes),
-    });
-
-    fn parse_comment_block(comment: &Comment) -> PrintItems {
-        let mut items = PrintItems::new();
-        items.push_str("/*");
-        items.extend(parse_raw_string(&comment.text));
-        items.push_str("*/");
-        items
-    }
+    })
 }
 
 fn parse_first_line_trailing_comments<'a>(node: &dyn Spanned, first_member: Option<Span>, context: &mut Context<'a>) -> PrintItems {

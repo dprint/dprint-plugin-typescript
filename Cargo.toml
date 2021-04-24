@@ -25,7 +25,7 @@ wasm = ["serde_json", "dprint-core/wasm"]
 tracing = ["dprint-core/tracing"]
 
 [dependencies]
-dprint-core = { version = "0.37.0", features = ["formatting"] }
+dprint-core = { version = "0.38.0", features = ["formatting"] }
 fnv = "1.0.7"
 swc_common = "0.10.14"
 swc_ecmascript = { version = "0.31.0", features = ["parser"] }

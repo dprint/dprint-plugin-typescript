@@ -1,0 +1,9 @@
+== should remove trailing whitespace in block comments ==
+/* aa   
+ */  
+function a() {}   
+
+[expect]
+/* aa
+ */
+function a() {}
