@@ -81,7 +81,7 @@ fn parse_inner(file_path: &Path, file_text: &str) -> Result<ParsedSourceFile, St
 
     fn should_parse_as_jsx(file_path: &Path) -> bool {
         if let Some(extension) = get_lowercase_extension(file_path) {
-            return extension == "tsx" || extension == "jsx" || extension == "js" || extension == "mjs";
+            return extension == "tsx" || extension == "jsx" || extension == "js" || extension == "mjs" || extension == "cjs";
         }
         return true;
     }

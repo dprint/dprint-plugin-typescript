@@ -1,0 +1,14 @@
+-- fileName: test.cjs --
+== should format cjs file ==
+class Test{ prop = 5}
+
+[expect]
+class Test {
+    prop = 5;
+}
+
+== should support JSX in cjs file ==
+const test     = <Test>Test</Test>;
+
+[expect]
+const test = <Test>Test</Test>;

@@ -7,7 +7,7 @@ fn get_plugin_config_key() -> String {
 }
 
 fn get_plugin_file_extensions() -> Vec<String> {
-    vec![String::from("ts"), String::from("tsx"), String::from("js"), String::from("jsx"), String::from("mjs")]
+    vec![String::from("ts"), String::from("tsx"), String::from("js"), String::from("jsx"), String::from("mjs"), String::from("cjs")]
 }
 
 fn get_plugin_help_url() -> String {
