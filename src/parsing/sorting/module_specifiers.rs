@@ -15,12 +15,10 @@ pub fn cmp_module_specifiers(a: &str, b: &str, cmp_text: impl Fn(&str, &str) -> 
             match b_info.kind {
                 ModuleSpecifierKind::Absolute => Ordering::Greater,
                 ModuleSpecifierKind::Relative(b_relative_count) => {
-                    if a_relative_count > b_relative_count {
-                        Ordering::Less
-                    } else if a_relative_count < b_relative_count {
-                        Ordering::Greater
-                    } else {
-                        compare_folder_items(&a_info, &b_info, cmp_text)
+                    match a_relative_count.cmp(&b_relative_count) {
+                        Ordering::Greater => Ordering::Less,
+                        Ordering::Less => Ordering::Greater,
+                        Ordering::Equal => compare_folder_items(&a_info, &b_info, cmp_text),
                     }
                 },
             }
@@ -66,7 +64,7 @@ enum ModuleSpecifierKind {
 
 fn get_module_specifier_info<'a>(text: &'a str) -> ModuleSpecifierInfo<'a> {
     let no_quotes_text = &text[1..text.len() - 1];
-    let parts = no_quotes_text.split("/").collect::<Vec<_>>();
+    let parts = no_quotes_text.split('/').collect::<Vec<_>>();
     if parts[0] == "." || parts[0] == ".." {
         let mut relative_count = 0;
         let mut start_index = 0;

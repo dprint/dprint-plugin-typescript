@@ -88,7 +88,7 @@ fn cmp_nodes<'a>(
     }
 }
 
-fn get_comparison_nodes<'a>(node: &Node<'a>) -> Vec<Span> {
+fn get_comparison_nodes(node: &Node) -> Vec<Span> {
     match node {
         Node::ImportNamedSpecifier(node) => {
             if let Some(imported) = &node.imported {

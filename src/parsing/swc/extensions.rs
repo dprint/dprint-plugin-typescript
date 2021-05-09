@@ -12,53 +12,35 @@ pub trait BinaryOpExtensions {
 
 impl BinaryOpExtensions for BinaryOp {
     fn is_add_sub(&self) -> bool {
-        match self {
-            BinaryOp::Add | BinaryOp::Sub => true,
-            _ => false,
-        }
+        matches!(self, BinaryOp::Add | BinaryOp::Sub)
     }
 
     fn is_mul_div(&self) -> bool {
-        match self {
-            BinaryOp::Mul | BinaryOp::Div => true,
-            _ => false,
-        }
+        matches!(self, BinaryOp::Mul | BinaryOp::Div)
     }
 
     fn is_bitwise_or_arithmetic(&self) -> bool {
-        match self {
+        matches!(
+            self,
             BinaryOp::LShift | BinaryOp::RShift | BinaryOp::ZeroFillRShift | BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul
                 | BinaryOp::Div | BinaryOp::Mod | BinaryOp::BitOr | BinaryOp::BitXor
-                | BinaryOp::BitAnd => true,
-            _ => false,
-        }
+                | BinaryOp::BitAnd
+        )
     }
 
     fn is_logical(&self) -> bool {
-        match self {
-            BinaryOp::LogicalAnd | BinaryOp::LogicalOr => true,
-            _ => false,
-        }
+        matches!(self, BinaryOp::LogicalAnd | BinaryOp::LogicalOr)
     }
 
     fn is_bit_logical(&self) -> bool {
-        match self {
-            BinaryOp::BitOr | BinaryOp::BitAnd | BinaryOp::BitXor => true,
-            _ => false,
-        }
+        matches!(self, BinaryOp::BitOr | BinaryOp::BitAnd | BinaryOp::BitXor)
     }
 
     fn is_bit_shift(&self) -> bool {
-        match self {
-            BinaryOp::LShift | BinaryOp::RShift | BinaryOp::ZeroFillRShift => true,
-            _ => false,
-        }
+        matches!(self, BinaryOp::LShift | BinaryOp::RShift | BinaryOp::ZeroFillRShift)
     }
 
     fn is_equality(&self) -> bool {
-        match self {
-            BinaryOp::EqEq | BinaryOp::NotEq | BinaryOp::EqEqEq | BinaryOp::NotEqEq | BinaryOp::Lt | BinaryOp::LtEq | BinaryOp::Gt | BinaryOp::GtEq => true,
-            _ => false,
-        }
+        matches!(self, BinaryOp::EqEq | BinaryOp::NotEq | BinaryOp::EqEqEq | BinaryOp::NotEqEq | BinaryOp::Lt | BinaryOp::LtEq | BinaryOp::Gt | BinaryOp::GtEq)
     }
 }

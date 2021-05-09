@@ -83,19 +83,18 @@ fn parse_inner(file_path: &Path, file_text: &str) -> Result<ParsedSourceFile, St
         if let Some(extension) = get_lowercase_extension(file_path) {
             return extension == "tsx" || extension == "jsx" || extension == "js" || extension == "mjs" || extension == "cjs";
         }
-        return true;
+        true
     }
 
     fn ensure_no_specific_syntax_errors(errors: Vec<SwcError>, file_text: &str) -> Result<(), String> {
-        let errors = errors.into_iter().filter(|e| match e.kind() {
+        let errors = errors.into_iter().filter(|e| matches!(e.kind(),
             // expected identifier
-            SyntaxError::TS1003 => true,
+            SyntaxError::TS1003 |
             // expected semi-colon
-            SyntaxError::TS1005 => true,
+            SyntaxError::TS1005 |
             // expected expression
-            SyntaxError::TS1109 => true,
-            _ => false,
-        }).collect::<Vec<_>>();
+            SyntaxError::TS1109
+        )).collect::<Vec<_>>();
 
         if errors.is_empty() {
             Ok(())

@@ -7,12 +7,12 @@ pub fn is_first_node_on_line(node: &dyn Spanned, module: &Module) -> bool {
 
     for i in (0..start).rev() {
         let c = source_file_text[i];
-        if c != ' ' as u8 && c != '\t' as u8 {
-            return c == '\n' as u8;
+        if c != b' ' && c != b'\t' {
+            return c == b'\n';
         }
     }
 
-    return true;
+    true
 }
 
 pub fn has_separating_blank_line(first_node: &dyn Spanned, second_node: &dyn Spanned, module: &Module) -> bool {
@@ -33,14 +33,14 @@ pub fn has_separating_blank_line(first_node: &dyn Spanned, second_node: &dyn Spa
 }
 
 pub fn get_use_new_lines_for_nodes(first_node: &dyn Spanned, second_node: &dyn Spanned, module: &Module) -> bool {
-    return first_node.end_line_fast(module) != second_node.start_line_fast(module);
+    first_node.end_line_fast(module) != second_node.start_line_fast(module)
 }
 
-pub fn has_leading_comment_on_different_line<'a>(node: &dyn Spanned, comments_to_ignore: Option<&Vec<&'a Comment>>, module: &Module<'a>) -> bool {
+pub fn has_leading_comment_on_different_line<'a>(node: &dyn Spanned, comments_to_ignore: Option<&[&'a Comment]>, module: &Module<'a>) -> bool {
     get_leading_comment_on_different_line(node, comments_to_ignore, module).is_some()
 }
 
-pub fn get_leading_comment_on_different_line<'a>(node: &dyn Spanned, comments_to_ignore: Option<&Vec<&'a Comment>>, module: &Module<'a>) -> Option<&'a Comment> {
+pub fn get_leading_comment_on_different_line<'a>(node: &dyn Spanned, comments_to_ignore: Option<&[&'a Comment]>, module: &Module<'a>) -> Option<&'a Comment> {
     let comments_to_ignore: Option<Vec<BytePos>> = comments_to_ignore.map(|x| x.iter().map(|c| c.lo()).collect());
     let node_start_line = node.start_line_fast(module);
     for comment in node.leading_comments_fast(module) {
@@ -55,18 +55,18 @@ pub fn get_leading_comment_on_different_line<'a>(node: &dyn Spanned, comments_to
         }
     }
 
-    return None;
+    None
 }
 
 pub fn nodes_have_only_spaces_between(previous_node: &Node, next_node: &Node, module: &Module) -> bool {
     if let Node::JSXText(previous_node) = previous_node {
         let previous_node_text = previous_node.text_fast(module);
         crate::utils::has_no_new_lines_in_trailing_whitespace(previous_node_text)
-            && previous_node_text.chars().last() == Some(' ')
+            && previous_node_text.ends_with(' ')
     } else if let Node::JSXText(next_node) = next_node {
         let next_node_text = next_node.text_fast(module);
         crate::utils::has_no_new_lines_in_leading_whitespace(next_node_text)
-            && next_node_text.chars().next() == Some(' ')
+            && next_node_text.starts_with(' ')
     } else {
         let source_file = module.source_file.as_ref().unwrap();
         crate::utils::is_not_empty_and_only_spaces(&source_file.src[previous_node.hi().0 as usize..next_node.lo().0 as usize])
@@ -192,11 +192,11 @@ pub fn is_test_library_call_expr(node: &CallExpr, module: &Module) -> bool {
     }
 }
 
-pub fn is_optional_call_expr<'a>(node: &dyn NodeTrait<'a>) -> bool {
-    return node.parent().unwrap().kind() == NodeKind::OptChainExpr;
+pub fn is_optional_call_expr(node: &dyn NodeTrait) -> bool {
+    node.parent().unwrap().kind() == NodeKind::OptChainExpr
 }
 
-pub fn is_expr_stmt_or_body_with_single_expr_stmt<'a>(node: Node<'a>) -> bool {
+pub fn is_expr_stmt_or_body_with_single_expr_stmt(node: Node) -> bool {
     match node {
         Node::ExprStmt(_) => true,
         Node::BlockStmt(block) => block.stmts.len() == 1 && block.stmts[0].is::<ExprStmt>(),

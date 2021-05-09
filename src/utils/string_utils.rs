@@ -16,7 +16,7 @@ pub fn has_new_line_occurrences_in_leading_whitespace(text: &str, occurrences: i
         }
     }
 
-    return false;
+    false
 }
 
 pub fn has_no_new_lines_in_leading_whitespace(text: &str) -> bool {
@@ -29,7 +29,7 @@ pub fn has_no_new_lines_in_leading_whitespace(text: &str) -> bool {
         }
     }
 
-    return true;
+    true
 }
 
 pub fn has_new_line_occurrences_in_trailing_whitespace(text: &str, occurrences: i8) -> bool {
@@ -50,7 +50,7 @@ pub fn has_new_line_occurrences_in_trailing_whitespace(text: &str, occurrences: 
         }
     }
 
-    return false;
+    false
 }
 
 pub fn has_no_new_lines_in_trailing_whitespace(text: &str) -> bool {
@@ -63,7 +63,7 @@ pub fn has_no_new_lines_in_trailing_whitespace(text: &str) -> bool {
         }
     }
 
-    return true;
+    true
 }
 
 pub fn is_not_empty_and_only_spaces(text: &str) -> bool {
@@ -77,5 +77,5 @@ pub fn is_not_empty_and_only_spaces(text: &str) -> bool {
         }
     }
 
-    return true;
+    true
 }
