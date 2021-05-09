@@ -21,6 +21,7 @@ pub struct Context<'a> {
     pub end_statement_or_member_infos: Stack<Info>,
     before_comments_start_info_stack: Stack<(Span, Info)>,
     if_stmt_last_brace_condition_ref: Option<ConditionReference>,
+    expr_stmt_single_line_parent_brace_ref: Option<ConditionReference>,
     /// Used for ensuring nodes are parsed in order.
     #[cfg(debug_assertions)]
     pub last_parsed_node_pos: u32,
@@ -48,6 +49,7 @@ impl<'a> Context<'a> {
             end_statement_or_member_infos: Stack::new(),
             before_comments_start_info_stack: Stack::new(),
             if_stmt_last_brace_condition_ref: None,
+            expr_stmt_single_line_parent_brace_ref: None,
             #[cfg(debug_assertions)]
             last_parsed_node_pos: 0,
         }
@@ -87,6 +89,14 @@ impl<'a> Context<'a> {
 
     pub fn take_if_stmt_last_brace_condition_ref(&mut self) -> Option<ConditionReference> {
         self.if_stmt_last_brace_condition_ref.take()
+    }
+
+    pub fn store_expr_stmt_single_line_parent_brace_ref(&mut self, condition_reference: ConditionReference) {
+        self.expr_stmt_single_line_parent_brace_ref = Some(condition_reference);
+    }
+
+    pub fn take_expr_stmt_single_line_parent_brace_ref(&mut self) -> Option<ConditionReference> {
+        self.expr_stmt_single_line_parent_brace_ref.take()
     }
 
     pub fn get_or_create_current_before_comments_start_info(&mut self) -> Info {

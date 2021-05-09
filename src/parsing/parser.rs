@@ -3321,7 +3321,17 @@ fn parse_expr_stmt<'a>(stmt: &'a ExprStmt, context: &mut Context<'a>) -> PrintIt
         let parsed_node = parsed_node.into_rc_path();
         return if should_add_semi_colon(&parsed_node).unwrap_or(false) {
             let mut items = PrintItems::new();
-            items.push_str(";");
+            if let Some(brace_condition_ref) = context.take_expr_stmt_single_line_parent_brace_ref() {
+                // Do not add a semi-colon when the semi-colon is within an if stmt or for-like stmt where
+                // there are no braces on the parent (ex. `if (true) []`) as this would break the code.
+                items.push_condition(if_true(
+                    "semiColonIfBrace",
+                    move |context| context.get_resolved_condition(&brace_condition_ref),
+                    ";".into(),
+                ));
+            } else {
+                items.push_str(";");
+            }
             items.extend(parsed_node.into());
             items
         } else {
@@ -6446,6 +6456,11 @@ fn parse_conditional_brace_body<'a>(opts: ParseConditionalBraceBodyOptions<'a>, 
         false_path: None,
     }, vec![end_info]);
     let open_brace_condition_ref = open_brace_condition.get_reference();
+
+    // store the brace condition if ASI and the body is an expression statement
+    if context.config.semi_colons == SemiColons::Asi && node_helpers::is_expr_stmt_or_body_with_single_expr_stmt(opts.body_node) {
+        context.store_expr_stmt_single_line_parent_brace_ref(open_brace_condition_ref);
+    }
 
     // parse body
     let mut items = PrintItems::new();

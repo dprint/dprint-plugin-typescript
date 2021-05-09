@@ -195,3 +195,11 @@ pub fn is_test_library_call_expr(node: &CallExpr, module: &Module) -> bool {
 pub fn is_optional_call_expr<'a>(node: &dyn NodeTrait<'a>) -> bool {
     return node.parent().unwrap().kind() == NodeKind::OptChainExpr;
 }
+
+pub fn is_expr_stmt_or_body_with_single_expr_stmt<'a>(node: Node<'a>) -> bool {
+    match node {
+        Node::ExprStmt(_) => true,
+        Node::BlockStmt(block) => block.stmts.len() == 1 && block.stmts[0].is::<ExprStmt>(),
+        _ => false,
+    }
+}

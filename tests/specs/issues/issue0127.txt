@@ -1,0 +1,28 @@
+~~ semiColons: asi, useBraces: preferNone ~~
+== should handle ASI in single line conditionally braced parent statements ==
+for (const test of asdf)
+    []
+
+for (const test in asdf)
+    []
+
+for (let i = 0; i < 10; i++)
+    []
+
+if (true) []
+
+while (true) []
+
+[expect]
+for (const test of asdf)
+    []
+
+for (const test in asdf)
+    []
+
+for (let i = 0; i < 10; i++)
+    []
+
+if (true) []
+
+while (true) []
