@@ -605,11 +605,8 @@ fn parse_catch_clause<'a>(node: &'a CatchClause, context: &mut Context<'a>) -> P
     }
     items.push_info(end_header_info);
 
-    let single_body_position = if let Node::TryStmt(try_stmt) = node.parent().unwrap() {
-        if try_stmt.finalizer.is_some() { Some(SingleBodyPosition::NextLine) } else { None }
-    } else {
-        None
-    };
+    let try_stmt = node.parent();
+    let single_body_position = if try_stmt.finalizer.is_some() { Some(SingleBodyPosition::NextLine) } else { None };
 
     // not conditional... required
     items.extend(parse_conditional_brace_body(ParseConditionalBraceBodyOptions {
@@ -639,7 +636,7 @@ fn parse_identifier<'a>(node: &'a Ident, _: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
     items.push_str(node.sym() as &str);
 
-    if node.optional() && !node.parent().unwrap().is::<ClassProp>() && !node.parent().unwrap().is::<ClassMethod>() {
+    if node.optional() && !node.parent().is::<ClassProp>() && !node.parent().is::<ClassMethod>() {
         items.push_str("?");
     }
 
@@ -650,7 +647,7 @@ fn parse_binding_identifier<'a>(node: &'a BindingIdent, context: &mut Context<'a
     let mut items = PrintItems::new();
     items.extend(parse_node(node.id.into(), context));
 
-    if let Node::VarDeclarator(node) = node.parent().unwrap() {
+    if let Node::VarDeclarator(node) = node.parent() {
         if node.definite() {
             items.push_str("!");
         }
@@ -1465,7 +1462,7 @@ fn parse_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintI
     let binary_expr_start_info = Info::new("binExprStartInfo");
     let allow_no_indent = get_allow_no_indent(node);
     let use_space_surrounding_operator = get_use_space_surrounding_operator(&node.op(), context);
-    let is_parent_bin_expr = node.parent().unwrap().kind() == NodeKind::BinExpr;
+    let is_parent_bin_expr = node.parent().kind() == NodeKind::BinExpr;
     let multi_line_options = {
         let mut options = if line_per_expression {
             parser_helpers::MultiLineOptions::same_line_no_indent()
@@ -1608,7 +1605,7 @@ fn parse_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintI
     return if node.op().is_equality() { parser_helpers::new_line_group(items) } else { items };
 
     fn get_allow_no_indent(node: &BinExpr) -> bool {
-        let parent = node.parent().unwrap();
+        let parent = node.parent();
         let parent_kind = parent.kind();
         if !node.op().is_add_sub()
             && !node.op().is_mul_div()
@@ -1624,7 +1621,7 @@ fn parse_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintI
             // get if in an argument
             match parent {
                 Node::ExprOrSpread(expr_or_spread) => {
-                    match expr_or_spread.parent().unwrap().kind() {
+                    match expr_or_spread.parent().kind() {
                         NodeKind::CallExpr | NodeKind::NewExpr => false,
                         _ => true,
                     }
@@ -2042,7 +2039,7 @@ fn parse_paren_expr<'a>(node: &'a ParenExpr, context: &mut Context<'a>) -> Print
     };
 
     fn get_use_new_line_group(node: &ParenExpr) -> bool {
-        if let Some(Node::ArrowExpr(arrow_expr)) = node.parent() {
+        if let Node::ArrowExpr(arrow_expr) = node.parent() {
             debug_assert!(arrow_expr.body.lo() == node.lo());
             use_new_line_group_for_arrow_body(arrow_expr)
         } else {
@@ -3783,25 +3780,23 @@ fn parse_switch_case<'a>(node: &'a SwitchCase, context: &mut Context<'a>) -> Pri
         // parse the trailing comments as statements
         let trailing_comments = get_trailing_comments_as_statements(&node_span, context);
         if !trailing_comments.is_empty() {
-            if let Some(Node::SwitchStmt(stmt)) = node.parent() {
-                let last_case = stmt.cases.iter().last();
-                let is_last_case = match last_case { Some(last_case) => last_case.lo() == node_span.lo, _=> false };
-                let mut is_equal_indent = block_stmt_body.is_some();
-                let mut last_node = node_span;
+            let last_case = node.parent().cases.iter().last();
+            let is_last_case = match last_case { Some(last_case) => last_case.lo() == node_span.lo, _=> false };
+            let mut is_equal_indent = block_stmt_body.is_some();
+            let mut last_node = node_span;
 
-                for comment in trailing_comments {
-                    is_equal_indent = is_equal_indent || comment.start_column_fast(context.module) <= last_node.start_column_fast(context.module);
-                    let parsed_comment = parse_comment_based_on_last_node(&comment, &Some(&last_node), ParseCommentBasedOnLastNodeOptions {
-                        separate_with_newlines: true
-                    }, context);
+            for comment in trailing_comments {
+                is_equal_indent = is_equal_indent || comment.start_column_fast(context.module) <= last_node.start_column_fast(context.module);
+                let parsed_comment = parse_comment_based_on_last_node(&comment, &Some(&last_node), ParseCommentBasedOnLastNodeOptions {
+                    separate_with_newlines: true
+                }, context);
 
-                    items.extend(if !is_last_case && is_equal_indent {
-                        parsed_comment
-                    } else {
-                        parser_helpers::with_indent(parsed_comment)
-                    });
-                    last_node = comment.span();
-                }
+                items.extend(if !is_last_case && is_equal_indent {
+                    parsed_comment
+                } else {
+                    parser_helpers::with_indent(parsed_comment)
+                });
+                last_node = comment.span();
             }
         }
         return items;
@@ -3918,7 +3913,7 @@ fn parse_var_decl<'a>(node: &'a VarDecl, context: &mut Context<'a>) -> PrintItem
 
     fn requires_semi_colon(node: &VarDecl, context: &mut Context) -> bool {
         let use_semi_colons = context.config.semi_colons.is_true();
-        use_semi_colons && match node.parent().unwrap() {
+        use_semi_colons && match node.parent() {
             Node::ForInStmt(node) => node.lo() >= node.body.lo(),
             Node::ForOfStmt(node) => node.lo() >= node.body.lo(),
             Node::ForStmt(node) => node.lo() >= node.body.lo(),
@@ -3943,18 +3938,15 @@ fn parse_var_declarator<'a>(node: &'a VarDeclarator, context: &mut Context<'a>) 
     // Indent the first variable declarator when there are multiple.
     // Not ideal, but doing this here because of the abstraction used in
     // `parse_var_decl`. In the future this should probably be moved away.
-    if let Node::VarDecl(var_dec) = node.parent().unwrap() {
-        if var_dec.decls.len() > 1 && var_dec.decls[0].span() == node.span() {
-            let items = items.into_rc_path();
-            if_true_or(
-                "indentIfNotStartOfLine",
-                |context| Some(!condition_resolvers::is_start_of_line(context)),
-                with_indent(items.clone().into()),
-                items.into(),
-            ).into()
-        } else {
-            items
-        }
+    let var_dec = node.parent();
+    if var_dec.decls.len() > 1 && var_dec.decls[0].span() == node.span() {
+        let items = items.into_rc_path();
+        if_true_or(
+            "indentIfNotStartOfLine",
+            |context| Some(!condition_resolvers::is_start_of_line(context)),
+            with_indent(items.clone().into()),
+            items.into(),
+        ).into()
     } else {
         items
     }
@@ -4006,7 +3998,7 @@ fn parse_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context
     let use_new_lines = !context.config.conditional_type_prefer_single_line
         && node_helpers::get_use_new_lines_for_nodes(&node.true_type, &node.false_type, context.module);
     let top_most_data = get_top_most_data(node, context);
-    let is_parent_conditional_type = node.parent().unwrap().kind() == NodeKind::TsConditionalType;
+    let is_parent_conditional_type = node.parent().kind() == NodeKind::TsConditionalType;
     let mut items = PrintItems::new();
     let before_false_info = Info::new("beforeFalse");
 
@@ -4375,7 +4367,7 @@ fn parse_parenthesized_type<'a>(node: &'a TsParenthesizedType, context: &mut Con
     return if use_new_line_group(node) { new_line_group(parsed_type) } else { parsed_type };
 
     fn use_new_line_group(node: &TsParenthesizedType) -> bool {
-        match node.parent().unwrap() {
+        match node.parent() {
             Node::TsTypeAliasDecl(_) => false,
             _ => true,
         }
@@ -4431,7 +4423,7 @@ fn parse_type_param<'a>(node: &'a TsTypeParam, context: &mut Context<'a>) -> Pri
         items.push_signal(Signal::SpaceOrNewLine);
         items.push_condition(conditions::indent_if_start_of_line({
             let mut items = PrintItems::new();
-            items.push_str(if node.parent().unwrap().kind() == NodeKind::TsMappedType {
+            items.push_str(if node.parent().kind() == NodeKind::TsMappedType {
                 "in"
             } else {
                 "extends"

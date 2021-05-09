@@ -225,8 +225,8 @@ impl<'a> TypeParamNode<'a> {
 
     pub fn parent(&self) -> Node<'a> {
         match self {
-            TypeParamNode::Instantiation(node) => node.parent.into(),
-            TypeParamNode::Decl(node) => node.parent.into(),
+            TypeParamNode::Instantiation(node) => node.parent().into(),
+            TypeParamNode::Decl(node) => node.parent().into(),
         }
     }
 }
