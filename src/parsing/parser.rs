@@ -1470,11 +1470,11 @@ fn parse_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintI
         options.with_hanging_indent = if is_parent_bin_expr {
             BoolOrCondition::Bool(false) // let the parent handle the indent
         } else {
-            BoolOrCondition::Condition(Rc::new(Box::new(move |condition_context| {
+            BoolOrCondition::Condition(Rc::new(move |condition_context| {
                 let binary_expr_start_info = condition_context.get_resolved_info(&binary_expr_start_info)?;
                 if allow_no_indent && binary_expr_start_info.is_start_of_line() { return Some(false); }
                 Some(condition_resolvers::is_start_of_line(condition_context))
-            })))
+            }))
         };
         options
     };
@@ -6367,7 +6367,7 @@ fn parse_conditional_brace_body<'a>(opts: ParseConditionalBraceBodyOptions<'a>, 
     let mut open_brace_condition = Condition::new_with_dependent_infos("openBrace", ConditionProperties {
         condition: {
             let has_open_brace_token = open_brace_token.is_some();
-            Rc::new(Box::new(move |condition_context| {
+            Rc::new(move |condition_context| {
                 // never use braces for a single semi-colon on the end (ex. `for(;;);`)
                 if is_body_empty_stmt { return Some(false); }
 
@@ -6413,7 +6413,7 @@ fn parse_conditional_brace_body<'a>(opts: ParseConditionalBraceBodyOptions<'a>, 
                         Some(false)
                     }
                 }
-            }))
+            })
         },
         true_path: {
             let mut items = PrintItems::new();
@@ -6992,24 +6992,24 @@ fn jsx_space_separator(previous_node: &Node, current_node: &Node, context: &Cont
         // The true and false path being blank implies that probably a new kind of print item
         // should be introduced
         items.push_condition(Condition::new("resetEndInfoOnStartInfoLineNumberChange", ConditionProperties {
-            condition: Rc::new(Box::new(move |condition_context| {
+            condition: Rc::new(move |condition_context| {
                 let resolved_start_info = condition_context.get_resolved_info(&start_info)?;
                 if resolved_start_info.line_number != condition_context.writer_info.line_number {
                     condition_context.clear_info(&end_info);
                 }
                 Some(false)
-            })),
+            }),
             true_path: None,
             false_path: None,
         }));
         items.push_info(start_info);
 
         items.push_condition(Condition::new_with_dependent_infos("jsxSpaceOrNewLineIsMultipleLines", ConditionProperties {
-            condition: Rc::new(Box::new(move |context| {
+            condition: Rc::new(move |context| {
                 let resolved_start_info = context.get_resolved_info(&start_info)?;
                 let resolved_end_info = context.get_resolved_info(&end_info)?;
                 Some(resolved_start_info.line_number < resolved_end_info.line_number)
-            })),
+            }),
             true_path: {
                 let mut items = PrintItems::new();
                 items.push_signal(Signal::PossibleNewLine);
