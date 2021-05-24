@@ -1,0 +1,9 @@
+== should format `private declare` class method ==
+class A {
+    private declare() {}
+}
+
+[expect]
+class A {
+    private declare() {}
+}
