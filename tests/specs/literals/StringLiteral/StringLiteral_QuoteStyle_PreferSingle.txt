@@ -1,9 +1,11 @@
 ~~ quoteStyle: preferSingle ~~
 == should use single quotes when specified ==
 console.log("str");
+const test = <div prop="test" />;
 
 [expect]
 console.log('str');
+const test = <div prop='test' />;
 
 == should handle single quotes inside the string ==
 console.log("'");

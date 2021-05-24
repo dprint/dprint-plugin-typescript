@@ -506,6 +506,7 @@ fn parse_parameter_prop<'a>(node: &'a TsParamProp, context: &mut Context<'a>) ->
     if let Some(accessibility) = node.accessibility() {
         items.push_str(&format!("{} ", accessibility_to_str(accessibility)));
     }
+    if node.is_override() { items.push_str("override "); }
     if node.readonly() { items.push_str("readonly "); }
     items.extend(parse_node(node.param.into(), context));
     items
@@ -1079,6 +1080,7 @@ fn parse_import_equals_decl<'a>(node: &'a TsImportEqualsDecl, context: &mut Cont
     }
 
     items.push_str("import ");
+    if node.is_type_only() { items.push_str("type "); }
     items.extend(parse_node(node.id.into(), context));
     items.push_str(" = "); // keep on one line
     items.extend(parse_node(node.module_ref.into(), context));
