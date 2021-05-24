@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use dprint_core::formatting::*;
+use dprint_core::types::ErrBox;
 use dprint_core::configuration::{resolve_new_line_kind};
 
 use super::parsing::parse;
@@ -34,7 +35,7 @@ use super::configuration::Configuration;
 ///     // save result here...
 /// }
 /// ```
-pub fn format_text(file_path: &Path, file_text: &str, config: &Configuration) -> Result<String, String> {
+pub fn format_text(file_path: &Path, file_text: &str, config: &Configuration) -> Result<String, ErrBox> {
     if super::utils::file_text_has_ignore_comment(file_text, &config.ignore_file_comment_text) {
         return Ok(String::from(file_text));
     }

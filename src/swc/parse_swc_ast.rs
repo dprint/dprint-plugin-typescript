@@ -3,6 +3,7 @@ use swc_common::{
     FileName, comments::SingleThreadedComments, SourceFile, BytePos, Spanned
 };
 use swc_ecmascript::parser::{Parser, StringInput, Syntax, error::{SyntaxError, Error as SwcError}, lexer::Lexer, Capturing, JscTarget, token::{TokenAndSpan}};
+use dprint_core::types::{ErrBox, Error};
 
 pub struct ParsedSourceFile {
     pub module: swc_ecmascript::ast::Module,
@@ -11,7 +12,7 @@ pub struct ParsedSourceFile {
     pub comments: SingleThreadedComments,
 }
 
-pub fn parse_swc_ast(file_path: &Path, file_text: &str) -> Result<ParsedSourceFile, String> {
+pub fn parse_swc_ast(file_path: &Path, file_text: &str) -> Result<ParsedSourceFile, ErrBox> {
     match parse_inner(file_path, file_text) {
         Ok(result) => Ok(result),
         Err(err) => {
@@ -29,7 +30,7 @@ pub fn parse_swc_ast(file_path: &Path, file_text: &str) -> Result<ParsedSourceFi
     }
 }
 
-fn parse_inner(file_path: &Path, file_text: &str) -> Result<ParsedSourceFile, String> {
+fn parse_inner(file_path: &Path, file_text: &str) -> Result<ParsedSourceFile, ErrBox> {
     let source_file = SourceFile::new(
         FileName::Custom(file_path.to_string_lossy().into()),
         false,
@@ -86,7 +87,7 @@ fn parse_inner(file_path: &Path, file_text: &str) -> Result<ParsedSourceFile, St
         true
     }
 
-    fn ensure_no_specific_syntax_errors(errors: Vec<SwcError>, file_text: &str) -> Result<(), String> {
+    fn ensure_no_specific_syntax_errors(errors: Vec<SwcError>, file_text: &str) -> Result<(), ErrBox> {
         let errors = errors.into_iter().filter(|e| matches!(e.kind(),
             // expected identifier
             SyntaxError::TS1003 |
@@ -106,7 +107,7 @@ fn parse_inner(file_path: &Path, file_text: &str) -> Result<ParsedSourceFile, St
                 }
                 final_message.push_str(&format_swc_error(error, file_text));
             }
-            Err(final_message)
+            Err(Error::new(final_message))
         }
     }
 }
@@ -131,7 +132,7 @@ mod tests {
 
     #[test]
     fn should_error_on_syntax_diagnostic() {
-        let message = parse_swc_ast(&PathBuf::from("./test.ts"), "test;\nas#;").err().unwrap();
+        let message = parse_swc_ast(&PathBuf::from("./test.ts"), "test;\nas#;").err().unwrap().to_string();
         assert_eq!(
             message,
             concat!(
@@ -145,7 +146,7 @@ mod tests {
 
     #[test]
     fn it_should_error_for_no_equals_sign_in_var_decl() {
-        let message = parse_swc_ast(&PathBuf::from("./test.ts"), "const Methods {\nf: (x, y) => x + y,\n};").err().unwrap();
+        let message = parse_swc_ast(&PathBuf::from("./test.ts"), "const Methods {\nf: (x, y) => x + y,\n};").err().unwrap().to_string();
         assert_eq!(
             message,
             concat!(
@@ -159,7 +160,7 @@ mod tests {
 
     #[test]
     fn it_should_error_when_var_stmts_sep_by_comma() {
-        let message = parse_swc_ast(&PathBuf::from("./test.ts"), "let a = 0, let b = 1;").err().unwrap();
+        let message = parse_swc_ast(&PathBuf::from("./test.ts"), "let a = 0, let b = 1;").err().unwrap().to_string();
         assert_eq!(
             message,
             concat!(
@@ -179,7 +180,7 @@ mod tests {
                 "test;\n",
                 r#"console.log("x", `duration ${d} not in range - ${min} ≥ ${d} && ${max} ≥ ${d}`),;"#,
             )
-        ).err().unwrap();
+        ).err().unwrap().to_string();
         assert_eq!(
             message,
             concat!(
@@ -196,7 +197,7 @@ mod tests {
 
     #[test]
     fn it_should_error_for_exected_expr_issue_121() {
-        let message = parse_swc_ast(&PathBuf::from("./test.ts"), "type T =\n  | unknown\n  { } & unknown;").err().unwrap();
+        let message = parse_swc_ast(&PathBuf::from("./test.ts"), "type T =\n  | unknown\n  { } & unknown;").err().unwrap().to_string();
         assert_eq!(
             message,
             concat!(
