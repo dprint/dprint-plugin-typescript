@@ -2856,29 +2856,38 @@ fn parse_string_literal<'a>(node: &'a Str, context: &mut Context<'a>) -> PrintIt
         is_jsx_attribute: bool,
         context: &mut Context,
     ) -> String {
-        // JSX attributes cannot contain escaped quotes so regardless of
-        // configuration, allow changing the quote style to single or
-        // double depending on if it contains the opposite quote
-        if is_jsx_attribute && string_value.contains('\'') {
-            return format_with_double(string_value);
-        } else if is_jsx_attribute && string_value.contains('"') {
-            return format_with_single(string_value);
+        return if is_jsx_attribute {
+            // JSX attributes cannot contain escaped quotes so regardless of
+            // configuration, allow changing the quote style to single or
+            // double depending on if it contains the opposite quote
+            match context.config.jsx_quote_style {
+                JsxQuoteStyle::PreferDouble => handle_prefer_double(string_value),
+                JsxQuoteStyle::PreferSingle => handle_prefer_single(string_value),
+            }
+        } else {
+            match context.config.quote_style {
+                QuoteStyle::AlwaysDouble => format_with_double(string_value),
+                QuoteStyle::AlwaysSingle => format_with_single(string_value),
+                QuoteStyle::PreferDouble => handle_prefer_double(string_value),
+                QuoteStyle::PreferSingle => handle_prefer_single(string_value),
+            }
+        };
+
+        fn handle_prefer_double(string_value: String) -> String {
+            if double_to_single(&string_value) <= 0 {
+                format_with_double(string_value)
+            } else {
+                format_with_single(string_value)
+            }
         }
 
-        return match context.config.quote_style {
-            QuoteStyle::AlwaysDouble => format_with_double(string_value),
-            QuoteStyle::AlwaysSingle => format_with_single(string_value),
-            QuoteStyle::PreferDouble => if double_to_single(&string_value) <= 0 {
-                format_with_double(string_value)
-            } else {
-                format_with_single(string_value)
-            },
-            QuoteStyle::PreferSingle => if double_to_single(&string_value) >= 0 {
+        fn handle_prefer_single(string_value: String) -> String {
+            if double_to_single(&string_value) >= 0 {
                 format_with_single(string_value)
             } else {
                 format_with_double(string_value)
-            },
-        };
+            }
+        }
 
         fn format_with_double(string_value: String) -> String {
             format!("\"{}\"", string_value.replace("\"", "\\\""))

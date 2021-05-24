@@ -44,6 +44,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     let prefer_single_line = prefer_single_line_nullable.unwrap_or(false);
     let space_surrounding_properties = get_value(&mut config, "spaceSurroundingProperties", true, &mut diagnostics);
     let type_literal_separator_kind = get_value(&mut config, "typeLiteral.separatorKind", SemiColonOrComma::SemiColon, &mut diagnostics);
+    let quote_style = get_value(&mut config, "quoteStyle", QuoteStyle::AlwaysDouble, &mut diagnostics);
 
     // todo: remove these two lines after 2021-03
     handle_renamed_config_property(&mut config, "statements.sortImportDeclarations", "module.sortImportDeclarations", &mut diagnostics);
@@ -54,11 +55,12 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
         use_tabs: get_value(&mut config, "useTabs", global_config.use_tabs.unwrap_or(DEFAULT_GLOBAL_CONFIGURATION.use_tabs), &mut diagnostics),
         indent_width: get_value(&mut config, "indentWidth", global_config.indent_width.unwrap_or(DEFAULT_GLOBAL_CONFIGURATION.indent_width), &mut diagnostics),
         new_line_kind: get_value(&mut config, "newLineKind", global_config.new_line_kind.unwrap_or(DEFAULT_GLOBAL_CONFIGURATION.new_line_kind), &mut diagnostics),
-        quote_style: get_value(&mut config, "quoteStyle", QuoteStyle::AlwaysDouble, &mut diagnostics),
+        quote_style,
         semi_colons,
         /* situational */
         arrow_function_use_parentheses: get_value(&mut config, "arrowFunction.useParentheses", UseParentheses::Maintain, &mut diagnostics),
         binary_expression_line_per_expression: get_value(&mut config, "binaryExpression.linePerExpression", false, &mut diagnostics),
+        jsx_quote_style: get_value(&mut config, "jsx.quoteStyle", quote_style.to_jsx_quote_style(), &mut diagnostics),
         member_expression_line_per_expression: get_value(&mut config, "memberExpression.linePerExpression", false, &mut diagnostics),
         type_literal_separator_kind_single_line: get_value(&mut config, "typeLiteral.separatorKind.singleLine", type_literal_separator_kind, &mut diagnostics),
         type_literal_separator_kind_multi_line: get_value(&mut config, "typeLiteral.separatorKind.multiLine", type_literal_separator_kind, &mut diagnostics),

@@ -1,0 +1,14 @@
+~~ quoteStyle: preferSingle, jsx.quoteStyle: preferDouble ~~
+== should use double quotes ==
+console.log('str');
+const test = <div prop='test' />;
+
+[expect]
+console.log('str');
+const test = <div prop="test" />;
+
+== should handle double quotes inside the string ==
+const t = <div prop='"'></div>;
+
+[expect]
+const t = <div prop='"'></div>;

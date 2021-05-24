@@ -209,10 +209,38 @@ pub enum QuoteStyle {
     PreferSingle,
 }
 
+impl QuoteStyle {
+    /// Gets the associated JSX quote style.
+    pub fn to_jsx_quote_style(&self) -> JsxQuoteStyle {
+        match self {
+            QuoteStyle::AlwaysDouble | QuoteStyle::PreferDouble => JsxQuoteStyle::PreferDouble,
+            QuoteStyle::AlwaysSingle | QuoteStyle::PreferSingle => JsxQuoteStyle::PreferSingle,
+        }
+    }
+}
+
 generate_str_to_from![
     QuoteStyle,
     [AlwaysDouble, "alwaysDouble"],
     [AlwaysSingle, "alwaysSingle"],
+    [PreferDouble, "preferDouble"],
+    [PreferSingle, "preferSingle"]
+];
+
+/// Whether to use single or double quotes for JSX attributes.
+#[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum JsxQuoteStyle {
+    /// Prefer using double quotes except in scenarios where the string
+    /// contains more double quotes than single quotes.
+    PreferDouble,
+    /// Prefer using single quotes except in scenarios where the string
+    /// contains more single quotes than double quotes.
+    PreferSingle,
+}
+
+generate_str_to_from![
+    JsxQuoteStyle,
     [PreferDouble, "preferDouble"],
     [PreferSingle, "preferSingle"]
 ];
@@ -266,6 +294,8 @@ pub struct Configuration {
     pub arrow_function_use_parentheses: UseParentheses,
     #[serde(rename = "binaryExpression.linePerExpression")]
     pub binary_expression_line_per_expression: bool,
+    #[serde(rename = "jsx.quoteStyle")]
+    pub jsx_quote_style: JsxQuoteStyle,
     #[serde(rename = "memberExpression.linePerExpression")]
     pub member_expression_line_per_expression: bool,
     #[serde(rename = "typeLiteral.separatorKind.singleLine")]

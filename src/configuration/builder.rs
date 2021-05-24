@@ -105,6 +105,13 @@ impl ConfigurationBuilder {
         self.insert("quoteStyle", value.to_string().into())
     }
 
+    /// The JSX quote style to use for string literals in JSX attributes.
+    ///
+    /// Default: `JsxQuoteStyle::PreferDouble`
+    pub fn jsx_quote_style(&mut self, value: JsxQuoteStyle) -> &mut Self {
+        self.insert("jsx.quoteStyle", value.to_string().into())
+    }
+
     /// Whether statements should end in a semi-colon.
     ///
     /// Default: `SemiColons::Prefer`
@@ -908,6 +915,7 @@ mod tests {
             .indent_width(4)
             /* common */
             .quote_style(QuoteStyle::AlwaysDouble)
+            .jsx_quote_style(JsxQuoteStyle::PreferSingle)
             .semi_colons(SemiColons::Prefer)
             .brace_position(BracePosition::NextLine)
             .next_control_flow_position(NextControlFlowPosition::SameLine)
@@ -1067,7 +1075,7 @@ mod tests {
             .while_statement_space_after_while_keyword(true);
 
         let inner_config = config.get_inner_config();
-        assert_eq!(inner_config.len(), 149);
+        assert_eq!(inner_config.len(), 150);
         let diagnostics = resolve_config(inner_config, &resolve_global_config(HashMap::new()).config).diagnostics;
         assert_eq!(diagnostics.len(), 0);
     }
