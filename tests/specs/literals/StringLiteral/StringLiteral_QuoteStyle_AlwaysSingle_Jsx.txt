@@ -1,0 +1,7 @@
+-- fileName: file.tsx --
+~~ quoteStyle: alwaysSingle ~~
+== should not switch to single quotes for JSX strings containing a single quote ==
+const test = <div test="'"></div>;
+
+[expect]
+const test = <div test="'"></div>;

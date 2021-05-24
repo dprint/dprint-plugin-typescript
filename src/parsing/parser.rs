@@ -2845,9 +2845,26 @@ fn parse_reg_exp_literal(node: &Regex, _: &mut Context) -> PrintItems {
 }
 
 fn parse_string_literal<'a>(node: &'a Str, context: &mut Context<'a>) -> PrintItems {
-    return parse_raw_string(&get_string_literal_text(get_string_value(&node, context), context));
+    return parse_raw_string(&get_string_literal_text(
+        get_string_value(&node, context),
+        node.parent().is::<JSXAttr>(),
+        context,
+    ));
 
-    fn get_string_literal_text(string_value: String, context: &mut Context) -> String {
+    fn get_string_literal_text(
+        string_value: String,
+        is_jsx_attribute: bool,
+        context: &mut Context,
+    ) -> String {
+        // JSX attributes cannot contain escaped quotes so regardless of
+        // configuration, allow changing the quote style to single or
+        // double depending on if it contains the opposite quote
+        if is_jsx_attribute && string_value.contains('\'') {
+            return format_with_double(string_value);
+        } else if is_jsx_attribute && string_value.contains('"') {
+            return format_with_single(string_value);
+        }
+
         return match context.config.quote_style {
             QuoteStyle::AlwaysDouble => format_with_double(string_value),
             QuoteStyle::AlwaysSingle => format_with_single(string_value),
