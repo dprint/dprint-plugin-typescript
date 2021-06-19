@@ -1,0 +1,29 @@
+{
+  "name": "@dprint/typescript",
+  "version": "0.0.0",
+  "description": "Wasm buffer for dprint-plugin-typescript.",
+  "main": "./index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dprint/dprint-plugin-typescript.git"
+  },
+  "keywords": [
+    "typescript",
+    "javascript",
+    "code",
+    "formatter",
+    "dprint"
+  ],
+  "author": "David Sherret",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/dprint/dprint-plugin-typescript/issues"
+  },
+  "homepage": "https://github.com/dprint/dprint-plugin-typescript#readme",
+  "scripts": {
+    "test": "node index.test.js"
+  },
+  "devDependencies": {
+    "@dprint/formatter": "~0.1.4"
+  }
+}

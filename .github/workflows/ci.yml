@@ -52,6 +52,29 @@ jobs:
       id: get_tag_version
       run: echo ::set-output name=TAG_VERSION::${GITHUB_REF/refs\/tags\//}
 
+    # NPM
+    - uses: actions/setup-node@v2
+      if: matrix.config.kind == 'test_release'
+      with:
+        node-version: '14.x'
+        registry-url: 'https://registry.npmjs.org'
+
+    - name: Setup and test npm deployment
+      if: matrix.config.kind == 'test_release'
+      run: |
+        cd deployment/npm
+        npm install
+        node setup.js ${{ steps.get_tag_version.outputs.TAG_VERSION }}
+        npm run test
+
+    - name: npm publish
+      if: matrix.config.kind == 'test_release' && startsWith(github.ref, 'refs/tags/')
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      run: |
+        cd deployment/npm
+        npm publish --access public
+
       # CARGO PUBLISH
     - name: Cargo login
       if: matrix.config.kind == 'test_release' && startsWith(github.ref, 'refs/tags/')
@@ -102,6 +125,11 @@ jobs:
                ]
              }
              ```
+
+          ## JS Formatting API
+
+            * [JS Formatter](https://github.com/dprint/js-formatter) - Browser/Deno and Node
+            * [npm package](https://www.npmjs.com/package/@dprint/typescript)
         draft: false
 
       # PLUGIN PUBLISH
