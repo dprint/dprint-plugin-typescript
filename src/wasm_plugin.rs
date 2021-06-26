@@ -29,6 +29,7 @@ impl PluginHandler<Configuration> for TypeScriptPluginHandler {
             version: env!("CARGO_PKG_VERSION").to_string(),
             config_key: "typescript".to_string(),
             file_extensions: vec![String::from("ts"), String::from("tsx"), String::from("js"), String::from("jsx"), String::from("mjs"), String::from("cjs")],
+            file_names: vec![],
             help_url: "https://dprint.dev/plugins/typescript".to_string(),
             config_schema_url: "".to_string(), // none until https://github.com/microsoft/vscode/issues/98443 is resolved
         }

@@ -74,6 +74,7 @@ jobs:
       run: |
         cd deployment/npm
         npm publish --access public
+        git reset --hard
 
       # CARGO PUBLISH
     - name: Cargo login
