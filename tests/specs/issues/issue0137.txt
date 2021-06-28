@@ -1,0 +1,28 @@
+== should not move comment when there is an empty stmt above ==
+test;;
+
+// comment
+asdf;
+
+[expect]
+test;
+
+// comment
+asdf;
+
+== should not move comment when there is an empty stmt above in a class decl ==
+class Test {
+    test;;
+
+    // comment
+    asdf;
+}
+
+
+[expect]
+class Test {
+    test;
+
+    // comment
+    asdf;
+}

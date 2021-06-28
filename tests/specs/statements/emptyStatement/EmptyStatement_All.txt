@@ -12,11 +12,44 @@ test;
 ;
 // 4
 
+
+// 5
+; // 6
+
+// 7
+
 [expect]
 /* 1 */
 // 2
 // 3
 // 4
+
+// 5
+// 6
+
+// 7
+
+== should format when comments with multiple empty stmts ==
+/* 1 */; /* 2 */ ; /* 3 */ ; // 4
+
+[expect]
+/* 1 */
+/* 2 */
+/* 3 */
+// 4
+
+== should format when comments with multiple empty stmts in class decl ==
+class Test {
+/* 1 */; /* 2 */ ; /* 3 */ ; // 4
+}
+
+[expect]
+class Test {
+    /* 1 */
+    /* 2 */
+    /* 3 */
+    // 4
+}
 
 == should format when between nodes ==
 test;

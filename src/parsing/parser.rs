@@ -50,6 +50,7 @@ fn parse_node_with_inner_parse<'a>(node: Node<'a>, context: &mut Context<'a>, in
     let node_kind = node.kind();
     // println!("Node kind: {:?}", node_kind);
     // println!("Text: {:?}", node.text());
+    // println!("Span: {:?}", node.span());
 
     // store info
     let past_current_node = std::mem::replace(&mut context.current_node, node);
@@ -4899,44 +4900,43 @@ fn parse_comments_as_trailing<'a>(node: &dyn Spanned, trailing_comments: Comment
     }
 
     items.extend(parse_comment_collection(trailing_comments_on_same_line.into_iter(), Some(node), None, context));
+    items
+}
 
-    return items;
+fn get_trailing_comments_same_line<'a>(
+    node: &dyn Spanned,
+    trailing_comments: CommentsIterator<'a>,
+    context: &mut Context<'a>,
+) -> Vec<&'a Comment> {
+    // use the roslyn definition of trailing comments
+    let node_end_line = node.end_line_fast(context.module);
+    let trailing_comments_on_same_line = trailing_comments.into_iter()
+        .filter(|c|c.start_line_fast(context.module) <= node_end_line) // less than or equal instead of just equal in order to include "forgotten" comments
+        .collect::<Vec<_>>();
 
-    fn get_trailing_comments_same_line<'a>(
-        node: &dyn Spanned,
-        trailing_comments: CommentsIterator<'a>,
-        context: &mut Context<'a>,
-    ) -> Vec<&'a Comment> {
-        // use the roslyn definition of trailing comments
-        let node_end_line = node.end_line_fast(context.module);
-        let trailing_comments_on_same_line = trailing_comments.into_iter()
-            .filter(|c|c.start_line_fast(context.module) <= node_end_line) // less than or equal instead of just equal in order to include "forgotten" comments
-            .collect::<Vec<_>>();
-
-        // don't do extra work
-        if trailing_comments_on_same_line.is_empty() {
-            return trailing_comments_on_same_line;
-        }
-
-        // block comments after a comma on the same line as the next token are not considered a trailing comment of this node
-        // ex. `a, /* 1 */ b`, the comment belongs to `b` and not `a`
-        let comma_end = if node.text_fast(context.module) == "," {
-            Some(node.hi())
-        } else {
-            context.token_finder.get_next_token_if_comma(&node.span()).map(|t| t.hi())
-        };
-        if let Some(comma_end) = comma_end {
-            let next_token_pos = context.token_finder.get_next_token_pos_after(&comma_end);
-            let next_token_pos_line_start = next_token_pos.start_line_fast(context.module);
-            if next_token_pos_line_start == node_end_line {
-                return trailing_comments_on_same_line
-                    .into_iter()
-                    .filter(|c| c.lo() < comma_end)
-                    .collect::<Vec<_>>()
-            }
-        }
-        trailing_comments_on_same_line
+    // don't do extra work
+    if trailing_comments_on_same_line.is_empty() {
+        return trailing_comments_on_same_line;
     }
+
+    // block comments after a comma on the same line as the next token are not considered a trailing comment of this node
+    // ex. `a, /* 1 */ b`, the comment belongs to `b` and not `a`
+    let comma_end = if node.text_fast(context.module) == "," {
+        Some(node.hi())
+    } else {
+        context.token_finder.get_next_token_if_comma(&node.span()).map(|t| t.hi())
+    };
+    if let Some(comma_end) = comma_end {
+        let next_token_pos = context.token_finder.get_next_token_pos_after(&comma_end);
+        let next_token_pos_line_start = next_token_pos.start_line_fast(context.module);
+        if next_token_pos_line_start == node_end_line {
+            return trailing_comments_on_same_line
+                .into_iter()
+                .filter(|c| c.lo() < comma_end)
+                .collect::<Vec<_>>()
+        }
+    }
+    trailing_comments_on_same_line
 }
 
 fn get_jsx_empty_expr_comments<'a>(node: &JSXEmptyExpr, context: &mut Context<'a>) -> CommentsIterator<'a> {
@@ -5126,9 +5126,25 @@ fn parse_statements<'a>(inner_span: Span, stmts: Vec<Node<'a>>, context: &mut Co
                 last_node = Some(node.span());
             } else {
                 let mut items = PrintItems::new();
-                let mut comments = node.leading_comments_fast(context.module);
-                comments.extend(node.trailing_comments_fast(context.module));
-                items.extend(parse_comments_as_statements(comments, None, context));
+                let leading_comments = node.leading_comments_fast(context.module);
+                items.extend(parse_comments_as_statements(leading_comments.clone().into_iter(), None, context));
+                let trailing_comments = get_trailing_comments_same_line(
+                    &node,
+                    node.trailing_comments_fast(context.module),
+                    context,
+                );
+                if !trailing_comments.is_empty() {
+                    if !leading_comments.is_empty() {
+                        items.push_signal(Signal::NewLine);
+                    }
+                    items.extend(parse_comment_collection(
+                        trailing_comments.into_iter(),
+                        None,
+                        None,
+                        context,
+                    ));
+                }
+
                 parsed_nodes.push(items);
 
                 // ensure if this is last that it parses the trailing comment statements
@@ -5173,6 +5189,30 @@ fn parse_statements<'a>(inner_span: Span, stmts: Vec<Node<'a>>, context: &mut Co
             StmtGroupKind::Other => None,
         }
     }
+}
+
+fn parse_member_or_member_expr_stmt_comments(node: &Node, context: &mut Context) -> PrintItems {
+    let mut items = PrintItems::new();
+    let leading_comments = node.leading_comments_fast(context.module);
+    items.extend(parse_comments_as_statements(leading_comments.clone().into_iter(), None, context));
+    let trailing_comments = get_trailing_comments_same_line(
+        &node,
+        node.trailing_comments_fast(context.module),
+        context,
+    );
+    if !trailing_comments.is_empty() {
+        if !leading_comments.is_empty() {
+            items.push_signal(Signal::NewLine);
+        }
+        items.extend(parse_comment_collection(
+            trailing_comments.into_iter(),
+            None,
+            None,
+            context,
+        ));
+    }
+
+    items
 }
 
 #[derive(PartialEq, Debug)]
@@ -5302,9 +5342,10 @@ fn parse_members<'a, FShouldUseBlankLine>(
 
             last_node = Some(node);
         } else {
-            let mut comments = node.leading_comments_fast(context.module);
-            comments.extend(node.trailing_comments_fast(context.module));
-            items.extend(parse_comments_as_statements(comments, None, context));
+            items.extend(parse_member_or_member_expr_stmt_comments(
+                &node,
+                context,
+            ));
 
             // ensure if this is last that it parses the trailing comment statements
             if i == children_len - 1 {
