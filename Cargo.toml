@@ -2,7 +2,7 @@
 name = "dprint-plugin-typescript"
 description = "TypeScript and JavaScript code formatter."
 keywords = ["formatting", "formatter", "typescript", "javascript"]
-version = "0.46.2"
+version = "0.47.0"
 authors = ["David Sherret <dsherret@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -27,9 +27,9 @@ tracing = ["dprint-core/tracing"]
 [dependencies]
 dprint-core = { version = "0.43.0", features = ["formatting"] }
 fnv = "1.0.7"
-swc_common = "0.10.20"
-swc_ecmascript = { version = "0.43.0", features = ["parser"] }
-swc_ast_view = { version = "0.21.1", package = "dprint-swc-ecma-ast-view" }
+swc_common = "0.10.21"
+swc_ecmascript = { version = "0.44.0", features = ["parser"] }
+swc_ast_view = { version = "0.22.0", package = "dprint-swc-ecma-ast-view" }
 serde = { version = "1.0.118", features = ["derive"] }
 serde_json = { version = "1.0", optional = true }
 
