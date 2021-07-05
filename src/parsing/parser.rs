@@ -2963,7 +2963,10 @@ fn parse_module<'a>(node: &'a Module, context: &mut Context<'a>) -> PrintItems {
             }
         } else {
             let shebang_end = BytePos(("#!".len() + shebang.len()) as u32);
-            items.extend(parse_trailing_comments_as_statements(&shebang_end, context));
+            // todo: re-enable once swc bug is fixed and remove the code below
+            // items.extend(parse_trailing_comments_as_statements(&shebang_end, context));
+            let trailing_comments = shebang_end.leading_comments_fast(context.module);
+            items.extend(parse_comments_as_statements(trailing_comments, Some(&shebang_end), context));
         }
     }
 

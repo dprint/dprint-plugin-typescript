@@ -53,6 +53,7 @@
 
 [expect]
 #!/foo/bar
+
 // A comment
 /* A block comment */
 
