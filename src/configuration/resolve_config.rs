@@ -46,10 +46,6 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     let type_literal_separator_kind = get_value(&mut config, "typeLiteral.separatorKind", SemiColonOrComma::SemiColon, &mut diagnostics);
     let quote_style = get_value(&mut config, "quoteStyle", QuoteStyle::AlwaysDouble, &mut diagnostics);
 
-    // todo: remove these two lines after 2021-03
-    handle_renamed_config_property(&mut config, "statements.sortImportDeclarations", "module.sortImportDeclarations", &mut diagnostics);
-    handle_renamed_config_property(&mut config, "statements.sortExportDeclarations", "module.sortExportDeclarations", &mut diagnostics);
-
     let resolved_config = Configuration {
         line_width: get_value(&mut config, "lineWidth", global_config.line_width.unwrap_or(DEFAULT_GLOBAL_CONFIGURATION.line_width), &mut diagnostics),
         use_tabs: get_value(&mut config, "useTabs", global_config.use_tabs.unwrap_or(DEFAULT_GLOBAL_CONFIGURATION.use_tabs), &mut diagnostics),
