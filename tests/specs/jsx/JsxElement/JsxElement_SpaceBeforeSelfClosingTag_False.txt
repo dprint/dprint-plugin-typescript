@@ -1,0 +1,13 @@
+-- filePath: file.tsx --
+~~ jsxElement.spaceBeforeSelfClosingTag: false ~~
+== should avoid space before self closing tag when there are no attributes ==
+const t = <Test />;
+
+[expect]
+const t = <Test/>;
+
+== should avoid space before self closing tag when there are attributes =
+const t = <Test first="foo" second="bar" />;
+
+[expect]
+const t = <Test first="foo" second="bar"/>;

@@ -193,6 +193,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
         if_statement_space_after_if_keyword: get_value(&mut config, "ifStatement.spaceAfterIfKeyword", true, &mut diagnostics),
         import_declaration_space_surrounding_named_imports: get_value(&mut config, "importDeclaration.spaceSurroundingNamedImports", true, &mut diagnostics),
         jsx_expression_container_space_surrounding_expression: get_value(&mut config, "jsxExpressionContainer.spaceSurroundingExpression", false, &mut diagnostics),
+        jsx_element_space_before_self_closing_tag: get_value(&mut config, "jsxElement.spaceBeforeSelfClosingTag", true, &mut diagnostics),
         method_space_before_parentheses: get_value(&mut config, "method.spaceBeforeParentheses", false, &mut diagnostics),
         object_expression_space_surrounding_properties: get_value(&mut config, "objectExpression.spaceSurroundingProperties", space_surrounding_properties, &mut diagnostics),
         object_pattern_space_surrounding_properties: get_value(&mut config, "objectPattern.spaceSurroundingProperties", space_surrounding_properties, &mut diagnostics),

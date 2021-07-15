@@ -2746,6 +2746,7 @@ fn parse_jsx_namespaced_name<'a>(node: &'a JSXNamespacedName, context: &mut Cont
 }
 
 fn parse_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Context<'a>) -> PrintItems {
+    let space_before_self_closing_tag = context.config.jsx_element_space_before_self_closing_tag;
     let force_use_new_lines = get_force_is_multi_line(node, context);
     let start_info = Info::new("openingElementStartInfo");
     let mut items = PrintItems::new();
@@ -2765,7 +2766,7 @@ fn parse_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Cont
             allow_blank_lines: false,
             separator: Separator::none(),
             single_line_space_at_start: true,
-            single_line_space_at_end: node.self_closing(),
+            single_line_space_at_end: node.self_closing() && space_before_self_closing_tag,
             custom_single_line_separator: None,
             multi_line_options: parser_helpers::MultiLineOptions::surround_newlines_indented(),
             force_possible_newline_at_start: false,
@@ -2787,7 +2788,7 @@ fn parse_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Cont
     }
 
     if node.self_closing() {
-        if node.attrs.is_empty() {
+        if node.attrs.is_empty() && space_before_self_closing_tag {
             items.push_str(""); // force current line indentation
             items.extend(space_if_not_start_line());
         }
