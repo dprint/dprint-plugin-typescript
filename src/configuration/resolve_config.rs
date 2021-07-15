@@ -63,7 +63,9 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
         type_literal_separator_kind_multi_line: get_value(&mut config, "typeLiteral.separatorKind.multiLine", type_literal_separator_kind, &mut diagnostics),
         /* sorting */
         module_sort_import_declarations: get_value(&mut config, "module.sortImportDeclarations", SortOrder::CaseInsensitive, &mut diagnostics),
+        module_folder_sort_order_import_declarations: get_value(&mut config, "module.folderSortOrderImportDeclarations", FolderSortOrder::FoldersFirst, &mut diagnostics),
         module_sort_export_declarations: get_value(&mut config, "module.sortExportDeclarations", SortOrder::CaseInsensitive, &mut diagnostics),
+        module_folder_sort_order_export_declarations: get_value(&mut config, "module.folderSortOrderExportDeclarations", FolderSortOrder::FoldersFirst, &mut diagnostics),
         import_declaration_sort_named_imports: get_value(&mut config, "importDeclaration.sortNamedImports", SortOrder::CaseInsensitive, &mut diagnostics),
         export_declaration_sort_named_exports: get_value(&mut config, "exportDeclaration.sortNamedExports", SortOrder::CaseInsensitive, &mut diagnostics),
         /* ignore comments */

@@ -460,11 +460,29 @@ impl ConfigurationBuilder {
         self.insert("module.sortImportDeclarations", value.to_string().into())
     }
 
+    /// Specifies the sorting order of import declarations between directories and files within the
+    /// same parent directory.
+    ///
+    /// * `foldersFirst` (default) - Sorts folders first, before files
+    /// * `alphabetical` - Sorts folders and files together, alphabetically, regardless of type
+    pub fn module_folder_sort_order_import_declarations(&mut self, value: FolderSortOrder) -> &mut Self {
+        self.insert("module.folderSortOrderImportDeclarations", value.to_string().into())
+    }
+
     /// Alphabetically sorts the export declarations based on their module specifiers.
     ///
     /// Default: Case insensitive
     pub fn module_sort_export_declarations(&mut self, value: SortOrder) -> &mut Self {
         self.insert("module.sortExportDeclarations", value.to_string().into())
+    }
+
+    /// Specifies the sorting order of export declarations between directories and files within the
+    /// same parent directory.
+    ///
+    /// * `foldersFirst` (default) - Sorts folders first, before files
+    /// * `alphabetical` - Sorts folders and files together, alphabetically, regardless of type
+    pub fn module_folder_sort_order_export_declarations(&mut self, value: FolderSortOrder) -> &mut Self {
+        self.insert("module.folderSortOrderExportDeclarations", value.to_string().into())
     }
 
     /// Alphabetically sorts the import declaration's named imports.
@@ -943,7 +961,9 @@ mod tests {
             .type_literal_separator_kind_multi_line(SemiColonOrComma::Comma)
             /* sorting */
             .module_sort_import_declarations(SortOrder::Maintain)
+            .module_folder_sort_order_import_declarations(FolderSortOrder::FoldersFirst)
             .module_sort_export_declarations(SortOrder::Maintain)
+            .module_folder_sort_order_export_declarations(FolderSortOrder::FoldersFirst)
             .import_declaration_sort_named_imports(SortOrder::Maintain)
             .export_declaration_sort_named_exports(SortOrder::Maintain)
             /* ignore comments */
@@ -1085,7 +1105,7 @@ mod tests {
             .while_statement_space_after_while_keyword(true);
 
         let inner_config = config.get_inner_config();
-        assert_eq!(inner_config.len(), 151);
+        assert_eq!(inner_config.len(), 153);
         let diagnostics = resolve_config(inner_config, &resolve_global_config(HashMap::new()).config).diagnostics;
         assert_eq!(diagnostics.len(), 0);
     }

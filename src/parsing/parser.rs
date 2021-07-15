@@ -1254,8 +1254,9 @@ fn parse_named_import_or_export_specifiers<'a>(parent: Node<'a>, specifiers: Vec
         context: &Context<'a>,
     ) -> Option<Box<dyn Fn((usize, Option<&Node<'a>>), (usize, Option<&Node<'a>>), &Module<'a>) -> std::cmp::Ordering>> {
         match parent_decl {
-            Node::NamedExport(_) => get_node_sorter_from_order(context.config.export_declaration_sort_named_exports),
-            Node::ImportDecl(_) => get_node_sorter_from_order(context.config.import_declaration_sort_named_imports),
+            // Named imports / exports don't have folders in the node list, so just use Alphabetical
+            Node::NamedExport(_) => get_node_sorter_from_order(context.config.export_declaration_sort_named_exports, FolderSortOrder::Alphabetical),
+            Node::ImportDecl(_) => get_node_sorter_from_order(context.config.import_declaration_sort_named_imports, FolderSortOrder::Alphabetical),
             _ => unreachable!(),
         }
     }
@@ -5245,8 +5246,8 @@ fn parse_statements<'a>(inner_span: Span, stmts: Vec<Node<'a>>, context: &mut Co
         context: &Context<'a>,
     ) -> Option<Box<dyn Fn((usize, Option<&Node<'a>>), (usize, Option<&Node<'a>>), &Module<'a>) -> std::cmp::Ordering>> {
         match group_kind {
-            StmtGroupKind::Imports => get_node_sorter_from_order(context.config.module_sort_import_declarations),
-            StmtGroupKind::Exports => get_node_sorter_from_order(context.config.module_sort_export_declarations),
+            StmtGroupKind::Imports => get_node_sorter_from_order(context.config.module_sort_import_declarations, context.config.module_folder_sort_order_import_declarations),
+            StmtGroupKind::Exports => get_node_sorter_from_order(context.config.module_sort_export_declarations, context.config.module_folder_sort_order_export_declarations),
             StmtGroupKind::Other => None,
         }
     }

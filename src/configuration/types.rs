@@ -280,6 +280,21 @@ generate_str_to_from![
     [CaseInsensitive, "caseInsensitive"]
 ];
 
+#[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum FolderSortOrder {
+  /// Sort folders first before files
+  FoldersFirst,
+  /// Sort purely alphabetically regardless of type
+  Alphabetical,
+}
+
+generate_str_to_from![
+  FolderSortOrder,
+    [FoldersFirst, "foldersFirst"],
+    [Alphabetical, "alphabetical"]
+];
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Configuration {
@@ -307,8 +322,12 @@ pub struct Configuration {
     /* sorting */
     #[serde(rename = "module.sortImportDeclarations")]
     pub module_sort_import_declarations: SortOrder,
+    #[serde(rename = "module.folderSortOrderImportDeclarations")]
+    pub module_folder_sort_order_import_declarations: FolderSortOrder,
     #[serde(rename = "module.sortExportDeclarations")]
     pub module_sort_export_declarations: SortOrder,
+    #[serde(rename = "module.folderSortOrderExportDeclarations")]
+    pub module_folder_sort_order_export_declarations: FolderSortOrder,
     #[serde(rename = "importDeclaration.sortNamedImports")]
     pub import_declaration_sort_named_imports: SortOrder,
     #[serde(rename = "exportDeclaration.sortNamedExports")]

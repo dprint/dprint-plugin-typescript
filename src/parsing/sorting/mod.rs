@@ -9,13 +9,13 @@ use crate::configuration::*;
 
 // a little rough, but good enough for our purposes
 
-pub fn get_node_sorter_from_order<'a>(order: SortOrder) -> Option<Box<dyn Fn((usize, Option<&Node<'a>>), (usize, Option<&Node<'a>>), &Module<'a>) -> Ordering>> {
+pub fn get_node_sorter_from_order<'a>(order: SortOrder, folder_sort_order: FolderSortOrder) -> Option<Box<dyn Fn((usize, Option<&Node<'a>>), (usize, Option<&Node<'a>>), &Module<'a>) -> Ordering>> {
     // todo: how to reduce code duplication here?
     match order {
         SortOrder::Maintain => None,
-        SortOrder::CaseInsensitive => Some(Box::new(|(a_index, a), (b_index, b), module| {
+        SortOrder::CaseInsensitive => Some(Box::new(move |(a_index, a), (b_index, b), module| {
             let result = if is_import_or_export_declaration(&a) {
-                cmp_optional_nodes(a, b, module, |a, b, module| cmp_module_specifiers(a.text_fast(module), b.text_fast(module), cmp_text_case_insensitive))
+                cmp_optional_nodes(a, b, module, |a, b, module| cmp_module_specifiers(a.text_fast(module), b.text_fast(module), folder_sort_order, cmp_text_case_insensitive))
             } else {
                 cmp_optional_nodes(a, b, module, |a, b, module| cmp_text_case_insensitive(a.text_fast(module), b.text_fast(module)))
             };
@@ -25,9 +25,9 @@ pub fn get_node_sorter_from_order<'a>(order: SortOrder) -> Option<Box<dyn Fn((us
                 result
             }
         })),
-        SortOrder::CaseSensitive => Some(Box::new(|(a_index, a), (b_index, b), module| {
+        SortOrder::CaseSensitive => Some(Box::new(move |(a_index, a), (b_index, b), module| {
             let result = if is_import_or_export_declaration(&a) {
-                cmp_optional_nodes(a, b, module, |a, b, module| cmp_module_specifiers(a.text_fast(module), b.text_fast(module), cmp_text_case_sensitive))
+                cmp_optional_nodes(a, b, module, |a, b, module| cmp_module_specifiers(a.text_fast(module), b.text_fast(module), folder_sort_order, cmp_text_case_sensitive))
             } else {
                 cmp_optional_nodes(a, b, module, |a, b, module| cmp_text_case_sensitive(a.text_fast(module), b.text_fast(module)))
             };

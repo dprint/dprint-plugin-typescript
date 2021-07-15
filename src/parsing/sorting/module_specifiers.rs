@@ -1,13 +1,15 @@
 use std::cmp::Ordering;
 
-pub fn cmp_module_specifiers(a: &str, b: &str, cmp_text: impl Fn(&str, &str) -> Ordering) -> Ordering {
+use crate::configuration::*;
+
+pub fn cmp_module_specifiers(a: &str, b: &str, folder_sort_order: FolderSortOrder, cmp_text: impl Fn(&str, &str) -> Ordering) -> Ordering {
     let a_info = get_module_specifier_info(a);
     let b_info = get_module_specifier_info(b);
 
     return match a_info.kind {
         ModuleSpecifierKind::Absolute => {
             match b_info.kind {
-                ModuleSpecifierKind::Absolute => compare_folder_items(&a_info, &b_info, cmp_text),
+                ModuleSpecifierKind::Absolute => compare_folder_items(&a_info, &b_info, folder_sort_order, cmp_text),
                 ModuleSpecifierKind::Relative(_) => Ordering::Less,
             }
         },
@@ -18,35 +20,24 @@ pub fn cmp_module_specifiers(a: &str, b: &str, cmp_text: impl Fn(&str, &str) -> 
                     match a_relative_count.cmp(&b_relative_count) {
                         Ordering::Greater => Ordering::Less,
                         Ordering::Less => Ordering::Greater,
-                        Ordering::Equal => compare_folder_items(&a_info, &b_info, cmp_text),
+                        Ordering::Equal => compare_folder_items(&a_info, &b_info, folder_sort_order, cmp_text),
                     }
                 },
             }
         }
     };
 
-    fn compare_folder_items(a_info: &ModuleSpecifierInfo, b_info: &ModuleSpecifierInfo, cmp_text: impl Fn(&str, &str) -> Ordering) -> Ordering {
-        let max_len = std::cmp::min(a_info.folder_items.len(), b_info.folder_items.len());
-        // compare the common items except for the potential file name at the end
-        for i in 0..max_len - 1 {
-            let a_text = a_info.folder_items[i];
-            let b_text = b_info.folder_items[i];
-            let ordering = cmp_text(a_text, b_text);
-            if ordering != Ordering::Equal {
-                return ordering;
-            }
-        }
-
-        if a_info.folder_items.len() != b_info.folder_items.len() {
-            // the import that has a folder name should appear before the one with a file name
-            if a_info.folder_items.len() > b_info.folder_items.len() {
-                Ordering::Less
-            } else {
-                Ordering::Greater
-            }
-        } else {
-            // compare the file names
-            cmp_text(a_info.folder_items.last().unwrap(), b_info.folder_items.last().unwrap())
+    fn compare_folder_items(a_info: &ModuleSpecifierInfo, b_info: &ModuleSpecifierInfo, folder_sort_order: FolderSortOrder, cmp_text: impl Fn(&str, &str) -> Ordering) -> Ordering {
+        let path_length_ordering = a_info.folder_items.len().cmp(&b_info.folder_items.len()).reverse();
+        let alphabetical_ordering = a_info.folder_items.iter()
+            .zip(b_info.folder_items.iter())
+            .map(|(a, b)| cmp_text(a, b))
+            .find(|ordering| *ordering != Ordering::Equal)
+            .unwrap_or(path_length_ordering);
+        match (folder_sort_order, path_length_ordering) {
+            (FolderSortOrder::FoldersFirst, Ordering::Equal) => alphabetical_ordering,
+            (FolderSortOrder::FoldersFirst, _) => path_length_ordering,
+            (FolderSortOrder::Alphabetical, _) => alphabetical_ordering,
         }
     }
 }
@@ -99,18 +90,18 @@ mod test {
 
     #[test]
     fn it_should_compare_module_specifiers() {
-        assert_eq!(cmp_module_specifiers("''", "'test'", |a, b| a.cmp(b)), Ordering::Less);
-        assert_eq!(cmp_module_specifiers("'a'", "'b'", |a, b| a.cmp(b)), Ordering::Less);
-        assert_eq!(cmp_module_specifiers("'b'", "'a'", |a, b| a.cmp(b)), Ordering::Greater);
-        assert_eq!(cmp_module_specifiers("'a'", "'a'", |a, b| a.cmp(b)), Ordering::Equal);
-        assert_eq!(cmp_module_specifiers("'a'", "'./a'", |a, b| a.cmp(b)), Ordering::Less);
-        assert_eq!(cmp_module_specifiers("'./a'", "'a'", |a, b| a.cmp(b)), Ordering::Greater);
-        assert_eq!(cmp_module_specifiers("'./a'", "'./a'", |a, b| a.cmp(b)), Ordering::Equal);
-        assert_eq!(cmp_module_specifiers("'../a'", "'./a'", |a, b| a.cmp(b)), Ordering::Less);
-        assert_eq!(cmp_module_specifiers("'./a'", "'../a'", |a, b| a.cmp(b)), Ordering::Greater);
-        assert_eq!(cmp_module_specifiers("'../../a'", "'../a'", |a, b| a.cmp(b)), Ordering::Less);
-        assert_eq!(cmp_module_specifiers("'../a'", "'../../a'", |a, b| a.cmp(b)), Ordering::Greater);
-        assert_eq!(cmp_module_specifiers("'..'", "'test'", |a, b| a.cmp(b)), Ordering::Greater);
+        assert_eq!(cmp_module_specifiers("''", "'test'", FolderSortOrder::FoldersFirst, |a, b| a.cmp(b)), Ordering::Less);
+        assert_eq!(cmp_module_specifiers("'a'", "'b'", FolderSortOrder::FoldersFirst, |a, b| a.cmp(b)), Ordering::Less);
+        assert_eq!(cmp_module_specifiers("'b'", "'a'", FolderSortOrder::FoldersFirst, |a, b| a.cmp(b)), Ordering::Greater);
+        assert_eq!(cmp_module_specifiers("'a'", "'a'", FolderSortOrder::FoldersFirst, |a, b| a.cmp(b)), Ordering::Equal);
+        assert_eq!(cmp_module_specifiers("'a'", "'./a'", FolderSortOrder::FoldersFirst, |a, b| a.cmp(b)), Ordering::Less);
+        assert_eq!(cmp_module_specifiers("'./a'", "'a'", FolderSortOrder::FoldersFirst, |a, b| a.cmp(b)), Ordering::Greater);
+        assert_eq!(cmp_module_specifiers("'./a'", "'./a'", FolderSortOrder::FoldersFirst, |a, b| a.cmp(b)), Ordering::Equal);
+        assert_eq!(cmp_module_specifiers("'../a'", "'./a'", FolderSortOrder::FoldersFirst, |a, b| a.cmp(b)), Ordering::Less);
+        assert_eq!(cmp_module_specifiers("'./a'", "'../a'", FolderSortOrder::FoldersFirst, |a, b| a.cmp(b)), Ordering::Greater);
+        assert_eq!(cmp_module_specifiers("'../../a'", "'../a'", FolderSortOrder::FoldersFirst, |a, b| a.cmp(b)), Ordering::Less);
+        assert_eq!(cmp_module_specifiers("'../a'", "'../../a'", FolderSortOrder::FoldersFirst, |a, b| a.cmp(b)), Ordering::Greater);
+        assert_eq!(cmp_module_specifiers("'..'", "'test'", FolderSortOrder::FoldersFirst, |a, b| a.cmp(b)), Ordering::Greater);
     }
 
     #[test]

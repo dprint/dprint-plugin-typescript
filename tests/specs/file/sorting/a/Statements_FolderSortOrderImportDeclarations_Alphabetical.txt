@@ -1,0 +1,10 @@
+~~ module.sortImportDeclarations: caseInsensitive, module.folderSortOrderImportDeclarations: alphabetical ~~
+== should sort import declarations purely alphabetically ==
+import {} from "s/d/t/f"
+import type {} from "s/d/m";
+import {} from "s/d/m";
+
+[expect]
+import type {} from "s/d/m";
+import {} from "s/d/m";
+import {} from "s/d/t/f";
