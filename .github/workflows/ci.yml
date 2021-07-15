@@ -68,7 +68,7 @@ jobs:
         npm run test
 
     - name: npm publish
-      if: matrix.config.kind == 'test_release' && startsWith(github.ref, 'refs/tags/')
+      if: matrix.config.kind == 'test_release' && startsWith(github.ref, 'refs/tags/') && github.repository == 'dprint/dprint-plugin-typescript'
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       run: |
@@ -78,11 +78,11 @@ jobs:
 
       # CARGO PUBLISH
     - name: Cargo login
-      if: matrix.config.kind == 'test_release' && startsWith(github.ref, 'refs/tags/')
+      if: matrix.config.kind == 'test_release' && startsWith(github.ref, 'refs/tags/') && github.repository == 'dprint/dprint-plugin-typescript'
       run: cargo login ${{ secrets.CRATES_TOKEN }}
 
     - name: Cargo publish
-      if: matrix.config.kind == 'test_release' && startsWith(github.ref, 'refs/tags/')
+      if: matrix.config.kind == 'test_release' && startsWith(github.ref, 'refs/tags/') && github.repository == 'dprint/dprint-plugin-typescript'
       run: cargo publish
 
       # GITHUB RELEASE
@@ -135,14 +135,14 @@ jobs:
 
       # PLUGIN PUBLISH
     - name: Checkout plugins repo
-      if: matrix.config.kind == 'test_release' && startsWith(github.ref, 'refs/tags/')
+      if: matrix.config.kind == 'test_release' && startsWith(github.ref, 'refs/tags/') && github.repository == 'dprint/dprint-plugin-typescript'
       uses: actions/checkout@v2
       with:
         repository: dprint/plugins
         token: ${{ secrets.CI_REPO_PAT }} # github.token is scoped to current repo, so use this to push to other repo
         path: dprint-plugins
     - name: Plugin publish
-      if: matrix.config.kind == 'test_release' && startsWith(github.ref, 'refs/tags/')
+      if: matrix.config.kind == 'test_release' && startsWith(github.ref, 'refs/tags/') && github.repository == 'dprint/dprint-plugin-typescript'
       run: |
           cd dprint-plugins
           node scripts/replace-plugin.js dprint-plugin-typescript ${{ steps.get_tag_version.outputs.TAG_VERSION }} typescript-${{ steps.get_tag_version.outputs.TAG_VERSION }}
