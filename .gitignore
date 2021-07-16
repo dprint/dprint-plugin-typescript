@@ -1,6 +1,5 @@
 /target
 **/*.rs.bk
 sourcemap
-Cargo.lock
 deployment/npm/buffer.generated.js
 deployment/npm/node_modules
