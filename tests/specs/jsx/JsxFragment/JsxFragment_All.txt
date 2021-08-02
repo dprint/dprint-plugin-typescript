@@ -11,17 +11,61 @@ const t = <>
 Test</>;
 
 [expect]
-const t = <>
-    Test
-</>;
+const t = (
+    <>
+        Test
+    </>
+);
+
+== should remove paren expression when the element isn't multi-line ==
+const t = (
+    <></>
+);
+
+[expect]
+const t = <></>;
+
+== should not remove paren expression when the element isn't multi-line, but has surrounding comments ==
+const t = ( // test
+    <></>
+);
+const u = (
+    // test
+    <></>
+);
+const v = (
+    <></> // test
+);
+const w = (
+    <></>
+    // test
+);
+
+[expect]
+const t = ( // test
+    <></>
+);
+const u = (
+    // test
+    <></>
+);
+const v = (
+    <></> // test
+);
+const w = (
+    <></>
+    // test
+);
 
 == should use multi lines even when empty (since someone may want it that way in order to insert statements later) ==
 const t = <>
 </>;
 
 [expect]
-const t = <>
-</>;
+const t = (
+    <>
+    </>
+);
 
 == should format elements inside ==
 const t = <>
@@ -42,29 +86,33 @@ Text
     </>;
 
 [expect]
-const t = <>
-    Text
+const t = (
+    <>
+        Text
 
-    <Element />
-    <Element />
+        <Element />
+        <Element />
 
-    Text
-    <Element />
-    Text
+        Text
+        <Element />
+        Text
 
-    <Element />
+        <Element />
 
-    Text
-</>;
+        Text
+    </>
+);
 
 == should make the children multi-line when they exceed the line width ==
 const t = <><Test /><Test /><Test /><Test /><Test /></>;
 
 [expect]
-const t = <>
-    <Test />
-    <Test />
-    <Test />
-    <Test />
-    <Test />
-</>;
+const t = (
+    <>
+        <Test />
+        <Test />
+        <Test />
+        <Test />
+        <Test />
+    </>
+);

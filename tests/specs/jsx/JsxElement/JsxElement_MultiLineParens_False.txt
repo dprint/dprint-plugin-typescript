@@ -1,0 +1,108 @@
+-- filePath: file.tsx --
+~~  lineWidth: 50, jsx.multiLineParens: false ~~
+== should format when multi line ==
+const t = <Test>
+Test</Test>;
+
+[expect]
+const t = <Test>
+    Test
+</Test>;
+
+== should not remove the paren expr when able ==
+const t = (
+    <Test></Test>
+);
+
+[expect]
+const t = (
+    <Test></Test>
+);
+
+== should use multi lines even when empty (since someone may want it that way in order to insert statements later) ==
+const t = <Test>
+</Test>;
+
+[expect]
+const t = <Test>
+</Test>;
+
+== should format elements inside ==
+const t = <Test>
+Text
+
+<Element />
+<Element />
+
+Text
+<Element />
+Text
+
+
+<Element />
+
+Text
+
+    </Test>;
+
+[expect]
+const t = <Test>
+    Text
+
+    <Element />
+    <Element />
+
+    Text
+    <Element />
+    Text
+
+    <Element />
+
+    Text
+</Test>;
+
+== should make the children multi-line when they exceed the line width ==
+const t = <Test><Test /><Test /><Test /><Test /><Test /></Test>;
+const u = <Test><Test /><Test /><Test /><A /></Test>;
+
+[expect]
+const t = <Test>
+    <Test />
+    <Test />
+    <Test />
+    <Test />
+    <Test />
+</Test>;
+const u = <Test>
+    <Test />
+    <Test />
+    <Test />
+    <A />
+</Test>;
+
+== should make the jsx element multi-line once it contains a jsx element or fragment ==
+const t1 = <div><test /></div>;
+const t2 = <div><a>Test</a></div>;
+const t3 = <div><></></div>;
+
+[expect]
+const t1 = <div>
+    <test />
+</div>;
+const t2 = <div>
+    <a>Test</a>
+</div>;
+const t3 = <div>
+    <></>
+</div>;
+
+== should make the children multi-line when the header exceeds the line width ==
+const t = <Test testingThisOut={5} other={longVariable}><Test /></Test>;
+
+[expect]
+const t = <Test
+    testingThisOut={5}
+    other={longVariable}
+>
+    <Test />
+</Test>;

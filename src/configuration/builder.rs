@@ -64,6 +64,7 @@ impl ConfigurationBuilder {
             .tagged_template_space_before_literal(false)
             .conditional_expression_prefer_single_line(true)
             .quote_style(QuoteStyle::PreferDouble)
+            .jsx_multi_line_parens(true)
             .ignore_node_comment_text("deno-fmt-ignore")
             .ignore_file_comment_text("deno-fmt-ignore-file")
             .module_sort_import_declarations(SortOrder::Maintain)
@@ -110,6 +111,14 @@ impl ConfigurationBuilder {
     /// Default: `JsxQuoteStyle::PreferDouble`
     pub fn jsx_quote_style(&mut self, value: JsxQuoteStyle) -> &mut Self {
         self.insert("jsx.quoteStyle", value.to_string().into())
+    }
+
+    /// Whether to surround a JSX element or fragment with parentheses
+    /// when it's the top JSX node and it spans multiple lines.
+    ///
+    /// Default: true
+    pub fn jsx_multi_line_parens(&mut self, value: bool) -> &mut Self {
+        self.insert("jsx.multiLineParens", value.into())
     }
 
     /// Whether statements should end in a semi-colon.
@@ -916,6 +925,7 @@ mod tests {
             /* common */
             .quote_style(QuoteStyle::AlwaysDouble)
             .jsx_quote_style(JsxQuoteStyle::PreferSingle)
+            .jsx_multi_line_parens(false)
             .semi_colons(SemiColons::Prefer)
             .brace_position(BracePosition::NextLine)
             .next_control_flow_position(NextControlFlowPosition::SameLine)
@@ -1075,7 +1085,7 @@ mod tests {
             .while_statement_space_after_while_keyword(true);
 
         let inner_config = config.get_inner_config();
-        assert_eq!(inner_config.len(), 150);
+        assert_eq!(inner_config.len(), 151);
         let diagnostics = resolve_config(inner_config, &resolve_global_config(HashMap::new()).config).diagnostics;
         assert_eq!(diagnostics.len(), 0);
     }

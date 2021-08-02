@@ -2020,6 +2020,12 @@ fn parse_object_lit<'a>(node: &'a ObjectLit, context: &mut Context<'a>) -> Print
 }
 
 fn parse_paren_expr<'a>(node: &'a ParenExpr, context: &mut Context<'a>) -> PrintItems {
+    if is_jsx_paren_expr_handled_node(&node.expr.into(), context) {
+        // skip explicitly parsing this as a paren expr as that will be handled
+        // in the JSX element/fragment and it might collapse back to not having a paren expr
+        return parse_node(node.expr.into(), context);
+    }
+
     let parsed_items = conditions::with_indent_if_start_of_line_indented(parse_node_in_parens(
         |context| parse_node(node.expr.into(), context),
         ParseNodeInParensOptions {
@@ -2572,8 +2578,58 @@ fn parse_jsx_closing_fragment<'a>(_: &'a JSXClosingFragment, _: &mut Context<'a>
     "</>".into()
 }
 
+fn handle_jsx_surrounding_parens<'a>(inner_items: PrintItems, context: &mut Context<'a>) -> PrintItems {
+    if is_jsx_paren_expr_handled_node(&context.parent(), context)
+        || !is_jsx_paren_expr_handled_node(&context.current_node, context)
+    {
+        return inner_items;
+    }
+
+    let start_info = Info::new("conditionalParenStartInfo");
+    let end_info = Info::new("conditionalParenEndInfo");
+    let mut items = PrintItems::new();
+    let inner_items_rc = inner_items.into_rc_path();
+
+    items.push_info(start_info);
+    items.push_condition(
+        if_true_or(
+            "isMultipleLines",
+            move |context| {
+                // clear the end info when the start info changes
+                if context.has_info_moved(&start_info)? {
+                    context.clear_info(&end_info);
+                }
+                condition_resolvers::is_multiple_lines(context, &start_info, &end_info)
+            },
+            {
+                let mut items = PrintItems::new();
+                items.push_str("(");
+                items.extend(surround_with_new_lines(with_indent(inner_items_rc.into())));
+                items.push_str(")");
+                items
+            },
+            {
+                let mut items = PrintItems::new();
+                items.push_signal(Signal::PossibleNewLine);
+                items.extend(inner_items_rc.into());
+                items
+            }
+        )
+    );
+
+    items.push_info(end_info);
+    items
+}
+
+fn is_jsx_paren_expr_handled_node(node: &Node, context: &Context) -> bool {
+    context.config.jsx_multi_line_parens
+        && matches!(node.kind(), NodeKind::JSXElement | NodeKind::JSXFragment)
+        && node.leading_comments_fast(context.module).is_empty()
+        && node.trailing_comments_fast(context.module).is_empty()
+}
+
 fn parse_jsx_element<'a>(node: &'a JSXElement, context: &mut Context<'a>) -> PrintItems {
-    if let Some(closing) = node.closing {
+    let items = if let Some(closing) = node.closing {
         let result = parse_jsx_with_opening_and_closing(ParseJsxWithOpeningAndClosingOptions {
             opening_element: node.opening.into(),
             closing_element: closing.into(),
@@ -2592,7 +2648,9 @@ fn parse_jsx_element<'a>(node: &'a JSXElement, context: &mut Context<'a>) -> Pri
         items.extend(parse_node(node.opening.into(), context));
         items.push_info(end_info);
         items
-    }
+    };
+
+    handle_jsx_surrounding_parens(items, context)
 }
 
 fn parse_jsx_empty_expr<'a>(node: &'a JSXEmptyExpr, context: &mut Context<'a>) -> PrintItems {
@@ -2662,7 +2720,7 @@ fn parse_jsx_fragment<'a>(node: &'a JSXFragment, context: &mut Context<'a>) -> P
 
     context.store_info_range_for_node(node, (result.start_info, result.end_info));
 
-    result.items
+    handle_jsx_surrounding_parens(result.items, context)
 }
 
 fn parse_jsx_member_expr<'a>(node: &'a JSXMemberExpr, context: &mut Context<'a>) -> PrintItems {

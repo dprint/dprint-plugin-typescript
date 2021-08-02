@@ -11,17 +11,21 @@ const t = <Test>
 Test</Test>;
 
 [expect]
-const t = <Test>
-    Test
-</Test>;
+const t = (
+    <Test>
+        Test
+    </Test>
+);
 
 == should use multi lines even when empty (since someone may want it that way in order to insert statements later) ==
 const t = <Test>
 </Test>;
 
 [expect]
-const t = <Test>
-</Test>;
+const t = (
+    <Test>
+    </Test>
+);
 
 == should format elements inside ==
 const t = <Test>
@@ -42,20 +46,22 @@ Text
     </Test>;
 
 [expect]
-const t = <Test>
-    Text
+const t = (
+    <Test>
+        Text
 
-    <Element />
-    <Element />
+        <Element />
+        <Element />
 
-    Text
-    <Element />
-    Text
+        Text
+        <Element />
+        Text
 
-    <Element />
+        <Element />
 
-    Text
-</Test>;
+        Text
+    </Test>
+);
 
 == should format when self closing ==
 const t = <Test />;
@@ -63,17 +69,71 @@ const t = <Test />;
 [expect]
 const t = <Test />;
 
+== should format when element exceeds line width with no children ==
+const t = <TestingThisOutTestingThisOutTestingTe />;
+const u = <TestingThisOutTest></TestingThisOutTest>;
+
+[expect]
+const t = (
+    <TestingThisOutTestingThisOutTestingTe />
+);
+const u = (
+    <TestingThisOutTest></TestingThisOutTest>
+);
+
+== should remove paren expression when the element isn't multi-line ==
+const t = (
+    <Test></Test>
+);
+
+[expect]
+const t = <Test></Test>;
+
+== should not remove paren expression when the element isn't multi-line, but has surrounding comments ==
+const t = ( // test
+    <Test></Test>
+);
+const u = (
+    // test
+    <Test></Test>
+);
+const v = (
+    <Test></Test> // test
+);
+const w = (
+    <Test></Test>
+    // test
+);
+
+[expect]
+const t = ( // test
+    <Test></Test>
+);
+const u = (
+    // test
+    <Test></Test>
+);
+const v = (
+    <Test></Test> // test
+);
+const w = (
+    <Test></Test>
+    // test
+);
+
 == should make the children multi-line when they exceed the line width ==
 const t = <Test><Test /><Test /><Test /><Test /><Test /></Test>;
 
 [expect]
-const t = <Test>
-    <Test />
-    <Test />
-    <Test />
-    <Test />
-    <Test />
-</Test>;
+const t = (
+    <Test>
+        <Test />
+        <Test />
+        <Test />
+        <Test />
+        <Test />
+    </Test>
+);
 
 == should make the jsx element multi-line once it contains a jsx element or fragment ==
 const t1 = <div><test /></div>;
@@ -81,15 +141,21 @@ const t2 = <div><a>Test</a></div>;
 const t3 = <div><></></div>;
 
 [expect]
-const t1 = <div>
-    <test />
-</div>;
-const t2 = <div>
-    <a>Test</a>
-</div>;
-const t3 = <div>
-    <></>
-</div>;
+const t1 = (
+    <div>
+        <test />
+    </div>
+);
+const t2 = (
+    <div>
+        <a>Test</a>
+    </div>
+);
+const t3 = (
+    <div>
+        <></>
+    </div>
+);
 
 == should make JSX elements that are beside each other multi-line ==
 const t = <div>
@@ -97,10 +163,12 @@ const t = <div>
 </div>;
 
 [expect]
-const t = <div>
-    <Test />
-    <Test />
-</div>;
+const t = (
+    <div>
+        <Test />
+        <Test />
+    </div>
+);
 
 == should make JSX elements that have a space between them not multi-line ==
 const t = <div>
@@ -108,20 +176,24 @@ const t = <div>
 </div>;
 
 [expect]
-const t = <div>
-    <Test /> <Test />
-</div>;
+const t = (
+    <div>
+        <Test /> <Test />
+    </div>
+);
 
 == should make the children multi-line when the header exceeds the line width ==
-const t = <Test testingThisOut={5} other={longVariable}><Test /></Test>;
+const t = <Test testingThisOut={5} otherAttr={longVariable}><Test /></Test>;
 
 [expect]
-const t = <Test
-    testingThisOut={5}
-    other={longVariable}
->
-    <Test />
-</Test>;
+const t = (
+    <Test
+        testingThisOut={5}
+        otherAttr={longVariable}
+    >
+        <Test />
+    </Test>
+);
 
 == should keep jsx expressions on the same line if there is text separating them ==
 const t = <Element>
@@ -129,9 +201,11 @@ const t = <Element>
 </Element>;
 
 [expect]
-const t = <Element>
-    {title}:{other}
-</Element>;
+const t = (
+    <Element>
+        {title}:{other}
+    </Element>
+);
 
 == should keep jsx text on the same line for a following text ==
 const t = <Element>
@@ -140,10 +214,12 @@ const t = <Element>
 </Element>;
 
 [expect]
-const t = <Element>
-    {title}:
-    {other}
-</Element>;
+const t = (
+    <Element>
+        {title}:
+        {other}
+    </Element>
+);
 
 == should keep jsx text on the same line for a preceding text with and without a space ==
 const t = <Element>
@@ -152,10 +228,12 @@ const t = <Element>
 </Element>;
 
 [expect]
-const t = <Element>
-    Test: {title}
-    Test{other}
-</Element>;
+const t = (
+    <Element>
+        Test: {title}
+        Test{other}
+    </Element>
+);
 
 == should keep jsx text on the same line for the following text with and without a space ==
 const t = <Element>
@@ -164,10 +242,12 @@ const t = <Element>
 </Element>;
 
 [expect]
-const t = <Element>
-    {title} test
-    {other}test
-</Element>;
+const t = (
+    <Element>
+        {title} test
+        {other}test
+    </Element>
+);
 
 == should leave a space between the text and expression when single line ==
 return (<E>Test: {type}</E>);
@@ -176,7 +256,7 @@ return (<E>{type} test</E>);
 return (<E>{type}  test</E>);
 
 [expect]
-return (<E>Test: {type}</E>);
-return (<E>Test: {type}</E>);
-return (<E>{type} test</E>);
-return (<E>{type} test</E>);
+return <E>Test: {type}</E>;
+return <E>Test: {type}</E>;
+return <E>{type} test</E>;
+return <E>{type} test</E>;

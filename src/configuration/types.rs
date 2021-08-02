@@ -296,6 +296,8 @@ pub struct Configuration {
     pub binary_expression_line_per_expression: bool,
     #[serde(rename = "jsx.quoteStyle")]
     pub jsx_quote_style: JsxQuoteStyle,
+    #[serde(rename = "jsx.multiLineParens")]
+    pub jsx_multi_line_parens: bool,
     #[serde(rename = "memberExpression.linePerExpression")]
     pub member_expression_line_per_expression: bool,
     #[serde(rename = "typeLiteral.separatorKind.singleLine")]

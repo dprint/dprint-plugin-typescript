@@ -1,5 +1,5 @@
 -- filePath: file.tsx --
-~~ indentWidth: 2 ~~
+~~ indentWidth: 2, jsx.multiLineParens: false ~~
 == should format as-is ==
 const View = () => (
   <div class="deno">land</div>

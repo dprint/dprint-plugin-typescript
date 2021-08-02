@@ -1,4 +1,5 @@
 -- filePath: file.tsx --
+~~ jsx.multiLineParens: false ~~
 == should format ==
 const t = <test other={   4  } />;
 

@@ -1,5 +1,5 @@
 -- fileName: test.jsx --
-~~ lineWidth: 80 ~~
+~~ lineWidth: 80, jsx.multiLineParens: false ~~
 == should format block comments in jsx expr container ==
 const render = items => (
   <div>{ /* eslint-disable */

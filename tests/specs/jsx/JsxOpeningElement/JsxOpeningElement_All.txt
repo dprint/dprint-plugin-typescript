@@ -16,13 +16,15 @@ const t = <Test attrib={5} other="test"></Test>;
 const t = <Test attrib={5} otherAttrib="test" anotherVeryLongAttrib={234234}>Test</Test>;
 
 [expect]
-const t = <Test
-    attrib={5}
-    otherAttrib="test"
-    anotherVeryLongAttrib={234234}
->
-    Test
-</Test>;
+const t = (
+    <Test
+        attrib={5}
+        otherAttrib="test"
+        anotherVeryLongAttrib={234234}
+    >
+        Test
+    </Test>
+);
 
 == should make the body multi-line when the header is multiple lines and inside parens ==
 const t = (
@@ -45,13 +47,15 @@ const t = <Test
 attrib={5} other={6}><Test /><Test /></Test>;
 
 [expect]
-const t = <Test
-    attrib={5}
-    other={6}
->
-    <Test />
-    <Test />
-</Test>;
+const t = (
+    <Test
+        attrib={5}
+        other={6}
+    >
+        <Test />
+        <Test />
+    </Test>
+);
 
 == should support a comment on the next line after the name ==
 function Test() {
@@ -62,10 +66,12 @@ function Test() {
 
 [expect]
 function Test() {
-    return <View
-        // comment
-    >
-    </View>;
+    return (
+        <View
+            // comment
+        >
+        </View>
+    );
 }
 
 == should support a comment on the same line as the name ==
@@ -76,9 +82,11 @@ function Test() {
 
 [expect]
 function Test() {
-    return <View // comment
-    >
-    </View>;
+    return (
+        <View // comment
+        >
+        </View>
+    );
 }
 
 == should support comments surrounding attributes ==
@@ -92,12 +100,14 @@ function Test() {
 
 [expect]
 function Test() {
-    return <View
-        // comment
-        test={5} // test
-        // other
-    >
-    </View>;
+    return (
+        <View
+            // comment
+            test={5} // test
+            // other
+        >
+        </View>
+    );
 }
 
 == should support a block comment after the name ==
@@ -120,9 +130,11 @@ function Test() {
 
 [expect]
 function Test() {
-    return <View
-        // comment
-    />;
+    return (
+        <View
+            // comment
+        />
+    );
 }
 
 == should support a comment on the same line as the name when self closing ==
@@ -133,6 +145,8 @@ function Test() {
 
 [expect]
 function Test() {
-    return <View // comment
-    />;
+    return (
+        <View // comment
+        />
+    );
 }

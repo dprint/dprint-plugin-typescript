@@ -7,11 +7,13 @@ const t = <Testing<string>></Testing>;
 const t = <Testing<string>></Testing>;
 
 == should format when it has type args and attributes ==
-const t = <Testing<string, number> attrib={5}></Testing>;
+const t = <Testinggg<string, number> attrib={5}></Testinggg>;
 
 [expect]
-const t = <Testing<string, number> attrib={5}>
-</Testing>;
+const t = (
+    <Testinggg<string, number> attrib={5}>
+    </Testinggg>
+);
 
 == should format when it has type args and it's self closing ==
 const t = <Testing<string, number> />;
@@ -20,11 +22,13 @@ const t = <Testing<string, number> />;
 const t = <Testing<string, number> />;
 
 == should format when it has type args and is multi-line ==
-const t = <Testing<
-string, number> />;
+const t = (<Testing<
+string, number> />);
 
 [expect]
-const t = <Testing<
-    string,
-    number
-> />;
+const t = (
+    <Testing<
+        string,
+        number
+    > />
+);

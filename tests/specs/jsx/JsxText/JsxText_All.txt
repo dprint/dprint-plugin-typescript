@@ -1,5 +1,5 @@
 -- filePath: file.tsx --
-~~ lineWidth: 50 ~~
+~~ lineWidth: 50, jsx.multiLineParens: false ~~
 == should format when single line ==
 const t = <>  Testing this out  </>;
 
