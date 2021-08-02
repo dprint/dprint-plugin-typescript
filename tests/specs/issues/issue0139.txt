@@ -1,0 +1,27 @@
+== should add space before return statement ==
+if (typeof bar === "string"){return}
+if (true) { return; // 1
+}
+if (true){return} // 2
+if (true){/*3*/return}
+if (true)/*4*/{return}
+if (true) // 5
+{
+    return;
+}
+if (true) {// 6
+    return;
+}
+
+[expect]
+if (typeof bar === "string") return;
+if (true) return; // 1
+if (true) return; // 2
+if (true) /*3*/ return;
+if (true) /*4*/ return;
+if (true) { // 5
+    return;
+}
+if (true) { // 6
+    return;
+}

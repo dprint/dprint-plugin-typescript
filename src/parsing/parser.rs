@@ -1114,7 +1114,6 @@ fn parse_interface_decl<'a>(node: &'a TsInterfaceDecl, context: &mut Context<'a>
 
 fn parse_module_decl<'a>(node: &'a TsModuleDecl, context: &mut Context<'a>) -> PrintItems {
     parse_module_or_namespace_decl(ModuleOrNamespaceDecl {
-        span: node.span(),
         declare: node.declare(),
         global: node.global(),
         id: node.id.into(),
@@ -1124,7 +1123,6 @@ fn parse_module_decl<'a>(node: &'a TsModuleDecl, context: &mut Context<'a>) -> P
 
 fn parse_namespace_decl<'a>(node: &'a TsNamespaceDecl, context: &mut Context<'a>) -> PrintItems {
     parse_module_or_namespace_decl(ModuleOrNamespaceDecl {
-        span: node.span(),
         declare: node.declare(),
         global: node.global(),
         id: node.id.into(),
@@ -1133,7 +1131,6 @@ fn parse_namespace_decl<'a>(node: &'a TsNamespaceDecl, context: &mut Context<'a>
 }
 
 struct ModuleOrNamespaceDecl<'a> {
-    pub span: Span,
     pub declare: bool,
     pub global: bool,
     pub id: Node<'a>,
@@ -6518,6 +6515,13 @@ fn parse_conditional_brace_body<'a>(opts: ParseConditionalBraceBodyOptions<'a>, 
     }
     items.push_condition(newline_condition);
     items.push_info(start_statements_info);
+    if !is_body_empty_stmt {
+        items.push_condition(if_true(
+            "spaceIfAtStart",
+            move |context| condition_resolvers::is_at_same_position(context, &start_info),
+            Signal::SpaceOrNewLine.into(),
+        ));
+    }
 
     if let Node::BlockStmt(body_node) = opts.body_node {
         items.extend(parser_helpers::with_indent({
@@ -6532,13 +6536,6 @@ fn parse_conditional_brace_body<'a>(opts: ParseConditionalBraceBodyOptions<'a>, 
         items.extend(parser_helpers::with_indent({
             let mut items = PrintItems::new();
             let body_node_span = opts.body_node.span();
-            if !is_body_empty_stmt {
-                items.push_condition(if_true(
-                    "spaceIfAtStart",
-                    move |context| condition_resolvers::is_at_same_position(context, &start_info),
-                    Signal::SpaceOrNewLine.into(),
-                ));
-            }
             items.extend(parse_node(opts.body_node, context));
             items.extend(parse_trailing_comments(&body_node_span, context));
             items
