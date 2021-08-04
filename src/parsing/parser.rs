@@ -2624,7 +2624,11 @@ fn handle_jsx_surrounding_parens<'a>(inner_items: PrintItems, context: &mut Cont
 fn is_jsx_paren_expr_handled_node(node: &Node, context: &Context) -> bool {
     context.config.jsx_multi_line_parens
         && matches!(node.kind(), NodeKind::JSXElement | NodeKind::JSXFragment)
-        && node.parent().unwrap().kind() != NodeKind::ExprStmt
+        // do not allow in top level expr statement or argument
+        && !matches!(node.parent().unwrap().kind(), NodeKind::ExprStmt
+            | NodeKind::ExprOrSpread
+            | NodeKind::JSXElement
+            | NodeKind::JSXFragment)
         && node.leading_comments_fast(context.module).is_empty()
         && node.trailing_comments_fast(context.module).is_empty()
 }
