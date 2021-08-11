@@ -1,5 +1,4 @@
 use dprint_core::formatting::{Info, ConditionReference};
-use swc_common::SourceFile;
 use swc_ast_view::*;
 use fnv::{FnvHashMap, FnvHashSet};
 
@@ -15,7 +14,6 @@ pub struct Context<'a> {
     pub current_node: Node<'a>,
     pub parent_stack: Stack<Node<'a>>,
     handled_comments: FnvHashSet<BytePos>,
-    pub info: &'a SourceFile,
     stored_infos: FnvHashMap<(BytePos, BytePos), Info>,
     stored_info_ranges: FnvHashMap<(BytePos, BytePos), (Info, Info)>,
     pub end_statement_or_member_infos: Stack<Info>,
@@ -32,7 +30,6 @@ impl<'a> Context<'a> {
         config: &'a Configuration,
         tokens: &'a [TokenAndSpan],
         current_node: Node<'a>,
-        info: &'a SourceFile,
         module: &'a Module,
     ) -> Context<'a> {
         Context {
@@ -43,7 +40,6 @@ impl<'a> Context<'a> {
             current_node,
             parent_stack: Stack::new(),
             handled_comments: FnvHashSet::default(),
-            info,
             stored_infos: FnvHashMap::default(),
             stored_info_ranges: FnvHashMap::default(),
             end_statement_or_member_infos: Stack::new(),

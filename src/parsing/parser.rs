@@ -3,29 +3,30 @@ use dprint_core::formatting::*;
 use dprint_core::formatting::{parser_helpers::*,condition_resolvers, conditions::*};
 use swc_ast_view::*;
 
-use crate::configuration::*;
-use crate::swc::ParsedSourceFile;
+use crate::{SourceFileInfo, configuration::*};
 use crate::utils;
 use super::sorting::*;
 use super::swc::*;
 use super::swc::{get_flattened_bin_expr};
 use super::*;
 
-pub fn parse(source_file: &ParsedSourceFile, config: &Configuration) -> PrintItems {
+pub fn parse(info: &SourceFileInfo<'_>, config: &Configuration) -> PrintItems {
     let source_file_info = swc_ast_view::ModuleInfo {
-        module: &source_file.module,
-        source_file: Some(&source_file.info),
-        tokens: Some(&source_file.tokens),
-        comments: Some(&source_file.comments),
+        module: info.module,
+        source_file: Some(info.info),
+        tokens: Some(info.tokens),
+        comments: Some(Comments {
+            leading: info.leading_comments,
+            trailing: info.trailing_comments,
+        }),
     };
 
     swc_ast_view::with_ast_view_for_module(source_file_info, |module| {
         let module_node = Node::Module(module);
         let mut context = Context::new(
             config,
-            &source_file.tokens,
+            info.tokens,
             module_node,
-            &source_file.info,
             module,
         );
         let mut items = parse_node(module_node, &mut context);

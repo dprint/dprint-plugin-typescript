@@ -3,6 +3,8 @@ use std::path::Path;
 use dprint_core::formatting::*;
 use dprint_core::types::ErrBox;
 use dprint_core::configuration::{resolve_new_line_kind};
+use swc_ast_view::TokenAndSpan;
+use swc_common::comments::SingleThreadedCommentsMapInner;
 
 use super::parsing::parse;
 use super::swc::parse_swc_ast;
@@ -10,7 +12,7 @@ use super::configuration::Configuration;
 
 /// Formats a file.
 ///
-/// Returns the file text `Ok(formatted_text)` or an error when it failed to parse.
+/// Returns the file text or an error when it failed to parse.
 ///
 /// # Example
 ///
@@ -42,17 +44,51 @@ pub fn format_text(file_path: &Path, file_text: &str, config: &Configuration) ->
 
     let parsed_source_file = parse_swc_ast(file_path, file_text)?;
     Ok(dprint_core::formatting::format(|| {
-        let print_items = parse(&parsed_source_file, config);
+        let print_items = parse(&SourceFileInfo {
+            module: &parsed_source_file.module,
+            info: &parsed_source_file.info,
+            tokens: &parsed_source_file.tokens,
+            leading_comments: &parsed_source_file.leading_comments,
+            trailing_comments: &parsed_source_file.trailing_comments,
+        }, config);
         // println!("{}", print_items.get_as_text());
         print_items
     }, config_to_print_options(file_text, config)))
+}
+
+#[derive(Clone)]
+pub struct SourceFileInfo<'a> {
+    pub module: &'a swc_ecmascript::ast::Module,
+    pub info: &'a dyn swc_ast_view::SourceFile,
+    pub tokens: &'a [TokenAndSpan],
+    pub leading_comments: &'a SingleThreadedCommentsMapInner,
+    pub trailing_comments: &'a SingleThreadedCommentsMapInner,
+}
+
+/// Formats the already parsed file. This is useful as a performance optimization.
+pub fn format_parsed_file(info: &SourceFileInfo<'_>, config: &Configuration) -> Result<String, ErrBox> {
+    if super::utils::file_text_has_ignore_comment(info.info.text(), &config.ignore_file_comment_text) {
+        return Ok(info.info.text().to_string());
+    }
+
+    Ok(dprint_core::formatting::format(|| {
+        let print_items = parse(&info, config);
+        // println!("{}", print_items.get_as_text());
+        print_items
+    }, config_to_print_options(info.info.text(), config)))
 }
 
 #[cfg(feature = "tracing")]
 pub fn trace_file(file_path: &Path, file_text: &str, config: &Configuration) -> dprint_core::formatting::TracingResult {
     let parsed_source_file = parse_swc_ast(file_path, file_text).expect("Expected to parse to SWC AST.");
     dprint_core::formatting::trace_printing(
-        || parse(&parsed_source_file, config),
+        || parse(&SourceFileInfo {
+            info: &parsed_source_file.info,
+            module: &parsed_source_file.module,
+            tokens: &parsed_source_file.tokens,
+            leading_comments: &parsed_source_file.leading_comments,
+            trailing_comments: &parsed_source_file.trailing_comments,
+        }, config),
         config_to_print_options(file_text, config),
     )
 }

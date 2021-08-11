@@ -1,15 +1,16 @@
 use std::path::Path;
-use swc_common::{
-    FileName, comments::SingleThreadedComments, SourceFile, BytePos, Spanned
-};
+use std::rc::Rc;
+use swc_common::{BytePos, Spanned, comments::{SingleThreadedComments, SingleThreadedCommentsMapInner}};
 use swc_ecmascript::parser::{Parser, StringInput, Syntax, error::{SyntaxError, Error as SwcError}, lexer::Lexer, Capturing, JscTarget, token::{TokenAndSpan}};
 use dprint_core::types::{ErrBox, Error};
+use swc_ast_view::SourceFileTextInfo;
 
 pub struct ParsedSourceFile {
     pub module: swc_ecmascript::ast::Module,
-    pub info: SourceFile,
+    pub info: SourceFileTextInfo,
     pub tokens: Vec<TokenAndSpan>,
-    pub comments: SingleThreadedComments,
+    pub leading_comments: SingleThreadedCommentsMapInner,
+    pub trailing_comments: SingleThreadedCommentsMapInner,
 }
 
 pub fn parse_swc_ast(file_path: &Path, file_text: &str) -> Result<ParsedSourceFile, ErrBox> {
@@ -31,13 +32,8 @@ pub fn parse_swc_ast(file_path: &Path, file_text: &str) -> Result<ParsedSourceFi
 }
 
 fn parse_inner(file_path: &Path, file_text: &str) -> Result<ParsedSourceFile, ErrBox> {
-    let source_file = SourceFile::new(
-        FileName::Custom(file_path.to_string_lossy().into()),
-        false,
-        FileName::Custom(file_path.to_string_lossy().into()),
-        file_text.into(),
-        BytePos(0),
-    );
+    let string_input = StringInput::new(file_text, BytePos(0), BytePos(file_text.len() as u32));
+    let source_file_info = SourceFileTextInfo::new(BytePos(0), file_text.to_string());
 
     let comments: SingleThreadedComments = Default::default();
     let (module, tokens) = {
@@ -52,7 +48,7 @@ fn parse_inner(file_path: &Path, file_text: &str) -> Result<ParsedSourceFile, Er
         let lexer = Lexer::new(
             Syntax::Typescript(ts_config),
             JscTarget::Es2019,
-            StringInput::from(&source_file),
+            string_input,
             Some(&comments)
         );
         let lexer = Capturing::new(lexer);
@@ -66,6 +62,9 @@ fn parse_inner(file_path: &Path, file_text: &str) -> Result<ParsedSourceFile, Er
             Ok(module) => Ok((module, tokens))
         }
     }?;
+    let (leading, trailing) = comments.take_all();
+    let leading_comments = Rc::try_unwrap(leading).unwrap().into_inner();
+    let trailing_comments = Rc::try_unwrap(trailing).unwrap().into_inner();
 
     // {
     //     let (leading, trailing) = comments.borrow_all();
@@ -74,9 +73,10 @@ fn parse_inner(file_path: &Path, file_text: &str) -> Result<ParsedSourceFile, Er
     // }
 
     return Ok(ParsedSourceFile {
-        comments,
+        leading_comments,
+        trailing_comments,
         module,
-        info: source_file,
+        info: source_file_info,
         tokens,
     });
 

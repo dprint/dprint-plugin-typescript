@@ -3,7 +3,7 @@ use swc_ast_view::*;
 pub fn is_first_node_on_line(node: &dyn Spanned, module: &Module) -> bool {
     let start = node.lo().0 as usize;
     let source_file = module.source_file.as_ref().unwrap();
-    let source_file_text = source_file.src.as_bytes();
+    let source_file_text = source_file.text().as_bytes();
 
     for i in (0..start).rev() {
         let c = source_file_text[i];
@@ -69,7 +69,7 @@ pub fn nodes_have_only_spaces_between(previous_node: &Node, next_node: &Node, mo
             && next_node_text.starts_with(' ')
     } else {
         let source_file = module.source_file.as_ref().unwrap();
-        crate::utils::is_not_empty_and_only_spaces(&source_file.src[previous_node.hi().0 as usize..next_node.lo().0 as usize])
+        crate::utils::is_not_empty_and_only_spaces(&source_file.text()[previous_node.hi().0 as usize..next_node.lo().0 as usize])
     }
 }
 
