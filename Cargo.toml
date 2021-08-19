@@ -1,6 +1,6 @@
 [package]
 name = "dprint-plugin-typescript"
-version = "0.50.2"
+version = "0.51.0"
 authors = ["David Sherret <dsherret@gmail.com>"]
 edition = "2018"
 homepage = "https://github.com/dprint/dprint-plugin-typescript"
@@ -29,7 +29,7 @@ dprint-core = { version = "0.44.0", features = ["formatting"] }
 fnv = "1.0.7"
 serde = { version = "1.0.118", features = ["derive"] }
 serde_json = { version = "1.0", optional = true }
-swc_ast_view = { version = "0.27.1", package = "dprint-swc-ecma-ast-view" }
+swc_ast_view = { version = "0.29.4", package = "dprint-swc-ecma-ast-view" }
 swc_common = "0.11.4"
 swc_ecmascript = { version = "0.52.1", features = ["parser"] }
 

@@ -66,16 +66,16 @@ pub struct SourceFileInfo<'a> {
 }
 
 /// Formats the already parsed file. This is useful as a performance optimization.
-pub fn format_parsed_file(info: &SourceFileInfo<'_>, config: &Configuration) -> Result<String, ErrBox> {
+pub fn format_parsed_file(info: &SourceFileInfo<'_>, config: &Configuration) -> String {
     if super::utils::file_text_has_ignore_comment(info.info.text(), &config.ignore_file_comment_text) {
-        return Ok(info.info.text().to_string());
+        return info.info.text().to_string();
     }
 
-    Ok(dprint_core::formatting::format(|| {
+    dprint_core::formatting::format(|| {
         let print_items = parse(&info, config);
         // println!("{}", print_items.get_as_text());
         print_items
-    }, config_to_print_options(info.info.text(), config)))
+    }, config_to_print_options(info.info.text(), config))
 }
 
 #[cfg(feature = "tracing")]
