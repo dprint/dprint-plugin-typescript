@@ -1,5 +1,5 @@
 -- filePath: file.tsx --
-~~ jsxElement.spaceBeforeSelfClosingTag: false ~~
+~~ jsxElement.spaceBeforeSelfClosingTagSlash: false ~~
 == should avoid space before self closing tag when there are no attributes ==
 const t = <Test />;
 

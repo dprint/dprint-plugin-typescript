@@ -556,8 +556,8 @@ pub struct Configuration {
     pub import_declaration_space_surrounding_named_imports: bool,
     #[serde(rename = "jsxExpressionContainer.spaceSurroundingExpression")]
     pub jsx_expression_container_space_surrounding_expression: bool,
-    #[serde(rename = "jsxElement.spaceBeforeSelfClosingTag")]
-    pub jsx_element_space_before_self_closing_tag: bool,
+    #[serde(rename = "jsxElement.spaceBeforeSelfClosingTagSlash")]
+    pub jsx_element_space_before_self_closing_tag_slash: bool,
     #[serde(rename = "method.spaceBeforeParentheses")]
     pub method_space_before_parentheses: bool,
     #[serde(rename = "objectExpression.spaceSurroundingProperties")]
