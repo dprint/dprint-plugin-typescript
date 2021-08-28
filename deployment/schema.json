@@ -1,0 +1,1120 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://plugins.dprint.dev/schemas/typescript-0.0.0.json",
+  "type": "object",
+  "definitions": {
+    "useTabs": {
+      "description": "Whether to use tabs (true) or spaces (false).",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": "Uses tabs for indentation."
+      }, {
+        "const": false,
+        "description": "Uses spaces for indentation."
+      }]
+    },
+    "semiColons": {
+      "description": "How semi-colons should be used.",
+      "type": "string",
+      "default": "prefer",
+      "oneOf": [{
+        "const": "always",
+        "description": "Always uses semi-colons where applicable."
+      }, {
+        "const": "prefer",
+        "description": "Prefers semi-colons, but doesn't add one in certain scenarios such as for the last member of a single-line type literal."
+      }, {
+        "const": "asi",
+        "description": "Uses automatic semi-colon insertion. Only adds a semi-colon at the start of some expression statements when necessary. Read more: https://standardjs.com/rules.html#semicolons"
+      }]
+    },
+    "quoteStyle": {
+      "description": "How to use single or double quotes.",
+      "type": "string",
+      "default": "alwaysDouble",
+      "oneOf": [{
+        "const": "alwaysDouble",
+        "description": "Always uses double quotes."
+      }, {
+        "const": "alwaysSingle",
+        "description": "Always uses single quotes."
+      }, {
+        "const": "preferDouble",
+        "description": "Prefers using double quotes except in scenarios where the string contains more double quotes than single quotes."
+      }, {
+        "const": "preferSingle",
+        "description": "Prefers using single quotes except in scenarios where the string contains more single quotes than double quotes."
+      }]
+    },
+    "jsx.quoteStyle": {
+      "description": "How to use single or double quotes in JSX attributes.",
+      "type": "string",
+      "default": "preferDouble",
+      "oneOf": [{
+        "const": "preferDouble",
+        "description": "Prefers using double quotes except in scenarios where the string contains more double quotes than single quotes."
+      }, {
+        "const": "preferSingle",
+        "description": "Prefers using single quotes except in scenarios where the string contains more single quotes than double quotes."
+      }]
+    },
+    "jsx.multiLineParens": {
+      "description": "Surrounds the top-most JSX element or fragment in parentheses when it spans multiple lines.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": ""
+      }, {
+        "const": false,
+        "description": ""
+      }]
+    },
+    "newLineKind": {
+      "description": "The kind of newline to use.",
+      "type": "string",
+      "default": "lf",
+      "oneOf": [{
+        "const": "auto",
+        "description": "For each file, uses the last newline kind found in the file."
+      }, {
+        "const": "crlf",
+        "description": "Uses carriage return, line feed."
+      }, {
+        "const": "lf",
+        "description": "Uses line feed."
+      }, {
+        "const": "system",
+        "description": "Uses the system standard (ex. crlf on Windows)."
+      }]
+    },
+    "useBraces": {
+      "description": "If braces should be used or not.",
+      "type": "string",
+      "default": "whenNotSingleLine",
+      "oneOf": [{
+        "const": "maintain",
+        "description": "Uses braces if they're used. Doesn't use braces if they're not used."
+      }, {
+        "const": "whenNotSingleLine",
+        "description": "Uses braces when the body is on a different line."
+      }, {
+        "const": "always",
+        "description": "Forces the use of braces. Will add them if they aren't used."
+      }, {
+        "const": "preferNone",
+        "description": "Forces no braces when when the header is one line and body is one line. Otherwise forces braces."
+      }]
+    },
+    "bracePosition": {
+      "description": "Where to place the opening brace.",
+      "type": "string",
+      "default": "sameLineUnlessHanging",
+      "oneOf": [{
+        "const": "maintain",
+        "description": "Maintains the brace being on the next line or the same line."
+      }, {
+        "const": "sameLine",
+        "description": "Forces the brace to be on the same line."
+      }, {
+        "const": "nextLine",
+        "description": "Forces the brace to be on the next line."
+      }, {
+        "const": "sameLineUnlessHanging",
+        "description": "Forces the brace to be on the next line if the same line is hanging, but otherwise uses the same line."
+      }]
+    },
+    "singleBodyPosition": {
+      "description": "Where to place the expression of a statement that could possibly be on one line (ex. `if (true) console.log(5);`).",
+      "type": "string",
+      "default": "maintain",
+      "oneOf": [{
+        "const": "maintain",
+        "description": "Maintains the position of the expression."
+      }, {
+        "const": "sameLine",
+        "description": "Forces the whole statement to be on one line."
+      }, {
+        "const": "nextLine",
+        "description": "Forces the expression to be on the next line."
+      }]
+    },
+    "nextControlFlowPosition": {
+      "description": "Where to place the next control flow within a control flow statement.",
+      "type": "string",
+      "default": "nextLine",
+      "oneOf": [{
+        "const": "maintain",
+        "description": "Maintains the next control flow being on the next line or the same line."
+      }, {
+        "const": "sameLine",
+        "description": "Forces the next control flow to be on the same line."
+      }, {
+        "const": "nextLine",
+        "description": "Forces the next control flow to be on the next line."
+      }]
+    },
+    "trailingCommas": {
+      "description": "If trailing commas should be used.",
+      "type": "string",
+      "default": "onlyMultiLine",
+      "oneOf": [{
+        "const": "never",
+        "description": "Trailing commas should not be used."
+      }, {
+        "const": "always",
+        "description": "Trailing commas should always be used."
+      }, {
+        "const": "onlyMultiLine",
+        "description": "Trailing commas should only be used in multi-line scenarios."
+      }]
+    },
+    "operatorPosition": {
+      "description": "Where to place the operator for expressions that span multiple lines.",
+      "type": "string",
+      "default": "nextLine",
+      "oneOf": [{
+        "const": "maintain",
+        "description": "Maintains the operator being on the next line or the same line."
+      }, {
+        "const": "sameLine",
+        "description": "Forces the operator to be on the same line."
+      }, {
+        "const": "nextLine",
+        "description": "Forces the operator to be on the next line."
+      }]
+    },
+    "preferHanging": {
+      "description": "Set to prefer hanging indentation when exceeding the line width instead of making code split up on multiple lines.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": ""
+      }, {
+        "const": false,
+        "description": ""
+      }]
+    },
+    "preferSingleLine": {
+      "description": "If code should revert back from being on multiple lines to being on a single line when able.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": ""
+      }, {
+        "const": false,
+        "description": ""
+      }]
+    },
+    "sortOrder": {
+      "description": "The kind of sort ordering to use.",
+      "type": "string",
+      "default": "caseInsensitive",
+      "oneOf": [{
+        "const": "maintain",
+        "description": "Maintains the current ordering."
+      }, {
+        "const": "caseSensitive",
+        "description": "Alphabetically and case sensitive."
+      }, {
+        "const": "caseInsensitive",
+        "description": "Alphabetically and case insensitive."
+      }]
+    },
+    "deno": {
+      "description": "Top level configuration that sets the configuration to what is used in Deno.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": ""
+      }, {
+        "const": false,
+        "description": ""
+      }]
+    },
+    "arrowFunction.useParentheses": {
+      "description": "Whether to use parentheses around a single parameter in an arrow function.",
+      "type": "string",
+      "default": "maintain",
+      "oneOf": [{
+        "const": "force",
+        "description": "Forces parentheses."
+      }, {
+        "const": "maintain",
+        "description": "Maintains the current state of the parentheses."
+      }, {
+        "const": "preferNone",
+        "description": "Prefers not using parentheses when possible."
+      }]
+    },
+    "binaryExpression.linePerExpression": {
+      "description": "Whether to force a line per expression when spanning multiple lines.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": "Formats with each part on a new line."
+      }, {
+        "const": false,
+        "description": "Maintains the line breaks as written by the programmer."
+      }]
+    },
+    "memberExpression.linePerExpression": {
+      "description": "Whether to force a line per expression when spanning multiple lines.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": "Formats with each part on a new line."
+      }, {
+        "const": false,
+        "description": "Maintains the line breaks as written by the programmer."
+      }]
+    },
+    "enumDeclaration.memberSpacing": {
+      "description": "How to space the members of an enum.",
+      "type": "string",
+      "default": "maintain",
+      "oneOf": [{
+        "const": "newLine",
+        "description": "Forces a new line between members."
+      }, {
+        "const": "blankLine",
+        "description": "Forces a blank line between members."
+      }, {
+        "const": "maintain",
+        "description": "Maintains whether a newline or blankline is used."
+      }]
+    },
+    "typeLiteral.separatorKind": {
+      "description": "The kind of separator to use in type literals.",
+      "type": "string",
+      "default": "semiColon",
+      "oneOf": [{
+        "const": "semiColon",
+        "description": "Use semi-colons."
+      }, {
+        "const": "comma",
+        "description": "Use commas."
+      }]
+    },
+    "spaceSurroundingProperties": {
+      "description": "Whether to add a space surrounding the properties of single line object-like nodes.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `{ key: value }`"
+      }, {
+        "const": false,
+        "description": "Ex. `{key: value}`"
+      }]
+    },
+    "objectExpression.spaceSurroundingProperties": {
+      "description": "Whether to add a space surrounding the properties of a single line object expression.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `{ key: value }`"
+      }, {
+        "const": false,
+        "description": "Ex. `{key: value}`"
+      }]
+    },
+    "objectPattern.spaceSurroundingProperties": {
+      "description": "Whether to add a space surrounding the properties of a single line object pattern.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `{ key: value } = obj`"
+      }, {
+        "const": false,
+        "description": "Ex. `{key: value} = obj`"
+      }]
+    },
+    "typeLiteral.spaceSurroundingProperties": {
+      "description": "Whether to add a space surrounding the properties of a single line type literal.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `type Test = { key: string }`"
+      }, {
+        "const": false,
+        "description": "Ex. `type Test = {key: string}`"
+      }]
+    },
+    "binaryExpression.spaceSurroundingBitwiseAndArithmeticOperator": {
+      "description": "Whether to surround the operator in a binary expression with spaces.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `1 + 2`"
+      }, {
+        "const": false,
+        "description": "Ex. `1+2`"
+      }]
+    },
+    "commentLine.forceSpaceAfterSlashes": {
+      "description": "Forces a space after the double slash in a comment line.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `//test` -> `// test`"
+      }, {
+        "const": false,
+        "description": "Ex. `//test` -> `//test`"
+      }]
+    },
+    "constructor.spaceBeforeParentheses": {
+      "description": "Whether to add a space before the parentheses of a constructor.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `constructor ()`"
+      }, {
+        "const": false,
+        "description": "Ex. `constructor()`"
+      }]
+    },
+    "constructorType.spaceAfterNewKeyword": {
+      "description": "Whether to add a space after the `new` keyword in a constructor type.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `type MyClassCtor = new () => MyClass;`"
+      }, {
+        "const": false,
+        "description": "Ex. `type MyClassCtor = new() => MyClass;`"
+      }]
+    },
+    "constructSignature.spaceAfterNewKeyword": {
+      "description": "Whether to add a space after the `new` keyword in a construct signature.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `new (): MyClass;`"
+      }, {
+        "const": false,
+        "description": "Ex. `new(): MyClass;`"
+      }]
+    },
+    "doWhileStatement.spaceAfterWhileKeyword": {
+      "description": "Whether to add a space after the `while` keyword in a do while statement.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `do {\n} while (condition);`"
+      }, {
+        "const": false,
+        "description": "Ex. `do {\n} while(condition);`"
+      }]
+    },
+    "exportDeclaration.spaceSurroundingNamedExports": {
+      "description": "Whether to add spaces around named exports in an export declaration.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `export { SomeExport, OtherExport };`"
+      }, {
+        "const": false,
+        "description": "Ex. `export {SomeExport, OtherExport};`"
+      }]
+    },
+    "forInStatement.spaceAfterForKeyword": {
+      "description": "Whether to add a space after the `for` keyword in a \"for in\" statement.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `for (const prop in obj)`"
+      }, {
+        "const": false,
+        "description": "Ex. `for(const prop in obj)`"
+      }]
+    },
+    "forOfStatement.spaceAfterForKeyword": {
+      "description": "Whether to add a space after the `for` keyword in a \"for of\" statement.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `for (const value of myArray)`"
+      }, {
+        "const": false,
+        "description": "Ex. `for(const value of myArray)`"
+      }]
+    },
+    "forStatement.spaceAfterForKeyword": {
+      "description": "Whether to add a space after the `for` keyword in a \"for\" statement.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `for (let i = 0; i < 5; i++)`"
+      }, {
+        "const": false,
+        "description": "Ex. `for(let i = 0; i < 5; i++)`"
+      }]
+    },
+    "forStatement.spaceAfterSemiColons": {
+      "description": "Whether to add a space after the semi-colons in a \"for\" statement.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `for (let i = 0; i < 5; i++)`"
+      }, {
+        "const": false,
+        "description": "Ex. `for (let i = 0;i < 5;i++)`"
+      }]
+    },
+    "functionDeclaration.spaceBeforeParentheses": {
+      "description": "Whether to add a space before the parentheses of a function declaration.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `function myFunction ()`"
+      }, {
+        "const": false,
+        "description": "Ex. `function myFunction()`"
+      }]
+    },
+    "functionExpression.spaceBeforeParentheses": {
+      "description": "Whether to add a space before the parentheses of a function expression.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `function<T> ()`"
+      }, {
+        "const": false,
+        "description": "Ex. `function<T>()`"
+      }]
+    },
+    "functionExpression.spaceAfterFunctionKeyword": {
+      "description": "Whether to add a space after the function keyword of a function expression.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `function <T>()`"
+      }, {
+        "const": false,
+        "description": "Ex. `function<T>()`"
+      }]
+    },
+    "getAccessor.spaceBeforeParentheses": {
+      "description": "Whether to add a space before the parentheses of a get accessor.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `get myProp ()`"
+      }, {
+        "const": false,
+        "description": "Ex. `get myProp()`"
+      }]
+    },
+    "ifStatement.spaceAfterIfKeyword": {
+      "description": "Whether to add a space after the `if` keyword in an \"if\" statement.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `if (true)`"
+      }, {
+        "const": false,
+        "description": "Ex. `if(true)`"
+      }]
+    },
+    "importDeclaration.spaceSurroundingNamedImports": {
+      "description": "Whether to add spaces around named imports in an import declaration.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `import { SomeExport, OtherExport } from \"my-module\";`"
+      }, {
+        "const": false,
+        "description": "Ex. `import {SomeExport, OtherExport} from \"my-module\";`"
+      }]
+    },
+    "jsxExpressionContainer.spaceSurroundingExpression": {
+      "description": "Whether to add a space surrounding the expression of a JSX container.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `{ myValue }`"
+      }, {
+        "const": false,
+        "description": "Ex. `{myValue}`"
+      }]
+    },
+    "method.spaceBeforeParentheses": {
+      "description": "Whether to add a space before the parentheses of a method.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `myMethod ()`"
+      }, {
+        "const": false,
+        "description": "Ex. `myMethod()`"
+      }]
+    },
+    "setAccessor.spaceBeforeParentheses": {
+      "description": "Whether to add a space before the parentheses of a set accessor.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `set myProp (value: string)`"
+      }, {
+        "const": false,
+        "description": "Ex. `set myProp(value: string)`"
+      }]
+    },
+    "taggedTemplate.spaceBeforeLiteral": {
+      "description": "Whether to add a space before the literal in a tagged templte.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `html `<element />``"
+      }, {
+        "const": false,
+        "description": "Ex. `html`<element />``"
+      }]
+    },
+    "typeAnnotation.spaceBeforeColon": {
+      "description": "Whether to add a space before the colon of a type annotation.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `function myFunction() : string`"
+      }, {
+        "const": false,
+        "description": "Ex. `function myFunction(): string`"
+      }]
+    },
+    "typeAssertion.spaceBeforeExpression": {
+      "description": "Whether to add a space before the expression in a type assertion.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `<string> myValue`"
+      }, {
+        "const": false,
+        "description": "Ex. `<string>myValue`"
+      }]
+    },
+    "whileStatement.spaceAfterWhileKeyword": {
+      "description": "Whether to add a space after the `while` keyword in a while statement.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `while (true)`"
+      }, {
+        "const": false,
+        "description": "Ex. `while(true)`"
+      }]
+    }
+  },
+  "properties": {
+    "$schema": {
+      "description": "The JSON schema reference.",
+      "type": "string"
+    },
+    "locked": {
+      "description": "Whether the configuration is not allowed to be overriden or extended.",
+      "type": "boolean"
+    },
+    "lineWidth": {
+      "description": "The width of a line the printer will try to stay under. Note that the printer may exceed this width in certain cases.",
+      "default": 120,
+      "type": "number"
+    },
+    "indentWidth": {
+      "description": "The number of columns for an indent.",
+      "default": 4,
+      "type": "number"
+    },
+    "useTabs": {
+      "$ref": "#/definitions/useTabs"
+    },
+    "semiColons": {
+      "$ref": "#/definitions/semiColons"
+    },
+    "quoteStyle": {
+      "$ref": "#/definitions/quoteStyle"
+    },
+    "newLineKind": {
+      "$ref": "#/definitions/newLineKind"
+    },
+    "useBraces": {
+      "$ref": "#/definitions/useBraces"
+    },
+    "bracePosition": {
+      "$ref": "#/definitions/bracePosition"
+    },
+    "singleBodyPosition": {
+      "$ref": "#/definitions/singleBodyPosition"
+    },
+    "nextControlFlowPosition": {
+      "$ref": "#/definitions/nextControlFlowPosition"
+    },
+    "trailingCommas": {
+      "$ref": "#/definitions/trailingCommas"
+    },
+    "operatorPosition": {
+      "$ref": "#/definitions/operatorPosition"
+    },
+    "preferHanging": {
+      "$ref": "#/definitions/preferHanging"
+    },
+    "preferSingleLine": {
+      "$ref": "#/definitions/preferSingleLine"
+    },
+    "deno": {
+      "$ref": "#/definitions/deno"
+    },
+    "arrowFunction.useParentheses": {
+      "$ref": "#/definitions/arrowFunction.useParentheses"
+    },
+    "binaryExpression.linePerExpression": {
+      "$ref": "#/definitions/binaryExpression.linePerExpression"
+    },
+    "jsx.quoteStyle": {
+      "$ref": "#/definitions/jsx.quoteStyle"
+    },
+    "jsx.multiLineParens": {
+      "$ref": "#/definitions/jsx.multiLineParens"
+    },
+    "memberExpression.linePerExpression": {
+      "$ref": "#/definitions/memberExpression.linePerExpression"
+    },
+    "typeLiteral.separatorKind": {
+      "$ref": "#/definitions/typeLiteral.separatorKind"
+    },
+    "typeLiteral.separatorKind.singleLine": {
+      "$ref": "#/definitions/typeLiteral.separatorKind"
+    },
+    "typeLiteral.separatorKind.multiLine": {
+      "$ref": "#/definitions/typeLiteral.separatorKind"
+    },
+    "enumDeclaration.memberSpacing": {
+      "$ref": "#/definitions/enumDeclaration.memberSpacing"
+    },
+    "spaceSurroundingProperties": {
+      "$ref": "#/definitions/spaceSurroundingProperties"
+    },
+    "objectExpression.spaceSurroundingProperties": {
+      "$ref": "#/definitions/objectExpression.spaceSurroundingProperties"
+    },
+    "objectPattern.spaceSurroundingProperties": {
+      "$ref": "#/definitions/objectPattern.spaceSurroundingProperties"
+    },
+    "typeLiteral.spaceSurroundingProperties": {
+      "$ref": "#/definitions/typeLiteral.spaceSurroundingProperties"
+    },
+    "binaryExpression.spaceSurroundingBitwiseAndArithmeticOperator": {
+      "$ref": "#/definitions/binaryExpression.spaceSurroundingBitwiseAndArithmeticOperator"
+    },
+    "commentLine.forceSpaceAfterSlashes": {
+      "$ref": "#/definitions/commentLine.forceSpaceAfterSlashes"
+    },
+    "constructor.spaceBeforeParentheses": {
+      "$ref": "#/definitions/constructor.spaceBeforeParentheses"
+    },
+    "constructorType.spaceAfterNewKeyword": {
+      "$ref": "#/definitions/constructorType.spaceAfterNewKeyword"
+    },
+    "constructSignature.spaceAfterNewKeyword": {
+      "$ref": "#/definitions/constructSignature.spaceAfterNewKeyword"
+    },
+    "doWhileStatement.spaceAfterWhileKeyword": {
+      "$ref": "#/definitions/doWhileStatement.spaceAfterWhileKeyword"
+    },
+    "exportDeclaration.spaceSurroundingNamedExports": {
+      "$ref": "#/definitions/exportDeclaration.spaceSurroundingNamedExports"
+    },
+    "forInStatement.spaceAfterForKeyword": {
+      "$ref": "#/definitions/forInStatement.spaceAfterForKeyword"
+    },
+    "forOfStatement.spaceAfterForKeyword": {
+      "$ref": "#/definitions/forOfStatement.spaceAfterForKeyword"
+    },
+    "forStatement.spaceAfterForKeyword": {
+      "$ref": "#/definitions/forStatement.spaceAfterForKeyword"
+    },
+    "forStatement.spaceAfterSemiColons": {
+      "$ref": "#/definitions/forStatement.spaceAfterSemiColons"
+    },
+    "functionDeclaration.spaceBeforeParentheses": {
+      "$ref": "#/definitions/functionDeclaration.spaceBeforeParentheses"
+    },
+    "functionExpression.spaceBeforeParentheses": {
+      "$ref": "#/definitions/functionExpression.spaceBeforeParentheses"
+    },
+    "functionExpression.spaceAfterFunctionKeyword": {
+      "$ref": "#/definitions/functionExpression.spaceAfterFunctionKeyword"
+    },
+    "getAccessor.spaceBeforeParentheses": {
+      "$ref": "#/definitions/getAccessor.spaceBeforeParentheses"
+    },
+    "ifStatement.spaceAfterIfKeyword": {
+      "$ref": "#/definitions/ifStatement.spaceAfterIfKeyword"
+    },
+    "importDeclaration.spaceSurroundingNamedImports": {
+      "$ref": "#/definitions/importDeclaration.spaceSurroundingNamedImports"
+    },
+    "jsxExpressionContainer.spaceSurroundingExpression": {
+      "$ref": "#/definitions/jsxExpressionContainer.spaceSurroundingExpression"
+    },
+    "method.spaceBeforeParentheses": {
+      "$ref": "#/definitions/method.spaceBeforeParentheses"
+    },
+    "setAccessor.spaceBeforeParentheses": {
+      "$ref": "#/definitions/setAccessor.spaceBeforeParentheses"
+    },
+    "taggedTemplate.spaceBeforeLiteral": {
+      "$ref": "#/definitions/taggedTemplate.spaceBeforeLiteral"
+    },
+    "typeAnnotation.spaceBeforeColon": {
+      "$ref": "#/definitions/typeAnnotation.spaceBeforeColon"
+    },
+    "typeAssertion.spaceBeforeExpression": {
+      "$ref": "#/definitions/typeAssertion.spaceBeforeExpression"
+    },
+    "whileStatement.spaceAfterWhileKeyword": {
+      "$ref": "#/definitions/whileStatement.spaceAfterWhileKeyword"
+    },
+    "module.sortImportDeclarations": {
+      "$ref": "#/definitions/sortOrder"
+    },
+    "module.sortExportDeclarations": {
+      "$ref": "#/definitions/sortOrder"
+    },
+    "exportDeclaration.sortNamedExports": {
+      "$ref": "#/definitions/sortOrder"
+    },
+    "importDeclaration.sortNamedImports": {
+      "$ref": "#/definitions/sortOrder"
+    },
+    "ignoreNodeCommentText": {
+      "description": "The text to use for an ignore comment (ex. `// dprint-ignore`).",
+      "default": "dprint-ignore",
+      "type": "string"
+    },
+    "ignoreFileCommentText": {
+      "description": "The text to use for a file ignore comment (ex. `// dprint-ignore-file`).",
+      "default": "dprint-ignore-file",
+      "type": "string"
+    },
+    "forInStatement.useBraces": {
+      "$ref": "#/definitions/useBraces"
+    },
+    "forOfStatement.useBraces": {
+      "$ref": "#/definitions/useBraces"
+    },
+    "forStatement.useBraces": {
+      "$ref": "#/definitions/useBraces"
+    },
+    "ifStatement.useBraces": {
+      "$ref": "#/definitions/useBraces"
+    },
+    "whileStatement.useBraces": {
+      "$ref": "#/definitions/useBraces"
+    },
+    "arrowFunction.bracePosition": {
+      "$ref": "#/definitions/bracePosition"
+    },
+    "classDeclaration.bracePosition": {
+      "$ref": "#/definitions/bracePosition"
+    },
+    "classExpression.bracePosition": {
+      "$ref": "#/definitions/bracePosition"
+    },
+    "constructor.bracePosition": {
+      "$ref": "#/definitions/bracePosition"
+    },
+    "doWhileStatement.bracePosition": {
+      "$ref": "#/definitions/bracePosition"
+    },
+    "enumDeclaration.bracePosition": {
+      "$ref": "#/definitions/bracePosition"
+    },
+    "forInStatement.bracePosition": {
+      "$ref": "#/definitions/bracePosition"
+    },
+    "forOfStatement.bracePosition": {
+      "$ref": "#/definitions/bracePosition"
+    },
+    "forStatement.bracePosition": {
+      "$ref": "#/definitions/bracePosition"
+    },
+    "functionDeclaration.bracePosition": {
+      "$ref": "#/definitions/bracePosition"
+    },
+    "functionExpression.bracePosition": {
+      "$ref": "#/definitions/bracePosition"
+    },
+    "getAccessor.bracePosition": {
+      "$ref": "#/definitions/bracePosition"
+    },
+    "ifStatement.bracePosition": {
+      "$ref": "#/definitions/bracePosition"
+    },
+    "interfaceDeclaration.bracePosition": {
+      "$ref": "#/definitions/bracePosition"
+    },
+    "moduleDeclaration.bracePosition": {
+      "$ref": "#/definitions/bracePosition"
+    },
+    "method.bracePosition": {
+      "$ref": "#/definitions/bracePosition"
+    },
+    "setAccessor.bracePosition": {
+      "$ref": "#/definitions/bracePosition"
+    },
+    "switchStatement.bracePosition": {
+      "$ref": "#/definitions/bracePosition"
+    },
+    "switchCase.bracePosition": {
+      "$ref": "#/definitions/bracePosition"
+    },
+    "tryStatement.bracePosition": {
+      "$ref": "#/definitions/bracePosition"
+    },
+    "whileStatement.bracePosition": {
+      "$ref": "#/definitions/bracePosition"
+    },
+    "forInStatement.singleBodyPosition": {
+      "$ref": "#/definitions/singleBodyPosition"
+    },
+    "forOfStatement.singleBodyPosition": {
+      "$ref": "#/definitions/singleBodyPosition"
+    },
+    "forStatement.singleBodyPosition": {
+      "$ref": "#/definitions/singleBodyPosition"
+    },
+    "ifStatement.singleBodyPosition": {
+      "$ref": "#/definitions/singleBodyPosition"
+    },
+    "whileStatement.singleBodyPosition": {
+      "$ref": "#/definitions/singleBodyPosition"
+    },
+    "ifStatement.nextControlFlowPosition": {
+      "$ref": "#/definitions/nextControlFlowPosition"
+    },
+    "tryStatement.nextControlFlowPosition": {
+      "$ref": "#/definitions/nextControlFlowPosition"
+    },
+    "arguments.trailingCommas": {
+      "$ref": "#/definitions/trailingCommas"
+    },
+    "parameters.trailingCommas": {
+      "$ref": "#/definitions/trailingCommas"
+    },
+    "arrayExpression.trailingCommas": {
+      "$ref": "#/definitions/trailingCommas"
+    },
+    "arrayPattern.trailingCommas": {
+      "$ref": "#/definitions/trailingCommas"
+    },
+    "enumDeclaration.trailingCommas": {
+      "$ref": "#/definitions/trailingCommas"
+    },
+    "exportDeclaration.trailingCommas": {
+      "$ref": "#/definitions/trailingCommas"
+    },
+    "importDeclaration.trailingCommas": {
+      "$ref": "#/definitions/trailingCommas"
+    },
+    "objectExpression.trailingCommas": {
+      "$ref": "#/definitions/trailingCommas"
+    },
+    "objectPattern.trailingCommas": {
+      "$ref": "#/definitions/trailingCommas"
+    },
+    "tupleType.trailingCommas": {
+      "$ref": "#/definitions/trailingCommas"
+    },
+    "typeLiteral.trailingCommas": {
+      "$ref": "#/definitions/trailingCommas"
+    },
+    "typeParameters.trailingCommas": {
+      "$ref": "#/definitions/trailingCommas"
+    },
+    "binaryExpression.operatorPosition": {
+      "$ref": "#/definitions/operatorPosition"
+    },
+    "conditionalExpression.operatorPosition": {
+      "$ref": "#/definitions/operatorPosition"
+    },
+    "arguments.preferHanging": {
+      "$ref": "#/definitions/preferHanging"
+    },
+    "arrayExpression.preferHanging": {
+      "$ref": "#/definitions/preferHanging"
+    },
+    "arrayPattern.preferHanging": {
+      "$ref": "#/definitions/preferHanging"
+    },
+    "doWhileStatement.preferHanging": {
+      "$ref": "#/definitions/preferHanging"
+    },
+    "exportDeclaration.preferHanging": {
+      "$ref": "#/definitions/preferHanging"
+    },
+    "extendsClause.preferHanging": {
+      "$ref": "#/definitions/preferHanging"
+    },
+    "forInStatement.preferHanging": {
+      "$ref": "#/definitions/preferHanging"
+    },
+    "forOfStatement.preferHanging": {
+      "$ref": "#/definitions/preferHanging"
+    },
+    "forStatement.preferHanging": {
+      "$ref": "#/definitions/preferHanging"
+    },
+    "ifStatement.preferHanging": {
+      "$ref": "#/definitions/preferHanging"
+    },
+    "implementsClause.preferHanging": {
+      "$ref": "#/definitions/preferHanging"
+    },
+    "importDeclaration.preferHanging": {
+      "$ref": "#/definitions/preferHanging"
+    },
+    "jsxAttributes.preferHanging": {
+      "$ref": "#/definitions/preferHanging"
+    },
+    "objectExpression.preferHanging": {
+      "$ref": "#/definitions/preferHanging"
+    },
+    "objectPattern.preferHanging": {
+      "$ref": "#/definitions/preferHanging"
+    },
+    "parameters.preferHanging": {
+      "$ref": "#/definitions/preferHanging"
+    },
+    "sequenceExpression.preferHanging": {
+      "$ref": "#/definitions/preferHanging"
+    },
+    "switchStatement.preferHanging": {
+      "$ref": "#/definitions/preferHanging"
+    },
+    "tupleType.preferHanging": {
+      "$ref": "#/definitions/preferHanging"
+    },
+    "typeLiteral.preferHanging": {
+      "$ref": "#/definitions/preferHanging"
+    },
+    "typeParameters.preferHanging": {
+      "$ref": "#/definitions/preferHanging"
+    },
+    "unionAndIntersectionType.preferHanging": {
+      "$ref": "#/definitions/preferHanging"
+    },
+    "variableStatement.preferHanging": {
+      "$ref": "#/definitions/preferHanging"
+    },
+    "whileStatement.preferHanging": {
+      "$ref": "#/definitions/preferHanging"
+    },
+    "arrayExpression.preferSingleLine": {
+      "$ref": "#/definitions/preferSingleLine"
+    },
+    "arrayPattern.preferSingleLine": {
+      "$ref": "#/definitions/preferSingleLine"
+    },
+    "arguments.preferSingleLine": {
+      "$ref": "#/definitions/preferSingleLine"
+    },
+    "binaryExpression.preferSingleLine": {
+      "$ref": "#/definitions/preferSingleLine"
+    },
+    "computed.preferSingleLine": {
+      "$ref": "#/definitions/preferSingleLine"
+    },
+    "conditionalExpression.preferSingleLine": {
+      "$ref": "#/definitions/preferSingleLine"
+    },
+    "conditionalType.preferSingleLine": {
+      "$ref": "#/definitions/preferSingleLine"
+    },
+    "decorators.preferSingleLine": {
+      "$ref": "#/definitions/preferSingleLine"
+    },
+    "exportDeclaration.preferSingleLine": {
+      "$ref": "#/definitions/preferSingleLine"
+    },
+    "forStatement.preferSingleLine": {
+      "$ref": "#/definitions/preferSingleLine"
+    },
+    "importDeclaration.preferSingleLine": {
+      "$ref": "#/definitions/preferSingleLine"
+    },
+    "jsxAttributes.preferSingleLine": {
+      "$ref": "#/definitions/preferSingleLine"
+    },
+    "jsxElement.preferSingleLine": {
+      "$ref": "#/definitions/preferSingleLine"
+    },
+    "mappedType.preferSingleLine": {
+      "$ref": "#/definitions/preferSingleLine"
+    },
+    "memberExpression.preferSingleLine": {
+      "$ref": "#/definitions/preferSingleLine"
+    },
+    "objectExpression.preferSingleLine": {
+      "$ref": "#/definitions/preferSingleLine"
+    },
+    "objectPattern.preferSingleLine": {
+      "$ref": "#/definitions/preferSingleLine"
+    },
+    "parameters.preferSingleLine": {
+      "$ref": "#/definitions/preferSingleLine"
+    },
+    "parentheses.preferSingleLine": {
+      "$ref": "#/definitions/preferSingleLine"
+    },
+    "tupleType.preferSingleLine": {
+      "$ref": "#/definitions/preferSingleLine"
+    },
+    "typeLiteral.preferSingleLine": {
+      "$ref": "#/definitions/preferSingleLine"
+    },
+    "typeParameters.preferSingleLine": {
+      "$ref": "#/definitions/preferSingleLine"
+    },
+    "unionAndIntersectionType.preferSingleLine": {
+      "$ref": "#/definitions/preferSingleLine"
+    },
+    "variableStatement.preferSingleLine": {
+      "$ref": "#/definitions/preferSingleLine"
+    }
+  }
+}
