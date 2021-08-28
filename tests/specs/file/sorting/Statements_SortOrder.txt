@@ -94,12 +94,30 @@ import { a } from "test";
 
 import { a } from "test";
 
-== should put folders above files ==
+== should sort straight alphabetical for absolute paths or import map/package names ==
 import * as t from "https://deno.land/x/a.ts";
 import * as u from "https://deno.land/x/sub-dir/a.ts";
-import * as u from "https://deno.land/x/sub-dir/other/a.ts";
+import * as v from "https://deno.land/x/sub-dir/other/a.ts";
+
+import "package";
+import "package/other";
+import "package/abc/xyz";
 
 [expect]
-import * as u from "https://deno.land/x/sub-dir/other/a.ts";
-import * as u from "https://deno.land/x/sub-dir/a.ts";
 import * as t from "https://deno.land/x/a.ts";
+import * as u from "https://deno.land/x/sub-dir/a.ts";
+import * as v from "https://deno.land/x/sub-dir/other/a.ts";
+
+import "package";
+import "package/abc/xyz";
+import "package/other";
+
+== should put package names in alphabetical order regardless of directories ==
+import "package";
+import "package/asdf/test";
+import "package/other";
+
+[expect]
+import "package";
+import "package/asdf/test";
+import "package/other";
