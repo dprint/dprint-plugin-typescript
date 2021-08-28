@@ -331,6 +331,14 @@ impl ConfigurationBuilder {
         self.insert("jsxExpressionContainer.spaceSurroundingExpression", value.into())
     }
 
+    /// Whether to add a space before the slash in a self closing tag for a JSX element.
+    ///
+    /// * `true` (default) - Ex. `<Test />`
+    /// * `false` - Ex. `<Test/>`
+    pub fn jsx_element_space_before_self_closing_tag_slash(&mut self, value: bool) -> &mut Self {
+        self.insert("jsxElement.spaceBeforeSelfClosingTagSlash", value.into())
+    }
+
     /// Whether to add a space surrounding the properties of an object expression.
     ///
     /// * `true` (default) - Ex. `{ key: value }`
@@ -1073,6 +1081,7 @@ mod tests {
             .if_statement_space_after_if_keyword(true)
             .import_declaration_space_surrounding_named_imports(true)
             .jsx_expression_container_space_surrounding_expression(true)
+            .jsx_element_space_before_self_closing_tag_slash(true)
             .method_space_before_parentheses(true)
             .object_expression_space_surrounding_properties(false)
             .object_pattern_space_surrounding_properties(false)
@@ -1085,7 +1094,7 @@ mod tests {
             .while_statement_space_after_while_keyword(true);
 
         let inner_config = config.get_inner_config();
-        assert_eq!(inner_config.len(), 151);
+        assert_eq!(inner_config.len(), 152);
         let diagnostics = resolve_config(inner_config, &resolve_global_config(HashMap::new()).config).diagnostics;
         assert_eq!(diagnostics.len(), 0);
     }
