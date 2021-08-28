@@ -1795,6 +1795,17 @@ fn parse_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> 
 
     let cons_and_alt_items = {
         let mut items = PrintItems::new();
+
+        // add any preceeding comments of the question token
+        items.extend({
+            let operator_token_leading_comments = get_leading_comments_on_previous_lines(operator_token, context);
+            let mut items = parse_comment_collection(operator_token_leading_comments.into_iter(), None, None, context);
+            if !items.is_empty() {
+                items.push_signal(Signal::NewLine);
+            }
+            items
+        });
+
         if operator_position == OperatorPosition::NextLine {
             items.push_str("? ");
         }

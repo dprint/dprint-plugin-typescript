@@ -1,0 +1,36 @@
+== should keep multi-line comments in conditional expr above question token ==
+generateScopedName = hashCssNames
+    // multiline
+    // comment
+    ? (name, filepath) => getLocalIdent(filepath, name)
+    : cssModulesOpts.modules.localIdentName;
+generateScopedName = hashCssNames
+    // multiline
+    /* block comment */
+    ? (name, filepath) => getLocalIdent(filepath, name)
+    : cssModulesOpts.modules.localIdentName;
+generateScopedName = hashCssNames
+
+    // multiline
+    // comment
+
+
+    ? (name, filepath) => getLocalIdent(filepath, name)
+    : cssModulesOpts.modules.localIdentName;
+
+[expect]
+generateScopedName = hashCssNames
+    // multiline
+    // comment
+    ? (name, filepath) => getLocalIdent(filepath, name)
+    : cssModulesOpts.modules.localIdentName;
+generateScopedName = hashCssNames
+    // multiline
+    /* block comment */
+    ? (name, filepath) => getLocalIdent(filepath, name)
+    : cssModulesOpts.modules.localIdentName;
+generateScopedName = hashCssNames
+    // multiline
+    // comment
+    ? (name, filepath) => getLocalIdent(filepath, name)
+    : cssModulesOpts.modules.localIdentName;

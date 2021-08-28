@@ -28,3 +28,15 @@ test ?
     test :
     // comment
     test;
+
+== should handle moving comments before the question token to now be after ==
+test
+    // testing
+    ?  test
+    : test;
+
+[expect]
+test ?
+    // testing
+    test :
+    test;
