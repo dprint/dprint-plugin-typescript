@@ -1,12 +1,12 @@
 mod comments;
 mod context;
-mod node_helpers;
 mod helpers;
-mod parser_types;
+mod node_helpers;
 mod parser;
+mod parser_types;
 mod sorting;
-mod tokens;
 mod swc;
+mod tokens;
 
 use comments::*;
 use context::*;

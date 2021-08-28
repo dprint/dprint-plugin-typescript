@@ -1,14 +1,14 @@
 use std::path::Path;
 
+use dprint_core::configuration::resolve_new_line_kind;
 use dprint_core::formatting::*;
 use dprint_core::types::ErrBox;
-use dprint_core::configuration::{resolve_new_line_kind};
 use swc_ast_view::TokenAndSpan;
 use swc_common::comments::SingleThreadedCommentsMapInner;
 
+use super::configuration::Configuration;
 use super::parsing::parse;
 use super::swc::parse_swc_ast;
-use super::configuration::Configuration;
 
 /// Formats a file.
 ///
@@ -38,68 +38,82 @@ use super::configuration::Configuration;
 /// }
 /// ```
 pub fn format_text(file_path: &Path, file_text: &str, config: &Configuration) -> Result<String, ErrBox> {
-    if super::utils::file_text_has_ignore_comment(file_text, &config.ignore_file_comment_text) {
-        return Ok(String::from(file_text));
-    }
+  if super::utils::file_text_has_ignore_comment(file_text, &config.ignore_file_comment_text) {
+    return Ok(String::from(file_text));
+  }
 
-    let parsed_source_file = parse_swc_ast(file_path, file_text)?;
-    Ok(dprint_core::formatting::format(|| {
-        let print_items = parse(&SourceFileInfo {
-            is_jsx: parsed_source_file.is_jsx,
-            module: &parsed_source_file.module,
-            info: &parsed_source_file.info,
-            tokens: &parsed_source_file.tokens,
-            leading_comments: &parsed_source_file.leading_comments,
-            trailing_comments: &parsed_source_file.trailing_comments,
-        }, config);
-        // println!("{}", print_items.get_as_text());
-        print_items
-    }, config_to_print_options(file_text, config)))
+  let parsed_source_file = parse_swc_ast(file_path, file_text)?;
+  Ok(dprint_core::formatting::format(
+    || {
+      let print_items = parse(
+        &SourceFileInfo {
+          is_jsx: parsed_source_file.is_jsx,
+          module: &parsed_source_file.module,
+          info: &parsed_source_file.info,
+          tokens: &parsed_source_file.tokens,
+          leading_comments: &parsed_source_file.leading_comments,
+          trailing_comments: &parsed_source_file.trailing_comments,
+        },
+        config,
+      );
+      // println!("{}", print_items.get_as_text());
+      print_items
+    },
+    config_to_print_options(file_text, config),
+  ))
 }
 
 #[derive(Clone)]
 pub struct SourceFileInfo<'a> {
-    pub is_jsx: bool,
-    pub module: &'a swc_ecmascript::ast::Module,
-    pub info: &'a dyn swc_ast_view::SourceFile,
-    pub tokens: &'a [TokenAndSpan],
-    pub leading_comments: &'a SingleThreadedCommentsMapInner,
-    pub trailing_comments: &'a SingleThreadedCommentsMapInner,
+  pub is_jsx: bool,
+  pub module: &'a swc_ecmascript::ast::Module,
+  pub info: &'a dyn swc_ast_view::SourceFile,
+  pub tokens: &'a [TokenAndSpan],
+  pub leading_comments: &'a SingleThreadedCommentsMapInner,
+  pub trailing_comments: &'a SingleThreadedCommentsMapInner,
 }
 
 /// Formats the already parsed file. This is useful as a performance optimization.
 pub fn format_parsed_file(info: &SourceFileInfo<'_>, config: &Configuration) -> String {
-    if super::utils::file_text_has_ignore_comment(info.info.text(), &config.ignore_file_comment_text) {
-        return info.info.text().to_string();
-    }
+  if super::utils::file_text_has_ignore_comment(info.info.text(), &config.ignore_file_comment_text) {
+    return info.info.text().to_string();
+  }
 
-    dprint_core::formatting::format(|| {
-        let print_items = parse(&info, config);
-        // println!("{}", print_items.get_as_text());
-        print_items
-    }, config_to_print_options(info.info.text(), config))
+  dprint_core::formatting::format(
+    || {
+      let print_items = parse(&info, config);
+      // println!("{}", print_items.get_as_text());
+      print_items
+    },
+    config_to_print_options(info.info.text(), config),
+  )
 }
 
 #[cfg(feature = "tracing")]
 pub fn trace_file(file_path: &Path, file_text: &str, config: &Configuration) -> dprint_core::formatting::TracingResult {
-    let parsed_source_file = parse_swc_ast(file_path, file_text).expect("Expected to parse to SWC AST.");
-    dprint_core::formatting::trace_printing(
-        || parse(&SourceFileInfo {
-            info: &parsed_source_file.info,
-            module: &parsed_source_file.module,
-            tokens: &parsed_source_file.tokens,
-            leading_comments: &parsed_source_file.leading_comments,
-            trailing_comments: &parsed_source_file.trailing_comments,
-        }, config),
-        config_to_print_options(file_text, config),
-    )
+  let parsed_source_file = parse_swc_ast(file_path, file_text).expect("Expected to parse to SWC AST.");
+  dprint_core::formatting::trace_printing(
+    || {
+      parse(
+        &SourceFileInfo {
+          info: &parsed_source_file.info,
+          module: &parsed_source_file.module,
+          tokens: &parsed_source_file.tokens,
+          leading_comments: &parsed_source_file.leading_comments,
+          trailing_comments: &parsed_source_file.trailing_comments,
+        },
+        config,
+      )
+    },
+    config_to_print_options(file_text, config),
+  )
 }
 
 fn config_to_print_options(file_text: &str, config: &Configuration) -> PrintOptions {
-    PrintOptions {
-        indent_width: config.indent_width,
-        max_width: config.line_width,
-        use_tabs: config.use_tabs,
-        new_line_text: resolve_new_line_kind(file_text, config.new_line_kind),
-    }
+  PrintOptions {
+    indent_width: config.indent_width,
+    max_width: config.line_width,
+    use_tabs: config.use_tabs,
+    new_line_text: resolve_new_line_kind(file_text, config.new_line_kind),
+  }
 }

@@ -1,144 +1,138 @@
-use dprint_core::formatting::{Info, ConditionReference};
-use swc_ast_view::*;
+use dprint_core::formatting::{ConditionReference, Info};
 use fnv::{FnvHashMap, FnvHashSet};
+use swc_ast_view::*;
 
 use super::*;
 use crate::configuration::*;
 use crate::utils::Stack;
 
 pub struct Context<'a> {
-    pub is_jsx: bool,
-    pub module: &'a Module<'a>,
-    pub config: &'a Configuration,
-    pub comments: CommentTracker<'a>,
-    pub token_finder: TokenFinder<'a>,
-    pub current_node: Node<'a>,
-    pub parent_stack: Stack<Node<'a>>,
-    handled_comments: FnvHashSet<BytePos>,
-    stored_infos: FnvHashMap<(BytePos, BytePos), Info>,
-    stored_info_ranges: FnvHashMap<(BytePos, BytePos), (Info, Info)>,
-    pub end_statement_or_member_infos: Stack<Info>,
-    before_comments_start_info_stack: Stack<(Span, Info)>,
-    if_stmt_last_brace_condition_ref: Option<ConditionReference>,
-    expr_stmt_single_line_parent_brace_ref: Option<ConditionReference>,
-    /// Used for ensuring nodes are parsed in order.
-    #[cfg(debug_assertions)]
-    pub last_parsed_node_pos: u32,
+  pub is_jsx: bool,
+  pub module: &'a Module<'a>,
+  pub config: &'a Configuration,
+  pub comments: CommentTracker<'a>,
+  pub token_finder: TokenFinder<'a>,
+  pub current_node: Node<'a>,
+  pub parent_stack: Stack<Node<'a>>,
+  handled_comments: FnvHashSet<BytePos>,
+  stored_infos: FnvHashMap<(BytePos, BytePos), Info>,
+  stored_info_ranges: FnvHashMap<(BytePos, BytePos), (Info, Info)>,
+  pub end_statement_or_member_infos: Stack<Info>,
+  before_comments_start_info_stack: Stack<(Span, Info)>,
+  if_stmt_last_brace_condition_ref: Option<ConditionReference>,
+  expr_stmt_single_line_parent_brace_ref: Option<ConditionReference>,
+  /// Used for ensuring nodes are parsed in order.
+  #[cfg(debug_assertions)]
+  pub last_parsed_node_pos: u32,
 }
 
 impl<'a> Context<'a> {
-    pub fn new(
-        is_jsx: bool,
-        tokens: &'a [TokenAndSpan],
-        current_node: Node<'a>,
-        module: &'a Module,
-        config: &'a Configuration,
-    ) -> Context<'a> {
-        Context {
-            is_jsx,
-            module,
-            config,
-            comments: CommentTracker::new(module, tokens),
-            token_finder: TokenFinder::new(module),
-            current_node,
-            parent_stack: Stack::new(),
-            handled_comments: FnvHashSet::default(),
-            stored_infos: FnvHashMap::default(),
-            stored_info_ranges: FnvHashMap::default(),
-            end_statement_or_member_infos: Stack::new(),
-            before_comments_start_info_stack: Stack::new(),
-            if_stmt_last_brace_condition_ref: None,
-            expr_stmt_single_line_parent_brace_ref: None,
-            #[cfg(debug_assertions)]
-            last_parsed_node_pos: 0,
-        }
+  pub fn new(is_jsx: bool, tokens: &'a [TokenAndSpan], current_node: Node<'a>, module: &'a Module, config: &'a Configuration) -> Context<'a> {
+    Context {
+      is_jsx,
+      module,
+      config,
+      comments: CommentTracker::new(module, tokens),
+      token_finder: TokenFinder::new(module),
+      current_node,
+      parent_stack: Stack::new(),
+      handled_comments: FnvHashSet::default(),
+      stored_infos: FnvHashMap::default(),
+      stored_info_ranges: FnvHashMap::default(),
+      end_statement_or_member_infos: Stack::new(),
+      before_comments_start_info_stack: Stack::new(),
+      if_stmt_last_brace_condition_ref: None,
+      expr_stmt_single_line_parent_brace_ref: None,
+      #[cfg(debug_assertions)]
+      last_parsed_node_pos: 0,
+    }
+  }
+
+  pub fn parent(&self) -> &Node<'a> {
+    self.parent_stack.peek().unwrap()
+  }
+
+  pub fn has_handled_comment(&self, comment: &Comment) -> bool {
+    self.handled_comments.contains(&comment.lo())
+  }
+
+  pub fn mark_comment_handled(&mut self, comment: &Comment) {
+    self.handled_comments.insert(comment.lo());
+  }
+
+  pub fn store_info_for_node(&mut self, node: &dyn Spanned, info: Info) {
+    self.stored_infos.insert((node.lo(), node.hi()), info);
+  }
+
+  pub fn get_info_for_node(&self, node: &dyn Spanned) -> Option<Info> {
+    self.stored_infos.get(&(node.lo(), node.hi())).map(|x| x.to_owned())
+  }
+
+  pub fn store_info_range_for_node(&mut self, node: &dyn Spanned, infos: (Info, Info)) {
+    self.stored_info_ranges.insert((node.lo(), node.hi()), infos);
+  }
+
+  pub fn get_info_range_for_node(&self, node: &dyn Spanned) -> Option<(Info, Info)> {
+    self.stored_info_ranges.get(&(node.lo(), node.hi())).map(|x| x.to_owned())
+  }
+
+  pub fn store_if_stmt_last_brace_condition_ref(&mut self, condition_reference: ConditionReference) {
+    self.if_stmt_last_brace_condition_ref = Some(condition_reference);
+  }
+
+  pub fn take_if_stmt_last_brace_condition_ref(&mut self) -> Option<ConditionReference> {
+    self.if_stmt_last_brace_condition_ref.take()
+  }
+
+  pub fn store_expr_stmt_single_line_parent_brace_ref(&mut self, condition_reference: ConditionReference) {
+    self.expr_stmt_single_line_parent_brace_ref = Some(condition_reference);
+  }
+
+  pub fn take_expr_stmt_single_line_parent_brace_ref(&mut self) -> Option<ConditionReference> {
+    self.expr_stmt_single_line_parent_brace_ref.take()
+  }
+
+  pub fn get_or_create_current_before_comments_start_info(&mut self) -> Info {
+    let current_span = self.current_node.span();
+    if let Some((span, info)) = self.before_comments_start_info_stack.peek() {
+      if *span == current_span {
+        return *info;
+      }
     }
 
-    pub fn parent(&self) -> &Node<'a> {
-        self.parent_stack.peek().unwrap()
+    let new_info = Info::new("beforeComments");
+    self.before_comments_start_info_stack.push((current_span, new_info));
+    new_info
+  }
+
+  pub fn take_current_before_comments_start_info(&mut self) -> Option<Info> {
+    let mut had_span = false;
+    if let Some((span, _)) = self.before_comments_start_info_stack.peek() {
+      if *span == self.current_node.span() {
+        had_span = true;
+      }
     }
 
-    pub fn has_handled_comment(&self, comment: &Comment) -> bool {
-        self.handled_comments.contains(&comment.lo())
+    if had_span {
+      Some(self.before_comments_start_info_stack.pop().1)
+    } else {
+      None
     }
+  }
 
-    pub fn mark_comment_handled(&mut self, comment: &Comment) {
-        self.handled_comments.insert(comment.lo());
+  // do any assertions for how the state of this context should be at the end of the file
+  #[cfg(debug_assertions)]
+  pub fn assert_end_of_file_state(&self) {
+    if self.before_comments_start_info_stack.iter().next().is_some() {
+      panic!("Debug panic! There were infos in the before comments start info stack.");
     }
+  }
 
-    pub fn store_info_for_node(&mut self, node: &dyn Spanned, info: Info) {
-        self.stored_infos.insert((node.lo(), node.hi()), info);
+  #[cfg(debug_assertions)]
+  pub fn assert_text(&self, span: Span, expected_text: &str) {
+    let actual_text = span.text_fast(self.module);
+    if actual_text != expected_text {
+      panic!("Debug Panic Expected text `{}`, but found `{}`", expected_text, actual_text)
     }
-
-    pub fn get_info_for_node(&self, node: &dyn Spanned) -> Option<Info> {
-        self.stored_infos.get(&(node.lo(), node.hi())).map(|x| x.to_owned())
-    }
-
-    pub fn store_info_range_for_node(&mut self, node: &dyn Spanned, infos: (Info, Info)) {
-        self.stored_info_ranges.insert((node.lo(), node.hi()), infos);
-    }
-
-    pub fn get_info_range_for_node(&self, node: &dyn Spanned) -> Option<(Info, Info)> {
-        self.stored_info_ranges.get(&(node.lo(), node.hi())).map(|x| x.to_owned())
-    }
-
-    pub fn store_if_stmt_last_brace_condition_ref(&mut self, condition_reference: ConditionReference) {
-        self.if_stmt_last_brace_condition_ref = Some(condition_reference);
-    }
-
-    pub fn take_if_stmt_last_brace_condition_ref(&mut self) -> Option<ConditionReference> {
-        self.if_stmt_last_brace_condition_ref.take()
-    }
-
-    pub fn store_expr_stmt_single_line_parent_brace_ref(&mut self, condition_reference: ConditionReference) {
-        self.expr_stmt_single_line_parent_brace_ref = Some(condition_reference);
-    }
-
-    pub fn take_expr_stmt_single_line_parent_brace_ref(&mut self) -> Option<ConditionReference> {
-        self.expr_stmt_single_line_parent_brace_ref.take()
-    }
-
-    pub fn get_or_create_current_before_comments_start_info(&mut self) -> Info {
-        let current_span = self.current_node.span();
-        if let Some((span, info)) = self.before_comments_start_info_stack.peek() {
-            if *span == current_span {
-                return *info;
-            }
-        }
-
-        let new_info = Info::new("beforeComments");
-        self.before_comments_start_info_stack.push((current_span, new_info));
-        new_info
-    }
-
-    pub fn take_current_before_comments_start_info(&mut self) -> Option<Info> {
-        let mut had_span = false;
-        if let Some((span, _)) = self.before_comments_start_info_stack.peek() {
-            if *span == self.current_node.span() {
-                had_span = true;
-            }
-        }
-
-        if had_span {
-            Some(self.before_comments_start_info_stack.pop().1)
-        } else {
-            None
-        }
-    }
-
-    // do any assertions for how the state of this context should be at the end of the file
-    #[cfg(debug_assertions)]
-    pub fn assert_end_of_file_state(&self) {
-        if self.before_comments_start_info_stack.iter().next().is_some() {
-            panic!("Debug panic! There were infos in the before comments start info stack.");
-        }
-    }
-
-    #[cfg(debug_assertions)]
-    pub fn assert_text(&self, span: Span, expected_text: &str) {
-        let actual_text = span.text_fast(self.module);
-        if actual_text != expected_text {
-            panic!("Debug Panic Expected text `{}`, but found `{}`", expected_text, actual_text)
-        }
-    }
+  }
 }

@@ -1,14 +1,14 @@
 extern crate dprint_core;
 
 pub mod configuration;
-mod parsing;
 mod format_text;
+mod parsing;
 mod swc;
 mod utils;
 
+pub use format_text::format_parsed_file;
 pub use format_text::format_text;
 pub use format_text::SourceFileInfo;
-pub use format_text::format_parsed_file;
 
 #[cfg(feature = "tracing")]
 pub use format_text::trace_file;
