@@ -1,4 +1,4 @@
--- filePath: file.d.ts --
+-- file.d.ts --
 == should format a declaration file ==
 declare namespace someModule {
     interface Test {

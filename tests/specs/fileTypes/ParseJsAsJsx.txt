@@ -1,4 +1,4 @@
--- filePath: file.js --
+-- file.js --
 == should allow jsx in js files ==
 const t = <test></test>;
 

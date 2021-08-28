@@ -1,4 +1,4 @@
--- filePath: file.tsx --
+-- file.tsx --
 ~~ lineWidth: 40 ~~
 == should not remove spaces between ==
 const t = <div>{t} {u} {v}</div>;

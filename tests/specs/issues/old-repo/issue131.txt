@@ -1,4 +1,4 @@
--- filePath: file.tsx --
+-- file.tsx --
 ~~ indentWidth: 2, jsx.multiLineParens: false ~~
 == should format as-is ==
 const View = () => (

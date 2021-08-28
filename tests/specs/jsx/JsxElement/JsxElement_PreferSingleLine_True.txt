@@ -1,4 +1,4 @@
--- filePath: file.tsx --
+-- file.tsx --
 ~~ lineWidth: 50, jsxElement.preferSingleLine: true ~~
 == should format when single line ==
 const t = <Test>Test</Test>;

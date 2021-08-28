@@ -1,4 +1,4 @@
--- filePath: file.jsx --
+-- file.jsx --
 == should parse jsx files ==
 const t = <test></test>;
 

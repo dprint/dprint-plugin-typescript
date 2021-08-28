@@ -1,4 +1,4 @@
--- filePath: file.tsx --
+-- file.tsx --
 == should ignore element after ignore comment in an element ==
 const t = (
     <Element>

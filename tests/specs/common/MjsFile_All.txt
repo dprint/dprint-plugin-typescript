@@ -1,4 +1,4 @@
--- fileName: test.mjs --
+-- test.mjs --
 == should format mjs file ==
 class Test{ prop = 5}
 

@@ -1,4 +1,4 @@
--- filePath: file.tsx --
+-- file.tsx --
 == should format ==
 const t = <test {...test} />;
 
