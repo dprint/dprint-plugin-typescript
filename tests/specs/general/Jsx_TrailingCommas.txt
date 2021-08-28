@@ -1,0 +1,25 @@
+== should not keep trailing comma in expression type parameters in non-jsx file since there is no parsing ambiguity ==
+const Test1 = <T,>() => false;
+const Test2 = function<T,>() {};
+
+[expect]
+const Test1 = <T>() => false;
+const Test2 = function<T>() {};
+
+== should keep trailing comma in expression type parameters in file parsed as jsx since there is no parsing ambiguity ==
+const Test1 = <T,>() => false;
+const Test2 = function<T,>() {};
+const Test3 = <div></div>;
+
+// not for declarations though
+function test<T,>() {
+}
+
+[expect]
+const Test1 = <T,>() => false;
+const Test2 = function<T,>() {};
+const Test3 = <div></div>;
+
+// not for declarations though
+function test<T>() {
+}

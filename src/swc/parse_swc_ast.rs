@@ -6,6 +6,7 @@ use dprint_core::types::{ErrBox, Error};
 use swc_ast_view::SourceFileTextInfo;
 
 pub struct ParsedSourceFile {
+    pub is_jsx: bool,
     pub module: swc_ecmascript::ast::Module,
     pub info: SourceFileTextInfo,
     pub tokens: Vec<TokenAndSpan>,
@@ -34,11 +35,12 @@ pub fn parse_swc_ast(file_path: &Path, file_text: &str) -> Result<ParsedSourceFi
 fn parse_inner(file_path: &Path, file_text: &str) -> Result<ParsedSourceFile, ErrBox> {
     let string_input = StringInput::new(file_text, BytePos(0), BytePos(file_text.len() as u32));
     let source_file_info = SourceFileTextInfo::new(BytePos(0), file_text.to_string());
+    let is_jsx = should_parse_as_jsx(file_path);
 
     let comments: SingleThreadedComments = Default::default();
     let (module, tokens) = {
         let ts_config = swc_ecmascript::parser::TsConfig {
-            tsx: should_parse_as_jsx(file_path),
+            tsx: is_jsx,
             dynamic_import: true,
             decorators: true,
             import_assertions: true,
@@ -73,6 +75,7 @@ fn parse_inner(file_path: &Path, file_text: &str) -> Result<ParsedSourceFile, Er
     // }
 
     return Ok(ParsedSourceFile {
+        is_jsx,
         leading_comments,
         trailing_comments,
         module,

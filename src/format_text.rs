@@ -45,6 +45,7 @@ pub fn format_text(file_path: &Path, file_text: &str, config: &Configuration) ->
     let parsed_source_file = parse_swc_ast(file_path, file_text)?;
     Ok(dprint_core::formatting::format(|| {
         let print_items = parse(&SourceFileInfo {
+            is_jsx: parsed_source_file.is_jsx,
             module: &parsed_source_file.module,
             info: &parsed_source_file.info,
             tokens: &parsed_source_file.tokens,
@@ -58,6 +59,7 @@ pub fn format_text(file_path: &Path, file_text: &str, config: &Configuration) ->
 
 #[derive(Clone)]
 pub struct SourceFileInfo<'a> {
+    pub is_jsx: bool,
     pub module: &'a swc_ecmascript::ast::Module,
     pub info: &'a dyn swc_ast_view::SourceFile,
     pub tokens: &'a [TokenAndSpan],

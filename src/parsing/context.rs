@@ -7,6 +7,7 @@ use crate::configuration::*;
 use crate::utils::Stack;
 
 pub struct Context<'a> {
+    pub is_jsx: bool,
     pub module: &'a Module<'a>,
     pub config: &'a Configuration,
     pub comments: CommentTracker<'a>,
@@ -27,12 +28,14 @@ pub struct Context<'a> {
 
 impl<'a> Context<'a> {
     pub fn new(
-        config: &'a Configuration,
+        is_jsx: bool,
         tokens: &'a [TokenAndSpan],
         current_node: Node<'a>,
         module: &'a Module,
+        config: &'a Configuration,
     ) -> Context<'a> {
         Context {
+            is_jsx,
             module,
             config,
             comments: CommentTracker::new(module, tokens),

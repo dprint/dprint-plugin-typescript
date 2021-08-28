@@ -24,10 +24,11 @@ pub fn parse(info: &SourceFileInfo<'_>, config: &Configuration) -> PrintItems {
     swc_ast_view::with_ast_view_for_module(source_file_info, |module| {
         let module_node = Node::Module(module);
         let mut context = Context::new(
-            config,
+            info.is_jsx,
             info.tokens,
             module_node,
             module,
+            config,
         );
         let mut items = parse_node(module_node, &mut context);
         items.push_condition(if_true(
@@ -4566,6 +4567,15 @@ fn parse_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>)
         // trailing commas should be allowed in type parameters only—not arguments
         if let Some(type_params) = node.parent().get_type_parameters() {
             if type_params.lo() == node.lo() {
+                // Always use trailing commas for arrow function expressions in a JSX file
+                // if one exists as it may be used to assist with parsing ambiguity.
+                if context.is_jsx && (node.parent().kind() == NodeKind::ArrowExpr || node.parent().parent().unwrap().kind() == NodeKind::FnExpr) {
+                    let comma_count = type_params.tokens_fast(context.module).iter().filter(|t| t.token == Token::Comma).count();
+                    let has_trailing_comma = comma_count >= type_params.params.len();
+                    if has_trailing_comma {
+                        return TrailingCommas::Always;
+                    }
+                }
                 return trailing_commas;
             }
         }
