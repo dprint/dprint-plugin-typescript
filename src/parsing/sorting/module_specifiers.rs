@@ -4,57 +4,32 @@ pub fn cmp_module_specifiers(a: &str, b: &str, cmp_text: impl Fn(&str, &str) -> 
   let a_info = get_module_specifier_info(a);
   let b_info = get_module_specifier_info(b);
 
-  return match &a_info {
+  match &a_info {
     ModuleSpecifierInfo::Absolute { text: a_text } => match b_info {
       ModuleSpecifierInfo::Absolute { text: b_text } => cmp_text(a_text, b_text),
       ModuleSpecifierInfo::Relative { .. } => Ordering::Less,
     },
     ModuleSpecifierInfo::Relative {
       relative_count: a_relative_count,
-      folder_items: a_folder_items,
+      folder_text: a_folder_text,
     } => match &b_info {
       ModuleSpecifierInfo::Absolute { .. } => Ordering::Greater,
       ModuleSpecifierInfo::Relative {
         relative_count: b_relative_count,
-        folder_items: b_folder_items,
+        folder_text: b_folder_text,
       } => match a_relative_count.cmp(&b_relative_count) {
         Ordering::Greater => Ordering::Less,
         Ordering::Less => Ordering::Greater,
-        Ordering::Equal => compare_folder_items(a_folder_items, b_folder_items, cmp_text),
+        Ordering::Equal => cmp_text(a_folder_text, b_folder_text),
       },
     },
-  };
-
-  fn compare_folder_items(a_folder_items: &Vec<&'_ str>, b_folder_items: &Vec<&'_ str>, cmp_text: impl Fn(&str, &str) -> Ordering) -> Ordering {
-    let max_len = std::cmp::min(a_folder_items.len(), b_folder_items.len());
-    // compare the common items except for the potential file name at the end
-    for i in 0..max_len - 1 {
-      let a_text = a_folder_items[i];
-      let b_text = b_folder_items[i];
-      let ordering = cmp_text(a_text, b_text);
-      if ordering != Ordering::Equal {
-        return ordering;
-      }
-    }
-
-    if a_folder_items.len() != b_folder_items.len() {
-      // the import that has a folder name should appear before the one with a file name
-      if a_folder_items.len() > b_folder_items.len() {
-        Ordering::Less
-      } else {
-        Ordering::Greater
-      }
-    } else {
-      // compare the file names
-      cmp_text(a_folder_items.last().unwrap(), b_folder_items.last().unwrap())
-    }
   }
 }
 
 #[derive(Debug, PartialEq)]
 enum ModuleSpecifierInfo<'a> {
   Absolute { text: &'a str },
-  Relative { relative_count: usize, folder_items: Vec<&'a str> },
+  Relative { relative_count: usize, folder_text: &'a str },
 }
 
 fn get_module_specifier_info<'a>(text: &'a str) -> ModuleSpecifierInfo<'a> {
@@ -78,7 +53,7 @@ fn get_module_specifier_info<'a>(text: &'a str) -> ModuleSpecifierInfo<'a> {
 
     ModuleSpecifierInfo::Relative {
       relative_count,
-      folder_items: no_quotes_text[start_index..].split('/').collect(),
+      folder_text: &no_quotes_text[start_index..],
     }
   } else {
     ModuleSpecifierInfo::Absolute { text: no_quotes_text }
@@ -129,7 +104,7 @@ mod test {
       result,
       ModuleSpecifierInfo::Relative {
         relative_count: 0,
-        folder_items: vec!["a"],
+        folder_text: "a",
       }
     );
 
@@ -138,7 +113,7 @@ mod test {
       result,
       ModuleSpecifierInfo::Relative {
         relative_count: 1,
-        folder_items: vec!["testing-test", "t"],
+        folder_text: "testing-test/t",
       }
     );
 
@@ -147,7 +122,7 @@ mod test {
       result,
       ModuleSpecifierInfo::Relative {
         relative_count: 1,
-        folder_items: vec!["asdf"],
+        folder_text: "asdf",
       }
     );
 
@@ -156,7 +131,7 @@ mod test {
       result,
       ModuleSpecifierInfo::Relative {
         relative_count: 3,
-        folder_items: vec!["test"],
+        folder_text: "test",
       }
     );
   }

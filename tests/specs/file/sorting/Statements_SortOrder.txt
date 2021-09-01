@@ -5,6 +5,7 @@ import "../a";
 import "../../b";
 import "b";
 import "a";
+import "../../aa";
 import "../../a";
 import "../../a/b";
 export * from "c";
@@ -20,8 +21,9 @@ import "a";
 // testing
 import "a";
 import "b";
-import "../../a/b";
 import "../../a";
+import "../../a/b";
+import "../../aa";
 import "../../b";
 import "../a";
 import "./a";
