@@ -28,12 +28,12 @@ pub fn cmp_module_specifiers(a: &str, b: &str, folder_sort_order: FolderSortOrde
     };
 
     fn compare_folder_items(a_info: &ModuleSpecifierInfo, b_info: &ModuleSpecifierInfo, folder_sort_order: FolderSortOrder, cmp_text: impl Fn(&str, &str) -> Ordering) -> Ordering {
-        let path_length_ordering = a_info.folder_items.len().cmp(&b_info.folder_items.len()).reverse();
+        let path_length_ordering = b_info.folder_items.len().cmp(&a_info.folder_items.len());
         let alphabetical_ordering = a_info.folder_items.iter()
             .zip(b_info.folder_items.iter())
             .map(|(a, b)| cmp_text(a, b))
             .find(|ordering| *ordering != Ordering::Equal)
-            .unwrap_or(path_length_ordering);
+            .unwrap_or(path_length_ordering.reverse());
         match (folder_sort_order, path_length_ordering) {
             (FolderSortOrder::FoldersFirst, Ordering::Equal) => alphabetical_ordering,
             (FolderSortOrder::FoldersFirst, _) => path_length_ordering,
