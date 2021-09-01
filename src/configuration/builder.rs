@@ -576,6 +576,10 @@ impl ConfigurationBuilder {
     self.insert("setAccessor.bracePosition", value.to_string().into())
   }
 
+  pub fn static_block_brace_position(&mut self, value: BracePosition) -> &mut Self {
+    self.insert("staticBlock.bracePosition", value.to_string().into())
+  }
+
   pub fn switch_case_brace_position(&mut self, value: BracePosition) -> &mut Self {
     self.insert("switchCase.bracePosition", value.to_string().into())
   }
@@ -977,6 +981,7 @@ mod tests {
       .method_brace_position(BracePosition::NextLine)
       .module_declaration_brace_position(BracePosition::NextLine)
       .set_accessor_brace_position(BracePosition::NextLine)
+      .static_block_brace_position(BracePosition::NextLine)
       .switch_case_brace_position(BracePosition::NextLine)
       .switch_statement_brace_position(BracePosition::NextLine)
       .try_statement_brace_position(BracePosition::NextLine)
@@ -1096,7 +1101,7 @@ mod tests {
       .while_statement_space_after_while_keyword(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 152);
+    assert_eq!(inner_config.len(), 153);
     let diagnostics = resolve_config(inner_config, &resolve_global_config(HashMap::new()).config).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

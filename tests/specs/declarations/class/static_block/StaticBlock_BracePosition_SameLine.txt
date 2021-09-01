@@ -1,0 +1,13 @@
+~~ staticBlock.bracePosition: sameLine ~~
+== should use the same line for the brace position (skip) ==
+class Test {
+    static
+    {
+    }
+}
+
+[expect]
+class Test {
+    static {
+    }
+}

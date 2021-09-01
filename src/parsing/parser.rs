@@ -143,6 +143,7 @@ fn parse_node_with_inner_parse<'a>(
       Node::PrivateMethod(node) => parse_private_method(node, context),
       Node::PrivateName(node) => parse_private_name(node, context),
       Node::PrivateProp(node) => parse_private_prop(node, context),
+      Node::StaticBlock(node) => parse_static_block(node, context),
       /* clauses */
       Node::CatchClause(node) => parse_catch_clause(node, context),
       /* common */
@@ -620,6 +621,25 @@ fn parse_class_prop_common<'a>(node: ParseClassPropCommon<'a>, context: &mut Con
   if context.config.semi_colons.is_true() {
     items.push_str(";");
   }
+
+  items
+}
+
+fn parse_static_block<'a>(node: &'a StaticBlock, context: &mut Context<'a>) -> PrintItems {
+  let mut items = PrintItems::new();
+  let start_header_info = Info::new("staticBlockStart");
+  items.push_info(start_header_info);
+  items.push_str("static");
+
+  items.extend(parse_brace_separator(
+    ParseBraceSeparatorOptions {
+      brace_position: context.config.static_block_brace_position,
+      open_brace_token: context.token_finder.get_first_open_brace_token_within(&node.body),
+      start_header_info: Some(start_header_info),
+    },
+    context,
+  ));
+  items.extend(parse_node(node.body.into(), context));
 
   items
 }

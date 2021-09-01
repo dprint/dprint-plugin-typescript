@@ -308,6 +308,8 @@ pub struct Configuration {
   pub module_declaration_brace_position: BracePosition,
   #[serde(rename = "setAccessor.bracePosition")]
   pub set_accessor_brace_position: BracePosition,
+  #[serde(rename = "staticBlock.bracePosition")]
+  pub static_block_brace_position: BracePosition,
   #[serde(rename = "switchCase.bracePosition")]
   pub switch_case_brace_position: BracePosition,
   #[serde(rename = "switchStatement.bracePosition")]

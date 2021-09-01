@@ -912,6 +912,9 @@
     "setAccessor.bracePosition": {
       "$ref": "#/definitions/bracePosition"
     },
+    "staticBlock.bracePosition": {
+      "$ref": "#/definitions/bracePosition"
+    },
     "switchStatement.bracePosition": {
       "$ref": "#/definitions/bracePosition"
     },

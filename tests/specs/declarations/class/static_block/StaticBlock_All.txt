@@ -1,0 +1,17 @@
+== should format static blocks ==
+class Test {
+    static {}
+
+    static {
+        console.log(5);
+    }
+}
+
+[expect]
+class Test {
+    static {}
+
+    static {
+        console.log(5);
+    }
+}
