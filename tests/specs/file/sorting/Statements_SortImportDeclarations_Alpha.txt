@@ -1,0 +1,14 @@
+~~ module.sortImportDeclarations: caseSensitive ~~
+== should change the sort order to alphabetical sort ==
+import { _2 } from "../../a/b";
+import { _1 } from "../../a";
+import { _4 } from "../d/e";
+import { _5 } from "../d/f";
+import { _3 } from "../c";
+
+[expect]
+import { _1 } from "../../a";
+import { _2 } from "../../a/b";
+import { _3 } from "../c";
+import { _4 } from "../d/e";
+import { _5 } from "../d/f";
