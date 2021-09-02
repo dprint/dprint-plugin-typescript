@@ -519,7 +519,7 @@ fn parse_parameter_prop<'a>(node: &'a TsParamProp, context: &mut Context<'a>) ->
   let mut items = PrintItems::new();
   items.extend(parse_decorators(&node.decorators, true, context));
   if let Some(accessibility) = node.accessibility() {
-    items.push_str(&format!("{} ", accessibility_to_str(accessibility)));
+    items.push_string(format!("{} ", accessibility_to_str(accessibility)));
   }
   if node.is_override() {
     items.push_str("override ");
@@ -582,7 +582,7 @@ fn parse_class_prop_common<'a>(node: ParseClassPropCommon<'a>, context: &mut Con
     items.push_str("declare ");
   }
   if let Some(accessibility) = node.accessibility {
-    items.push_str(&format!("{} ", accessibility_to_str(accessibility)));
+    items.push_string(format!("{} ", accessibility_to_str(accessibility)));
   }
   if node.is_static {
     items.push_str("static ");
@@ -3221,7 +3221,7 @@ fn parse_jsx_text<'a>(node: &'a JSXText, context: &mut Context<'a>) -> PrintItem
 /* literals */
 
 fn parse_big_int_literal<'a>(node: &'a BigInt, context: &mut Context<'a>) -> PrintItems {
-  node.text_fast(context.module).into()
+  node.text_fast(context.module).to_string().into()
 }
 
 fn parse_bool_literal(node: &Bool) -> PrintItems {
@@ -3233,7 +3233,7 @@ fn parse_bool_literal(node: &Bool) -> PrintItems {
 }
 
 fn parse_num_literal<'a>(node: &'a Number, context: &mut Context<'a>) -> PrintItems {
-  node.text_fast(context.module).into()
+  node.text_fast(context.module).to_string().into()
 }
 
 fn parse_reg_exp_literal(node: &Regex, _: &mut Context) -> PrintItems {
@@ -3349,7 +3349,7 @@ fn parse_module<'a>(node: &'a Module, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   if let Some(shebang) = node.shebang() {
     items.push_str("#!");
-    items.push_str(&shebang as &str);
+    items.push_string(shebang.to_string());
     items.push_signal(Signal::ExpectNewLine);
     if let Some(first_statement) = node.body.first() {
       if node_helpers::has_separating_blank_line(&node.lo(), first_statement, context.module) {
@@ -3522,7 +3522,7 @@ fn parse_class_or_object_method<'a>(node: ClassOrObjectMethod<'a>, context: &mut
   items.push_info(start_header_info);
 
   if let Some(accessibility) = node.accessibility {
-    items.push_str(&format!("{} ", accessibility_to_str(accessibility)));
+    items.push_string(format!("{} ", accessibility_to_str(accessibility)));
   }
   if node.is_static {
     items.push_str("static ");
@@ -4801,7 +4801,7 @@ fn parse_setter_signature<'a>(node: &'a TsSetterSignature, context: &mut Context
 
 fn parse_keyword_type<'a>(node: &'a TsKeywordType, context: &mut Context<'a>) -> PrintItems {
   // will be a keyword like "any", "unknown", "number", etc...
-  node.text_fast(context.module).into()
+  node.text_fast(context.module).to_string().into()
 }
 
 fn parse_import_type<'a>(node: &'a TsImportType, context: &mut Context<'a>) -> PrintItems {
@@ -4855,7 +4855,7 @@ fn parse_intersection_type<'a>(node: &'a TsIntersectionType, context: &mut Conte
 fn parse_lit_type<'a>(node: &'a TsLitType, context: &mut Context<'a>) -> PrintItems {
   match &node.lit {
     // need to do this in order to support negative numbers
-    TsLit::Number(_) => node.text_fast(context.module).into(),
+    TsLit::Number(_) => node.text_fast(context.module).to_string().into(),
     _ => parse_node(node.lit.into(), context),
   }
 }
@@ -7718,7 +7718,7 @@ fn jsx_space_separator(previous_node: &Node, current_node: &Node, context: &Cont
       {
         let mut items = PrintItems::new();
         items.push_signal(Signal::PossibleNewLine);
-        items.push_str(&jsx_space_expr_text);
+        items.push_string(jsx_space_expr_text.clone());
         items.push_signal(Signal::NewLine);
         items
       },
@@ -7726,7 +7726,7 @@ fn jsx_space_separator(previous_node: &Node, current_node: &Node, context: &Cont
         let mut items = PrintItems::new();
         if spaces_between_count > 1 {
           items.push_signal(Signal::PossibleNewLine);
-          items.push_str(&jsx_space_expr_text);
+          items.push_string(jsx_space_expr_text);
           items.push_signal(Signal::PossibleNewLine);
         } else {
           items.extend(jsx_space_or_newline_or_expr_space(previous_node, current_node, context));
@@ -7743,7 +7743,7 @@ fn jsx_space_separator(previous_node: &Node, current_node: &Node, context: &Cont
 
     if spaces_between_count > 1 {
       items.push_signal(Signal::PossibleNewLine);
-      items.push_str(&format!("{{\"{}\"}}", " ".repeat(spaces_between_count)));
+      items.push_string(format!("{{\"{}\"}}", " ".repeat(spaces_between_count)));
       items.push_signal(Signal::PossibleNewLine);
       return items;
     }
@@ -7817,7 +7817,7 @@ fn parse_assignment_like_with_token<'a>(expr: Node<'a>, op: &str, op_token: Opti
   if op == ":" {
     items.push_str(op)
   } else {
-    items.push_str(&format!(" {}", op))
+    items.push_string(format!(" {}", op))
   }; // good enough for now...
 
   let op_end = op_token

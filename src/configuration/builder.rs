@@ -37,7 +37,7 @@ impl ConfigurationBuilder {
     if let Some(global_config) = &self.global_config {
       resolve_config(self.config.clone(), global_config).config
     } else {
-      let global_config = resolve_global_config(HashMap::new()).config;
+      let global_config = resolve_global_config(HashMap::new(), &Default::default()).config;
       resolve_config(self.config.clone(), &global_config).config
     }
   }
@@ -1102,7 +1102,7 @@ mod tests {
 
     let inner_config = config.get_inner_config();
     assert_eq!(inner_config.len(), 153);
-    let diagnostics = resolve_config(inner_config, &resolve_global_config(HashMap::new()).config).diagnostics;
+    let diagnostics = resolve_config(inner_config, &resolve_global_config(HashMap::new(), &Default::default()).config).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }
 }
