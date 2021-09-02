@@ -1,0 +1,49 @@
+== should change the indentation of js docs above declarations ==
+    /**
+     * Converts string to camel case.
+     *
+     * @param string   The string to convert.
+     * @return Returns the camel cased string.
+     */
+declare function capitalize(
+    string: string,
+): string;
+
+[expect]
+/**
+ * Converts string to camel case.
+ *
+ * @param string   The string to convert.
+ * @return Returns the camel cased string.
+ */
+declare function capitalize(
+    string: string,
+): string;
+
+== should handle indentation change ==
+class Test {
+  /** Testing */
+  /**
+   * Testing
+   */
+  method() {
+    /** Test
+     * Testing */
+    function test() {
+    }
+  }
+}
+
+[expect]
+class Test {
+    /** Testing */
+    /**
+     * Testing
+     */
+    method() {
+        /** Test
+         * Testing */
+        function test() {
+        }
+    }
+}

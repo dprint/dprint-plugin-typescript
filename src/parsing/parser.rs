@@ -5480,10 +5480,92 @@ fn parse_comment(comment: &Comment, context: &mut Context) -> Option<PrintItems>
 
   // mark handled and parse
   context.mark_comment_handled(comment);
-  Some(match comment.kind {
-    CommentKind::Block => parser_helpers::parse_js_like_comment_block(&comment.text),
+
+  return Some(match comment.kind {
+    CommentKind::Block => {
+      if is_js_doc(&comment.text) {
+        parse_js_doc(comment, context)
+      } else {
+        parser_helpers::parse_js_like_comment_block(&comment.text)
+      }
+    }
     CommentKind::Line => parser_helpers::parse_js_like_comment_line(&comment.text, context.config.comment_line_force_space_after_slashes),
-  })
+  });
+
+  fn is_js_doc(text: &str) -> bool {
+    // be strict about what a js doc is for now
+    if text.starts_with("*") && text.contains("\n") {
+      for line in text.trim().split("\n").skip(1) {
+        let first_non_whitespace = line.trim_start().chars().next();
+        if !matches!(first_non_whitespace, Some('*')) {
+          return false;
+        }
+      }
+
+      true
+    } else {
+      false
+    }
+  }
+}
+
+fn parse_js_doc(comment: &Comment, _context: &mut Context) -> PrintItems {
+  return lines_to_print_items(build_lines(comment));
+
+  fn build_lines(comment: &Comment) -> Vec<&str> {
+    let mut lines: Vec<&str> = Vec::new();
+
+    for line in comment.text.lines() {
+      let line = line[get_line_start_index(line)..].trim_end();
+      if !line.is_empty() || !lines.last().map(|l| l.is_empty()).unwrap_or(false) {
+        lines.push(line);
+      }
+    }
+
+    lines
+  }
+
+  fn get_line_start_index(text: &str) -> usize {
+    let mut chars = text.char_indices();
+    while let Some((byte_index, c)) = chars.next() {
+      if c == '*' {
+        if matches!(chars.next(), Some((_, ' '))) {
+          return byte_index + 2;
+        } else {
+          return byte_index + 1;
+        }
+      } else if !c.is_whitespace() {
+        return byte_index;
+      }
+    }
+
+    0
+  }
+
+  fn lines_to_print_items(lines: Vec<&str>) -> PrintItems {
+    let mut items = PrintItems::new();
+
+    items.push_str("/*");
+
+    for (i, line) in lines.iter().enumerate() {
+      if i > 0 {
+        items.push_signal(Signal::NewLine);
+      }
+      if line.is_empty() {
+        items.push_str(if i == 0 { "*" } else { " *" });
+      } else {
+        items.push_string(format!("{}* {}", if i == 0 { "" } else { " " }, line))
+      }
+    }
+
+    if lines.last().map(|l| l.is_empty()).unwrap_or(false) {
+      items.push_str("/");
+    } else {
+      items.push_str(" */");
+    }
+
+    items
+  }
 }
 
 fn parse_first_line_trailing_comments<'a>(node: &dyn Spanned, first_member: Option<Span>, context: &mut Context<'a>) -> PrintItems {
