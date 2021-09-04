@@ -653,10 +653,6 @@
     }
   },
   "properties": {
-    "$schema": {
-      "description": "The JSON schema reference.",
-      "type": "string"
-    },
     "locked": {
       "description": "Whether the configuration is not allowed to be overriden or extended.",
       "type": "boolean"
