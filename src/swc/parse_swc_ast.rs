@@ -55,7 +55,7 @@ fn parse_inner(file_path: &Path, file_text: &str) -> Result<ParsedSourceFile, Er
       dts: false,
       no_early_errors: false,
     };
-    let lexer = Lexer::new(Syntax::Typescript(ts_config), JscTarget::Es2019, string_input, Some(&comments));
+    let lexer = Lexer::new(Syntax::Typescript(ts_config), JscTarget::Es2021, string_input, Some(&comments));
     let lexer = Capturing::new(lexer);
     let mut parser = Parser::new_from(lexer);
     let parse_module_result = parser.parse_module();
