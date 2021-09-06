@@ -96,6 +96,7 @@ pub fn trace_file(file_path: &Path, file_text: &str, config: &Configuration) -> 
     || {
       parse(
         &SourceFileInfo {
+          is_jsx: parsed_source_file.is_jsx,
           info: &parsed_source_file.info,
           module: &parsed_source_file.module,
           tokens: &parsed_source_file.tokens,
