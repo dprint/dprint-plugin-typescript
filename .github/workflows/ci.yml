@@ -25,13 +25,7 @@ jobs:
       run: rustup target add wasm32-unknown-unknown
 
     - name: Cache cargo
-      uses: actions/cache@v2
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+      uses: Swatinem/rust-cache@v1
 
     - name: Build debug
       if: matrix.config.kind == 'test_debug'
