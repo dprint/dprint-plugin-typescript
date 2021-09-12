@@ -1,8 +1,8 @@
 {
   "$schema": "https://dprint.dev/schemas/v0.json",
   "incremental": true,
+  "indentWidth": 2,
   "rustfmt": {
-    "indentWidth": 2,
     "lineWidth": 160
   },
   "includes": ["**/*.{ts,tsx,js,jsx,cjs,mjs,json,md,toml,rs}"],

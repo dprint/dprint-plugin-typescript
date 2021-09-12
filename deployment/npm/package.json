@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "description": "Wasm buffer for dprint-plugin-typescript.",
   "main": "./index.js",
+  "types": "./index.d.ts",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dprint/dprint-plugin-typescript.git"
