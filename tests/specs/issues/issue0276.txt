@@ -1,0 +1,17 @@
+== should keep comments as-is ==
+export function install(/* ... */) {
+    return (
+        <Switch>
+            // ...
+        </Switch>
+    );
+}
+
+[expect]
+export function install(/* ... */) {
+    return (
+        <Switch>
+            // ...
+        </Switch>
+    );
+}
