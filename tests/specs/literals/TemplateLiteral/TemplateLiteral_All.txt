@@ -152,3 +152,15 @@ const test = () => `testing this out testing testing testing testin gtesting tes
 [expect]
 const test = () =>
     `testing this out testing testing testing testin gtesting testing`;
+
+== should move a binary expression to its own line ==
+const test = `test test test test ${props.class ?? ""}`;
+const test = `test test test test ${1 + 25 + 2}`;
+
+[expect]
+const test = `test test test test ${
+    props.class ?? ""
+}`;
+const test = `test test test test ${
+    1 + 25 + 2
+}`;

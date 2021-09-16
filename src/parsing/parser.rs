@@ -2463,6 +2463,7 @@ fn parse_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, conte
   fn get_possible_surround_newlines(node: &Node) -> bool {
     match node {
       Node::CondExpr(_) => true,
+      Node::BinExpr(_) => true,
       Node::MemberExpr(expr) => !keep_member_expr_on_one_line(expr),
       Node::CallExpr(expr) => !keep_call_expr_on_one_line(expr),
       _ => false,
