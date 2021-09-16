@@ -1,5 +1,5 @@
 ~~ staticBlock.bracePosition: sameLine ~~
-== should use the same line for the brace position (skip) ==
+== should use the same line for the brace position ==
 class Test {
     static
     {

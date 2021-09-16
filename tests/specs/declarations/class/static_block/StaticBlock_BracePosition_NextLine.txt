@@ -1,5 +1,5 @@
 ~~ staticBlock.bracePosition: nextLine ~~
-== should use the next line for the brace position (skip) ==
+== should use the next line for the brace position ==
 class Test {
     static {
     }

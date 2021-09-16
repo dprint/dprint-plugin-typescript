@@ -72,9 +72,8 @@ fn parse_inner(file_path: &Path, file_text: &str) -> Result<ParsedSourceFile, Er
   let trailing_comments = Rc::try_unwrap(trailing).unwrap().into_inner();
 
   // {
-  //     let (leading, trailing) = comments.borrow_all();
-  //     println!("Leading: {:?}", leading);
-  //     println!("Trailing: {:?}", trailing);
+  //   println!("Leading: {:?}", leading_comments);
+  //   println!("Trailing: {:?}", trailing_comments);
   // }
 
   return Ok(ParsedSourceFile {
