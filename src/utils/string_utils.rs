@@ -79,3 +79,39 @@ pub fn is_not_empty_and_only_spaces(text: &str) -> bool {
 
   true
 }
+
+pub struct SplitLinesIterator<'a> {
+  inner: std::str::Split<'a, char>,
+}
+
+impl<'a> Iterator for SplitLinesIterator<'a> {
+  type Item = &'a str;
+
+  fn next(&mut self) -> Option<Self::Item> {
+    let line = self.inner.next();
+    line.map(|line| if line.ends_with('\r') { &line[..line.len() - 1] } else { line })
+  }
+}
+
+pub fn split_lines<'a>(text: &'a str) -> SplitLinesIterator<'a> {
+  SplitLinesIterator { inner: text.split('\n') }
+}
+
+#[cfg(test)]
+mod test {
+  use super::*;
+
+  #[test]
+  fn split_lines_empty_last_line() {
+    let text = "a\r\nb\nc\r\n";
+    let lines = split_lines(&text).collect::<Vec<_>>();
+    assert_eq!(lines, vec!["a", "b", "c", ""]); // includes last line
+  }
+
+  #[test]
+  fn split_lines_non_empty_last_line() {
+    let text = "a \n   b\nc";
+    let lines = split_lines(&text).collect::<Vec<_>>();
+    assert_eq!(lines, vec!["a ", "   b", "c"]);
+  }
+}

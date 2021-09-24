@@ -5516,7 +5516,7 @@ fn parse_js_doc(comment: &Comment, _context: &mut Context) -> PrintItems {
   fn build_lines(comment: &Comment) -> Vec<&str> {
     let mut lines: Vec<&str> = Vec::new();
 
-    for line in comment.text.lines() {
+    for line in utils::split_lines(&comment.text) {
       let line = line[get_line_start_index(line)..].trim_end();
       if !line.is_empty() || !lines.last().map(|l| l.is_empty()).unwrap_or(false) {
         lines.push(line);
@@ -5552,14 +5552,16 @@ fn parse_js_doc(comment: &Comment, _context: &mut Context) -> PrintItems {
       if i > 0 {
         items.push_signal(Signal::NewLine);
       }
-      if line.is_empty() {
-        items.push_str(if i == 0 { "*" } else { " *" });
-      } else {
-        items.push_string(format!("{}* {}", if i == 0 { "" } else { " " }, line))
+      let mut text = String::new();
+      text.push_str(if i == 0 { "*" } else { " *" });
+      if !line.is_empty() {
+        text.push_str(" ");
+        text.push_str(line);
       }
+      items.push_string(text);
     }
 
-    if lines.last().map(|l| l.is_empty()).unwrap_or(false) {
+    if lines.len() > 1 && lines.last().map(|l| l.is_empty()).unwrap_or(false) {
       items.push_str("/");
     } else {
       items.push_str(" */");

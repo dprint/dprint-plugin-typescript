@@ -80,3 +80,47 @@ const t;
  *     A
  */
 const t;
+
+== empty JS doc comment ==
+/**
+ *
+ *
+ */
+const t;
+
+/**
+ *
+ */
+const u;
+
+/**
+ */
+const v;
+
+/** */
+const w;
+
+[expect]
+/** */
+const t;
+
+/** */
+const u;
+
+/** */
+const v;
+
+/** */
+const w;
+
+== should handle stars at zero indent ==
+/** Testing
+* Test
+*/
+const t;
+
+[expect]
+/** Testing
+ * Test
+ */
+const t;
