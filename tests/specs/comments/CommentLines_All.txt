@@ -59,3 +59,11 @@
 //    1. Testing
 //    2. Testing
 // Testing
+
+== should not panic for tab in comment ==
+// test	test
+//	test	test
+
+[expect]
+// test	test
+// 	test	test

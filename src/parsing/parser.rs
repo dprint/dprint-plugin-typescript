@@ -5623,9 +5623,11 @@ fn parse_js_doc(comment: &Comment, _context: &mut Context) -> PrintItems {
       text.push_str(if i == 0 { "*" } else { " *" });
       if !line.is_empty() {
         text.push_str(" ");
-        text.push_str(line);
       }
       items.push_string(text);
+      if !line.is_empty() {
+        items.extend(parse_raw_string(line));
+      }
     }
 
     if lines.len() > 1 && lines.last().map(|l| l.is_empty()).unwrap_or(false) {

@@ -124,3 +124,15 @@ const t;
  * Test
  */
 const t;
+
+== should not panic for tab in js doc ==
+/** Testing
+ *	test	test
+ */
+const t;
+
+[expect]
+/** Testing
+ * 	test	test
+ */
+const t;
