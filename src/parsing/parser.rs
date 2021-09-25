@@ -1472,7 +1472,7 @@ fn parse_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> 
   items.push_str(" =>");
 
   let parsed_body = parse_node(node.body.into(), context);
-  let parsed_body = if use_new_line_group_for_arrow_body(node) {
+  let parsed_body = if use_new_line_group_for_arrow_body(node, context) {
     new_line_group(parsed_body)
   } else {
     parsed_body
@@ -1499,7 +1499,7 @@ fn parse_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> 
     let end_body_info = Info::new("endBody");
     items.push_info(start_body_info);
 
-    if should_not_newline_after_arrow(&node.body) {
+    if should_not_newline_after_arrow(&node.body, context) {
       items.push_str(" ");
     } else {
       items.push_condition(conditions::if_above_width_or(
@@ -1521,13 +1521,13 @@ fn parse_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> 
 
   return items;
 
-  fn should_not_newline_after_arrow(body: &BlockStmtOrExpr) -> bool {
+  fn should_not_newline_after_arrow(body: &BlockStmtOrExpr, context: &Context) -> bool {
     match body {
       BlockStmtOrExpr::BlockStmt(_) => true,
       BlockStmtOrExpr::Expr(expr) => match expr {
         Expr::Paren(_) | Expr::Array(_) => true,
         Expr::Tpl(tpl) => tpl.quasis[0].raw.value().starts_with(|c: char| c == '\n' || c == '\r'),
-        _ => false,
+        _ => is_jsx_paren_expr_handled_node(&expr.into(), context),
       },
     }
   }
@@ -2285,16 +2285,16 @@ fn parse_paren_expr<'a>(node: &'a ParenExpr, context: &mut Context<'a>) -> Print
   ))
   .into();
 
-  return if get_use_new_line_group(node) {
+  return if get_use_new_line_group(node, context) {
     new_line_group(parsed_items)
   } else {
     parsed_items
   };
 
-  fn get_use_new_line_group(node: &ParenExpr) -> bool {
+  fn get_use_new_line_group(node: &ParenExpr, context: &Context) -> bool {
     if let Node::ArrowExpr(arrow_expr) = node.parent() {
       debug_assert!(arrow_expr.body.lo() == node.lo());
-      use_new_line_group_for_arrow_body(arrow_expr)
+      use_new_line_group_for_arrow_body(arrow_expr, context)
     } else {
       true
     }
@@ -8241,11 +8241,14 @@ fn assert_has_op<'a>(op: &str, op_token: Option<&TokenAndSpan>, context: &mut Co
   }
 }
 
-fn use_new_line_group_for_arrow_body(arrow_expr: &ArrowExpr) -> bool {
+fn use_new_line_group_for_arrow_body(arrow_expr: &ArrowExpr, context: &Context) -> bool {
   match &arrow_expr.body {
-    BlockStmtOrExpr::Expr(Expr::Paren(paren)) => match paren.expr {
-      Expr::Object(_) => false,
-      _ => true,
+    BlockStmtOrExpr::Expr(expr) => match expr {
+      Expr::Paren(paren) => match paren.expr {
+        Expr::Object(_) => false,
+        _ => !is_jsx_paren_expr_handled_node(&paren.expr.into(), context),
+      },
+      _ => !is_jsx_paren_expr_handled_node(&expr.into(), context),
     },
     _ => true,
   }

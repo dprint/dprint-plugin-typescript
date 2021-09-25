@@ -178,3 +178,19 @@ const t = (
         )}
     />
 );
+
+== should handle jsx in arrow function expr with multiple parens ==
+const t = test.map((a, b) => <testing a={b} b={test}>
+    {a[1]}
+</testing>);
+const u = test.map((a, b) => <testing a={b} b={test} />);
+
+[expect]
+const t = test.map((a, b) => (
+    <testing a={b} b={test}>
+        {a[1]}
+    </testing>
+));
+const u = test.map((a, b) => (
+    <testing a={b} b={test} />
+));
