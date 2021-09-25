@@ -1,9 +1,15 @@
 ~~ semiColons: asi ~~
 == should insert semi-colons at the start of lines beginning with a parenthesis ==
-(test);
+(
+    // test
+    test
+);
 
 [expect]
-;(test)
+;(
+    // test
+    test
+)
 
 == should insert semi-colons at the start of lines beginning with a template literal ==
 `testing`;

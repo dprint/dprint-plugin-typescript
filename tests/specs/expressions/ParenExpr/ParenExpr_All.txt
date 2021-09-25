@@ -25,3 +25,17 @@ const test = (
 
 [expect]
 (x.test as unknown) = 6;
+
+== should ignore paren exprs within paren exprs ==
+(((test)));
+(
+    // test
+    ((test))
+);
+
+[expect]
+test;
+(
+    // test
+    test
+);

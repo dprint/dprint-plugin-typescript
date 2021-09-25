@@ -6,6 +6,6 @@ callExpr(
 
 [expect]
 callExpr(
-    (5),
+    5,
     6,
 );

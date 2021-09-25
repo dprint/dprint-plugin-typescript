@@ -2270,9 +2270,7 @@ fn parse_object_lit<'a>(node: &'a ObjectLit, context: &mut Context<'a>) -> Print
 }
 
 fn parse_paren_expr<'a>(node: &'a ParenExpr, context: &mut Context<'a>) -> PrintItems {
-  if is_jsx_paren_expr_handled_node(&node.expr.into(), context) {
-    // skip explicitly parsing this as a paren expr as that will be handled
-    // in the JSX element/fragment and it might collapse back to not having a paren expr
+  if skip_paren_expr(node, context) {
     return parse_node(node.expr.into(), context);
   }
 
@@ -2300,6 +2298,35 @@ fn parse_paren_expr<'a>(node: &'a ParenExpr, context: &mut Context<'a>) -> Print
     } else {
       true
     }
+  }
+
+  fn skip_paren_expr(node: &ParenExpr, context: &Context) -> bool {
+    if has_surrounding_comments(&node.expr.into(), context) {
+      return false;
+    }
+
+    // skip over any paren exprs within paren exprs and needless paren exprs
+    let parent = node.parent();
+    if matches!(
+      parent.kind(),
+      NodeKind::ParenExpr | NodeKind::ExprStmt | NodeKind::JSXElement | NodeKind::JSXFragment | NodeKind::JSXExprContainer
+    ) {
+      return true;
+    }
+
+    // skip over an expr or spread if not a spread
+    if let Some(expr_or_spread) = parent.to::<ExprOrSpread>() {
+      // these should only appear in these nodes
+      let is_known_parent = matches!(expr_or_spread.parent().kind(), NodeKind::NewExpr | NodeKind::ArrayLit | NodeKind::CallExpr);
+      debug_assert!(is_known_parent);
+      if is_known_parent && expr_or_spread.spread().is_none() {
+        return true;
+      }
+    }
+
+    // skip explicitly parsing this as a paren expr as that will be handled
+    // in the JSX element/fragment and it might collapse back to not having a paren expr
+    is_jsx_paren_expr_handled_node(&node.expr.into(), context)
   }
 }
 
@@ -2908,8 +2935,16 @@ fn parse_jsx_closing_fragment<'a>(_: &'a JSXClosingFragment, _: &mut Context<'a>
 }
 
 fn handle_jsx_surrounding_parens<'a>(inner_items: PrintItems, context: &mut Context<'a>) -> PrintItems {
-  if is_jsx_paren_expr_handled_node(&context.parent(), context) || !is_jsx_paren_expr_handled_node(&context.current_node, context) {
-    return inner_items;
+  if !is_jsx_paren_expr_handled_node(&context.current_node, context) {
+    if should_jsx_surround_newlines(&context.current_node, context) {
+      return surround_with_newlines_indented_if_multi_line(inner_items, context.config.indent_width);
+    } else {
+      return inner_items;
+    }
+  }
+
+  if context.parent().is::<JSXExprContainer>() {
+    return surround_with_newlines_indented_if_multi_line(inner_items, context.config.indent_width);
   }
 
   let start_info = Info::new("conditionalParenStartInfo");
@@ -2919,7 +2954,7 @@ fn handle_jsx_surrounding_parens<'a>(inner_items: PrintItems, context: &mut Cont
 
   items.push_info(start_info);
   items.push_condition(if_true_or(
-    "isMultipleLines",
+    "parensOrNewlinesIfMultipleLines",
     move |context| {
       // clear the end info when the start info changes
       if context.has_info_moved(&start_info)? {
@@ -2943,19 +2978,51 @@ fn handle_jsx_surrounding_parens<'a>(inner_items: PrintItems, context: &mut Cont
   ));
 
   items.push_info(end_info);
-  items
+  return items;
+
+  fn should_jsx_surround_newlines(node: &Node, context: &Context) -> bool {
+    let mut parent = node.parent().unwrap();
+    while let Some(paren_expr) = parent.to::<ParenExpr>() {
+      if has_surrounding_comments(&paren_expr.expr.into(), context) {
+        return false;
+      }
+      parent = parent.parent().unwrap();
+    }
+
+    parent.is::<JSXExprContainer>()
+  }
 }
 
 fn is_jsx_paren_expr_handled_node(node: &Node, context: &Context) -> bool {
-  context.config.jsx_multi_line_parens
-        && matches!(node.kind(), NodeKind::JSXElement | NodeKind::JSXFragment)
-        // do not allow in expr statement or argument
-        && !matches!(node.parent().unwrap().kind(), NodeKind::ExprStmt
-            | NodeKind::ExprOrSpread
-            | NodeKind::JSXElement
-            | NodeKind::JSXFragment)
-        && node.leading_comments_fast(context.module).is_empty()
-        && node.trailing_comments_fast(context.module).is_empty()
+  if !context.config.jsx_multi_line_parens {
+    return false;
+  }
+
+  if !matches!(node.kind(), NodeKind::JSXElement | NodeKind::JSXFragment) {
+    return false;
+  }
+
+  if has_surrounding_comments(node, context) {
+    return false;
+  }
+
+  let mut parent = node.parent().unwrap();
+  while parent.is::<ParenExpr>() {
+    if has_surrounding_comments(&parent, context) {
+      return false;
+    }
+    parent = parent.parent().unwrap();
+  }
+
+  // do not allow in expr statement, argument, attributes, or jsx exprs
+  !matches!(
+    parent.kind(),
+    NodeKind::ExprStmt | NodeKind::ExprOrSpread | NodeKind::JSXElement | NodeKind::JSXFragment | NodeKind::JSXExprContainer
+  )
+}
+
+fn has_surrounding_comments(node: &Node, context: &Context) -> bool {
+  !node.leading_comments_fast(context.module).is_empty() || !node.trailing_comments_fast(context.module).is_empty()
 }
 
 fn parse_jsx_element<'a>(node: &'a JSXElement, context: &mut Context<'a>) -> PrintItems {

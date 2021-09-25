@@ -1,20 +1,20 @@
 == should format with parens ==
-(1 + 2);
+1 + (1 + 2);
 
 [expect]
-(1 + 2);
+1 + (1 + 2);
 
 == should format on a new line when the opening paren is on a different line ==
-(
+1 + (
     1 + 2);
 
 [expect]
-(
+1 + (
     1 + 2
 );
 
 == should format logical expressions in parens without hanging indentation ==
-(
+1 + (
     test
     && test
     && {
@@ -28,7 +28,7 @@
 );
 
 [expect]
-(
+1 + (
     test
     && test
     && {
@@ -72,7 +72,7 @@ if (
 }
 
 == should format binary expressions without hanging indentation ==
-(
+1 + (
     1543652546
 + 2
     * 5 * {
@@ -87,7 +87,7 @@ if (
 );
 
 [expect]
-(
+1 + (
     1543652546
     + 2
         * 5 * {
