@@ -1,0 +1,18 @@
+-- test.jsx --
+== should not repeat jsx text that looks like comment ==
+export function install() {
+    return (
+        <Switch>
+            // ...
+        </Switch>
+    );
+}
+
+[expect]
+export function install() {
+    return (
+        <Switch>
+            // ...
+        </Switch>
+    );
+}

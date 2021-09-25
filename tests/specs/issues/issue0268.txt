@@ -1,0 +1,31 @@
+== should parse ==
+const x = {
+prop: isCorrect
+    ? fn => ({})
+    : fn => true,
+};
+
+[expect]
+const x = {
+    prop: isCorrect
+        ? fn => ({})
+        : fn => true,
+};
+
+== should parse ==
+const wrappedApi: API<P> | undefined = api != null ? {
+  process: async (params: Params): Promise<Response<P>> => {
+    let response: Response<P>;
+    return response;
+  },
+} : undefined;
+
+[expect]
+const wrappedApi: API<P> | undefined = api != null
+    ? {
+        process: async (params: Params): Promise<Response<P>> => {
+            let response: Response<P>;
+            return response;
+        },
+    }
+    : undefined;
