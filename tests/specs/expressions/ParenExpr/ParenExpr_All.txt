@@ -39,3 +39,141 @@ test;
     // test
     test
 );
+
+== should keep for IIFE ==
+(function foo() {
+    test;
+})();
+
+(() => {
+    test;
+})();
+
+((() => {
+    test;
+}))();
+
+(function foo() {
+    test;
+})((function test() {}));
+
+[expect]
+(function foo() {
+    test;
+})();
+
+(() => {
+    test;
+})();
+
+(() => {
+    test;
+})();
+
+(function foo() {
+    test;
+})(function test() {});
+
+== should keep for property access expr where appropriate ==
+(function test() {
+    test;
+}).prop;
+
+(() => {
+    test;
+}).prop;
+
+({
+    prop: 5,
+}).prop;
+
+([5]).prop;
+
+[expect]
+(function test() {
+    test;
+}).prop;
+
+(() => {
+    test;
+}).prop;
+
+({
+    prop: 5,
+}).prop;
+
+[5].prop;
+
+== should handle wrapped exprs for function expressions ==
+(function test() {}());
+(function test() {}?.());
+(function test() {}.prop);
+(function test() {}?.prop);
+(function test() {}[56]);
+(function test() {} + 2);
+1 + (function test() {} + 2);
+call(function test() {}());
+obj[(function test() {})];
+(function test() {}) ? true : false;
+true ? function test() {} : false;
+true ? true : function test() {};
+new test(function test() {});
+new (function test() {})();
+(new function test() {}());
+test = function() {};
+test = (function() {});
+
+[expect]
+(function test() {})();
+(function test() {})?.();
+(function test() {}).prop;
+(function test() {})?.prop;
+(function test() {})[56];
+(function test() {}) + 2;
+1 + (function test() {} + 2);
+call(function test() {}());
+obj[function test() {}];
+(function test() {}) ? true : false;
+true ? function test() {} : false;
+true ? true : function test() {};
+new test(function test() {});
+new (function test() {})();
+new (function test() {})();
+test = function() {};
+test = function() {};
+
+== should handle wrapped exprs for arrow fn expressions ==
+(() => {})();
+(() => {})?.();
+(() => {}).prop;
+(() => {})?.prop;
+(() => {})[56];
+(() => {}) + 2;
+1 + ((() => {}) + 2);
+call((() => {})());
+obj[() => {}];
+(() => {}) ? true : false;
+true ? () => {} : false;
+true ? true : () => {};
+new test(() => {});
+new (() => {})();
+test = (() => {});
+test = () => {};
+
+[expect]
+(() => {})();
+(() => {})?.();
+(() => {}).prop;
+(() => {})?.prop;
+(() => {})[56];
+(() => {}) + 2;
+1 + ((() => {}) + 2);
+call((() => {})());
+obj[() => {}];
+(() => {}) ? true : false;
+true ? () => {} : false;
+true ? true : () => {};
+new test(() => {});
+new (() => {})();
+test = () => {};
+test = () => {};

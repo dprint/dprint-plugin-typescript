@@ -7,8 +7,10 @@ const x = (2, 3, 4);
 
 == should format inside a member expression ==
 member[1,2];
+member[(1,2)];
 
 [expect]
+member[1, 2];
 member[1, 2];
 
 == should format multi-line with a hanging indent ==

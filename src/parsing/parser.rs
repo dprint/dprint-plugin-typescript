@@ -1423,103 +1423,110 @@ fn parse_array_expr<'a>(node: &'a ArrayLit, context: &mut Context<'a>) -> PrintI
 }
 
 fn parse_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> PrintItems {
-  let mut items = PrintItems::new();
-  let header_start_info = Info::new("arrowFunctionExpressionHeaderStart");
-  let should_use_parens = get_should_use_parens(&node, context);
+  let items = parse_inner(node, context);
+  return if should_add_parens_around_expr(node.into(), context) {
+    surround_with_parens(items)
+  } else {
+    items
+  };
 
-  items.push_info(header_start_info);
-  if node.is_async() {
-    items.push_str("async ");
-  }
-  if let Some(type_params) = node.type_params {
-    items.extend(parse_node(type_params.into(), context));
-  }
+  fn parse_inner<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> PrintItems {
+    let mut items = PrintItems::new();
+    let header_start_info = Info::new("arrowFunctionExpressionHeaderStart");
+    let should_use_parens = get_should_use_parens(&node, context);
 
-  if should_use_parens {
-    // need to check if there are parens because parse_parameters_or_arguments depends on the parens existing
-    if has_parens(node, context) {
-      items.extend(parse_parameters_or_arguments(
-        ParseParametersOrArgumentsOptions {
-          node: node.into(),
-          span: node.get_parameters_span(context),
-          nodes: node.params.iter().map(|node| node.into()).collect(),
-          custom_close_paren: |context| {
-            Some(parse_close_paren_with_type(
-              ParseCloseParenWithTypeOptions {
-                start_info: header_start_info,
-                type_node: node.return_type.map(|x| x.into()),
-                type_node_separator: None,
-                param_count: node.params.len(),
-              },
-              context,
-            ))
+    items.push_info(header_start_info);
+    if node.is_async() {
+      items.push_str("async ");
+    }
+    if let Some(type_params) = node.type_params {
+      items.extend(parse_node(type_params.into(), context));
+    }
+
+    if should_use_parens {
+      // need to check if there are parens because parse_parameters_or_arguments depends on the parens existing
+      if has_parens(node, context) {
+        items.extend(parse_parameters_or_arguments(
+          ParseParametersOrArgumentsOptions {
+            node: node.into(),
+            span: node.get_parameters_span(context),
+            nodes: node.params.iter().map(|node| node.into()).collect(),
+            custom_close_paren: |context| {
+              Some(parse_close_paren_with_type(
+                ParseCloseParenWithTypeOptions {
+                  start_info: header_start_info,
+                  type_node: node.return_type.map(|x| x.into()),
+                  type_node_separator: None,
+                  param_count: node.params.len(),
+                },
+                context,
+              ))
+            },
+            is_parameters: true,
           },
-          is_parameters: true,
+          context,
+        ));
+      } else {
+        // todo: this should probably use more of the same logic as in parse_parameters_or_arguments
+        // there will only be one param in this case
+        items.extend(surround_with_parens(parse_node(node.params.first().unwrap().into(), context)));
+      }
+    } else {
+      items.extend(parse_node(node.params.first().unwrap().into(), context));
+    }
+
+    items.push_str(" =>");
+
+    let parsed_body = parse_node(node.body.into(), context);
+    let parsed_body = if use_new_line_group_for_arrow_body(node, context) {
+      new_line_group(parsed_body)
+    } else {
+      parsed_body
+    }
+    .into_rc_path();
+    let open_brace_token = match &node.body {
+      BlockStmtOrExpr::BlockStmt(stmt) => context.token_finder.get_first_open_brace_token_within(stmt),
+      _ => None,
+    };
+
+    if open_brace_token.is_some() {
+      items.extend(parse_brace_separator(
+        ParseBraceSeparatorOptions {
+          brace_position: context.config.arrow_function_brace_position,
+          open_brace_token,
+          start_header_info: Some(header_start_info),
         },
         context,
       ));
+
+      items.extend(parsed_body.into());
     } else {
-      // todo: this should probably use more of the same logic as in parse_parameters_or_arguments
-      // there will only be one param in this case
-      items.push_str("(");
-      items.extend(parse_node(node.params.first().unwrap().into(), context));
-      items.push_str(")");
-    }
-  } else {
-    items.extend(parse_node(node.params.first().unwrap().into(), context));
-  }
+      let start_body_info = Info::new("startBody");
+      let end_body_info = Info::new("endBody");
+      items.push_info(start_body_info);
 
-  items.push_str(" =>");
+      if should_not_newline_after_arrow(&node.body, context) {
+        items.push_str(" ");
+      } else {
+        items.push_condition(conditions::if_above_width_or(
+          context.config.indent_width,
+          if_true_or(
+            "newlineOrSpace",
+            move |context| condition_resolvers::is_multiple_lines(context, &start_body_info, &end_body_info),
+            Signal::NewLine.into(),
+            Signal::SpaceOrNewLine.into(),
+          )
+          .into(),
+          " ".into(),
+        ));
+      }
 
-  let parsed_body = parse_node(node.body.into(), context);
-  let parsed_body = if use_new_line_group_for_arrow_body(node, context) {
-    new_line_group(parsed_body)
-  } else {
-    parsed_body
-  }
-  .into_rc_path();
-  let open_brace_token = match &node.body {
-    BlockStmtOrExpr::BlockStmt(stmt) => context.token_finder.get_first_open_brace_token_within(stmt),
-    _ => None,
-  };
-
-  if open_brace_token.is_some() {
-    items.extend(parse_brace_separator(
-      ParseBraceSeparatorOptions {
-        brace_position: context.config.arrow_function_brace_position,
-        open_brace_token,
-        start_header_info: Some(header_start_info),
-      },
-      context,
-    ));
-
-    items.extend(parsed_body.into());
-  } else {
-    let start_body_info = Info::new("startBody");
-    let end_body_info = Info::new("endBody");
-    items.push_info(start_body_info);
-
-    if should_not_newline_after_arrow(&node.body, context) {
-      items.push_str(" ");
-    } else {
-      items.push_condition(conditions::if_above_width_or(
-        context.config.indent_width,
-        if_true_or(
-          "newlineOrSpace",
-          move |context| condition_resolvers::is_multiple_lines(context, &start_body_info, &end_body_info),
-          Signal::NewLine.into(),
-          Signal::SpaceOrNewLine.into(),
-        )
-        .into(),
-        " ".into(),
-      ));
+      items.push_condition(conditions::indent_if_start_of_line(parsed_body.into()));
+      items.push_info(end_body_info);
     }
 
-    items.push_condition(conditions::indent_if_start_of_line(parsed_body.into()));
-    items.push_info(end_body_info);
+    items
   }
-
-  return items;
 
   fn should_not_newline_after_arrow(body: &BlockStmtOrExpr, context: &Context) -> bool {
     match body {
@@ -1898,7 +1905,6 @@ fn parse_call_expr<'a>(node: &'a CallExpr, context: &mut Context<'a>) -> PrintIt
 
     fn parse_test_library_arguments<'a>(args: &[&'a ExprOrSpread], context: &mut Context<'a>) -> PrintItems {
       let mut items = PrintItems::new();
-      items.push_str("(");
       items.extend(parse_node_with_inner_parse(args[0].into(), context, |items, _| {
         let mut new_items = parser_helpers::with_no_new_lines(items);
         new_items.push_str(",");
@@ -1906,9 +1912,8 @@ fn parse_call_expr<'a>(node: &'a CallExpr, context: &mut Context<'a>) -> PrintIt
       }));
       items.push_str(" ");
       items.extend(parse_node(args[1].into(), context));
-      items.push_str(")");
 
-      items
+      surround_with_parens(items)
     }
   }
 }
@@ -2161,7 +2166,7 @@ fn parse_expr_with_type_args<'a>(node: &'a TsExprWithTypeArgs, context: &mut Con
 }
 
 fn parse_fn_expr<'a>(node: &'a FnExpr, context: &mut Context<'a>) -> PrintItems {
-  parse_function_decl_or_expr(
+  let items = parse_function_decl_or_expr(
     FunctionDeclOrExprNode {
       node: node.into(),
       is_func_decl: false,
@@ -2170,7 +2175,55 @@ fn parse_fn_expr<'a>(node: &'a FnExpr, context: &mut Context<'a>) -> PrintItems 
       func: &node.function,
     },
     context,
-  )
+  );
+
+  if should_add_parens_around_expr(node.into(), context) {
+    surround_with_parens(items)
+  } else {
+    items
+  }
+}
+
+fn should_add_parens_around_expr(node: Node, context: &Context) -> bool {
+  let original_node = node;
+  for node in node.ancestors() {
+    match node {
+      Node::ParenExpr(paren_expr) => {
+        if !should_skip_paren_expr(paren_expr, context) {
+          return false;
+        }
+      }
+      Node::CallExpr(call_expr) => {
+        if !call_expr.callee.span().contains(original_node.span()) {
+          // it's in an argument, so don't add parens
+          return false;
+        }
+      }
+      Node::NewExpr(new_expr) => {
+        if !new_expr.callee.span().contains(original_node.span()) {
+          // it's in an argument, so don't add parens
+          return false;
+        }
+      }
+      Node::ExprStmt(_) => return true,
+      Node::MemberExpr(expr) => {
+        if expr.computed() && expr.prop.span().contains(original_node.span()) {
+          return false;
+        }
+      }
+      Node::CondExpr(cond_expr) => {
+        return cond_expr.test.span().contains(original_node.span());
+      }
+      Node::OptChainExpr(_) | Node::BinExpr(_) => {
+        // continue searching
+      }
+      _ => {
+        return false;
+      }
+    }
+  }
+
+  false
 }
 
 fn parse_getter_prop<'a>(node: &'a GetterProp, context: &mut Context<'a>) -> PrintItems {
@@ -2270,7 +2323,7 @@ fn parse_object_lit<'a>(node: &'a ObjectLit, context: &mut Context<'a>) -> Print
 }
 
 fn parse_paren_expr<'a>(node: &'a ParenExpr, context: &mut Context<'a>) -> PrintItems {
-  if skip_paren_expr(node, context) {
+  if should_skip_paren_expr(node, context) {
     return parse_node(node.expr.into(), context);
   }
 
@@ -2299,35 +2352,51 @@ fn parse_paren_expr<'a>(node: &'a ParenExpr, context: &mut Context<'a>) -> Print
       true
     }
   }
+}
 
-  fn skip_paren_expr(node: &ParenExpr, context: &Context) -> bool {
-    if has_surrounding_comments(&node.expr.into(), context) {
-      return false;
-    }
+fn should_skip_paren_expr(node: &ParenExpr, context: &Context) -> bool {
+  if has_surrounding_comments(&node.expr.into(), context) {
+    return false;
+  }
 
-    // skip over any paren exprs within paren exprs and needless paren exprs
-    let parent = node.parent();
-    if matches!(
-      parent.kind(),
-      NodeKind::ParenExpr | NodeKind::ExprStmt | NodeKind::JSXElement | NodeKind::JSXFragment | NodeKind::JSXExprContainer
-    ) {
+  if matches!(node.expr.kind(), NodeKind::ArrayLit) {
+    return true;
+  }
+
+  // skip over any paren exprs within paren exprs and needless paren exprs
+  let parent = node.parent();
+  if matches!(
+    parent.kind(),
+    NodeKind::ParenExpr | NodeKind::ExprStmt | NodeKind::JSXElement | NodeKind::JSXFragment | NodeKind::JSXExprContainer | NodeKind::UpdateExpr
+  ) {
+    return true;
+  }
+
+  if let Node::AssignExpr(assign_expr) = parent {
+    if assign_expr.right.span().contains(node.span()) {
       return true;
     }
-
-    // skip over an expr or spread if not a spread
-    if let Some(expr_or_spread) = parent.to::<ExprOrSpread>() {
-      // these should only appear in these nodes
-      let is_known_parent = matches!(expr_or_spread.parent().kind(), NodeKind::NewExpr | NodeKind::ArrayLit | NodeKind::CallExpr);
-      debug_assert!(is_known_parent);
-      if is_known_parent && expr_or_spread.spread().is_none() {
-        return true;
-      }
-    }
-
-    // skip explicitly parsing this as a paren expr as that will be handled
-    // in the JSX element/fragment and it might collapse back to not having a paren expr
-    is_jsx_paren_expr_handled_node(&node.expr.into(), context)
   }
+
+  // skip over an expr or spread if not a spread
+  if let Some(expr_or_spread) = parent.to::<ExprOrSpread>() {
+    // these should only appear in these nodes
+    let is_known_parent = matches!(expr_or_spread.parent().kind(), NodeKind::NewExpr | NodeKind::ArrayLit | NodeKind::CallExpr);
+    debug_assert!(is_known_parent);
+    if is_known_parent && expr_or_spread.spread().is_none() {
+      return true;
+    }
+  }
+
+  if let Node::MemberExpr(member_expr) = parent {
+    if member_expr.computed() && member_expr.prop.span().contains(node.span()) {
+      return true;
+    }
+  }
+
+  // skip explicitly parsing this as a paren expr as that will be handled
+  // in the JSX element/fragment and it might collapse back to not having a paren expr
+  is_jsx_paren_expr_handled_node(&node.expr.into(), context)
 }
 
 fn parse_sequence_expr<'a>(node: &'a SeqExpr, context: &mut Context<'a>) -> PrintItems {
@@ -2962,13 +3031,7 @@ fn handle_jsx_surrounding_parens<'a>(inner_items: PrintItems, context: &mut Cont
       }
       condition_resolvers::is_multiple_lines(context, &start_info, &end_info)
     },
-    {
-      let mut items = PrintItems::new();
-      items.push_str("(");
-      items.extend(surround_with_new_lines(with_indent(inner_items_rc.into())));
-      items.push_str(")");
-      items
-    },
+    surround_with_parens(surround_with_new_lines(with_indent(inner_items_rc.into()))),
     {
       let mut items = PrintItems::new();
       items.push_signal(Signal::PossibleNewLine);
@@ -8252,6 +8315,14 @@ fn use_new_line_group_for_arrow_body(arrow_expr: &ArrowExpr, context: &Context) 
     },
     _ => true,
   }
+}
+
+fn surround_with_parens(items: PrintItems) -> PrintItems {
+  let mut new_items = PrintItems::new();
+  new_items.push_str("(");
+  new_items.extend(items);
+  new_items.push_str(")");
+  new_items
 }
 
 /* is/has functions */
