@@ -111,6 +111,7 @@ test;
 (function test() {}?.prop);
 (function test() {}[56]);
 (function test() {} + 2);
+(2 + function test() {});
 1 + (function test() {} + 2);
 call(function test() {}());
 obj[(function test() {})];
@@ -130,6 +131,7 @@ test = (function() {});
 (function test() {})?.prop;
 (function test() {})[56];
 (function test() {}) + 2;
+2 + function test() {};
 1 + (function test() {} + 2);
 call(function test() {}());
 obj[function test() {}];
@@ -177,3 +179,11 @@ new test(() => {});
 new (() => {})();
 test = () => {};
 test = () => {};
+
+== should handle object literal expr in paren expr in expr stmt ==
+({ prop: 5 }.prop);
+({ prop: 5 }).prop;
+
+[expect]
+({ prop: 5 }).prop;
+({ prop: 5 }).prop;

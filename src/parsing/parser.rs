@@ -2214,7 +2214,13 @@ fn should_add_parens_around_expr(node: Node, context: &Context) -> bool {
       Node::CondExpr(cond_expr) => {
         return cond_expr.test.span().contains(original_node.span());
       }
-      Node::OptChainExpr(_) | Node::BinExpr(_) => {
+      Node::BinExpr(bin_expr) => {
+        // we only care to add parens when it's the left most expr
+        if bin_expr.right.span().contains(original_node.span()) {
+          return false;
+        }
+      }
+      Node::OptChainExpr(_) => {
         // continue searching
       }
       _ => {
@@ -2307,7 +2313,7 @@ fn parse_non_null_expr<'a>(node: &'a TsNonNullExpr, context: &mut Context<'a>) -
 }
 
 fn parse_object_lit<'a>(node: &'a ObjectLit, context: &mut Context<'a>) -> PrintItems {
-  parse_object_like_node(
+  let items = parse_object_like_node(
     ParseObjectLikeNodeOptions {
       node: node.into(),
       members: node.props.iter().map(|x| x.into()).collect(),
@@ -2319,7 +2325,13 @@ fn parse_object_lit<'a>(node: &'a ObjectLit, context: &mut Context<'a>) -> Print
       node_sorter: None,
     },
     context,
-  )
+  );
+
+  return if should_add_parens_around_expr(node.into(), context) {
+    surround_with_parens(items)
+  } else {
+    items
+  };
 }
 
 fn parse_paren_expr<'a>(node: &'a ParenExpr, context: &mut Context<'a>) -> PrintItems {
