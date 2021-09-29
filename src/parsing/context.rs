@@ -1,5 +1,6 @@
 use dprint_core::formatting::{ConditionReference, Info};
-use fnv::{FnvHashMap, FnvHashSet};
+use rustc_hash::FxHashMap;
+use rustc_hash::FxHashSet;
 use swc_ast_view::*;
 
 use super::*;
@@ -14,9 +15,9 @@ pub struct Context<'a> {
   pub token_finder: TokenFinder<'a>,
   pub current_node: Node<'a>,
   pub parent_stack: Stack<Node<'a>>,
-  handled_comments: FnvHashSet<BytePos>,
-  stored_infos: FnvHashMap<(BytePos, BytePos), Info>,
-  stored_info_ranges: FnvHashMap<(BytePos, BytePos), (Info, Info)>,
+  handled_comments: FxHashSet<BytePos>,
+  stored_infos: FxHashMap<(BytePos, BytePos), Info>,
+  stored_info_ranges: FxHashMap<(BytePos, BytePos), (Info, Info)>,
   pub end_statement_or_member_infos: Stack<Info>,
   before_comments_start_info_stack: Stack<(Span, Info)>,
   if_stmt_last_brace_condition_ref: Option<ConditionReference>,
@@ -36,9 +37,9 @@ impl<'a> Context<'a> {
       token_finder: TokenFinder::new(module),
       current_node,
       parent_stack: Stack::new(),
-      handled_comments: FnvHashSet::default(),
-      stored_infos: FnvHashMap::default(),
-      stored_info_ranges: FnvHashMap::default(),
+      handled_comments: FxHashSet::default(),
+      stored_infos: FxHashMap::default(),
+      stored_info_ranges: FxHashMap::default(),
       end_statement_or_member_infos: Stack::new(),
       before_comments_start_info_stack: Stack::new(),
       if_stmt_last_brace_condition_ref: None,

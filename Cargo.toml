@@ -25,8 +25,8 @@ wasm = ["serde_json", "dprint-core/wasm"]
 tracing = ["dprint-core/tracing"]
 
 [dependencies]
-dprint-core = { version = "0.46.3", features = ["formatting"] }
-fnv = "1.0.7"
+dprint-core = { version = "0.46.4", features = ["formatting"] }
+rustc-hash = "1.1.0"
 serde = { version = "1.0.118", features = ["derive"] }
 serde_json = { version = "1.0", optional = true }
 swc_ast_view = { version = "0.36.0", package = "dprint-swc-ecma-ast-view" }
