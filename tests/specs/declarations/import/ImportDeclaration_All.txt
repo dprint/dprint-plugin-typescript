@@ -48,6 +48,14 @@ import   type   { n1 } from "test";
 [expect]
 import type { n1 } from "test";
 
+== should format a type only import specifiers ==
+import   {  type   n1 } from "test";
+import type{  type   n1 } from "test";
+
+[expect]
+import { type n1 } from "test";
+import type { n1 } from "test";
+
 == should format when has zero named imports ==
 import {} from "test";
 

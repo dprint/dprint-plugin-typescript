@@ -2656,6 +2656,10 @@ fn parse_yield_expr<'a>(node: &'a YieldExpr, context: &mut Context<'a>) -> Print
 fn parse_export_named_specifier<'a>(node: &'a ExportNamedSpecifier, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
+  if node.is_type_only() && !node.parent().type_only() {
+    items.push_str("type ");
+  }
+
   items.extend(parse_node(node.orig.into(), context));
   if let Some(exported) = node.exported {
     items.push_signal(Signal::SpaceOrNewLine);
@@ -2681,6 +2685,10 @@ fn parse_namespace_export_specifier<'a>(node: &'a ExportNamespaceSpecifier, cont
 
 fn parse_import_named_specifier<'a>(node: &'a ImportNamedSpecifier, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
+
+  if node.is_type_only() && !node.parent().type_only() {
+    items.push_str("type ");
+  }
 
   if let Some(imported) = node.imported {
     items.extend(parse_node(imported.into(), context));

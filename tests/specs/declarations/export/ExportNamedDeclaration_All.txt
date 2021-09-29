@@ -25,6 +25,14 @@ export   type    { test };
 [expect]
 export type { test };
 
+== should format a type only export specifiers ==
+export   {  type   n1 };
+export type{  type   n1 };
+
+[expect]
+export { type n1 };
+export type { n1 };
+
 == should format when has zero named exports ==
 export {} from "test";
 
