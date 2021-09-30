@@ -58,6 +58,10 @@ pub fn get_leading_comment_on_different_line<'a>(node: &dyn Spanned, comments_to
   None
 }
 
+pub fn has_surrounding_comments(node: &Node, module: &Module) -> bool {
+  !node.leading_comments_fast(module).is_empty() || !node.trailing_comments_fast(module).is_empty()
+}
+
 pub fn nodes_have_only_spaces_between(previous_node: &Node, next_node: &Node, module: &Module) -> bool {
   if let Node::JSXText(previous_node) = previous_node {
     let previous_node_text = previous_node.text_fast(module);
@@ -142,8 +146,25 @@ pub fn is_test_library_call_expr(node: &CallExpr, module: &Module) -> bool {
   if node.args[0].expr.kind() != NodeKind::Str && !node.args[0].expr.is::<Tpl>() {
     return false;
   }
-  if node.args[1].expr.kind() != NodeKind::FnExpr && node.args[1].expr.kind() != NodeKind::ArrowExpr {
-    return false;
+
+  match node.args[1].expr {
+    Expr::Fn(fn_expr) => {
+      if !fn_expr.function.params.is_empty() {
+        return false;
+      }
+    }
+    Expr::Arrow(arrow_expr) => {
+      if arrow_expr.params.len() > 1 {
+        return false;
+      }
+      // allow something like `Deno.test("desc", (t) => {})`
+      if let Some(param) = arrow_expr.params.get(0) {
+        if has_surrounding_comments(&param.into(), module) {
+          return false;
+        }
+      }
+    }
+    _ => return false,
   }
 
   return node.start_line_fast(module) == node.args[1].start_line_fast(module);

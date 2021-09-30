@@ -1431,51 +1431,67 @@ fn parse_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> 
   };
 
   fn parse_inner<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> PrintItems {
-    let mut items = PrintItems::new();
     let header_start_info = Info::new("arrowFunctionExpressionHeaderStart");
-    let should_use_parens = get_should_use_parens(&node, context);
+    let header_items = {
+      let mut items = PrintItems::new();
+      let should_use_parens = get_should_use_parens(&node, context);
 
-    items.push_info(header_start_info);
-    if node.is_async() {
-      items.push_str("async ");
-    }
-    if let Some(type_params) = node.type_params {
-      items.extend(parse_node(type_params.into(), context));
-    }
-
-    if should_use_parens {
-      // need to check if there are parens because parse_parameters_or_arguments depends on the parens existing
-      if has_parens(node, context) {
-        items.extend(parse_parameters_or_arguments(
-          ParseParametersOrArgumentsOptions {
-            node: node.into(),
-            span: node.get_parameters_span(context),
-            nodes: node.params.iter().map(|node| node.into()).collect(),
-            custom_close_paren: |context| {
-              Some(parse_close_paren_with_type(
-                ParseCloseParenWithTypeOptions {
-                  start_info: header_start_info,
-                  type_node: node.return_type.map(|x| x.into()),
-                  type_node_separator: None,
-                  param_count: node.params.len(),
-                },
-                context,
-              ))
-            },
-            is_parameters: true,
-          },
-          context,
-        ));
-      } else {
-        // todo: this should probably use more of the same logic as in parse_parameters_or_arguments
-        // there will only be one param in this case
-        items.extend(surround_with_parens(parse_node(node.params.first().unwrap().into(), context)));
+      items.push_info(header_start_info);
+      if node.is_async() {
+        items.push_str("async ");
       }
-    } else {
-      items.extend(parse_node(node.params.first().unwrap().into(), context));
-    }
+      if let Some(type_params) = node.type_params {
+        items.extend(parse_node(type_params.into(), context));
+      }
 
-    items.push_str(" =>");
+      if should_use_parens {
+        // need to check if there are parens because parse_parameters_or_arguments depends on the parens existing
+        if has_parens(node, context) {
+          items.extend(parse_parameters_or_arguments(
+            ParseParametersOrArgumentsOptions {
+              node: node.into(),
+              span: node.get_parameters_span(context),
+              nodes: node.params.iter().map(|node| node.into()).collect(),
+              custom_close_paren: |context| {
+                Some(parse_close_paren_with_type(
+                  ParseCloseParenWithTypeOptions {
+                    start_info: header_start_info,
+                    type_node: node.return_type.map(|x| x.into()),
+                    type_node_separator: None,
+                    param_count: node.params.len(),
+                  },
+                  context,
+                ))
+              },
+              is_parameters: true,
+            },
+            context,
+          ));
+        } else {
+          // todo: this should probably use more of the same logic as in parse_parameters_or_arguments
+          // there will only be one param in this case
+          items.extend(surround_with_parens(parse_node(node.params.first().unwrap().into(), context)));
+        }
+      } else {
+        items.extend(parse_node(node.params.first().unwrap().into(), context));
+      }
+
+      items.push_str(" =>");
+      items
+    };
+
+    let is_arrow_in_test_call_expr = node
+      .parent()
+      .parent()
+      .unwrap()
+      .to::<CallExpr>()
+      .map(|c| node_helpers::is_test_library_call_expr(c, context.module))
+      .unwrap_or(false);
+    let mut items = if is_arrow_in_test_call_expr {
+      parser_helpers::with_no_new_lines(header_items)
+    } else {
+      header_items
+    };
 
     let parsed_body = parse_node(node.body.into(), context);
     let parsed_body = if use_new_line_group_for_arrow_body(node, context) {
@@ -2367,7 +2383,7 @@ fn parse_paren_expr<'a>(node: &'a ParenExpr, context: &mut Context<'a>) -> Print
 }
 
 fn should_skip_paren_expr(node: &ParenExpr, context: &Context) -> bool {
-  if has_surrounding_comments(&node.expr.into(), context) {
+  if node_helpers::has_surrounding_comments(&node.expr.into(), context.module) {
     return false;
   }
 
@@ -3066,7 +3082,7 @@ fn handle_jsx_surrounding_parens<'a>(inner_items: PrintItems, context: &mut Cont
   fn should_jsx_surround_newlines(node: &Node, context: &Context) -> bool {
     let mut parent = node.parent().unwrap();
     while let Some(paren_expr) = parent.to::<ParenExpr>() {
-      if has_surrounding_comments(&paren_expr.expr.into(), context) {
+      if node_helpers::has_surrounding_comments(&paren_expr.expr.into(), context.module) {
         return false;
       }
       parent = parent.parent().unwrap();
@@ -3085,13 +3101,13 @@ fn is_jsx_paren_expr_handled_node(node: &Node, context: &Context) -> bool {
     return false;
   }
 
-  if has_surrounding_comments(node, context) {
+  if node_helpers::has_surrounding_comments(node, context.module) {
     return false;
   }
 
   let mut parent = node.parent().unwrap();
   while parent.is::<ParenExpr>() {
-    if has_surrounding_comments(&parent, context) {
+    if node_helpers::has_surrounding_comments(&parent, context.module) {
       return false;
     }
     parent = parent.parent().unwrap();
@@ -3102,10 +3118,6 @@ fn is_jsx_paren_expr_handled_node(node: &Node, context: &Context) -> bool {
     parent.kind(),
     NodeKind::ExprStmt | NodeKind::ExprOrSpread | NodeKind::JSXElement | NodeKind::JSXFragment | NodeKind::JSXExprContainer
   )
-}
-
-fn has_surrounding_comments(node: &Node, context: &Context) -> bool {
-  !node.leading_comments_fast(context.module).is_empty() || !node.trailing_comments_fast(context.module).is_empty()
 }
 
 fn parse_jsx_element<'a>(node: &'a JSXElement, context: &mut Context<'a>) -> PrintItems {

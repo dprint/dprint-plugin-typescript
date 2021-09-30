@@ -70,3 +70,32 @@ Deno.test("testing this out with a long string", () => {
 Deno.test("testing this out with a long string", () => {
     // etc...
 });
+
+== should not go multiline for `Deno.test` call with parameter ==
+Deno.test("testing this out testing testing testing testing", async (t) => {
+    // etc...
+});
+Deno.test("testing this out testing testing testing testing", (t) => {
+    // etc...
+});
+
+[expect]
+Deno.test("testing this out testing testing testing testing", async (t) => {
+    // etc...
+});
+Deno.test("testing this out testing testing testing testing", (t) => {
+    // etc...
+});
+
+== should go multi-line if the parameter has a comment inside ==
+Deno.test("testing this out testing testing testing testing", (/*1*/t) => {
+    // etc...
+});
+
+[expect]
+Deno.test(
+    "testing this out testing testing testing testing",
+    (/*1*/ t) => {
+        // etc...
+    },
+);
