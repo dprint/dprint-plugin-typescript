@@ -1,5 +1,5 @@
 -- file.tsx --
-~~  lineWidth: 50, jsx.multiLineParens: true ~~
+~~  lineWidth: 50, jsx.multiLineParens: always ~~
 == should remove paren expression when the element isn't multi-line ==
 const t = (
     <Test></Test>
@@ -40,7 +40,7 @@ const w = (
     // test
 );
 
-== should not add parens around multi-line element in an expr stmt ==
+== should add parens around multi-line element in an expr stmt ==
 <Test><Test /></Test>;
 
 function test() {
@@ -48,17 +48,21 @@ function test() {
 }
 
 [expect]
-<Test>
-    <Test />
-</Test>;
-
-function test() {
+(
     <Test>
         <Test />
-    </Test>;
+    </Test>
+);
+
+function test() {
+    (
+        <Test>
+            <Test />
+        </Test>
+    );
 }
 
-== should not add parens around an element in an argument ==
+== should add parens around an element in an argument ==
 ReactDOM.render(
     <React.StrictMode>
         <App />
@@ -73,18 +77,22 @@ new MyClass(
 
 [expect]
 ReactDOM.render(
-    <React.StrictMode>
-        <App />
-    </React.StrictMode>,
+    (
+        <React.StrictMode>
+            <App />
+        </React.StrictMode>
+    ),
     document.getElementById("root"),
 );
 new MyClass(
-    <React.StrictMode>
-        <App />
-    </React.StrictMode>,
+    (
+        <React.StrictMode>
+            <App />
+        </React.StrictMode>
+    ),
 );
 
-== should not surround element in jsx expression with parens ==
+== should surround element in jsx expression with parens ==
 const t = (
     <A
         icon={
@@ -105,26 +113,45 @@ const u = (
         )}
     />
 );
+const v = (
+    <A
+        icon={<Testing>
+          This out
+          <Test />
+        </Testing>}
+    />
+);
+
 
 [expect]
 const t = (
     <A
-        icon={
+        icon={(
             <Testing>
                 This out
                 <Test />
             </Testing>
-        }
+        )}
     />
 );
 const u = (
     <A
-        icon={
+        icon={(
             <Testing>
                 This out
                 <Test />
             </Testing>
-        }
+        )}
+    />
+);
+const v = (
+    <A
+        icon={(
+            <Testing>
+                This out
+                <Test />
+            </Testing>
+        )}
     />
 );
 
@@ -143,12 +170,12 @@ const t = (
 [expect]
 const t = (
     <A
-        icon={
+        icon={(
             <Testing>
                 This out
                 <Test />
             </Testing>
-        }
+        )}
     />
 );
 

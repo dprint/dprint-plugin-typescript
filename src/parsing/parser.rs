@@ -3048,7 +3048,7 @@ fn handle_jsx_surrounding_parens<'a>(inner_items: PrintItems, context: &mut Cont
     }
   }
 
-  if context.parent().is::<JSXExprContainer>() {
+  if context.parent().is::<JSXExprContainer>() && context.config.jsx_multi_line_parens != JsxMultiLineParensStyle::Always {
     return surround_with_newlines_indented_if_multi_line(inner_items, context.config.indent_width);
   }
 
@@ -3093,7 +3093,7 @@ fn handle_jsx_surrounding_parens<'a>(inner_items: PrintItems, context: &mut Cont
 }
 
 fn is_jsx_paren_expr_handled_node(node: &Node, context: &Context) -> bool {
-  if !context.config.jsx_multi_line_parens {
+  if context.config.jsx_multi_line_parens == JsxMultiLineParensStyle::Never {
     return false;
   }
 
@@ -3111,6 +3111,10 @@ fn is_jsx_paren_expr_handled_node(node: &Node, context: &Context) -> bool {
       return false;
     }
     parent = parent.parent().unwrap();
+  }
+
+  if context.config.jsx_multi_line_parens == JsxMultiLineParensStyle::Always {
+    return true;
   }
 
   // do not allow in expr statement, argument, attributes, or jsx exprs

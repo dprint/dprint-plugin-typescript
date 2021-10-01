@@ -206,6 +206,22 @@ pub enum JsxQuoteStyle {
 
 generate_str_to_from![JsxQuoteStyle, [PreferDouble, "preferDouble"], [PreferSingle, "preferSingle"]];
 
+/// Whether to surround a JSX element or fragment with parentheses
+/// when it's the top JSX node and it spans multiple lines.
+#[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum JsxMultiLineParensStyle {
+  /// Never wrap JSX with parentheses.
+  Never,
+  /// Prefer wrapping with parentheses in most scenarios, except in function
+  /// arguments and JSX attributes.
+  Prefer,
+  /// Always wrap JSX with parentheses if it spans multiple lines.
+  Always,
+}
+
+generate_str_to_from![JsxMultiLineParensStyle, [Never, "never"], [Prefer, "prefer"], [Always, "always"]];
+
 /// Whether to use semi-colons or commas.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -254,7 +270,7 @@ pub struct Configuration {
   #[serde(rename = "jsx.quoteStyle")]
   pub jsx_quote_style: JsxQuoteStyle,
   #[serde(rename = "jsx.multiLineParens")]
-  pub jsx_multi_line_parens: bool,
+  pub jsx_multi_line_parens: JsxMultiLineParensStyle,
   #[serde(rename = "memberExpression.linePerExpression")]
   pub member_expression_line_per_expression: bool,
   #[serde(rename = "typeLiteral.separatorKind.singleLine")]

@@ -1,5 +1,5 @@
 -- file.tsx --
-~~  lineWidth: 50, jsx.multiLineParens: false ~~
+~~  lineWidth: 50, jsx.multiLineParens: never ~~
 == should format when multi line ==
 const t = <>
 Test</>;

@@ -65,7 +65,7 @@ impl ConfigurationBuilder {
       .tagged_template_space_before_literal(false)
       .conditional_expression_prefer_single_line(true)
       .quote_style(QuoteStyle::PreferDouble)
-      .jsx_multi_line_parens(true)
+      .jsx_multi_line_parens(JsxMultiLineParensStyle::Prefer)
       .ignore_node_comment_text("deno-fmt-ignore")
       .ignore_file_comment_text("deno-fmt-ignore-file")
       .module_sort_import_declarations(SortOrder::Maintain)
@@ -118,8 +118,8 @@ impl ConfigurationBuilder {
   /// when it's the top JSX node and it spans multiple lines.
   ///
   /// Default: true
-  pub fn jsx_multi_line_parens(&mut self, value: bool) -> &mut Self {
-    self.insert("jsx.multiLineParens", value.into())
+  pub fn jsx_multi_line_parens(&mut self, value: JsxMultiLineParensStyle) -> &mut Self {
+    self.insert("jsx.multiLineParens", value.to_string().into())
   }
 
   /// Whether statements should end in a semi-colon.
@@ -939,7 +939,7 @@ mod tests {
       /* common */
       .quote_style(QuoteStyle::AlwaysDouble)
       .jsx_quote_style(JsxQuoteStyle::PreferSingle)
-      .jsx_multi_line_parens(false)
+      .jsx_multi_line_parens(JsxMultiLineParensStyle::Never)
       .semi_colons(SemiColons::Prefer)
       .brace_position(BracePosition::NextLine)
       .next_control_flow_position(NextControlFlowPosition::SameLine)
