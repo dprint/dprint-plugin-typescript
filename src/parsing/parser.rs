@@ -7941,11 +7941,19 @@ fn jsx_space_separator(previous_node: &Node, current_node: &Node, context: &Cont
     }
   }
 
+  fn get_quote_char(context: &Context) -> String {
+    let char = match context.config.quote_style {
+      QuoteStyle::PreferDouble | QuoteStyle::AlwaysDouble => "\"",
+      QuoteStyle::PreferSingle | QuoteStyle::AlwaysSingle => "\'"
+    };
+    return format!("{}", char);
+  }
+
   fn jsx_force_space_with_newline_if_either_node_multi_line(previous_node: &Node, current_node: &Node, context: &Context) -> PrintItems {
     let previous_node_info_range = get_node_info_range(previous_node, context);
     let current_node_info_range = get_node_info_range(current_node, context);
     let spaces_between_count = node_helpers::count_spaces_between_jsx_children(previous_node, current_node, &context.module);
-    let jsx_space_expr_text = format!("{{\"{}\"}}", " ".repeat(spaces_between_count));
+    let jsx_space_expr_text = format!("{{{}{}{}}}", get_quote_char(context), " ".repeat(spaces_between_count), get_quote_char(context));
     if_true_or(
       "jsxIsLastChildMultiLine",
       move |condition_context| {
@@ -7992,7 +8000,7 @@ fn jsx_space_separator(previous_node: &Node, current_node: &Node, context: &Cont
 
     if spaces_between_count > 1 {
       items.push_signal(Signal::PossibleNewLine);
-      items.push_string(format!("{{\"{}\"}}", " ".repeat(spaces_between_count)));
+      items.push_string(format!("{{{}{}{}}}", get_quote_char(context), " ".repeat(spaces_between_count), get_quote_char(context)));
       items.push_signal(Signal::PossibleNewLine);
       return items;
     }
@@ -8032,7 +8040,7 @@ fn jsx_space_separator(previous_node: &Node, current_node: &Node, context: &Cont
         true_path: {
           let mut items = PrintItems::new();
           items.push_signal(Signal::PossibleNewLine);
-          items.push_str("{\" \"}");
+          items.push_string(format!("{{{} {}}}", get_quote_char(context), get_quote_char(context)));
           items.push_signal(Signal::NewLine);
           Some(items)
         },
