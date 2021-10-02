@@ -62,6 +62,33 @@ function test() {
     );
 }
 
+== should only add parens at the top level of a multi-line element ==
+<Test><Test><Test>some text</Test><br/>some more text</Test></Test>
+
+[expect]
+(
+    <Test>
+        <Test>
+            <Test>some text</Test>
+            <br />some more text
+        </Test>
+    </Test>
+);
+
+== should add parens around a JSX element that wraps ==
+expect(<SomeElement arg1={arg1} arg2={arg2} arg3={arg3} />).toMatchRenderedSnapshot();
+
+[expect]
+expect(
+    (
+        <SomeElement
+            arg1={arg1}
+            arg2={arg2}
+            arg3={arg3}
+        />
+    ),
+).toMatchRenderedSnapshot();
+
 == should add parens around an element in an argument ==
 ReactDOM.render(
     <React.StrictMode>

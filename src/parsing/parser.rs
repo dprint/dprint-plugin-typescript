@@ -3058,22 +3058,25 @@ fn handle_jsx_surrounding_parens<'a>(inner_items: PrintItems, context: &mut Cont
   let inner_items_rc = inner_items.into_rc_path();
 
   items.push_info(start_info);
-  items.push_condition(if_true_or(
+  items.push_condition(Condition::new_with_dependent_infos(
     "parensOrNewlinesIfMultipleLines",
-    move |context| {
-      // clear the end info when the start info changes
-      if context.has_info_moved(&start_info)? {
-        context.clear_info(&end_info);
-      }
-      condition_resolvers::is_multiple_lines(context, &start_info, &end_info)
+    ConditionProperties {
+      condition: Rc::new(move |context| {
+        // clear the end info when the start info changes
+        if context.has_info_moved(&start_info)? {
+          context.clear_info(&end_info);
+        }
+        condition_resolvers::is_multiple_lines(context, &start_info, &end_info)
+      }),
+      true_path: Some(surround_with_parens(surround_with_new_lines(with_indent(inner_items_rc.into())))),
+      false_path: {
+        let mut items = PrintItems::new();
+        items.push_signal(Signal::PossibleNewLine);
+        items.extend(inner_items_rc.into());
+        Some(items)
+      },
     },
-    surround_with_parens(surround_with_new_lines(with_indent(inner_items_rc.into()))),
-    {
-      let mut items = PrintItems::new();
-      items.push_signal(Signal::PossibleNewLine);
-      items.extend(inner_items_rc.into());
-      items
-    },
+    vec![end_info],
   ));
 
   items.push_info(end_info);
@@ -3101,11 +3104,16 @@ fn is_jsx_paren_expr_handled_node(node: &Node, context: &Context) -> bool {
     return false;
   }
 
+  let mut parent = node.parent().unwrap();
+  // Only wrap the top-level JSX element in parens
+  if matches!(parent.kind(), NodeKind::JSXElement | NodeKind::JSXFragment) {
+    return false;
+  }
+
   if node_helpers::has_surrounding_comments(node, context.module) {
     return false;
   }
 
-  let mut parent = node.parent().unwrap();
   while parent.is::<ParenExpr>() {
     if node_helpers::has_surrounding_comments(&parent, context.module) {
       return false;
@@ -3118,10 +3126,7 @@ fn is_jsx_paren_expr_handled_node(node: &Node, context: &Context) -> bool {
   }
 
   // do not allow in expr statement, argument, attributes, or jsx exprs
-  !matches!(
-    parent.kind(),
-    NodeKind::ExprStmt | NodeKind::ExprOrSpread | NodeKind::JSXElement | NodeKind::JSXFragment | NodeKind::JSXExprContainer
-  )
+  !matches!(parent.kind(), NodeKind::ExprStmt | NodeKind::ExprOrSpread | NodeKind::JSXExprContainer)
 }
 
 fn parse_jsx_element<'a>(node: &'a JSXElement, context: &mut Context<'a>) -> PrintItems {
