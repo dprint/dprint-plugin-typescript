@@ -3058,25 +3058,22 @@ fn handle_jsx_surrounding_parens<'a>(inner_items: PrintItems, context: &mut Cont
   let inner_items_rc = inner_items.into_rc_path();
 
   items.push_info(start_info);
-  items.push_condition(Condition::new_with_dependent_infos(
+  items.push_condition(if_true_or(
     "parensOrNewlinesIfMultipleLines",
-    ConditionProperties {
-      condition: Rc::new(move |context| {
-        // clear the end info when the start info changes
-        if context.has_info_moved(&start_info)? {
-          context.clear_info(&end_info);
-        }
-        condition_resolvers::is_multiple_lines(context, &start_info, &end_info)
-      }),
-      true_path: Some(surround_with_parens(surround_with_new_lines(with_indent(inner_items_rc.into())))),
-      false_path: {
-        let mut items = PrintItems::new();
-        items.push_signal(Signal::PossibleNewLine);
-        items.extend(inner_items_rc.into());
-        Some(items)
-      },
+    move |context| {
+      // clear the end info when the start info changes
+      if context.has_info_moved(&start_info)? {
+        context.clear_info(&end_info);
+      }
+      condition_resolvers::is_multiple_lines(context, &start_info, &end_info)
     },
-    vec![end_info],
+    surround_with_parens(surround_with_new_lines(with_indent(inner_items_rc.into()))),
+    {
+      let mut items = PrintItems::new();
+      items.push_signal(Signal::PossibleNewLine);
+      items.extend(inner_items_rc.into());
+      items
+    },
   ));
 
   items.push_info(end_info);
