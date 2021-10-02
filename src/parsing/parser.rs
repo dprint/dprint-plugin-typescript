@@ -7942,11 +7942,10 @@ fn jsx_space_separator(previous_node: &Node, current_node: &Node, context: &Cont
   }
 
   fn get_quote_char(context: &Context) -> String {
-    let char = match context.config.quote_style {
-      QuoteStyle::PreferDouble | QuoteStyle::AlwaysDouble => "\"",
-      QuoteStyle::PreferSingle | QuoteStyle::AlwaysSingle => "\'"
+    return match context.config.quote_style {
+      QuoteStyle::PreferDouble | QuoteStyle::AlwaysDouble => "\"".to_string(),
+      QuoteStyle::PreferSingle | QuoteStyle::AlwaysSingle => "\'".to_string()
     };
-    return format!("{}", char);
   }
 
   fn jsx_force_space_with_newline_if_either_node_multi_line(previous_node: &Node, current_node: &Node, context: &Context) -> PrintItems {
