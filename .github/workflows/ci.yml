@@ -30,17 +30,17 @@ jobs:
 
     - name: Build debug
       if: matrix.config.kind == 'test_debug'
-      run: cargo build --verbose
+      run: cargo build
     - name: Test debug
       if: matrix.config.kind == 'test_debug'
-      run: cargo test --verbose
+      run: cargo test
 
     - name: Build release
       if: matrix.config.kind == 'test_release'
-      run: cargo build --target wasm32-unknown-unknown --features "wasm" --release --verbose
+      run: cargo build --target wasm32-unknown-unknown --features "wasm" --release
     - name: Test release
       if: matrix.config.kind == 'test_release'
-      run: cargo test --release --verbose
+      run: cargo test --release
 
     - name: Get tag version
       if: matrix.config.kind == 'test_release' && startsWith(github.ref, 'refs/tags/')
