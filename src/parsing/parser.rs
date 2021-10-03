@@ -7944,7 +7944,7 @@ fn jsx_space_separator(previous_node: &Node, current_node: &Node, context: &Cont
   fn get_quote_char(context: &Context) -> String {
     return match context.config.quote_style {
       QuoteStyle::PreferDouble | QuoteStyle::AlwaysDouble => "\"".to_string(),
-      QuoteStyle::PreferSingle | QuoteStyle::AlwaysSingle => "\'".to_string()
+      QuoteStyle::PreferSingle | QuoteStyle::AlwaysSingle => "'".to_string()
     };
   }
 
