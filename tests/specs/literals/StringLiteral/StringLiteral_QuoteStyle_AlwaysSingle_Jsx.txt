@@ -5,3 +5,14 @@ const test = <div test="'"></div>;
 
 [expect]
 const test = <div test="'"></div>;
+
+== should use correct quote style when breaking jsx text ==
+const test = <>This is a really long line that should be broken up, with a space: {value} and the space should use the configured quote style</>;
+
+[expect]
+const test = (
+    <>
+        This is a really long line that should be broken up, with a space: {value}{' '}
+        and the space should use the configured quote style
+    </>
+);
