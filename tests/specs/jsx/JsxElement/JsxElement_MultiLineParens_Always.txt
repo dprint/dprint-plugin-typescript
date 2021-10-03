@@ -1,0 +1,250 @@
+-- file.tsx --
+~~  lineWidth: 50, jsx.multiLineParens: always ~~
+== should remove paren expression when the element isn't multi-line ==
+const t = (
+    <Test></Test>
+);
+
+[expect]
+const t = <Test></Test>;
+
+== should not remove paren expression when the element isn't multi-line, but has surrounding comments ==
+const t = ( // test
+    <Test></Test>
+);
+const u = (
+    // test
+    <Test></Test>
+);
+const v = (
+    <Test></Test> // test
+);
+const w = (
+    <Test></Test>
+    // test
+);
+
+[expect]
+const t = ( // test
+    <Test></Test>
+);
+const u = (
+    // test
+    <Test></Test>
+);
+const v = (
+    <Test></Test> // test
+);
+const w = (
+    <Test></Test>
+    // test
+);
+
+== should add parens around multi-line element in an expr stmt ==
+<Test><Test /></Test>;
+
+function test() {
+    <Test><Test /></Test>;
+}
+
+[expect]
+(
+    <Test>
+        <Test />
+    </Test>
+);
+
+function test() {
+    (
+        <Test>
+            <Test />
+        </Test>
+    );
+}
+
+== should only add parens at the top level of a multi-line element ==
+<Test><Test><Test>some text</Test><br/>some more text</Test></Test>
+
+[expect]
+(
+    <Test>
+        <Test>
+            <Test>some text</Test>
+            <br />some more text
+        </Test>
+    </Test>
+);
+
+== should add parens around a JSX element that wraps ==
+expect(<SomeElement arg1={arg1} arg2={arg2} arg3={arg3} />).toMatchRenderedSnapshot();
+
+[expect]
+expect(
+    (
+        <SomeElement
+            arg1={arg1}
+            arg2={arg2}
+            arg3={arg3}
+        />
+    ),
+).toMatchRenderedSnapshot();
+
+== should add parens around an element in an argument ==
+ReactDOM.render(
+    <React.StrictMode>
+        <App />
+    </React.StrictMode>,
+    document.getElementById("root"),
+);
+new MyClass(
+    <React.StrictMode>
+        <App />
+    </React.StrictMode>,
+);
+
+[expect]
+ReactDOM.render(
+    (
+        <React.StrictMode>
+            <App />
+        </React.StrictMode>
+    ),
+    document.getElementById("root"),
+);
+new MyClass(
+    (
+        <React.StrictMode>
+            <App />
+        </React.StrictMode>
+    ),
+);
+
+== should surround element in jsx expression with parens ==
+const t = (
+    <A
+        icon={
+          <Testing>
+            This out
+            <Test />
+          </Testing>
+        }
+    />
+);
+const u = (
+    <A
+        icon={(
+          <Testing>
+            This out
+            <Test />
+          </Testing>
+        )}
+    />
+);
+const v = (
+    <A
+        icon={<Testing>
+          This out
+          <Test />
+        </Testing>}
+    />
+);
+
+
+[expect]
+const t = (
+    <A
+        icon={(
+            <Testing>
+                This out
+                <Test />
+            </Testing>
+        )}
+    />
+);
+const u = (
+    <A
+        icon={(
+            <Testing>
+                This out
+                <Test />
+            </Testing>
+        )}
+    />
+);
+const v = (
+    <A
+        icon={(
+            <Testing>
+                This out
+                <Test />
+            </Testing>
+        )}
+    />
+);
+
+== should remove many nested parens ==
+const t = (
+    <A
+        icon={(((
+          <Testing>
+            This out
+            <Test />
+          </Testing>
+        )))}
+    />
+);
+
+[expect]
+const t = (
+    <A
+        icon={(
+            <Testing>
+                This out
+                <Test />
+            </Testing>
+        )}
+    />
+);
+
+== should not remove parens when has comment ==
+const t = (
+    <A
+        icon={(
+            // test
+            ((
+          <Testing>
+            This out
+            <Test />
+          </Testing>
+        )))}
+    />
+);
+
+[expect]
+const t = (
+    <A
+        icon={(
+            // test
+            <Testing>
+                This out
+                <Test />
+            </Testing>
+        )}
+    />
+);
+
+== should handle jsx in arrow function expr with multiple parens ==
+const t = test.map((a, b) => <testing a={b} b={test}>
+    {a[1]}
+</testing>);
+const u = test.map((a, b) => <testing a={b} b={test} />);
+
+[expect]
+const t = test.map((a, b) => (
+    <testing a={b} b={test}>
+        {a[1]}
+    </testing>
+));
+const u = test.map((a, b) => (
+    <testing a={b} b={test} />
+));

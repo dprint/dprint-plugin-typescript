@@ -3048,7 +3048,7 @@ fn handle_jsx_surrounding_parens<'a>(inner_items: PrintItems, context: &mut Cont
     }
   }
 
-  if context.parent().is::<JSXExprContainer>() {
+  if context.parent().is::<JSXExprContainer>() && context.config.jsx_multi_line_parens != JsxMultiLineParensStyle::Always {
     return surround_with_newlines_indented_if_multi_line(inner_items, context.config.indent_width);
   }
 
@@ -3093,7 +3093,7 @@ fn handle_jsx_surrounding_parens<'a>(inner_items: PrintItems, context: &mut Cont
 }
 
 fn is_jsx_paren_expr_handled_node(node: &Node, context: &Context) -> bool {
-  if !context.config.jsx_multi_line_parens {
+  if context.config.jsx_multi_line_parens == JsxMultiLineParensStyle::Never {
     return false;
   }
 
@@ -3101,11 +3101,16 @@ fn is_jsx_paren_expr_handled_node(node: &Node, context: &Context) -> bool {
     return false;
   }
 
+  let mut parent = node.parent().unwrap();
+  // Only wrap the top-level JSX element in parens
+  if matches!(parent.kind(), NodeKind::JSXElement | NodeKind::JSXFragment) {
+    return false;
+  }
+
   if node_helpers::has_surrounding_comments(node, context.module) {
     return false;
   }
 
-  let mut parent = node.parent().unwrap();
   while parent.is::<ParenExpr>() {
     if node_helpers::has_surrounding_comments(&parent, context.module) {
       return false;
@@ -3113,11 +3118,12 @@ fn is_jsx_paren_expr_handled_node(node: &Node, context: &Context) -> bool {
     parent = parent.parent().unwrap();
   }
 
+  if context.config.jsx_multi_line_parens == JsxMultiLineParensStyle::Always {
+    return true;
+  }
+
   // do not allow in expr statement, argument, attributes, or jsx exprs
-  !matches!(
-    parent.kind(),
-    NodeKind::ExprStmt | NodeKind::ExprOrSpread | NodeKind::JSXElement | NodeKind::JSXFragment | NodeKind::JSXExprContainer
-  )
+  !matches!(parent.kind(), NodeKind::ExprStmt | NodeKind::ExprOrSpread | NodeKind::JSXExprContainer)
 }
 
 fn parse_jsx_element<'a>(node: &'a JSXElement, context: &mut Context<'a>) -> PrintItems {
