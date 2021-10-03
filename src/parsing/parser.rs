@@ -3256,7 +3256,14 @@ fn parse_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Cont
     items.extend(parse_node(type_args.into(), context));
   }
 
-  if !node.attrs.is_empty() {
+  let single_line_space_at_end = node.self_closing() && space_before_self_closing_tag_slash;
+  if node.attrs.len() == 1 && node.type_args.is_none() && is_jsx_attr_with_string(&node.attrs[0]) {
+    items.push_str(" ");
+    items.extend(parse_node(node.attrs[0].into(), context));
+    if single_line_space_at_end {
+      items.push_str(" ");
+    }
+  } else if !node.attrs.is_empty() {
     items.extend(parse_separated_values(
       ParseSeparatedValuesParams {
         nodes: node.attrs.iter().map(|p| NodeOrSeparator::Node(p.into())).collect(),
@@ -3265,7 +3272,7 @@ fn parse_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Cont
         allow_blank_lines: false,
         separator: Separator::none(),
         single_line_space_at_start: true,
-        single_line_space_at_end: node.self_closing() && space_before_self_closing_tag_slash,
+        single_line_space_at_end,
         custom_single_line_separator: None,
         multi_line_options: parser_helpers::MultiLineOptions::surround_newlines_indented(),
         force_possible_newline_at_start: false,
@@ -3311,6 +3318,15 @@ fn parse_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Cont
     } else {
       false
     }
+  }
+
+  fn is_jsx_attr_with_string(node: &JSXAttrOrSpread) -> bool {
+    if let JSXAttrOrSpread::JSXAttr(attrib) = node {
+      if let Some(value) = attrib.value {
+        return value.kind() == NodeKind::Str;
+      }
+    }
+    return false;
   }
 }
 

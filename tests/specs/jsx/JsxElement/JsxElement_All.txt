@@ -220,3 +220,39 @@ return <E>Test: {type}</E>;
 return <E>Test: {type}</E>;
 return <E>{type} test</E>;
 return <E>{type} test</E>;
+
+== should keep multi-line jsx element with single string attribute on same line ==
+const t = (
+    <Element test="testing this out with some string that is long">
+        Test
+    </Element>
+);
+const u = (
+    <Element test="testing this out with some string that is long" />
+);
+
+[expect]
+const t = (
+    <Element test="testing this out with some string that is long">
+        Test
+    </Element>
+);
+const u = (
+    <Element test="testing this out with some string that is long" />
+);
+
+== should not keep long multi-line jsx element with single string attribute on same line when has type arg ==
+const t = (
+    <Element<arg> test="testing this out with some string that is long">
+        Test
+    </Element>
+);
+
+[expect]
+const t = (
+    <Element<arg>
+        test="testing this out with some string that is long"
+    >
+        Test
+    </Element>
+);
