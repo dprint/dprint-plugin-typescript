@@ -62,14 +62,17 @@
     },
     "jsx.multiLineParens": {
       "description": "Surrounds the top-most JSX element or fragment in parentheses when it spans multiple lines.",
-      "type": "boolean",
-      "default": true,
+      "type": "string",
+      "default": "prefer",
       "oneOf": [{
-        "const": true,
-        "description": ""
+        "const": "never",
+        "description": "Never wrap JSX with parentheses."
       }, {
-        "const": false,
-        "description": ""
+        "const": "prefer",
+        "description": "Prefer wrapping with parentheses in most scenarios, except in function arguments and JSX attributes."
+      }, {
+        "const": "always",
+        "description": "Always wrap JSX with parentheses if it spans multiple lines."
       }]
     },
     "newLineKind": {
