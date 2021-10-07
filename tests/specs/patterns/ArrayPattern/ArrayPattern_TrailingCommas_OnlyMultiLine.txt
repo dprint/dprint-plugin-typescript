@@ -26,10 +26,8 @@ function test([testingThisOut, withSomeTextThatWillMakeIt]) {
 }
 
 [expect]
-function test(
-    [
-        testingThisOut,
-        withSomeTextThatWillMakeIt,
-    ],
-) {
+function test([
+    testingThisOut,
+    withSomeTextThatWillMakeIt,
+]) {
 }

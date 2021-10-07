@@ -102,10 +102,9 @@ export class Test implements Testing, ThisOutABitHere<Tes, This, Out, With, A, L
 }
 
 [expect]
-export class Test
-    implements
-        Testing,
-        ThisOutABitHere<Tes, This, Out, With, A, Long>
+export class Test implements
+    Testing,
+    ThisOutABitHere<Tes, This, Out, With, A, Long>
 {
 }
 

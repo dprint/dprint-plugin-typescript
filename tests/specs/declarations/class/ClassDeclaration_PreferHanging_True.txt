@@ -27,8 +27,7 @@ export class Test<TestingThisOut, WithVeryLong, TypeParameterList> extends Test 
 [expect]
 export class Test<TestingThisOut, WithVeryLong,
     TypeParameterList>
-    extends Test
-    implements Other
+    extends Test implements Other
 {
 }
 
@@ -63,9 +62,9 @@ export class Test implements Testing, ThisOutABitHere<Tes, This, Out, With, A, L
 }
 
 [expect]
-export class Test
-    implements Testing,
-        ThisOutABitHere<Tes, This, Out, With, A, Long>
+export class Test implements
+    Testing,
+    ThisOutABitHere<Tes, This, Out, With, A, Long>
 {
 }
 
