@@ -1,0 +1,7 @@
+== should not remove parentheses around a destructuring assignment ==
+({ a } = b);
+(a = b);
+
+[expect]
+({ a } = b);
+a = b;
