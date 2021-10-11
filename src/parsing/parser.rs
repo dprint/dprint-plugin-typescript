@@ -2390,6 +2390,14 @@ fn should_skip_paren_expr(node: &ParenExpr, context: &Context) -> bool {
     return false;
   }
 
+  // keep parens around any destructuring assignments
+  if let Node::AssignExpr(assign_expr) = node.expr.as_node() {
+    let left_kind = assign_expr.left.kind();
+    if matches!(left_kind, NodeKind::ObjectPat) {
+      return false;
+    }
+  }
+
   if matches!(node.expr.kind(), NodeKind::ArrayLit) {
     return true;
   }
