@@ -2,6 +2,9 @@ use dprint_core::formatting::*;
 use dprint_core::formatting::{condition_resolvers, conditions::*, parser_helpers::*};
 use std::rc::Rc;
 use swc_ast_view::*;
+use swc_common::comments::{Comment, CommentKind};
+use swc_common::{BytePos, Span, Spanned};
+use swc_ecmascript::parser::token::{Token, TokenAndSpan};
 
 use super::sorting::*;
 use super::swc::get_flattened_bin_expr;

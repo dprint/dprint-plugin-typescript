@@ -1,5 +1,9 @@
 use std::str;
 use swc_ast_view::*;
+use swc_common::BytePos;
+use swc_common::Spanned;
+use swc_ecmascript::parser::token::Token;
+use swc_ecmascript::parser::token::TokenAndSpan;
 
 // todo: This is legacy from when swc-ecma-ast-view wasn't used.
 // Eventually this should be phased out.

@@ -1,4 +1,8 @@
 use swc_ast_view::*;
+use swc_common::comments::CommentKind;
+use swc_common::BytePos;
+use swc_common::Span;
+use swc_common::Spanned;
 
 use super::*;
 

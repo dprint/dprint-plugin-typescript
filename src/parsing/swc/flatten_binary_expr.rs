@@ -1,5 +1,6 @@
 use super::super::Context;
 use swc_ast_view::*;
+use swc_ecmascript::parser::token::TokenAndSpan;
 
 use super::extensions::*;
 use crate::configuration::*;

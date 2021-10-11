@@ -1,4 +1,7 @@
 use swc_ast_view::*;
+use swc_common::BytePos;
+use swc_ecmascript::parser::token::Token;
+use swc_ecmascript::parser::token::TokenAndSpan;
 
 pub struct CommentTracker<'a> {
   module: &'a Module<'a>,

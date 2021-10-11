@@ -1,4 +1,7 @@
 use swc_ast_view::*;
+use swc_common::comments::Comment;
+use swc_common::BytePos;
+use swc_common::Spanned;
 
 pub fn is_first_node_on_line(node: &dyn Spanned, module: &Module) -> bool {
   let start = node.lo().0 as usize;

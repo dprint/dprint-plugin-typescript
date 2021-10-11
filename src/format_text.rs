@@ -3,8 +3,8 @@ use std::path::Path;
 use dprint_core::configuration::resolve_new_line_kind;
 use dprint_core::formatting::*;
 use dprint_core::types::ErrBox;
-use swc_ast_view::TokenAndSpan;
 use swc_common::comments::SingleThreadedCommentsMapInner;
+use swc_ecmascript::parser::token::TokenAndSpan;
 
 use super::configuration::Configuration;
 use super::parsing::parse;

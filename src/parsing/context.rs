@@ -2,6 +2,11 @@ use dprint_core::formatting::{ConditionReference, Info};
 use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
 use swc_ast_view::*;
+use swc_common::comments::Comment;
+use swc_common::BytePos;
+use swc_common::Span;
+use swc_common::Spanned;
+use swc_ecmascript::parser::token::TokenAndSpan;
 
 use super::*;
 use crate::configuration::*;

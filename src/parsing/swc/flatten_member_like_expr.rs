@@ -1,5 +1,7 @@
 use super::super::node_helpers;
 use swc_ast_view::*;
+use swc_common::Span;
+use swc_common::Spanned;
 
 pub struct FlattenedMemberLikeExpr<'a> {
   pub node: Node<'a>,
