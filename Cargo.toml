@@ -33,6 +33,9 @@ swc_ast_view = { version = "0.39.0", package = "dprint-swc-ecma-ast-view" }
 swc_common = "0.13.4"
 swc_ecmascript = { version = "0.73.0", features = ["parser"] }
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+parking_lot_core = "=0.8.0" # https://github.com/Amanieu/parking_lot/issues/269 todo: submit pr to parking_lot
+
 [dev-dependencies]
 debug-here = "0.2"
 dprint-development = "0.4.1"
