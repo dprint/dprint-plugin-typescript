@@ -1,0 +1,23 @@
+== should format with comments ==
+const t = <X>() => (
+    <>
+        {/* Comment 1 */}
+        {/* Comment 2 */}
+        {/* Comment 3 */}
+    </>
+);
+const u = <X>() => {
+    // Hello world
+};
+
+[expect]
+const t = <X>() => (
+    <>
+        {/* Comment 1 */}
+        {/* Comment 2 */}
+        {/* Comment 3 */}
+    </>
+);
+const u = <X>() => {
+    // Hello world
+};
