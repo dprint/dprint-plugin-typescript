@@ -7798,6 +7798,10 @@ fn parse_jsx_children<'a>(opts: ParseJsxChildrenOptions<'a>, context: &mut Conte
           return Some(true);
         }
 
+        // clear the end info when the start info changes
+        if condition_context.has_info_moved(&parent_start_info)? {
+          condition_context.clear_info(&parent_end_info);
+        }
         // use newlines if the entire jsx element is on multiple lines
         condition_resolvers::is_multiple_lines(condition_context, &parent_start_info, &parent_end_info)
       },

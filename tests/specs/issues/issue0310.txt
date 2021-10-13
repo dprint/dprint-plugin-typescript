@@ -1,0 +1,14 @@
+~~ lineWidth: 50 ~~
+== should not require double format ==
+const thisLengthMatters = () => (
+    <div prop={soDoesThisOneToo}>
+        <SomeComponent>{someVar}</SomeComponent>
+    </div>
+);
+
+[expect]
+const thisLengthMatters = () => (
+    <div prop={soDoesThisOneToo}>
+        <SomeComponent>{someVar}</SomeComponent>
+    </div>
+);
