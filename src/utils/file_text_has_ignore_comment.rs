@@ -1,59 +1,62 @@
+use crate::utils::char_iterator::IteratorCharExt;
+use std::{
+  iter::{Iterator, Peekable},
+  str::Chars,
+};
+
 pub fn file_text_has_ignore_comment(file_text: &str, ignore_text: &str) -> bool {
-  let mut iterator = super::CharIterator::new(file_text.chars());
+  let mut chars = file_text.chars().peekable();
 
   // skip over the shebang
   if file_text.starts_with("#!") {
-    iterator.move_next();
-    iterator.move_next();
-    iterator.skip_all_until_new_line();
+    chars.next();
+    chars.next();
+    chars.skip_all_until_new_line();
   }
 
   // now handle the comments
-  while iterator.peek_next().is_some() {
-    iterator.skip_whitespace();
-    if iterator.move_next() != Some('/') {
+  while chars.peek().is_some() {
+    chars.skip_whitespace();
+    if chars.next() != Some('/') {
       return false;
     }
-    match iterator.move_next() {
+    match chars.next() {
       Some('/') => {
-        if check_single_line_comment(&mut iterator, ignore_text) {
+        if check_single_line_comment(&mut chars, ignore_text) {
           return true;
         }
       }
       Some('*') => {
-        if check_multi_line_comment(&mut iterator, ignore_text) {
+        if check_multi_line_comment(&mut chars, ignore_text) {
           return true;
         }
       }
       _ => return false,
     }
   }
-
   return false;
 
-  fn check_single_line_comment(iterator: &mut super::CharIterator, ignore_text: &str) -> bool {
-    iterator.skip_spaces(); // only spaces, not whitespace
-    if iterator.check_text(ignore_text) {
+  fn check_single_line_comment(chars: &mut Peekable<Chars>, ignore_text: &str) -> bool {
+    chars.skip_spaces(); // only spaces, not whitespace
+    if chars.check_text(ignore_text) {
       return true;
     }
-
-    iterator.skip_all_until_new_line();
-
+    chars.skip_all_until_new_line();
     false
   }
 
-  fn check_multi_line_comment(iterator: &mut super::CharIterator, ignore_text: &str) -> bool {
-    iterator.skip_whitespace();
-    if iterator.check_text(ignore_text) {
+  fn check_multi_line_comment(chars: &mut Peekable<Chars>, ignore_text: &str) -> bool {
+    chars.skip_whitespace();
+    if chars.check_text(ignore_text) {
       return true;
     }
-    while let Some(c) = iterator.move_next() {
-      if c == '*' && iterator.peek_next() == Some('/') {
-        iterator.move_next();
+
+    while let Some(c) = chars.next() {
+      if c == '*' && chars.peek() == Some(&'/') {
+        chars.next();
         return false;
       }
     }
-
     false
   }
 }
