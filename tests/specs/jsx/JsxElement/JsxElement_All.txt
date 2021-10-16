@@ -256,3 +256,36 @@ const t = (
         Test
     </Element>
 );
+
+== should try to keep jsx parened expr inlined within binary expressions ==
+const t = <div>
+    {someCondition && (
+        <td className="some-class-name">
+            {someValue}
+        </td>
+    )}
+</div>;
+// this has the && right at the line width max so the newline will happen before
+const testing = someConditionLongEnoughTestTest && (
+    <td className="some-class-name">
+        {someValue}
+    </td>
+);
+
+[expect]
+const t = (
+    <div>
+        {someCondition && (
+            <td className="some-class-name">
+                {someValue}
+            </td>
+        )}
+    </div>
+);
+// this has the && right at the line width max so the newline will happen before
+const testing = someConditionLongEnoughTestTest
+    && (
+        <td className="some-class-name">
+            {someValue}
+        </td>
+    );

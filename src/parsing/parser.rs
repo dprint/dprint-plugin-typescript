@@ -1641,7 +1641,6 @@ fn parse_await_expr<'a>(node: &'a AwaitExpr, context: &mut Context<'a>) -> Print
 }
 
 fn parse_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintItems {
-  // todo: use a simplified version for nodes that don't need the complexity (for performance reasons)
   let mut items = PrintItems::new();
   let flattened_binary_expr = get_flattened_bin_expr(node, context);
   // println!("Bin expr: {:?}", flattened_binary_expr.iter().map(|x| x.expr.text(context)).collect::<Vec<_>>());
@@ -1795,8 +1794,14 @@ fn parse_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintI
             items
           }));
 
+          let items = if should_newline_group_bin_item_expr(&bin_expr_item.expr, context) {
+            parser_helpers::new_line_group(items)
+          } else {
+            items
+          };
+
           parsed_nodes.push(parser_helpers::ParsedValue {
-            items: parser_helpers::new_line_group(items),
+            items,
             lines_span,
             allow_inline_multi_line: true,
             allow_inline_single_line: true,
@@ -1872,12 +1877,25 @@ fn parse_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintI
     items
   }
 
-  fn get_use_space_surrounding_operator(op: &BinaryOp, context: &mut Context) -> bool {
+  fn get_use_space_surrounding_operator(op: &BinaryOp, context: &Context) -> bool {
     if op.is_bitwise_or_arithmetic() {
       context.config.binary_expression_space_surrounding_bitwise_and_arithmetic_operator
     } else {
       true
     }
+  }
+
+  fn should_newline_group_bin_item_expr(node: &Node, context: &Context) -> bool {
+    if let Some(node) = node.to::<ParenExpr>() {
+      return should_newline_group_bin_item_expr(&node.expr.into(), context);
+    }
+
+    if is_jsx_paren_expr_handled_node(node, context) {
+      // prefer using the possible newline at the start of the element
+      return false;
+    }
+
+    true
   }
 }
 
