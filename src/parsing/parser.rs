@@ -5426,7 +5426,7 @@ fn parse_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, conte
       for (i, type_node) in node.types.iter().enumerate() {
         let (allow_inline_multi_line, allow_inline_single_line) = {
           let is_last_value = i + 1 == types_count; // allow the last type to be single line
-          (allows_inline_multi_line(&type_node.into(), types_count > 1), is_last_value)
+          (allows_inline_multi_line(&type_node.into(), context, types_count > 1), is_last_value)
         };
         let separator_token = context.token_finder.get_previous_token_if_operator(&type_node.span(), separator);
         let start_info = Info::new("startInfo");
@@ -6637,7 +6637,7 @@ fn parse_separated_values_with_result<'a>(opts: ParseSeparatedValuesParams<'a>, 
         };
         let (allow_inline_multi_line, allow_inline_single_line) = if let NodeOrSeparator::Node(value) = &value {
           let is_last_value = node_index + 1 == nodes_count; // allow the last node to be single line
-          (allows_inline_multi_line(value, nodes_count > 1), is_last_value)
+          (allows_inline_multi_line(value, context, nodes_count > 1), is_last_value)
         } else {
           (false, false)
         };
@@ -8416,14 +8416,14 @@ fn is_arrow_function_with_expr_body(node: &Node) -> bool {
   }
 }
 
-fn allows_inline_multi_line(node: &Node, has_siblings: bool) -> bool {
+fn allows_inline_multi_line(node: &Node, context: &Context, has_siblings: bool) -> bool {
   return match node {
-    Node::Param(param) => allows_inline_multi_line(&param.pat.into(), has_siblings),
+    Node::Param(param) => allows_inline_multi_line(&param.pat.into(), context, has_siblings),
     Node::TsAsExpr(as_expr) => {
-      allows_inline_multi_line(&as_expr.expr.into(), has_siblings)
+      allows_inline_multi_line(&as_expr.expr.into(), context, has_siblings)
         && match as_expr.type_ann {
           TsType::TsTypeRef(_) | TsType::TsKeywordType(_) => true,
-          _ => allows_inline_multi_line(&as_expr.type_ann.into(), has_siblings),
+          _ => allows_inline_multi_line(&as_expr.type_ann.into(), context, has_siblings),
         }
     }
     Node::FnExpr(_)
@@ -8435,16 +8435,19 @@ fn allows_inline_multi_line(node: &Node, has_siblings: bool) -> bool {
     | Node::TsTypeLit(_)
     | Node::TsTupleType(_)
     | Node::TsArrayType(_) => true,
-    Node::ExprOrSpread(node) => allows_inline_multi_line(&node.expr.into(), has_siblings),
+    Node::ExprOrSpread(node) => allows_inline_multi_line(&node.expr.into(), context, has_siblings),
+    Node::ParenExpr(node) => should_skip_paren_expr(node, context) && allows_inline_multi_line(&node.expr.into(), context, has_siblings),
     Node::TaggedTpl(_) | Node::Tpl(_) => !has_siblings,
     Node::CallExpr(node) => !has_siblings && allow_inline_for_call_expr(node),
     Node::BindingIdent(node) => match &node.type_ann {
-      Some(type_ann) => allows_inline_multi_line(&type_ann.type_ann.into(), has_siblings),
+      Some(type_ann) => allows_inline_multi_line(&type_ann.type_ann.into(), context, has_siblings),
       None => false,
     },
-    Node::AssignPat(node) => allows_inline_multi_line(&node.left.into(), has_siblings) || allows_inline_multi_line(&node.right.into(), has_siblings),
-    Node::TsTypeAnn(type_ann) => allows_inline_multi_line(&type_ann.type_ann.into(), has_siblings),
-    Node::TsTupleElement(tuple_element) => allows_inline_multi_line(&tuple_element.ty.into(), has_siblings),
+    Node::AssignPat(node) => {
+      allows_inline_multi_line(&node.left.into(), context, has_siblings) || allows_inline_multi_line(&node.right.into(), context, has_siblings)
+    }
+    Node::TsTypeAnn(type_ann) => allows_inline_multi_line(&type_ann.type_ann.into(), context, has_siblings),
+    Node::TsTupleElement(tuple_element) => allows_inline_multi_line(&tuple_element.ty.into(), context, has_siblings),
     _ => false,
   };
 

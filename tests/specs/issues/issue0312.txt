@@ -1,0 +1,11 @@
+~~ arguments.preferSingleLine: true ~~
+== should collapse to a single line without needing a double format ==
+Array.from(
+    {},
+    (_ => {
+    }),
+);
+
+[expect]
+Array.from({}, _ => {
+});
