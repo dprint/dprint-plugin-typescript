@@ -1,80 +1,43 @@
-// todo: This is not good at all and very specific to it's use at the moment.
-// Over time this should be improved.
+use std::{iter::Peekable, str::Chars};
 
-pub struct CharIterator<'a> {
-  chars: std::str::Chars<'a>,
-  next_char: Option<char>,
-}
+pub trait IteratorCharExt: Iterator<Item = char> {
+  fn peek(&mut self) -> Option<&char>;
 
-impl<'a> CharIterator<'a> {
-  pub fn new(chars: std::str::Chars<'a>) -> CharIterator<'a> {
-    CharIterator { chars, next_char: None }
-  }
-
-  pub fn skip_whitespace(&mut self) {
-    while let Some(c) = self.peek_next() {
-      if !c.is_whitespace() {
-        return;
-      } else {
-        self.move_next();
-      }
+  fn check_text(&mut self, text: &str) -> bool {
+    let mut text_iter = text.chars();
+    while let Some(text_ch) = text_iter.next() {
+      match self.peek() {
+        Some(ch) if *ch == text_ch => self.next(),
+        _ => return false,
+      };
     }
-  }
-
-  pub fn skip_spaces(&mut self) {
-    while let Some(c) = self.peek_next() {
-      if c != ' ' {
-        return;
-      } else {
-        self.move_next();
-      }
-    }
-  }
-
-  pub fn skip_all_until_new_line(&mut self) {
-    while let Some(c) = self.move_next() {
-      if c == '\r' {
-        if self.peek_next() == Some('\n') {
-          self.move_next();
-        }
-        return;
-      } else if c == '\n' {
-        return;
-      }
-    }
-  }
-
-  pub fn check_text(&mut self, text: &str) -> bool {
-    for c in text.chars() {
-      if let Some(comparison_char) = self.peek_next() {
-        if comparison_char != c {
-          return false;
-        } else {
-          self.move_next();
-        }
-      } else {
-        return false;
-      }
-    }
-
     true
   }
 
-  pub fn move_next(&mut self) -> Option<char> {
-    self.ensure_next_char();
-    let current_char = self.next_char;
-    self.next_char = self.chars.next();
-    current_char
+  fn skip_whitespace(&mut self) {
+    self.skip_while(char::is_whitespace);
   }
 
-  pub fn peek_next(&mut self) -> Option<char> {
-    self.ensure_next_char();
-    self.next_char
+  fn skip_spaces(&mut self) {
+    self.skip_while(|c| c == ' ');
   }
 
-  fn ensure_next_char(&mut self) {
-    if self.next_char.is_none() {
-      self.next_char = self.chars.next();
+  fn skip_all_until_new_line(&mut self) {
+    self.skip_while(|c| c != '\n');
+  }
+
+  fn skip_while<P: Fn(char) -> bool>(&mut self, predicate: P) {
+    while let Some(ch) = self.peek() {
+      if !predicate(*ch) {
+        break;
+      }
+      self.next();
     }
+  }
+}
+
+impl<'a> IteratorCharExt for Peekable<Chars<'a>> {
+  fn peek(&mut self) -> Option<&char> {
+    self.peek()
   }
 }
