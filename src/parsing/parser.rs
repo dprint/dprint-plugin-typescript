@@ -5301,13 +5301,18 @@ fn parse_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>)
     // trailing commas should be allowed in type parameters only—not arguments
     if let Some(type_params) = node.parent().get_type_parameters() {
       if type_params.lo() == node.lo() {
-        // Always use trailing commas for arrow function expressions in a JSX file
-        // if one exists as it may be used to assist with parsing ambiguity.
+        // Use trailing commas for function expressions in a JSX file
+        // if the absence of one would lead to a parsing ambiguity.
         if context.is_jsx && (node.parent().kind() == NodeKind::ArrowExpr || node.parent().parent().unwrap().kind() == NodeKind::FnExpr) {
-          let comma_count = type_params.tokens_fast(context.module).iter().filter(|t| t.token == Token::Comma).count();
-          let has_trailing_comma = comma_count >= type_params.params.len();
-          if has_trailing_comma {
-            return TrailingCommas::Always;
+          let children = type_params.children();
+          // It is not ambiguous if there are multiple type parameters.
+          if children.len() == 1 && children[0].kind() == NodeKind::TsTypeParam {
+            let type_param = children[0];
+            let children = type_param.children();
+            // We have a possible ambiguity iff this type parameter is just an identifier.
+            if children.len() == 1 && children[0].kind() == NodeKind::Ident {
+              return TrailingCommas::Always;
+            }
           }
         }
         return trailing_commas;

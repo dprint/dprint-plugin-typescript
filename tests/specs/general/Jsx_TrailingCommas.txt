@@ -15,6 +15,10 @@ const Test3 = <div></div>;
 function test<T,>() {
 }
 
+// generic constraints are not ambiguous either
+const Test4 = <P extends R<S, T>,>() => {};
+const Test5 = <P extends R<S, T>>() => {};
+
 [expect]
 const Test1 = <T,>() => false;
 const Test2 = function<T,>() {};
@@ -23,3 +27,7 @@ const Test3 = <div></div>;
 // not for declarations though
 function test<T>() {
 }
+
+// generic constraints are not ambiguous either
+const Test4 = <P extends R<S, T>>() => {};
+const Test5 = <P extends R<S, T>>() => {};
