@@ -2398,6 +2398,11 @@ fn should_skip_paren_expr(node: &ParenExpr, context: &Context) -> bool {
     }
   }
 
+  if matches!(node.expr.kind(), NodeKind::SeqExpr) {
+    // don't care about extra logic for sequence expressions
+    return false;
+  }
+
   if matches!(node.expr.kind(), NodeKind::ArrayLit) {
     return true;
   }
