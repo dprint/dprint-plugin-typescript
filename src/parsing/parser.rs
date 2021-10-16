@@ -6037,12 +6037,7 @@ fn parse_statements<'a>(inner_span: Span, stmts: Vec<Node<'a>>, context: &mut Co
       let last_comment = comments.iter().filter(|c| !context.has_handled_comment(c)).last().map(|c| c.span);
       items.extend(parse_comments_as_statements(
         comments.into_iter(),
-        if let Some(last_node) = &last_node {
-          // todo: why can't I just use .as_ref() here?
-          Some(last_node)
-        } else {
-          None
-        },
+        last_node.as_ref().map(|x| x as &dyn Spanned),
         context,
       ));
       last_node = last_comment.or(last_node);
