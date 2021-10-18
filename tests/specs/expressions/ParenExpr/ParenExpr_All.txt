@@ -187,3 +187,13 @@ test = () => {};
 [expect]
 ({ prop: 5 }).prop;
 ({ prop: 5 }).prop;
+
+== should not remove when there's a JS doc type assertion ==
+typeAssertedNumber = /** @type {number} */ (numberOrString);
+// not a js doc so won't keep it
+typeAssertedNumber = /* @type {number} */ (numberOrString);
+
+[expect]
+typeAssertedNumber = /** @type {number} */ (numberOrString);
+// not a js doc so won't keep it
+typeAssertedNumber = /* @type {number} */ numberOrString;

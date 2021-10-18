@@ -2421,6 +2421,13 @@ fn should_skip_paren_expr(node: &ParenExpr, context: &Context) -> bool {
     return false;
   }
 
+  // keep when there is a JSDoc type assertion
+  for c in node.leading_comments_fast(context.module) {
+    if c.kind == CommentKind::Block && c.text.starts_with("*") && c.text.contains("@type") {
+      return false;
+    }
+  }
+
   if matches!(node.expr.kind(), NodeKind::ArrayLit) {
     return true;
   }
