@@ -1,7 +1,7 @@
 use super::super::node_helpers;
-use swc_ast_view::*;
-use swc_common::Span;
-use swc_common::Spanned;
+use deno_ast::swc::common::Span;
+use deno_ast::swc::common::Spanned;
+use deno_ast::view::*;
 
 pub struct FlattenedMemberLikeExpr<'a> {
   pub node: Node<'a>,
@@ -55,42 +55,42 @@ pub struct MemberLikeExprItemCallExpr<'a> {
 
 /// Takes a member expression and flattens it out.
 /// This is done to prevent a stack overflow when someone has many chained member expressions.
-pub fn flatten_member_like_expr<'a>(node: Node<'a>, module: &Module<'a>) -> FlattenedMemberLikeExpr<'a> {
+pub fn flatten_member_like_expr<'a>(node: Node<'a>, program: &Program<'a>) -> FlattenedMemberLikeExpr<'a> {
   let mut nodes = Vec::new();
-  push_descendant_nodes(node, &mut nodes, module);
+  push_descendant_nodes(node, &mut nodes, program);
 
   FlattenedMemberLikeExpr { node, nodes }
 }
 
-fn push_descendant_nodes<'a>(node: Node<'a>, nodes: &mut Vec<MemberLikeExprItem<'a>>, module: &Module<'a>) {
+fn push_descendant_nodes<'a>(node: Node<'a>, nodes: &mut Vec<MemberLikeExprItem<'a>>, program: &Program<'a>) {
   match node {
     Node::MemberExpr(member_expr) => {
-      push_descendant_nodes(member_expr.obj.into(), nodes, module);
+      push_descendant_nodes(member_expr.obj.into(), nodes, program);
       if member_expr.computed() {
         // get the '[' and ']' tokens for the span
-        let previous_token = member_expr.prop.previous_token_fast(module).unwrap();
-        let next_token = member_expr.prop.next_token_fast(module).unwrap();
+        let previous_token = member_expr.prop.previous_token_fast(program).unwrap();
+        let next_token = member_expr.prop.next_token_fast(program).unwrap();
         nodes.push(MemberLikeExprItem::Computed(MemberLikeExprItemComputed {
           span: Span::new(previous_token.lo(), next_token.hi(), Default::default()),
           inner_node: member_expr.prop.into(),
         }));
       } else {
-        push_descendant_nodes(member_expr.prop.into(), nodes, module);
+        push_descendant_nodes(member_expr.prop.into(), nodes, program);
       }
     }
     Node::MetaPropExpr(meta_prop_expr) => {
-      push_descendant_nodes(meta_prop_expr.meta.into(), nodes, module);
-      push_descendant_nodes(meta_prop_expr.prop.into(), nodes, module);
+      push_descendant_nodes(meta_prop_expr.meta.into(), nodes, program);
+      push_descendant_nodes(meta_prop_expr.prop.into(), nodes, program);
     }
     Node::OptChainExpr(opt_chain_expr) => {
-      push_descendant_nodes(opt_chain_expr.expr.into(), nodes, module);
+      push_descendant_nodes(opt_chain_expr.expr.into(), nodes, program);
     }
     Node::CallExpr(call_expr) => {
       // leave test library call expressions as-is
-      if node_helpers::is_test_library_call_expr(call_expr, module) {
+      if node_helpers::is_test_library_call_expr(call_expr, program) {
         nodes.push(MemberLikeExprItem::Node(node));
       } else {
-        push_descendant_nodes(call_expr.callee.into(), nodes, module);
+        push_descendant_nodes(call_expr.callee.into(), nodes, program);
         let new_call_expr_callee = nodes.pop().unwrap();
         nodes.push(MemberLikeExprItem::CallExpr(Box::new(MemberLikeExprItemCallExpr {
           original_call_expr: call_expr,

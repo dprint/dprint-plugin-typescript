@@ -1,11 +1,11 @@
-use swc_ast_view::*;
-use swc_common::comments::Comment;
-use swc_common::BytePos;
-use swc_common::Spanned;
+use deno_ast::swc::common::comments::Comment;
+use deno_ast::swc::common::BytePos;
+use deno_ast::swc::common::Spanned;
+use deno_ast::view::*;
 
-pub fn is_first_node_on_line(node: &dyn Spanned, module: &Module) -> bool {
+pub fn is_first_node_on_line(node: &dyn Spanned, program: &Program) -> bool {
   let start = node.lo().0 as usize;
-  let source_file = module.source_file.as_ref().unwrap();
+  let source_file = program.source_file().unwrap();
   let source_file_text = source_file.text().as_bytes();
 
   for i in (0..start).rev() {
@@ -18,42 +18,42 @@ pub fn is_first_node_on_line(node: &dyn Spanned, module: &Module) -> bool {
   true
 }
 
-pub fn has_separating_blank_line(first_node: &dyn Spanned, second_node: &dyn Spanned, module: &Module) -> bool {
-  return get_second_start_line(first_node, second_node, module) > first_node.end_line_fast(module) + 1;
+pub fn has_separating_blank_line(first_node: &dyn Spanned, second_node: &dyn Spanned, program: &Program) -> bool {
+  return get_second_start_line(first_node, second_node, program) > first_node.end_line_fast(program) + 1;
 
-  fn get_second_start_line(first_node: &dyn Spanned, second_node: &dyn Spanned, module: &Module) -> usize {
-    let leading_comments = second_node.leading_comments_fast(module);
+  fn get_second_start_line(first_node: &dyn Spanned, second_node: &dyn Spanned, program: &Program) -> usize {
+    let leading_comments = second_node.leading_comments_fast(program);
 
     for comment in leading_comments {
-      let comment_start_line = comment.start_line_fast(module);
-      if comment_start_line > first_node.end_line_fast(module) {
+      let comment_start_line = comment.start_line_fast(program);
+      if comment_start_line > first_node.end_line_fast(program) {
         return comment_start_line;
       }
     }
 
-    second_node.start_line_fast(module)
+    second_node.start_line_fast(program)
   }
 }
 
-pub fn get_use_new_lines_for_nodes(first_node: &dyn Spanned, second_node: &dyn Spanned, module: &Module) -> bool {
-  first_node.end_line_fast(module) != second_node.start_line_fast(module)
+pub fn get_use_new_lines_for_nodes(first_node: &dyn Spanned, second_node: &dyn Spanned, program: &Program) -> bool {
+  first_node.end_line_fast(program) != second_node.start_line_fast(program)
 }
 
-pub fn has_leading_comment_on_different_line<'a>(node: &dyn Spanned, comments_to_ignore: Option<&[&'a Comment]>, module: &Module<'a>) -> bool {
-  get_leading_comment_on_different_line(node, comments_to_ignore, module).is_some()
+pub fn has_leading_comment_on_different_line<'a>(node: &dyn Spanned, comments_to_ignore: Option<&[&'a Comment]>, program: &Program<'a>) -> bool {
+  get_leading_comment_on_different_line(node, comments_to_ignore, program).is_some()
 }
 
-pub fn get_leading_comment_on_different_line<'a>(node: &dyn Spanned, comments_to_ignore: Option<&[&'a Comment]>, module: &Module<'a>) -> Option<&'a Comment> {
+pub fn get_leading_comment_on_different_line<'a>(node: &dyn Spanned, comments_to_ignore: Option<&[&'a Comment]>, program: &Program<'a>) -> Option<&'a Comment> {
   let comments_to_ignore: Option<Vec<BytePos>> = comments_to_ignore.map(|x| x.iter().map(|c| c.lo()).collect());
-  let node_start_line = node.start_line_fast(module);
-  for comment in node.leading_comments_fast(module) {
+  let node_start_line = node.start_line_fast(program);
+  for comment in node.leading_comments_fast(program) {
     if let Some(comments_to_ignore) = &comments_to_ignore {
       if comments_to_ignore.contains(&comment.lo()) {
         continue;
       }
     }
 
-    if comment.start_line_fast(module) < node_start_line {
+    if comment.start_line_fast(program) < node_start_line {
       return Some(comment);
     }
   }
@@ -61,19 +61,19 @@ pub fn get_leading_comment_on_different_line<'a>(node: &dyn Spanned, comments_to
   None
 }
 
-pub fn has_surrounding_comments(node: &Node, module: &Module) -> bool {
-  !node.leading_comments_fast(module).is_empty() || !node.trailing_comments_fast(module).is_empty()
+pub fn has_surrounding_comments(node: &Node, program: &Program) -> bool {
+  !node.leading_comments_fast(program).is_empty() || !node.trailing_comments_fast(program).is_empty()
 }
 
-pub fn nodes_have_only_spaces_between(previous_node: &Node, next_node: &Node, module: &Module) -> bool {
+pub fn nodes_have_only_spaces_between(previous_node: &Node, next_node: &Node, program: &Program) -> bool {
   if let Node::JSXText(previous_node) = previous_node {
-    let previous_node_text = previous_node.text_fast(module);
+    let previous_node_text = previous_node.text_fast(program);
     crate::utils::has_no_new_lines_in_trailing_whitespace(previous_node_text) && previous_node_text.ends_with(' ')
   } else if let Node::JSXText(next_node) = next_node {
-    let next_node_text = next_node.text_fast(module);
+    let next_node_text = next_node.text_fast(program);
     crate::utils::has_no_new_lines_in_leading_whitespace(next_node_text) && next_node_text.starts_with(' ')
   } else {
-    let source_file = module.source_file.as_ref().unwrap();
+    let source_file = program.source_file().unwrap();
     crate::utils::is_not_empty_and_only_spaces(&source_file.text()[previous_node.hi().0 as usize..next_node.lo().0 as usize])
   }
 }
@@ -111,12 +111,12 @@ pub fn get_jsx_space_expr_space_count(node: &Node) -> usize {
   }
 }
 
-pub fn count_spaces_between_jsx_children(previous_node: &Node, next_node: &Node, module: &Module) -> usize {
+pub fn count_spaces_between_jsx_children(previous_node: &Node, next_node: &Node, program: &Program) -> usize {
   let all_siblings_between = get_siblings_between(previous_node, next_node);
   let siblings_between = all_siblings_between
     .iter()
     // ignore empty JSXText
-    .filter(|n| !n.text_fast(module).trim().is_empty())
+    .filter(|n| !n.text_fast(program).trim().is_empty())
     .collect::<Vec<_>>();
 
   let mut count = 0;
@@ -125,7 +125,7 @@ pub fn count_spaces_between_jsx_children(previous_node: &Node, next_node: &Node,
   for node in siblings_between {
     count += get_jsx_space_expr_space_count(node);
 
-    if nodes_have_only_spaces_between(previous_node, node, module) {
+    if nodes_have_only_spaces_between(previous_node, node, program) {
       count += 1;
     }
 
@@ -133,7 +133,7 @@ pub fn count_spaces_between_jsx_children(previous_node: &Node, next_node: &Node,
   }
 
   // check the spaces between the previously looked at node and last node
-  if nodes_have_only_spaces_between(previous_node, next_node, module) {
+  if nodes_have_only_spaces_between(previous_node, next_node, program) {
     count += 1;
   }
 
@@ -141,7 +141,7 @@ pub fn count_spaces_between_jsx_children(previous_node: &Node, next_node: &Node,
 }
 
 /// Tests if this is a call expression from common test libraries.
-pub fn is_test_library_call_expr(node: &CallExpr, module: &Module) -> bool {
+pub fn is_test_library_call_expr(node: &CallExpr, program: &Program) -> bool {
   // Be very strict here to allow the user to opt out if they'd like.
   if node.args.len() != 2 || node.type_args.is_some() || !is_valid_callee(&node.callee) || is_optional_call_expr(node) {
     return false;
@@ -162,7 +162,7 @@ pub fn is_test_library_call_expr(node: &CallExpr, module: &Module) -> bool {
       }
       // allow something like `Deno.test("desc", (t) => {})`
       if let Some(param) = arrow_expr.params.get(0) {
-        if has_surrounding_comments(&param.into(), module) {
+        if has_surrounding_comments(&param.into(), program) {
           return false;
         }
       }
@@ -170,7 +170,7 @@ pub fn is_test_library_call_expr(node: &CallExpr, module: &Module) -> bool {
     _ => return false,
   }
 
-  return node.start_line_fast(module) == node.args[1].start_line_fast(module);
+  return node.start_line_fast(program) == node.args[1].start_line_fast(program);
 
   fn is_valid_callee(callee: &ExprOrSuper) -> bool {
     return match get_first_identifier_text(&callee) {

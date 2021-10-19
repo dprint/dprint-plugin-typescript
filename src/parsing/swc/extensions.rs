@@ -1,4 +1,4 @@
-use swc_ast_view::BinaryOp;
+use deno_ast::view::BinaryOp;
 
 pub trait BinaryOpExtensions {
   fn is_add_sub(&self) -> bool;

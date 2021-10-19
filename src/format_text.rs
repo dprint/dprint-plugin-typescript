@@ -1,10 +1,11 @@
 use std::path::Path;
 
+use deno_ast::ParsedSource;
 use dprint_core::configuration::resolve_new_line_kind;
 use dprint_core::formatting::*;
 use dprint_core::types::ErrBox;
-use swc_common::comments::SingleThreadedCommentsMapInner;
-use swc_ecmascript::parser::token::TokenAndSpan;
+
+use crate::swc::ensure_no_specific_syntax_errors;
 
 use super::configuration::Configuration;
 use super::parsing::parse;
@@ -39,75 +40,40 @@ use super::swc::parse_swc_ast;
 /// ```
 pub fn format_text(file_path: &Path, file_text: &str, config: &Configuration) -> Result<String, ErrBox> {
   if super::utils::file_text_has_ignore_comment(file_text, &config.ignore_file_comment_text) {
-    return Ok(String::from(file_text));
+    Ok(String::from(file_text))
+  } else {
+    let parsed_source = parse_swc_ast(file_path, file_text)?;
+    inner_format(&parsed_source, config)
   }
+}
 
-  let parsed_source_file = parse_swc_ast(file_path, file_text)?;
+/// Formats an already parsed source. This is useful as a performance optimization.
+pub fn format_parsed_source(source: &ParsedSource, config: &Configuration) -> Result<String, ErrBox> {
+  if super::utils::file_text_has_ignore_comment(source.source().text_str(), &config.ignore_file_comment_text) {
+    Ok(source.source().text_str().to_string())
+  } else {
+    inner_format(source, config)
+  }
+}
+
+fn inner_format(parsed_source: &ParsedSource, config: &Configuration) -> Result<String, ErrBox> {
+  ensure_no_specific_syntax_errors(parsed_source)?;
+
   Ok(dprint_core::formatting::format(
     || {
-      let print_items = parse(
-        &SourceFileInfo {
-          is_jsx: parsed_source_file.is_jsx,
-          module: &parsed_source_file.module,
-          info: &parsed_source_file.info,
-          tokens: &parsed_source_file.tokens,
-          leading_comments: &parsed_source_file.leading_comments,
-          trailing_comments: &parsed_source_file.trailing_comments,
-        },
-        config,
-      );
+      let print_items = parse(&parsed_source, config);
       // println!("{}", print_items.get_as_text());
       print_items
     },
-    config_to_print_options(file_text, config),
+    config_to_print_options(parsed_source.source().text_str(), config),
   ))
-}
-
-#[derive(Clone)]
-pub struct SourceFileInfo<'a> {
-  pub is_jsx: bool,
-  pub module: &'a swc_ecmascript::ast::Module,
-  pub info: &'a dyn swc_ast_view::SourceFile,
-  pub tokens: &'a [TokenAndSpan],
-  pub leading_comments: &'a SingleThreadedCommentsMapInner,
-  pub trailing_comments: &'a SingleThreadedCommentsMapInner,
-}
-
-/// Formats the already parsed file. This is useful as a performance optimization.
-pub fn format_parsed_file(info: &SourceFileInfo<'_>, config: &Configuration) -> String {
-  if super::utils::file_text_has_ignore_comment(info.info.text(), &config.ignore_file_comment_text) {
-    return info.info.text().to_string();
-  }
-
-  dprint_core::formatting::format(
-    || {
-      let print_items = parse(&info, config);
-      // println!("{}", print_items.get_as_text());
-      print_items
-    },
-    config_to_print_options(info.info.text(), config),
-  )
 }
 
 #[cfg(feature = "tracing")]
 pub fn trace_file(file_path: &Path, file_text: &str, config: &Configuration) -> dprint_core::formatting::TracingResult {
-  let parsed_source_file = parse_swc_ast(file_path, file_text).expect("Expected to parse to SWC AST.");
-  dprint_core::formatting::trace_printing(
-    || {
-      parse(
-        &SourceFileInfo {
-          is_jsx: parsed_source_file.is_jsx,
-          info: &parsed_source_file.info,
-          module: &parsed_source_file.module,
-          tokens: &parsed_source_file.tokens,
-          leading_comments: &parsed_source_file.leading_comments,
-          trailing_comments: &parsed_source_file.trailing_comments,
-        },
-        config,
-      )
-    },
-    config_to_print_options(file_text, config),
-  )
+  let parsed_source = parse_swc_ast(file_path, file_text).unwrap();
+  ensure_no_specific_syntax_errors(parsed_source).unwrap();
+  dprint_core::formatting::trace_printing(|| parse(&parsed_source, config), config_to_print_options(file_text, config))
 }
 
 fn config_to_print_options(file_text: &str, config: &Configuration) -> PrintOptions {
@@ -116,5 +82,55 @@ fn config_to_print_options(file_text: &str, config: &Configuration) -> PrintOpti
     max_width: config.line_width,
     use_tabs: config.use_tabs,
     new_line_text: resolve_new_line_kind(file_text, config.new_line_kind),
+  }
+}
+
+#[cfg(test)]
+mod test {
+  use std::path::PathBuf;
+
+  use crate::configuration::ConfigurationBuilder;
+
+  use super::*;
+
+  #[test]
+  fn it_should_error_for_no_equals_sign_in_var_decl() {
+    run_diagnostic_test(
+      "./test.ts",
+      "const Methods {\nf: (x, y) => x + y,\n};",
+      concat!("Line 1, column 15: Expected a semicolon\n", "\n", "  const Methods {\n", "                ~"),
+    );
+  }
+
+  #[test]
+  fn it_should_error_when_var_stmts_sep_by_comma() {
+    run_diagnostic_test(
+      "./test.ts",
+      "let a = 0, let b = 1;",
+      concat!(
+        "Line 1, column 16: Expected a semicolon\n",
+        "\n",
+        "  let a = 0, let b = 1;\n",
+        "                 ~"
+      ),
+    );
+  }
+
+  #[test]
+  fn it_should_error_for_exected_expr_issue_121() {
+    run_diagnostic_test(
+      "./test.ts",
+      "type T =\n  | unknown\n  { } & unknown;",
+      concat!("Line 3, column 7: Expression expected\n", "\n", "    { } & unknown;\n", "        ~"),
+    );
+  }
+
+  fn run_diagnostic_test(file_path: &str, text: &str, expected: &str) {
+    let file_path = PathBuf::from(file_path);
+    let parsed_source = crate::swc::parse_swc_ast(&file_path, text).unwrap();
+    let config = ConfigurationBuilder::new().build();
+    // ensure it happens for both of these methods
+    assert_eq!(format_text(&file_path, text, &config).err().unwrap().to_string(), expected);
+    assert_eq!(format_parsed_source(&parsed_source, &config).err().unwrap().to_string(), expected);
   }
 }

@@ -6,9 +6,8 @@ mod parsing;
 mod swc;
 mod utils;
 
-pub use format_text::format_parsed_file;
+pub use format_text::format_parsed_source;
 pub use format_text::format_text;
-pub use format_text::SourceFileInfo;
 
 #[cfg(feature = "tracing")]
 pub use format_text::trace_file;

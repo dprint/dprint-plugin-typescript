@@ -31,6 +31,8 @@ impl PluginHandler<Configuration> for TypeScriptPluginHandler {
         String::from("jsx"),
         String::from("mjs"),
         String::from("cjs"),
+        String::from("mts"),
+        String::from("cts"),
       ],
       file_names: vec![],
       help_url: "https://dprint.dev/plugins/typescript".to_string(),

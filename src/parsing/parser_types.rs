@@ -1,8 +1,8 @@
-use swc_ast_view::*;
-use swc_common::comments::CommentKind;
-use swc_common::BytePos;
-use swc_common::Span;
-use swc_common::Spanned;
+use deno_ast::swc::common::comments::CommentKind;
+use deno_ast::swc::common::BytePos;
+use deno_ast::swc::common::Span;
+use deno_ast::swc::common::Spanned;
+use deno_ast::view::*;
 
 use super::*;
 
@@ -21,19 +21,19 @@ where
     // after the previous token's trailing comments. The trailing comments
     // are similar to the Roslyn definition where it's any comments on the
     // same line or a single multi-line block comment that begins on the trailing line.
-    let mut leading_comments = self.leading_comments_fast(context.module);
+    let mut leading_comments = self.leading_comments_fast(context.program);
     if leading_comments.is_empty() {
-      self.start_line_fast(context.module)
+      self.start_line_fast(context.program)
     } else {
       let lo = self.lo();
       let previous_token = context.token_finder.get_previous_token(&lo);
       if let Some(previous_token) = previous_token {
-        let previous_end_line = previous_token.end_line_fast(context.module);
+        let previous_end_line = previous_token.end_line_fast(context.program);
         let mut past_trailing_comments = false;
         for comment in leading_comments {
-          let comment_start_line = comment.start_line_fast(context.module);
+          let comment_start_line = comment.start_line_fast(context.program);
           if !past_trailing_comments && comment_start_line <= previous_end_line {
-            let comment_end_line = comment.end_line_fast(context.module);
+            let comment_end_line = comment.end_line_fast(context.program);
             if comment_end_line > previous_end_line {
               past_trailing_comments = true;
             }
@@ -42,9 +42,9 @@ where
           }
         }
 
-        self.start_line_fast(context.module)
+        self.start_line_fast(context.program)
       } else {
-        leading_comments.next().unwrap().start_line_fast(context.module)
+        leading_comments.next().unwrap().start_line_fast(context.program)
       }
     }
   }
@@ -53,17 +53,17 @@ where
   fn end_line_with_comments(&self, context: &mut Context) -> usize {
     // start searching from after the trailing comma if it exists
     let search_end = context.token_finder.get_next_token_if_comma(self).map(|x| x.hi()).unwrap_or_else(|| self.hi());
-    let trailing_comments = search_end.trailing_comments_fast(context.module);
-    let previous_end_line = search_end.end_line_fast(context.module);
+    let trailing_comments = search_end.trailing_comments_fast(context.program);
+    let previous_end_line = search_end.end_line_fast(context.program);
     for comment in trailing_comments {
       // optimization
       if comment.kind == CommentKind::Line {
         break;
       }
 
-      let comment_start_line = comment.start_line_fast(context.module);
+      let comment_start_line = comment.start_line_fast(context.program);
       if comment_start_line <= previous_end_line {
-        let comment_end_line = comment.end_line_fast(context.module);
+        let comment_end_line = comment.end_line_fast(context.program);
         if comment_end_line > previous_end_line {
           return comment_end_line; // should only include the first multi-line comment block
         }

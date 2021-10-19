@@ -1,4 +1,4 @@
--- test.jsx --
+-- test.tsx --
 == should parse ==
 const x = <P extends object>(a: React.ComponentType<P>): React.ComponentType<P & { a: string }> => React.memo();
 

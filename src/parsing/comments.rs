@@ -1,18 +1,18 @@
-use swc_ast_view::*;
-use swc_common::BytePos;
-use swc_ecmascript::parser::token::Token;
-use swc_ecmascript::parser::token::TokenAndSpan;
+use deno_ast::swc::common::BytePos;
+use deno_ast::swc::parser::token::Token;
+use deno_ast::swc::parser::token::TokenAndSpan;
+use deno_ast::view::*;
 
 pub struct CommentTracker<'a> {
-  module: &'a Module<'a>,
+  program: &'a Program<'a>,
   tokens: &'a [TokenAndSpan],
   token_index: usize,
 }
 
 impl<'a> CommentTracker<'a> {
-  pub fn new(module: &'a Module<'a>, tokens: &'a [TokenAndSpan]) -> CommentTracker<'a> {
+  pub fn new(program: &'a Program<'a>, tokens: &'a [TokenAndSpan]) -> CommentTracker<'a> {
     CommentTracker {
-      module,
+      program,
       tokens,
       token_index: 0,
     }
@@ -26,18 +26,18 @@ impl<'a> CommentTracker<'a> {
       // get any comments stored at the beginning of the file
       // todo: investigate what's required here
       let file_start = BytePos(0);
-      iterator.extend(file_start.leading_comments_fast(self.module));
-      iterator.extend(file_start.trailing_comments_fast(self.module));
+      iterator.extend(file_start.leading_comments_fast(self.program));
+      iterator.extend(file_start.trailing_comments_fast(self.program));
     } else if let Some(previous_token) = self.tokens.get(self.token_index - 1) {
-      iterator.extend(previous_token.hi().trailing_comments_fast(self.module));
+      iterator.extend(previous_token.hi().trailing_comments_fast(self.program));
     }
 
     while let Some(token) = self.tokens.get(self.token_index) {
-      iterator.extend(token.lo().leading_comments_fast(self.module));
+      iterator.extend(token.lo().leading_comments_fast(self.program));
 
       let token_hi = token.hi();
       if token_hi < pos {
-        iterator.extend(token_hi.trailing_comments_fast(self.module));
+        iterator.extend(token_hi.trailing_comments_fast(self.program));
         self.token_index += 1;
       } else {
         break;
@@ -52,7 +52,7 @@ impl<'a> CommentTracker<'a> {
     let mut iterator = CommentsIterator::new(Vec::new());
 
     while let Some(token) = self.tokens.get(self.token_index) {
-      iterator.extend(token.lo().leading_comments_fast(self.module));
+      iterator.extend(token.lo().leading_comments_fast(self.program));
 
       let is_comma = token.token == Token::Comma;
       if !is_comma && token.lo() >= end {
@@ -61,7 +61,7 @@ impl<'a> CommentTracker<'a> {
 
       let token_hi = token.hi();
       if is_comma || token_hi <= end {
-        iterator.extend(token.hi().trailing_comments_fast(self.module));
+        iterator.extend(token.hi().trailing_comments_fast(self.program));
         self.token_index += 1;
       } else {
         break;

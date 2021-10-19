@@ -1,6 +1,6 @@
 use super::super::Context;
-use swc_ast_view::*;
-use swc_ecmascript::parser::token::TokenAndSpan;
+use deno_ast::swc::parser::token::TokenAndSpan;
+use deno_ast::view::*;
 
 use super::extensions::*;
 use crate::configuration::*;
@@ -81,7 +81,7 @@ pub fn get_flattened_bin_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) 
       OperatorPosition::NextLine => OperatorPosition::NextLine,
       OperatorPosition::SameLine => OperatorPosition::SameLine,
       OperatorPosition::Maintain => {
-        if node.left.end_line_fast(context.module) == operator_token.start_line_fast(context.module) {
+        if node.left.end_line_fast(context.program) == operator_token.start_line_fast(context.program) {
           OperatorPosition::SameLine
         } else {
           OperatorPosition::NextLine

@@ -1,9 +1,9 @@
 mod module_specifiers;
 use module_specifiers::*;
 
+use deno_ast::swc::common::{Span, Spanned};
+use deno_ast::view::*;
 use std::cmp::Ordering;
-use swc_ast_view::*;
-use swc_common::{Span, Spanned};
 
 use crate::configuration::*;
 
@@ -11,17 +11,19 @@ use crate::configuration::*;
 
 pub fn get_node_sorter_from_order<'a>(
   order: SortOrder,
-) -> Option<Box<dyn Fn((usize, Option<&Node<'a>>), (usize, Option<&Node<'a>>), &Module<'a>) -> Ordering>> {
+) -> Option<Box<dyn Fn((usize, Option<&Node<'a>>), (usize, Option<&Node<'a>>), &Program<'a>) -> Ordering>> {
   // todo: how to reduce code duplication here?
   match order {
     SortOrder::Maintain => None,
-    SortOrder::CaseInsensitive => Some(Box::new(|(a_index, a), (b_index, b), module| {
+    SortOrder::CaseInsensitive => Some(Box::new(|(a_index, a), (b_index, b), program| {
       let result = if is_import_or_export_declaration(&a) {
-        cmp_optional_nodes(a, b, module, |a, b, module| {
+        cmp_optional_nodes(a, b, program, |a, b, module| {
           cmp_module_specifiers(a.text_fast(module), b.text_fast(module), cmp_text_case_insensitive)
         })
       } else {
-        cmp_optional_nodes(a, b, module, |a, b, module| cmp_text_case_insensitive(a.text_fast(module), b.text_fast(module)))
+        cmp_optional_nodes(a, b, program, |a, b, module| {
+          cmp_text_case_insensitive(a.text_fast(module), b.text_fast(module))
+        })
       };
       if result == Ordering::Equal {
         a_index.cmp(&b_index)
@@ -29,13 +31,13 @@ pub fn get_node_sorter_from_order<'a>(
         result
       }
     })),
-    SortOrder::CaseSensitive => Some(Box::new(|(a_index, a), (b_index, b), module| {
+    SortOrder::CaseSensitive => Some(Box::new(|(a_index, a), (b_index, b), program| {
       let result = if is_import_or_export_declaration(&a) {
-        cmp_optional_nodes(a, b, module, |a, b, module| {
+        cmp_optional_nodes(a, b, program, |a, b, module| {
           cmp_module_specifiers(a.text_fast(module), b.text_fast(module), cmp_text_case_sensitive)
         })
       } else {
-        cmp_optional_nodes(a, b, module, |a, b, module| cmp_text_case_sensitive(a.text_fast(module), b.text_fast(module)))
+        cmp_optional_nodes(a, b, program, |a, b, module| cmp_text_case_sensitive(a.text_fast(module), b.text_fast(module)))
       };
       if result == Ordering::Equal {
         a_index.cmp(&b_index)
@@ -49,12 +51,12 @@ pub fn get_node_sorter_from_order<'a>(
 fn cmp_optional_nodes<'a>(
   a: Option<&Node<'a>>,
   b: Option<&Node<'a>>,
-  module: &Module<'a>,
-  cmp_func: impl Fn(&dyn Spanned, &dyn Spanned, &Module<'a>) -> Ordering,
+  program: &Program<'a>,
+  cmp_func: impl Fn(&dyn Spanned, &dyn Spanned, &Program<'a>) -> Ordering,
 ) -> Ordering {
   if let Some(a) = a {
     if let Some(b) = b {
-      cmp_nodes(&a, &b, module, cmp_func)
+      cmp_nodes(&a, &b, program, cmp_func)
     } else {
       Ordering::Greater
     }
@@ -67,13 +69,13 @@ fn cmp_optional_nodes<'a>(
   }
 }
 
-fn cmp_nodes<'a>(a: &Node<'a>, b: &Node<'a>, module: &Module<'a>, cmp_func: impl Fn(&dyn Spanned, &dyn Spanned, &Module<'a>) -> Ordering) -> Ordering {
+fn cmp_nodes<'a>(a: &Node<'a>, b: &Node<'a>, program: &Program<'a>, cmp_func: impl Fn(&dyn Spanned, &dyn Spanned, &Program<'a>) -> Ordering) -> Ordering {
   let a_nodes = get_comparison_nodes(a);
   let b_nodes = get_comparison_nodes(b);
 
   for (i, a) in a_nodes.iter().enumerate() {
     if let Some(b) = b_nodes.get(i) {
-      let cmp_result = cmp_func(a, b, module);
+      let cmp_result = cmp_func(a, b, program);
       if cmp_result != Ordering::Equal {
         return cmp_result;
       }

@@ -1,12 +1,12 @@
+use deno_ast::swc::common::comments::Comment;
+use deno_ast::swc::common::BytePos;
+use deno_ast::swc::common::Span;
+use deno_ast::swc::common::Spanned;
+use deno_ast::swc::parser::token::TokenAndSpan;
+use deno_ast::view::*;
 use dprint_core::formatting::{ConditionReference, Info};
 use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
-use swc_ast_view::*;
-use swc_common::comments::Comment;
-use swc_common::BytePos;
-use swc_common::Span;
-use swc_common::Spanned;
-use swc_ecmascript::parser::token::TokenAndSpan;
 
 use super::*;
 use crate::configuration::*;
@@ -14,7 +14,7 @@ use crate::utils::Stack;
 
 pub struct Context<'a> {
   pub is_jsx: bool,
-  pub module: &'a Module<'a>,
+  pub program: &'a Program<'a>,
   pub config: &'a Configuration,
   pub comments: CommentTracker<'a>,
   pub token_finder: TokenFinder<'a>,
@@ -33,13 +33,13 @@ pub struct Context<'a> {
 }
 
 impl<'a> Context<'a> {
-  pub fn new(is_jsx: bool, tokens: &'a [TokenAndSpan], current_node: Node<'a>, module: &'a Module, config: &'a Configuration) -> Context<'a> {
+  pub fn new(is_jsx: bool, tokens: &'a [TokenAndSpan], current_node: Node<'a>, program: &'a Program<'a>, config: &'a Configuration) -> Context<'a> {
     Context {
       is_jsx,
-      module,
+      program,
       config,
-      comments: CommentTracker::new(module, tokens),
-      token_finder: TokenFinder::new(module),
+      comments: CommentTracker::new(program, tokens),
+      token_finder: TokenFinder::new(program),
       current_node,
       parent_stack: Stack::new(),
       handled_comments: FxHashSet::default(),
@@ -136,7 +136,7 @@ impl<'a> Context<'a> {
 
   #[cfg(debug_assertions)]
   pub fn assert_text(&self, span: Span, expected_text: &str) {
-    let actual_text = span.text_fast(self.module);
+    let actual_text = span.text_fast(self.program);
     if actual_text != expected_text {
       panic!("Debug Panic Expected text `{}`, but found `{}`", expected_text, actual_text)
     }
