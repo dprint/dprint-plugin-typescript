@@ -72,7 +72,7 @@ fn inner_format(parsed_source: &ParsedSource, config: &Configuration) -> Result<
 #[cfg(feature = "tracing")]
 pub fn trace_file(file_path: &Path, file_text: &str, config: &Configuration) -> dprint_core::formatting::TracingResult {
   let parsed_source = parse_swc_ast(file_path, file_text).unwrap();
-  ensure_no_specific_syntax_errors(parsed_source).unwrap();
+  ensure_no_specific_syntax_errors(&parsed_source).unwrap();
   dprint_core::formatting::trace_printing(|| parse(&parsed_source, config), config_to_print_options(file_text, config))
 }
 
