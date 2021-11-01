@@ -107,8 +107,8 @@ mod tests {
         "{ for object literal, @ for decorator, function, class, null, true, false, number, bigint, string, ",
         "regexp, ` for template literal, (, or an identifier\n",
         "\n",
-        "  & ${max} ≥ ${d}`),;\n",
-        "                    ~"
+        "   && ${max} ≥ ${d}`),;\n",
+        "                      ~"
       )
     );
   }
