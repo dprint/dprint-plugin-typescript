@@ -5994,8 +5994,11 @@ fn parse_array_like_nodes<'a>(opts: ParseArrayLikeNodesOptions<'a>, context: &mu
   return items;
 
   fn get_force_use_new_lines(node: &dyn Spanned, nodes: &[NodeOrSeparator], prefer_single_line: bool, context: &mut Context) -> bool {
-    if prefer_single_line || nodes.is_empty() {
+    if nodes.is_empty() {
       false
+    } else if prefer_single_line {
+      // if any comments exist on separate lines, then everything becomes multi-line
+      has_any_node_comment_on_different_line(nodes, context)
     } else {
       let open_bracket_token = node
         .tokens_fast(context.program)
