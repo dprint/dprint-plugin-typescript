@@ -374,41 +374,48 @@ fn parse_node_with_inner_parse<'a>(
 }
 
 fn get_has_ignore_comment<'a>(leading_comments: &CommentsIterator<'a>, node: &Node<'a>, context: &mut Context<'a>) -> bool {
-  return if let Some(last_comment) = get_last_comment(leading_comments, node, context) {
-    parser_helpers::text_has_dprint_ignore(&last_comment.text, &context.config.ignore_node_comment_text)
-  } else {
-    false
+  let comments = match node.parent() {
+    Some(Node::JSXElement(jsx_element)) => get_comments_for_jsx_children(&jsx_element.children, &node.lo(), context),
+    Some(Node::JSXFragment(jsx_fragment)) => get_comments_for_jsx_children(&jsx_fragment.children, &node.lo(), context),
+    _ => leading_comments.clone(),
   };
 
-  #[inline]
-  fn get_last_comment<'a>(leading_comments: &CommentsIterator<'a>, node: &Node, context: &mut Context<'a>) -> Option<&'a Comment> {
-    return match node.parent() {
-      Some(Node::JSXElement(jsx_element)) => get_last_comment_for_jsx_children(&jsx_element.children, &node.lo(), context),
-      Some(Node::JSXFragment(jsx_fragment)) => get_last_comment_for_jsx_children(&jsx_fragment.children, &node.lo(), context),
-      _ => leading_comments.peek_last_comment(),
+  for comment in comments.into_iter() {
+    if parser_helpers::text_has_dprint_ignore(&comment.text, &context.config.ignore_node_comment_text) {
+      return true;
+    }
+  }
+
+  return false;
+
+  fn get_comments_for_jsx_children<'a>(children: &[JSXElementChild], node_lo: &BytePos, context: &mut Context<'a>) -> CommentsIterator<'a> {
+    let mut iterator = CommentsIterator::empty();
+    let index = if let Some(index) = children.binary_search_by_key(node_lo, |child| child.lo()).ok() {
+      index
+    } else {
+      return iterator;
     };
 
-    fn get_last_comment_for_jsx_children<'a>(children: &[JSXElementChild], node_lo: &BytePos, context: &mut Context<'a>) -> Option<&'a Comment> {
-      let index = children.binary_search_by_key(node_lo, |child| child.lo()).ok()?;
-      for i in (0..index).rev() {
-        match children.get(i)? {
-          JSXElementChild::JSXExprContainer(expr_container) => {
-            return match expr_container.expr {
-              JSXExpr::JSXEmptyExpr(empty_expr) => get_jsx_empty_expr_comments(&empty_expr, context).last(),
-              _ => None,
-            };
-          }
-          JSXElementChild::JSXText(jsx_text) => {
-            if !jsx_text.text_fast(context.program).trim().is_empty() {
-              return None;
+    for i in (0..index).rev() {
+      match children.get(i).unwrap() {
+        JSXElementChild::JSXExprContainer(expr_container) => {
+          match expr_container.expr {
+            JSXExpr::JSXEmptyExpr(empty_expr) => {
+              iterator.extend(get_jsx_empty_expr_comments(&empty_expr, context));
             }
-          }
-          _ => return None,
+            _ => break,
+          };
         }
+        JSXElementChild::JSXText(jsx_text) => {
+          if !jsx_text.text_fast(context.program).trim().is_empty() {
+            break;
+          }
+        }
+        _ => break,
       }
-
-      None
     }
+
+    iterator
   }
 }
 

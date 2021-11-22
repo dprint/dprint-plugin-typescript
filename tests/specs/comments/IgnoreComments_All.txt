@@ -50,7 +50,7 @@ call(5, 6, 7,
     5, 6, 7
 ]
 
-== should not ignore when it's not the immediately preceding comment ==
+== should ignore even when it's not the immediately preceding comment ==
 // dprint-ignore
 // test
 [
@@ -61,8 +61,7 @@ call(5, 6, 7,
 // dprint-ignore
 // test
 [
-    5,
-    6,
+    5, 6
 ];
 
 == ignore comment at top of file should not ignore everything ==

@@ -30,3 +30,21 @@ const t = (
         <Test      />
     </>
 );
+
+== should ignore element after ignore comment in a previous empty element ==
+const t = (
+    <Element>
+        {/* dprint-ignore */}
+        {/* deno-lint-ignore */}
+        <Test      />
+    </Element>
+);
+
+[expect]
+const t = (
+    <Element>
+        {/* dprint-ignore */}
+        {/* deno-lint-ignore */}
+        <Test      />
+    </Element>
+);

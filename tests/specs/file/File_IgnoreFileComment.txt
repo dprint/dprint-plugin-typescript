@@ -71,11 +71,13 @@
 == should not skip when it's not before the first statement -- it doesn't bother searching the rest of the file ==
 testing ;
 /* dprint-ignore-file */
+asdf;
 // test
 testing( 1,   5 );
 
 [expect]
 testing;
 /* dprint-ignore-file */
+asdf;
 // test
 testing(1, 5);
