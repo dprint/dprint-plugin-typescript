@@ -44,8 +44,7 @@ export interface Test<TestingThisOut, WithVeryLong, TypeParameterList> extends T
 
 [expect]
 export interface Test<TestingThisOut, WithVeryLong,
-    TypeParameterList>
-    extends Test
+    TypeParameterList> extends Test
 {
 }
 

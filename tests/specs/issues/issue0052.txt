@@ -1,0 +1,24 @@
+~~ lineWidth: 40 ~~
+== avoids orphaning "extends" on its own line ==
+export interface Preview extends Pick<BaseGuild, "id" | "name" | "icon" | "splash" | "discovery_splash" | "emojis" | "features" | "description"> {
+  approximate_member_count: number;
+  approximate_presence_count: number;
+}
+
+[expect]
+export interface Preview extends
+    Pick<
+        BaseGuild,
+        | "id"
+        | "name"
+        | "icon"
+        | "splash"
+        | "discovery_splash"
+        | "emojis"
+        | "features"
+        | "description"
+    >
+{
+    approximate_member_count: number;
+    approximate_presence_count: number;
+}

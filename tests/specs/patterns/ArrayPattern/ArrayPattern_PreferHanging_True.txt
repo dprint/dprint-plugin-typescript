@@ -4,8 +4,9 @@ function t([testing, thisOutWhere, itGoesOverTheLineWidth]) {
 }
 
 [expect]
-function t(
-    [testing, thisOutWhere,
-        itGoesOverTheLineWidth],
-) {
+function t([
+    testing,
+    thisOutWhere,
+    itGoesOverTheLineWidth,
+]) {
 }

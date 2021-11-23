@@ -5,7 +5,6 @@ t(u, tbdstdddddbbSftt ? dddddmdd : testt);
 
 [expect]
 // skip format twice because preferSingleLine is false
-t(u,
-    tbdstdddddbbSftt
-        ? dddddmdd
-        : testt);
+t(u, tbdstdddddbbSftt
+    ? dddddmdd
+    : testt);

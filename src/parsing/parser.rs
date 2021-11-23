@@ -6998,13 +6998,8 @@ fn parse_extends_or_implements<'a>(opts: ParseExtendsOrImplementsOptions<'a>, co
     return items;
   }
 
-  items.push_condition(conditions::new_line_if_hanging_space_otherwise(
-    conditions::NewLineIfHangingSpaceOtherwiseOptions {
-      start_info: opts.start_header_info,
-      end_info: None,
-      space_char: Some(conditions::if_above_width_or(context.config.indent_width, Signal::SpaceOrNewLine.into(), " ".into()).into()),
-    },
-  ));
+  items.push_signal(Signal::PossibleNewLine);
+  items.push_condition(conditions::space_if_not_start_of_line(Some(" ".into())));
   // the newline group will force it to put the extends or implements on a new line
   items.push_condition(conditions::indent_if_start_of_line(parser_helpers::new_line_group({
     let mut items = PrintItems::new();
