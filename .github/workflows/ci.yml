@@ -23,7 +23,7 @@ jobs:
     - uses: actions-rs/toolchain@v1
       with:
         profile: minimal
-        toolchain: 1.56.0
+        toolchain: 1.57.0
         override: true
     - name: Install wasm32 target
       if: matrix.config.kind == 'test_release'
