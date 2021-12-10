@@ -2,7 +2,7 @@ extern crate dprint_core;
 
 pub mod configuration;
 mod format_text;
-mod parsing;
+mod generation;
 mod swc;
 mod utils;
 

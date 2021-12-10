@@ -29,7 +29,7 @@ pub struct Context<'a> {
   expr_stmt_single_line_parent_brace_ref: Option<ConditionReference>,
   /// Used for ensuring nodes are parsed in order.
   #[cfg(debug_assertions)]
-  pub last_parsed_node_pos: u32,
+  pub last_generated_node_pos: u32,
 }
 
 impl<'a> Context<'a> {
@@ -50,7 +50,7 @@ impl<'a> Context<'a> {
       if_stmt_last_brace_condition_ref: None,
       expr_stmt_single_line_parent_brace_ref: None,
       #[cfg(debug_assertions)]
-      last_parsed_node_pos: 0,
+      last_generated_node_pos: 0,
     }
   }
 
