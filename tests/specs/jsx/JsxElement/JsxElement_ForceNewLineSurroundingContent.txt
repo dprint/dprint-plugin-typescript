@@ -1,0 +1,31 @@
+-- file.tsx --
+~~ jsx.forceNewLineSurroundingContent: true ~~
+== should place surrounding content at new line without props ==
+const t = <Test>{myAwesomeContent}</Test>;
+
+[expect]
+const t = (
+    <Test>
+        {myAwesomeContent}
+    </Test>
+);
+
+== should place surrounding content at new line with one prop ==
+const t = <Test foo={"bar"}>{myAwesomeContent}</Test>;
+
+[expect]
+const t = (
+    <Test foo={"bar"}>
+        {myAwesomeContent}
+    </Test>
+);
+
+== should place surrounding content at new line with multiple props ==
+const t = <Test foo={"bar"} bar={"baz"}>{myAwesomeContent}</Test>;
+
+[expect]
+const t = (
+    <Test foo={"bar"} bar={"baz"}>
+        {myAwesomeContent}
+    </Test>
+);
