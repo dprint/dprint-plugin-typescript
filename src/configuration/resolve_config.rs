@@ -260,7 +260,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     ),
     set_accessor_space_before_parentheses: get_value(&mut config, "setAccessor.spaceBeforeParentheses", false, &mut diagnostics),
     space_surrounding_properties,
-    tagged_template_space_before_literal: get_value(&mut config, "taggedTemplate.spaceBeforeLiteral", true, &mut diagnostics),
+    tagged_template_space_before_literal: get_value(&mut config, "taggedTemplate.spaceBeforeLiteral", false, &mut diagnostics),
     type_annotation_space_before_colon: get_value(&mut config, "typeAnnotation.spaceBeforeColon", false, &mut diagnostics),
     type_assertion_space_before_expression: get_value(&mut config, "typeAssertion.spaceBeforeExpression", true, &mut diagnostics),
     type_literal_space_surrounding_properties: get_value(
