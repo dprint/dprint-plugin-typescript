@@ -6,7 +6,7 @@ pub fn indent_if_start_of_line_or_start_of_line_indented(items: PrintItems) -> C
   conditions::if_true_or(
     "withIndentIfStartOfLineOrStartOfLineIndented",
     |context| Some(condition_resolvers::is_start_of_line_indented(context) || condition_resolvers::is_start_of_line(context)),
-    parser_helpers::with_indent(rc_path.clone().into()),
+    ir_helpers::with_indent(rc_path.clone().into()),
     rc_path.into(),
   )
 }

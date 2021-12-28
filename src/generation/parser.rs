@@ -5,7 +5,7 @@ use deno_ast::view::*;
 use deno_ast::MediaType;
 use deno_ast::ParsedSource;
 use dprint_core::formatting::*;
-use dprint_core::formatting::{condition_resolvers, conditions::*, parser_helpers::*};
+use dprint_core::formatting::{condition_resolvers, conditions::*, ir_helpers::*};
 use std::rc::Rc;
 
 use super::sorting::*;
@@ -15,7 +15,7 @@ use super::*;
 use crate::configuration::*;
 use crate::utils;
 
-pub fn parse(parsed_source: &ParsedSource, config: &Configuration) -> PrintItems {
+pub fn generate(parsed_source: &ParsedSource, config: &Configuration) -> PrintItems {
   // println!("Leading: {:?}", parsed_source.comments().leading_map());
   // println!("Trailing: {:?}", parsed_source.comments().trailing_map());
 
@@ -23,7 +23,7 @@ pub fn parse(parsed_source: &ParsedSource, config: &Configuration) -> PrintItems
     let program_node = program.into();
     let is_jsx = matches!(parsed_source.media_type(), MediaType::Tsx | MediaType::Jsx | MediaType::JavaScript);
     let mut context = Context::new(is_jsx, parsed_source.tokens(), program_node, &program, config);
-    let mut items = parse_node(program_node, &mut context);
+    let mut items = gen_node(program_node, &mut context);
     items.push_condition(if_true(
       "endOfFileNewLine",
       |context| Some(context.writer_info.column_number > 0 || context.writer_info.line_number > 0),
@@ -37,15 +37,11 @@ pub fn parse(parsed_source: &ParsedSource, config: &Configuration) -> PrintItems
   })
 }
 
-fn parse_node<'a>(node: Node<'a>, context: &mut Context<'a>) -> PrintItems {
-  parse_node_with_inner_parse(node, context, |items, _| items)
+fn gen_node<'a>(node: Node<'a>, context: &mut Context<'a>) -> PrintItems {
+  gen_node_with_inner_gen(node, context, |items, _| items)
 }
 
-fn parse_node_with_inner_parse<'a>(
-  node: Node<'a>,
-  context: &mut Context<'a>,
-  inner_parse: impl FnOnce(PrintItems, &mut Context<'a>) -> PrintItems,
-) -> PrintItems {
+fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_gen: impl FnOnce(PrintItems, &mut Context<'a>) -> PrintItems) -> PrintItems {
   let node_kind = node.kind();
   // println!("Node kind: {:?}", node_kind);
   // println!("Text: {:?}", node.text());
@@ -59,9 +55,9 @@ fn parse_node_with_inner_parse<'a>(
   // handle decorators (since their starts can come before their parent)
   let mut items = handle_decorators_if_necessary(&node, context);
 
-  // now that decorators might have been parsed, assert the node order to ensure comments are parsed correctly
+  // now that decorators might have been generated, assert the node order to ensure comments are generated correctly
   #[cfg(debug_assertions)]
-  assert_parsed_in_order(&node, context);
+  assert_generated_in_order(&node, context);
 
   // parse item
   let node_span = node.span();
@@ -69,7 +65,7 @@ fn parse_node_with_inner_parse<'a>(
   let node_lo = node_span.lo;
   let mut has_ignore_comment = false;
 
-  // do not get the comments for modules as this will be handled in parse_statements
+  // do not get the comments for modules as this will be handled in gen_statements
   if !matches!(node_kind, NodeKind::Module | NodeKind::Script) {
     // get the leading comments
     if get_first_child_owns_leading_comments_on_same_line(&node, context) {
@@ -81,18 +77,18 @@ fn parse_node_with_inner_parse<'a>(
       let leading_comments_on_previous_lines = leading_comments
         .take_while(|c| c.kind == CommentKind::Line || c.start_line_fast(context.program) < node_start_line)
         .collect::<Vec<&'a Comment>>();
-      items.extend(parse_comment_collection(leading_comments_on_previous_lines.into_iter(), None, None, context));
+      items.extend(gen_comment_collection(leading_comments_on_previous_lines.into_iter(), None, None, context));
     } else {
       let leading_comments = context.comments.leading_comments_with_previous(node_lo);
       has_ignore_comment = get_has_ignore_comment(&leading_comments, &node, context);
-      items.extend(parse_comments_as_leading(&node_span, leading_comments, context));
+      items.extend(gen_comments_as_leading(&node_span, leading_comments, context));
     }
   }
 
-  // parse the node
+  // generate the node
   if has_ignore_comment {
     items.push_str(""); // force the current line indentation
-    items.extend(inner_parse(parser_helpers::parse_raw_string(node.text_fast(context.program)), context));
+    items.extend(inner_gen(ir_helpers::gen_from_raw_string(node.text_fast(context.program)), context));
 
     // mark any previous comments as handled
     for comment in context.comments.trailing_comments_with_previous(node_hi) {
@@ -101,14 +97,14 @@ fn parse_node_with_inner_parse<'a>(
       }
     }
   } else {
-    items.extend(inner_parse(parse_node_inner(node, context), context));
+    items.extend(inner_gen(gen_node_inner(node, context), context));
   }
 
   // Get the trailing comments -- This needs to be done based on the parse
   // stack order because certain nodes like binary expressions are flattened
   if node_hi != parent_hi || matches!(context.parent().kind(), NodeKind::Module | NodeKind::Script) {
     let trailing_comments = context.comments.trailing_comments_with_previous(node_hi);
-    items.extend(parse_comments_as_trailing(&node_span, trailing_comments, context));
+    items.extend(gen_comments_as_trailing(&node_span, trailing_comments, context));
   }
 
   let items = if let Some(info) = context.take_current_before_comments_start_info() {
@@ -123,196 +119,196 @@ fn parse_node_with_inner_parse<'a>(
   // pop info
   context.current_node = context.parent_stack.pop();
 
-  // need to ensure a jsx spread element's comments are parsed within the braces since swc
+  // need to ensure a jsx spread element's comments are generated within the braces since swc
   // has no representation of a JSX spread attribute and goes straight to the spread element
   return if node_kind == NodeKind::SpreadElement && node.parent().unwrap().kind() == NodeKind::JSXOpeningElement {
-    parse_as_jsx_expr_container(node, items, context)
+    gen_as_jsx_expr_container(node, items, context)
   } else {
     items
   };
 
-  fn parse_node_inner<'a>(node: Node<'a>, context: &mut Context<'a>) -> PrintItems {
+  fn gen_node_inner<'a>(node: Node<'a>, context: &mut Context<'a>) -> PrintItems {
     match node {
       /* class */
-      Node::ClassMethod(node) => parse_class_method(node, context),
-      Node::ClassProp(node) => parse_class_prop(node, context),
-      Node::Constructor(node) => parse_constructor(node, context),
-      Node::Decorator(node) => parse_decorator(node, context),
-      Node::TsParamProp(node) => parse_parameter_prop(node, context),
-      Node::PrivateMethod(node) => parse_private_method(node, context),
-      Node::PrivateName(node) => parse_private_name(node, context),
-      Node::PrivateProp(node) => parse_private_prop(node, context),
-      Node::StaticBlock(node) => parse_static_block(node, context),
+      Node::ClassMethod(node) => gen_class_method(node, context),
+      Node::ClassProp(node) => gen_class_prop(node, context),
+      Node::Constructor(node) => gen_constructor(node, context),
+      Node::Decorator(node) => gen_decorator(node, context),
+      Node::TsParamProp(node) => gen_parameter_prop(node, context),
+      Node::PrivateMethod(node) => gen_private_method(node, context),
+      Node::PrivateName(node) => gen_private_name(node, context),
+      Node::PrivateProp(node) => gen_private_prop(node, context),
+      Node::StaticBlock(node) => gen_static_block(node, context),
       /* clauses */
-      Node::CatchClause(node) => parse_catch_clause(node, context),
+      Node::CatchClause(node) => gen_catch_clause(node, context),
       /* common */
-      Node::ComputedPropName(node) => parse_computed_prop_name(node, context),
-      Node::Ident(node) => parse_identifier(node, context),
-      Node::BindingIdent(node) => parse_binding_identifier(node, context),
+      Node::ComputedPropName(node) => gen_computed_prop_name(node, context),
+      Node::Ident(node) => gen_identifier(node, context),
+      Node::BindingIdent(node) => gen_binding_identifier(node, context),
       /* declarations */
-      Node::ClassDecl(node) => parse_class_decl(node, context),
-      Node::ExportDecl(node) => parse_export_decl(node, context),
-      Node::ExportDefaultDecl(node) => parse_export_default_decl(node, context),
-      Node::ExportDefaultExpr(node) => parse_export_default_expr(node, context),
-      Node::ExportDefaultSpecifier(node) => parse_export_default_specifier(node, context),
-      Node::FnDecl(node) => parse_function_decl(node, context),
-      Node::ImportDecl(node) => parse_import_decl(node, context),
-      Node::NamedExport(node) => parse_export_named_decl(node, context),
-      Node::Param(node) => parse_param(node, context),
-      Node::TsEnumDecl(node) => parse_enum_decl(node, context),
-      Node::TsEnumMember(node) => parse_enum_member(node, context),
-      Node::TsImportEqualsDecl(node) => parse_import_equals_decl(node, context),
-      Node::TsInterfaceDecl(node) => parse_interface_decl(node, context),
-      Node::TsModuleDecl(node) => parse_module_decl(node, context),
-      Node::TsNamespaceDecl(node) => parse_namespace_decl(node, context),
-      Node::TsTypeAliasDecl(node) => parse_type_alias(node, context),
+      Node::ClassDecl(node) => gen_class_decl(node, context),
+      Node::ExportDecl(node) => gen_export_decl(node, context),
+      Node::ExportDefaultDecl(node) => gen_export_default_decl(node, context),
+      Node::ExportDefaultExpr(node) => gen_export_default_expr(node, context),
+      Node::ExportDefaultSpecifier(node) => gen_export_default_specifier(node, context),
+      Node::FnDecl(node) => gen_function_decl(node, context),
+      Node::ImportDecl(node) => gen_import_decl(node, context),
+      Node::NamedExport(node) => gen_export_named_decl(node, context),
+      Node::Param(node) => gen_param(node, context),
+      Node::TsEnumDecl(node) => gen_enum_decl(node, context),
+      Node::TsEnumMember(node) => gen_enum_member(node, context),
+      Node::TsImportEqualsDecl(node) => gen_import_equals_decl(node, context),
+      Node::TsInterfaceDecl(node) => gen_interface_decl(node, context),
+      Node::TsModuleDecl(node) => gen_module_decl(node, context),
+      Node::TsNamespaceDecl(node) => gen_namespace_decl(node, context),
+      Node::TsTypeAliasDecl(node) => gen_type_alias(node, context),
       /* expressions */
-      Node::ArrayLit(node) => parse_array_expr(node, context),
-      Node::ArrowExpr(node) => parse_arrow_func_expr(node, context),
-      Node::AssignExpr(node) => parse_assignment_expr(node, context),
-      Node::AwaitExpr(node) => parse_await_expr(node, context),
-      Node::BinExpr(node) => parse_binary_expr(node, context),
-      Node::CallExpr(node) => parse_call_expr(node, context),
-      Node::ClassExpr(node) => parse_class_expr(node, context),
-      Node::CondExpr(node) => parse_conditional_expr(node, context),
-      Node::ExprOrSpread(node) => parse_expr_or_spread(node, context),
-      Node::FnExpr(node) => parse_fn_expr(node, context),
-      Node::GetterProp(node) => parse_getter_prop(node, context),
-      Node::KeyValueProp(node) => parse_key_value_prop(node, context),
-      Node::AssignProp(node) => parse_assign_prop(node, context),
-      Node::MemberExpr(node) => parse_member_expr(node, context),
-      Node::MetaPropExpr(node) => parse_meta_prop_expr(node, context),
-      Node::NewExpr(node) => parse_new_expr(node, context),
-      Node::ObjectLit(node) => parse_object_lit(node, context),
-      Node::OptChainExpr(node) => parse_node(node.expr.into(), context),
-      Node::ParenExpr(node) => parse_paren_expr(node, context),
-      Node::SeqExpr(node) => parse_sequence_expr(node, context),
-      Node::SetterProp(node) => parse_setter_prop(node, context),
-      Node::SpreadElement(node) => parse_spread_element(node, context),
+      Node::ArrayLit(node) => gen_array_expr(node, context),
+      Node::ArrowExpr(node) => gen_arrow_func_expr(node, context),
+      Node::AssignExpr(node) => gen_assignment_expr(node, context),
+      Node::AwaitExpr(node) => gen_await_expr(node, context),
+      Node::BinExpr(node) => gen_binary_expr(node, context),
+      Node::CallExpr(node) => gen_call_expr(node, context),
+      Node::ClassExpr(node) => gen_class_expr(node, context),
+      Node::CondExpr(node) => gen_conditional_expr(node, context),
+      Node::ExprOrSpread(node) => gen_expr_or_spread(node, context),
+      Node::FnExpr(node) => gen_fn_expr(node, context),
+      Node::GetterProp(node) => gen_getter_prop(node, context),
+      Node::KeyValueProp(node) => gen_key_value_prop(node, context),
+      Node::AssignProp(node) => gen_assign_prop(node, context),
+      Node::MemberExpr(node) => gen_member_expr(node, context),
+      Node::MetaPropExpr(node) => gen_meta_prop_expr(node, context),
+      Node::NewExpr(node) => gen_new_expr(node, context),
+      Node::ObjectLit(node) => gen_object_lit(node, context),
+      Node::OptChainExpr(node) => gen_node(node.expr.into(), context),
+      Node::ParenExpr(node) => gen_paren_expr(node, context),
+      Node::SeqExpr(node) => gen_sequence_expr(node, context),
+      Node::SetterProp(node) => gen_setter_prop(node, context),
+      Node::SpreadElement(node) => gen_spread_element(node, context),
       Node::Super(_) => "super".into(),
-      Node::TaggedTpl(node) => parse_tagged_tpl(node, context),
+      Node::TaggedTpl(node) => gen_tagged_tpl(node, context),
       Node::ThisExpr(_) => "this".into(),
-      Node::Tpl(node) => parse_tpl(node, context),
-      Node::TplElement(node) => parse_tpl_element(node, context),
-      Node::TsAsExpr(node) => parse_as_expr(node, context),
-      Node::TsConstAssertion(node) => parse_const_assertion(node, context),
-      Node::TsExprWithTypeArgs(node) => parse_expr_with_type_args(node, context),
-      Node::TsNonNullExpr(node) => parse_non_null_expr(node, context),
-      Node::TsTypeAssertion(node) => parse_type_assertion(node, context),
-      Node::UnaryExpr(node) => parse_unary_expr(node, context),
-      Node::UpdateExpr(node) => parse_update_expr(node, context),
-      Node::YieldExpr(node) => parse_yield_expr(node, context),
+      Node::Tpl(node) => gen_tpl(node, context),
+      Node::TplElement(node) => gen_tpl_element(node, context),
+      Node::TsAsExpr(node) => gen_as_expr(node, context),
+      Node::TsConstAssertion(node) => gen_const_assertion(node, context),
+      Node::TsExprWithTypeArgs(node) => gen_expr_with_type_args(node, context),
+      Node::TsNonNullExpr(node) => gen_non_null_expr(node, context),
+      Node::TsTypeAssertion(node) => gen_type_assertion(node, context),
+      Node::UnaryExpr(node) => gen_unary_expr(node, context),
+      Node::UpdateExpr(node) => gen_update_expr(node, context),
+      Node::YieldExpr(node) => gen_yield_expr(node, context),
       /* exports */
-      Node::ExportNamedSpecifier(node) => parse_export_named_specifier(node, context),
-      Node::ExportNamespaceSpecifier(node) => parse_namespace_export_specifier(node, context),
+      Node::ExportNamedSpecifier(node) => gen_export_named_specifier(node, context),
+      Node::ExportNamespaceSpecifier(node) => gen_namespace_export_specifier(node, context),
       /* imports */
-      Node::ImportNamedSpecifier(node) => parse_import_named_specifier(node, context),
-      Node::ImportStarAsSpecifier(node) => parse_import_namespace_specifier(node, context),
-      Node::ImportDefaultSpecifier(node) => parse_node(node.local.into(), context),
-      Node::TsExternalModuleRef(node) => parse_external_module_ref(node, context),
+      Node::ImportNamedSpecifier(node) => gen_import_named_specifier(node, context),
+      Node::ImportStarAsSpecifier(node) => gen_import_namespace_specifier(node, context),
+      Node::ImportDefaultSpecifier(node) => gen_node(node.local.into(), context),
+      Node::TsExternalModuleRef(node) => gen_external_module_ref(node, context),
       /* interface / type element */
-      Node::TsCallSignatureDecl(node) => parse_call_signature_decl(node, context),
-      Node::TsConstructSignatureDecl(node) => parse_construct_signature_decl(node, context),
-      Node::TsIndexSignature(node) => parse_index_signature(node, context),
-      Node::TsInterfaceBody(node) => parse_interface_body(node, context),
-      Node::TsMethodSignature(node) => parse_method_signature(node, context),
-      Node::TsPropertySignature(node) => parse_property_signature(node, context),
-      Node::TsTypeLit(node) => parse_type_lit(node, context),
+      Node::TsCallSignatureDecl(node) => gen_call_signature_decl(node, context),
+      Node::TsConstructSignatureDecl(node) => gen_construct_signature_decl(node, context),
+      Node::TsIndexSignature(node) => gen_index_signature(node, context),
+      Node::TsInterfaceBody(node) => gen_interface_body(node, context),
+      Node::TsMethodSignature(node) => gen_method_signature(node, context),
+      Node::TsPropertySignature(node) => gen_property_signature(node, context),
+      Node::TsTypeLit(node) => gen_type_lit(node, context),
       /* jsx */
-      Node::JSXAttr(node) => parse_jsx_attribute(node, context),
-      Node::JSXClosingElement(node) => parse_jsx_closing_element(node, context),
-      Node::JSXClosingFragment(node) => parse_jsx_closing_fragment(node, context),
-      Node::JSXElement(node) => parse_jsx_element(node, context),
-      Node::JSXEmptyExpr(node) => parse_jsx_empty_expr(node, context),
-      Node::JSXExprContainer(node) => parse_jsx_expr_container(node, context),
-      Node::JSXFragment(node) => parse_jsx_fragment(node, context),
-      Node::JSXMemberExpr(node) => parse_jsx_member_expr(node, context),
-      Node::JSXNamespacedName(node) => parse_jsx_namespaced_name(node, context),
-      Node::JSXOpeningElement(node) => parse_jsx_opening_element(node, context),
-      Node::JSXOpeningFragment(node) => parse_jsx_opening_fragment(node, context),
-      Node::JSXSpreadChild(node) => parse_jsx_spread_child(node, context),
-      Node::JSXText(node) => parse_jsx_text(node, context),
+      Node::JSXAttr(node) => gen_jsx_attribute(node, context),
+      Node::JSXClosingElement(node) => gen_jsx_closing_element(node, context),
+      Node::JSXClosingFragment(node) => gen_jsx_closing_fragment(node, context),
+      Node::JSXElement(node) => gen_jsx_element(node, context),
+      Node::JSXEmptyExpr(node) => gen_jsx_empty_expr(node, context),
+      Node::JSXExprContainer(node) => gen_jsx_expr_container(node, context),
+      Node::JSXFragment(node) => gen_jsx_fragment(node, context),
+      Node::JSXMemberExpr(node) => gen_jsx_member_expr(node, context),
+      Node::JSXNamespacedName(node) => gen_jsx_namespaced_name(node, context),
+      Node::JSXOpeningElement(node) => gen_jsx_opening_element(node, context),
+      Node::JSXOpeningFragment(node) => gen_jsx_opening_fragment(node, context),
+      Node::JSXSpreadChild(node) => gen_jsx_spread_child(node, context),
+      Node::JSXText(node) => gen_jsx_text(node, context),
       /* literals */
-      Node::BigInt(node) => parse_big_int_literal(node, context),
-      Node::Bool(node) => parse_bool_literal(node),
+      Node::BigInt(node) => gen_big_int_literal(node, context),
+      Node::Bool(node) => gen_bool_literal(node),
       Node::Null(_) => "null".into(),
-      Node::Number(node) => parse_num_literal(node, context),
-      Node::Regex(node) => parse_reg_exp_literal(node, context),
-      Node::Str(node) => parse_string_literal(node, context),
+      Node::Number(node) => gen_num_literal(node, context),
+      Node::Regex(node) => gen_reg_exp_literal(node, context),
+      Node::Str(node) => gen_string_literal(node, context),
       /* top level */
-      Node::Module(node) => parse_module(node, context),
-      Node::Script(node) => parse_script(node, context),
+      Node::Module(node) => gen_module(node, context),
+      Node::Script(node) => gen_script(node, context),
       /* patterns */
-      Node::ArrayPat(node) => parse_array_pat(node, context),
-      Node::AssignPat(node) => parse_assign_pat(node, context),
-      Node::AssignPatProp(node) => parse_assign_pat_prop(node, context),
-      Node::KeyValuePatProp(node) => parse_key_value_pat_prop(node, context),
-      Node::RestPat(node) => parse_rest_pat(node, context),
-      Node::ObjectPat(node) => parse_object_pat(node, context),
+      Node::ArrayPat(node) => gen_array_pat(node, context),
+      Node::AssignPat(node) => gen_assign_pat(node, context),
+      Node::AssignPatProp(node) => gen_assign_pat_prop(node, context),
+      Node::KeyValuePatProp(node) => gen_key_value_pat_prop(node, context),
+      Node::RestPat(node) => gen_rest_pat(node, context),
+      Node::ObjectPat(node) => gen_object_pat(node, context),
       /* properties */
-      Node::MethodProp(node) => parse_method_prop(node, context),
+      Node::MethodProp(node) => gen_method_prop(node, context),
       /* statements */
-      Node::BlockStmt(node) => parse_block_stmt(node, context),
-      Node::BreakStmt(node) => parse_break_stmt(node, context),
-      Node::ContinueStmt(node) => parse_continue_stmt(node, context),
-      Node::DebuggerStmt(node) => parse_debugger_stmt(node, context),
-      Node::DoWhileStmt(node) => parse_do_while_stmt(node, context),
-      Node::ExportAll(node) => parse_export_all(node, context),
-      Node::ExprStmt(node) => parse_expr_stmt(node, context),
-      Node::EmptyStmt(node) => parse_empty_stmt(node, context),
-      Node::ForInStmt(node) => parse_for_in_stmt(node, context),
-      Node::ForOfStmt(node) => parse_for_of_stmt(node, context),
-      Node::ForStmt(node) => parse_for_stmt(node, context),
-      Node::IfStmt(node) => parse_if_stmt(node, context),
-      Node::LabeledStmt(node) => parse_labeled_stmt(node, context),
-      Node::ReturnStmt(node) => parse_return_stmt(node, context),
-      Node::SwitchStmt(node) => parse_switch_stmt(node, context),
-      Node::SwitchCase(node) => parse_switch_case(node, context),
-      Node::ThrowStmt(node) => parse_throw_stmt(node, context),
-      Node::TryStmt(node) => parse_try_stmt(node, context),
-      Node::TsExportAssignment(node) => parse_export_assignment(node, context),
-      Node::TsNamespaceExportDecl(node) => parse_namespace_export(node, context),
-      Node::VarDecl(node) => parse_var_decl(node, context),
-      Node::VarDeclarator(node) => parse_var_declarator(node, context),
-      Node::WhileStmt(node) => parse_while_stmt(node, context),
+      Node::BlockStmt(node) => gen_block_stmt(node, context),
+      Node::BreakStmt(node) => gen_break_stmt(node, context),
+      Node::ContinueStmt(node) => gen_continue_stmt(node, context),
+      Node::DebuggerStmt(node) => gen_debugger_stmt(node, context),
+      Node::DoWhileStmt(node) => gen_do_while_stmt(node, context),
+      Node::ExportAll(node) => gen_export_all(node, context),
+      Node::ExprStmt(node) => gen_expr_stmt(node, context),
+      Node::EmptyStmt(node) => gen_empty_stmt(node, context),
+      Node::ForInStmt(node) => gen_for_in_stmt(node, context),
+      Node::ForOfStmt(node) => gen_for_of_stmt(node, context),
+      Node::ForStmt(node) => gen_for_stmt(node, context),
+      Node::IfStmt(node) => gen_if_stmt(node, context),
+      Node::LabeledStmt(node) => gen_labeled_stmt(node, context),
+      Node::ReturnStmt(node) => gen_return_stmt(node, context),
+      Node::SwitchStmt(node) => gen_switch_stmt(node, context),
+      Node::SwitchCase(node) => gen_switch_case(node, context),
+      Node::ThrowStmt(node) => gen_throw_stmt(node, context),
+      Node::TryStmt(node) => gen_try_stmt(node, context),
+      Node::TsExportAssignment(node) => gen_export_assignment(node, context),
+      Node::TsNamespaceExportDecl(node) => gen_namespace_export(node, context),
+      Node::VarDecl(node) => gen_var_decl(node, context),
+      Node::VarDeclarator(node) => gen_var_declarator(node, context),
+      Node::WhileStmt(node) => gen_while_stmt(node, context),
       /* types */
-      Node::TsArrayType(node) => parse_array_type(node, context),
-      Node::TsConditionalType(node) => parse_conditional_type(node, context),
-      Node::TsConstructorType(node) => parse_constructor_type(node, context),
-      Node::TsFnType(node) => parse_function_type(node, context),
-      Node::TsGetterSignature(node) => parse_getter_signature(node, context),
-      Node::TsSetterSignature(node) => parse_setter_signature(node, context),
-      Node::TsKeywordType(node) => parse_keyword_type(node, context),
-      Node::TsImportType(node) => parse_import_type(node, context),
-      Node::TsIndexedAccessType(node) => parse_indexed_access_type(node, context),
-      Node::TsInferType(node) => parse_infer_type(node, context),
-      Node::TsIntersectionType(node) => parse_intersection_type(node, context),
-      Node::TsLitType(node) => parse_lit_type(node, context),
-      Node::TsMappedType(node) => parse_mapped_type(node, context),
-      Node::TsOptionalType(node) => parse_optional_type(node, context),
-      Node::TsQualifiedName(node) => parse_qualified_name(node, context),
-      Node::TsParenthesizedType(node) => parse_parenthesized_type(node, context),
-      Node::TsRestType(node) => parse_rest_type(node, context),
+      Node::TsArrayType(node) => gen_array_type(node, context),
+      Node::TsConditionalType(node) => gen_conditional_type(node, context),
+      Node::TsConstructorType(node) => gen_constructor_type(node, context),
+      Node::TsFnType(node) => gen_function_type(node, context),
+      Node::TsGetterSignature(node) => gen_getter_signature(node, context),
+      Node::TsSetterSignature(node) => gen_setter_signature(node, context),
+      Node::TsKeywordType(node) => gen_keyword_type(node, context),
+      Node::TsImportType(node) => gen_import_type(node, context),
+      Node::TsIndexedAccessType(node) => gen_indexed_access_type(node, context),
+      Node::TsInferType(node) => gen_infer_type(node, context),
+      Node::TsIntersectionType(node) => gen_intersection_type(node, context),
+      Node::TsLitType(node) => gen_lit_type(node, context),
+      Node::TsMappedType(node) => gen_mapped_type(node, context),
+      Node::TsOptionalType(node) => gen_optional_type(node, context),
+      Node::TsQualifiedName(node) => gen_qualified_name(node, context),
+      Node::TsParenthesizedType(node) => gen_parenthesized_type(node, context),
+      Node::TsRestType(node) => gen_rest_type(node, context),
       Node::TsThisType(_) => "this".into(),
-      Node::TsTplLitType(node) => parse_tpl_lit_type(node, context),
-      Node::TsTupleType(node) => parse_tuple_type(node, context),
-      Node::TsTupleElement(node) => parse_tuple_element(node, context),
-      Node::TsTypeAnn(node) => parse_type_ann(node, context),
-      Node::TsTypeParam(node) => parse_type_param(node, context),
-      Node::TsTypeParamDecl(node) => parse_type_parameters(TypeParamNode::Decl(node), context),
-      Node::TsTypeParamInstantiation(node) => parse_type_parameters(TypeParamNode::Instantiation(node), context),
-      Node::TsTypeOperator(node) => parse_type_operator(node, context),
-      Node::TsTypePredicate(node) => parse_type_predicate(node, context),
-      Node::TsTypeQuery(node) => parse_type_query(node, context),
-      Node::TsTypeRef(node) => parse_type_reference(node, context),
-      Node::TsUnionType(node) => parse_union_type(node, context),
+      Node::TsTplLitType(node) => gen_tpl_lit_type(node, context),
+      Node::TsTupleType(node) => gen_tuple_type(node, context),
+      Node::TsTupleElement(node) => gen_tuple_element(node, context),
+      Node::TsTypeAnn(node) => gen_type_ann(node, context),
+      Node::TsTypeParam(node) => gen_type_param(node, context),
+      Node::TsTypeParamDecl(node) => gen_type_parameters(TypeParamNode::Decl(node), context),
+      Node::TsTypeParamInstantiation(node) => gen_type_parameters(TypeParamNode::Instantiation(node), context),
+      Node::TsTypeOperator(node) => gen_type_operator(node, context),
+      Node::TsTypePredicate(node) => gen_type_predicate(node, context),
+      Node::TsTypeQuery(node) => gen_type_query(node, context),
+      Node::TsTypeRef(node) => gen_type_reference(node, context),
+      Node::TsUnionType(node) => gen_union_type(node, context),
       /* These should never be matched. Return its text if so */
       Node::Class(_) | Node::Function(_) | Node::Invalid(_) | Node::WithStmt(_) | Node::TsModuleBlock(_) => {
         if cfg!(debug_assertions) {
-          panic!("Debug panic! Did not expect to parse node of type {}.", node.kind());
+          panic!("Debug panic! Did not expect to generate IR for node of type {}.", node.kind());
         }
 
-        parse_raw_string(node.text_fast(context.program))
+        gen_from_raw_string(node.text_fast(context.program))
       }
     }
   }
@@ -324,11 +320,11 @@ fn parse_node_with_inner_parse<'a>(
     // decorators in these cases will have starts before their parent so they need to be handled specially
     if let Node::ExportDecl(decl) = node {
       if let Decl::Class(class_decl) = &decl.decl {
-        items.extend(parse_decorators(&class_decl.class.decorators, false, context));
+        items.extend(gen_decorators(&class_decl.class.decorators, false, context));
       }
     } else if let Node::ExportDefaultDecl(decl) = node {
       if let DefaultDecl::Class(class_expr) = &decl.decl {
-        items.extend(parse_decorators(&class_expr.class.decorators, false, context));
+        items.extend(gen_decorators(&class_expr.class.decorators, false, context));
       }
     }
 
@@ -349,27 +345,27 @@ fn parse_node_with_inner_parse<'a>(
   }
 
   #[cfg(debug_assertions)]
-  fn assert_parsed_in_order(node: &Node, context: &mut Context) {
+  fn assert_generated_in_order(node: &Node, context: &mut Context) {
     let node_pos = node.lo().0;
-    if context.last_parsed_node_pos > node_pos {
+    if context.last_generated_node_pos > node_pos {
       // When this panic happens it means that a node with a start further
-      // along in the file has been "parsed" before this current node. When
+      // along in the file has been generated before this current node. When
       // that occurs, comments that this node "owns" might have been shifted
       // over to the further along node since "forgotten" comments get
-      // prepended when a node is being parsed.
+      // prepended when a node is being generated.
       //
       // Do the following steps to solve:
       //
-      // 1. Uncomment the lines in `parse_node_with_inner_parse` in order to
+      // 1. Uncomment the lines in `gen_node_with_inner_gen` in order to
       //    display the node kinds.
       // 2. Add a test that reproduces the issue then run the tests and see
       //    where it panics and how that node looks. Ensure the node widths
       //    are correct. If not, that's a bug in swc, so go fix it in swc.
       // 3. If it's not a bug in swc, then check the parsing code to ensure
-      //    the nodes are being parsed in order.
+      //    the nodes are being generated in order.
       panic!("Debug panic! Node comments retrieved out of order!");
     }
-    context.last_parsed_node_pos = node_pos;
+    context.last_generated_node_pos = node_pos;
   }
 }
 
@@ -381,7 +377,7 @@ fn get_has_ignore_comment<'a>(leading_comments: &CommentsIterator<'a>, node: &No
   };
 
   for comment in comments.into_iter() {
-    if parser_helpers::text_has_dprint_ignore(&comment.text, &context.config.ignore_node_comment_text) {
+    if ir_helpers::text_has_dprint_ignore(&comment.text, &context.config.ignore_node_comment_text) {
       return true;
     }
   }
@@ -421,9 +417,9 @@ fn get_has_ignore_comment<'a>(leading_comments: &CommentsIterator<'a>, node: &No
 
 /* class */
 
-fn parse_class_method<'a>(node: &'a ClassMethod, context: &mut Context<'a>) -> PrintItems {
+fn gen_class_method<'a>(node: &'a ClassMethod, context: &mut Context<'a>) -> PrintItems {
   // todo: consolidate with private method
-  parse_class_or_object_method(
+  gen_class_or_object_method(
     ClassOrObjectMethod {
       node: node.into(),
       parameters_span: node.get_parameters_span(context),
@@ -446,8 +442,8 @@ fn parse_class_method<'a>(node: &'a ClassMethod, context: &mut Context<'a>) -> P
   )
 }
 
-fn parse_private_method<'a>(node: &'a PrivateMethod, context: &mut Context<'a>) -> PrintItems {
-  parse_class_or_object_method(
+fn gen_private_method<'a>(node: &'a PrivateMethod, context: &mut Context<'a>) -> PrintItems {
+  gen_class_or_object_method(
     ClassOrObjectMethod {
       node: node.into(),
       parameters_span: node.get_parameters_span(context),
@@ -470,9 +466,9 @@ fn parse_private_method<'a>(node: &'a PrivateMethod, context: &mut Context<'a>) 
   )
 }
 
-fn parse_class_prop<'a>(node: &'a ClassProp, context: &mut Context<'a>) -> PrintItems {
-  parse_class_prop_common(
-    ParseClassPropCommon {
+fn gen_class_prop<'a>(node: &'a ClassProp, context: &mut Context<'a>) -> PrintItems {
+  gen_class_prop_common(
+    GenClassPropCommon {
       key: node.key.into(),
       value: &node.value,
       type_ann: &node.type_ann,
@@ -491,8 +487,8 @@ fn parse_class_prop<'a>(node: &'a ClassProp, context: &mut Context<'a>) -> Print
   )
 }
 
-fn parse_constructor<'a>(node: &'a Constructor, context: &mut Context<'a>) -> PrintItems {
-  parse_class_or_object_method(
+fn gen_constructor<'a>(node: &'a Constructor, context: &mut Context<'a>) -> PrintItems {
+  gen_class_or_object_method(
     ClassOrObjectMethod {
       node: node.into(),
       parameters_span: node.get_parameters_span(context),
@@ -515,16 +511,16 @@ fn parse_constructor<'a>(node: &'a Constructor, context: &mut Context<'a>) -> Pr
   )
 }
 
-fn parse_decorator<'a>(node: &'a Decorator, context: &mut Context<'a>) -> PrintItems {
+fn gen_decorator<'a>(node: &'a Decorator, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_str("@");
-  items.extend(parse_node(node.expr.into(), context));
+  items.extend(gen_node(node.expr.into(), context));
   items
 }
 
-fn parse_parameter_prop<'a>(node: &'a TsParamProp, context: &mut Context<'a>) -> PrintItems {
+fn gen_parameter_prop<'a>(node: &'a TsParamProp, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(parse_decorators(&node.decorators, true, context));
+  items.extend(gen_decorators(&node.decorators, true, context));
   if let Some(accessibility) = node.accessibility() {
     items.push_string(format!("{} ", accessibility_to_str(accessibility)));
   }
@@ -534,20 +530,20 @@ fn parse_parameter_prop<'a>(node: &'a TsParamProp, context: &mut Context<'a>) ->
   if node.readonly() {
     items.push_str("readonly ");
   }
-  items.extend(parse_node(node.param.into(), context));
+  items.extend(gen_node(node.param.into(), context));
   items
 }
 
-fn parse_private_name<'a>(node: &'a PrivateName, context: &mut Context<'a>) -> PrintItems {
+fn gen_private_name<'a>(node: &'a PrivateName, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_str("#");
-  items.extend(parse_node(node.id.into(), context));
+  items.extend(gen_node(node.id.into(), context));
   items
 }
 
-fn parse_private_prop<'a>(node: &'a PrivateProp, context: &mut Context<'a>) -> PrintItems {
-  parse_class_prop_common(
-    ParseClassPropCommon {
+fn gen_private_prop<'a>(node: &'a PrivateProp, context: &mut Context<'a>) -> PrintItems {
+  gen_class_prop_common(
+    GenClassPropCommon {
       key: node.key.into(),
       value: &node.value,
       type_ann: &node.type_ann,
@@ -566,7 +562,7 @@ fn parse_private_prop<'a>(node: &'a PrivateProp, context: &mut Context<'a>) -> P
   )
 }
 
-struct ParseClassPropCommon<'a> {
+struct GenClassPropCommon<'a> {
   pub key: Node<'a>,
   pub value: &'a Option<Expr<'a>>,
   pub type_ann: &'a Option<&'a TsTypeAnn<'a>>,
@@ -582,9 +578,9 @@ struct ParseClassPropCommon<'a> {
   pub definite: bool,
 }
 
-fn parse_class_prop_common<'a>(node: ParseClassPropCommon<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_class_prop_common<'a>(node: GenClassPropCommon<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(parse_decorators(node.decorators, false, context));
+  items.extend(gen_decorators(node.decorators, false, context));
   if node.is_declare {
     items.push_str("declare ");
   }
@@ -605,13 +601,13 @@ fn parse_class_prop_common<'a>(node: ParseClassPropCommon<'a>, context: &mut Con
   }
   let key_span = node.key.span();
   items.extend(if node.computed {
-    parse_computed_prop_like(
-      |context| parse_node(node.key, context),
-      ParseComputedPropLikeOptions { inner_node_span: key_span },
+    gen_computed_prop_like(
+      |context| gen_node(node.key, context),
+      GenComputedPropLikeOptions { inner_node_span: key_span },
       context,
     )
   } else {
-    parse_node(node.key, context)
+    gen_node(node.key, context)
   });
   if node.is_optional {
     items.push_str("?");
@@ -619,10 +615,10 @@ fn parse_class_prop_common<'a>(node: ParseClassPropCommon<'a>, context: &mut Con
   if node.definite {
     items.push_str("!");
   }
-  items.extend(parse_type_ann_with_colon_if_exists(node.type_ann, context));
+  items.extend(gen_type_ann_with_colon_if_exists(node.type_ann, context));
 
   if let Some(value) = node.value {
-    items.extend(parse_assignment(value.into(), "=", context));
+    items.extend(gen_assignment(value.into(), "=", context));
   }
 
   if context.config.semi_colons.is_true() {
@@ -632,28 +628,28 @@ fn parse_class_prop_common<'a>(node: ParseClassPropCommon<'a>, context: &mut Con
   items
 }
 
-fn parse_static_block<'a>(node: &'a StaticBlock, context: &mut Context<'a>) -> PrintItems {
+fn gen_static_block<'a>(node: &'a StaticBlock, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   let start_header_info = Info::new("staticBlockStart");
   items.push_info(start_header_info);
   items.push_str("static");
 
-  items.extend(parse_brace_separator(
-    ParseBraceSeparatorOptions {
+  items.extend(gen_brace_separator(
+    GenBraceSeparatorOptions {
       brace_position: context.config.static_block_brace_position,
       open_brace_token: context.token_finder.get_first_open_brace_token_within(&node.body),
       start_header_info: Some(start_header_info),
     },
     context,
   ));
-  items.extend(parse_node(node.body.into(), context));
+  items.extend(gen_node(node.body.into(), context));
 
   items
 }
 
 /* clauses */
 
-fn parse_catch_clause<'a>(node: &'a CatchClause, context: &mut Context<'a>) -> PrintItems {
+fn gen_catch_clause<'a>(node: &'a CatchClause, context: &mut Context<'a>) -> PrintItems {
   // a bit overkill since the param will currently always just be an identifer
   let start_header_info = Info::new("catchClauseHeaderStart");
   let end_header_info = Info::new("catchClauseHeaderEnd");
@@ -664,7 +660,7 @@ fn parse_catch_clause<'a>(node: &'a CatchClause, context: &mut Context<'a>) -> P
 
   if let Some(param) = &node.param {
     items.push_str(" (");
-    items.extend(parse_node(param.into(), context));
+    items.extend(gen_node(param.into(), context));
     items.push_str(")");
   }
   items.push_info(end_header_info);
@@ -678,8 +674,8 @@ fn parse_catch_clause<'a>(node: &'a CatchClause, context: &mut Context<'a>) -> P
 
   // not conditional... required
   items.extend(
-    parse_conditional_brace_body(
-      ParseConditionalBraceBodyOptions {
+    gen_conditional_brace_body(
+      GenConditionalBraceBodyOptions {
         parent: node.span(),
         body_node: node.body.into(),
         use_braces: UseBraces::Always,
@@ -692,7 +688,7 @@ fn parse_catch_clause<'a>(node: &'a CatchClause, context: &mut Context<'a>) -> P
       },
       context,
     )
-    .parsed_node,
+    .generated_node,
   );
 
   items
@@ -700,17 +696,17 @@ fn parse_catch_clause<'a>(node: &'a CatchClause, context: &mut Context<'a>) -> P
 
 /* common */
 
-fn parse_computed_prop_name<'a>(node: &'a ComputedPropName, context: &mut Context<'a>) -> PrintItems {
-  parse_computed_prop_like(
-    |context| parse_node(node.expr.into(), context),
-    ParseComputedPropLikeOptions {
+fn gen_computed_prop_name<'a>(node: &'a ComputedPropName, context: &mut Context<'a>) -> PrintItems {
+  gen_computed_prop_like(
+    |context| gen_node(node.expr.into(), context),
+    GenComputedPropLikeOptions {
       inner_node_span: node.expr.span(),
     },
     context,
   )
 }
 
-fn parse_identifier<'a>(node: &'a Ident, _: &mut Context<'a>) -> PrintItems {
+fn gen_identifier<'a>(node: &'a Ident, _: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_str(node.sym() as &str);
 
@@ -721,9 +717,9 @@ fn parse_identifier<'a>(node: &'a Ident, _: &mut Context<'a>) -> PrintItems {
   items
 }
 
-fn parse_binding_identifier<'a>(node: &'a BindingIdent, context: &mut Context<'a>) -> PrintItems {
+fn gen_binding_identifier<'a>(node: &'a BindingIdent, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(parse_node(node.id.into(), context));
+  items.extend(gen_node(node.id.into(), context));
 
   if let Node::VarDeclarator(node) = node.parent() {
     if node.definite() {
@@ -731,15 +727,15 @@ fn parse_binding_identifier<'a>(node: &'a BindingIdent, context: &mut Context<'a
     }
   }
 
-  items.extend(parse_type_ann_with_colon_if_exists(&node.type_ann, context));
+  items.extend(gen_type_ann_with_colon_if_exists(&node.type_ann, context));
 
   items
 }
 
 /* declarations */
 
-fn parse_class_decl<'a>(node: &'a ClassDecl, context: &mut Context<'a>) -> PrintItems {
-  parse_class_decl_or_expr(
+fn gen_class_decl<'a>(node: &'a ClassDecl, context: &mut Context<'a>) -> PrintItems {
+  gen_class_decl_or_expr(
     ClassDeclOrExpr {
       node: node.into(),
       member_node: node.class.into(),
@@ -775,17 +771,17 @@ struct ClassDeclOrExpr<'a> {
   brace_position: BracePosition,
 }
 
-fn parse_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   let start_before_owned_comments_info = context.get_or_create_current_before_comments_start_info();
 
-  // parse decorators
+  // generate decorators
   let parent_kind = node.node.parent().unwrap().kind();
   if parent_kind != NodeKind::ExportDecl && parent_kind != NodeKind::ExportDefaultDecl {
-    items.extend(parse_decorators(node.decorators, node.is_class_expr, context));
+    items.extend(gen_decorators(node.decorators, node.is_class_expr, context));
   }
 
-  // parse header and body
+  // generate header and body
   let start_header_info = Info::new("startHeader");
   items.push_info(start_header_info);
 
@@ -800,10 +796,10 @@ fn parse_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context
 
   if let Some(ident) = node.ident {
     items.push_str(" ");
-    items.extend(parse_node(ident, context));
+    items.extend(gen_node(ident, context));
   }
   if let Some(type_params) = node.type_params {
-    items.extend(parse_node(type_params, context));
+    items.extend(gen_node(type_params, context));
   }
   if let Some(super_class) = node.super_class {
     items.push_condition(conditions::new_line_if_hanging_space_otherwise(
@@ -818,17 +814,17 @@ fn parse_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context
       items.push_str("extends ");
       items.extend(new_line_group({
         let mut items = PrintItems::new();
-        items.extend(parse_node(super_class, context));
+        items.extend(gen_node(super_class, context));
         if let Some(super_type_params) = node.super_type_params {
-          items.extend(parse_node(super_type_params, context));
+          items.extend(gen_node(super_type_params, context));
         }
         items
       }));
       items
     }));
   }
-  items.extend(parse_extends_or_implements(
-    ParseExtendsOrImplementsOptions {
+  items.extend(gen_extends_or_implements(
+    GenExtendsOrImplementsOptions {
       text: "implements",
       type_items: node.implements,
       start_header_info,
@@ -836,8 +832,8 @@ fn parse_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context
     },
     context,
   ));
-  items.extend(parse_membered_body(
-    ParseMemberedBodyOptions {
+  items.extend(gen_membered_body(
+    GenMemberedBodyOptions {
       node: node.member_node,
       members: node.members,
       start_header_info: Some(start_header_info),
@@ -869,37 +865,37 @@ fn parse_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context
   }
 }
 
-fn parse_export_decl<'a>(node: &'a ExportDecl, context: &mut Context<'a>) -> PrintItems {
+fn gen_export_decl<'a>(node: &'a ExportDecl, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  // decorators are handled in parse_node because their starts come before the ExportDecl
+  // decorators are handled in gen_node because their starts come before the ExportDecl
   items.push_str("export ");
-  items.extend(parse_node(node.decl.into(), context));
+  items.extend(gen_node(node.decl.into(), context));
   items
 }
 
-fn parse_export_default_decl<'a>(node: &'a ExportDefaultDecl, context: &mut Context<'a>) -> PrintItems {
+fn gen_export_default_decl<'a>(node: &'a ExportDefaultDecl, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  // decorators are handled in parse_node because their starts come before the ExportDefaultDecl
+  // decorators are handled in gen_node because their starts come before the ExportDefaultDecl
   items.push_str("export default ");
-  items.extend(parse_node(node.decl.into(), context));
+  items.extend(gen_node(node.decl.into(), context));
   items
 }
 
-fn parse_export_default_expr<'a>(node: &'a ExportDefaultExpr, context: &mut Context<'a>) -> PrintItems {
+fn gen_export_default_expr<'a>(node: &'a ExportDefaultExpr, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_str("export default ");
-  items.extend(parse_node(node.expr.into(), context));
+  items.extend(gen_node(node.expr.into(), context));
   if context.config.semi_colons.is_true() {
     items.push_str(";");
   }
   items
 }
 
-fn parse_export_default_specifier<'a>(node: &'a ExportDefaultSpecifier, context: &mut Context<'a>) -> PrintItems {
-  parse_node(node.exported.into(), context)
+fn gen_export_default_specifier<'a>(node: &'a ExportDefaultSpecifier, context: &mut Context<'a>) -> PrintItems {
+  gen_node(node.exported.into(), context)
 }
 
-fn parse_enum_decl<'a>(node: &'a TsEnumDecl, context: &mut Context<'a>) -> PrintItems {
+fn gen_enum_decl<'a>(node: &'a TsEnumDecl, context: &mut Context<'a>) -> PrintItems {
   let start_header_info = Info::new("startHeader");
   let mut items = PrintItems::new();
 
@@ -913,12 +909,12 @@ fn parse_enum_decl<'a>(node: &'a TsEnumDecl, context: &mut Context<'a>) -> Print
     items.push_str("const ");
   }
   items.push_str("enum ");
-  items.extend(parse_node(node.id.into(), context));
+  items.extend(gen_node(node.id.into(), context));
 
   // body
   let member_spacing = context.config.enum_declaration_member_spacing;
-  items.extend(parse_membered_body(
-    ParseMemberedBodyOptions {
+  items.extend(gen_membered_body(
+    GenMemberedBodyOptions {
       node: node.into(),
       members: node.members.iter().map(|&x| x.into()).collect(),
       start_header_info: Some(start_header_info),
@@ -936,18 +932,18 @@ fn parse_enum_decl<'a>(node: &'a TsEnumDecl, context: &mut Context<'a>) -> Print
   items
 }
 
-fn parse_enum_member<'a>(node: &'a TsEnumMember, context: &mut Context<'a>) -> PrintItems {
+fn gen_enum_member<'a>(node: &'a TsEnumMember, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(parse_node(node.id.into(), context));
+  items.extend(gen_node(node.id.into(), context));
 
   if let Some(init) = &node.init {
-    items.extend(parse_assignment(init.into(), "=", context));
+    items.extend(gen_assignment(init.into(), "=", context));
   }
 
   items
 }
 
-fn parse_export_named_decl<'a>(node: &'a NamedExport, context: &mut Context<'a>) -> PrintItems {
+fn gen_export_named_decl<'a>(node: &'a NamedExport, context: &mut Context<'a>) -> PrintItems {
   // fill specifiers
   let mut default_export: Option<&ExportDefaultSpecifier> = None;
   let mut namespace_export: Option<&ExportNamespaceSpecifier> = None;
@@ -966,7 +962,7 @@ fn parse_export_named_decl<'a>(node: &'a NamedExport, context: &mut Context<'a>)
     && named_exports.len() <= 1
     && node.start_line_fast(context.program) == node.end_line_fast(context.program);
 
-  // parse
+  // generate
   let mut items = PrintItems::new();
 
   items.push_str("export ");
@@ -975,27 +971,27 @@ fn parse_export_named_decl<'a>(node: &'a NamedExport, context: &mut Context<'a>)
   }
 
   if let Some(default_export) = default_export {
-    items.extend(parse_node(default_export.into(), context));
+    items.extend(gen_node(default_export.into(), context));
   } else if !named_exports.is_empty() {
-    items.extend(parse_named_import_or_export_specifiers(
+    items.extend(gen_named_import_or_export_specifiers(
       node.into(),
       named_exports.into_iter().map(|x| x.into()).collect(),
       context,
     ));
   } else if let Some(namespace_export) = namespace_export {
-    items.extend(parse_node(namespace_export.into(), context));
+    items.extend(gen_node(namespace_export.into(), context));
   } else {
     items.push_str("{}");
   }
 
   if let Some(src) = node.src {
     items.push_str(" from ");
-    items.extend(parse_node(src.into(), context));
+    items.extend(gen_node(src.into(), context));
   }
 
   if let Some(asserts) = node.asserts {
     items.push_str(" assert ");
-    items.extend(parse_node(asserts.into(), context));
+    items.extend(gen_node(asserts.into(), context));
   }
 
   if context.config.semi_colons.is_true() {
@@ -1009,8 +1005,8 @@ fn parse_export_named_decl<'a>(node: &'a NamedExport, context: &mut Context<'a>)
   }
 }
 
-fn parse_function_decl<'a>(node: &'a FnDecl, context: &mut Context<'a>) -> PrintItems {
-  parse_function_decl_or_expr(
+fn gen_function_decl<'a>(node: &'a FnDecl, context: &mut Context<'a>) -> PrintItems {
+  gen_function_decl_or_expr(
     FunctionDeclOrExprNode {
       node: node.into(),
       is_func_decl: true,
@@ -1030,7 +1026,7 @@ struct FunctionDeclOrExprNode<'a> {
   func: &'a Function<'a>,
 }
 
-fn parse_function_decl_or_expr<'a>(node: FunctionDeclOrExprNode<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_function_decl_or_expr<'a>(node: FunctionDeclOrExprNode<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   let start_header_info = Info::new("functionHeaderStart");
   let func = node.func;
@@ -1054,10 +1050,10 @@ fn parse_function_decl_or_expr<'a>(node: FunctionDeclOrExprNode<'a>, context: &m
     if !space_after_function_keyword {
       items.push_str(" ");
     }
-    items.extend(parse_node(ident.into(), context));
+    items.extend(gen_node(ident.into(), context));
   }
   if let Some(type_params) = func.type_params {
-    items.extend(parse_node(type_params.into(), context));
+    items.extend(gen_node(type_params.into(), context));
   }
   if get_use_space_before_parens(node.is_func_decl, context) {
     if node.ident.is_some() || func.type_params.is_some() || !space_after_function_keyword {
@@ -1065,14 +1061,14 @@ fn parse_function_decl_or_expr<'a>(node: FunctionDeclOrExprNode<'a>, context: &m
     }
   }
 
-  items.extend(parse_parameters_or_arguments(
-    ParseParametersOrArgumentsOptions {
+  items.extend(gen_parameters_or_arguments(
+    GenParametersOrArgumentsOptions {
       node: node.node,
       nodes: func.params.iter().map(|&node| node.into()).collect(),
       span: func.get_parameters_span(context),
       custom_close_paren: |context| {
-        Some(parse_close_paren_with_type(
-          ParseCloseParenWithTypeOptions {
+        Some(gen_close_paren_with_type(
+          GenCloseParenWithTypeOptions {
             start_info: start_header_info,
             type_node: func.return_type.map(|x| x.into()),
             type_node_separator: None,
@@ -1094,8 +1090,8 @@ fn parse_function_decl_or_expr<'a>(node: FunctionDeclOrExprNode<'a>, context: &m
     };
     let open_brace_token = context.token_finder.get_first_open_brace_token_within(body);
 
-    items.extend(parse_brace_separator(
-      ParseBraceSeparatorOptions {
+    items.extend(gen_brace_separator(
+      GenBraceSeparatorOptions {
         brace_position,
         open_brace_token,
         start_header_info: Some(start_header_info),
@@ -1103,7 +1099,7 @@ fn parse_function_decl_or_expr<'a>(node: FunctionDeclOrExprNode<'a>, context: &m
       context,
     ));
 
-    items.extend(parse_node(body.into(), context));
+    items.extend(gen_node(body.into(), context));
   } else {
     if context.config.semi_colons.is_true() {
       items.push_str(";");
@@ -1121,14 +1117,14 @@ fn parse_function_decl_or_expr<'a>(node: FunctionDeclOrExprNode<'a>, context: &m
   }
 }
 
-fn parse_param<'a>(node: &'a Param, context: &mut Context<'a>) -> PrintItems {
+fn gen_param<'a>(node: &'a Param, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(parse_decorators(&node.decorators, true, context));
-  items.extend(parse_node(node.pat.into(), context));
+  items.extend(gen_decorators(&node.decorators, true, context));
+  items.extend(gen_node(node.pat.into(), context));
   items
 }
 
-fn parse_import_decl<'a>(node: &'a ImportDecl, context: &mut Context<'a>) -> PrintItems {
+fn gen_import_decl<'a>(node: &'a ImportDecl, context: &mut Context<'a>) -> PrintItems {
   // fill specifiers
   let mut default_import: Option<&ImportDefaultSpecifier> = None;
   let mut namespace_import: Option<&ImportStarAsSpecifier> = None;
@@ -1163,17 +1159,17 @@ fn parse_import_decl<'a>(node: &'a ImportDecl, context: &mut Context<'a>) -> Pri
   }
 
   if let Some(default_import) = default_import {
-    items.extend(parse_node(default_import.into(), context));
+    items.extend(gen_node(default_import.into(), context));
     if namespace_import.is_some() || !named_imports.is_empty() {
       items.push_str(", ");
     }
   }
   if let Some(namespace_import) = namespace_import {
-    items.extend(parse_node(namespace_import.into(), context));
+    items.extend(gen_node(namespace_import.into(), context));
   }
 
   if has_named_imports {
-    items.extend(parse_named_import_or_export_specifiers(
+    items.extend(gen_named_import_or_export_specifiers(
       node.into(),
       named_imports.into_iter().map(|x| x.into()).collect(),
       context,
@@ -1184,11 +1180,11 @@ fn parse_import_decl<'a>(node: &'a ImportDecl, context: &mut Context<'a>) -> Pri
     items.push_str(" from ");
   }
 
-  items.extend(parse_node(node.src.into(), context));
+  items.extend(gen_node(node.src.into(), context));
 
   if let Some(asserts) = node.asserts {
     items.push_str(" assert ");
-    items.extend(parse_node(asserts.into(), context));
+    items.extend(gen_node(asserts.into(), context));
   }
 
   if context.config.semi_colons.is_true() {
@@ -1202,7 +1198,7 @@ fn parse_import_decl<'a>(node: &'a ImportDecl, context: &mut Context<'a>) -> Pri
   }
 }
 
-fn parse_import_equals_decl<'a>(node: &'a TsImportEqualsDecl, context: &mut Context<'a>) -> PrintItems {
+fn gen_import_equals_decl<'a>(node: &'a TsImportEqualsDecl, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   if node.is_export() {
     items.push_str("export ");
@@ -1212,9 +1208,9 @@ fn parse_import_equals_decl<'a>(node: &'a TsImportEqualsDecl, context: &mut Cont
   if node.is_type_only() {
     items.push_str("type ");
   }
-  items.extend(parse_node(node.id.into(), context));
+  items.extend(gen_node(node.id.into(), context));
   items.push_str(" = "); // keep on one line
-  items.extend(parse_node(node.module_ref.into(), context));
+  items.extend(gen_node(node.module_ref.into(), context));
 
   if context.config.semi_colons.is_true() {
     items.push_str(";");
@@ -1223,7 +1219,7 @@ fn parse_import_equals_decl<'a>(node: &'a TsImportEqualsDecl, context: &mut Cont
   items
 }
 
-fn parse_interface_decl<'a>(node: &'a TsInterfaceDecl, context: &mut Context<'a>) -> PrintItems {
+fn gen_interface_decl<'a>(node: &'a TsInterfaceDecl, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   let start_header_info = Info::new("startHeader");
   items.push_info(start_header_info);
@@ -1233,12 +1229,12 @@ fn parse_interface_decl<'a>(node: &'a TsInterfaceDecl, context: &mut Context<'a>
     items.push_str("declare ");
   }
   items.push_str("interface ");
-  items.extend(parse_node(node.id.into(), context));
+  items.extend(gen_node(node.id.into(), context));
   if let Some(type_params) = node.type_params {
-    items.extend(parse_node(type_params.into(), context));
+    items.extend(gen_node(type_params.into(), context));
   }
-  items.extend(parse_extends_or_implements(
-    ParseExtendsOrImplementsOptions {
+  items.extend(gen_extends_or_implements(
+    GenExtendsOrImplementsOptions {
       text: "extends",
       type_items: node.extends.iter().map(|&x| x.into()).collect(),
       start_header_info,
@@ -1246,13 +1242,13 @@ fn parse_interface_decl<'a>(node: &'a TsInterfaceDecl, context: &mut Context<'a>
     },
     context,
   ));
-  items.extend(parse_node(node.body.into(), context));
+  items.extend(gen_node(node.body.into(), context));
 
   items
 }
 
-fn parse_module_decl<'a>(node: &'a TsModuleDecl, context: &mut Context<'a>) -> PrintItems {
-  parse_module_or_namespace_decl(
+fn gen_module_decl<'a>(node: &'a TsModuleDecl, context: &mut Context<'a>) -> PrintItems {
+  gen_module_or_namespace_decl(
     ModuleOrNamespaceDecl {
       declare: node.declare(),
       global: node.global(),
@@ -1263,8 +1259,8 @@ fn parse_module_decl<'a>(node: &'a TsModuleDecl, context: &mut Context<'a>) -> P
   )
 }
 
-fn parse_namespace_decl<'a>(node: &'a TsNamespaceDecl, context: &mut Context<'a>) -> PrintItems {
-  parse_module_or_namespace_decl(
+fn gen_namespace_decl<'a>(node: &'a TsNamespaceDecl, context: &mut Context<'a>) -> PrintItems {
+  gen_module_or_namespace_decl(
     ModuleOrNamespaceDecl {
       declare: node.declare(),
       global: node.global(),
@@ -1282,7 +1278,7 @@ struct ModuleOrNamespaceDecl<'a> {
   pub body: Option<&'a TsNamespaceBody<'a>>,
 }
 
-fn parse_module_or_namespace_decl<'a>(node: ModuleOrNamespaceDecl<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_module_or_namespace_decl<'a>(node: ModuleOrNamespaceDecl<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
   let start_header_info = Info::new("startHeader");
@@ -1297,18 +1293,18 @@ fn parse_module_or_namespace_decl<'a>(node: ModuleOrNamespaceDecl<'a>, context: 
     items.push_str(if has_namespace_keyword { "namespace " } else { "module " });
   }
 
-  items.extend(parse_node(node.id, context));
-  items.extend(parse_body(node.body, start_header_info, context));
+  items.extend(gen_node(node.id, context));
+  items.extend(gen_body(node.body, start_header_info, context));
 
   return items;
 
-  fn parse_body<'a>(body: Option<&TsNamespaceBody<'a>>, start_header_info: Info, context: &mut Context<'a>) -> PrintItems {
+  fn gen_body<'a>(body: Option<&TsNamespaceBody<'a>>, start_header_info: Info, context: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
     if let Some(body) = body {
       match body {
         TsNamespaceBody::TsModuleBlock(block) => {
-          items.extend(parse_membered_body(
-            ParseMemberedBodyOptions {
+          items.extend(gen_membered_body(
+            GenMemberedBodyOptions {
               node: (*block).into(),
               members: block.body.iter().map(|x| x.into()).collect(),
               start_header_info: Some(start_header_info),
@@ -1321,8 +1317,8 @@ fn parse_module_or_namespace_decl<'a>(node: ModuleOrNamespaceDecl<'a>, context: 
         }
         TsNamespaceBody::TsNamespaceDecl(decl) => {
           items.push_str(".");
-          items.extend(parse_node(decl.id.into(), context));
-          items.extend(parse_body(Some(&decl.body), start_header_info, context));
+          items.extend(gen_node(decl.id.into(), context));
+          items.extend(gen_body(Some(&decl.body), start_header_info, context));
         }
       }
     } else if context.config.semi_colons.is_true() {
@@ -1333,18 +1329,18 @@ fn parse_module_or_namespace_decl<'a>(node: ModuleOrNamespaceDecl<'a>, context: 
   }
 }
 
-fn parse_type_alias<'a>(node: &'a TsTypeAliasDecl, context: &mut Context<'a>) -> PrintItems {
+fn gen_type_alias<'a>(node: &'a TsTypeAliasDecl, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   if node.declare() {
     items.push_str("declare ");
   }
   items.push_str("type ");
-  items.extend(parse_node(node.id.into(), context));
+  items.extend(gen_node(node.id.into(), context));
   if let Some(type_params) = node.type_params {
-    items.extend(parse_node(type_params.into(), context));
+    items.extend(gen_node(type_params.into(), context));
   }
 
-  items.extend(parse_assignment(node.type_ann.into(), "=", context));
+  items.extend(gen_assignment(node.type_ann.into(), "=", context));
 
   if context.config.semi_colons.is_true() {
     items.push_str(";");
@@ -1355,9 +1351,9 @@ fn parse_type_alias<'a>(node: &'a TsTypeAliasDecl, context: &mut Context<'a>) ->
 
 /* exports */
 
-fn parse_named_import_or_export_specifiers<'a>(parent: Node<'a>, specifiers: Vec<Node<'a>>, context: &mut Context<'a>) -> PrintItems {
-  return parse_object_like_node(
-    ParseObjectLikeNodeOptions {
+fn gen_named_import_or_export_specifiers<'a>(parent: Node<'a>, specifiers: Vec<Node<'a>>, context: &mut Context<'a>) -> PrintItems {
+  return gen_object_like_node(
+    GenObjectLikeNodeOptions {
       node: parent,
       members: specifiers,
       separator: get_trailing_commas(&parent, context).into(),
@@ -1416,9 +1412,9 @@ fn parse_named_import_or_export_specifiers<'a>(parent: Node<'a>, specifiers: Vec
 
 /* expressions */
 
-fn parse_array_expr<'a>(node: &'a ArrayLit, context: &mut Context<'a>) -> PrintItems {
-  parse_array_like_nodes(
-    ParseArrayLikeNodesOptions {
+fn gen_array_expr<'a>(node: &'a ArrayLit, context: &mut Context<'a>) -> PrintItems {
+  gen_array_like_nodes(
+    GenArrayLikeNodesOptions {
       node: node.into(),
       nodes: node.elems.iter().map(|&x| x.map(|elem| elem.into())).collect(),
       prefer_hanging: context.config.array_expression_prefer_hanging,
@@ -1429,15 +1425,15 @@ fn parse_array_expr<'a>(node: &'a ArrayLit, context: &mut Context<'a>) -> PrintI
   )
 }
 
-fn parse_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> PrintItems {
-  let items = parse_inner(node, context);
+fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> PrintItems {
+  let items = gen_inner(node, context);
   return if should_add_parens_around_expr(node.into(), context) {
     surround_with_parens(items)
   } else {
     items
   };
 
-  fn parse_inner<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> PrintItems {
+  fn gen_inner<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> PrintItems {
     let header_start_info = Info::new("arrowFunctionExpressionHeaderStart");
     let header_items = {
       let mut items = PrintItems::new();
@@ -1448,20 +1444,20 @@ fn parse_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> 
         items.push_str("async ");
       }
       if let Some(type_params) = node.type_params {
-        items.extend(parse_node(type_params.into(), context));
+        items.extend(gen_node(type_params.into(), context));
       }
 
       if should_use_parens {
-        // need to check if there are parens because parse_parameters_or_arguments depends on the parens existing
+        // need to check if there are parens because gen_parameters_or_arguments depends on the parens existing
         if has_parens(node, context) {
-          items.extend(parse_parameters_or_arguments(
-            ParseParametersOrArgumentsOptions {
+          items.extend(gen_parameters_or_arguments(
+            GenParametersOrArgumentsOptions {
               node: node.into(),
               span: node.get_parameters_span(context),
               nodes: node.params.iter().map(|node| node.into()).collect(),
               custom_close_paren: |context| {
-                Some(parse_close_paren_with_type(
-                  ParseCloseParenWithTypeOptions {
+                Some(gen_close_paren_with_type(
+                  GenCloseParenWithTypeOptions {
                     start_info: header_start_info,
                     type_node: node.return_type.map(|x| x.into()),
                     type_node_separator: None,
@@ -1475,12 +1471,12 @@ fn parse_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> 
             context,
           ));
         } else {
-          // todo: this should probably use more of the same logic as in parse_parameters_or_arguments
+          // todo: this should probably use more of the same logic as in gen_parameters_or_arguments
           // there will only be one param in this case
-          items.extend(surround_with_parens(parse_node(node.params.first().unwrap().into(), context)));
+          items.extend(surround_with_parens(gen_node(node.params.first().unwrap().into(), context)));
         }
       } else {
-        items.extend(parse_node(node.params.first().unwrap().into(), context));
+        items.extend(gen_node(node.params.first().unwrap().into(), context));
       }
 
       items.push_str(" =>");
@@ -1495,16 +1491,16 @@ fn parse_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> 
       .map(|c| node_helpers::is_test_library_call_expr(c, context.program))
       .unwrap_or(false);
     let mut items = if is_arrow_in_test_call_expr {
-      parser_helpers::with_no_new_lines(header_items)
+      ir_helpers::with_no_new_lines(header_items)
     } else {
       header_items
     };
 
-    let parsed_body = parse_node(node.body.into(), context);
-    let parsed_body = if use_new_line_group_for_arrow_body(node, context) {
-      new_line_group(parsed_body)
+    let generated_body = gen_node(node.body.into(), context);
+    let generated_body = if use_new_line_group_for_arrow_body(node, context) {
+      new_line_group(generated_body)
     } else {
-      parsed_body
+      generated_body
     }
     .into_rc_path();
     let open_brace_token = match &node.body {
@@ -1513,8 +1509,8 @@ fn parse_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> 
     };
 
     if open_brace_token.is_some() {
-      items.extend(parse_brace_separator(
-        ParseBraceSeparatorOptions {
+      items.extend(gen_brace_separator(
+        GenBraceSeparatorOptions {
           brace_position: context.config.arrow_function_brace_position,
           open_brace_token,
           start_header_info: Some(header_start_info),
@@ -1522,7 +1518,7 @@ fn parse_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> 
         context,
       ));
 
-      items.extend(parsed_body.into());
+      items.extend(generated_body.into());
     } else {
       let start_body_info = Info::new("startBody");
       let end_body_info = Info::new("endBody");
@@ -1544,7 +1540,7 @@ fn parse_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> 
         ));
       }
 
-      items.push_condition(conditions::indent_if_start_of_line(parsed_body.into()));
+      items.push_condition(conditions::indent_if_start_of_line(generated_body.into()));
       items.push_info(end_body_info);
     }
 
@@ -1599,8 +1595,8 @@ fn parse_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> 
   }
 }
 
-fn parse_as_expr<'a>(node: &'a TsAsExpr, context: &mut Context<'a>) -> PrintItems {
-  parse_as_expr_like(
+fn gen_as_expr<'a>(node: &'a TsAsExpr, context: &mut Context<'a>) -> PrintItems {
+  gen_as_expr_like(
     AsExprLike {
       expr: node.expr.into(),
       type_ann: node.type_ann.into(),
@@ -1614,37 +1610,37 @@ struct AsExprLike<'a> {
   type_ann: Node<'a>,
 }
 
-fn parse_as_expr_like<'a>(node: AsExprLike<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_as_expr_like<'a>(node: AsExprLike<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(parse_node(node.expr, context));
+  items.extend(gen_node(node.expr, context));
   items.push_str(" as");
   items.push_signal(Signal::SpaceIfNotTrailing);
-  items.push_condition(conditions::with_indent_if_start_of_line_indented(parse_node(node.type_ann, context)));
+  items.push_condition(conditions::with_indent_if_start_of_line_indented(gen_node(node.type_ann, context)));
   items
 }
 
-fn parse_const_assertion<'a>(node: &'a TsConstAssertion, context: &mut Context<'a>) -> PrintItems {
+fn gen_const_assertion<'a>(node: &'a TsConstAssertion, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(parse_node(node.expr.into(), context));
+  items.extend(gen_node(node.expr.into(), context));
   items.push_str(" as const");
   items
 }
 
-fn parse_assignment_expr<'a>(node: &'a AssignExpr, context: &mut Context<'a>) -> PrintItems {
+fn gen_assignment_expr<'a>(node: &'a AssignExpr, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(parse_node(node.left.into(), context));
-  items.extend(parse_assignment(node.right.into(), node.op().as_str(), context));
+  items.extend(gen_node(node.left.into(), context));
+  items.extend(gen_assignment(node.right.into(), node.op().as_str(), context));
   items
 }
 
-fn parse_await_expr<'a>(node: &'a AwaitExpr, context: &mut Context<'a>) -> PrintItems {
+fn gen_await_expr<'a>(node: &'a AwaitExpr, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_str("await ");
-  items.extend(parse_node(node.arg.into(), context));
+  items.extend(gen_node(node.arg.into(), context));
   items
 }
 
-fn parse_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintItems {
+fn gen_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   let flattened_binary_expr = get_flattened_bin_expr(node, context);
   // println!("Bin expr: {:?}", flattened_binary_expr.iter().map(|x| x.expr.text(context)).collect::<Vec<_>>());
@@ -1666,9 +1662,9 @@ fn parse_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintI
   let is_parent_bin_expr = node.parent().kind() == NodeKind::BinExpr;
   let multi_line_options = {
     let mut options = if line_per_expression {
-      parser_helpers::MultiLineOptions::same_line_no_indent()
+      ir_helpers::MultiLineOptions::same_line_no_indent()
     } else {
-      parser_helpers::MultiLineOptions::maintain_line_breaks()
+      ir_helpers::MultiLineOptions::maintain_line_breaks()
     };
     options.with_hanging_indent = if is_parent_bin_expr {
       BoolOrCondition::Bool(false) // let the parent handle the indent
@@ -1687,11 +1683,11 @@ fn parse_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintI
   items.push_info(binary_expr_start_info);
 
   items.extend(
-    parser_helpers::parse_separated_values(
+    ir_helpers::gen_separated_values(
       |_| {
-        let mut parsed_nodes = Vec::new();
+        let mut generated_nodes = Vec::new();
         for bin_expr_item in flattened_binary_expr.into_iter() {
-          let lines_span = Some(parser_helpers::LinesSpan {
+          let lines_span = Some(ir_helpers::LinesSpan {
             start_line: bin_expr_item.expr.span().start_line_fast(context.program),
             end_line: bin_expr_item.expr.span().end_line_fast(context.program),
           });
@@ -1702,14 +1698,14 @@ fn parse_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintI
           let (leading_pre_op_comments, trailing_pre_op_comments) = if let Some(op) = &pre_op {
             let op_line = op.token.start_line_fast(context.program);
             (
-              parse_op_comments(
+              gen_op_comments(
                 op.token
                   .leading_comments_fast(context.program)
                   .filter(|x| x.kind == CommentKind::Block && x.start_line_fast(context.program) == op_line)
                   .collect(),
                 context,
               ),
-              parse_op_comments(
+              gen_op_comments(
                 op.token
                   .trailing_comments_fast(context.program)
                   .filter(|x| x.kind == CommentKind::Block && x.start_line_fast(context.program) == op_line)
@@ -1721,7 +1717,7 @@ fn parse_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintI
             (PrintItems::new(), PrintItems::new())
           };
           let is_inner_binary_expression = bin_expr_item.expr.kind() == NodeKind::BinExpr;
-          items.extend(parse_node_with_inner_parse(bin_expr_item.expr, context, |node_items, context| {
+          items.extend(gen_node_with_inner_gen(bin_expr_item.expr, context, |node_items, context| {
             let mut items = PrintItems::new();
             if let Some(op) = pre_op {
               if !leading_pre_op_comments.is_empty() {
@@ -1765,14 +1761,14 @@ fn parse_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintI
 
             if let Some(op) = post_op {
               let op_line = op.token.start_line_fast(context.program);
-              let leading_post_op_comments = parse_op_comments(
+              let leading_post_op_comments = gen_op_comments(
                 op.token
                   .leading_comments_fast(context.program)
                   .filter(|x| x.kind == CommentKind::Block && x.start_line_fast(context.program) == op_line)
                   .collect(),
                 context,
               );
-              let trailing_post_op_comments = parse_op_comments(
+              let trailing_post_op_comments = gen_op_comments(
                 op.token
                   .trailing_comments_fast(context.program)
                   .filter(|x| x.start_line_fast(context.program) == op_line)
@@ -1799,12 +1795,12 @@ fn parse_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintI
           }));
 
           let items = if should_newline_group_bin_item_expr(&bin_expr_item.expr, context) {
-            parser_helpers::new_line_group(items)
+            ir_helpers::new_line_group(items)
           } else {
             items
           };
 
-          parsed_nodes.push(parser_helpers::ParsedValue {
+          generated_nodes.push(ir_helpers::GeneratedValue {
             items,
             lines_span,
             allow_inline_multi_line: true,
@@ -1812,9 +1808,9 @@ fn parse_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintI
           });
         }
 
-        parsed_nodes
+        generated_nodes
       },
-      parser_helpers::ParseSeparatedValuesOptions {
+      ir_helpers::GenSeparatedValuesOptions {
         prefer_hanging: false,
         force_use_new_lines,
         allow_blank_lines: false,
@@ -1833,11 +1829,7 @@ fn parse_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintI
     .items,
   );
 
-  return if node.op().is_equality() {
-    parser_helpers::new_line_group(items)
-  } else {
-    items
-  };
+  return if node.op().is_equality() { ir_helpers::new_line_group(items) } else { items };
 
   fn get_allow_no_indent(node: &BinExpr) -> bool {
     let parent = node.parent();
@@ -1864,14 +1856,14 @@ fn parse_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintI
     }
   }
 
-  fn parse_op_comments(comments: Vec<&Comment>, context: &mut Context) -> PrintItems {
+  fn gen_op_comments(comments: Vec<&Comment>, context: &mut Context) -> PrintItems {
     let mut items = PrintItems::new();
     let mut had_comment_last = false;
     for comment in comments {
       if had_comment_last {
         items.push_str(" ");
       }
-      if let Some(comment) = parse_comment(&comment, context) {
+      if let Some(comment) = gen_comment(&comment, context) {
         items.extend(comment);
         had_comment_last = true;
       } else {
@@ -1903,56 +1895,56 @@ fn parse_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintI
   }
 }
 
-fn parse_call_expr<'a>(node: &'a CallExpr, context: &mut Context<'a>) -> PrintItems {
+fn gen_call_expr<'a>(node: &'a CallExpr, context: &mut Context<'a>) -> PrintItems {
   return if node_helpers::is_test_library_call_expr(&node, context.program) {
-    parse_test_library_call_expr(node, context)
+    gen_test_library_call_expr(node, context)
   } else {
-    // flatten the call expression and check if it should be parsed as a flattened member like expression
+    // flatten the call expression and check if it should be generated as a flattened member like expression
     let flattened_call_expr = flatten_member_like_expr(node.into(), context.program);
     if flattened_call_expr.nodes.len() > 1 {
-      parse_for_flattened_member_like_expr(flattened_call_expr, context)
+      gen_for_flattened_member_like_expr(flattened_call_expr, context)
     } else {
-      parse_call_expr_like(
+      gen_call_expr_like(
         CallExprLike {
           original_call_expr: node,
-          parsed_callee: parse_node(node.callee.into(), context),
+          generated_callee: gen_node(node.callee.into(), context),
         },
         context,
       )
     }
   };
 
-  fn parse_test_library_call_expr<'a>(node: &'a CallExpr, context: &mut Context<'a>) -> PrintItems {
+  fn gen_test_library_call_expr<'a>(node: &'a CallExpr, context: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
-    items.extend(parse_test_library_callee(&node.callee, context));
-    items.extend(parse_test_library_arguments(&node.args, context));
+    items.extend(gen_test_library_callee(&node.callee, context));
+    items.extend(gen_test_library_arguments(&node.args, context));
     return items;
 
-    fn parse_test_library_callee<'a>(callee: &'a ExprOrSuper, context: &mut Context<'a>) -> PrintItems {
+    fn gen_test_library_callee<'a>(callee: &'a ExprOrSuper, context: &mut Context<'a>) -> PrintItems {
       match callee {
         ExprOrSuper::Expr(expr) => match expr {
           Expr::Member(member_expr) => {
             let mut items = PrintItems::new();
-            items.extend(parse_node(member_expr.obj.into(), context));
+            items.extend(gen_node(member_expr.obj.into(), context));
             items.push_str(".");
-            items.extend(parse_node(member_expr.prop.into(), context));
+            items.extend(gen_node(member_expr.prop.into(), context));
             items
           }
-          _ => parse_node(expr.into(), context),
+          _ => gen_node(expr.into(), context),
         },
-        _ => parse_node(callee.into(), context),
+        _ => gen_node(callee.into(), context),
       }
     }
 
-    fn parse_test_library_arguments<'a>(args: &[&'a ExprOrSpread], context: &mut Context<'a>) -> PrintItems {
+    fn gen_test_library_arguments<'a>(args: &[&'a ExprOrSpread], context: &mut Context<'a>) -> PrintItems {
       let mut items = PrintItems::new();
-      items.extend(parse_node_with_inner_parse(args[0].into(), context, |items, _| {
-        let mut new_items = parser_helpers::with_no_new_lines(items);
+      items.extend(gen_node_with_inner_gen(args[0].into(), context, |items, _| {
+        let mut new_items = ir_helpers::with_no_new_lines(items);
         new_items.push_str(",");
         new_items
       }));
       items.push_str(" ");
-      items.extend(parse_node(args[1].into(), context));
+      items.extend(gen_node(args[1].into(), context));
 
       surround_with_parens(items)
     }
@@ -1961,25 +1953,25 @@ fn parse_call_expr<'a>(node: &'a CallExpr, context: &mut Context<'a>) -> PrintIt
 
 struct CallExprLike<'a> {
   original_call_expr: &'a CallExpr<'a>,
-  parsed_callee: PrintItems,
+  generated_callee: PrintItems,
 }
 
-fn parse_call_expr_like<'a>(node: CallExprLike<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_call_expr_like<'a>(node: CallExprLike<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   let call_expr = node.original_call_expr;
 
-  items.extend(node.parsed_callee);
+  items.extend(node.generated_callee);
 
   if let Some(type_args) = call_expr.type_args {
-    items.extend(parse_node(type_args.into(), context));
+    items.extend(gen_node(type_args.into(), context));
   }
 
   if node_helpers::is_optional_call_expr(call_expr) {
     items.push_str("?.");
   }
 
-  items.push_condition(conditions::with_indent_if_start_of_line_indented(parse_parameters_or_arguments(
-    ParseParametersOrArgumentsOptions {
+  items.push_condition(conditions::with_indent_if_start_of_line_indented(gen_parameters_or_arguments(
+    GenParametersOrArgumentsOptions {
       node: call_expr.into(),
       span: call_expr.get_parameters_span(context),
       nodes: call_expr.args.iter().map(|&node| node.into()).collect(),
@@ -1992,8 +1984,8 @@ fn parse_call_expr_like<'a>(node: CallExprLike<'a>, context: &mut Context<'a>) -
   items
 }
 
-fn parse_class_expr<'a>(node: &'a ClassExpr, context: &mut Context<'a>) -> PrintItems {
-  parse_class_decl_or_expr(
+fn gen_class_expr<'a>(node: &'a ClassExpr, context: &mut Context<'a>) -> PrintItems {
+  gen_class_decl_or_expr(
     ClassDeclOrExpr {
       node: node.into(),
       member_node: node.class.into(),
@@ -2013,7 +2005,7 @@ fn parse_class_expr<'a>(node: &'a ClassExpr, context: &mut Context<'a>) -> Print
   )
 }
 
-fn parse_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> PrintItems {
+fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> PrintItems {
   let operator_token = context.token_finder.get_first_operator_after(&node.test, "?").unwrap();
   let force_new_lines = !context.config.conditional_expression_prefer_single_line
     && (node_helpers::get_use_new_lines_for_nodes(&node.test, &node.cons, context.program)
@@ -2028,7 +2020,7 @@ fn parse_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> 
     items.push_info(top_most_data.top_most_info);
   }
 
-  items.extend(parser_helpers::new_line_group(with_queued_indent(parse_node_with_inner_parse(
+  items.extend(ir_helpers::new_line_group(with_queued_indent(gen_node_with_inner_gen(
     node.test.into(),
     context,
     {
@@ -2061,7 +2053,7 @@ fn parse_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> 
     // add any preceeding comments of the question token
     items.extend({
       let operator_token_leading_comments = get_leading_comments_on_previous_lines(operator_token, context);
-      let mut items = parse_comment_collection(operator_token_leading_comments.into_iter(), None, None, context);
+      let mut items = gen_comment_collection(operator_token_leading_comments.into_iter(), None, None, context);
       if !items.is_empty() {
         items.push_signal(Signal::NewLine);
       }
@@ -2071,7 +2063,7 @@ fn parse_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> 
     if operator_position == OperatorPosition::NextLine {
       items.push_str("? ");
     }
-    items.extend(parser_helpers::new_line_group(parse_node_with_inner_parse(node.cons.into(), context, {
+    items.extend(ir_helpers::new_line_group(gen_node_with_inner_gen(node.cons.into(), context, {
       move |mut items, _| {
         if operator_position == OperatorPosition::SameLine {
           items.push_str(" :");
@@ -2095,17 +2087,13 @@ fn parse_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> 
       items.push_str(": ");
     }
     items.push_info(before_alternate_info);
-    items.extend(parser_helpers::new_line_group(parse_node_with_inner_parse(
-      node.alt.into(),
-      context,
-      |items, _| {
-        if operator_position == OperatorPosition::NextLine {
-          conditions::indent_if_start_of_line(items).into()
-        } else {
-          items
-        }
-      },
-    )));
+    items.extend(ir_helpers::new_line_group(gen_node_with_inner_gen(node.alt.into(), context, |items, _| {
+      if operator_position == OperatorPosition::NextLine {
+        conditions::indent_if_start_of_line(items).into()
+      } else {
+        items
+      }
+    })));
     items.push_info(end_info);
 
     items
@@ -2188,26 +2176,26 @@ fn parse_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> 
   }
 }
 
-fn parse_expr_or_spread<'a>(node: &'a ExprOrSpread, context: &mut Context<'a>) -> PrintItems {
+fn gen_expr_or_spread<'a>(node: &'a ExprOrSpread, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   if node.spread().is_some() {
     items.push_str("...");
   }
-  items.extend(parse_node(node.expr.into(), context));
+  items.extend(gen_node(node.expr.into(), context));
   items
 }
 
-fn parse_expr_with_type_args<'a>(node: &'a TsExprWithTypeArgs, context: &mut Context<'a>) -> PrintItems {
+fn gen_expr_with_type_args<'a>(node: &'a TsExprWithTypeArgs, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(parse_node(node.expr.into(), context));
+  items.extend(gen_node(node.expr.into(), context));
   if let Some(type_args) = node.type_args {
-    items.extend(parse_node(type_args.into(), context));
+    items.extend(gen_node(type_args.into(), context));
   }
   items
 }
 
-fn parse_fn_expr<'a>(node: &'a FnExpr, context: &mut Context<'a>) -> PrintItems {
-  let items = parse_function_decl_or_expr(
+fn gen_fn_expr<'a>(node: &'a FnExpr, context: &mut Context<'a>) -> PrintItems {
+  let items = gen_function_decl_or_expr(
     FunctionDeclOrExprNode {
       node: node.into(),
       is_func_decl: false,
@@ -2273,8 +2261,8 @@ fn should_add_parens_around_expr(node: Node, context: &Context) -> bool {
   false
 }
 
-fn parse_getter_prop<'a>(node: &'a GetterProp, context: &mut Context<'a>) -> PrintItems {
-  parse_class_or_object_method(
+fn gen_getter_prop<'a>(node: &'a GetterProp, context: &mut Context<'a>) -> PrintItems {
+  gen_class_or_object_method(
     ClassOrObjectMethod {
       node: node.into(),
       parameters_span: node.get_parameters_span(context),
@@ -2297,44 +2285,44 @@ fn parse_getter_prop<'a>(node: &'a GetterProp, context: &mut Context<'a>) -> Pri
   )
 }
 
-fn parse_key_value_prop<'a>(node: &'a KeyValueProp, context: &mut Context<'a>) -> PrintItems {
+fn gen_key_value_prop<'a>(node: &'a KeyValueProp, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(parse_node(node.key.into(), context));
-  items.extend(parse_assignment(node.value.into(), ":", context));
+  items.extend(gen_node(node.key.into(), context));
+  items.extend(gen_assignment(node.value.into(), ":", context));
   items
 }
 
-fn parse_assign_prop<'a>(node: &'a AssignProp, context: &mut Context<'a>) -> PrintItems {
+fn gen_assign_prop<'a>(node: &'a AssignProp, context: &mut Context<'a>) -> PrintItems {
   // assignment properties are not valid, so turn this into a key value property
   let mut items = PrintItems::new();
-  items.extend(parse_node(node.key.into(), context));
-  items.extend(parse_assignment_op_to(node.value.into(), "=", ":", context)); // go from = to :
+  items.extend(gen_node(node.key.into(), context));
+  items.extend(gen_assignment_op_to(node.value.into(), "=", ":", context)); // go from = to :
   items
 }
 
-fn parse_member_expr<'a>(node: &'a MemberExpr, context: &mut Context<'a>) -> PrintItems {
+fn gen_member_expr<'a>(node: &'a MemberExpr, context: &mut Context<'a>) -> PrintItems {
   let flattened_member_expr = flatten_member_like_expr(node.into(), context.program);
-  parse_for_flattened_member_like_expr(flattened_member_expr, context)
+  gen_for_flattened_member_like_expr(flattened_member_expr, context)
 }
 
-fn parse_meta_prop_expr<'a>(node: &'a MetaPropExpr, context: &mut Context<'a>) -> PrintItems {
+fn gen_meta_prop_expr<'a>(node: &'a MetaPropExpr, context: &mut Context<'a>) -> PrintItems {
   let flattened_meta_prop_expr = flatten_member_like_expr(node.into(), context.program);
-  parse_for_flattened_member_like_expr(flattened_meta_prop_expr, context)
+  gen_for_flattened_member_like_expr(flattened_meta_prop_expr, context)
 }
 
-fn parse_new_expr<'a>(node: &'a NewExpr, context: &mut Context<'a>) -> PrintItems {
+fn gen_new_expr<'a>(node: &'a NewExpr, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_str("new ");
-  items.extend(parse_node(node.callee.into(), context));
+  items.extend(gen_node(node.callee.into(), context));
   if let Some(type_args) = node.type_args {
-    items.extend(parse_node(type_args.into(), context));
+    items.extend(gen_node(type_args.into(), context));
   }
   let args = match node.args.as_ref() {
     Some(args) => args.iter().map(|&node| node.into()).collect(),
     None => Vec::new(),
   };
-  items.extend(parse_parameters_or_arguments(
-    ParseParametersOrArgumentsOptions {
+  items.extend(gen_parameters_or_arguments(
+    GenParametersOrArgumentsOptions {
       node: node.into(),
       span: node.get_parameters_span(context),
       nodes: args,
@@ -2346,16 +2334,16 @@ fn parse_new_expr<'a>(node: &'a NewExpr, context: &mut Context<'a>) -> PrintItem
   items
 }
 
-fn parse_non_null_expr<'a>(node: &'a TsNonNullExpr, context: &mut Context<'a>) -> PrintItems {
+fn gen_non_null_expr<'a>(node: &'a TsNonNullExpr, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(parse_node(node.expr.into(), context));
+  items.extend(gen_node(node.expr.into(), context));
   items.push_str("!");
   items
 }
 
-fn parse_object_lit<'a>(node: &'a ObjectLit, context: &mut Context<'a>) -> PrintItems {
-  let items = parse_object_like_node(
-    ParseObjectLikeNodeOptions {
+fn gen_object_lit<'a>(node: &'a ObjectLit, context: &mut Context<'a>) -> PrintItems {
+  let items = gen_object_like_node(
+    GenObjectLikeNodeOptions {
       node: node.into(),
       members: node.props.iter().map(|x| x.into()).collect(),
       separator: context.config.object_expression_trailing_commas.into(),
@@ -2375,14 +2363,14 @@ fn parse_object_lit<'a>(node: &'a ObjectLit, context: &mut Context<'a>) -> Print
   };
 }
 
-fn parse_paren_expr<'a>(node: &'a ParenExpr, context: &mut Context<'a>) -> PrintItems {
+fn gen_paren_expr<'a>(node: &'a ParenExpr, context: &mut Context<'a>) -> PrintItems {
   if should_skip_paren_expr(node, context) {
-    return parse_node(node.expr.into(), context);
+    return gen_node(node.expr.into(), context);
   }
 
-  let parsed_items = conditions::with_indent_if_start_of_line_indented(parse_node_in_parens(
-    |context| parse_node(node.expr.into(), context),
-    ParseNodeInParensOptions {
+  let generated_items = conditions::with_indent_if_start_of_line_indented(gen_node_in_parens(
+    |context| gen_node(node.expr.into(), context),
+    GenNodeInParensOptions {
       inner_span: node.expr.span(),
       prefer_hanging: true,
       allow_open_paren_trailing_comments: true,
@@ -2392,9 +2380,9 @@ fn parse_paren_expr<'a>(node: &'a ParenExpr, context: &mut Context<'a>) -> Print
   .into();
 
   return if get_use_new_line_group(node, context) {
-    new_line_group(parsed_items)
+    new_line_group(generated_items)
   } else {
-    parsed_items
+    generated_items
   };
 
   fn get_use_new_line_group(node: &ParenExpr, context: &Context) -> bool {
@@ -2472,9 +2460,9 @@ fn should_skip_paren_expr(node: &ParenExpr, context: &Context) -> bool {
   is_jsx_paren_expr_handled_node(&node.expr.into(), context)
 }
 
-fn parse_sequence_expr<'a>(node: &'a SeqExpr, context: &mut Context<'a>) -> PrintItems {
-  parse_separated_values(
-    ParseSeparatedValuesParams {
+fn gen_sequence_expr<'a>(node: &'a SeqExpr, context: &mut Context<'a>) -> PrintItems {
+  gen_separated_values(
+    GenSeparatedValuesParams {
       nodes: node.exprs.iter().map(|x| NodeOrSeparator::Node(x.into())).collect(),
       prefer_hanging: context.config.sequence_expression_prefer_hanging,
       force_use_new_lines: false,
@@ -2483,7 +2471,7 @@ fn parse_sequence_expr<'a>(node: &'a SeqExpr, context: &mut Context<'a>) -> Prin
       single_line_space_at_start: false,
       single_line_space_at_end: false,
       custom_single_line_separator: None,
-      multi_line_options: parser_helpers::MultiLineOptions::same_line_start_hanging_indent(),
+      multi_line_options: ir_helpers::MultiLineOptions::same_line_start_hanging_indent(),
       force_possible_newline_at_start: false,
       node_sorter: None,
     },
@@ -2491,8 +2479,8 @@ fn parse_sequence_expr<'a>(node: &'a SeqExpr, context: &mut Context<'a>) -> Prin
   )
 }
 
-fn parse_setter_prop<'a>(node: &'a SetterProp, context: &mut Context<'a>) -> PrintItems {
-  parse_class_or_object_method(
+fn gen_setter_prop<'a>(node: &'a SetterProp, context: &mut Context<'a>) -> PrintItems {
+  gen_class_or_object_method(
     ClassOrObjectMethod {
       node: node.into(),
       parameters_span: node.get_parameters_span(context),
@@ -2515,67 +2503,67 @@ fn parse_setter_prop<'a>(node: &'a SetterProp, context: &mut Context<'a>) -> Pri
   )
 }
 
-fn parse_spread_element<'a>(node: &'a SpreadElement, context: &mut Context<'a>) -> PrintItems {
+fn gen_spread_element<'a>(node: &'a SpreadElement, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_str("...");
-  items.extend(parse_node(node.expr.into(), context));
+  items.extend(gen_node(node.expr.into(), context));
   items
 }
 
-fn parse_tagged_tpl<'a>(node: &'a TaggedTpl, context: &mut Context<'a>) -> PrintItems {
+fn gen_tagged_tpl<'a>(node: &'a TaggedTpl, context: &mut Context<'a>) -> PrintItems {
   let use_space = context.config.tagged_template_space_before_literal;
-  let mut items = parse_node(node.tag.into(), context);
+  let mut items = gen_node(node.tag.into(), context);
   if let Some(type_params) = node.type_params {
-    items.extend(parse_node(type_params.into(), context));
+    items.extend(gen_node(type_params.into(), context));
   }
 
-  let parsed_between_comments = parse_comments_between_lines_indented(node.tag.hi(), context);
-  if parsed_between_comments.is_empty() {
+  let generated_between_comments = gen_comments_between_lines_indented(node.tag.hi(), context);
+  if generated_between_comments.is_empty() {
     items.push_condition(conditions::if_above_width_or(
       context.config.indent_width,
       if use_space { Signal::SpaceOrNewLine } else { Signal::PossibleNewLine }.into(),
       if use_space { Signal::SpaceIfNotTrailing.into() } else { PrintItems::new() },
     ));
   } else {
-    items.extend(parsed_between_comments);
+    items.extend(generated_between_comments);
   }
 
-  items.push_condition(conditions::indent_if_start_of_line(parse_node(node.tpl.into(), context)));
+  items.push_condition(conditions::indent_if_start_of_line(gen_node(node.tpl.into(), context)));
   items
 }
 
-fn parse_tpl<'a>(node: &'a Tpl, context: &mut Context<'a>) -> PrintItems {
-  parse_template_literal(
+fn gen_tpl<'a>(node: &'a Tpl, context: &mut Context<'a>) -> PrintItems {
+  gen_template_literal(
     node.quasis.iter().map(|&n| n.into()).collect(),
     node.exprs.iter().map(|x| x.into()).collect(),
     context,
   )
 }
 
-fn parse_tpl_element<'a>(node: &'a TplElement, context: &mut Context<'a>) -> PrintItems {
-  parse_raw_string(node.text_fast(context.program))
+fn gen_tpl_element<'a>(node: &'a TplElement, context: &mut Context<'a>) -> PrintItems {
+  gen_from_raw_string(node.text_fast(context.program))
 }
 
-fn parse_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context: &mut Context<'a>) -> PrintItems {
+fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_str("`");
   items.push_signal(Signal::StartIgnoringIndent);
   for node in get_nodes(quasis, exprs) {
     if node.kind() == NodeKind::TplElement {
-      items.extend(parse_node(node, context));
+      items.extend(gen_node(node, context));
     } else {
       items.push_str("${");
       items.push_signal(Signal::FinishIgnoringIndent);
       let keep_on_one_line = get_keep_on_one_line(&node);
       let possible_surround_newlines = get_possible_surround_newlines(&node);
-      let parsed_expr = parse_node(node, context);
+      let generated_expr = gen_node(node, context);
       items.extend(if keep_on_one_line {
-        with_no_new_lines(parsed_expr)
+        with_no_new_lines(generated_expr)
       } else {
         if possible_surround_newlines {
-          parser_helpers::surround_with_newlines_indented_if_multi_line(new_line_group(parsed_expr), context.config.indent_width)
+          ir_helpers::surround_with_newlines_indented_if_multi_line(new_line_group(generated_expr), context.config.indent_width)
         } else {
-          parsed_expr
+          generated_expr
         }
       });
       items.push_str("}");
@@ -2648,22 +2636,22 @@ fn parse_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, conte
   }
 }
 
-fn parse_type_assertion<'a>(node: &'a TsTypeAssertion, context: &mut Context<'a>) -> PrintItems {
+fn gen_type_assertion<'a>(node: &'a TsTypeAssertion, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_str("<");
-  items.extend(parse_node(node.type_ann.into(), context));
+  items.extend(gen_node(node.type_ann.into(), context));
   items.push_str(">");
   if context.config.type_assertion_space_before_expression {
     items.push_str(" ");
   }
-  items.extend(parse_node(node.expr.into(), context));
+  items.extend(gen_node(node.expr.into(), context));
   items
 }
 
-fn parse_unary_expr<'a>(node: &'a UnaryExpr, context: &mut Context<'a>) -> PrintItems {
+fn gen_unary_expr<'a>(node: &'a UnaryExpr, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_str(get_operator_text(node.op()));
-  items.extend(parse_node(node.arg.into(), context));
+  items.extend(gen_node(node.arg.into(), context));
   return items;
 
   fn get_operator_text<'a>(op: UnaryOp) -> &'a str {
@@ -2679,13 +2667,13 @@ fn parse_unary_expr<'a>(node: &'a UnaryExpr, context: &mut Context<'a>) -> Print
   }
 }
 
-fn parse_update_expr<'a>(node: &'a UpdateExpr, context: &mut Context<'a>) -> PrintItems {
+fn gen_update_expr<'a>(node: &'a UpdateExpr, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   let operator_text = get_operator_text(node.op());
   if node.prefix() {
     items.push_str(operator_text);
   }
-  items.extend(parse_node(node.arg.into(), context));
+  items.extend(gen_node(node.arg.into(), context));
   if !node.prefix() {
     items.push_str(operator_text);
   }
@@ -2699,7 +2687,7 @@ fn parse_update_expr<'a>(node: &'a UpdateExpr, context: &mut Context<'a>) -> Pri
   }
 }
 
-fn parse_yield_expr<'a>(node: &'a YieldExpr, context: &mut Context<'a>) -> PrintItems {
+fn gen_yield_expr<'a>(node: &'a YieldExpr, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_str("yield");
   if node.delegate() {
@@ -2707,27 +2695,27 @@ fn parse_yield_expr<'a>(node: &'a YieldExpr, context: &mut Context<'a>) -> Print
   }
   if let Some(arg) = &node.arg {
     items.push_str(" ");
-    items.extend(parse_node(arg.into(), context));
+    items.extend(gen_node(arg.into(), context));
   }
   items
 }
 
 /* exports */
 
-fn parse_export_named_specifier<'a>(node: &'a ExportNamedSpecifier, context: &mut Context<'a>) -> PrintItems {
+fn gen_export_named_specifier<'a>(node: &'a ExportNamedSpecifier, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
   if node.is_type_only() && !node.parent().type_only() {
     items.push_str("type ");
   }
 
-  items.extend(parse_node(node.orig.into(), context));
+  items.extend(gen_node(node.orig.into(), context));
   if let Some(exported) = node.exported {
     items.push_signal(Signal::SpaceOrNewLine);
     items.push_condition(conditions::indent_if_start_of_line({
       let mut items = PrintItems::new();
       items.push_str("as ");
-      items.extend(parse_node(exported.into(), context));
+      items.extend(gen_node(exported.into(), context));
       items
     }));
   }
@@ -2735,16 +2723,16 @@ fn parse_export_named_specifier<'a>(node: &'a ExportNamedSpecifier, context: &mu
   items
 }
 
-fn parse_namespace_export_specifier<'a>(node: &'a ExportNamespaceSpecifier, context: &mut Context<'a>) -> PrintItems {
+fn gen_namespace_export_specifier<'a>(node: &'a ExportNamespaceSpecifier, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_str("* as ");
-  items.extend(parse_node(node.name.into(), context));
+  items.extend(gen_node(node.name.into(), context));
   items
 }
 
 /* imports */
 
-fn parse_import_named_specifier<'a>(node: &'a ImportNamedSpecifier, context: &mut Context<'a>) -> PrintItems {
+fn gen_import_named_specifier<'a>(node: &'a ImportNamedSpecifier, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
   if node.is_type_only() && !node.parent().type_only() {
@@ -2752,55 +2740,55 @@ fn parse_import_named_specifier<'a>(node: &'a ImportNamedSpecifier, context: &mu
   }
 
   if let Some(imported) = node.imported {
-    items.extend(parse_node(imported.into(), context));
+    items.extend(gen_node(imported.into(), context));
     items.push_signal(Signal::SpaceOrNewLine);
     items.push_condition(conditions::indent_if_start_of_line({
       let mut items = PrintItems::new();
       items.push_str("as ");
-      items.extend(parse_node(node.local.into(), context));
+      items.extend(gen_node(node.local.into(), context));
       items
     }));
   } else {
-    items.extend(parse_node(node.local.into(), context));
+    items.extend(gen_node(node.local.into(), context));
   }
 
   items
 }
 
-fn parse_import_namespace_specifier<'a>(node: &'a ImportStarAsSpecifier, context: &mut Context<'a>) -> PrintItems {
+fn gen_import_namespace_specifier<'a>(node: &'a ImportStarAsSpecifier, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_str("* as ");
-  items.extend(parse_node(node.local.into(), context));
+  items.extend(gen_node(node.local.into(), context));
   items
 }
 
-fn parse_external_module_ref<'a>(node: &'a TsExternalModuleRef, context: &mut Context<'a>) -> PrintItems {
+fn gen_external_module_ref<'a>(node: &'a TsExternalModuleRef, context: &mut Context<'a>) -> PrintItems {
   // force everything on a single line
   let mut items = PrintItems::new();
   items.push_str("require(");
-  items.extend(parse_node(node.expr.into(), context));
+  items.extend(gen_node(node.expr.into(), context));
   items.push_str(")");
   items
 }
 
 /* interface / type element */
 
-fn parse_call_signature_decl<'a>(node: &'a TsCallSignatureDecl, context: &mut Context<'a>) -> PrintItems {
+fn gen_call_signature_decl<'a>(node: &'a TsCallSignatureDecl, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   let start_info = Info::new("startCallSignature");
 
   items.push_info(start_info);
   if let Some(type_params) = node.type_params {
-    items.extend(parse_node(type_params.into(), context));
+    items.extend(gen_node(type_params.into(), context));
   }
-  items.extend(parse_parameters_or_arguments(
-    ParseParametersOrArgumentsOptions {
+  items.extend(gen_parameters_or_arguments(
+    GenParametersOrArgumentsOptions {
       node: node.into(),
       span: node.get_parameters_span(context),
       nodes: node.params.iter().map(|node| node.into()).collect(),
       custom_close_paren: |context| {
-        Some(parse_close_paren_with_type(
-          ParseCloseParenWithTypeOptions {
+        Some(gen_close_paren_with_type(
+          GenCloseParenWithTypeOptions {
             start_info,
             type_node: node.type_ann.map(|x| x.into()),
             type_node_separator: None,
@@ -2817,7 +2805,7 @@ fn parse_call_signature_decl<'a>(node: &'a TsCallSignatureDecl, context: &mut Co
   items
 }
 
-fn parse_construct_signature_decl<'a>(node: &'a TsConstructSignatureDecl, context: &mut Context<'a>) -> PrintItems {
+fn gen_construct_signature_decl<'a>(node: &'a TsConstructSignatureDecl, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   let start_info = Info::new("startConstructSignature");
 
@@ -2827,16 +2815,16 @@ fn parse_construct_signature_decl<'a>(node: &'a TsConstructSignatureDecl, contex
     items.push_str(" ");
   }
   if let Some(type_params) = node.type_params {
-    items.extend(parse_node(type_params.into(), context));
+    items.extend(gen_node(type_params.into(), context));
   }
-  items.extend(parse_parameters_or_arguments(
-    ParseParametersOrArgumentsOptions {
+  items.extend(gen_parameters_or_arguments(
+    GenParametersOrArgumentsOptions {
       node: node.into(),
       span: node.get_parameters_span(context),
       nodes: node.params.iter().map(|node| node.into()).collect(),
       custom_close_paren: |context| {
-        Some(parse_close_paren_with_type(
-          ParseCloseParenWithTypeOptions {
+        Some(gen_close_paren_with_type(
+          GenCloseParenWithTypeOptions {
             start_info,
             type_node: node.type_ann.map(|x| x.into()),
             type_node_separator: None,
@@ -2853,7 +2841,7 @@ fn parse_construct_signature_decl<'a>(node: &'a TsConstructSignatureDecl, contex
   items
 }
 
-fn parse_index_signature<'a>(node: &'a TsIndexSignature, context: &mut Context<'a>) -> PrintItems {
+fn gen_index_signature<'a>(node: &'a TsIndexSignature, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
   if node.is_static() {
@@ -2864,18 +2852,18 @@ fn parse_index_signature<'a>(node: &'a TsIndexSignature, context: &mut Context<'
   }
 
   let param: Node<'a> = node.params.get(0).expect("Expected the index signature to have one parameter.").into();
-  items.extend(parse_computed_prop_like(
-    |context| parse_node(param, context),
-    ParseComputedPropLikeOptions { inner_node_span: param.span() },
+  items.extend(gen_computed_prop_like(
+    |context| gen_node(param, context),
+    GenComputedPropLikeOptions { inner_node_span: param.span() },
     context,
   ));
-  items.extend(parse_type_ann_with_colon_if_exists(&node.type_ann, context));
+  items.extend(gen_type_ann_with_colon_if_exists(&node.type_ann, context));
 
   items
 }
 
-fn parse_method_signature<'a>(node: &'a TsMethodSignature, context: &mut Context<'a>) -> PrintItems {
-  parse_method_signature_like(
+fn gen_method_signature<'a>(node: &'a TsMethodSignature, context: &mut Context<'a>) -> PrintItems {
+  gen_method_signature_like(
     MethodSignatureLike {
       node: node.into(),
       method_kind: MethodSignatureLikeKind::Method,
@@ -2909,7 +2897,7 @@ struct MethodSignatureLike<'a> {
   type_ann: Option<Node<'a>>,
 }
 
-fn parse_method_signature_like<'a>(node: MethodSignatureLike<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_method_signature_like<'a>(node: MethodSignatureLike<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   let start_info = Info::new("startMethodSignature");
   items.push_info(start_info);
@@ -2921,35 +2909,35 @@ fn parse_method_signature_like<'a>(node: MethodSignatureLike<'a>, context: &mut 
   }
 
   items.extend(if node.computed {
-    parse_computed_prop_like(
-      |context| parse_node(node.key, context),
-      ParseComputedPropLikeOptions {
+    gen_computed_prop_like(
+      |context| gen_node(node.key, context),
+      GenComputedPropLikeOptions {
         inner_node_span: node.key.span(),
       },
       context,
     )
   } else {
-    parse_node(node.key, context)
+    gen_node(node.key, context)
   });
 
   if node.optional {
     items.push_str("?");
   }
   if let Some(type_params) = node.type_params {
-    items.extend(parse_node(type_params, context));
+    items.extend(gen_node(type_params, context));
   }
 
   let param_count = node.params.len();
-  items.extend(parse_parameters_or_arguments(
-    ParseParametersOrArgumentsOptions {
+  items.extend(gen_parameters_or_arguments(
+    GenParametersOrArgumentsOptions {
       node: node.node,
       span: node.parameters_span,
       nodes: node.params,
       custom_close_paren: {
         let type_node = node.type_ann;
         move |context| {
-          Some(parse_close_paren_with_type(
-            ParseCloseParenWithTypeOptions {
+          Some(gen_close_paren_with_type(
+            GenCloseParenWithTypeOptions {
               start_info,
               type_node,
               type_node_separator: None,
@@ -2967,41 +2955,41 @@ fn parse_method_signature_like<'a>(node: MethodSignatureLike<'a>, context: &mut 
   items
 }
 
-fn parse_property_signature<'a>(node: &'a TsPropertySignature, context: &mut Context<'a>) -> PrintItems {
+fn gen_property_signature<'a>(node: &'a TsPropertySignature, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   if node.readonly() {
     items.push_str("readonly ");
   }
 
   items.extend(if node.computed() {
-    parse_computed_prop_like(
-      |context| parse_node(node.key.into(), context),
-      ParseComputedPropLikeOptions {
+    gen_computed_prop_like(
+      |context| gen_node(node.key.into(), context),
+      GenComputedPropLikeOptions {
         inner_node_span: node.key.span(),
       },
       context,
     )
   } else {
-    parse_node(node.key.into(), context)
+    gen_node(node.key.into(), context)
   });
 
   if node.optional() {
     items.push_str("?");
   }
-  items.extend(parse_type_ann_with_colon_if_exists(&node.type_ann, context));
+  items.extend(gen_type_ann_with_colon_if_exists(&node.type_ann, context));
 
   if let Some(init) = &node.init {
-    items.extend(parse_assignment(init.into(), "=", context));
+    items.extend(gen_assignment(init.into(), "=", context));
   }
 
   items
 }
 
-fn parse_interface_body<'a>(node: &'a TsInterfaceBody, context: &mut Context<'a>) -> PrintItems {
+fn gen_interface_body<'a>(node: &'a TsInterfaceBody, context: &mut Context<'a>) -> PrintItems {
   let start_header_info = get_parent_info(node, context);
 
-  return parse_membered_body(
-    ParseMemberedBodyOptions {
+  return gen_membered_body(
+    GenMemberedBodyOptions {
       node: node.into(),
       members: node.body.iter().map(|x| x.into()).collect(),
       start_header_info,
@@ -3022,9 +3010,9 @@ fn parse_interface_body<'a>(node: &'a TsInterfaceBody, context: &mut Context<'a>
   }
 }
 
-fn parse_type_lit<'a>(node: &'a TsTypeLit, context: &mut Context<'a>) -> PrintItems {
-  return parse_object_like_node(
-    ParseObjectLikeNodeOptions {
+fn gen_type_lit<'a>(node: &'a TsTypeLit, context: &mut Context<'a>) -> PrintItems {
+  return gen_object_like_node(
+    GenObjectLikeNodeOptions {
       node: node.into(),
       members: node.members.iter().map(|m| m.into()).collect(),
       separator: Separator {
@@ -3056,15 +3044,15 @@ fn parse_type_lit<'a>(node: &'a TsTypeLit, context: &mut Context<'a>) -> PrintIt
 
 /* jsx */
 
-fn parse_jsx_attribute<'a>(node: &'a JSXAttr, context: &mut Context<'a>) -> PrintItems {
+fn gen_jsx_attribute<'a>(node: &'a JSXAttr, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(parse_node(node.name.into(), context));
+  items.extend(gen_node(node.name.into(), context));
   if let Some(value) = &node.value {
     items.push_str("=");
     let surround_with_braces = context.token_finder.get_previous_token_if_open_brace(value).is_some();
-    let inner_items = parse_node(value.into(), context);
+    let inner_items = gen_node(value.into(), context);
     items.extend(if surround_with_braces {
-      parse_as_jsx_expr_container(node.into(), inner_items, context)
+      gen_as_jsx_expr_container(node.into(), inner_items, context)
     } else {
       inner_items
     });
@@ -3072,15 +3060,15 @@ fn parse_jsx_attribute<'a>(node: &'a JSXAttr, context: &mut Context<'a>) -> Prin
   items
 }
 
-fn parse_jsx_closing_element<'a>(node: &'a JSXClosingElement, context: &mut Context<'a>) -> PrintItems {
+fn gen_jsx_closing_element<'a>(node: &'a JSXClosingElement, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_str("</");
-  items.extend(parse_node(node.name.into(), context));
+  items.extend(gen_node(node.name.into(), context));
   items.push_str(">");
   items
 }
 
-fn parse_jsx_closing_fragment<'a>(_: &'a JSXClosingFragment, _: &mut Context<'a>) -> PrintItems {
+fn gen_jsx_closing_fragment<'a>(_: &'a JSXClosingFragment, _: &mut Context<'a>) -> PrintItems {
   "</>".into()
 }
 
@@ -3171,10 +3159,10 @@ fn is_jsx_paren_expr_handled_node(node: &Node, context: &Context) -> bool {
   !matches!(parent.kind(), NodeKind::ExprStmt | NodeKind::ExprOrSpread | NodeKind::JSXExprContainer)
 }
 
-fn parse_jsx_element<'a>(node: &'a JSXElement, context: &mut Context<'a>) -> PrintItems {
+fn gen_jsx_element<'a>(node: &'a JSXElement, context: &mut Context<'a>) -> PrintItems {
   let items = if let Some(closing) = node.closing {
-    let result = parse_jsx_with_opening_and_closing(
-      ParseJsxWithOpeningAndClosingOptions {
+    let result = gen_jsx_with_opening_and_closing(
+      GenJsxWithOpeningAndClosingOptions {
         opening_element: node.opening.into(),
         closing_element: closing.into(),
         children: node.children.iter().map(|x| x.into()).collect(),
@@ -3191,7 +3179,7 @@ fn parse_jsx_element<'a>(node: &'a JSXElement, context: &mut Context<'a>) -> Pri
     context.store_info_range_for_node(node, (start_info, end_info));
 
     items.push_info(start_info);
-    items.extend(parse_node(node.opening.into(), context));
+    items.extend(gen_node(node.opening.into(), context));
     items.push_info(end_info);
     items
   };
@@ -3199,22 +3187,22 @@ fn parse_jsx_element<'a>(node: &'a JSXElement, context: &mut Context<'a>) -> Pri
   handle_jsx_surrounding_parens(items, context)
 }
 
-fn parse_jsx_empty_expr<'a>(node: &'a JSXEmptyExpr, context: &mut Context<'a>) -> PrintItems {
-  parse_comment_collection(get_jsx_empty_expr_comments(node, context), None, None, context)
+fn gen_jsx_empty_expr<'a>(node: &'a JSXEmptyExpr, context: &mut Context<'a>) -> PrintItems {
+  gen_comment_collection(get_jsx_empty_expr_comments(node, context), None, None, context)
 }
 
-fn parse_jsx_expr_container<'a>(node: &'a JSXExprContainer, context: &mut Context<'a>) -> PrintItems {
-  // Don't send JSX empty expressions to parse_node because it will not handle comments
+fn gen_jsx_expr_container<'a>(node: &'a JSXExprContainer, context: &mut Context<'a>) -> PrintItems {
+  // Don't send JSX empty expressions to gen_node because it will not handle comments
   // the way they should be specifically handled for empty expressions.
-  let parse_inner = match &node.expr {
-    JSXExpr::JSXEmptyExpr(expr) => parse_jsx_empty_expr(expr, context),
-    JSXExpr::Expr(expr) => parse_node(expr.into(), context),
+  let gen_inner = match &node.expr {
+    JSXExpr::JSXEmptyExpr(expr) => gen_jsx_empty_expr(expr, context),
+    JSXExpr::Expr(expr) => gen_node(expr.into(), context),
   };
 
-  parse_as_jsx_expr_container(node.expr.into(), parse_inner, context)
+  gen_as_jsx_expr_container(node.expr.into(), gen_inner, context)
 }
 
-fn parse_as_jsx_expr_container(expr: Node, inner_items: PrintItems, context: &mut Context) -> PrintItems {
+fn gen_as_jsx_expr_container(expr: Node, inner_items: PrintItems, context: &mut Context) -> PrintItems {
   let surround_with_space = context.config.jsx_expression_container_space_surrounding_expression;
   let surround_with_new_lines = should_surround_with_newlines(expr, &context.program);
   let mut items = PrintItems::new();
@@ -3227,7 +3215,7 @@ fn parse_as_jsx_expr_container(expr: Node, inner_items: PrintItems, context: &mu
   }
   items.extend(inner_items);
   if surround_with_new_lines {
-    items.extend(parse_trailing_comments_as_statements(&expr, context));
+    items.extend(gen_trailing_comments_as_statements(&expr, context));
     items.push_signal(Signal::NewLine);
     items.push_signal(Signal::FinishIndent);
   } else if surround_with_space {
@@ -3257,9 +3245,9 @@ fn parse_as_jsx_expr_container(expr: Node, inner_items: PrintItems, context: &mu
   }
 }
 
-fn parse_jsx_fragment<'a>(node: &'a JSXFragment, context: &mut Context<'a>) -> PrintItems {
-  let result = parse_jsx_with_opening_and_closing(
-    ParseJsxWithOpeningAndClosingOptions {
+fn gen_jsx_fragment<'a>(node: &'a JSXFragment, context: &mut Context<'a>) -> PrintItems {
+  let result = gen_jsx_with_opening_and_closing(
+    GenJsxWithOpeningAndClosingOptions {
       opening_element: node.opening.into(),
       closing_element: node.closing.into(),
       children: node.children.iter().map(|x| x.into()).collect(),
@@ -3272,23 +3260,23 @@ fn parse_jsx_fragment<'a>(node: &'a JSXFragment, context: &mut Context<'a>) -> P
   handle_jsx_surrounding_parens(result.items, context)
 }
 
-fn parse_jsx_member_expr<'a>(node: &'a JSXMemberExpr, context: &mut Context<'a>) -> PrintItems {
+fn gen_jsx_member_expr<'a>(node: &'a JSXMemberExpr, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(parse_node(node.obj.into(), context));
+  items.extend(gen_node(node.obj.into(), context));
   items.push_str(".");
-  items.extend(parse_node(node.prop.into(), context));
+  items.extend(gen_node(node.prop.into(), context));
   items
 }
 
-fn parse_jsx_namespaced_name<'a>(node: &'a JSXNamespacedName, context: &mut Context<'a>) -> PrintItems {
+fn gen_jsx_namespaced_name<'a>(node: &'a JSXNamespacedName, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(parse_node(node.ns.into(), context));
+  items.extend(gen_node(node.ns.into(), context));
   items.push_str(":");
-  items.extend(parse_node(node.name.into(), context));
+  items.extend(gen_node(node.name.into(), context));
   items
 }
 
-fn parse_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Context<'a>) -> PrintItems {
+fn gen_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Context<'a>) -> PrintItems {
   let space_before_self_closing_tag_slash = context.config.jsx_element_space_before_self_closing_tag_slash;
   let force_use_new_lines = get_force_is_multi_line(node, context);
   let start_info = Info::new("openingElementStartInfo");
@@ -3296,21 +3284,21 @@ fn parse_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Cont
 
   items.push_info(start_info);
   items.push_str("<");
-  items.extend(parse_node(node.name.into(), context));
+  items.extend(gen_node(node.name.into(), context));
   if let Some(type_args) = node.type_args {
-    items.extend(parse_node(type_args.into(), context));
+    items.extend(gen_node(type_args.into(), context));
   }
 
   let single_line_space_at_end = node.self_closing() && space_before_self_closing_tag_slash;
   if node.attrs.len() == 1 && node.type_args.is_none() && is_jsx_attr_with_string(&node.attrs[0]) {
     items.push_str(" ");
-    items.extend(parse_node(node.attrs[0].into(), context));
+    items.extend(gen_node(node.attrs[0].into(), context));
     if single_line_space_at_end {
       items.push_str(" ");
     }
   } else if !node.attrs.is_empty() {
-    items.extend(parse_separated_values(
-      ParseSeparatedValuesParams {
+    items.extend(gen_separated_values(
+      GenSeparatedValuesParams {
         nodes: node.attrs.iter().map(|p| NodeOrSeparator::Node(p.into())).collect(),
         prefer_hanging: context.config.jsx_attributes_prefer_hanging,
         force_use_new_lines,
@@ -3319,7 +3307,7 @@ fn parse_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Cont
         single_line_space_at_start: true,
         single_line_space_at_end,
         custom_single_line_separator: None,
-        multi_line_options: parser_helpers::MultiLineOptions::surround_newlines_indented(),
+        multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(),
         force_possible_newline_at_start: false,
         node_sorter: None,
       },
@@ -3327,16 +3315,16 @@ fn parse_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Cont
     ));
   }
 
-  // parse trailing comments on different lines
+  // generate trailing comments on different lines
   let name_or_type_arg_end = node.type_args.map(|t| t.hi()).unwrap_or_else(|| node.name.hi());
   let last_node_end = node.attrs.last().map(|n| n.hi()).unwrap_or(name_or_type_arg_end);
 
-  let parsed_comments = parse_comments_as_statements(last_node_end.trailing_comments_fast(context.program), None, context);
-  if !parsed_comments.is_empty() {
+  let generated_comments = gen_comments_as_statements(last_node_end.trailing_comments_fast(context.program), None, context);
+  if !generated_comments.is_empty() {
     if node.attrs.is_empty() {
       items.push_signal(Signal::NewLine);
     }
-    items.extend(with_indent(parsed_comments));
+    items.extend(with_indent(generated_comments));
     items.push_signal(Signal::NewLine);
   }
 
@@ -3375,24 +3363,24 @@ fn parse_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Cont
   }
 }
 
-fn parse_jsx_opening_fragment<'a>(_: &'a JSXOpeningFragment, _: &mut Context<'a>) -> PrintItems {
+fn gen_jsx_opening_fragment<'a>(_: &'a JSXOpeningFragment, _: &mut Context<'a>) -> PrintItems {
   "<>".into()
 }
 
-fn parse_jsx_spread_child<'a>(node: &'a JSXSpreadChild, context: &mut Context<'a>) -> PrintItems {
-  parse_as_jsx_expr_container(
+fn gen_jsx_spread_child<'a>(node: &'a JSXSpreadChild, context: &mut Context<'a>) -> PrintItems {
+  gen_as_jsx_expr_container(
     node.into(),
     {
       let mut items = PrintItems::new();
       items.push_str("...");
-      items.extend(parse_node(node.expr.into(), context));
+      items.extend(gen_node(node.expr.into(), context));
       items
     },
     context,
   )
 }
 
-fn parse_jsx_text<'a>(node: &'a JSXText, context: &mut Context<'a>) -> PrintItems {
+fn gen_jsx_text<'a>(node: &'a JSXText, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
   for (i, line) in get_lines(node.text_fast(context.program)).into_iter().enumerate() {
@@ -3414,7 +3402,7 @@ fn parse_jsx_text<'a>(node: &'a JSXText, context: &mut Context<'a>) -> PrintItem
     }
   }
 
-  return parser_helpers::new_line_group(items);
+  return ir_helpers::new_line_group(items);
 
   fn get_lines(node_text: &str) -> Vec<String> {
     let mut past_line: Option<&str> = None;
@@ -3450,11 +3438,11 @@ fn parse_jsx_text<'a>(node: &'a JSXText, context: &mut Context<'a>) -> PrintItem
 
 /* literals */
 
-fn parse_big_int_literal<'a>(node: &'a BigInt, context: &mut Context<'a>) -> PrintItems {
+fn gen_big_int_literal<'a>(node: &'a BigInt, context: &mut Context<'a>) -> PrintItems {
   node.text_fast(context.program).to_string().into()
 }
 
-fn parse_bool_literal(node: &Bool) -> PrintItems {
+fn gen_bool_literal(node: &Bool) -> PrintItems {
   match node.value() {
     true => "true",
     false => "false",
@@ -3462,11 +3450,11 @@ fn parse_bool_literal(node: &Bool) -> PrintItems {
   .into()
 }
 
-fn parse_num_literal<'a>(node: &'a Number, context: &mut Context<'a>) -> PrintItems {
+fn gen_num_literal<'a>(node: &'a Number, context: &mut Context<'a>) -> PrintItems {
   node.text_fast(context.program).to_string().into()
 }
 
-fn parse_reg_exp_literal(node: &Regex, _: &mut Context) -> PrintItems {
+fn gen_reg_exp_literal(node: &Regex, _: &mut Context) -> PrintItems {
   // the exp and flags should not be nodes so just ignore that (swc issue #511)
   let mut items = PrintItems::new();
   items.push_str("/");
@@ -3476,8 +3464,8 @@ fn parse_reg_exp_literal(node: &Regex, _: &mut Context) -> PrintItems {
   items
 }
 
-fn parse_string_literal<'a>(node: &'a Str, context: &mut Context<'a>) -> PrintItems {
-  return parse_raw_string(&get_string_literal_text(
+fn gen_string_literal<'a>(node: &'a Str, context: &mut Context<'a>) -> PrintItems {
+  return gen_from_raw_string(&get_string_literal_text(
     get_string_value(&node, context),
     node.parent().is::<JSXAttr>(),
     context,
@@ -3575,8 +3563,8 @@ fn parse_string_literal<'a>(node: &'a Str, context: &mut Context<'a>) -> PrintIt
 
 /* top level */
 
-fn parse_module<'a>(node: &'a Module, context: &mut Context<'a>) -> PrintItems {
-  parse_program(
+fn gen_module<'a>(node: &'a Module, context: &mut Context<'a>) -> PrintItems {
+  gen_program(
     ProgramInfo {
       span: node.span(),
       shebang: node.shebang(),
@@ -3586,8 +3574,8 @@ fn parse_module<'a>(node: &'a Module, context: &mut Context<'a>) -> PrintItems {
   )
 }
 
-fn parse_script<'a>(node: &'a Script, context: &mut Context<'a>) -> PrintItems {
-  parse_program(
+fn gen_script<'a>(node: &'a Script, context: &mut Context<'a>) -> PrintItems {
+  gen_program(
     ProgramInfo {
       span: node.span(),
       shebang: node.shebang(),
@@ -3603,7 +3591,7 @@ struct ProgramInfo<'a> {
   statements: Vec<Node<'a>>,
 }
 
-fn parse_program<'a>(node: ProgramInfo<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_program<'a>(node: ProgramInfo<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   if let Some(shebang) = node.shebang {
     items.push_str("#!");
@@ -3616,21 +3604,21 @@ fn parse_program<'a>(node: ProgramInfo<'a>, context: &mut Context<'a>) -> PrintI
       }
     } else {
       let shebang_end = BytePos(("#!".len() + shebang.len()) as u32);
-      items.extend(parse_trailing_comments_as_statements(&shebang_end, context));
+      items.extend(gen_trailing_comments_as_statements(&shebang_end, context));
     }
   }
 
-  items.extend(parse_statements(node.span, node.statements, context));
+  items.extend(gen_statements(node.span, node.statements, context));
 
   items
 }
 
 /* patterns */
 
-fn parse_array_pat<'a>(node: &'a ArrayPat, context: &mut Context<'a>) -> PrintItems {
+fn gen_array_pat<'a>(node: &'a ArrayPat, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(parse_array_like_nodes(
-    ParseArrayLikeNodesOptions {
+  items.extend(gen_array_like_nodes(
+    GenArrayLikeNodesOptions {
       node: node.into(),
       nodes: node.elems.iter().map(|x| x.as_ref().map(|elem| elem.into())).collect(),
       prefer_hanging: context.config.array_pattern_prefer_hanging,
@@ -3642,45 +3630,45 @@ fn parse_array_pat<'a>(node: &'a ArrayPat, context: &mut Context<'a>) -> PrintIt
   if node.optional() {
     items.push_str("?");
   }
-  items.extend(parse_type_ann_with_colon_if_exists(&node.type_ann, context));
+  items.extend(gen_type_ann_with_colon_if_exists(&node.type_ann, context));
   items
 }
 
-fn parse_assign_pat<'a>(node: &'a AssignPat, context: &mut Context<'a>) -> PrintItems {
+fn gen_assign_pat<'a>(node: &'a AssignPat, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(parse_node(node.left.into(), context));
-  items.extend(parse_assignment(node.right.into(), "=", context));
+  items.extend(gen_node(node.left.into(), context));
+  items.extend(gen_assignment(node.right.into(), "=", context));
   items
 }
 
-fn parse_assign_pat_prop<'a>(node: &'a AssignPatProp, context: &mut Context<'a>) -> PrintItems {
+fn gen_assign_pat_prop<'a>(node: &'a AssignPatProp, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(parse_node(node.key.into(), context));
+  items.extend(gen_node(node.key.into(), context));
   if let Some(value) = &node.value {
-    items.extend(parse_assignment(value.into(), "=", context));
+    items.extend(gen_assignment(value.into(), "=", context));
   }
   items
 }
 
-fn parse_key_value_pat_prop<'a>(node: &'a KeyValuePatProp, context: &mut Context<'a>) -> PrintItems {
+fn gen_key_value_pat_prop<'a>(node: &'a KeyValuePatProp, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(parse_node(node.key.into(), context));
-  items.extend(parse_assignment(node.value.into(), ":", context));
+  items.extend(gen_node(node.key.into(), context));
+  items.extend(gen_assignment(node.value.into(), ":", context));
   items
 }
 
-fn parse_rest_pat<'a>(node: &'a RestPat, context: &mut Context<'a>) -> PrintItems {
+fn gen_rest_pat<'a>(node: &'a RestPat, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_str("...");
-  items.extend(parse_node(node.arg.into(), context));
-  items.extend(parse_type_ann_with_colon_if_exists(&node.type_ann, context));
+  items.extend(gen_node(node.arg.into(), context));
+  items.extend(gen_type_ann_with_colon_if_exists(&node.type_ann, context));
   items
 }
 
-fn parse_object_pat<'a>(node: &'a ObjectPat, context: &mut Context<'a>) -> PrintItems {
+fn gen_object_pat<'a>(node: &'a ObjectPat, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(parse_object_like_node(
-    ParseObjectLikeNodeOptions {
+  items.extend(gen_object_like_node(
+    GenObjectLikeNodeOptions {
       node: node.into(),
       members: node.props.iter().map(|x| x.into()).collect(),
       separator: get_trailing_commas(node, context).into(),
@@ -3695,7 +3683,7 @@ fn parse_object_pat<'a>(node: &'a ObjectPat, context: &mut Context<'a>) -> Print
   if node.optional() {
     items.push_str("?");
   }
-  items.extend(parse_type_ann_with_colon_if_exists(&node.type_ann, context));
+  items.extend(gen_type_ann_with_colon_if_exists(&node.type_ann, context));
   return items;
 
   fn get_trailing_commas(node: &ObjectPat, context: &Context) -> TrailingCommas {
@@ -3710,8 +3698,8 @@ fn parse_object_pat<'a>(node: &'a ObjectPat, context: &mut Context<'a>) -> Print
 
 /* properties */
 
-fn parse_method_prop<'a>(node: &'a MethodProp, context: &mut Context<'a>) -> PrintItems {
-  return parse_class_or_object_method(
+fn gen_method_prop<'a>(node: &'a MethodProp, context: &mut Context<'a>) -> PrintItems {
+  return gen_class_or_object_method(
     ClassOrObjectMethod {
       node: node.into(),
       parameters_span: node.get_parameters_span(context),
@@ -3770,10 +3758,10 @@ impl From<MethodKind> for ClassOrObjectMethodKind {
   }
 }
 
-fn parse_class_or_object_method<'a>(node: ClassOrObjectMethod<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_class_or_object_method<'a>(node: ClassOrObjectMethod<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   if let Some(decorators) = node.decorators.as_ref() {
-    items.extend(parse_decorators(decorators, false, context));
+    items.extend(gen_decorators(decorators, false, context));
   }
 
   let start_header_info = Info::new("methodStartHeaderInfo");
@@ -3804,28 +3792,28 @@ fn parse_class_or_object_method<'a>(node: ClassOrObjectMethod<'a>, context: &mut
   if node.is_generator {
     items.push_str("*");
   }
-  items.extend(parse_node(node.key, context));
+  items.extend(gen_node(node.key, context));
   if node.is_optional {
     items.push_str("?");
   }
   if let Some(type_params) = node.type_params {
-    items.extend(parse_node(type_params, context));
+    items.extend(gen_node(type_params, context));
   }
   if get_use_space_before_parens(&node.kind, context) {
     items.push_str(" ")
   }
 
   let param_count = node.params.len();
-  items.extend(parse_parameters_or_arguments(
-    ParseParametersOrArgumentsOptions {
+  items.extend(gen_parameters_or_arguments(
+    GenParametersOrArgumentsOptions {
       node: node.node,
       span: node.parameters_span,
       nodes: node.params,
       custom_close_paren: {
         let return_type = node.return_type;
         move |context| {
-          Some(parse_close_paren_with_type(
-            ParseCloseParenWithTypeOptions {
+          Some(gen_close_paren_with_type(
+            GenCloseParenWithTypeOptions {
               start_info: start_header_info,
               type_node: return_type,
               type_node_separator: None,
@@ -3842,15 +3830,15 @@ fn parse_class_or_object_method<'a>(node: ClassOrObjectMethod<'a>, context: &mut
 
   if let Some(body) = node.body {
     let brace_position = get_brace_position(&node.kind, context);
-    items.extend(parse_brace_separator(
-      ParseBraceSeparatorOptions {
+    items.extend(gen_brace_separator(
+      GenBraceSeparatorOptions {
         brace_position,
         open_brace_token: context.token_finder.get_first_open_brace_token_within(&body),
         start_header_info: Some(start_header_info),
       },
       context,
     ));
-    items.extend(parse_node(body, context));
+    items.extend(gen_node(body, context));
   } else if context.config.semi_colons.is_true() {
     items.push_str(";");
   }
@@ -3886,10 +3874,10 @@ fn accessibility_to_str(accessibility: Accessibility) -> &'static str {
 
 /* statements */
 
-fn parse_block_stmt<'a>(node: &'a BlockStmt, context: &mut Context<'a>) -> PrintItems {
-  parse_block(
-    |stmts, context| parse_statements(node.get_inner_span(context), stmts, context),
-    ParseBlockOptions {
+fn gen_block_stmt<'a>(node: &'a BlockStmt, context: &mut Context<'a>) -> PrintItems {
+  gen_block(
+    |stmts, context| gen_statements(node.get_inner_span(context), stmts, context),
+    GenBlockOptions {
       span: Some(node.span()),
       children: node.stmts.iter().map(|x| x.into()).collect(),
     },
@@ -3897,13 +3885,13 @@ fn parse_block_stmt<'a>(node: &'a BlockStmt, context: &mut Context<'a>) -> Print
   )
 }
 
-fn parse_break_stmt<'a>(node: &'a BreakStmt, context: &mut Context<'a>) -> PrintItems {
+fn gen_break_stmt<'a>(node: &'a BreakStmt, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
   items.push_str("break");
   if let Some(label) = node.label {
     items.push_str(" ");
-    items.extend(parse_node(label.into(), context));
+    items.extend(gen_node(label.into(), context));
   }
   if context.config.semi_colons.is_true() {
     items.push_str(";");
@@ -3912,13 +3900,13 @@ fn parse_break_stmt<'a>(node: &'a BreakStmt, context: &mut Context<'a>) -> Print
   items
 }
 
-fn parse_continue_stmt<'a>(node: &'a ContinueStmt, context: &mut Context<'a>) -> PrintItems {
+fn gen_continue_stmt<'a>(node: &'a ContinueStmt, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
   items.push_str("continue");
   if let Some(label) = node.label {
     items.push_str(" ");
-    items.extend(parse_node(label.into(), context));
+    items.extend(gen_node(label.into(), context));
   }
   if context.config.semi_colons.is_true() {
     items.push_str(";");
@@ -3927,7 +3915,7 @@ fn parse_continue_stmt<'a>(node: &'a ContinueStmt, context: &mut Context<'a>) ->
   items
 }
 
-fn parse_debugger_stmt<'a>(_: &'a DebuggerStmt, context: &mut Context<'a>) -> PrintItems {
+fn gen_debugger_stmt<'a>(_: &'a DebuggerStmt, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
   items.push_str("debugger");
@@ -3938,12 +3926,12 @@ fn parse_debugger_stmt<'a>(_: &'a DebuggerStmt, context: &mut Context<'a>) -> Pr
   items
 }
 
-fn parse_do_while_stmt<'a>(node: &'a DoWhileStmt, context: &mut Context<'a>) -> PrintItems {
+fn gen_do_while_stmt<'a>(node: &'a DoWhileStmt, context: &mut Context<'a>) -> PrintItems {
   // the braces are technically optional on do while statements
   let mut items = PrintItems::new();
   items.push_str("do");
-  items.extend(parse_brace_separator(
-    ParseBraceSeparatorOptions {
+  items.extend(gen_brace_separator(
+    GenBraceSeparatorOptions {
       brace_position: context.config.do_while_statement_brace_position,
       open_brace_token: if let Stmt::Block(_) = node.body {
         context.token_finder.get_first_open_brace_token_within(node)
@@ -3954,14 +3942,14 @@ fn parse_do_while_stmt<'a>(node: &'a DoWhileStmt, context: &mut Context<'a>) -> 
     },
     context,
   ));
-  items.extend(parse_node(node.body.into(), context));
+  items.extend(gen_node(node.body.into(), context));
   items.push_str(" while");
   if context.config.do_while_statement_space_after_while_keyword {
     items.push_str(" ");
   }
-  items.extend(parse_node_in_parens(
-    |context| parse_node(node.test.into(), context),
-    ParseNodeInParensOptions {
+  items.extend(gen_node_in_parens(
+    |context| gen_node(node.test.into(), context),
+    GenNodeInParensOptions {
       inner_span: node.test.span(),
       prefer_hanging: context.config.do_while_statement_prefer_hanging,
       allow_open_paren_trailing_comments: false,
@@ -3974,14 +3962,14 @@ fn parse_do_while_stmt<'a>(node: &'a DoWhileStmt, context: &mut Context<'a>) -> 
   items
 }
 
-fn parse_export_all<'a>(node: &'a ExportAll, context: &mut Context<'a>) -> PrintItems {
+fn gen_export_all<'a>(node: &'a ExportAll, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_str("export * from ");
-  items.extend(parse_node(node.src.into(), context));
+  items.extend(gen_node(node.src.into(), context));
 
   if let Some(asserts) = node.asserts {
     items.push_str(" assert ");
-    items.extend(parse_node(asserts.into(), context));
+    items.extend(gen_node(asserts.into(), context));
   }
 
   if context.config.semi_colons.is_true() {
@@ -3991,15 +3979,15 @@ fn parse_export_all<'a>(node: &'a ExportAll, context: &mut Context<'a>) -> Print
   items
 }
 
-fn parse_empty_stmt(_: &EmptyStmt, _: &mut Context) -> PrintItems {
+fn gen_empty_stmt(_: &EmptyStmt, _: &mut Context) -> PrintItems {
   ";".into()
 }
 
-fn parse_export_assignment<'a>(node: &'a TsExportAssignment, context: &mut Context<'a>) -> PrintItems {
+fn gen_export_assignment<'a>(node: &'a TsExportAssignment, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
   items.push_str("export");
-  items.extend(parse_assignment(node.expr.into(), "=", context));
+  items.extend(gen_assignment(node.expr.into(), "=", context));
   if context.config.semi_colons.is_true() {
     items.push_str(";");
   }
@@ -4007,10 +3995,10 @@ fn parse_export_assignment<'a>(node: &'a TsExportAssignment, context: &mut Conte
   items
 }
 
-fn parse_namespace_export<'a>(node: &'a TsNamespaceExportDecl, context: &mut Context<'a>) -> PrintItems {
+fn gen_namespace_export<'a>(node: &'a TsNamespaceExportDecl, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_str("export as namespace ");
-  items.extend(parse_node(node.id.into(), context));
+  items.extend(gen_node(node.id.into(), context));
 
   if context.config.semi_colons.is_true() {
     items.push_str(";");
@@ -4019,26 +4007,26 @@ fn parse_namespace_export<'a>(node: &'a TsNamespaceExportDecl, context: &mut Con
   items
 }
 
-fn parse_expr_stmt<'a>(stmt: &'a ExprStmt, context: &mut Context<'a>) -> PrintItems {
+fn gen_expr_stmt<'a>(stmt: &'a ExprStmt, context: &mut Context<'a>) -> PrintItems {
   if context.config.semi_colons.is_true() {
-    return parse_inner(&stmt, context);
+    return gen_inner(&stmt, context);
   } else {
-    return parse_for_prefix_semi_colon_insertion(&stmt, context);
+    return gen_for_prefix_semi_colon_insertion(&stmt, context);
   }
 
-  fn parse_inner<'a>(stmt: &'a ExprStmt, context: &mut Context<'a>) -> PrintItems {
+  fn gen_inner<'a>(stmt: &'a ExprStmt, context: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
-    items.extend(parse_node(stmt.expr.into(), context));
+    items.extend(gen_node(stmt.expr.into(), context));
     if context.config.semi_colons.is_true() {
       items.push_str(";");
     }
     items
   }
 
-  fn parse_for_prefix_semi_colon_insertion<'a>(stmt: &'a ExprStmt, context: &mut Context<'a>) -> PrintItems {
-    let parsed_node = parse_inner(&stmt, context);
-    let parsed_node = parsed_node.into_rc_path();
-    return if should_add_semi_colon(&parsed_node).unwrap_or(false) {
+  fn gen_for_prefix_semi_colon_insertion<'a>(stmt: &'a ExprStmt, context: &mut Context<'a>) -> PrintItems {
+    let generated_node = gen_inner(&stmt, context);
+    let generated_node = generated_node.into_rc_path();
+    return if should_add_semi_colon(&generated_node).unwrap_or(false) {
       let mut items = PrintItems::new();
       if let Some(brace_condition_ref) = context.take_expr_stmt_single_line_parent_brace_ref() {
         // Do not add a semi-colon when the semi-colon is within an if stmt or for-like stmt where
@@ -4051,10 +4039,10 @@ fn parse_expr_stmt<'a>(stmt: &'a ExprStmt, context: &mut Context<'a>) -> PrintIt
       } else {
         items.push_str(";");
       }
-      items.extend(parsed_node.into());
+      items.extend(generated_node.into());
       items
     } else {
-      parsed_node.into()
+      generated_node.into()
     };
 
     fn should_add_semi_colon(path: &Option<PrintItemPath>) -> Option<bool> {
@@ -4094,7 +4082,7 @@ fn parse_expr_stmt<'a>(stmt: &'a ExprStmt, context: &mut Context<'a>) -> PrintIt
   }
 }
 
-fn parse_for_stmt<'a>(node: &'a ForStmt, context: &mut Context<'a>) -> PrintItems {
+fn gen_for_stmt<'a>(node: &'a ForStmt, context: &mut Context<'a>) -> PrintItems {
   let start_header_info = Info::new("startHeader");
   let end_header_info = Info::new("endHeader");
   let first_inner_node = {
@@ -4149,10 +4137,10 @@ fn parse_for_stmt<'a>(node: &'a ForStmt, context: &mut Context<'a>) -> PrintItem
   } else {
     Signal::PossibleNewLine
   };
-  let parsed_init = parser_helpers::new_line_group({
+  let generated_init = ir_helpers::new_line_group({
     let mut items = PrintItems::new();
     if let Some(init) = &node.init {
-      items.extend(parse_node(init.into(), context));
+      items.extend(gen_node(init.into(), context));
     }
     items.push_str(";");
     if node.test.is_none() {
@@ -4160,34 +4148,31 @@ fn parse_for_stmt<'a>(node: &'a ForStmt, context: &mut Context<'a>) -> PrintItem
     }
     items
   });
-  let parsed_test = node.test.as_ref().map(|test| {
-    parser_helpers::new_line_group({
+  let generated_test = node.test.as_ref().map(|test| {
+    ir_helpers::new_line_group({
       let mut items = PrintItems::new();
-      items.extend(parse_node(test.into(), context));
+      items.extend(gen_node(test.into(), context));
       items.push_str(";");
       items
     })
   });
-  let parsed_update = node
-    .update
-    .as_ref()
-    .map(|update| parser_helpers::new_line_group(parse_node(update.into(), context)));
+  let generated_update = node.update.as_ref().map(|update| ir_helpers::new_line_group(gen_node(update.into(), context)));
 
-  items.extend(parse_node_in_parens(
+  items.extend(gen_node_in_parens(
     |context| {
-      parser_helpers::parse_separated_values(
+      ir_helpers::gen_separated_values(
         move |_| {
-          let mut parsed_nodes = Vec::new();
-          parsed_nodes.push(parser_helpers::ParsedValue::from_items(parsed_init));
-          if let Some(parsed_test) = parsed_test {
-            parsed_nodes.push(parser_helpers::ParsedValue::from_items(parsed_test));
+          let mut generated_nodes = Vec::new();
+          generated_nodes.push(ir_helpers::GeneratedValue::from_items(generated_init));
+          if let Some(generated_test) = generated_test {
+            generated_nodes.push(ir_helpers::GeneratedValue::from_items(generated_test));
           }
-          if let Some(parsed_update) = parsed_update {
-            parsed_nodes.push(parser_helpers::ParsedValue::from_items(parsed_update));
+          if let Some(generated_update) = generated_update {
+            generated_nodes.push(ir_helpers::GeneratedValue::from_items(generated_update));
           }
-          parsed_nodes
+          generated_nodes
         },
-        parser_helpers::ParseSeparatedValuesOptions {
+        ir_helpers::GenSeparatedValuesOptions {
           prefer_hanging: context.config.for_statement_prefer_hanging,
           force_use_new_lines,
           allow_blank_lines: false,
@@ -4195,13 +4180,13 @@ fn parse_for_stmt<'a>(node: &'a ForStmt, context: &mut Context<'a>) -> PrintItem
           single_line_space_at_end: false,
           single_line_separator: separator_after_semi_colons.into(),
           indent_width: context.config.indent_width,
-          multi_line_options: parser_helpers::MultiLineOptions::same_line_no_indent(),
+          multi_line_options: ir_helpers::MultiLineOptions::same_line_no_indent(),
           force_possible_newline_at_start: false,
         },
       )
       .items
     },
-    ParseNodeInParensOptions {
+    GenNodeInParensOptions {
       inner_span: create_span(first_inner_node.lo(), last_inner_node.hi()),
       prefer_hanging: context.config.for_statement_prefer_hanging,
       allow_open_paren_trailing_comments: false,
@@ -4212,8 +4197,8 @@ fn parse_for_stmt<'a>(node: &'a ForStmt, context: &mut Context<'a>) -> PrintItem
   items.push_info(end_header_info);
 
   items.extend(
-    parse_conditional_brace_body(
-      ParseConditionalBraceBodyOptions {
+    gen_conditional_brace_body(
+      GenConditionalBraceBodyOptions {
         parent: node.span(),
         body_node: node.body.into(),
         use_braces: context.config.for_statement_use_braces,
@@ -4226,7 +4211,7 @@ fn parse_for_stmt<'a>(node: &'a ForStmt, context: &mut Context<'a>) -> PrintItem
       },
       context,
     )
-    .parsed_node,
+    .generated_node,
   );
 
   return items;
@@ -4245,7 +4230,7 @@ fn parse_for_stmt<'a>(node: &'a ForStmt, context: &mut Context<'a>) -> PrintItem
   }
 }
 
-fn parse_for_in_stmt<'a>(node: &'a ForInStmt, context: &mut Context<'a>) -> PrintItems {
+fn gen_for_in_stmt<'a>(node: &'a ForInStmt, context: &mut Context<'a>) -> PrintItems {
   let start_header_info = Info::new("startHeader");
   let end_header_info = Info::new("endHeader");
   let mut items = PrintItems::new();
@@ -4255,20 +4240,20 @@ fn parse_for_in_stmt<'a>(node: &'a ForInStmt, context: &mut Context<'a>) -> Prin
     items.push_str(" ");
   }
   let inner_header_span = create_span(node.left.lo(), node.right.hi());
-  items.extend(parse_node_in_parens(
+  items.extend(gen_node_in_parens(
     |context| {
       let mut items = PrintItems::new();
-      items.extend(parse_node(node.left.into(), context));
+      items.extend(gen_node(node.left.into(), context));
       items.push_signal(Signal::SpaceOrNewLine);
       items.push_condition(conditions::indent_if_start_of_line({
         let mut items = PrintItems::new();
         items.push_str("in ");
-        items.extend(parse_node(node.right.into(), context));
+        items.extend(gen_node(node.right.into(), context));
         items
       }));
       items
     },
-    ParseNodeInParensOptions {
+    GenNodeInParensOptions {
       inner_span: inner_header_span,
       prefer_hanging: context.config.for_in_statement_prefer_hanging,
       allow_open_paren_trailing_comments: false,
@@ -4278,8 +4263,8 @@ fn parse_for_in_stmt<'a>(node: &'a ForInStmt, context: &mut Context<'a>) -> Prin
   items.push_info(end_header_info);
 
   items.extend(
-    parse_conditional_brace_body(
-      ParseConditionalBraceBodyOptions {
+    gen_conditional_brace_body(
+      GenConditionalBraceBodyOptions {
         parent: node.span(),
         body_node: node.body.into(),
         use_braces: context.config.for_in_statement_use_braces,
@@ -4292,13 +4277,13 @@ fn parse_for_in_stmt<'a>(node: &'a ForInStmt, context: &mut Context<'a>) -> Prin
       },
       context,
     )
-    .parsed_node,
+    .generated_node,
   );
 
   items
 }
 
-fn parse_for_of_stmt<'a>(node: &'a ForOfStmt, context: &mut Context<'a>) -> PrintItems {
+fn gen_for_of_stmt<'a>(node: &'a ForOfStmt, context: &mut Context<'a>) -> PrintItems {
   let start_header_info = Info::new("startHeader");
   let end_header_info = Info::new("endHeader");
   let mut items = PrintItems::new();
@@ -4308,24 +4293,24 @@ fn parse_for_of_stmt<'a>(node: &'a ForOfStmt, context: &mut Context<'a>) -> Prin
     items.push_str(" ");
   }
   if node.await_token().is_some() {
-    // todo: parse comments around await token span
+    // todo: generate comments around await token span
     items.push_str("await ");
   }
   let inner_header_span = create_span(node.left.lo(), node.right.hi());
-  items.extend(parse_node_in_parens(
+  items.extend(gen_node_in_parens(
     |context| {
       let mut items = PrintItems::new();
-      items.extend(parse_node(node.left.into(), context));
+      items.extend(gen_node(node.left.into(), context));
       items.push_signal(Signal::SpaceOrNewLine);
       items.push_condition(conditions::indent_if_start_of_line({
         let mut items = PrintItems::new();
         items.push_str("of ");
-        items.extend(parse_node(node.right.into(), context));
+        items.extend(gen_node(node.right.into(), context));
         items
       }));
       items
     },
-    ParseNodeInParensOptions {
+    GenNodeInParensOptions {
       inner_span: inner_header_span,
       prefer_hanging: context.config.for_of_statement_prefer_hanging,
       allow_open_paren_trailing_comments: false,
@@ -4335,8 +4320,8 @@ fn parse_for_of_stmt<'a>(node: &'a ForOfStmt, context: &mut Context<'a>) -> Prin
   items.push_info(end_header_info);
 
   items.extend(
-    parse_conditional_brace_body(
-      ParseConditionalBraceBodyOptions {
+    gen_conditional_brace_body(
+      GenConditionalBraceBodyOptions {
         parent: node.span(),
         body_node: node.body.into(),
         use_braces: context.config.for_of_statement_use_braces,
@@ -4349,30 +4334,30 @@ fn parse_for_of_stmt<'a>(node: &'a ForOfStmt, context: &mut Context<'a>) -> Prin
       },
       context,
     )
-    .parsed_node,
+    .generated_node,
   );
 
   items
 }
 
-fn parse_if_stmt<'a>(node: &'a IfStmt, context: &mut Context<'a>) -> PrintItems {
+fn gen_if_stmt<'a>(node: &'a IfStmt, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   let cons = node.cons;
   let cons_span = cons.span();
-  let result = parse_header_with_conditional_brace_body(
-    ParseHeaderWithConditionalBraceBodyOptions {
+  let result = gen_header_with_conditional_brace_body(
+    GenHeaderWithConditionalBraceBodyOptions {
       parent: node.span(),
       body_node: cons.into(),
-      parsed_header: {
+      generated_header: {
         let mut items = PrintItems::new();
         items.push_str("if");
         if context.config.if_statement_space_after_if_keyword {
           items.push_str(" ");
         }
         let test = node.test;
-        items.extend(parse_node_in_parens(
-          |context| parse_node(test.into(), context),
-          ParseNodeInParensOptions {
+        items.extend(gen_node_in_parens(
+          |context| gen_node(test.into(), context),
+          GenNodeInParensOptions {
             inner_span: test.span(),
             prefer_hanging: context.config.if_statement_prefer_hanging,
             allow_open_paren_trailing_comments: false,
@@ -4391,7 +4376,7 @@ fn parse_if_stmt<'a>(node: &'a IfStmt, context: &mut Context<'a>) -> PrintItems 
   let if_stmt_start_info = Info::new("ifStmtStart");
 
   items.push_info(if_stmt_start_info);
-  items.extend(result.parsed_node);
+  items.extend(result.generated_node);
 
   if let Some(alt) = node.alt {
     if let Stmt::If(alt_alt) = alt {
@@ -4400,7 +4385,7 @@ fn parse_if_stmt<'a>(node: &'a IfStmt, context: &mut Context<'a>) -> PrintItems 
       }
     }
 
-    items.extend(parse_control_flow_separator(
+    items.extend(gen_control_flow_separator(
       context.config.if_statement_next_control_flow_position,
       &cons_span,
       "else",
@@ -4409,7 +4394,7 @@ fn parse_if_stmt<'a>(node: &'a IfStmt, context: &mut Context<'a>) -> PrintItems 
       context,
     ));
 
-    // parse the leading comments before the else keyword
+    // generate the leading comments before the else keyword
     let else_keyword = node
       .children_with_tokens_fast(context.program)
       .iter()
@@ -4419,8 +4404,8 @@ fn parse_if_stmt<'a>(node: &'a IfStmt, context: &mut Context<'a>) -> PrintItems 
       })
       .expect("Expected to find an else keyword.")
       .unwrap_token();
-    items.extend(parse_leading_comments(else_keyword, context));
-    items.extend(parse_leading_comments(&alt, context));
+    items.extend(gen_leading_comments(else_keyword, context));
+    items.extend(gen_leading_comments(&alt, context));
 
     let start_else_header_info = Info::new("startElseHeader");
     items.push_info(start_else_header_info);
@@ -4428,11 +4413,11 @@ fn parse_if_stmt<'a>(node: &'a IfStmt, context: &mut Context<'a>) -> PrintItems 
 
     if let Stmt::If(alt) = alt {
       items.push_str(" ");
-      items.extend(parse_node(alt.into(), context));
+      items.extend(gen_node(alt.into(), context));
     } else {
       items.extend(
-        parse_conditional_brace_body(
-          ParseConditionalBraceBodyOptions {
+        gen_conditional_brace_body(
+          GenConditionalBraceBodyOptions {
             parent: node.span(),
             body_node: alt.into(),
             use_braces: context.config.if_statement_use_braces,
@@ -4445,7 +4430,7 @@ fn parse_if_stmt<'a>(node: &'a IfStmt, context: &mut Context<'a>) -> PrintItems 
           },
           context,
         )
-        .parsed_node,
+        .generated_node,
       );
     }
   }
@@ -4453,9 +4438,9 @@ fn parse_if_stmt<'a>(node: &'a IfStmt, context: &mut Context<'a>) -> PrintItems 
   items
 }
 
-fn parse_labeled_stmt<'a>(node: &'a LabeledStmt, context: &mut Context<'a>) -> PrintItems {
+fn gen_labeled_stmt<'a>(node: &'a LabeledStmt, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(parse_node(node.label.into(), context));
+  items.extend(gen_node(node.label.into(), context));
   items.push_str(":");
 
   // not bothering to make this configurable, because who uses labeled statements?
@@ -4465,17 +4450,17 @@ fn parse_labeled_stmt<'a>(node: &'a LabeledStmt, context: &mut Context<'a>) -> P
     items.push_signal(Signal::NewLine);
   }
 
-  items.extend(parse_node(node.body.into(), context));
+  items.extend(gen_node(node.body.into(), context));
 
   items
 }
 
-fn parse_return_stmt<'a>(node: &'a ReturnStmt, context: &mut Context<'a>) -> PrintItems {
+fn gen_return_stmt<'a>(node: &'a ReturnStmt, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_str("return");
   if let Some(arg) = &node.arg {
     items.push_str(" ");
-    items.extend(parse_node(arg.into(), context));
+    items.extend(gen_node(arg.into(), context));
   }
   if context.config.semi_colons.is_true() {
     items.push_str(";");
@@ -4483,22 +4468,22 @@ fn parse_return_stmt<'a>(node: &'a ReturnStmt, context: &mut Context<'a>) -> Pri
   items
 }
 
-fn parse_switch_stmt<'a>(node: &'a SwitchStmt, context: &mut Context<'a>) -> PrintItems {
+fn gen_switch_stmt<'a>(node: &'a SwitchStmt, context: &mut Context<'a>) -> PrintItems {
   let start_header_info = Info::new("startHeader");
   let mut items = PrintItems::new();
   items.push_info(start_header_info);
   items.push_str("switch ");
-  items.extend(parse_node_in_parens(
-    |context| parse_node(node.discriminant.into(), context),
-    ParseNodeInParensOptions {
+  items.extend(gen_node_in_parens(
+    |context| gen_node(node.discriminant.into(), context),
+    GenNodeInParensOptions {
       inner_span: node.discriminant.span(),
       prefer_hanging: context.config.switch_statement_prefer_hanging,
       allow_open_paren_trailing_comments: false,
     },
     context,
   ));
-  items.extend(parse_membered_body(
-    ParseMemberedBodyOptions {
+  items.extend(gen_membered_body(
+    GenMemberedBodyOptions {
       node: node.into(),
       members: node.cases.iter().map(|&x| x.into()).collect(),
       start_header_info: Some(start_header_info),
@@ -4519,7 +4504,7 @@ fn parse_switch_stmt<'a>(node: &'a SwitchStmt, context: &mut Context<'a>) -> Pri
   items
 }
 
-fn parse_switch_case<'a>(node: &'a SwitchCase, context: &mut Context<'a>) -> PrintItems {
+fn gen_switch_case<'a>(node: &'a SwitchCase, context: &mut Context<'a>) -> PrintItems {
   let block_stmt_body = get_block_stmt_body(&node);
   let start_header_info = Info::new("switchCaseStartHeader");
   let mut items = PrintItems::new();
@@ -4532,28 +4517,28 @@ fn parse_switch_case<'a>(node: &'a SwitchCase, context: &mut Context<'a>) -> Pri
 
   if let Some(test) = &node.test {
     items.push_str("case ");
-    items.extend(parse_node(test.into(), context));
+    items.extend(gen_node(test.into(), context));
     items.push_str(":");
   } else {
     items.push_str("default:");
   }
 
-  items.extend(parse_first_line_trailing_comments(&node.span(), node.cons.get(0).map(|x| x.span()), context));
-  let parsed_trailing_comments = parse_trailing_comments_for_case(node, &block_stmt_body, context);
+  items.extend(gen_first_line_trailing_comments(&node.span(), node.cons.get(0).map(|x| x.span()), context));
+  let generated_trailing_comments = gen_trailing_comments_for_case(node, &block_stmt_body, context);
   if !node.cons.is_empty() {
     if let Some(block_stmt_body) = block_stmt_body {
-      items.extend(parse_brace_separator(
-        ParseBraceSeparatorOptions {
+      items.extend(gen_brace_separator(
+        GenBraceSeparatorOptions {
           brace_position: context.config.switch_case_brace_position,
           open_brace_token: context.token_finder.get_first_open_brace_token_within(&block_stmt_body),
           start_header_info: None,
         },
         context,
       ));
-      items.extend(parse_node(node.cons.get(0).unwrap().into(), context));
+      items.extend(gen_node(node.cons.get(0).unwrap().into(), context));
     } else {
       items.push_signal(Signal::NewLine);
-      items.extend(parser_helpers::with_indent(parse_statements(
+      items.extend(ir_helpers::with_indent(gen_statements(
         create_span(colon_token.hi(), node.hi()),
         node.cons.iter().map(|node| node.into()).collect(),
         context,
@@ -4561,7 +4546,7 @@ fn parse_switch_case<'a>(node: &'a SwitchCase, context: &mut Context<'a>) -> Pri
     }
   }
 
-  items.extend(parsed_trailing_comments);
+  items.extend(generated_trailing_comments);
 
   return items;
 
@@ -4575,10 +4560,10 @@ fn parse_switch_case<'a>(node: &'a SwitchCase, context: &mut Context<'a>) -> Pri
     None
   }
 
-  fn parse_trailing_comments_for_case<'a>(node: &'a SwitchCase, block_stmt_body: &Option<Span>, context: &mut Context<'a>) -> PrintItems {
+  fn gen_trailing_comments_for_case<'a>(node: &'a SwitchCase, block_stmt_body: &Option<Span>, context: &mut Context<'a>) -> PrintItems {
     let node_span = node.span();
     let mut items = PrintItems::new();
-    // parse the trailing comments as statements
+    // generate the trailing comments as statements
     let trailing_comments = get_trailing_comments_as_statements(&node_span, context);
     if !trailing_comments.is_empty() {
       let last_case = node.parent().cases.iter().last();
@@ -4591,17 +4576,17 @@ fn parse_switch_case<'a>(node: &'a SwitchCase, context: &mut Context<'a>) -> Pri
 
       for comment in trailing_comments {
         is_equal_indent = is_equal_indent || comment.start_column_fast(context.program) <= last_node.start_column_fast(context.program);
-        let parsed_comment = parse_comment_based_on_last_node(
+        let generated_comment = gen_comment_based_on_last_node(
           &comment,
           &Some(&last_node),
-          ParseCommentBasedOnLastNodeOptions { separate_with_newlines: true },
+          GenCommentBasedOnLastNodeOptions { separate_with_newlines: true },
           context,
         );
 
         items.extend(if !is_last_case && is_equal_indent {
-          parsed_comment
+          generated_comment
         } else {
-          parser_helpers::with_indent(parsed_comment)
+          ir_helpers::with_indent(generated_comment)
         });
         last_node = comment.span();
       }
@@ -4610,17 +4595,17 @@ fn parse_switch_case<'a>(node: &'a SwitchCase, context: &mut Context<'a>) -> Pri
   }
 }
 
-fn parse_throw_stmt<'a>(node: &'a ThrowStmt, context: &mut Context<'a>) -> PrintItems {
+fn gen_throw_stmt<'a>(node: &'a ThrowStmt, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_str("throw ");
-  items.extend(parse_node(node.arg.into(), context));
+  items.extend(gen_node(node.arg.into(), context));
   if context.config.semi_colons.is_true() {
     items.push_str(";");
   }
   items
 }
 
-fn parse_try_stmt<'a>(node: &'a TryStmt, context: &mut Context<'a>) -> PrintItems {
+fn gen_try_stmt<'a>(node: &'a TryStmt, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   let brace_position = context.config.try_statement_brace_position;
   let next_control_flow_position = context.config.try_statement_next_control_flow_position;
@@ -4631,8 +4616,8 @@ fn parse_try_stmt<'a>(node: &'a TryStmt, context: &mut Context<'a>) -> PrintItem
   items.push_str("try");
 
   items.extend(
-    parse_conditional_brace_body(
-      ParseConditionalBraceBodyOptions {
+    gen_conditional_brace_body(
+      GenConditionalBraceBodyOptions {
         parent: node.span(),
         body_node: node.block.into(),
         use_braces: UseBraces::Always, // braces required
@@ -4645,13 +4630,13 @@ fn parse_try_stmt<'a>(node: &'a TryStmt, context: &mut Context<'a>) -> PrintItem
       },
       context,
     )
-    .parsed_node,
+    .generated_node,
   );
 
   if let Some(handler) = node.handler {
     let handler_start_info = Info::new("handlerStart");
     items.push_info(handler_start_info);
-    items.extend(parse_control_flow_separator(
+    items.extend(gen_control_flow_separator(
       next_control_flow_position,
       &last_block_span,
       "catch",
@@ -4660,14 +4645,14 @@ fn parse_try_stmt<'a>(node: &'a TryStmt, context: &mut Context<'a>) -> PrintItem
       context,
     ));
     last_block_span = handler.span();
-    items.extend(parse_node(handler.into(), context));
+    items.extend(gen_node(handler.into(), context));
 
     // set the next block to check the handler start info
     last_block_start_info = handler_start_info;
   }
 
   if let Some(finalizer) = node.finalizer {
-    items.extend(parse_control_flow_separator(
+    items.extend(gen_control_flow_separator(
       next_control_flow_position,
       &last_block_span,
       "finally",
@@ -4677,8 +4662,8 @@ fn parse_try_stmt<'a>(node: &'a TryStmt, context: &mut Context<'a>) -> PrintItem
     ));
     items.push_str("finally");
     items.extend(
-      parse_conditional_brace_body(
-        ParseConditionalBraceBodyOptions {
+      gen_conditional_brace_body(
+        GenConditionalBraceBodyOptions {
           parent: node.span(),
           body_node: finalizer.into(),
           use_braces: UseBraces::Always, // braces required
@@ -4691,14 +4676,14 @@ fn parse_try_stmt<'a>(node: &'a TryStmt, context: &mut Context<'a>) -> PrintItem
         },
         context,
       )
-      .parsed_node,
+      .generated_node,
     );
   }
 
   items
 }
 
-fn parse_var_decl<'a>(node: &'a VarDecl, context: &mut Context<'a>) -> PrintItems {
+fn gen_var_decl<'a>(node: &'a VarDecl, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   let force_use_new_lines = get_use_new_lines(&node.decls, context);
   if node.declare() {
@@ -4713,10 +4698,10 @@ fn parse_var_decl<'a>(node: &'a VarDecl, context: &mut Context<'a>) -> PrintItem
   let decls_len = node.decls.len();
   if decls_len == 1 {
     // be lightweight by default
-    items.extend(parse_node(node.decls[0].into(), context));
+    items.extend(gen_node(node.decls[0].into(), context));
   } else if decls_len > 1 {
-    items.extend(parse_separated_values(
-      ParseSeparatedValuesParams {
+    items.extend(gen_separated_values(
+      GenSeparatedValuesParams {
         nodes: node.decls.iter().map(|&p| NodeOrSeparator::Node(p.into())).collect(),
         prefer_hanging: context.config.variable_statement_prefer_hanging,
         force_use_new_lines,
@@ -4725,7 +4710,7 @@ fn parse_var_decl<'a>(node: &'a VarDecl, context: &mut Context<'a>) -> PrintItem
         single_line_space_at_start: false,
         single_line_space_at_end: false,
         custom_single_line_separator: None,
-        multi_line_options: parser_helpers::MultiLineOptions::same_line_start_hanging_indent(),
+        multi_line_options: ir_helpers::MultiLineOptions::same_line_start_hanging_indent(),
         force_possible_newline_at_start: false,
         node_sorter: None,
       },
@@ -4755,18 +4740,18 @@ fn parse_var_decl<'a>(node: &'a VarDecl, context: &mut Context<'a>) -> PrintItem
   }
 }
 
-fn parse_var_declarator<'a>(node: &'a VarDeclarator, context: &mut Context<'a>) -> PrintItems {
+fn gen_var_declarator<'a>(node: &'a VarDeclarator, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
-  items.extend(parse_node(node.name.into(), context));
+  items.extend(gen_node(node.name.into(), context));
 
   if let Some(init) = &node.init {
-    items.extend(parse_assignment(init.into(), "=", context));
+    items.extend(gen_assignment(init.into(), "=", context));
   }
 
   // Indent the first variable declarator when there are multiple.
   // Not ideal, but doing this here because of the abstraction used in
-  // `parse_var_decl`. In the future this should probably be moved away.
+  // `gen_var_decl`. In the future this should probably be moved away.
   let var_dec = node.parent();
   if var_dec.decls.len() > 1 && var_dec.decls[0].span() == node.span() {
     let items = items.into_rc_path();
@@ -4782,7 +4767,7 @@ fn parse_var_declarator<'a>(node: &'a VarDeclarator, context: &mut Context<'a>) 
   }
 }
 
-fn parse_while_stmt<'a>(node: &'a WhileStmt, context: &mut Context<'a>) -> PrintItems {
+fn gen_while_stmt<'a>(node: &'a WhileStmt, context: &mut Context<'a>) -> PrintItems {
   let start_header_info = Info::new("startHeader");
   let end_header_info = Info::new("endHeader");
   let mut items = PrintItems::new();
@@ -4791,9 +4776,9 @@ fn parse_while_stmt<'a>(node: &'a WhileStmt, context: &mut Context<'a>) -> Print
   if context.config.while_statement_space_after_while_keyword {
     items.push_str(" ");
   }
-  items.extend(parse_node_in_parens(
-    |context| parse_node(node.test.into(), context),
-    ParseNodeInParensOptions {
+  items.extend(gen_node_in_parens(
+    |context| gen_node(node.test.into(), context),
+    GenNodeInParensOptions {
       inner_span: node.test.span(),
       prefer_hanging: context.config.while_statement_prefer_hanging,
       allow_open_paren_trailing_comments: false,
@@ -4802,8 +4787,8 @@ fn parse_while_stmt<'a>(node: &'a WhileStmt, context: &mut Context<'a>) -> Print
   ));
   items.push_info(end_header_info);
   items.extend(
-    parse_conditional_brace_body(
-      ParseConditionalBraceBodyOptions {
+    gen_conditional_brace_body(
+      GenConditionalBraceBodyOptions {
         parent: node.span(),
         body_node: node.body.into(),
         use_braces: context.config.while_statement_use_braces,
@@ -4816,21 +4801,21 @@ fn parse_while_stmt<'a>(node: &'a WhileStmt, context: &mut Context<'a>) -> Print
       },
       context,
     )
-    .parsed_node,
+    .generated_node,
   );
   items
 }
 
 /* types */
 
-fn parse_array_type<'a>(node: &'a TsArrayType, context: &mut Context<'a>) -> PrintItems {
+fn gen_array_type<'a>(node: &'a TsArrayType, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(parse_node(node.elem_type.into(), context));
+  items.extend(gen_node(node.elem_type.into(), context));
   items.push_str("[]");
   items
 }
 
-fn parse_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'a>) -> PrintItems {
+fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'a>) -> PrintItems {
   let use_new_lines =
     !context.config.conditional_type_prefer_single_line && node_helpers::get_use_new_lines_for_nodes(&node.true_type, &node.false_type, context.program);
   let top_most_data = get_top_most_data(node, context);
@@ -4839,7 +4824,7 @@ fn parse_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context
   let before_false_info = Info::new("beforeFalse");
 
   // main area
-  items.extend(parser_helpers::new_line_group(parse_node(node.check_type.into(), context)));
+  items.extend(ir_helpers::new_line_group(gen_node(node.check_type.into(), context)));
   items.push_str(" extends"); // do not newline before because it's a parsing error
   items.push_signal(Signal::SpaceOrNewLine);
 
@@ -4847,7 +4832,7 @@ fn parse_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context
     items.push_info(top_most_data.top_most_info);
   }
 
-  items.push_condition(conditions::indent_if_start_of_line(parser_helpers::new_line_group(parse_node(
+  items.push_condition(conditions::indent_if_start_of_line(ir_helpers::new_line_group(gen_node(
     node.extends_type.into(),
     context,
   ))));
@@ -4855,7 +4840,7 @@ fn parse_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context
   items.push_condition(conditions::indent_if_start_of_line({
     let mut items = PrintItems::new();
     items.push_str("? ");
-    items.extend(parser_helpers::new_line_group(parse_node(node.true_type.into(), context)));
+    items.extend(ir_helpers::new_line_group(gen_node(node.true_type.into(), context)));
     items
   }));
 
@@ -4869,18 +4854,18 @@ fn parse_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context
     ));
   }
 
-  let false_type_parsed = {
+  let false_type_generated = {
     let mut items = PrintItems::new();
     items.push_info(before_false_info);
     items.push_str(": ");
-    items.extend(parser_helpers::new_line_group(parse_node(node.false_type.into(), context)));
+    items.extend(ir_helpers::new_line_group(gen_node(node.false_type.into(), context)));
     items
   };
 
   if is_parent_conditional_type {
-    items.extend(false_type_parsed);
+    items.extend(false_type_generated);
   } else {
-    items.push_condition(conditions::indent_if_start_of_line(false_type_parsed));
+    items.push_condition(conditions::indent_if_start_of_line(false_type_generated));
   }
 
   return items;
@@ -4927,7 +4912,7 @@ fn parse_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context
   }
 }
 
-fn parse_constructor_type<'a>(node: &'a TsConstructorType, context: &mut Context<'a>) -> PrintItems {
+fn gen_constructor_type<'a>(node: &'a TsConstructorType, context: &mut Context<'a>) -> PrintItems {
   let start_info = Info::new("startConstructorType");
   let mut items = PrintItems::new();
   items.push_info(start_info);
@@ -4939,17 +4924,17 @@ fn parse_constructor_type<'a>(node: &'a TsConstructorType, context: &mut Context
     items.push_str(" ");
   }
   if let Some(type_params) = node.type_params {
-    items.extend(parse_node(type_params.into(), context));
+    items.extend(gen_node(type_params.into(), context));
   }
 
-  items.extend(parse_parameters_or_arguments(
-    ParseParametersOrArgumentsOptions {
+  items.extend(gen_parameters_or_arguments(
+    GenParametersOrArgumentsOptions {
       node: node.into(),
       span: node.get_parameters_span(context),
       nodes: node.params.iter().map(|node| node.into()).collect(),
       custom_close_paren: |context| {
-        Some(parse_close_paren_with_type(
-          ParseCloseParenWithTypeOptions {
+        Some(gen_close_paren_with_type(
+          GenCloseParenWithTypeOptions {
             start_info,
             type_node: Some(node.type_ann.into()),
             type_node_separator: Some({
@@ -4972,7 +4957,7 @@ fn parse_constructor_type<'a>(node: &'a TsConstructorType, context: &mut Context
   items
 }
 
-fn parse_function_type<'a>(node: &'a TsFnType, context: &mut Context<'a>) -> PrintItems {
+fn gen_function_type<'a>(node: &'a TsFnType, context: &mut Context<'a>) -> PrintItems {
   let start_info = Info::new("startFunctionType");
   let mut items = PrintItems::new();
   let mut indent_after_arrow_condition = if_true(
@@ -4984,16 +4969,16 @@ fn parse_function_type<'a>(node: &'a TsFnType, context: &mut Context<'a>) -> Pri
 
   items.push_info(start_info);
   if let Some(type_params) = node.type_params {
-    items.extend(parse_node(type_params.into(), context));
+    items.extend(gen_node(type_params.into(), context));
   }
-  items.extend(parse_parameters_or_arguments(
-    ParseParametersOrArgumentsOptions {
+  items.extend(gen_parameters_or_arguments(
+    GenParametersOrArgumentsOptions {
       node: node.into(),
       span: node.get_parameters_span(context),
       nodes: node.params.iter().map(|node| node.into()).collect(),
       custom_close_paren: |context| {
-        Some(parse_close_paren_with_type(
-          ParseCloseParenWithTypeOptions {
+        Some(gen_close_paren_with_type(
+          GenCloseParenWithTypeOptions {
             start_info,
             type_node: Some(node.type_ann.into()),
             type_node_separator: {
@@ -5023,8 +5008,8 @@ fn parse_function_type<'a>(node: &'a TsFnType, context: &mut Context<'a>) -> Pri
   items
 }
 
-fn parse_getter_signature<'a>(node: &'a TsGetterSignature, context: &mut Context<'a>) -> PrintItems {
-  parse_method_signature_like(
+fn gen_getter_signature<'a>(node: &'a TsGetterSignature, context: &mut Context<'a>) -> PrintItems {
+  gen_method_signature_like(
     MethodSignatureLike {
       node: node.into(),
       method_kind: MethodSignatureLikeKind::Getter,
@@ -5040,8 +5025,8 @@ fn parse_getter_signature<'a>(node: &'a TsGetterSignature, context: &mut Context
   )
 }
 
-fn parse_setter_signature<'a>(node: &'a TsSetterSignature, context: &mut Context<'a>) -> PrintItems {
-  parse_method_signature_like(
+fn gen_setter_signature<'a>(node: &'a TsSetterSignature, context: &mut Context<'a>) -> PrintItems {
+  gen_method_signature_like(
     MethodSignatureLike {
       node: node.into(),
       method_kind: MethodSignatureLikeKind::Setter,
@@ -5057,34 +5042,34 @@ fn parse_setter_signature<'a>(node: &'a TsSetterSignature, context: &mut Context
   )
 }
 
-fn parse_keyword_type<'a>(node: &'a TsKeywordType, context: &mut Context<'a>) -> PrintItems {
+fn gen_keyword_type<'a>(node: &'a TsKeywordType, context: &mut Context<'a>) -> PrintItems {
   // will be a keyword like "any", "unknown", "number", etc...
   node.text_fast(context.program).to_string().into()
 }
 
-fn parse_import_type<'a>(node: &'a TsImportType, context: &mut Context<'a>) -> PrintItems {
+fn gen_import_type<'a>(node: &'a TsImportType, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_str("import(");
-  items.extend(parse_node(node.arg.into(), context));
+  items.extend(gen_node(node.arg.into(), context));
   items.push_str(")");
 
   if let Some(qualifier) = &node.qualifier {
     items.push_str(".");
-    items.extend(parse_node(qualifier.into(), context));
+    items.extend(gen_node(qualifier.into(), context));
   }
 
   if let Some(type_args) = node.type_args {
-    items.extend(parse_node(type_args.into(), context));
+    items.extend(gen_node(type_args.into(), context));
   }
   items
 }
 
-fn parse_indexed_access_type<'a>(node: &'a TsIndexedAccessType, context: &mut Context<'a>) -> PrintItems {
+fn gen_indexed_access_type<'a>(node: &'a TsIndexedAccessType, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(parse_node(node.obj_type.into(), context));
-  items.extend(parse_computed_prop_like(
-    |context| parse_node(node.index_type.into(), context),
-    ParseComputedPropLikeOptions {
+  items.extend(gen_node(node.obj_type.into(), context));
+  items.extend(gen_computed_prop_like(
+    |context| gen_node(node.index_type.into(), context),
+    GenComputedPropLikeOptions {
       inner_node_span: node.index_type.span(),
     },
     context,
@@ -5092,15 +5077,15 @@ fn parse_indexed_access_type<'a>(node: &'a TsIndexedAccessType, context: &mut Co
   items
 }
 
-fn parse_infer_type<'a>(node: &'a TsInferType, context: &mut Context<'a>) -> PrintItems {
+fn gen_infer_type<'a>(node: &'a TsInferType, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_str("infer ");
-  items.extend(parse_node(node.type_param.into(), context));
+  items.extend(gen_node(node.type_param.into(), context));
   items
 }
 
-fn parse_intersection_type<'a>(node: &'a TsIntersectionType, context: &mut Context<'a>) -> PrintItems {
-  parse_union_or_intersection_type(
+fn gen_intersection_type<'a>(node: &'a TsIntersectionType, context: &mut Context<'a>) -> PrintItems {
+  gen_union_or_intersection_type(
     UnionOrIntersectionType {
       node: node.into(),
       types: &node.types,
@@ -5110,15 +5095,15 @@ fn parse_intersection_type<'a>(node: &'a TsIntersectionType, context: &mut Conte
   )
 }
 
-fn parse_lit_type<'a>(node: &'a TsLitType, context: &mut Context<'a>) -> PrintItems {
+fn gen_lit_type<'a>(node: &'a TsLitType, context: &mut Context<'a>) -> PrintItems {
   match &node.lit {
     // need to do this in order to support negative numbers
     TsLit::Number(_) => node.text_fast(context.program).to_string().into(),
-    _ => parse_node(node.lit.into(), context),
+    _ => gen_node(node.lit.into(), context),
   }
 }
 
-fn parse_mapped_type<'a>(node: &'a TsMappedType, context: &mut Context<'a>) -> PrintItems {
+fn gen_mapped_type<'a>(node: &'a TsMappedType, context: &mut Context<'a>) -> PrintItems {
   let force_use_new_lines =
     !context.config.mapped_type_prefer_single_line && node_helpers::get_use_new_lines_for_nodes(&node.lo(), &node.type_param, context.program);
 
@@ -5126,7 +5111,7 @@ fn parse_mapped_type<'a>(node: &'a TsMappedType, context: &mut Context<'a>) -> P
   let mut items = PrintItems::new();
   let start_info = Info::new("startMappedType");
   items.push_info(start_info);
-  items.extend(parse_surrounded_by_tokens(
+  items.extend(gen_surrounded_by_tokens(
     |context| {
       let is_different_line_than_start = move |context: &mut ConditionResolverContext| {
         if force_use_new_lines {
@@ -5138,13 +5123,13 @@ fn parse_mapped_type<'a>(node: &'a TsMappedType, context: &mut Context<'a>) -> P
       let inner_items = {
         let mut items = PrintItems::new();
 
-        // There could be, or could not be a semi-colon here. Parse the second
+        // There could be, or could not be a semi-colon here. Gen the second
         // last token's trailing comments in order to get the comments that
         // should always appear after a semi-colon when it appears and potentially
         // steal the inner node's comments.
-        let parsed_semi_colon_comments = {
+        let generated_semi_colon_comments = {
           let node_tokens = node.tokens_fast(context.program);
-          parse_trailing_comments(&node_tokens[node_tokens.len() - 2], context)
+          gen_trailing_comments(&node_tokens[node_tokens.len() - 2], context)
         };
 
         if let Some(readonly) = node.readonly() {
@@ -5160,11 +5145,11 @@ fn parse_mapped_type<'a>(node: &'a TsMappedType, context: &mut Context<'a>) -> P
           node.name_type.map(|t| t.hi()).unwrap_or_else(|| node.type_param.hi()),
           Default::default(),
         );
-        items.extend(parse_computed_prop_like(
+        items.extend(gen_computed_prop_like(
           |context| {
             let mut items = PrintItems::new();
             if let Some(name_type) = node.name_type {
-              items.extend(parse_as_expr_like(
+              items.extend(gen_as_expr_like(
                 AsExprLike {
                   expr: node.type_param.into(),
                   type_ann: name_type.into(),
@@ -5172,11 +5157,11 @@ fn parse_mapped_type<'a>(node: &'a TsMappedType, context: &mut Context<'a>) -> P
                 context,
               ));
             } else {
-              items.extend(parse_node(node.type_param.into(), context));
+              items.extend(gen_node(node.type_param.into(), context));
             }
             items
           },
-          ParseComputedPropLikeOptions {
+          GenComputedPropLikeOptions {
             inner_node_span: computed_inner_span,
           },
           context,
@@ -5190,9 +5175,9 @@ fn parse_mapped_type<'a>(node: &'a TsMappedType, context: &mut Context<'a>) -> P
           });
         }
 
-        items.extend(parse_type_ann_with_colon_if_exists_for_type(&node.type_ann, context));
-        items.extend(get_parsed_semi_colon(context.config.semi_colons, true, &is_different_line_than_start));
-        items.extend(parsed_semi_colon_comments);
+        items.extend(gen_type_ann_with_colon_if_exists_for_type(&node.type_ann, context));
+        items.extend(get_generated_semi_colon(context.config.semi_colons, true, &is_different_line_than_start));
+        items.extend(generated_semi_colon_comments);
 
         let inner_items = items.into_rc_path();
         if_true_or("noSpacesWhenMultiLine", is_different_line_than_start, inner_items.clone().into(), {
@@ -5208,11 +5193,11 @@ fn parse_mapped_type<'a>(node: &'a TsMappedType, context: &mut Context<'a>) -> P
       if force_use_new_lines {
         surround_with_new_lines(with_indent(inner_items))
       } else {
-        parser_helpers::surround_with_newlines_indented_if_multi_line(inner_items, context.config.indent_width)
+        ir_helpers::surround_with_newlines_indented_if_multi_line(inner_items, context.config.indent_width)
       }
     },
     |_| None,
-    ParseSurroundedByTokensOptions {
+    GenSurroundedByTokensOptions {
       open_token: "{",
       close_token: "}",
       span: Some(span),
@@ -5225,25 +5210,25 @@ fn parse_mapped_type<'a>(node: &'a TsMappedType, context: &mut Context<'a>) -> P
   items
 }
 
-fn parse_optional_type<'a>(node: &'a TsOptionalType, context: &mut Context<'a>) -> PrintItems {
+fn gen_optional_type<'a>(node: &'a TsOptionalType, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(parse_node(node.type_ann.into(), context));
+  items.extend(gen_node(node.type_ann.into(), context));
   items.push_str("?");
   items
 }
 
-fn parse_qualified_name<'a>(node: &'a TsQualifiedName, context: &mut Context<'a>) -> PrintItems {
+fn gen_qualified_name<'a>(node: &'a TsQualifiedName, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(parse_node(node.left.into(), context));
+  items.extend(gen_node(node.left.into(), context));
   items.push_str(".");
-  items.extend(parse_node(node.right.into(), context));
+  items.extend(gen_node(node.right.into(), context));
   items
 }
 
-fn parse_parenthesized_type<'a>(node: &'a TsParenthesizedType, context: &mut Context<'a>) -> PrintItems {
-  let parsed_type = conditions::with_indent_if_start_of_line_indented(parse_node_in_parens(
-    |context| parse_node(node.type_ann.into(), context),
-    ParseNodeInParensOptions {
+fn gen_parenthesized_type<'a>(node: &'a TsParenthesizedType, context: &mut Context<'a>) -> PrintItems {
+  let generated_type = conditions::with_indent_if_start_of_line_indented(gen_node_in_parens(
+    |context| gen_node(node.type_ann.into(), context),
+    GenNodeInParensOptions {
       inner_span: node.type_ann.span(),
       prefer_hanging: true,
       allow_open_paren_trailing_comments: true,
@@ -5252,7 +5237,11 @@ fn parse_parenthesized_type<'a>(node: &'a TsParenthesizedType, context: &mut Con
   ))
   .into();
 
-  return if use_new_line_group(node) { new_line_group(parsed_type) } else { parsed_type };
+  return if use_new_line_group(node) {
+    new_line_group(generated_type)
+  } else {
+    generated_type
+  };
 
   fn use_new_line_group(node: &TsParenthesizedType) -> bool {
     match node.parent() {
@@ -5262,24 +5251,24 @@ fn parse_parenthesized_type<'a>(node: &'a TsParenthesizedType, context: &mut Con
   }
 }
 
-fn parse_rest_type<'a>(node: &'a TsRestType, context: &mut Context<'a>) -> PrintItems {
+fn gen_rest_type<'a>(node: &'a TsRestType, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_str("...");
-  items.extend(parse_node(node.type_ann.into(), context));
+  items.extend(gen_node(node.type_ann.into(), context));
   items
 }
 
-fn parse_tpl_lit_type<'a>(node: &'a TsTplLitType, context: &mut Context<'a>) -> PrintItems {
-  parse_template_literal(
+fn gen_tpl_lit_type<'a>(node: &'a TsTplLitType, context: &mut Context<'a>) -> PrintItems {
+  gen_template_literal(
     node.quasis.iter().map(|&x| x.into()).collect(),
     node.types.iter().map(|x| x.into()).collect(),
     context,
   )
 }
 
-fn parse_tuple_type<'a>(node: &'a TsTupleType, context: &mut Context<'a>) -> PrintItems {
-  parse_array_like_nodes(
-    ParseArrayLikeNodesOptions {
+fn gen_tuple_type<'a>(node: &'a TsTupleType, context: &mut Context<'a>) -> PrintItems {
+  gen_array_like_nodes(
+    GenArrayLikeNodesOptions {
       node: node.into(),
       nodes: node.elem_types.iter().map(|&x| Some(x.into())).collect(),
       prefer_hanging: context.config.tuple_type_prefer_hanging,
@@ -5290,25 +5279,25 @@ fn parse_tuple_type<'a>(node: &'a TsTupleType, context: &mut Context<'a>) -> Pri
   )
 }
 
-fn parse_tuple_element<'a>(node: &'a TsTupleElement, context: &mut Context<'a>) -> PrintItems {
+fn gen_tuple_element<'a>(node: &'a TsTupleElement, context: &mut Context<'a>) -> PrintItems {
   if let Some(label) = &node.label {
     let mut items = PrintItems::new();
-    items.extend(parse_node(label.into(), context));
-    items.extend(parse_type_ann_with_colon_for_type(&node.ty, context));
+    items.extend(gen_node(label.into(), context));
+    items.extend(gen_type_ann_with_colon_for_type(&node.ty, context));
     items
   } else {
-    parse_node(node.ty.into(), context)
+    gen_node(node.ty.into(), context)
   }
 }
 
-fn parse_type_ann<'a>(node: &'a TsTypeAnn, context: &mut Context<'a>) -> PrintItems {
-  parse_node(node.type_ann.into(), context)
+fn gen_type_ann<'a>(node: &'a TsTypeAnn, context: &mut Context<'a>) -> PrintItems {
+  gen_node(node.type_ann.into(), context)
 }
 
-fn parse_type_param<'a>(node: &'a TsTypeParam, context: &mut Context<'a>) -> PrintItems {
+fn gen_type_param<'a>(node: &'a TsTypeParam, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
-  items.extend(parse_node(node.name.into(), context));
+  items.extend(gen_node(node.name.into(), context));
 
   if let Some(constraint) = &node.constraint {
     items.push_signal(Signal::SpaceOrNewLine);
@@ -5316,26 +5305,26 @@ fn parse_type_param<'a>(node: &'a TsTypeParam, context: &mut Context<'a>) -> Pri
       let mut items = PrintItems::new();
       items.push_str(if node.parent().kind() == NodeKind::TsMappedType { "in" } else { "extends" });
       items.push_signal(Signal::SpaceIfNotTrailing);
-      items.extend(parse_node(constraint.into(), context));
+      items.extend(gen_node(constraint.into(), context));
       items
     }));
   }
 
   if let Some(default) = &node.default {
-    items.extend(parse_assignment(default.into(), "=", context));
+    items.extend(gen_assignment(default.into(), "=", context));
   }
 
   items
 }
 
-fn parse_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -> PrintItems {
   let params = node.params();
   let force_use_new_lines = get_use_new_lines(&node, &params, context);
   let mut items = PrintItems::new();
 
   items.push_str("<");
-  items.extend(parse_separated_values(
-    ParseSeparatedValuesParams {
+  items.extend(gen_separated_values(
+    GenSeparatedValuesParams {
       nodes: params.into_iter().map(NodeOrSeparator::Node).collect(),
       prefer_hanging: context.config.type_parameters_prefer_hanging,
       force_use_new_lines,
@@ -5344,7 +5333,7 @@ fn parse_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>)
       single_line_space_at_start: false,
       single_line_space_at_end: false,
       custom_single_line_separator: None,
-      multi_line_options: parser_helpers::MultiLineOptions::surround_newlines_indented(),
+      multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(),
       force_possible_newline_at_start: false,
       node_sorter: None,
     },
@@ -5395,7 +5384,7 @@ fn parse_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>)
   }
 }
 
-fn parse_type_operator<'a>(node: &'a TsTypeOperator, context: &mut Context<'a>) -> PrintItems {
+fn gen_type_operator<'a>(node: &'a TsTypeOperator, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_str(match node.op() {
     TsTypeOperatorOp::KeyOf => "keyof",
@@ -5403,43 +5392,43 @@ fn parse_type_operator<'a>(node: &'a TsTypeOperator, context: &mut Context<'a>) 
     TsTypeOperatorOp::ReadOnly => "readonly",
   });
   items.push_signal(Signal::SpaceIfNotTrailing);
-  items.extend(parse_node(node.type_ann.into(), context));
+  items.extend(gen_node(node.type_ann.into(), context));
   items
 }
 
-fn parse_type_predicate<'a>(node: &'a TsTypePredicate, context: &mut Context<'a>) -> PrintItems {
+fn gen_type_predicate<'a>(node: &'a TsTypePredicate, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   if node.asserts() {
     items.push_str("asserts ");
   }
-  items.extend(parse_node(node.param_name.into(), context));
+  items.extend(gen_node(node.param_name.into(), context));
   if let Some(type_ann) = node.type_ann {
     items.push_str(" is");
     items.push_signal(Signal::SpaceIfNotTrailing);
-    items.extend(parse_node(type_ann.into(), context));
+    items.extend(gen_node(type_ann.into(), context));
   }
   items
 }
 
-fn parse_type_query<'a>(node: &'a TsTypeQuery, context: &mut Context<'a>) -> PrintItems {
+fn gen_type_query<'a>(node: &'a TsTypeQuery, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_str("typeof");
   items.push_signal(Signal::SpaceIfNotTrailing);
-  items.extend(parse_node(node.expr_name.into(), context));
+  items.extend(gen_node(node.expr_name.into(), context));
   items
 }
 
-fn parse_type_reference<'a>(node: &'a TsTypeRef, context: &mut Context<'a>) -> PrintItems {
+fn gen_type_reference<'a>(node: &'a TsTypeRef, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(parse_node(node.type_name.into(), context));
+  items.extend(gen_node(node.type_name.into(), context));
   if let Some(type_params) = node.type_params {
-    items.extend(parse_node(type_params.into(), context));
+    items.extend(gen_node(type_params.into(), context));
   }
   items
 }
 
-fn parse_union_type<'a>(node: &'a TsUnionType, context: &mut Context<'a>) -> PrintItems {
-  parse_union_or_intersection_type(
+fn gen_union_type<'a>(node: &'a TsUnionType, context: &mut Context<'a>) -> PrintItems {
+  gen_union_or_intersection_type(
     UnionOrIntersectionType {
       node: node.into(),
       types: &node.types,
@@ -5455,7 +5444,7 @@ struct UnionOrIntersectionType<'a> {
   pub is_union: bool,
 }
 
-fn parse_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, context: &mut Context<'a>) -> PrintItems {
   // todo: configuration for operator position
   let mut items = PrintItems::new();
   let force_use_new_lines = get_use_new_lines_for_nodes(&node.types, context.config.union_and_intersection_type_prefer_single_line, context);
@@ -5469,22 +5458,22 @@ fn parse_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, conte
   let is_parent_union_or_intersection = matches!(node.node.parent().unwrap().kind(), NodeKind::TsUnionType | NodeKind::TsIntersectionType);
   let multi_line_options = if !is_parent_union_or_intersection {
     if use_surround_newlines(&node.node) {
-      parser_helpers::MultiLineOptions::surround_newlines_indented()
+      ir_helpers::MultiLineOptions::surround_newlines_indented()
     } else if has_leading_comments {
-      parser_helpers::MultiLineOptions::same_line_no_indent()
+      ir_helpers::MultiLineOptions::same_line_no_indent()
     } else {
-      parser_helpers::MultiLineOptions::new_line_start()
+      ir_helpers::MultiLineOptions::new_line_start()
     }
   } else if has_leading_comments {
-    parser_helpers::MultiLineOptions::same_line_no_indent()
+    ir_helpers::MultiLineOptions::same_line_no_indent()
   } else {
-    parser_helpers::MultiLineOptions::same_line_start_hanging_indent()
+    ir_helpers::MultiLineOptions::same_line_start_hanging_indent()
   };
-  let parse_result = parser_helpers::parse_separated_values(
+  let gen_result = ir_helpers::gen_separated_values(
     |is_multi_line_or_hanging_ref| {
       let is_multi_line_or_hanging = is_multi_line_or_hanging_ref.create_resolver();
       let types_count = node.types.len();
-      let mut parsed_nodes = Vec::new();
+      let mut generated_nodes = Vec::new();
       for (i, type_node) in node.types.iter().enumerate() {
         let (allow_inline_multi_line, allow_inline_single_line) = {
           let is_last_value = i + 1 == types_count; // allow the last type to be single line
@@ -5496,7 +5485,7 @@ fn parse_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, conte
         let mut items = PrintItems::new();
         items.push_info(start_info);
         if let Some(separator_token) = separator_token {
-          items.extend(parse_leading_comments(separator_token, context));
+          items.extend(gen_leading_comments(separator_token, context));
         }
         if i == 0 && !is_parent_union_or_intersection {
           items.push_condition(if_true("separatorIfMultiLine", is_multi_line_or_hanging.clone(), separator.into()));
@@ -5505,7 +5494,7 @@ fn parse_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, conte
         }
 
         if let Some(separator_token) = separator_token {
-          items.extend(parse_trailing_comments(separator_token, context));
+          items.extend(gen_trailing_comments(separator_token, context));
         }
         items.push_info(after_separator_info);
 
@@ -5518,9 +5507,9 @@ fn parse_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, conte
           },
           Signal::SpaceIfNotTrailing.into(),
         ));
-        items.extend(parse_node(type_node.into(), context));
+        items.extend(gen_node(type_node.into(), context));
 
-        parsed_nodes.push(parser_helpers::ParsedValue {
+        generated_nodes.push(ir_helpers::GeneratedValue {
           items,
           lines_span: None,
           allow_inline_multi_line,
@@ -5528,9 +5517,9 @@ fn parse_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, conte
         });
       }
 
-      parsed_nodes
+      generated_nodes
     },
-    parser_helpers::ParseSeparatedValuesOptions {
+    ir_helpers::GenSeparatedValuesOptions {
       prefer_hanging,
       force_use_new_lines,
       allow_blank_lines: false,
@@ -5543,7 +5532,7 @@ fn parse_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, conte
     },
   );
 
-  items.extend(parse_result.items);
+  items.extend(gen_result.items);
 
   return items;
 
@@ -5554,17 +5543,17 @@ fn parse_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, conte
 
 /* comments */
 
-fn parse_leading_comments<'a>(node: &dyn Spanned, context: &mut Context<'a>) -> PrintItems {
+fn gen_leading_comments<'a>(node: &dyn Spanned, context: &mut Context<'a>) -> PrintItems {
   let leading_comments = node.leading_comments_fast(context.program);
-  parse_comments_as_leading(node, leading_comments, context)
+  gen_comments_as_leading(node, leading_comments, context)
 }
 
-fn parse_comments_as_leading<'a>(node: &dyn Spanned, comments: CommentsIterator<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_comments_as_leading<'a>(node: &dyn Spanned, comments: CommentsIterator<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   if let Some(last_comment) = comments.peek_last_comment() {
     let last_comment_previously_handled = context.has_handled_comment(&last_comment);
 
-    items.extend(parse_comment_collection(comments, None, Some(node), context));
+    items.extend(gen_comment_collection(comments, None, Some(node), context));
 
     // todo: this doesn't seem exactly right...
     if !last_comment_previously_handled {
@@ -5585,9 +5574,9 @@ fn parse_comments_as_leading<'a>(node: &dyn Spanned, comments: CommentsIterator<
   items
 }
 
-fn parse_trailing_comments_as_statements<'a>(node: &dyn Spanned, context: &mut Context<'a>) -> PrintItems {
+fn gen_trailing_comments_as_statements<'a>(node: &dyn Spanned, context: &mut Context<'a>) -> PrintItems {
   let unhandled_comments = get_trailing_comments_as_statements(node, context);
-  parse_comments_as_statements(unhandled_comments.into_iter(), Some(node), context)
+  gen_comments_as_statements(unhandled_comments.into_iter(), Some(node), context)
 }
 
 fn get_leading_comments_on_previous_lines<'a>(node: &dyn Spanned, context: &mut Context<'a>) -> Vec<&'a Comment> {
@@ -5609,15 +5598,15 @@ fn get_trailing_comments_as_statements<'a>(node: &dyn Spanned, context: &mut Con
   comments
 }
 
-fn parse_comments_as_statements<'a>(comments: impl Iterator<Item = &'a Comment>, last_node: Option<&dyn Spanned>, context: &mut Context<'a>) -> PrintItems {
+fn gen_comments_as_statements<'a>(comments: impl Iterator<Item = &'a Comment>, last_node: Option<&dyn Spanned>, context: &mut Context<'a>) -> PrintItems {
   let mut last_node = last_node;
   let mut items = PrintItems::new();
   for comment in comments {
     if !context.has_handled_comment(comment) {
-      items.extend(parse_comment_based_on_last_node(
+      items.extend(gen_comment_based_on_last_node(
         comment,
         &last_node,
-        ParseCommentBasedOnLastNodeOptions { separate_with_newlines: true },
+        GenCommentBasedOnLastNodeOptions { separate_with_newlines: true },
         context,
       ));
       last_node = Some(comment);
@@ -5626,7 +5615,7 @@ fn parse_comments_as_statements<'a>(comments: impl Iterator<Item = &'a Comment>,
   items
 }
 
-fn parse_comments_between_lines_indented(start_between_pos: BytePos, context: &mut Context) -> PrintItems {
+fn gen_comments_between_lines_indented(start_between_pos: BytePos, context: &mut Context) -> PrintItems {
   let trailing_comments = get_comments_between_lines(start_between_pos, context);
   let mut items = PrintItems::new();
 
@@ -5638,7 +5627,7 @@ fn parse_comments_between_lines_indented(start_between_pos: BytePos, context: &m
           items.push_signal(Signal::SpaceIfNotTrailing);
         }
       }
-      items.extend(parse_comment_collection(trailing_comments.into_iter(), Some(&start_between_pos), None, context));
+      items.extend(gen_comment_collection(trailing_comments.into_iter(), Some(&start_between_pos), None, context));
       items
     }));
     items.push_signal(Signal::NewLine);
@@ -5663,7 +5652,7 @@ fn parse_comments_between_lines_indented(start_between_pos: BytePos, context: &m
   }
 }
 
-fn parse_comment_collection<'a>(
+fn gen_comment_collection<'a>(
   comments: impl Iterator<Item = &'a Comment>,
   last_node: Option<&dyn Spanned>,
   next_node: Option<&dyn Spanned>,
@@ -5674,10 +5663,10 @@ fn parse_comment_collection<'a>(
   let next_node_start_line = next_node.map(|n| n.start_line_fast(context.program));
   for comment in comments {
     if !context.has_handled_comment(comment) {
-      items.extend(parse_comment_based_on_last_node(
+      items.extend(gen_comment_based_on_last_node(
         comment,
         &last_node,
-        ParseCommentBasedOnLastNodeOptions {
+        GenCommentBasedOnLastNodeOptions {
           separate_with_newlines: if let Some(next_node_start_line) = next_node_start_line {
             comment.start_line_fast(context.program) != next_node_start_line
           } else {
@@ -5692,14 +5681,14 @@ fn parse_comment_collection<'a>(
   items
 }
 
-struct ParseCommentBasedOnLastNodeOptions {
+struct GenCommentBasedOnLastNodeOptions {
   separate_with_newlines: bool,
 }
 
-fn parse_comment_based_on_last_node(
+fn gen_comment_based_on_last_node(
   comment: &Comment,
   last_node: &Option<&dyn Spanned>,
-  opts: ParseCommentBasedOnLastNodeOptions,
+  opts: GenCommentBasedOnLastNodeOptions,
   context: &mut Context,
 ) -> PrintItems {
   let mut items = PrintItems::new();
@@ -5724,8 +5713,8 @@ fn parse_comment_based_on_last_node(
     }
   }
 
-  if let Some(parsed_comment) = parse_comment(&comment, context) {
-    items.extend(parsed_comment);
+  if let Some(generated_comment) = gen_comment(&comment, context) {
+    items.extend(generated_comment);
   }
 
   if pushed_ignore_new_lines {
@@ -5735,24 +5724,24 @@ fn parse_comment_based_on_last_node(
   items
 }
 
-fn parse_comment(comment: &Comment, context: &mut Context) -> Option<PrintItems> {
-  // only parse if handled
+fn gen_comment(comment: &Comment, context: &mut Context) -> Option<PrintItems> {
+  // only generate if handled
   if context.has_handled_comment(comment) {
     return None;
   }
 
-  // mark handled and parse
+  // mark handled and generate
   context.mark_comment_handled(comment);
 
   return Some(match comment.kind {
     CommentKind::Block => {
       if is_js_doc(&comment.text) {
-        parse_js_doc(comment, context)
+        gen_js_doc(comment, context)
       } else {
-        parser_helpers::parse_js_like_comment_block(&comment.text)
+        ir_helpers::gen_js_like_comment_block(&comment.text)
       }
     }
-    CommentKind::Line => parser_helpers::parse_js_like_comment_line(&comment.text, context.config.comment_line_force_space_after_slashes),
+    CommentKind::Line => ir_helpers::gen_js_like_comment_line(&comment.text, context.config.comment_line_force_space_after_slashes),
   });
 
   fn is_js_doc(text: &str) -> bool {
@@ -5772,7 +5761,7 @@ fn parse_comment(comment: &Comment, context: &mut Context) -> Option<PrintItems>
   }
 }
 
-fn parse_js_doc(comment: &Comment, _context: &mut Context) -> PrintItems {
+fn gen_js_doc(comment: &Comment, _context: &mut Context) -> PrintItems {
   return lines_to_print_items(build_lines(comment));
 
   fn build_lines(comment: &Comment) -> Vec<&str> {
@@ -5821,7 +5810,7 @@ fn parse_js_doc(comment: &Comment, _context: &mut Context) -> PrintItems {
       }
       items.push_string(text);
       if !line.is_empty() {
-        items.extend(parse_raw_string(line));
+        items.extend(gen_from_raw_string(line));
       }
     }
 
@@ -5835,17 +5824,17 @@ fn parse_js_doc(comment: &Comment, _context: &mut Context) -> PrintItems {
   }
 }
 
-fn parse_first_line_trailing_comments<'a>(node: &dyn Spanned, first_member: Option<Span>, context: &mut Context<'a>) -> PrintItems {
+fn gen_first_line_trailing_comments<'a>(node: &dyn Spanned, first_member: Option<Span>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   let node_start_line = node.start_line_fast(context.program);
 
   for comment in get_comments(&node, &first_member, context) {
     if comment.start_line_fast(context.program) == node_start_line {
-      if let Some(parsed_comment) = parse_comment(comment, context) {
+      if let Some(generated_comment) = gen_comment(comment, context) {
         if comment.kind == CommentKind::Line {
           items.push_str(" ");
         }
-        items.extend(parsed_comment);
+        items.extend(generated_comment);
       }
     }
   }
@@ -5862,12 +5851,12 @@ fn parse_first_line_trailing_comments<'a>(node: &dyn Spanned, first_member: Opti
   }
 }
 
-fn parse_trailing_comments<'a>(node: &dyn Spanned, context: &mut Context<'a>) -> PrintItems {
+fn gen_trailing_comments<'a>(node: &dyn Spanned, context: &mut Context<'a>) -> PrintItems {
   let trailing_comments = node.trailing_comments_fast(context.program);
-  parse_comments_as_trailing(node, trailing_comments, context)
+  gen_comments_as_trailing(node, trailing_comments, context)
 }
 
-fn parse_comments_as_trailing<'a>(node: &dyn Spanned, trailing_comments: CommentsIterator<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_comments_as_trailing<'a>(node: &dyn Spanned, trailing_comments: CommentsIterator<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
   // don't do extra work
@@ -5891,7 +5880,7 @@ fn parse_comments_as_trailing<'a>(node: &dyn Spanned, trailing_comments: Comment
     }
   }
 
-  items.extend(parse_comment_collection(trailing_comments_on_same_line.into_iter(), Some(node), None, context));
+  items.extend(gen_comment_collection(trailing_comments_on_same_line.into_iter(), Some(node), None, context));
   items
 }
 
@@ -5931,7 +5920,7 @@ fn get_jsx_empty_expr_comments<'a>(node: &JSXEmptyExpr, context: &mut Context<'a
 
 /* helpers */
 
-struct ParseArrayLikeNodesOptions<'a> {
+struct GenArrayLikeNodesOptions<'a> {
   node: Node<'a>,
   nodes: Vec<Option<Node<'a>>>,
   prefer_hanging: bool,
@@ -5939,7 +5928,7 @@ struct ParseArrayLikeNodesOptions<'a> {
   trailing_commas: TrailingCommas,
 }
 
-fn parse_array_like_nodes<'a>(opts: ParseArrayLikeNodesOptions<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Context<'a>) -> PrintItems {
   let node = opts.node;
   let nodes = opts.nodes;
   let nodes = if nodes.iter().any(|n| n.is_none()) {
@@ -5967,10 +5956,10 @@ fn parse_array_like_nodes<'a>(opts: ParseArrayLikeNodesOptions<'a>, context: &mu
   let mut items = PrintItems::new();
   let first_member = nodes.get(0).map(|x| x.span());
 
-  items.extend(parse_surrounded_by_tokens(
+  items.extend(gen_surrounded_by_tokens(
     |context| {
-      parse_separated_values(
-        ParseSeparatedValuesParams {
+      gen_separated_values(
+        GenSeparatedValuesParams {
           nodes,
           prefer_hanging,
           force_use_new_lines,
@@ -5979,7 +5968,7 @@ fn parse_array_like_nodes<'a>(opts: ParseArrayLikeNodesOptions<'a>, context: &mu
           single_line_space_at_start: false,
           single_line_space_at_end: false,
           custom_single_line_separator: None,
-          multi_line_options: parser_helpers::MultiLineOptions::surround_newlines_indented(),
+          multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(),
           force_possible_newline_at_start: false,
           node_sorter: None,
         },
@@ -5987,7 +5976,7 @@ fn parse_array_like_nodes<'a>(opts: ParseArrayLikeNodesOptions<'a>, context: &mu
       )
     },
     |_| None,
-    ParseSurroundedByTokensOptions {
+    GenSurroundedByTokensOptions {
       open_token: "[",
       close_token: "]",
       span: Some(node.span()),
@@ -6029,7 +6018,7 @@ fn parse_array_like_nodes<'a>(opts: ParseArrayLikeNodesOptions<'a>, context: &mu
   }
 }
 
-struct ParseMemberedBodyOptions<'a, FShouldUseBlankLine>
+struct GenMemberedBodyOptions<'a, FShouldUseBlankLine>
 where
   FShouldUseBlankLine: Fn(&Node, &Node, &mut Context) -> bool,
 {
@@ -6041,7 +6030,7 @@ where
   separator: Separator,
 }
 
-fn parse_membered_body<'a, FShouldUseBlankLine>(opts: ParseMemberedBodyOptions<'a, FShouldUseBlankLine>, context: &mut Context<'a>) -> PrintItems
+fn gen_membered_body<'a, FShouldUseBlankLine>(opts: GenMemberedBodyOptions<'a, FShouldUseBlankLine>, context: &mut Context<'a>) -> PrintItems
 where
   FShouldUseBlankLine: Fn(&Node, &Node, &mut Context) -> bool,
 {
@@ -6057,8 +6046,8 @@ where
     .find(|t| t.token == Token::RBrace)
     .expect("Expected to find a close brace token.");
 
-  items.extend(parse_brace_separator(
-    ParseBraceSeparatorOptions {
+  items.extend(gen_brace_separator(
+    GenBraceSeparatorOptions {
       brace_position: opts.brace_position,
       open_brace_token: Some(open_brace_token),
       start_header_info: opts.start_header_info,
@@ -6069,10 +6058,10 @@ where
   let should_use_blank_line = opts.should_use_blank_line;
   let separator = opts.separator;
 
-  items.extend(parse_block(
+  items.extend(gen_block(
     |members, context| {
-      parse_members(
-        ParseMembersOptions {
+      gen_members(
+        GenMembersOptions {
           inner_span: create_span(open_brace_token.hi(), close_brace_token.lo()),
           items: members.into_iter().map(|node| (node, None)).collect(),
           should_use_space: None,
@@ -6084,7 +6073,7 @@ where
         context,
       )
     },
-    ParseBlockOptions {
+    GenBlockOptions {
       span: Some(create_span(open_brace_token.lo(), close_brace_token.hi())),
       children: opts.members,
     },
@@ -6094,7 +6083,7 @@ where
   items
 }
 
-fn parse_statements<'a>(inner_span: Span, stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> PrintItems {
+fn gen_statements<'a>(inner_span: Span, stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> PrintItems {
   let stmt_groups = get_stmt_groups(stmts, context);
   let mut items = PrintItems::new();
   let mut last_node: Option<Span> = None;
@@ -6105,7 +6094,7 @@ fn parse_statements<'a>(inner_span: Span, stmts: Vec<Node<'a>>, context: &mut Co
       // keep the leading comments of the stmt group on the same line
       let comments = get_leading_comments_on_previous_lines(&stmt_group.nodes.first().as_ref().unwrap().lo(), context);
       let last_comment = comments.iter().filter(|c| !context.has_handled_comment(c)).last().map(|c| c.span);
-      items.extend(parse_comments_as_statements(
+      items.extend(gen_comments_as_statements(
         comments.into_iter(),
         last_node.as_ref().map(|x| x as &dyn Spanned),
         context,
@@ -6114,8 +6103,8 @@ fn parse_statements<'a>(inner_span: Span, stmts: Vec<Node<'a>>, context: &mut Co
     }
 
     let nodes_len = stmt_group.nodes.len();
-    let mut parsed_nodes = Vec::with_capacity(nodes_len);
-    let mut parsed_line_separators = utils::VecMap::with_capacity(nodes_len);
+    let mut generated_nodes = Vec::with_capacity(nodes_len);
+    let mut generated_line_separators = utils::VecMap::with_capacity(nodes_len);
     let sorter = get_node_sorter(stmt_group.kind, context);
     let sorted_indexes = match sorter {
       Some(sorter) => Some(get_sorted_indexes(stmt_group.nodes.iter().map(Some), sorter, context)),
@@ -6130,64 +6119,60 @@ fn parse_statements<'a>(inner_span: Span, stmts: Vec<Node<'a>>, context: &mut Co
           if node_helpers::has_separating_blank_line(last_node, &node, context.program) {
             separator_items.push_signal(Signal::NewLine);
           }
-          parsed_line_separators.insert(i, separator_items);
+          generated_line_separators.insert(i, separator_items);
         }
 
         let mut items = PrintItems::new();
         let end_info = Info::new("endStatementInfo");
         context.end_statement_or_member_infos.push(end_info);
-        items.extend(parse_node(node, context));
+        items.extend(gen_node(node, context));
         items.push_info(end_info);
-        parsed_nodes.push(items);
+        generated_nodes.push(items);
         context.end_statement_or_member_infos.pop();
 
         last_node = Some(node.span());
       } else {
         let mut items = PrintItems::new();
         let leading_comments = node.leading_comments_fast(context.program);
-        items.extend(parse_comments_as_statements(leading_comments.clone().into_iter(), None, context));
+        items.extend(gen_comments_as_statements(leading_comments.clone().into_iter(), None, context));
         let trailing_comments = get_trailing_comments_same_line(&node, node.trailing_comments_fast(context.program), context);
         if !trailing_comments.is_empty() {
           if !leading_comments.is_empty() {
             items.push_signal(Signal::NewLine);
           }
-          items.extend(parse_comment_collection(trailing_comments.into_iter(), None, None, context));
+          items.extend(gen_comment_collection(trailing_comments.into_iter(), None, None, context));
         }
 
-        parsed_nodes.push(items);
+        generated_nodes.push(items);
 
-        // ensure if this is last that it parses the trailing comment statements
+        // ensure if this is last that it generates the trailing comment statements
         if stmt_group_index == stmt_group_len - 1 && i == nodes_len - 1 {
           last_node = Some(node.span());
         }
       }
     }
 
-    // Get the parsed statements/members sorted
-    let parsed_nodes = match sorted_indexes {
-      Some(sorted_indexes) => sort_by_sorted_indexes(parsed_nodes, sorted_indexes),
-      None => parsed_nodes,
+    // Get the generated statements/members sorted
+    let generated_nodes = match sorted_indexes {
+      Some(sorted_indexes) => sort_by_sorted_indexes(generated_nodes, sorted_indexes),
+      None => generated_nodes,
     };
 
     // Now combine everything
-    for (i, parsed_node) in parsed_nodes.into_iter().enumerate() {
-      if let Some(parsed_separator) = parsed_line_separators.remove(i) {
-        items.extend(parsed_separator);
+    for (i, generated_node) in generated_nodes.into_iter().enumerate() {
+      if let Some(generated_separator) = generated_line_separators.remove(i) {
+        items.extend(generated_separator);
       }
-      items.extend(parsed_node);
+      items.extend(generated_node);
     }
   }
 
   if let Some(last_node) = &last_node {
-    items.extend(parse_trailing_comments_as_statements(last_node, context));
+    items.extend(gen_trailing_comments_as_statements(last_node, context));
   }
 
   if stmt_group_len == 0 {
-    items.extend(parse_comments_as_statements(
-      inner_span.hi.leading_comments_fast(context.program),
-      None,
-      context,
-    ));
+    items.extend(gen_comments_as_statements(inner_span.hi.leading_comments_fast(context.program), None, context));
   }
 
   return items;
@@ -6204,16 +6189,16 @@ fn parse_statements<'a>(inner_span: Span, stmts: Vec<Node<'a>>, context: &mut Co
   }
 }
 
-fn parse_member_or_member_expr_stmt_comments(node: &Node, context: &mut Context) -> PrintItems {
+fn gen_member_or_member_expr_stmt_comments(node: &Node, context: &mut Context) -> PrintItems {
   let mut items = PrintItems::new();
   let leading_comments = node.leading_comments_fast(context.program);
-  items.extend(parse_comments_as_statements(leading_comments.clone().into_iter(), None, context));
+  items.extend(gen_comments_as_statements(leading_comments.clone().into_iter(), None, context));
   let trailing_comments = get_trailing_comments_same_line(&node, node.trailing_comments_fast(context.program), context);
   if !trailing_comments.is_empty() {
     if !leading_comments.is_empty() {
       items.push_signal(Signal::NewLine);
     }
-    items.extend(parse_comment_collection(trailing_comments.into_iter(), None, None, context));
+    items.extend(gen_comment_collection(trailing_comments.into_iter(), None, None, context));
   }
 
   items
@@ -6276,7 +6261,7 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<S
   groups
 }
 
-struct ParseMembersOptions<'a, FShouldUseBlankLine>
+struct GenMembersOptions<'a, FShouldUseBlankLine>
 where
   FShouldUseBlankLine: Fn(&Node, &Node, &mut Context) -> bool,
 {
@@ -6289,7 +6274,7 @@ where
   is_jsx_children: bool,
 }
 
-fn parse_members<'a, FShouldUseBlankLine>(opts: ParseMembersOptions<'a, FShouldUseBlankLine>, context: &mut Context<'a>) -> PrintItems
+fn gen_members<'a, FShouldUseBlankLine>(opts: GenMembersOptions<'a, FShouldUseBlankLine>, context: &mut Context<'a>) -> PrintItems
 where
   FShouldUseBlankLine: Fn(&Node, &Node, &mut Context) -> bool,
 {
@@ -6325,10 +6310,10 @@ where
         print_items
       } else {
         if opts.separator.is_none() {
-          parse_node(node, context)
+          gen_node(node, context)
         } else {
-          let parsed_separator = get_parsed_separator(&opts.separator, i == children_len - 1, &|_| Some(true));
-          parse_node_with_separator(node, parsed_separator, context)
+          let generated_separator = get_generated_separator(&opts.separator, i == children_len - 1, &|_| Some(true));
+          gen_node_with_separator(node, generated_separator, context)
         }
       });
       items.push_info(end_info);
@@ -6336,9 +6321,9 @@ where
 
       last_node = Some(node);
     } else {
-      items.extend(parse_member_or_member_expr_stmt_comments(&node, context));
+      items.extend(gen_member_or_member_expr_stmt_comments(&node, context));
 
-      // ensure if this is last that it parses the trailing comment statements
+      // ensure if this is last that it generates the trailing comment statements
       if i == children_len - 1 {
         last_node = Some(node);
       }
@@ -6346,11 +6331,11 @@ where
   }
 
   if let Some(last_node) = &last_node {
-    items.extend(parse_trailing_comments_as_statements(last_node, context));
+    items.extend(gen_trailing_comments_as_statements(last_node, context));
   }
 
   if children_len == 0 {
-    items.extend(parse_comments_as_statements(
+    items.extend(gen_comments_as_statements(
       opts.inner_span.hi.leading_comments_fast(context.program),
       None,
       context,
@@ -6373,7 +6358,7 @@ where
   }
 }
 
-struct ParseParametersOrArgumentsOptions<'a, F>
+struct GenParametersOrArgumentsOptions<'a, F>
 where
   F: FnOnce(&mut Context<'a>) -> Option<PrintItems>,
 {
@@ -6384,7 +6369,7 @@ where
   is_parameters: bool,
 }
 
-fn parse_parameters_or_arguments<'a, F>(opts: ParseParametersOrArgumentsOptions<'a, F>, context: &mut Context<'a>) -> PrintItems
+fn gen_parameters_or_arguments<'a, F>(opts: GenParametersOrArgumentsOptions<'a, F>, context: &mut Context<'a>) -> PrintItems
 where
   F: FnOnce(&mut Context<'a>) -> Option<PrintItems>,
 {
@@ -6402,17 +6387,17 @@ where
   };
   let trailing_commas = get_trailing_commas(&opts.node, &nodes, is_parameters, context);
 
-  return parse_surrounded_by_tokens(
+  return gen_surrounded_by_tokens(
     |context| {
       let mut items = PrintItems::new();
 
       if !force_use_new_lines && nodes.len() == 1 && is_arrow_function_with_expr_body(&nodes[0]) {
         let start_info = Info::new("startArrow");
-        let parsed_node = parse_node(nodes.into_iter().next().unwrap(), context);
+        let generated_node = gen_node(nodes.into_iter().next().unwrap(), context);
 
         items.push_info(start_info);
         items.push_signal(Signal::PossibleNewLine);
-        items.push_condition(conditions::indent_if_start_of_line(parsed_node));
+        items.push_condition(conditions::indent_if_start_of_line(generated_node));
         items.push_condition(if_true(
           "isDifferentLineAndStartLineIndentation",
           move |context| {
@@ -6424,8 +6409,8 @@ where
           Signal::NewLine.into(),
         ));
       } else {
-        items.extend(parse_separated_values(
-          ParseSeparatedValuesParams {
+        items.extend(gen_separated_values(
+          GenSeparatedValuesParams {
             nodes: nodes.into_iter().map(NodeOrSeparator::Node).collect(),
             prefer_hanging,
             force_use_new_lines,
@@ -6434,7 +6419,7 @@ where
             single_line_space_at_start: false,
             single_line_space_at_end: false,
             custom_single_line_separator: None,
-            multi_line_options: parser_helpers::MultiLineOptions::surround_newlines_indented(),
+            multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(),
             force_possible_newline_at_start: is_parameters,
             node_sorter: None,
           },
@@ -6445,7 +6430,7 @@ where
       items
     },
     custom_close_paren,
-    ParseSurroundedByTokensOptions {
+    GenSurroundedByTokensOptions {
       open_token: "(",
       close_token: ")",
       span,
@@ -6495,20 +6480,20 @@ where
   }
 }
 
-struct ParseCloseParenWithTypeOptions<'a> {
+struct GenCloseParenWithTypeOptions<'a> {
   start_info: Info,
   type_node: Option<Node<'a>>,
   type_node_separator: Option<PrintItems>,
   param_count: usize,
 }
 
-fn parse_close_paren_with_type<'a>(opts: ParseCloseParenWithTypeOptions<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_close_paren_with_type<'a>(opts: GenCloseParenWithTypeOptions<'a>, context: &mut Context<'a>) -> PrintItems {
   // todo: clean this up a bit
   let type_node_start_info = Info::new("typeNodeStart");
   let has_type_node = opts.type_node.is_some();
   let type_node_end_info = Info::new("typeNodeEnd");
   let start_info = opts.start_info;
-  let parsed_type_node = parse_type_node(
+  let generated_type_node = gen_type_node(
     opts.type_node,
     opts.type_node_separator,
     type_node_start_info,
@@ -6535,10 +6520,10 @@ fn parse_close_paren_with_type<'a>(opts: ParseCloseParenWithTypeOptions<'a>, con
     Signal::NewLine.into(),
   ));
   items.push_str(")");
-  items.extend(parsed_type_node);
+  items.extend(generated_type_node);
   return items;
 
-  fn parse_type_node<'a>(
+  fn gen_type_node<'a>(
     type_node: Option<Node<'a>>,
     type_node_separator: Option<PrintItems>,
     type_node_start_info: Info,
@@ -6559,8 +6544,8 @@ fn parse_close_paren_with_type<'a>(opts: ParseCloseParenWithTypeOptions<'a>, con
         items.push_str(":");
         items.push_signal(Signal::SpaceIfNotTrailing);
       }
-      let parsed_type_node = parse_node(type_node, context);
-      items.extend(parsed_type_node);
+      let generated_type_node = gen_node(type_node, context);
+      items.extend(generated_type_node);
       items.push_info(type_node_end_info);
 
       if use_new_line_group {
@@ -6637,7 +6622,7 @@ impl From<TrailingCommas> for Separator {
   }
 }
 
-struct ParseSeparatedValuesParams<'a> {
+struct GenSeparatedValuesParams<'a> {
   nodes: Vec<NodeOrSeparator<'a>>,
   prefer_hanging: bool,
   force_use_new_lines: bool,
@@ -6646,7 +6631,7 @@ struct ParseSeparatedValuesParams<'a> {
   single_line_space_at_start: bool,
   single_line_space_at_end: bool,
   custom_single_line_separator: Option<PrintItems>,
-  multi_line_options: parser_helpers::MultiLineOptions,
+  multi_line_options: ir_helpers::MultiLineOptions,
   force_possible_newline_at_start: bool,
   node_sorter: Option<Box<dyn Fn((usize, Option<&Node<'a>>), (usize, Option<&Node<'a>>), &Program<'a>) -> std::cmp::Ordering>>,
 }
@@ -6675,11 +6660,11 @@ impl<'a> NodeOrSeparator<'a> {
 }
 
 #[inline]
-fn parse_separated_values<'a>(opts: ParseSeparatedValuesParams<'a>, context: &mut Context<'a>) -> PrintItems {
-  parse_separated_values_with_result(opts, context).items
+fn gen_separated_values<'a>(opts: GenSeparatedValuesParams<'a>, context: &mut Context<'a>) -> PrintItems {
+  gen_separated_values_with_result(opts, context).items
 }
 
-fn parse_separated_values_with_result<'a>(opts: ParseSeparatedValuesParams<'a>, context: &mut Context<'a>) -> ParseSeparatedValuesResult {
+fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, context: &mut Context<'a>) -> GenSeparatedValuesResult {
   let nodes = opts.nodes;
   let separator = opts.separator;
   let indent_width = context.config.indent_width;
@@ -6692,10 +6677,10 @@ fn parse_separated_values_with_result<'a>(opts: ParseSeparatedValuesParams<'a>, 
     panic!("Not implemented scenario. Cannot computed lines span and allow blank lines");
   }
 
-  parser_helpers::parse_separated_values(
+  ir_helpers::gen_separated_values(
     |is_multi_line_or_hanging_ref| {
       let is_multi_line_or_hanging = is_multi_line_or_hanging_ref.create_resolver();
-      let mut parsed_nodes = Vec::new();
+      let mut generated_nodes = Vec::new();
       let nodes_count = nodes.len();
       let sorted_indexes = node_sorter.map(|sorter| get_sorted_indexes(nodes.iter().map(|d| d.as_node()), sorter, context));
 
@@ -6711,7 +6696,7 @@ fn parse_separated_values_with_result<'a>(opts: ParseSeparatedValuesParams<'a>, 
           (false, false)
         };
         let lines_span = if compute_lines_span {
-          value.as_node().map(|x| parser_helpers::LinesSpan {
+          value.as_node().map(|x| ir_helpers::LinesSpan {
             start_line: x.start_line_with_comments(context),
             end_line: x.end_line_with_comments(context),
           })
@@ -6721,21 +6706,21 @@ fn parse_separated_values_with_result<'a>(opts: ParseSeparatedValuesParams<'a>, 
 
         let items = if separator.is_none() {
           if let NodeOrSeparator::Node(value) = value {
-            parse_node(value, context)
+            gen_node(value, context)
           } else {
             panic!("Unsupported scenario.")
           }
         } else {
-          let parsed_separator = get_parsed_separator(&separator, node_index == nodes_count - 1, &is_multi_line_or_hanging);
+          let generated_separator = get_generated_separator(&separator, node_index == nodes_count - 1, &is_multi_line_or_hanging);
           match value {
-            NodeOrSeparator::Node(value) => parse_node_with_separator(value, parsed_separator, context),
+            NodeOrSeparator::Node(value) => gen_node_with_separator(value, generated_separator, context),
             NodeOrSeparator::Separator(separator_token) => {
               let mut items = PrintItems::new();
-              // don't use parse_leading_comments here because we don't want a space between the block comment and separator (comma)
+              // don't use gen_leading_comments here because we don't want a space between the block comment and separator (comma)
               let leading_comments = separator_token.leading_comments_fast(context.program);
-              items.extend(parse_comment_collection(leading_comments, None, Some(separator_token), context));
-              items.extend(parsed_separator);
-              items.extend(parse_first_line_trailing_comments(separator_token, None, context));
+              items.extend(gen_comment_collection(leading_comments, None, Some(separator_token), context));
+              items.extend(generated_separator);
+              items.extend(gen_first_line_trailing_comments(separator_token, None, context));
               items
             }
           }
@@ -6752,8 +6737,8 @@ fn parse_separated_values_with_result<'a>(opts: ParseSeparatedValuesParams<'a>, 
           _ => true,
         };
 
-        parsed_nodes.push(parser_helpers::ParsedValue {
-          items: if use_new_line_group { parser_helpers::new_line_group(items) } else { items },
+        generated_nodes.push(ir_helpers::GeneratedValue {
+          items: if use_new_line_group { ir_helpers::new_line_group(items) } else { items },
           lines_span,
           allow_inline_multi_line,
           allow_inline_single_line,
@@ -6761,11 +6746,11 @@ fn parse_separated_values_with_result<'a>(opts: ParseSeparatedValuesParams<'a>, 
       }
 
       match sorted_indexes {
-        Some(sorted_indexes) => sort_by_sorted_indexes(parsed_nodes, sorted_indexes),
-        None => parsed_nodes,
+        Some(sorted_indexes) => sort_by_sorted_indexes(generated_nodes, sorted_indexes),
+        None => generated_nodes,
       }
     },
-    parser_helpers::ParseSeparatedValuesOptions {
+    ir_helpers::GenSeparatedValuesOptions {
       prefer_hanging: opts.prefer_hanging,
       force_use_new_lines: opts.force_use_new_lines,
       allow_blank_lines: opts.allow_blank_lines,
@@ -6801,20 +6786,20 @@ fn sort_by_sorted_indexes<T>(items: Vec<T>, sorted_indexes: utils::VecMap<usize>
     sorted_items.push(None);
   }
 
-  for (i, parsed_node) in items.into_iter().enumerate() {
-    sorted_items[*sorted_indexes.get(i).unwrap_or(&i)] = Some(parsed_node);
+  for (i, generated_node) in items.into_iter().enumerate() {
+    sorted_items[*sorted_indexes.get(i).unwrap_or(&i)] = Some(generated_node);
   }
 
   sorted_items.into_iter().map(|x| x.unwrap()).collect()
 }
 
-fn parse_node_with_separator<'a>(value: Node<'a>, parsed_separator: PrintItems, context: &mut Context<'a>) -> PrintItems {
+fn gen_node_with_separator<'a>(value: Node<'a>, generated_separator: PrintItems, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   let comma_token = get_comma_token(&value, context);
 
   // get the trailing comments after the comma token (if the separator in the file is currently a comma)
-  let parsed_trailing_comments = if let Some(comma_token) = comma_token {
-    parse_trailing_comments(comma_token, context)
+  let generated_trailing_comments = if let Some(comma_token) = comma_token {
+    gen_trailing_comments(comma_token, context)
   } else {
     PrintItems::new()
   };
@@ -6823,17 +6808,17 @@ fn parse_node_with_separator<'a>(value: Node<'a>, parsed_separator: PrintItems, 
   let is_ignored_with_semi_colon =
     value.text_fast(context.program).ends_with(';') && get_has_ignore_comment(&value.leading_comments_fast(context.program), &value, context);
   if is_ignored_with_semi_colon {
-    items.extend(parse_node(value, context));
+    items.extend(gen_node(value, context));
   } else {
-    let parsed_separator = parsed_separator.into_rc_path();
-    items.extend(parse_node_with_inner_parse(value, context, move |mut items, _| {
-      // this Rc clone is necessary because we can't move the captured parsed_comma out of this closure
-      items.push_optional_path(parsed_separator);
+    let generated_separator = generated_separator.into_rc_path();
+    items.extend(gen_node_with_inner_gen(value, context, move |mut items, _| {
+      // this Rc clone is necessary because we can't move the captured generated_separator out of this closure
+      items.push_optional_path(generated_separator);
       items
     }));
   }
 
-  items.extend(parsed_trailing_comments);
+  items.extend(generated_trailing_comments);
 
   return items;
 
@@ -6846,15 +6831,15 @@ fn parse_node_with_separator<'a>(value: Node<'a>, parsed_separator: PrintItems, 
 }
 
 /// Some nodes don't have a TsTypeAnn, but instead a Box<TsType>
-fn parse_type_ann_with_colon_if_exists_for_type<'a>(type_ann: &'a Option<TsType>, context: &mut Context<'a>) -> PrintItems {
+fn gen_type_ann_with_colon_if_exists_for_type<'a>(type_ann: &'a Option<TsType>, context: &mut Context<'a>) -> PrintItems {
   if let Some(type_ann) = type_ann {
-    parse_type_ann_with_colon_for_type(type_ann, context)
+    gen_type_ann_with_colon_for_type(type_ann, context)
   } else {
     PrintItems::new()
   }
 }
 
-fn parse_type_ann_with_colon_for_type<'a>(type_ann: &'a TsType, context: &mut Context<'a>) -> PrintItems {
+fn gen_type_ann_with_colon_for_type<'a>(type_ann: &'a TsType, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   if context.config.type_annotation_space_before_colon {
     items.push_str(" ");
@@ -6862,11 +6847,11 @@ fn parse_type_ann_with_colon_for_type<'a>(type_ann: &'a TsType, context: &mut Co
   let colon_token = context.token_finder.get_previous_token_if_colon(type_ann);
   #[cfg(debug_assertions)]
   assert_has_op(":", colon_token, context);
-  items.extend(parse_type_ann_with_colon(type_ann.into(), colon_token, context));
+  items.extend(gen_type_ann_with_colon(type_ann.into(), colon_token, context));
   items
 }
 
-fn parse_type_ann_with_colon_if_exists<'a>(type_ann: &Option<&TsTypeAnn<'a>>, context: &mut Context<'a>) -> PrintItems {
+fn gen_type_ann_with_colon_if_exists<'a>(type_ann: &Option<&TsTypeAnn<'a>>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   if let Some(type_ann) = type_ann {
     if context.config.type_annotation_space_before_colon {
@@ -6875,22 +6860,22 @@ fn parse_type_ann_with_colon_if_exists<'a>(type_ann: &Option<&TsTypeAnn<'a>>, co
     let colon_token = context.token_finder.get_first_colon_token_within(type_ann);
     #[cfg(debug_assertions)]
     assert_has_op(":", colon_token, context);
-    items.extend(parse_type_ann_with_colon((*type_ann).into(), colon_token, context));
+    items.extend(gen_type_ann_with_colon((*type_ann).into(), colon_token, context));
   }
   items
 }
 
-fn parse_type_ann_with_colon<'a>(type_ann: Node<'a>, colon_token: Option<&TokenAndSpan>, context: &mut Context<'a>) -> PrintItems {
-  parse_assignment_like_with_token(type_ann, ":", colon_token, context)
+fn gen_type_ann_with_colon<'a>(type_ann: Node<'a>, colon_token: Option<&TokenAndSpan>, context: &mut Context<'a>) -> PrintItems {
+  gen_assignment_like_with_token(type_ann, ":", colon_token, context)
 }
 
-struct ParseBraceSeparatorOptions<'a> {
+struct GenBraceSeparatorOptions<'a> {
   brace_position: BracePosition,
   open_brace_token: Option<&'a TokenAndSpan>,
   start_header_info: Option<Info>,
 }
 
-fn parse_brace_separator<'a>(opts: ParseBraceSeparatorOptions<'a>, context: &mut Context) -> PrintItems {
+fn gen_brace_separator<'a>(opts: GenBraceSeparatorOptions<'a>, context: &mut Context) -> PrintItems {
   match opts.brace_position {
     BracePosition::SameLineUnlessHanging => {
       if let Some(start_header_info) = opts.start_header_info {
@@ -6924,30 +6909,30 @@ fn space_if_not_start_line() -> PrintItems {
   if_true("spaceIfNotStartLine", |context| Some(!context.writer_info.is_start_of_line()), " ".into()).into()
 }
 
-struct ParseNodeInParensOptions {
+struct GenNodeInParensOptions {
   inner_span: Span,
   prefer_hanging: bool,
   allow_open_paren_trailing_comments: bool,
 }
 
-fn parse_node_in_parens<'a>(parse_node: impl FnOnce(&mut Context<'a>) -> PrintItems, opts: ParseNodeInParensOptions, context: &mut Context<'a>) -> PrintItems {
+fn gen_node_in_parens<'a>(gen_node: impl FnOnce(&mut Context<'a>) -> PrintItems, opts: GenNodeInParensOptions, context: &mut Context<'a>) -> PrintItems {
   let inner_span = opts.inner_span;
   let paren_span = get_paren_span(&inner_span, context);
   let force_use_new_lines = get_force_use_new_lines(inner_span, &paren_span, context);
 
-  return parse_surrounded_by_tokens(
+  return gen_surrounded_by_tokens(
     |context| {
-      let parsed_node = parse_node(context);
+      let generated_node = gen_node(context);
       if force_use_new_lines {
-        surround_with_new_lines(with_indent(parsed_node))
+        surround_with_new_lines(with_indent(generated_node))
       } else if opts.prefer_hanging {
-        parsed_node
+        generated_node
       } else {
-        parser_helpers::surround_with_newlines_indented_if_multi_line(parsed_node, context.config.indent_width)
+        ir_helpers::surround_with_newlines_indented_if_multi_line(generated_node, context.config.indent_width)
       }
     },
     |_| None,
-    ParseSurroundedByTokensOptions {
+    GenSurroundedByTokensOptions {
       open_token: "(",
       close_token: ")",
       span: paren_span,
@@ -6984,14 +6969,14 @@ fn get_paren_span<'a>(inner_span: &Span, context: &mut Context<'a>) -> Option<Sp
   None
 }
 
-struct ParseExtendsOrImplementsOptions<'a> {
+struct GenExtendsOrImplementsOptions<'a> {
   text: &'a str,
   type_items: Vec<Node<'a>>,
   start_header_info: Info,
   prefer_hanging: bool,
 }
 
-fn parse_extends_or_implements<'a>(opts: ParseExtendsOrImplementsOptions<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_extends_or_implements<'a>(opts: GenExtendsOrImplementsOptions<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
   if opts.type_items.is_empty() {
@@ -7006,11 +6991,11 @@ fn parse_extends_or_implements<'a>(opts: ParseExtendsOrImplementsOptions<'a>, co
     },
   ));
   // the newline group will force it to put the extends or implements on a new line
-  items.push_condition(conditions::indent_if_start_of_line(parser_helpers::new_line_group({
+  items.push_condition(conditions::indent_if_start_of_line(ir_helpers::new_line_group({
     let mut items = PrintItems::new();
     items.push_str(opts.text);
-    items.extend(parse_separated_values(
-      ParseSeparatedValuesParams {
+    items.extend(gen_separated_values(
+      GenSeparatedValuesParams {
         nodes: opts.type_items.into_iter().map(NodeOrSeparator::Node).collect(),
         prefer_hanging: opts.prefer_hanging,
         force_use_new_lines: false,
@@ -7019,7 +7004,7 @@ fn parse_extends_or_implements<'a>(opts: ParseExtendsOrImplementsOptions<'a>, co
         single_line_space_at_start: true,
         single_line_space_at_end: false,
         custom_single_line_separator: None,
-        multi_line_options: parser_helpers::MultiLineOptions::new_line_start(),
+        multi_line_options: ir_helpers::MultiLineOptions::new_line_start(),
         force_possible_newline_at_start: false,
         node_sorter: None,
       },
@@ -7031,7 +7016,7 @@ fn parse_extends_or_implements<'a>(opts: ParseExtendsOrImplementsOptions<'a>, co
   items
 }
 
-struct ParseObjectLikeNodeOptions<'a> {
+struct GenObjectLikeNodeOptions<'a> {
   node: Node<'a>,
   members: Vec<Node<'a>>,
   separator: Separator,
@@ -7042,7 +7027,7 @@ struct ParseObjectLikeNodeOptions<'a> {
   node_sorter: Option<Box<dyn Fn((usize, Option<&Node<'a>>), (usize, Option<&Node<'a>>), &Program<'a>) -> std::cmp::Ordering>>,
 }
 
-fn parse_object_like_node<'a>(opts: ParseObjectLikeNodeOptions<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
   let child_tokens = get_tokens_from_children_with_tokens(&opts.node, context.program);
@@ -7057,13 +7042,13 @@ fn parse_object_like_node<'a>(opts: ParseObjectLikeNodeOptions<'a>, context: &mu
     None
   };
 
-  items.extend(parse_surrounded_by_tokens(
+  items.extend(gen_surrounded_by_tokens(
     |context| {
       if opts.members.is_empty() {
         PrintItems::new()
       } else {
-        parse_separated_values(
-          ParseSeparatedValuesParams {
+        gen_separated_values(
+          GenSeparatedValuesParams {
             nodes: opts.members.into_iter().map(NodeOrSeparator::Node).collect(),
             prefer_hanging: opts.prefer_hanging,
             force_use_new_lines: force_multi_line,
@@ -7072,7 +7057,7 @@ fn parse_object_like_node<'a>(opts: ParseObjectLikeNodeOptions<'a>, context: &mu
             single_line_space_at_start: opts.surround_single_line_with_spaces,
             single_line_space_at_end: opts.surround_single_line_with_spaces,
             custom_single_line_separator: None,
-            multi_line_options: parser_helpers::MultiLineOptions::surround_newlines_indented(),
+            multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(),
             force_possible_newline_at_start: false,
             node_sorter: opts.node_sorter,
           },
@@ -7081,7 +7066,7 @@ fn parse_object_like_node<'a>(opts: ParseObjectLikeNodeOptions<'a>, context: &mu
       }
     },
     |_| None,
-    ParseSurroundedByTokensOptions {
+    GenSurroundedByTokensOptions {
       open_token: "{",
       close_token: "}",
       span: obj_span,
@@ -7095,13 +7080,13 @@ fn parse_object_like_node<'a>(opts: ParseObjectLikeNodeOptions<'a>, context: &mu
   items
 }
 
-fn parse_for_member_like_expr_item<'a>(item: &MemberLikeExprItem<'a>, context: &mut Context<'a>, index: usize, item_count: usize) -> PrintItems {
+fn gen_for_member_like_expr_item<'a>(item: &MemberLikeExprItem<'a>, context: &mut Context<'a>, index: usize, item_count: usize) -> PrintItems {
   let is_first = index == 0;
   let is_last = index == item_count - 1;
   match item {
     MemberLikeExprItem::Node(node) => {
       let is_optional = item.is_optional();
-      parse_node_with_inner_parse(*node, context, |node_items, _| {
+      gen_node_with_inner_gen(*node, context, |node_items, _| {
         let mut items = PrintItems::new();
         if !is_first {
           if is_optional {
@@ -7121,18 +7106,18 @@ fn parse_for_member_like_expr_item<'a>(item: &MemberLikeExprItem<'a>, context: &
       if is_optional {
         items.push_str("?.");
       }
-      items.extend(parse_computed_prop_like(
-        |context| parse_node(node.inner_node, context),
-        ParseComputedPropLikeOptions {
+      items.extend(gen_computed_prop_like(
+        |context| gen_node(node.inner_node, context),
+        GenComputedPropLikeOptions {
           inner_node_span: node.inner_node.span(),
         },
         context,
       ));
 
       if !is_last {
-        // Manually parse the trailing comments of the close bracket token
-        // because it doesn't go through the parse_node method
-        items.extend(parse_trailing_comments(item, context));
+        // Manually generate the trailing comments of the close bracket token
+        // because it doesn't go through the gen_node method
+        items.extend(gen_trailing_comments(item, context));
       }
 
       items
@@ -7140,18 +7125,18 @@ fn parse_for_member_like_expr_item<'a>(item: &MemberLikeExprItem<'a>, context: &
     MemberLikeExprItem::CallExpr(node) => {
       let mut items = PrintItems::new();
 
-      items.extend(parse_call_expr_like(
+      items.extend(gen_call_expr_like(
         CallExprLike {
           original_call_expr: node.original_call_expr,
-          parsed_callee: parse_for_member_like_expr_item(&node.callee, context, index, item_count),
+          generated_callee: gen_for_member_like_expr_item(&node.callee, context, index, item_count),
         },
         context,
       ));
 
       if !is_last {
-        // Need to manually parse the trailing comments here because
-        // this doesn't go through the parse_node method
-        items.extend(parse_trailing_comments(item, context));
+        // Need to manually generate the trailing comments here because
+        // this doesn't go through the gen_node method
+        items.extend(gen_trailing_comments(item, context));
       }
 
       items
@@ -7159,7 +7144,7 @@ fn parse_for_member_like_expr_item<'a>(item: &MemberLikeExprItem<'a>, context: &
   }
 }
 
-fn parse_for_flattened_member_like_expr<'a>(node: FlattenedMemberLikeExpr<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_for_flattened_member_like_expr<'a>(node: FlattenedMemberLikeExpr<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   let member_expr_start_info = Info::new("member_expr_start");
   let member_expr_end_info = Info::new("member_expr_start_last_item");
@@ -7169,7 +7154,7 @@ fn parse_for_flattened_member_like_expr<'a>(node: FlattenedMemberLikeExpr<'a>, c
     items.push_info(member_expr_start_info);
   }
 
-  items.extend(parse_for_member_like_expr_item(&node.nodes[0], context, 0, total_items_len));
+  items.extend(gen_for_member_like_expr_item(&node.nodes[0], context, 0, total_items_len));
 
   for (i, item) in node.nodes.iter().enumerate().skip(1) {
     let force_use_new_line =
@@ -7196,24 +7181,24 @@ fn parse_for_flattened_member_like_expr<'a>(node: FlattenedMemberLikeExpr<'a>, c
       items.push_info(member_expr_end_info);
     }
 
-    let parsed_item = parse_for_member_like_expr_item(item, context, i, total_items_len);
+    let generated_item = gen_for_member_like_expr_item(item, context, i, total_items_len);
     if item.is_computed() {
-      items.push_condition(indent_if_start_of_line_or_start_of_line_indented(parsed_item));
+      items.push_condition(indent_if_start_of_line_or_start_of_line_indented(generated_item));
     } else {
-      items.push_condition(conditions::indent_if_start_of_line(parsed_item));
+      items.push_condition(conditions::indent_if_start_of_line(generated_item));
     }
   }
 
   items
 }
 
-struct ParseComputedPropLikeOptions {
+struct GenComputedPropLikeOptions {
   inner_node_span: Span,
 }
 
-fn parse_computed_prop_like<'a>(
-  parse_inner: impl FnOnce(&mut Context<'a>) -> PrintItems,
-  opts: ParseComputedPropLikeOptions,
+fn gen_computed_prop_like<'a>(
+  gen_inner: impl FnOnce(&mut Context<'a>) -> PrintItems,
+  opts: GenComputedPropLikeOptions,
   context: &mut Context<'a>,
 ) -> PrintItems {
   let inner_node_span = opts.inner_node_span;
@@ -7225,16 +7210,16 @@ fn parse_computed_prop_like<'a>(
       false
     };
 
-  return new_line_group(parse_surrounded_by_tokens(
+  return new_line_group(gen_surrounded_by_tokens(
     |context| {
       if force_use_new_lines {
-        surround_with_new_lines(with_indent(parse_inner(context)))
+        surround_with_new_lines(with_indent(gen_inner(context)))
       } else {
-        parser_helpers::surround_with_newlines_indented_if_multi_line(parse_inner(context), context.config.indent_width)
+        ir_helpers::surround_with_newlines_indented_if_multi_line(gen_inner(context), context.config.indent_width)
       }
     },
     |_| None,
-    ParseSurroundedByTokensOptions {
+    GenSurroundedByTokensOptions {
       open_token: "[",
       close_token: "]",
       span,
@@ -7262,7 +7247,7 @@ fn parse_computed_prop_like<'a>(
   }
 }
 
-fn parse_decorators<'a>(decorators: &[&'a Decorator<'a>], is_inline: bool, context: &mut Context<'a>) -> PrintItems {
+fn gen_decorators<'a>(decorators: &[&'a Decorator<'a>], is_inline: bool, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   if decorators.is_empty() {
     return items;
@@ -7272,8 +7257,8 @@ fn parse_decorators<'a>(decorators: &[&'a Decorator<'a>], is_inline: bool, conte
     && decorators.len() >= 2
     && node_helpers::get_use_new_lines_for_nodes(&decorators[0], &decorators[1], context.program);
 
-  let separated_values_result = parse_separated_values_with_result(
-    ParseSeparatedValuesParams {
+  let separated_values_result = gen_separated_values_with_result(
+    GenSeparatedValuesParams {
       nodes: decorators.iter().map(|&p| NodeOrSeparator::Node(p.into())).collect(),
       prefer_hanging: false, // would need to think about the design because prefer_hanging causes a hanging indent
       force_use_new_lines,
@@ -7282,7 +7267,7 @@ fn parse_decorators<'a>(decorators: &[&'a Decorator<'a>], is_inline: bool, conte
       single_line_space_at_start: false,
       single_line_space_at_end: is_inline,
       custom_single_line_separator: None,
-      multi_line_options: parser_helpers::MultiLineOptions::same_line_no_indent(),
+      multi_line_options: ir_helpers::MultiLineOptions::same_line_no_indent(),
       force_possible_newline_at_start: false,
       node_sorter: None,
     },
@@ -7298,16 +7283,16 @@ fn parse_decorators<'a>(decorators: &[&'a Decorator<'a>], is_inline: bool, conte
     items.push_signal(Signal::NewLine);
   }
 
-  // parse the comments between the last decorator and the next token
+  // generate the comments between the last decorator and the next token
   if let Some(last_dec) = decorators.last() {
     let next_token_pos = context.token_finder.get_next_token_pos_after(last_dec);
-    items.extend(parse_leading_comments(&next_token_pos, context));
+    items.extend(gen_leading_comments(&next_token_pos, context));
   }
 
   items
 }
 
-fn parse_control_flow_separator(
+fn gen_control_flow_separator(
   next_control_flow_position: NextControlFlowPosition,
   previous_node_block: &Span,
   token_text: &str,
@@ -7353,35 +7338,35 @@ fn parse_control_flow_separator(
   items
 }
 
-struct ParseHeaderWithConditionalBraceBodyOptions<'a> {
+struct GenHeaderWithConditionalBraceBodyOptions<'a> {
   parent: Span,
   body_node: Node<'a>,
-  parsed_header: PrintItems,
+  generated_header: PrintItems,
   use_braces: UseBraces,
   brace_position: BracePosition,
   single_body_position: Option<SingleBodyPosition>,
   requires_braces_condition_ref: Option<ConditionReference>,
 }
 
-struct ParseHeaderWithConditionalBraceBodyResult {
-  parsed_node: PrintItems,
+struct GenHeaderWithConditionalBraceBodyResult {
+  generated_node: PrintItems,
   open_brace_condition_ref: ConditionReference,
   close_brace_condition_ref: ConditionReference,
 }
 
-fn parse_header_with_conditional_brace_body<'a>(
-  opts: ParseHeaderWithConditionalBraceBodyOptions<'a>,
+fn gen_header_with_conditional_brace_body<'a>(
+  opts: GenHeaderWithConditionalBraceBodyOptions<'a>,
   context: &mut Context<'a>,
-) -> ParseHeaderWithConditionalBraceBodyResult {
+) -> GenHeaderWithConditionalBraceBodyResult {
   let start_header_info = Info::new("startHeader");
   let end_header_info = Info::new("endHeader");
   let mut items = PrintItems::new();
 
   items.push_info(start_header_info);
-  items.extend(new_line_group(opts.parsed_header));
+  items.extend(new_line_group(opts.generated_header));
   items.push_info(end_header_info);
-  let result = parse_conditional_brace_body(
-    ParseConditionalBraceBodyOptions {
+  let result = gen_conditional_brace_body(
+    GenConditionalBraceBodyOptions {
       parent: opts.parent,
       body_node: opts.body_node,
       use_braces: opts.use_braces,
@@ -7394,16 +7379,16 @@ fn parse_header_with_conditional_brace_body<'a>(
     },
     context,
   );
-  items.extend(result.parsed_node);
+  items.extend(result.generated_node);
 
-  ParseHeaderWithConditionalBraceBodyResult {
+  GenHeaderWithConditionalBraceBodyResult {
     open_brace_condition_ref: result.open_brace_condition_ref,
     close_brace_condition_ref: result.close_brace_condition_ref,
-    parsed_node: items,
+    generated_node: items,
   }
 }
 
-struct ParseConditionalBraceBodyOptions<'a> {
+struct GenConditionalBraceBodyOptions<'a> {
   parent: Span,
   body_node: Node<'a>,
   use_braces: UseBraces,
@@ -7415,13 +7400,13 @@ struct ParseConditionalBraceBodyOptions<'a> {
   end_header_info: Option<Info>,
 }
 
-struct ParseConditionalBraceBodyResult {
-  parsed_node: PrintItems,
+struct GenConditionalBraceBodyResult {
+  generated_node: PrintItems,
   open_brace_condition_ref: ConditionReference,
   close_brace_condition_ref: ConditionReference,
 }
 
-fn parse_conditional_brace_body<'a>(opts: ParseConditionalBraceBodyOptions<'a>, context: &mut Context<'a>) -> ParseConditionalBraceBodyResult {
+fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, context: &mut Context<'a>) -> GenConditionalBraceBodyResult {
   // todo: reorganize...
   let start_info = Info::new("startInfo");
   let end_info = Info::new("endInfo");
@@ -7535,8 +7520,8 @@ fn parse_conditional_brace_body<'a>(opts: ParseConditionalBraceBodyOptions<'a>, 
       },
       true_path: {
         let mut items = PrintItems::new();
-        items.extend(parse_brace_separator(
-          ParseBraceSeparatorOptions {
+        items.extend(gen_brace_separator(
+          GenBraceSeparatorOptions {
             brace_position: opts.brace_position,
             open_brace_token,
             start_header_info,
@@ -7558,16 +7543,16 @@ fn parse_conditional_brace_body<'a>(opts: ParseConditionalBraceBodyOptions<'a>, 
     context.store_expr_stmt_single_line_parent_brace_ref(open_brace_condition_ref);
   }
 
-  // parse body
+  // generate body
   let mut items = PrintItems::new();
   items.push_info(start_info);
   items.push_condition(open_brace_condition);
   items.push_info(start_inner_text_info);
-  let parsed_comments = parse_comment_collection(header_trailing_comments.into_iter(), None, None, context);
-  if !parsed_comments.is_empty() {
+  let generated_comments = gen_comment_collection(header_trailing_comments.into_iter(), None, None, context);
+  if !generated_comments.is_empty() {
     items.push_signal(Signal::StartForceNoNewLines);
     items.push_str(" ");
-    items.extend(parsed_comments);
+    items.extend(generated_comments);
     items.push_signal(Signal::FinishForceNoNewLines);
   }
   items.push_condition(newline_condition);
@@ -7581,12 +7566,12 @@ fn parse_conditional_brace_body<'a>(opts: ParseConditionalBraceBodyOptions<'a>, 
   }
 
   if let Node::BlockStmt(body_node) = opts.body_node {
-    items.extend(parser_helpers::with_indent({
+    items.extend(ir_helpers::with_indent({
       let mut items = PrintItems::new();
-      // parse the remaining trailing comments inside because some of them are parsed already
+      // generate the remaining trailing comments inside because some of them are generated already
       // by parsing the header trailing comments
-      items.extend(parse_leading_comments(body_node, context));
-      items.extend(parse_statements(
+      items.extend(gen_leading_comments(body_node, context));
+      items.extend(gen_statements(
         body_node.get_inner_span(context),
         body_node.stmts.iter().map(|x| x.into()).collect(),
         context,
@@ -7594,11 +7579,11 @@ fn parse_conditional_brace_body<'a>(opts: ParseConditionalBraceBodyOptions<'a>, 
       items
     }));
   } else {
-    items.extend(parser_helpers::with_indent({
+    items.extend(ir_helpers::with_indent({
       let mut items = PrintItems::new();
       let body_node_span = opts.body_node.span();
-      items.extend(parse_node(opts.body_node, context));
-      items.extend(parse_trailing_comments(&body_node_span, context));
+      items.extend(gen_node(opts.body_node, context));
+      items.extend(gen_trailing_comments(&body_node_span, context));
       items
     }));
   }
@@ -7642,8 +7627,8 @@ fn parse_conditional_brace_body<'a>(opts: ParseConditionalBraceBodyOptions<'a>, 
   items.push_info(end_info);
 
   // return result
-  return ParseConditionalBraceBodyResult {
-    parsed_node: items,
+  return GenConditionalBraceBodyResult {
+    generated_node: items,
     open_brace_condition_ref,
     close_brace_condition_ref,
   };
@@ -7764,19 +7749,19 @@ fn parse_conditional_brace_body<'a>(opts: ParseConditionalBraceBodyOptions<'a>, 
   }
 }
 
-struct ParseJsxWithOpeningAndClosingOptions<'a> {
+struct GenJsxWithOpeningAndClosingOptions<'a> {
   opening_element: Node<'a>,
   closing_element: Node<'a>,
   children: Vec<Node<'a>>,
 }
 
-struct ParseJsxWithOpeningAndClosingResult {
+struct GenJsxWithOpeningAndClosingResult {
   items: PrintItems,
   start_info: Info,
   end_info: Info,
 }
 
-fn parse_jsx_with_opening_and_closing<'a>(opts: ParseJsxWithOpeningAndClosingOptions<'a>, context: &mut Context<'a>) -> ParseJsxWithOpeningAndClosingResult {
+fn gen_jsx_with_opening_and_closing<'a>(opts: GenJsxWithOpeningAndClosingOptions<'a>, context: &mut Context<'a>) -> GenJsxWithOpeningAndClosingResult {
   let force_use_multi_lines = get_force_use_multi_lines(&opts.opening_element, &opts.children, context);
   let start_info = Info::new("startInfo");
   let end_info = Info::new("endInfo");
@@ -7784,9 +7769,9 @@ fn parse_jsx_with_opening_and_closing<'a>(opts: ParseJsxWithOpeningAndClosingOpt
   let inner_span = create_span(opts.opening_element.hi(), opts.closing_element.lo());
 
   items.push_info(start_info);
-  items.extend(parse_node(opts.opening_element, context));
-  items.extend(parse_jsx_children(
-    ParseJsxChildrenOptions {
+  items.extend(gen_node(opts.opening_element, context));
+  items.extend(gen_jsx_children(
+    GenJsxChildrenOptions {
       inner_span,
       children: opts.children,
       parent_start_info: start_info,
@@ -7795,10 +7780,10 @@ fn parse_jsx_with_opening_and_closing<'a>(opts: ParseJsxWithOpeningAndClosingOpt
     },
     context,
   ));
-  items.extend(parse_node(opts.closing_element, context));
+  items.extend(gen_node(opts.closing_element, context));
   items.push_info(end_info);
 
-  return ParseJsxWithOpeningAndClosingResult { items, start_info, end_info };
+  return GenJsxWithOpeningAndClosingResult { items, start_info, end_info };
 
   fn get_force_use_multi_lines(opening_element: &Node, children: &[Node], context: &mut Context) -> bool {
     if context.config.jsx_force_new_line_surrounding_content {
@@ -7828,7 +7813,7 @@ fn parse_jsx_with_opening_and_closing<'a>(opts: ParseJsxWithOpeningAndClosingOpt
   }
 }
 
-struct ParseJsxChildrenOptions<'a> {
+struct GenJsxChildrenOptions<'a> {
   inner_span: Span,
   children: Vec<Node<'a>>,
   parent_start_info: Info,
@@ -7836,17 +7821,17 @@ struct ParseJsxChildrenOptions<'a> {
   force_use_multi_lines: bool,
 }
 
-fn parse_jsx_children<'a>(opts: ParseJsxChildrenOptions<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'a>) -> PrintItems {
   let filtered_children = get_filtered_jsx_children(opts.children, context);
 
-  // Need to parse the children here so they only get parsed once.
-  // Nodes need to be only parsed once so that their comments don't end up in
-  // the handled comments collection and the second time they won't be parsed out.
-  let parsed_children = filtered_children
+  // Need to generate the children here so they only get generated once.
+  // Nodes need to be only generated once so that their comments don't end up in
+  // the handled comments collection and the second time they won't be generated out.
+  let generated_children = filtered_children
     .into_iter()
     .map(|child| {
       (child, {
-        let items = parse_node(child, context);
+        let items = gen_node(child, context);
         match child {
           Node::JSXText(_) => items,
           _ => new_line_group(items),
@@ -7859,7 +7844,7 @@ fn parse_jsx_children<'a>(opts: ParseJsxChildrenOptions<'a>, context: &mut Conte
   let parent_end_info = opts.parent_end_info;
 
   if opts.force_use_multi_lines {
-    return parse_for_new_lines(parsed_children, opts.inner_span, context);
+    return gen_for_new_lines(generated_children, opts.inner_span, context);
   } else {
     // decide whether newlines should be used or not
     return if_true_or(
@@ -7878,8 +7863,8 @@ fn parse_jsx_children<'a>(opts: ParseJsxChildrenOptions<'a>, context: &mut Conte
         // use newlines if the entire jsx element is on multiple lines
         condition_resolvers::is_multiple_lines(condition_context, &parent_start_info, &parent_end_info)
       },
-      parse_for_new_lines(parsed_children.clone(), opts.inner_span, context),
-      parse_for_single_line(parsed_children, context),
+      gen_for_new_lines(generated_children.clone(), opts.inner_span, context),
+      gen_for_single_line(generated_children, context),
     )
     .into();
   }
@@ -7914,12 +7899,12 @@ fn parse_jsx_children<'a>(opts: ParseJsxChildrenOptions<'a>, context: &mut Conte
     children
   }
 
-  fn parse_for_new_lines<'a>(children: Vec<(Node<'a>, Option<PrintItemPath>)>, inner_span: Span, context: &mut Context<'a>) -> PrintItems {
+  fn gen_for_new_lines<'a>(children: Vec<(Node<'a>, Option<PrintItemPath>)>, inner_span: Span, context: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
     let has_children = !children.is_empty();
     items.push_signal(Signal::NewLine);
-    items.extend(parser_helpers::with_indent(parse_members(
-      ParseMembersOptions {
+    items.extend(ir_helpers::with_indent(gen_members(
+      GenMembersOptions {
         inner_span,
         items: children.into_iter().map(|(a, b)| (a, Some(b.into()))).collect(),
         should_use_space: Some(Box::new(|previous, next, context| {
@@ -7968,20 +7953,20 @@ fn parse_jsx_children<'a>(opts: ParseJsxChildrenOptions<'a>, context: &mut Conte
     items
   }
 
-  fn parse_for_single_line<'a>(children: Vec<(Node<'a>, Option<PrintItemPath>)>, context: &mut Context<'a>) -> PrintItems {
+  fn gen_for_single_line<'a>(children: Vec<(Node<'a>, Option<PrintItemPath>)>, context: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
     if children.is_empty() {
       items.push_signal(Signal::PossibleNewLine);
     } else {
       let mut previous_child = None;
-      for (index, (child, parsed_child)) in children.into_iter().enumerate() {
+      for (index, (child, generated_child)) in children.into_iter().enumerate() {
         if index > 0 && should_use_space(previous_child.as_ref().unwrap(), &child, context) {
           items.extend(jsx_space_separator(previous_child.as_ref().unwrap(), &child, context));
         } else {
           items.push_signal(Signal::PossibleNewLine);
         }
 
-        items.extend(parsed_child.into());
+        items.extend(generated_child.into());
 
         previous_child = Some(child);
       }
@@ -8167,20 +8152,20 @@ fn get_quote_char(context: &Context) -> String {
 }
 
 #[inline]
-fn parse_assignment<'a>(expr: Node<'a>, op: &str, context: &mut Context<'a>) -> PrintItems {
-  parse_assignment_op_to(expr, op, op, context)
+fn gen_assignment<'a>(expr: Node<'a>, op: &str, context: &mut Context<'a>) -> PrintItems {
+  gen_assignment_op_to(expr, op, op, context)
 }
 
 #[inline]
-fn parse_assignment_op_to<'a>(expr: Node<'a>, _op: &str, op_to: &str, context: &mut Context<'a>) -> PrintItems {
+fn gen_assignment_op_to<'a>(expr: Node<'a>, _op: &str, op_to: &str, context: &mut Context<'a>) -> PrintItems {
   let op_token = context.token_finder.get_previous_token(&expr);
   #[cfg(debug_assertions)]
   assert_has_op(_op, op_token, context);
 
-  parse_assignment_like_with_token(expr, op_to, op_token, context)
+  gen_assignment_like_with_token(expr, op_to, op_token, context)
 }
 
-fn parse_assignment_like_with_token<'a>(expr: Node<'a>, op: &str, op_token: Option<&TokenAndSpan>, context: &mut Context<'a>) -> PrintItems {
+fn gen_assignment_like_with_token<'a>(expr: Node<'a>, op: &str, op_token: Option<&TokenAndSpan>, context: &mut Context<'a>) -> PrintItems {
   let use_new_line_group = get_use_new_line_group(&expr);
   let mut items = PrintItems::new();
 
@@ -8193,11 +8178,11 @@ fn parse_assignment_like_with_token<'a>(expr: Node<'a>, op: &str, op_token: Opti
   let op_end = op_token
     .map(|x| x.hi())
     .unwrap_or_else(|| context.token_finder.get_previous_token_end_before(&expr));
-  let op_trailing_comments = parse_comments_between_lines_indented(op_end, context);
+  let op_trailing_comments = gen_comments_between_lines_indented(op_end, context);
   let had_op_trailing_comments = !op_trailing_comments.is_empty();
   items.extend(op_trailing_comments);
 
-  let parsed_assignment = {
+  let generated_assignment = {
     let mut items = PrintItems::new();
     if !had_op_trailing_comments {
       items.push_condition(conditions::if_above_width_or(
@@ -8211,7 +8196,7 @@ fn parse_assignment_like_with_token<'a>(expr: Node<'a>, op: &str, op_token: Opti
         Signal::SpaceIfNotTrailing.into(),
       ));
     }
-    let assignment = parse_node(expr, context);
+    let assignment = gen_node(expr, context);
     let assignment = if had_op_trailing_comments {
       assignment
     } else {
@@ -8226,8 +8211,8 @@ fn parse_assignment_like_with_token<'a>(expr: Node<'a>, op: &str, op_token: Opti
   items.push_condition(if_true_or(
     "indentIfStartOfLineIndentedOrTokenHadTrailingLineComment",
     move |context| Some(had_op_trailing_comments || condition_resolvers::is_start_of_line_indented(context)),
-    with_indent(parsed_assignment.clone().into()),
-    parsed_assignment.into(),
+    with_indent(generated_assignment.clone().into()),
+    generated_assignment.into(),
   ));
 
   return items;
@@ -8240,22 +8225,18 @@ fn parse_assignment_like_with_token<'a>(expr: Node<'a>, op: &str, op_token: Opti
   }
 }
 
-struct ParseBlockOptions<'a> {
+struct GenBlockOptions<'a> {
   span: Option<Span>,
   children: Vec<Node<'a>>,
 }
 
-fn parse_block<'a>(
-  parse_inner: impl FnOnce(Vec<Node<'a>>, &mut Context<'a>) -> PrintItems,
-  opts: ParseBlockOptions<'a>,
-  context: &mut Context<'a>,
-) -> PrintItems {
+fn gen_block<'a>(gen_inner: impl FnOnce(Vec<Node<'a>>, &mut Context<'a>) -> PrintItems, opts: GenBlockOptions<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   let before_open_token_info = Info::new("after_open_token_info");
   let first_member_span = opts.children.get(0).map(|x| x.span());
   let span = opts.span;
   items.push_info(before_open_token_info);
-  items.extend(parse_surrounded_by_tokens(
+  items.extend(gen_surrounded_by_tokens(
     |context| {
       let mut items = PrintItems::new();
       let start_inner_info = Info::new("startStatementsInfo");
@@ -8269,7 +8250,7 @@ fn parse_block<'a>(
         items.push_signal(Signal::NewLine);
       }
       items.push_info(start_inner_info);
-      items.extend(parser_helpers::with_indent(parse_inner(opts.children, context)));
+      items.extend(ir_helpers::with_indent(gen_inner(opts.children, context)));
       items.push_info(end_inner_info);
 
       if is_tokens_same_line_and_empty {
@@ -8288,7 +8269,7 @@ fn parse_block<'a>(
       items
     },
     |_| None,
-    ParseSurroundedByTokensOptions {
+    GenSurroundedByTokensOptions {
       open_token: "{",
       close_token: "}",
       span,
@@ -8301,7 +8282,7 @@ fn parse_block<'a>(
   items
 }
 
-struct ParseSurroundedByTokensOptions {
+struct GenSurroundedByTokensOptions {
   open_token: &'static str,
   close_token: &'static str,
   /// When `None`, means the tokens are missing
@@ -8311,10 +8292,10 @@ struct ParseSurroundedByTokensOptions {
   allow_open_token_trailing_comments: bool,
 }
 
-fn parse_surrounded_by_tokens<'a>(
-  parse_inner: impl FnOnce(&mut Context<'a>) -> PrintItems,
+fn gen_surrounded_by_tokens<'a>(
+  gen_inner: impl FnOnce(&mut Context<'a>) -> PrintItems,
   custom_close_token: impl FnOnce(&mut Context<'a>) -> Option<PrintItems>,
-  opts: ParseSurroundedByTokensOptions,
+  opts: GenSurroundedByTokensOptions,
   context: &mut Context<'a>,
 ) -> PrintItems {
   let mut items = PrintItems::new();
@@ -8328,26 +8309,26 @@ fn parse_surrounded_by_tokens<'a>(
     #[cfg(debug_assertions)]
     context.assert_text(create_span(close_token_start.lo(), span.hi), opts.close_token);
 
-    // parse
+    // generate
     let open_token_start_line = open_token_end.start_line_fast(context.program);
 
-    items.extend(parse_leading_comments(&span, context));
+    items.extend(gen_leading_comments(&span, context));
     items.push_str(opts.open_token);
     if let Some(first_member) = opts.first_member {
       let first_member_start_line = first_member.start_line_fast(context.program);
       if opts.allow_open_token_trailing_comments && open_token_start_line < first_member_start_line {
-        items.extend(parse_first_line_trailing_comment(
+        items.extend(gen_first_line_trailing_comment(
           open_token_start_line,
           open_token_end.trailing_comments_fast(context.program),
           context,
         ));
       }
-      items.extend(parse_inner(context));
+      items.extend(gen_inner(context));
 
       let before_trailing_comments_info = Info::new("beforeTrailingComments");
       items.push_info(before_trailing_comments_info);
-      items.extend(with_indent(parse_trailing_comments_as_statements(&open_token_end, context)));
-      items.extend(with_indent(parse_comments_as_statements(
+      items.extend(with_indent(gen_trailing_comments_as_statements(&open_token_end, context)));
+      items.extend(with_indent(gen_comments_as_statements(
         close_token_start.leading_comments_fast(context.program),
         None,
         context,
@@ -8364,34 +8345,34 @@ fn parse_surrounded_by_tokens<'a>(
       let comments = open_token_end.trailing_comments_fast(context.program);
       let is_single_line = open_token_start_line == close_token_start.start_line_fast(context.program);
       if !comments.is_empty() {
-        // parse the trailing comment on the first line only if multi-line and if a comment line
+        // generate the trailing comment on the first line only if multi-line and if a comment line
         if !is_single_line {
-          items.extend(parse_first_line_trailing_comment(open_token_start_line, comments.clone(), context));
+          items.extend(gen_first_line_trailing_comment(open_token_start_line, comments.clone(), context));
         }
 
-        // parse the comments
+        // generate the comments
         if comments.clone().any(|c| !context.has_handled_comment(c)) {
           if is_single_line {
             let indent_width = context.config.indent_width;
             items.extend(
-              parser_helpers::parse_separated_values(
+              ir_helpers::gen_separated_values(
                 |_| {
-                  let mut parsed_comments = Vec::new();
+                  let mut generated_comments = Vec::new();
                   for c in comments {
                     let start_line = c.start_line_fast(context.program);
                     let end_line = c.end_line_fast(context.program);
-                    if let Some(items) = parse_comment(c, context) {
-                      parsed_comments.push(parser_helpers::ParsedValue {
+                    if let Some(items) = gen_comment(c, context) {
+                      generated_comments.push(ir_helpers::GeneratedValue {
                         items,
-                        lines_span: Some(parser_helpers::LinesSpan { start_line, end_line }),
+                        lines_span: Some(ir_helpers::LinesSpan { start_line, end_line }),
                         allow_inline_multi_line: false,
                         allow_inline_single_line: false,
                       });
                     }
                   }
-                  parsed_comments
+                  generated_comments
                 },
-                parser_helpers::ParseSeparatedValuesOptions {
+                ir_helpers::GenSeparatedValuesOptions {
                   prefer_hanging: false,
                   force_use_new_lines: !is_single_line,
                   allow_blank_lines: true,
@@ -8399,7 +8380,7 @@ fn parse_surrounded_by_tokens<'a>(
                   single_line_space_at_end: false,
                   single_line_separator: Signal::SpaceOrNewLine.into(),
                   indent_width,
-                  multi_line_options: parser_helpers::MultiLineOptions::surround_newlines_indented(),
+                  multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(),
                   force_possible_newline_at_start: false,
                 },
               )
@@ -8407,7 +8388,7 @@ fn parse_surrounded_by_tokens<'a>(
             );
           } else {
             items.push_signal(Signal::NewLine);
-            items.extend(with_indent(parse_comments_as_statements(comments, None, context)));
+            items.extend(with_indent(gen_comments_as_statements(comments, None, context)));
             items.push_signal(Signal::NewLine);
           }
         }
@@ -8420,26 +8401,26 @@ fn parse_surrounded_by_tokens<'a>(
   } else {
     // todo: have a warning here when this happens
     items.push_str(opts.open_token);
-    items.extend(parse_inner(context));
+    items.extend(gen_inner(context));
   }
 
-  if let Some(parsed_close_token) = (custom_close_token)(context) {
-    items.extend(parsed_close_token);
+  if let Some(generated_close_token) = (custom_close_token)(context) {
+    items.extend(generated_close_token);
   } else {
     items.push_str(opts.close_token);
   }
 
   return items;
 
-  fn parse_first_line_trailing_comment(open_token_start_line: usize, comments: CommentsIterator, context: &mut Context) -> PrintItems {
+  fn gen_first_line_trailing_comment(open_token_start_line: usize, comments: CommentsIterator, context: &mut Context) -> PrintItems {
     let mut items = PrintItems::new();
     let first_comment = comments.into_iter().next();
     if let Some(first_comment) = first_comment {
       if first_comment.kind == CommentKind::Line && first_comment.start_line_fast(context.program) == open_token_start_line {
-        if let Some(parsed_comment) = parse_comment(&first_comment, context) {
+        if let Some(generated_comment) = gen_comment(&first_comment, context) {
           items.push_signal(Signal::StartForceNoNewLines);
           items.push_str(" ");
-          items.extend(parsed_comment);
+          items.extend(generated_comment);
           items.push_signal(Signal::FinishForceNoNewLines);
         }
       }
@@ -8632,7 +8613,7 @@ fn has_any_node_comment_on_different_line(nodes: &[impl Spanned], context: &mut 
 
 /* config helpers */
 
-fn get_parsed_separator(
+fn get_generated_separator(
   separator: &Separator,
   is_trailing: bool,
   is_multi_line: &(impl Fn(&mut ConditionResolverContext) -> Option<bool> + Clone + 'static),
@@ -8657,14 +8638,14 @@ fn get_parsed_separator(
     is_multi_line: &(impl Fn(&mut ConditionResolverContext) -> Option<bool> + Clone + 'static),
   ) -> PrintItems {
     match value {
-      Some(SeparatorValue::Comma(trailing_comma)) => get_parsed_trailing_comma(*trailing_comma, is_trailing, is_multi_line),
-      Some(SeparatorValue::SemiColon(semi_colons)) => get_parsed_semi_colon(*semi_colons, is_trailing, is_multi_line),
+      Some(SeparatorValue::Comma(trailing_comma)) => get_generated_trailing_comma(*trailing_comma, is_trailing, is_multi_line),
+      Some(SeparatorValue::SemiColon(semi_colons)) => get_generated_semi_colon(*semi_colons, is_trailing, is_multi_line),
       None => PrintItems::new(),
     }
   }
 }
 
-fn get_parsed_trailing_comma(
+fn get_generated_trailing_comma(
   option: TrailingCommas,
   is_trailing: bool,
   is_multi_line: &(impl Fn(&mut ConditionResolverContext) -> Option<bool> + Clone + 'static),
@@ -8680,7 +8661,7 @@ fn get_parsed_trailing_comma(
   }
 }
 
-fn get_parsed_semi_colon(
+fn get_generated_semi_colon(
   option: SemiColons,
   is_trailing: bool,
   is_multi_line: &(impl Fn(&mut ConditionResolverContext) -> Option<bool> + Clone + 'static),

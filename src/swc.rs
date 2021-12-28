@@ -1,9 +1,11 @@
+use anyhow::anyhow;
+use anyhow::bail;
+use anyhow::Result;
 use deno_ast::swc::parser::error::SyntaxError;
 use deno_ast::{Diagnostic, ParsedSource, SourceTextInfo};
-use dprint_core::types::{ErrBox, Error};
 use std::path::Path;
 
-pub fn parse_swc_ast(file_path: &Path, file_text: &str) -> Result<ParsedSource, ErrBox> {
+pub fn parse_swc_ast(file_path: &Path, file_text: &str) -> Result<ParsedSource> {
   let file_text = SourceTextInfo::from_string(file_text.to_string());
   match parse_inner(file_path, file_text.clone()) {
     Ok(result) => Ok(result),
@@ -23,7 +25,7 @@ pub fn parse_swc_ast(file_path: &Path, file_text: &str) -> Result<ParsedSource, 
   }
 }
 
-fn parse_inner(file_path: &Path, file_text: SourceTextInfo) -> Result<ParsedSource, ErrBox> {
+fn parse_inner(file_path: &Path, file_text: SourceTextInfo) -> Result<ParsedSource> {
   let parsed_source = deno_ast::parse_program(deno_ast::ParseParams {
     specifier: file_path.to_string_lossy().to_string(),
     capture_tokens: true,
@@ -32,11 +34,11 @@ fn parse_inner(file_path: &Path, file_text: SourceTextInfo) -> Result<ParsedSour
     scope_analysis: false,
     source: file_text.clone(),
   })
-  .map_err(|diagnostic| format_diagnostic(&diagnostic, file_text.text_str()))?;
+  .map_err(|diagnostic| anyhow!("{}", format_diagnostic(&diagnostic, file_text.text_str())))?;
   Ok(parsed_source)
 }
 
-pub fn ensure_no_specific_syntax_errors(parsed_source: &ParsedSource) -> Result<(), ErrBox> {
+pub fn ensure_no_specific_syntax_errors(parsed_source: &ParsedSource) -> Result<()> {
   let diagnostics = parsed_source
     .diagnostics()
     .iter()
@@ -63,7 +65,7 @@ pub fn ensure_no_specific_syntax_errors(parsed_source: &ParsedSource) -> Result<
       }
       final_message.push_str(&format_diagnostic(error, parsed_source.source().text_str()));
     }
-    Err(Error::new(final_message))
+    bail!("{}", final_message)
   }
 }
 

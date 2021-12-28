@@ -14,4 +14,4 @@ use helpers::*;
 use parser_types::*;
 use tokens::*;
 
-pub use parser::parse;
+pub use parser::generate;

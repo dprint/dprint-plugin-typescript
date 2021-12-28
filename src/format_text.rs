@@ -1,14 +1,14 @@
 use std::path::Path;
 
+use anyhow::Result;
 use deno_ast::ParsedSource;
 use dprint_core::configuration::resolve_new_line_kind;
 use dprint_core::formatting::*;
-use dprint_core::types::ErrBox;
 
 use crate::swc::ensure_no_specific_syntax_errors;
 
 use super::configuration::Configuration;
-use super::parsing::parse;
+use super::generation::generate;
 use super::swc::parse_swc_ast;
 
 /// Formats a file.
@@ -38,7 +38,7 @@ use super::swc::parse_swc_ast;
 ///     // save result here...
 /// }
 /// ```
-pub fn format_text(file_path: &Path, file_text: &str, config: &Configuration) -> Result<String, ErrBox> {
+pub fn format_text(file_path: &Path, file_text: &str, config: &Configuration) -> Result<String> {
   if super::utils::file_text_has_ignore_comment(file_text, &config.ignore_file_comment_text) {
     Ok(String::from(file_text))
   } else {
@@ -48,7 +48,7 @@ pub fn format_text(file_path: &Path, file_text: &str, config: &Configuration) ->
 }
 
 /// Formats an already parsed source. This is useful as a performance optimization.
-pub fn format_parsed_source(source: &ParsedSource, config: &Configuration) -> Result<String, ErrBox> {
+pub fn format_parsed_source(source: &ParsedSource, config: &Configuration) -> Result<String> {
   if super::utils::file_text_has_ignore_comment(source.source().text_str(), &config.ignore_file_comment_text) {
     Ok(source.source().text_str().to_string())
   } else {
@@ -56,12 +56,12 @@ pub fn format_parsed_source(source: &ParsedSource, config: &Configuration) -> Re
   }
 }
 
-fn inner_format(parsed_source: &ParsedSource, config: &Configuration) -> Result<String, ErrBox> {
+fn inner_format(parsed_source: &ParsedSource, config: &Configuration) -> Result<String> {
   ensure_no_specific_syntax_errors(parsed_source)?;
 
   Ok(dprint_core::formatting::format(
     || {
-      let print_items = parse(&parsed_source, config);
+      let print_items = generate(&parsed_source, config);
       // println!("{}", print_items.get_as_text());
       print_items
     },
@@ -73,7 +73,7 @@ fn inner_format(parsed_source: &ParsedSource, config: &Configuration) -> Result<
 pub fn trace_file(file_path: &Path, file_text: &str, config: &Configuration) -> dprint_core::formatting::TracingResult {
   let parsed_source = parse_swc_ast(file_path, file_text).unwrap();
   ensure_no_specific_syntax_errors(&parsed_source).unwrap();
-  dprint_core::formatting::trace_printing(|| parse(&parsed_source, config), config_to_print_options(file_text, config))
+  dprint_core::formatting::trace_printing(|| generate(&parsed_source, config), config_to_print_options(file_text, config))
 }
 
 fn config_to_print_options(file_text: &str, config: &Configuration) -> PrintOptions {

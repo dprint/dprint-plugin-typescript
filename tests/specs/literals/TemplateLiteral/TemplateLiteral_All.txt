@@ -81,7 +81,7 @@ const errMsg = `${
 log(myTag `some text`);
 
 [expect]
-log(myTag `some text`);
+log(myTag`some text`);
 
 == should do a tagged template literal that goes over line width ==
 myCustomTag `testing this out with an str`;
