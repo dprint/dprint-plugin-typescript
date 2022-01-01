@@ -3478,10 +3478,6 @@ fn gen_string_literal<'a>(node: &'a Str, context: &mut Context<'a>) -> PrintItem
       PropName::Str(_str) => true,
       _ => false
     }
-    Node::SetterProp(parent) => match parent.key {
-      PropName::Str(_str) => true,
-      _ => false
-    }
     Node::MethodProp(parent) => match parent.key {
       PropName::Str(_str) => true,
       _ => false
