@@ -1,0 +1,70 @@
+~~ quoteProps: asNeeded ~~
+== should preserve quotes when necessary ==
+const a = {"foo bar": true};
+const b = {"foo\nbar": true};
+const c = {"1foo": true};
+const i = {
+    "1foo"() {},
+    get "1foo"() {},
+    set "1foo"(v) {},
+};
+class What {
+    "1foo"() {}
+    get "1foo"() {}
+    set "1foo"() {}
+}
+
+[expect]
+const a = {"foo bar": true};
+const b = {"foo\nbar": true};
+const c = {"1foo": true};
+const i = {
+    "1foo"() {},
+    get "1foo"() {},
+    set "1foo"(v) {},
+};
+class What {
+    "1foo"() {}
+    get "1foo"() {}
+    set "1foo"() {}
+}
+
+== should remove quotes when unnecessary ==
+const a = {"foo": true};
+const b = {"$": true};
+const c = {"_": true};
+const d = {"_1": true};
+const e = {'foo': true};
+const f = {'$': true};
+const g = {'_': true};
+const h = {'_1': true};
+const i = {
+    "foo"() {},
+    get "foo"() {},
+    set "foo"(v) {},
+};
+class What {
+    "foo"() {}
+    get "foo"() {}
+    set "foo"() {}
+}
+
+[expect]
+const a = {foo: true};
+const b = {$: true};
+const c = {_: true};
+const d = {_1: true};
+const e = {foo: true};
+const f = {$: true};
+const g = {_: true};
+const h = {_1: true};
+const i = {
+    foo() {},
+    get foo() {},
+    set foo(v) {}
+};
+class What {
+    foo() {}
+    get foo() {}
+    set foo() {}
+}

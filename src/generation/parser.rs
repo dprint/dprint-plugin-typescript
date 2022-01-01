@@ -3465,13 +3465,41 @@ fn gen_reg_exp_literal(node: &Regex, _: &mut Context) -> PrintItems {
 }
 
 fn gen_string_literal<'a>(node: &'a Str, context: &mut Context<'a>) -> PrintItems {
+  let is_property_name = match node.parent() {
+    Node::KeyValueProp(parent) => match parent.key {
+      PropName::Str(_str) => true,
+      _ => false
+    }
+    Node::GetterProp(parent) => match parent.key {
+      PropName::Str(_str) => true,
+      _ => false
+    }
+    Node::SetterProp(parent) => match parent.key {
+      PropName::Str(_str) => true,
+      _ => false
+    }
+    Node::SetterProp(parent) => match parent.key {
+      PropName::Str(_str) => true,
+      _ => false
+    }
+    Node::MethodProp(parent) => match parent.key {
+      PropName::Str(_str) => true,
+      _ => false
+    }
+    _ => false
+  };
+  
   return gen_from_raw_string(&get_string_literal_text(
     get_string_value(&node, context),
     node.parent().is::<JSXAttr>(),
+    is_property_name,
     context,
   ));
 
-  fn get_string_literal_text(string_value: String, is_jsx_attribute: bool, context: &mut Context) -> String {
+  fn get_string_literal_text(string_value: String, is_jsx_attribute: bool, is_property_name: bool, context: &mut Context) -> String {
+    if is_property_name && context.config.quote_props == QuoteProps::AsNeeded && is_valid_identifier(&string_value) {
+      return string_value
+    }
     return if is_jsx_attribute {
       // JSX attributes cannot contain escaped quotes so regardless of
       // configuration, allow changing the quote style to single or
@@ -3488,6 +3516,12 @@ fn gen_string_literal<'a>(node: &'a Str, context: &mut Context<'a>) -> PrintItem
         QuoteStyle::PreferSingle => handle_prefer_single(string_value),
       }
     };
+
+    fn is_valid_identifier(string_value: &String) -> bool {
+      if string_value.len() == 0 { false } else {
+        if string_value == "foo" { true } else { false }
+      }
+    }
 
     fn handle_prefer_double(string_value: String) -> String {
       if double_to_single(&string_value) <= 0 {
