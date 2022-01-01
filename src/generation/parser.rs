@@ -3466,24 +3466,32 @@ fn gen_reg_exp_literal(node: &Regex, _: &mut Context) -> PrintItems {
 
 fn gen_string_literal<'a>(node: &'a Str, context: &mut Context<'a>) -> PrintItems {
   let is_property_name = match node.parent() {
-    Node::KeyValueProp(parent) => match parent.key {
-      PropName::Str(_str) => true,
-      _ => false
-    }
-    Node::GetterProp(parent) => match parent.key {
-      PropName::Str(_str) => true,
-      _ => false
-    }
-    Node::SetterProp(parent) => match parent.key {
-      PropName::Str(_str) => true,
-      _ => false
-    }
-    Node::MethodProp(parent) => match parent.key {
-      PropName::Str(_str) => true,
-      _ => false
-    }
+    Node::KeyValueProp(parent) => match_key_prop_name(parent.key),
+    Node::GetterProp(parent) => match_key_prop_name(parent.key),
+    Node::SetterProp(parent) => match_key_prop_name(parent.key),
+    Node::MethodProp(parent) => match_key_prop_name(parent.key),
+    Node::ClassProp(parent) => match_key_expr(parent.key),
+    Node::ClassMethod(parent) => match_key_prop_name(parent.key),
+    Node::TsPropertySignature(parent) => match_key_expr(parent.key),
+    Node::TsGetterSignature(parent) => match_key_expr(parent.key),
+    Node::TsSetterSignature(parent) => match_key_expr(parent.key),
+    Node::TsMethodSignature(parent) => match_key_expr(parent.key),
     _ => false
   };
+
+  fn match_key_expr(key: Expr) -> bool {
+    match key {
+        Expr::Lit(Lit::Str(_str)) => true,
+        Expr::Tpl(_tpl) => true,
+        _ => false
+    }
+  }
+  fn match_key_prop_name(key: PropName) -> bool {
+    match key {
+      PropName::Str(_str) => true,
+      _ => false
+    }
+  }
   
   return gen_from_raw_string(&get_string_literal_text(
     get_string_value(&node, context),
@@ -3515,7 +3523,7 @@ fn gen_string_literal<'a>(node: &'a Str, context: &mut Context<'a>) -> PrintItem
 
     fn is_valid_identifier(string_value: &String) -> bool {
       if string_value.len() == 0 { false } else {
-        if string_value == "foo" { true } else { false }
+        if string_value.starts_with("foo") { true } else { false }
       }
     }
 
