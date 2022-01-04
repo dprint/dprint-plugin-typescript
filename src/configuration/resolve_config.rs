@@ -45,7 +45,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
   let space_surrounding_properties = get_value(&mut config, "spaceSurroundingProperties", true, &mut diagnostics);
   let type_literal_separator_kind = get_value(&mut config, "typeLiteral.separatorKind", SemiColonOrComma::SemiColon, &mut diagnostics);
   let quote_style = get_value(&mut config, "quoteStyle", QuoteStyle::AlwaysDouble, &mut diagnostics);
-  let quote_props= get_value(&mut config, "quoteProps", QuoteProps::Preserve, &mut diagnostics);
+  let quote_props = get_value(&mut config, "quoteProps", QuoteProps::Preserve, &mut diagnostics);
 
   let resolved_config = Configuration {
     line_width: get_value(
