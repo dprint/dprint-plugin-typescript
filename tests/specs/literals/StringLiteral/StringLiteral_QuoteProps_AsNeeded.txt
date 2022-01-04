@@ -1,9 +1,13 @@
 ~~ quoteProps: asNeeded ~~
 == should preserve quotes when necessary ==
-const a = { "foo bar": true };
-const b = { "foo\nbar": true };
-const c = { "1foo": true };
-const i = {
+const objectLiteral = {
+    "foo bar": true,
+    "foo\nbar": true,
+    "1foo": true,
+    "💩": true,
+    "a💩": true,
+    "c\d": true,
+    "1": true,
     "1foo"() {},
     get "2foo"() {},
     set "2foo"(v) {},
@@ -15,6 +19,7 @@ class Class {
     set "1foo"() {}
     async "3foo"() {}
     "4foo": string;
+    "1" = true;
 }
 interface Interface {
     "1foo": string;
@@ -30,13 +35,17 @@ type Type = {
 };
 
 [expect]
-const a = { "foo bar": true };
-const b = { "foo\nbar": true };
-const c = { "1foo": true };
-const i = {
+const objectLiteral = {
+    "foo bar": true,
+    "foo\nbar": true,
+    "1foo": true,
+    "💩": true,
+    "a💩": true,
+    "c\d": true,
+    "1": true,
     "1foo"() {},
-    get "1foo"() {},
-    set "1foo"(v) {},
+    get "2foo"() {},
+    set "2foo"(v) {},
     async "3foo"() {},
 };
 class Class {
@@ -45,30 +54,32 @@ class Class {
     set "1foo"() {}
     async "3foo"() {}
     "4foo": string;
+    "1" = true;
 }
 interface Interface {
     "1foo": string;
     "2foo"(): string;
-    get "4foo"(): string;
-    set "4foo"(v: string);
+    get "3foo"(): string;
+    set "3foo"(v: string);
 }
 type Type = {
     "1foo": string;
     "2foo"(): string;
-    get "4foo"(): string;
-    set "4foo"(v: string);
+    get "3foo"(): string;
+    set "3foo"(v: string);
 };
 
 == should remove quotes when unnecessary ==
-const a = { "foo": true };
-const b = { "$": true };
-const c = { "_": true };
-const d = { "_1": true };
-const e = { 'foo': true };
-const f = { '$': true };
-const g = { '_': true };
-const h = { '_1': true };
-const i = {
+const objectLiteral = {
+    "foo": true,
+    "$": true,
+    "_": true,
+    "_1": true,
+    'foo': true,
+    '$': true,
+    '_': true,
+    '_1': true,
+    'é': true,
     "foo"() {},
     get "foo2"() {},
     set "foo2"(v) {},
@@ -84,26 +95,27 @@ class Class {
 interface Interface {
     "foo": string;
     "foo2"(): string;
-    get "foo4"(): string;
-    set "foo4"(v: string);
+    get "foo3"(): string;
+    set "foo3"(v: string);
 }
 type Type = {
     "foo": string;
     "foo2"(): string;
-    get "foo4"(): string;
-    set "foo4"(v: string);
+    get "foo3"(): string;
+    set "foo3"(v: string);
 };
 
 [expect]
-const a = { foo: true };
-const b = { $: true };
-const c = { _: true };
-const d = { _1: true };
-const e = { foo: true };
-const f = { $: true };
-const g = { _: true };
-const h = { _1: true };
-const i = {
+const objectLiteral = {
+    foo: true,
+    $: true,
+    _: true,
+    _1: true,
+    foo: true,
+    $: true,
+    _: true,
+    _1: true,
+    é: true,
     foo() {},
     get foo2() {},
     set foo2(v) {},
@@ -114,17 +126,17 @@ class Class {
     get foo2() {}
     set foo2() {}
     async foo3() {}
-    foo4: string;
+    "foo4": string;
 }
 interface Interface {
     foo: string;
     foo2(): string;
-    get foo4(): string;
-    set foo4(v: string);
+    get foo3(): string;
+    set foo3(v: string);
 }
 type Type = {
     foo: string;
     foo2(): string;
-    get foo4(): string;
-    set foo4(v: string);
+    get foo3(): string;
+    set foo3(v: string);
 };
