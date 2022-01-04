@@ -474,7 +474,7 @@ fn gen_class_prop<'a>(node: &'a ClassProp, context: &mut Context<'a>) -> PrintIt
       type_ann: &node.type_ann,
       is_static: node.is_static(),
       decorators: &node.decorators,
-      computed: node.computed(),
+      computed: node.key.kind() == NodeKind::ComputedPropName,
       is_declare: node.declare(),
       accessibility: node.accessibility(),
       is_abstract: node.is_abstract(),
@@ -599,11 +599,16 @@ fn gen_class_prop_common<'a>(node: GenClassPropCommon<'a>, context: &mut Context
   if node.readonly {
     items.push_str("readonly ");
   }
-  let key_span = node.key.span();
   items.extend(if node.computed {
+    let inner_key_node = match node.key {
+      Node::ComputedPropName(prop) => prop.expr.as_node(),
+      _ => node.key,
+    };
     gen_computed_prop_like(
-      |context| gen_node(node.key, context),
-      GenComputedPropLikeOptions { inner_node_span: key_span },
+      |context| gen_node(inner_key_node, context),
+      GenComputedPropLikeOptions {
+        inner_node_span: inner_key_node.span(),
+      },
       context,
     )
   } else {
