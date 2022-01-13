@@ -36,6 +36,9 @@ jobs:
     - name: Build debug
       if: matrix.config.kind == 'test_debug'
       run: cargo build
+    #- name: Lint
+    #  if: matrix.config.kind == 'test_debug'
+    #  run: cargo clippy
     - name: Test debug
       if: matrix.config.kind == 'test_debug'
       run: cargo test

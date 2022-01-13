@@ -172,8 +172,8 @@ pub fn is_test_library_call_expr(node: &CallExpr, program: &Program) -> bool {
 
   return node.start_line_fast(program) == node.args[1].start_line_fast(program);
 
-  fn is_valid_callee(callee: &ExprOrSuper) -> bool {
-    return match get_first_identifier_text(&callee) {
+  fn is_valid_callee(callee: &Callee) -> bool {
+    return match get_first_identifier_text_from_callee(&callee) {
       Some("it") | Some("describe") | Some("test") => true,
       _ => {
         // support call expressions like `Deno.test("description", ...)`
@@ -184,27 +184,38 @@ pub fn is_test_library_call_expr(node: &CallExpr, program: &Program) -> bool {
       }
     };
 
-    fn get_first_identifier_text<'a>(callee: &'a ExprOrSuper<'a>) -> Option<&'a str> {
-      return match callee {
-        ExprOrSuper::Super(_) => None,
-        ExprOrSuper::Expr(expr) => match expr {
-          Expr::Ident(ident) => Some(ident.sym()),
-          Expr::Member(member) if member.prop.kind() == NodeKind::Ident => get_first_identifier_text(&member.obj),
-          _ => None,
-        },
-      };
+    fn get_first_identifier_text_from_callee<'a>(callee: &'a Callee<'a>) -> Option<&'a str> {
+      match callee {
+        Callee::Super(_) | Callee::Import(_) => None,
+        Callee::Expr(expr) => get_first_identifier_text_from_expr(expr),
+      }
     }
 
-    fn get_last_identifier_text<'a>(callee: &'a ExprOrSuper<'a>) -> Option<&'a str> {
+    fn get_first_identifier_text_from_expr<'a>(expr: &'a Expr<'a>) -> Option<&'a str> {
+      match expr {
+        Expr::Ident(ident) => Some(ident.sym()),
+        Expr::Member(member) if member.prop.kind() == NodeKind::Ident => get_first_identifier_text_from_expr(&member.obj),
+        _ => None,
+      }
+    }
+
+    fn get_last_identifier_text<'a>(callee: &'a Callee<'a>) -> Option<&'a str> {
       return match callee {
-        ExprOrSuper::Super(_) => None,
-        ExprOrSuper::Expr(expr) => get_last_identifier_text_from_expr(expr),
+        Callee::Expr(expr) => from_expr(expr),
+        Callee::Super(_) | Callee::Import(_) => None,
       };
 
-      fn get_last_identifier_text_from_expr<'a>(expr: &'a Expr<'a>) -> Option<&'a str> {
+      fn from_expr<'a>(expr: &'a Expr<'a>) -> Option<&'a str> {
         match expr {
           Expr::Ident(ident) => Some(ident.sym()),
-          Expr::Member(member) if (member.obj).kind() == NodeKind::Ident => get_last_identifier_text_from_expr(&member.prop),
+          Expr::Member(member) if (member.obj).kind() == NodeKind::Ident => from_member_prop(&member.prop),
+          _ => None,
+        }
+      }
+
+      fn from_member_prop<'a>(member_prop: &'a MemberProp<'a>) -> Option<&'a str> {
+        match member_prop {
+          MemberProp::Ident(ident) => Some(ident.sym()),
           _ => None,
         }
       }
