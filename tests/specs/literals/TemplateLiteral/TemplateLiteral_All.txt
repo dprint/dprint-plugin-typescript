@@ -96,11 +96,11 @@ myCustomTag
 [expect]
 `tttttttttttttest ${testing.this.out.testing}`;
 
-== should not do newlines for a member expression with a this or super keyword ==
-`tttttttttttttest ${this.this.out.testing} or ${super.test}`;
+== should not do newlines for a member expression with a this, super prop expr, or import meta expr ==
+`tttttttttttttest ${this.this.out.testing} or ${super.test} or ${import.meta}`;
 
 [expect]
-`tttttttttttttest ${this.this.out.testing} or ${super.test}`;
+`tttttttttttttest ${this.this.out.testing} or ${super.test} or ${import.meta}`;
 
 == should not do newlines for a member expression with a string literal ==
 `tttttttttttttest ${"testing this out".test}`;

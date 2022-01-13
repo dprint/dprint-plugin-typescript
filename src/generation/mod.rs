@@ -1,17 +1,17 @@
 mod comments;
 mod context;
+mod generate;
+mod generate_types;
 mod helpers;
 mod node_helpers;
-mod parser;
-mod parser_types;
 mod sorting;
 mod swc;
 mod tokens;
 
 use comments::*;
 use context::*;
+use generate_types::*;
 use helpers::*;
-use parser_types::*;
 use tokens::*;
 
-pub use parser::generate;
+pub use generate::generate;
