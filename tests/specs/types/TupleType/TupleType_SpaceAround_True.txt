@@ -1,0 +1,12 @@
+~~ tupleType.spaceAround: true ~~
+== should format with space around elements ==
+type T = [number, boolean];
+interface Foo {
+    prop: [string, number];
+}
+
+[expect]
+type T = [ number, boolean ];
+interface Foo {
+    prop: [ string, number ];
+}

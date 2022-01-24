@@ -1427,6 +1427,7 @@ fn gen_array_expr<'a>(node: &'a ArrayLit, context: &mut Context<'a>) -> PrintIte
       prefer_hanging: context.config.array_expression_prefer_hanging,
       prefer_single_line: context.config.array_expression_prefer_single_line,
       trailing_commas: context.config.array_expression_trailing_commas,
+      space_around: context.config.array_expression_space_around,
     },
     context,
   )
@@ -3642,6 +3643,7 @@ fn gen_array_pat<'a>(node: &'a ArrayPat, context: &mut Context<'a>) -> PrintItem
       prefer_hanging: context.config.array_pattern_prefer_hanging,
       prefer_single_line: context.config.array_pattern_prefer_single_line,
       trailing_commas: context.config.array_pattern_trailing_commas,
+      space_around: context.config.array_pattern_space_around,
     },
     context,
   ));
@@ -5292,6 +5294,7 @@ fn gen_tuple_type<'a>(node: &'a TsTupleType, context: &mut Context<'a>) -> Print
       prefer_hanging: context.config.tuple_type_prefer_hanging,
       prefer_single_line: context.config.tuple_type_prefer_single_line,
       trailing_commas: context.config.tuple_type_trailing_commas,
+      space_around: context.config.tuple_type_space_around,
     },
     context,
   )
@@ -5943,6 +5946,7 @@ struct GenArrayLikeNodesOptions<'a> {
   nodes: Vec<Option<Node<'a>>>,
   prefer_hanging: bool,
   prefer_single_line: bool,
+  space_around: bool,
   trailing_commas: TrailingCommas,
 }
 
@@ -5970,6 +5974,7 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
     TrailingCommas::Never
   };
   let prefer_hanging = opts.prefer_hanging;
+  let space_around = opts.space_around;
   let force_use_new_lines = get_force_use_new_lines(&node, &nodes, opts.prefer_single_line, context);
   let mut items = PrintItems::new();
   let first_member = nodes.get(0).map(|x| x.span());
@@ -5983,8 +5988,8 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
           force_use_new_lines,
           allow_blank_lines: true,
           separator: trailing_commas.into(),
-          single_line_space_at_start: false,
-          single_line_space_at_end: false,
+          single_line_space_at_start: space_around,
+          single_line_space_at_end: space_around,
           custom_single_line_separator: None,
           multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(),
           force_possible_newline_at_start: false,
