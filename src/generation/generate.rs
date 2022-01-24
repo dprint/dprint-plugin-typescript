@@ -6403,6 +6403,11 @@ where
   } else {
     context.config.arguments_prefer_hanging
   };
+  let space_around = if is_parameters {
+    context.config.parameters_space_around
+  } else {
+    context.config.arguments_space_around
+  };
   let trailing_commas = get_trailing_commas(&opts.node, &nodes, is_parameters, context);
 
   return gen_surrounded_by_tokens(
@@ -6434,8 +6439,8 @@ where
             force_use_new_lines,
             allow_blank_lines: false,
             separator: trailing_commas.into(),
-            single_line_space_at_start: false,
-            single_line_space_at_end: false,
+            single_line_space_at_start: space_around,
+            single_line_space_at_end: space_around,
             custom_single_line_separator: None,
             multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(),
             force_possible_newline_at_start: is_parameters,
