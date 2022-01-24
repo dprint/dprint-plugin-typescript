@@ -45,6 +45,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
   let space_surrounding_properties = get_value(&mut config, "spaceSurroundingProperties", true, &mut diagnostics);
   let type_literal_separator_kind = get_value(&mut config, "typeLiteral.separatorKind", SemiColonOrComma::SemiColon, &mut diagnostics);
   let quote_style = get_value(&mut config, "quoteStyle", QuoteStyle::AlwaysDouble, &mut diagnostics);
+  let space_around = get_value(&mut config, "spaceAround", false, &mut diagnostics);
 
   let resolved_config = Configuration {
     line_width: get_value(
@@ -270,6 +271,18 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
       &mut diagnostics,
     ),
     while_statement_space_after_while_keyword: get_value(&mut config, "whileStatement.spaceAfterWhileKeyword", true, &mut diagnostics),
+    arguments_space_around: get_value(&mut config, "arguments.spaceAround", space_around, &mut diagnostics),
+    array_expression_space_around: get_value(&mut config, "arrayExpression.spaceAround", space_around, &mut diagnostics),
+    array_pattern_space_around: get_value(&mut config, "arrayPattern.spaceAround", space_around, &mut diagnostics),
+    do_while_statement_space_around: get_value(&mut config, "doWhileStatement.spaceAround", space_around, &mut diagnostics),
+    for_in_statement_space_around: get_value(&mut config, "forInStatement.spaceAround", space_around, &mut diagnostics),
+    for_of_statement_space_around: get_value(&mut config, "forOfStatement.spaceAround", space_around, &mut diagnostics),
+    for_statement_space_around: get_value(&mut config, "forStatement.spaceAround", space_around, &mut diagnostics),
+    if_statement_space_around: get_value(&mut config, "ifStatement.spaceAround", space_around, &mut diagnostics),
+    parameters_space_around: get_value(&mut config, "parameters.spaceAround", space_around, &mut diagnostics),
+    switch_statement_space_around: get_value(&mut config, "switchStatement.spaceAround", space_around, &mut diagnostics),
+    tuple_type_space_around: get_value(&mut config, "tupleType.spaceAround", space_around, &mut diagnostics),
+    while_statement_space_around: get_value(&mut config, "whileStatement.spaceAround", space_around, &mut diagnostics),
   };
 
   diagnostics.extend(get_unknown_property_diagnostics(config));
