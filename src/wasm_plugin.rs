@@ -37,7 +37,8 @@ impl PluginHandler<Configuration> for TypeScriptPluginHandler {
       ],
       file_names: vec![],
       help_url: "https://dprint.dev/plugins/typescript".to_string(),
-      config_schema_url: format!("https://plugins.dprint.dev/schemas/typescript-{}.json", version),
+      config_schema_url: format!("https://plugins.dprint.dev/dprint/dprint-plugin-typescript/{}/schema.json", version),
+      update_url: Some("https://plugins.dprint.dev/dprint/dprint-plugin-typescript/latest.json".to_string()),
     }
   }
 
