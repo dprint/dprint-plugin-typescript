@@ -3546,14 +3546,12 @@ fn gen_string_literal<'a>(node: &'a Str, context: &mut Context<'a>) -> PrintItem
       }
     };
 
-    fn is_valid_identifier(string_value: &String) -> bool {
+    fn is_valid_identifier(string_value: &str) -> bool {
       if string_value.len() == 0 { return false }
-      let mut first = true;
-      for c in string_value.chars() {
-        if (first && !c.is_ident_start()) || !c.is_ident_part() {
+      for (i, c) in string_value.chars().enumerate() {
+        if (i == 0 && !c.is_ident_start()) || !c.is_ident_part() {
           return false
         }
-        first = false;
       };
       true
     }
