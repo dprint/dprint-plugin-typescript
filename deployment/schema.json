@@ -60,6 +60,18 @@
         "description": "Prefers using single quotes except in scenarios where the string contains more single quotes than double quotes."
       }]
     },
+    "quoteProps": {
+      "description": "Change when properties in objects are quoted.",
+      "type": "string",
+      "default": "preserve",
+      "oneOf": [{
+        "const": "preserve",
+        "description": "Preserve quotes around property names."
+      }, {
+        "const": "asNeeded",
+        "description": "Remove unnecessary quotes around property names."
+      }]
+    },
     "jsx.multiLineParens": {
       "description": "Surrounds the top-most JSX element or fragment in parentheses when it spans multiple lines.",
       "type": "string",
@@ -678,6 +690,9 @@
     },
     "quoteStyle": {
       "$ref": "#/definitions/quoteStyle"
+    },
+    "quoteProps": {
+      "$ref": "#/definitions/quoteProps"
     },
     "newLineKind": {
       "$ref": "#/definitions/newLineKind"
