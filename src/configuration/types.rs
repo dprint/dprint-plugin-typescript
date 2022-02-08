@@ -206,6 +206,23 @@ pub enum JsxQuoteStyle {
 
 generate_str_to_from![JsxQuoteStyle, [PreferDouble, "preferDouble"], [PreferSingle, "preferSingle"]];
 
+/// How to decide to use single or double quotes.
+#[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum QuoteProps {
+  /// Preserve quotes around property names.
+  Preserve,
+  /// Remove unnecessary quotes around property names.
+  AsNeeded,
+}
+
+generate_str_to_from![
+  QuoteProps,
+  [Preserve, "preserve"],
+  [AsNeeded, "asNeeded"]
+];
+
+
 /// Whether to surround a JSX element or fragment with parentheses
 /// when it's the top JSX node and it spans multiple lines.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
@@ -261,6 +278,7 @@ pub struct Configuration {
   pub use_tabs: bool,
   pub new_line_kind: NewLineKind,
   pub quote_style: QuoteStyle,
+  pub quote_props: QuoteProps,
   pub semi_colons: SemiColons,
   /* situational */
   #[serde(rename = "arrowFunction.useParentheses")]

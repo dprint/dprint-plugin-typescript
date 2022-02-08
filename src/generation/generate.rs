@@ -1,5 +1,6 @@
 use deno_ast::swc::common::comments::{Comment, CommentKind};
 use deno_ast::swc::common::{BytePos, Span, Spanned};
+use deno_ast::swc::parser::lexer::util::CharExt;
 use deno_ast::swc::parser::token::{Token, TokenAndSpan};
 use deno_ast::view::*;
 use deno_ast::MediaType;
@@ -3486,10 +3487,48 @@ fn gen_string_literal<'a>(node: &'a Str, context: &mut Context<'a>) -> PrintItem
   return gen_from_raw_string(&get_string_literal_text(
     get_string_value(&node, context),
     node.parent().is::<JSXAttr>(),
+    context.config.quote_props == QuoteProps::AsNeeded && is_property_name(&node),
     context,
   ));
 
-  fn get_string_literal_text(string_value: String, is_jsx_attribute: bool, context: &mut Context) -> String {
+  fn is_property_name(node: &Str) -> bool {
+    match node.parent() {
+      Node::KeyValueProp(parent) => match_key_prop_name(parent.key),
+      Node::GetterProp(parent) => match_key_prop_name(parent.key),
+      Node::SetterProp(parent) => match_key_prop_name(parent.key),
+      Node::MethodProp(parent) => match_key_prop_name(parent.key),
+      // Do not match class properties Node::ClassProp
+      // With `--strictPropertyInitialization`, TS treats properties with quoted names differently than unquoted ones.
+      // See https://github.com/microsoft/TypeScript/pull/20075
+      // See prettier implementation https://github.com/prettier/prettier/blob/514046b3c70e6477cb69b4d36871d0d4c8c5e415/src/language-js/utils.js#L671-L716
+      Node::ClassMethod(parent) => match_key_prop_name(parent.key),
+      Node::TsPropertySignature(parent) => match_key_expr(parent.key),
+      Node::TsGetterSignature(parent) => match_key_expr(parent.key),
+      Node::TsSetterSignature(parent) => match_key_expr(parent.key),
+      Node::TsMethodSignature(parent) => match_key_expr(parent.key),
+      _ => false
+    }
+  }
+
+  fn match_key_expr(key: Expr) -> bool {
+    match key {
+        Expr::Lit(Lit::Str(_str)) => true,
+        Expr::Tpl(_tpl) => true,
+        _ => false
+    }
+  }
+  fn match_key_prop_name(key: PropName) -> bool {
+    match key {
+      PropName::Str(_str) => true,
+      _ => false
+    }
+  }
+  
+
+  fn get_string_literal_text(string_value: String, is_jsx_attribute: bool, should_remove_quotes_if_identifier: bool, context: &mut Context) -> String {
+    if should_remove_quotes_if_identifier && is_valid_identifier(&string_value) {
+      return string_value
+    }
     return if is_jsx_attribute {
       // JSX attributes cannot contain escaped quotes so regardless of
       // configuration, allow changing the quote style to single or
@@ -3506,6 +3545,16 @@ fn gen_string_literal<'a>(node: &'a Str, context: &mut Context<'a>) -> PrintItem
         QuoteStyle::PreferSingle => handle_prefer_single(string_value),
       }
     };
+
+    fn is_valid_identifier(string_value: &str) -> bool {
+      if string_value.len() == 0 { return false }
+      for (i, c) in string_value.chars().enumerate() {
+        if (i == 0 && !c.is_ident_start()) || !c.is_ident_part() {
+          return false
+        }
+      };
+      true
+    }
 
     fn handle_prefer_double(string_value: String) -> String {
       if double_to_single(&string_value) <= 0 {
