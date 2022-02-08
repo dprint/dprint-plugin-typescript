@@ -292,7 +292,8 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
 
 #[cfg(test)]
 mod tests {
-  use dprint_core::configuration::{resolve_global_config, NewLineKind};
+  use dprint_core::configuration::resolve_global_config;
+  use dprint_core::configuration::NewLineKind;
   use std::collections::HashMap;
 
   use super::super::builder::ConfigurationBuilder;

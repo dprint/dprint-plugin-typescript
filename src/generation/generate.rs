@@ -1,12 +1,18 @@
-use deno_ast::swc::common::comments::{Comment, CommentKind};
-use deno_ast::swc::common::{BytePos, Span, Spanned};
+use deno_ast::swc::common::comments::Comment;
+use deno_ast::swc::common::comments::CommentKind;
+use deno_ast::swc::common::BytePos;
+use deno_ast::swc::common::Span;
+use deno_ast::swc::common::Spanned;
 use deno_ast::swc::parser::lexer::util::CharExt;
-use deno_ast::swc::parser::token::{Token, TokenAndSpan};
+use deno_ast::swc::parser::token::Token;
+use deno_ast::swc::parser::token::TokenAndSpan;
 use deno_ast::view::*;
 use deno_ast::MediaType;
 use deno_ast::ParsedSource;
+use dprint_core::formatting::condition_resolvers;
+use dprint_core::formatting::conditions::*;
+use dprint_core::formatting::ir_helpers::*;
 use dprint_core::formatting::*;
-use dprint_core::formatting::{condition_resolvers, conditions::*, ir_helpers::*};
 use std::rc::Rc;
 
 use super::sorting::*;
@@ -3506,28 +3512,27 @@ fn gen_string_literal<'a>(node: &'a Str, context: &mut Context<'a>) -> PrintItem
       Node::TsGetterSignature(parent) => match_key_expr(parent.key),
       Node::TsSetterSignature(parent) => match_key_expr(parent.key),
       Node::TsMethodSignature(parent) => match_key_expr(parent.key),
-      _ => false
+      _ => false,
     }
   }
 
   fn match_key_expr(key: Expr) -> bool {
     match key {
-        Expr::Lit(Lit::Str(_str)) => true,
-        Expr::Tpl(_tpl) => true,
-        _ => false
+      Expr::Lit(Lit::Str(_str)) => true,
+      Expr::Tpl(_tpl) => true,
+      _ => false,
     }
   }
   fn match_key_prop_name(key: PropName) -> bool {
     match key {
       PropName::Str(_str) => true,
-      _ => false
+      _ => false,
     }
   }
-  
 
   fn get_string_literal_text(string_value: String, is_jsx_attribute: bool, should_remove_quotes_if_identifier: bool, context: &mut Context) -> String {
     if should_remove_quotes_if_identifier && is_valid_identifier(&string_value) {
-      return string_value
+      return string_value;
     }
     return if is_jsx_attribute {
       // JSX attributes cannot contain escaped quotes so regardless of
@@ -3547,12 +3552,14 @@ fn gen_string_literal<'a>(node: &'a Str, context: &mut Context<'a>) -> PrintItem
     };
 
     fn is_valid_identifier(string_value: &str) -> bool {
-      if string_value.len() == 0 { return false }
+      if string_value.len() == 0 {
+        return false;
+      }
       for (i, c) in string_value.chars().enumerate() {
         if (i == 0 && !c.is_ident_start()) || !c.is_ident_part() {
-          return false
+          return false;
         }
-      };
+      }
       true
     }
 

@@ -136,6 +136,13 @@ impl ConfigurationBuilder {
     self.insert("preferHanging", value.into())
   }
 
+  /// Behaviour to use for quotes on property names.
+  ///
+  /// Default: `preserve`
+  pub fn quote_props(&mut self, value: QuoteProps) -> &mut Self {
+    self.insert("quoteProps", value.to_string().into())
+  }
+
   /// Where to place the opening brace.
   ///
   /// Default: `BracePosition::SameLineUnlessHanging`
@@ -947,6 +954,7 @@ mod tests {
       .single_body_position(SingleBodyPosition::SameLine)
       .trailing_commas(TrailingCommas::Never)
       .use_braces(UseBraces::WhenNotSingleLine)
+      .quote_props(QuoteProps::AsNeeded)
       .prefer_hanging(false)
       /* situational */
       .arrow_function_use_parentheses(UseParentheses::Maintain)
@@ -1101,7 +1109,7 @@ mod tests {
       .while_statement_space_after_while_keyword(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 153);
+    assert_eq!(inner_config.len(), 154);
     let diagnostics = resolve_config(inner_config, &resolve_global_config(HashMap::new(), &Default::default()).config).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

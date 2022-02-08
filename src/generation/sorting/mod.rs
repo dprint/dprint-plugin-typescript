@@ -1,7 +1,8 @@
 mod module_specifiers;
 use module_specifiers::*;
 
-use deno_ast::swc::common::{Span, Spanned};
+use deno_ast::swc::common::Span;
+use deno_ast::swc::common::Spanned;
 use deno_ast::view::*;
 use std::cmp::Ordering;
 

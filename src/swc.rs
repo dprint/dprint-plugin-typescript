@@ -2,7 +2,9 @@ use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Result;
 use deno_ast::swc::parser::error::SyntaxError;
-use deno_ast::{Diagnostic, ParsedSource, SourceTextInfo};
+use deno_ast::Diagnostic;
+use deno_ast::ParsedSource;
+use deno_ast::SourceTextInfo;
 use std::path::Path;
 
 pub fn parse_swc_ast(file_path: &Path, file_text: &str) -> Result<ParsedSource> {

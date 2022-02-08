@@ -1,4 +1,5 @@
-use std::{iter::Peekable, str::Chars};
+use std::iter::Peekable;
+use std::str::Chars;
 
 pub trait IteratorCharExt: Iterator<Item = char> {
   fn peek(&mut self) -> Option<&char>;
