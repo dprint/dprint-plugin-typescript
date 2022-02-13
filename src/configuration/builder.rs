@@ -143,6 +143,13 @@ impl ConfigurationBuilder {
     self.insert("preferHanging", value.into())
   }
 
+  /// Behaviour to use for quotes on property names.
+  ///
+  /// Default: `preserve`
+  pub fn quote_props(&mut self, value: QuoteProps) -> &mut Self {
+    self.insert("quoteProps", value.to_string().into())
+  }
+
   /// Where to place the opening brace.
   ///
   /// Default: `BracePosition::SameLineUnlessHanging`
@@ -955,6 +962,7 @@ mod tests {
       .single_body_position(SingleBodyPosition::SameLine)
       .trailing_commas(TrailingCommas::Never)
       .use_braces(UseBraces::WhenNotSingleLine)
+      .quote_props(QuoteProps::AsNeeded)
       .prefer_hanging(false)
       /* situational */
       .arrow_function_use_parentheses(UseParentheses::Maintain)

@@ -45,6 +45,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
   let space_surrounding_properties = get_value(&mut config, "spaceSurroundingProperties", true, &mut diagnostics);
   let type_literal_separator_kind = get_value(&mut config, "typeLiteral.separatorKind", SemiColonOrComma::SemiColon, &mut diagnostics);
   let quote_style = get_value(&mut config, "quoteStyle", QuoteStyle::AlwaysDouble, &mut diagnostics);
+  let quote_props = get_value(&mut config, "quoteProps", QuoteProps::Preserve, &mut diagnostics);
 
   let resolved_config = Configuration {
     line_width: get_value(
@@ -72,6 +73,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
       &mut diagnostics,
     ),
     quote_style,
+    quote_props,
     semi_colons,
     /* situational */
     arrow_function_use_parentheses: get_value(&mut config, "arrowFunction.useParentheses", UseParentheses::Maintain, &mut diagnostics),
@@ -291,7 +293,8 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
 
 #[cfg(test)]
 mod tests {
-  use dprint_core::configuration::{resolve_global_config, NewLineKind};
+  use dprint_core::configuration::resolve_global_config;
+  use dprint_core::configuration::NewLineKind;
   use std::collections::HashMap;
 
   use super::super::builder::ConfigurationBuilder;

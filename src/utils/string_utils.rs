@@ -89,11 +89,11 @@ impl<'a> Iterator for SplitLinesIterator<'a> {
 
   fn next(&mut self) -> Option<Self::Item> {
     let line = self.inner.next();
-    line.map(|line| if line.ends_with('\r') { &line[..line.len() - 1] } else { line })
+    line.map(|line| line.strip_suffix('\r').unwrap_or(line))
   }
 }
 
-pub fn split_lines<'a>(text: &'a str) -> SplitLinesIterator<'a> {
+pub fn split_lines(text: &str) -> SplitLinesIterator<'_> {
   SplitLinesIterator { inner: text.split('\n') }
 }
 

@@ -1,8 +1,7 @@
 use crate::utils::char_iterator::IteratorCharExt;
-use std::{
-  iter::{Iterator, Peekable},
-  str::Chars,
-};
+use std::iter::Iterator;
+use std::iter::Peekable;
+use std::str::Chars;
 
 pub fn file_text_has_ignore_comment(file_text: &str, ignore_text: &str) -> bool {
   let mut chars = file_text.chars().peekable();

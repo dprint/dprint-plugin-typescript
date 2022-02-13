@@ -1,11 +1,18 @@
-use deno_ast::swc::common::comments::{Comment, CommentKind};
-use deno_ast::swc::common::{BytePos, Span, Spanned};
-use deno_ast::swc::parser::token::{Token, TokenAndSpan};
+use deno_ast::swc::common::comments::Comment;
+use deno_ast::swc::common::comments::CommentKind;
+use deno_ast::swc::common::BytePos;
+use deno_ast::swc::common::Span;
+use deno_ast::swc::common::Spanned;
+use deno_ast::swc::parser::lexer::util::CharExt;
+use deno_ast::swc::parser::token::Token;
+use deno_ast::swc::parser::token::TokenAndSpan;
 use deno_ast::view::*;
 use deno_ast::MediaType;
 use deno_ast::ParsedSource;
+use dprint_core::formatting::condition_resolvers;
+use dprint_core::formatting::conditions::*;
+use dprint_core::formatting::ir_helpers::*;
 use dprint_core::formatting::*;
-use dprint_core::formatting::{condition_resolvers, conditions::*, ir_helpers::*};
 use std::rc::Rc;
 
 use super::sorting::*;
@@ -169,6 +176,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       Node::AwaitExpr(node) => gen_await_expr(node, context),
       Node::BinExpr(node) => gen_binary_expr(node, context),
       Node::CallExpr(node) => gen_call_expr(node, context),
+      Node::Import(_) => "import".into(),
       Node::ClassExpr(node) => gen_class_expr(node, context),
       Node::CondExpr(node) => gen_conditional_expr(node, context),
       Node::ExprOrSpread(node) => gen_expr_or_spread(node, context),
@@ -178,6 +186,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       Node::AssignProp(node) => gen_assign_prop(node, context),
       Node::MemberExpr(node) => gen_member_expr(node, context),
       Node::MetaPropExpr(node) => gen_meta_prop_expr(node, context),
+      Node::SuperPropExpr(node) => gen_super_prop_expr(node, context),
       Node::NewExpr(node) => gen_new_expr(node, context),
       Node::ObjectLit(node) => gen_object_lit(node, context),
       Node::OptChainExpr(node) => gen_node(node.expr.into(), context),
@@ -474,7 +483,7 @@ fn gen_class_prop<'a>(node: &'a ClassProp, context: &mut Context<'a>) -> PrintIt
       type_ann: &node.type_ann,
       is_static: node.is_static(),
       decorators: &node.decorators,
-      computed: node.computed(),
+      computed: matches!(node.key, PropName::Computed(_)),
       is_declare: node.declare(),
       accessibility: node.accessibility(),
       is_abstract: node.is_abstract(),
@@ -599,11 +608,16 @@ fn gen_class_prop_common<'a>(node: GenClassPropCommon<'a>, context: &mut Context
   if node.readonly {
     items.push_str("readonly ");
   }
-  let key_span = node.key.span();
   items.extend(if node.computed {
+    let inner_key_node = match node.key {
+      Node::ComputedPropName(prop) => prop.expr.as_node(),
+      _ => node.key,
+    };
     gen_computed_prop_like(
-      |context| gen_node(node.key, context),
-      GenComputedPropLikeOptions { inner_node_span: key_span },
+      |context| gen_node(inner_key_node, context),
+      GenComputedPropLikeOptions {
+        inner_node_span: inner_key_node.span(),
+      },
       context,
     )
   } else {
@@ -1920,9 +1934,9 @@ fn gen_call_expr<'a>(node: &'a CallExpr, context: &mut Context<'a>) -> PrintItem
     items.extend(gen_test_library_arguments(&node.args, context));
     return items;
 
-    fn gen_test_library_callee<'a>(callee: &'a ExprOrSuper, context: &mut Context<'a>) -> PrintItems {
+    fn gen_test_library_callee<'a>(callee: &'a Callee, context: &mut Context<'a>) -> PrintItems {
       match callee {
-        ExprOrSuper::Expr(expr) => match expr {
+        Callee::Expr(expr) => match expr {
           Expr::Member(member_expr) => {
             let mut items = PrintItems::new();
             items.extend(gen_node(member_expr.obj.into(), context));
@@ -2236,7 +2250,7 @@ fn should_add_parens_around_expr(node: Node, context: &Context) -> bool {
       }
       Node::ExprStmt(_) => return true,
       Node::MemberExpr(expr) => {
-        if expr.computed() && expr.prop.span().contains(original_node.span()) {
+        if matches!(expr.prop, MemberProp::Computed(_)) && expr.prop.span().contains(original_node.span()) {
           return false;
         }
       }
@@ -2308,6 +2322,11 @@ fn gen_member_expr<'a>(node: &'a MemberExpr, context: &mut Context<'a>) -> Print
 fn gen_meta_prop_expr<'a>(node: &'a MetaPropExpr, context: &mut Context<'a>) -> PrintItems {
   let flattened_meta_prop_expr = flatten_member_like_expr(node.into(), context.program);
   gen_for_flattened_member_like_expr(flattened_meta_prop_expr, context)
+}
+
+fn gen_super_prop_expr<'a>(node: &'a SuperPropExpr, context: &mut Context<'a>) -> PrintItems {
+  let flattened_member_expr = flatten_member_like_expr(node.into(), context.program);
+  gen_for_flattened_member_like_expr(flattened_member_expr, context)
 }
 
 fn gen_new_expr<'a>(node: &'a NewExpr, context: &mut Context<'a>) -> PrintItems {
@@ -2428,7 +2447,13 @@ fn should_skip_paren_expr(node: &ParenExpr, context: &Context) -> bool {
   let parent = node.parent();
   if matches!(
     parent.kind(),
-    NodeKind::ParenExpr | NodeKind::ExprStmt | NodeKind::JSXElement | NodeKind::JSXFragment | NodeKind::JSXExprContainer | NodeKind::UpdateExpr
+    NodeKind::ParenExpr
+      | NodeKind::ExprStmt
+      | NodeKind::JSXElement
+      | NodeKind::JSXFragment
+      | NodeKind::JSXExprContainer
+      | NodeKind::UpdateExpr
+      | NodeKind::ComputedPropName
   ) {
     return true;
   }
@@ -2450,7 +2475,7 @@ fn should_skip_paren_expr(node: &ParenExpr, context: &Context) -> bool {
   }
 
   if let Node::MemberExpr(member_expr) = parent {
-    if member_expr.computed() && member_expr.prop.span().contains(node.span()) {
+    if matches!(member_expr.prop, MemberProp::Computed(_)) && member_expr.prop.span().contains(node.span()) {
       return true;
     }
   }
@@ -2610,7 +2635,7 @@ fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context
   // handle this on a case by case basis for now
   fn get_keep_on_one_line(node: &Node) -> bool {
     match node {
-      Node::Ident(_) | Node::ThisExpr(_) | Node::Super(_) | Node::Str(_) | Node::PrivateName(_) => true,
+      Node::Ident(_) | Node::ThisExpr(_) | Node::SuperPropExpr(_) | Node::MetaPropExpr(_) | Node::Str(_) | Node::PrivateName(_) => true,
       Node::MemberExpr(expr) => keep_member_expr_on_one_line(expr),
       Node::CallExpr(expr) => keep_call_expr_on_one_line(expr),
       _ => false,
@@ -2628,7 +2653,7 @@ fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context
   }
 
   fn keep_member_expr_on_one_line(expr: &MemberExpr) -> bool {
-    get_keep_on_one_line(&expr.obj.into()) && get_keep_on_one_line(&expr.prop.into()) && !expr.computed()
+    get_keep_on_one_line(&expr.obj.into()) && get_keep_on_one_line(&expr.prop.into()) && !matches!(expr.prop, MemberProp::Computed(_))
   }
 
   fn keep_call_expr_on_one_line(expr: &CallExpr) -> bool {
@@ -3468,10 +3493,34 @@ fn gen_string_literal<'a>(node: &'a Str, context: &mut Context<'a>) -> PrintItem
   return gen_from_raw_string(&get_string_literal_text(
     get_string_value(&node, context),
     node.parent().is::<JSXAttr>(),
+    context.config.quote_props == QuoteProps::AsNeeded && is_property_name(&node),
     context,
   ));
 
-  fn get_string_literal_text(string_value: String, is_jsx_attribute: bool, context: &mut Context) -> String {
+  fn is_property_name(node: &Str) -> bool {
+    let key = match node.parent() {
+      Node::KeyValueProp(parent) => parent.key.as_node(),
+      Node::GetterProp(parent) => parent.key.as_node(),
+      Node::SetterProp(parent) => parent.key.as_node(),
+      Node::MethodProp(parent) => parent.key.as_node(),
+      // Do not match class properties (Node::ClassProp)
+      // With `--strictPropertyInitialization`, TS treats properties with quoted names differently than unquoted ones.
+      // See https://github.com/microsoft/TypeScript/pull/20075
+      Node::ClassMethod(parent) => parent.key.as_node(),
+      Node::TsPropertySignature(parent) => parent.key.as_node(),
+      Node::TsGetterSignature(parent) => parent.key.as_node(),
+      Node::TsSetterSignature(parent) => parent.key.as_node(),
+      Node::TsMethodSignature(parent) => parent.key.as_node(),
+      _ => return false,
+    };
+
+    key.span() == node.span() && matches!(key, Node::Str(_))
+  }
+
+  fn get_string_literal_text(string_value: String, is_jsx_attribute: bool, should_remove_quotes_if_identifier: bool, context: &mut Context) -> String {
+    if should_remove_quotes_if_identifier && is_valid_identifier(&string_value) {
+      return string_value;
+    }
     return if is_jsx_attribute {
       // JSX attributes cannot contain escaped quotes so regardless of
       // configuration, allow changing the quote style to single or
@@ -3488,6 +3537,18 @@ fn gen_string_literal<'a>(node: &'a Str, context: &mut Context<'a>) -> PrintItem
         QuoteStyle::PreferSingle => handle_prefer_single(string_value),
       }
     };
+
+    fn is_valid_identifier(string_value: &str) -> bool {
+      if string_value.len() == 0 {
+        return false;
+      }
+      for (i, c) in string_value.chars().enumerate() {
+        if (i == 0 && !c.is_ident_start()) || !c.is_ident_part() {
+          return false;
+        }
+      }
+      true
+    }
 
     fn handle_prefer_double(string_value: String) -> String {
       if double_to_single(&string_value) <= 0 {
@@ -4026,9 +4087,10 @@ fn gen_expr_stmt<'a>(stmt: &'a ExprStmt, context: &mut Context<'a>) -> PrintItem
   fn gen_for_prefix_semi_colon_insertion<'a>(stmt: &'a ExprStmt, context: &mut Context<'a>) -> PrintItems {
     let generated_node = gen_inner(&stmt, context);
     let generated_node = generated_node.into_rc_path();
+    let brace_condition_ref = context.take_expr_stmt_single_line_parent_brace_ref(); // always clear this
     return if should_add_semi_colon(&generated_node).unwrap_or(false) {
       let mut items = PrintItems::new();
-      if let Some(brace_condition_ref) = context.take_expr_stmt_single_line_parent_brace_ref() {
+      if let Some(brace_condition_ref) = brace_condition_ref {
         // Do not add a semi-colon when the semi-colon is within an if stmt or for-like stmt where
         // there are no braces on the parent (ex. `if (true) []`) as this would break the code.
         items.push_condition(if_true(
@@ -6459,10 +6521,8 @@ where
 
     fn is_dynamic_import(node: &Node) -> bool {
       if let Node::CallExpr(call_expr) = &node {
-        if let ExprOrSuper::Expr(Expr::Ident(ident)) = &call_expr.callee {
-          if (ident.sym() as &str) == "import" {
-            return true;
-          }
+        if let Callee::Import(_) = &call_expr.callee {
+          return true;
         }
       }
 
@@ -6566,10 +6626,7 @@ fn gen_close_paren_with_type<'a>(opts: GenCloseParenWithTypeOptions<'a>, context
           // look good especially when the return type then becomes multi-line.
           match type_node {
             Node::TsUnionType(_) | Node::TsIntersectionType(_) => false,
-            Node::TsTypeAnn(type_ann) => match type_ann.type_ann {
-              TsType::TsUnionOrIntersectionType(_) => false,
-              _ => true,
-            },
+            Node::TsTypeAnn(type_ann) => !matches!(type_ann.type_ann, TsType::TsUnionOrIntersectionType(_)),
             _ => true,
           }
         } else {
@@ -7091,7 +7148,7 @@ fn gen_for_member_like_expr_item<'a>(item: &MemberLikeExprItem<'a>, context: &mu
         if !is_first {
           if is_optional {
             items.push_str("?.");
-          } else {
+          } else if node.kind() != NodeKind::ComputedPropName {
             items.push_str(".");
           }
         }
@@ -7099,27 +7156,13 @@ fn gen_for_member_like_expr_item<'a>(item: &MemberLikeExprItem<'a>, context: &mu
         items
       })
     }
-    MemberLikeExprItem::Computed(node) => {
-      let is_optional = item.is_optional();
+    MemberLikeExprItem::Token(token) => {
+      // don't bother with intertwined comments as its too much trouble
       let mut items = PrintItems::new();
-
-      if is_optional {
-        items.push_str("?.");
+      if !is_first {
+        items.push_str(".");
       }
-      items.extend(gen_computed_prop_like(
-        |context| gen_node(node.inner_node, context),
-        GenComputedPropLikeOptions {
-          inner_node_span: node.inner_node.span(),
-        },
-        context,
-      ));
-
-      if !is_last {
-        // Manually generate the trailing comments of the close bracket token
-        // because it doesn't go through the gen_node method
-        items.extend(gen_trailing_comments(item, context));
-      }
-
+      items.push_str(token.text_fast(context.program));
       items
     }
     MemberLikeExprItem::CallExpr(node) => {
@@ -7159,8 +7202,7 @@ fn gen_for_flattened_member_like_expr<'a>(node: FlattenedMemberLikeExpr<'a>, con
   for (i, item) in node.nodes.iter().enumerate().skip(1) {
     let force_use_new_line =
       !context.config.member_expression_prefer_single_line && node_helpers::get_use_new_lines_for_nodes(&node.nodes[i - 1], &node.nodes[i], context.program);
-    let is_optional = item.is_optional();
-    if is_optional || !item.is_computed() {
+    if item.is_optional() || !item.is_computed() {
       if force_use_new_line {
         items.push_signal(Signal::NewLine);
       } else if !context.config.member_expression_line_per_expression {
@@ -7908,7 +7950,7 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
         inner_span,
         items: children.into_iter().map(|(a, b)| (a, Some(b.into()))).collect(),
         should_use_space: Some(Box::new(|previous, next, context| {
-          if has_jsx_space_between(previous, next, &context.program) {
+          if has_jsx_space_between(previous, next, context.program) {
             true
           } else if let Node::JSXText(element) = previous {
             element.text_fast(context.program).ends_with(' ')
@@ -7919,7 +7961,7 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
           }
         })),
         should_use_new_line: Some(Box::new(|previous, next, context| {
-          if has_jsx_space_between(previous, next, &context.program) {
+          if has_jsx_space_between(previous, next, context.program) {
             false // prefer collapsing
           } else if let Node::JSXText(next) = next {
             !utils::has_no_new_lines_in_leading_whitespace(next.text_fast(context.program))
@@ -8511,16 +8553,21 @@ fn allows_inline_multi_line(node: &Node, context: &Context, has_siblings: bool) 
 
   fn allow_inline_for_call_expr(node: &CallExpr) -> bool {
     // do not allow call exprs with nested call exprs in the member expr to be inline
-    return allow_for_expr_or_super(&node.callee);
+    return allow_for_callee(&node.callee);
 
-    fn allow_for_expr_or_super(expr_or_super: &ExprOrSuper) -> bool {
-      match expr_or_super {
-        ExprOrSuper::Expr(expr) => match expr {
-          Expr::Member(member_expr) => allow_for_expr_or_super(&member_expr.obj),
-          Expr::Call(_) => false,
-          _ => true,
-        },
-        ExprOrSuper::Super(_) => true,
+    fn allow_for_callee(callee: &Callee) -> bool {
+      match callee {
+        Callee::Expr(expr) => allow_for_expr(expr),
+        Callee::Import(_) => false,
+        Callee::Super(_) => true,
+      }
+    }
+
+    fn allow_for_expr(expr: &Expr) -> bool {
+      match expr {
+        Expr::Member(member_expr) => allow_for_expr(&member_expr.obj),
+        Expr::Call(_) => false,
+        _ => true,
       }
     }
   }
