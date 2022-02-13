@@ -7828,7 +7828,7 @@ fn gen_jsx_with_opening_and_closing<'a>(opts: GenJsxWithOpeningAndClosingOptions
   return GenJsxWithOpeningAndClosingResult { items, start_info, end_info };
 
   fn get_force_use_multi_lines(opening_element: &Node, children: &[Node], context: &mut Context) -> bool {
-    if context.config.jsx_force_new_line_surrounding_content {
+    if context.config.jsx_force_new_lines_surrounding_content {
       return true;
     }
 

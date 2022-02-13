@@ -80,7 +80,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     binary_expression_line_per_expression: get_value(&mut config, "binaryExpression.linePerExpression", false, &mut diagnostics),
     jsx_quote_style: get_value(&mut config, "jsx.quoteStyle", quote_style.to_jsx_quote_style(), &mut diagnostics),
     jsx_multi_line_parens: get_value(&mut config, "jsx.multiLineParens", JsxMultiLineParens::Prefer, &mut diagnostics),
-    jsx_force_new_line_surrounding_content: get_value(&mut config, "jsx.forceNewLineSurroundingContent", false, &mut diagnostics),
+    jsx_force_new_lines_surrounding_content: get_value(&mut config, "jsx.forceNewLinesSurroundingContent", false, &mut diagnostics),
     member_expression_line_per_expression: get_value(&mut config, "memberExpression.linePerExpression", false, &mut diagnostics),
     type_literal_separator_kind_single_line: get_value(
       &mut config,

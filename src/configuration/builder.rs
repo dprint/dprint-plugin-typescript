@@ -122,11 +122,11 @@ impl ConfigurationBuilder {
     self.insert("jsx.multiLineParens", value.to_string().into())
   }
 
-  /// Whether to force surround a content of JSX element with new lines
+  /// Forces newlines surrounding the content of JSX elements.
   ///
   /// Default: `false`
-  pub fn jsx_force_new_line_surrounding_content(&mut self, value: bool) -> &mut Self {
-    self.insert("jsx.forceNewLineSurroundingContent", value.into())
+  pub fn jsx_force_new_lines_surrounding_content(&mut self, value: bool) -> &mut Self {
+    self.insert("jsx.forceNewLinesSurroundingContent", value.into())
   }
 
   /// Whether statements should end in a semi-colon.
@@ -954,7 +954,7 @@ mod tests {
       .quote_style(QuoteStyle::AlwaysDouble)
       .jsx_quote_style(JsxQuoteStyle::PreferSingle)
       .jsx_multi_line_parens(JsxMultiLineParens::Never)
-      .jsx_force_new_line_surrounding_content(false)
+      .jsx_force_new_lines_surrounding_content(true)
       .semi_colons(SemiColons::Prefer)
       .brace_position(BracePosition::NextLine)
       .next_control_flow_position(NextControlFlowPosition::SameLine)
@@ -1117,7 +1117,7 @@ mod tests {
       .while_statement_space_after_while_keyword(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 154);
+    assert_eq!(inner_config.len(), 155);
     let diagnostics = resolve_config(inner_config, &resolve_global_config(HashMap::new(), &Default::default()).config).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }
