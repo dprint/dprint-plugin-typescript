@@ -3498,36 +3498,23 @@ fn gen_string_literal<'a>(node: &'a Str, context: &mut Context<'a>) -> PrintItem
   ));
 
   fn is_property_name(node: &Str) -> bool {
-    match node.parent() {
-      Node::KeyValueProp(parent) => match_key_prop_name(parent.key),
-      Node::GetterProp(parent) => match_key_prop_name(parent.key),
-      Node::SetterProp(parent) => match_key_prop_name(parent.key),
-      Node::MethodProp(parent) => match_key_prop_name(parent.key),
-      // Do not match class properties Node::ClassProp
+    let key = match node.parent() {
+      Node::KeyValueProp(parent) => parent.key.as_node(),
+      Node::GetterProp(parent) => parent.key.as_node(),
+      Node::SetterProp(parent) => parent.key.as_node(),
+      Node::MethodProp(parent) => parent.key.as_node(),
+      // Do not match class properties (Node::ClassProp)
       // With `--strictPropertyInitialization`, TS treats properties with quoted names differently than unquoted ones.
       // See https://github.com/microsoft/TypeScript/pull/20075
-      // See prettier implementation https://github.com/prettier/prettier/blob/514046b3c70e6477cb69b4d36871d0d4c8c5e415/src/language-js/utils.js#L671-L716
-      Node::ClassMethod(parent) => match_key_prop_name(parent.key),
-      Node::TsPropertySignature(parent) => match_key_expr(parent.key),
-      Node::TsGetterSignature(parent) => match_key_expr(parent.key),
-      Node::TsSetterSignature(parent) => match_key_expr(parent.key),
-      Node::TsMethodSignature(parent) => match_key_expr(parent.key),
-      _ => false,
-    }
-  }
+      Node::ClassMethod(parent) => parent.key.as_node(),
+      Node::TsPropertySignature(parent) => parent.key.as_node(),
+      Node::TsGetterSignature(parent) => parent.key.as_node(),
+      Node::TsSetterSignature(parent) => parent.key.as_node(),
+      Node::TsMethodSignature(parent) => parent.key.as_node(),
+      _ => return false,
+    };
 
-  fn match_key_expr(key: Expr) -> bool {
-    match key {
-      Expr::Lit(Lit::Str(_str)) => true,
-      Expr::Tpl(_tpl) => true,
-      _ => false,
-    }
-  }
-  fn match_key_prop_name(key: PropName) -> bool {
-    match key {
-      PropName::Str(_str) => true,
-      _ => false,
-    }
+    key.span() == node.span() && matches!(key, Node::Str(_))
   }
 
   fn get_string_literal_text(string_value: String, is_jsx_attribute: bool, should_remove_quotes_if_identifier: bool, context: &mut Context) -> String {

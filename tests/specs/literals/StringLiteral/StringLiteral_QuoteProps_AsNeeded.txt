@@ -84,6 +84,7 @@ const objectLiteral = {
     get "foo2"() {},
     set "foo2"(v) {},
     async "foo3"() {},
+    "test": "literal",
 };
 class Class {
     "foo"() {}
@@ -91,18 +92,21 @@ class Class {
     set "foo2"() {}
     async "foo3"() {}
     "foo4": string;
+    "test": "literal" = "literal";
 }
 interface Interface {
     "foo": string;
     "foo2"(): string;
     get "foo3"(): string;
     set "foo3"(v: string);
+    "foo4": "literal";
 }
 type Type = {
     "foo": string;
     "foo2"(): string;
     get "foo3"(): string;
     set "foo3"(v: string);
+    "foo4": "literal";
 };
 
 [expect]
@@ -120,6 +124,7 @@ const objectLiteral = {
     get foo2() {},
     set foo2(v) {},
     async foo3() {},
+    test: "literal",
 };
 class Class {
     foo() {}
@@ -127,16 +132,19 @@ class Class {
     set foo2() {}
     async foo3() {}
     "foo4": string;
+    "test": "literal" = "literal";
 }
 interface Interface {
     foo: string;
     foo2(): string;
     get foo3(): string;
     set foo3(v: string);
+    foo4: "literal";
 }
 type Type = {
     foo: string;
     foo2(): string;
     get foo3(): string;
     set foo3(v: string);
+    foo4: "literal";
 };
