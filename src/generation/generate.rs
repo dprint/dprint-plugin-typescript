@@ -4087,9 +4087,10 @@ fn gen_expr_stmt<'a>(stmt: &'a ExprStmt, context: &mut Context<'a>) -> PrintItem
   fn gen_for_prefix_semi_colon_insertion<'a>(stmt: &'a ExprStmt, context: &mut Context<'a>) -> PrintItems {
     let generated_node = gen_inner(&stmt, context);
     let generated_node = generated_node.into_rc_path();
+    let brace_condition_ref = context.take_expr_stmt_single_line_parent_brace_ref(); // always clear this
     return if should_add_semi_colon(&generated_node).unwrap_or(false) {
       let mut items = PrintItems::new();
-      if let Some(brace_condition_ref) = context.take_expr_stmt_single_line_parent_brace_ref() {
+      if let Some(brace_condition_ref) = brace_condition_ref {
         // Do not add a semi-colon when the semi-colon is within an if stmt or for-like stmt where
         // there are no braces on the parent (ex. `if (true) []`) as this would break the code.
         items.push_condition(if_true(
