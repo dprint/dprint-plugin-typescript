@@ -285,6 +285,8 @@ pub struct Configuration {
   pub jsx_quote_style: JsxQuoteStyle,
   #[serde(rename = "jsx.multiLineParens")]
   pub jsx_multi_line_parens: JsxMultiLineParens,
+  #[serde(rename = "jsx.forceNewLinesSurroundingContent")]
+  pub jsx_force_new_lines_surrounding_content: bool,
   #[serde(rename = "memberExpression.linePerExpression")]
   pub member_expression_line_per_expression: bool,
   #[serde(rename = "typeLiteral.separatorKind.singleLine")]

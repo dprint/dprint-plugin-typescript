@@ -87,6 +87,18 @@
         "description": "Always wrap JSX with parentheses if it spans multiple lines."
       }]
     },
+    "jsx.forceNewLinesSurroundingContent": {
+      "description": "Forces newlines surrounding the content of JSX elements.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": ""
+      }, {
+        "const": false,
+        "description": ""
+      }]
+    },
     "newLineKind": {
       "description": "The kind of newline to use.",
       "type": "string",
