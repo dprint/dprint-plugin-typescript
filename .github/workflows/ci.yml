@@ -23,7 +23,7 @@ jobs:
     - uses: actions-rs/toolchain@v1
       with:
         profile: minimal
-        toolchain: 1.57.0
+        toolchain: 1.58.1
         override: true
     - name: Install wasm32 target
       if: matrix.config.kind == 'test_release'
@@ -36,9 +36,9 @@ jobs:
     - name: Build debug
       if: matrix.config.kind == 'test_debug'
       run: cargo build
-    #- name: Lint
-    #  if: matrix.config.kind == 'test_debug'
-    #  run: cargo clippy
+    - name: Lint
+      if: matrix.config.kind == 'test_debug'
+      run: cargo clippy
     - name: Test debug
       if: matrix.config.kind == 'test_debug'
       run: cargo test

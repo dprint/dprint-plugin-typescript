@@ -17,7 +17,7 @@ pub fn cmp_module_specifiers(a: &str, b: &str, cmp_text: impl Fn(&str, &str) -> 
       ModuleSpecifierInfo::Relative {
         relative_count: b_relative_count,
         folder_text: b_folder_text,
-      } => match a_relative_count.cmp(&b_relative_count) {
+      } => match a_relative_count.cmp(b_relative_count) {
         Ordering::Greater => Ordering::Less,
         Ordering::Less => Ordering::Greater,
         Ordering::Equal => cmp_text(a_folder_text, b_folder_text),
@@ -32,7 +32,7 @@ enum ModuleSpecifierInfo<'a> {
   Relative { relative_count: usize, folder_text: &'a str },
 }
 
-fn get_module_specifier_info<'a>(text: &'a str) -> ModuleSpecifierInfo<'a> {
+fn get_module_specifier_info(text: &str) -> ModuleSpecifierInfo<'_> {
   let no_quotes_text = &text[1..text.len() - 1];
   let parts = no_quotes_text.split('/').collect::<Vec<_>>();
   if parts[0] == "." || parts[0] == ".." {

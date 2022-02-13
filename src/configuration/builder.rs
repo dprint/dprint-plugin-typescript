@@ -18,6 +18,7 @@ use std::collections::HashMap;
 ///     .next_control_flow_position(NextControlFlowPosition::SameLine)
 ///     .build();
 /// ```
+#[derive(Default)]
 pub struct ConfigurationBuilder {
   pub(super) config: ConfigKeyMap,
   global_config: Option<GlobalConfiguration>,
@@ -26,10 +27,7 @@ pub struct ConfigurationBuilder {
 impl ConfigurationBuilder {
   /// Constructs a new configuration builder.
   pub fn new() -> ConfigurationBuilder {
-    ConfigurationBuilder {
-      config: HashMap::new(),
-      global_config: None,
-    }
+    ConfigurationBuilder::default()
   }
 
   /// Gets the final configuration that can be used to format a file.

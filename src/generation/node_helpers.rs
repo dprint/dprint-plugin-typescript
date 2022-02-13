@@ -173,14 +173,11 @@ pub fn is_test_library_call_expr(node: &CallExpr, program: &Program) -> bool {
   return node.start_line_fast(program) == node.args[1].start_line_fast(program);
 
   fn is_valid_callee(callee: &Callee) -> bool {
-    return match get_first_identifier_text_from_callee(&callee) {
+    return match get_first_identifier_text_from_callee(callee) {
       Some("it") | Some("describe") | Some("test") => true,
       _ => {
         // support call expressions like `Deno.test("description", ...)`
-        match get_last_identifier_text(&callee) {
-          Some("test") => true,
-          _ => false,
-        }
+        matches!(get_last_identifier_text(callee), Some("test"))
       }
     };
 

@@ -5,8 +5,7 @@ pub trait IteratorCharExt: Iterator<Item = char> {
   fn peek(&mut self) -> Option<&char>;
 
   fn check_text(&mut self, text: &str) -> bool {
-    let mut text_iter = text.chars();
-    while let Some(text_ch) = text_iter.next() {
+    for text_ch in text.chars() {
       match self.peek() {
         Some(ch) if *ch == text_ch => self.next(),
         _ => return false,

@@ -57,16 +57,14 @@ fn cmp_optional_nodes<'a>(
 ) -> Ordering {
   if let Some(a) = a {
     if let Some(b) = b {
-      cmp_nodes(&a, &b, program, cmp_func)
+      cmp_nodes(a, b, program, cmp_func)
     } else {
       Ordering::Greater
     }
+  } else if b.is_none() {
+    Ordering::Equal
   } else {
-    if b.is_none() {
-      Ordering::Equal
-    } else {
-      Ordering::Less
-    }
+    Ordering::Less
   }
 }
 
@@ -147,8 +145,5 @@ fn cmp_text_case_insensitive(a: &str, b: &str) -> Ordering {
 }
 
 fn is_import_or_export_declaration<'a>(node: &Option<&Node<'a>>) -> bool {
-  match node {
-    Some(Node::ImportDecl(_)) | Some(Node::NamedExport(_)) | Some(Node::ExportAll(_)) => true,
-    _ => false,
-  }
+  matches!(node, Some(Node::ImportDecl(_) | Node::NamedExport(_) | Node::ExportAll(_)))
 }

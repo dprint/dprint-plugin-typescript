@@ -23,7 +23,7 @@ pub fn get_flattened_bin_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) 
     token: context.token_finder.get_first_operator_after(&node.left, node.op().as_str()).unwrap(),
     op: node.op(),
   };
-  let is_op_same_line = get_operator_position(&node, &operator_token.token, context) == OperatorPosition::SameLine;
+  let is_op_same_line = get_operator_position(node, operator_token.token, context) == OperatorPosition::SameLine;
   let mut handled_left = false;
   let mut handled_right = false;
 

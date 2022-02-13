@@ -171,6 +171,6 @@ impl<'a> TokenFinder<'a> {
 
   #[inline]
   fn get_last_token_within_if(&self, node: &dyn Spanned, is_match: impl Fn(&'a TokenAndSpan) -> bool) -> Option<&'a TokenAndSpan> {
-    node.tokens_fast(self.program).last().filter(|token| is_match(&token))
+    node.tokens_fast(self.program).last().filter(|token| is_match(token))
   }
 }

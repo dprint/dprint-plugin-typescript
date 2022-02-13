@@ -104,14 +104,14 @@ mod test {
   #[test]
   fn split_lines_empty_last_line() {
     let text = "a\r\nb\nc\r\n";
-    let lines = split_lines(&text).collect::<Vec<_>>();
+    let lines = split_lines(text).collect::<Vec<_>>();
     assert_eq!(lines, vec!["a", "b", "c", ""]); // includes last line
   }
 
   #[test]
   fn split_lines_non_empty_last_line() {
     let text = "a \n   b\nc";
-    let lines = split_lines(&text).collect::<Vec<_>>();
+    let lines = split_lines(text).collect::<Vec<_>>();
     assert_eq!(lines, vec!["a ", "   b", "c"]);
   }
 }

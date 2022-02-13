@@ -61,7 +61,8 @@ fn inner_format(parsed_source: &ParsedSource, config: &Configuration) -> Result<
 
   Ok(dprint_core::formatting::format(
     || {
-      let print_items = generate(&parsed_source, config);
+      #[allow(clippy::let_and_return)]
+      let print_items = generate(parsed_source, config);
       // println!("{}", print_items.get_as_text());
       print_items
     },
