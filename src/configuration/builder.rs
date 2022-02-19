@@ -18,6 +18,7 @@ use std::collections::HashMap;
 ///     .next_control_flow_position(NextControlFlowPosition::SameLine)
 ///     .build();
 /// ```
+#[derive(Default)]
 pub struct ConfigurationBuilder {
   pub(super) config: ConfigKeyMap,
   global_config: Option<GlobalConfiguration>,
@@ -26,10 +27,7 @@ pub struct ConfigurationBuilder {
 impl ConfigurationBuilder {
   /// Constructs a new configuration builder.
   pub fn new() -> ConfigurationBuilder {
-    ConfigurationBuilder {
-      config: HashMap::new(),
-      global_config: None,
-    }
+    ConfigurationBuilder::default()
   }
 
   /// Gets the final configuration that can be used to format a file.
@@ -122,6 +120,13 @@ impl ConfigurationBuilder {
     self.insert("jsx.multiLineParens", value.to_string().into())
   }
 
+  /// Forces newlines surrounding the content of JSX elements.
+  ///
+  /// Default: `false`
+  pub fn jsx_force_new_lines_surrounding_content(&mut self, value: bool) -> &mut Self {
+    self.insert("jsx.forceNewLinesSurroundingContent", value.into())
+  }
+
   /// Whether statements should end in a semi-colon.
   ///
   /// Default: `SemiColons::Prefer`
@@ -134,6 +139,13 @@ impl ConfigurationBuilder {
   /// Default: `false`
   pub fn prefer_hanging(&mut self, value: bool) -> &mut Self {
     self.insert("preferHanging", value.into())
+  }
+
+  /// Behaviour to use for quotes on property names.
+  ///
+  /// Default: `preserve`
+  pub fn quote_props(&mut self, value: QuoteProps) -> &mut Self {
+    self.insert("quoteProps", value.to_string().into())
   }
 
   /// Where to place the opening brace.
@@ -998,6 +1010,7 @@ mod tests {
       .quote_style(QuoteStyle::AlwaysDouble)
       .jsx_quote_style(JsxQuoteStyle::PreferSingle)
       .jsx_multi_line_parens(JsxMultiLineParens::Never)
+      .jsx_force_new_lines_surrounding_content(true)
       .semi_colons(SemiColons::Prefer)
       .brace_position(BracePosition::NextLine)
       .next_control_flow_position(NextControlFlowPosition::SameLine)
@@ -1005,6 +1018,7 @@ mod tests {
       .single_body_position(SingleBodyPosition::SameLine)
       .trailing_commas(TrailingCommas::Never)
       .use_braces(UseBraces::WhenNotSingleLine)
+      .quote_props(QuoteProps::AsNeeded)
       .prefer_hanging(false)
       /* situational */
       .arrow_function_use_parentheses(UseParentheses::Maintain)
@@ -1172,7 +1186,7 @@ mod tests {
       .while_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 165);
+    assert_eq!(inner_config.len(), 167);
     let diagnostics = resolve_config(inner_config, &resolve_global_config(HashMap::new(), &Default::default()).config).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

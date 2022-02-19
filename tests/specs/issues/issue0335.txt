@@ -1,0 +1,10 @@
+~~ semiColons: asi ~~
+== should handle sequential expression ==
+if (true) { test; }
+var st = test[i];
+(0, test)(test);
+
+[expect]
+if (true) test
+var st = test[i]
+;(0, test)(test)

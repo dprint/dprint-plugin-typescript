@@ -4,7 +4,8 @@ use deno_ast::swc::common::Span;
 use deno_ast::swc::common::Spanned;
 use deno_ast::swc::parser::token::TokenAndSpan;
 use deno_ast::view::*;
-use dprint_core::formatting::{ConditionReference, Info};
+use dprint_core::formatting::ConditionReference;
+use dprint_core::formatting::Info;
 use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
 

@@ -1,6 +1,7 @@
 use dprint_core::configuration::*;
 use dprint_core::generate_str_to_from;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 
 /// Semi colon possibilities.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
@@ -206,6 +207,18 @@ pub enum JsxQuoteStyle {
 
 generate_str_to_from![JsxQuoteStyle, [PreferDouble, "preferDouble"], [PreferSingle, "preferSingle"]];
 
+/// Behaviour to use for quotes on property names.
+#[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum QuoteProps {
+  /// Preserve quotes around property names.
+  Preserve,
+  /// Remove unnecessary quotes around property names.
+  AsNeeded,
+}
+
+generate_str_to_from![QuoteProps, [Preserve, "preserve"], [AsNeeded, "asNeeded"]];
+
 /// Whether to surround a JSX element or fragment with parentheses
 /// when it's the top JSX node and it spans multiple lines.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
@@ -261,6 +274,7 @@ pub struct Configuration {
   pub use_tabs: bool,
   pub new_line_kind: NewLineKind,
   pub quote_style: QuoteStyle,
+  pub quote_props: QuoteProps,
   pub semi_colons: SemiColons,
   /* situational */
   #[serde(rename = "arrowFunction.useParentheses")]
@@ -271,6 +285,8 @@ pub struct Configuration {
   pub jsx_quote_style: JsxQuoteStyle,
   #[serde(rename = "jsx.multiLineParens")]
   pub jsx_multi_line_parens: JsxMultiLineParens,
+  #[serde(rename = "jsx.forceNewLinesSurroundingContent")]
+  pub jsx_force_new_lines_surrounding_content: bool,
   #[serde(rename = "memberExpression.linePerExpression")]
   pub member_expression_line_per_expression: bool,
   #[serde(rename = "typeLiteral.separatorKind.singleLine")]

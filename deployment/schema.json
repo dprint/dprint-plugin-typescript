@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://plugins.dprint.dev/schemas/typescript-0.0.0.json",
+  "$id": "https://plugins.dprint.dev/dprint/dprint-plugin-typescript/0.0.0/schema.json",
   "type": "object",
   "definitions": {
     "useTabs": {
@@ -60,6 +60,18 @@
         "description": "Prefers using single quotes except in scenarios where the string contains more single quotes than double quotes."
       }]
     },
+    "quoteProps": {
+      "description": "Change when properties in objects are quoted.",
+      "type": "string",
+      "default": "preserve",
+      "oneOf": [{
+        "const": "preserve",
+        "description": "Preserve quotes around property names."
+      }, {
+        "const": "asNeeded",
+        "description": "Remove unnecessary quotes around property names."
+      }]
+    },
     "jsx.multiLineParens": {
       "description": "Surrounds the top-most JSX element or fragment in parentheses when it spans multiple lines.",
       "type": "string",
@@ -73,6 +85,18 @@
       }, {
         "const": "always",
         "description": "Always wrap JSX with parentheses if it spans multiple lines."
+      }]
+    },
+    "jsx.forceNewLinesSurroundingContent": {
+      "description": "Forces newlines surrounding the content of JSX elements.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": ""
+      }, {
+        "const": false,
+        "description": ""
       }]
     },
     "newLineKind": {
@@ -678,6 +702,9 @@
     },
     "quoteStyle": {
       "$ref": "#/definitions/quoteStyle"
+    },
+    "quoteProps": {
+      "$ref": "#/definitions/quoteProps"
     },
     "newLineKind": {
       "$ref": "#/definitions/newLineKind"
