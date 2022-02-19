@@ -1,0 +1,8 @@
+~~ switchStatement.spaceAround: true ~~
+== should format with space around the switch param ==
+switch (foo) {
+}
+
+[expect]
+switch ( foo ) {
+}

@@ -1,0 +1,8 @@
+~~ ifStatement.spaceAround: true ~~
+== should format with space around the condition ==
+if (i <= arr.length) {
+}
+
+[expect]
+if ( i <= arr.length ) {
+}

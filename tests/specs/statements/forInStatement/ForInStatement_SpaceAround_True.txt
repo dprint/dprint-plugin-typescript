@@ -1,0 +1,10 @@
+~~ forInStatement.spaceAround: true ~~
+== should format with space around the loop initializer ==
+for (const t in test) {
+    a;
+}
+
+[expect]
+for ( const t in test ) {
+    a;
+}
