@@ -1,6 +1,6 @@
 [package]
 name = "dprint-plugin-typescript"
-version = "0.64.1"
+version = "0.64.2"
 authors = ["David Sherret <dsherret@gmail.com>"]
 edition = "2021"
 homepage = "https://github.com/dprint/dprint-plugin-typescript"
@@ -26,14 +26,11 @@ tracing = ["dprint-core/tracing"]
 
 [dependencies]
 anyhow = "1.0.51"
-deno_ast = { version = "0.11.0", features = ["view"] }
+deno_ast = { version = "0.12.0", features = ["view"] }
 dprint-core = { version = "0.50.0", features = ["formatting"] }
 rustc-hash = "1.1.0"
 serde = { version = "1.0.118", features = ["derive"] }
 serde_json = { version = "1.0", optional = true }
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-parking_lot_core = "=0.8.0" # https://github.com/Amanieu/parking_lot/issues/269 todo: wait for release as this is fixed now
 
 [dev-dependencies]
 debug-here = "0.2"
