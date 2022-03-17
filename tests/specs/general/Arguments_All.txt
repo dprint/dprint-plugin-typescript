@@ -117,14 +117,14 @@ testing({
 });
 
 == should keep array literal inline when going multi-line ==
-testing([testing, this, out, with, some, text]);
+testing([testing, this, out, withh, some, text]);
 
 [expect]
 testing([
     testing,
     this,
     out,
-    with,
+    withh,
     some,
     text,
 ]);

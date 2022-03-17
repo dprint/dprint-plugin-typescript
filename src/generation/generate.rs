@@ -291,6 +291,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       Node::TsImportType(node) => gen_import_type(node, context),
       Node::TsIndexedAccessType(node) => gen_indexed_access_type(node, context),
       Node::TsInferType(node) => gen_infer_type(node, context),
+      Node::TsInstantiation(node) => gen_ts_instantiation(node, context),
       Node::TsIntersectionType(node) => gen_intersection_type(node, context),
       Node::TsLitType(node) => gen_lit_type(node, context),
       Node::TsMappedType(node) => gen_mapped_type(node, context),
@@ -5148,6 +5149,12 @@ fn gen_infer_type<'a>(node: &'a TsInferType, context: &mut Context<'a>) -> Print
   let mut items = PrintItems::new();
   items.push_str("infer ");
   items.extend(gen_node(node.type_param.into(), context));
+  items
+}
+
+fn gen_ts_instantiation<'a>(node: &'a TsInstantiation, context: &mut Context<'a>) -> PrintItems {
+  let mut items = gen_node(node.expr.into(), context);
+  items.extend(gen_node(node.type_args.into(), context));
   items
 }
 

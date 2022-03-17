@@ -1,0 +1,35 @@
+== should format ==
+// copied from swc's tests
+f<x>, g<y>;
+[f<x>];
+f<x> ? g<y> : h<z>;
+f<x> ^ g<y>;
+f<x> & g<y>;
+f<x> | g<y>;
+f<x> && g<y>;
+f<x> || g<y>;
+{ f<x> }
+f<x> ?? g<y>;
+f<x> == g<y>;
+f<x> === g<y>;
+f<x> != g<y>;
+f<x> !== g<y>;
+
+[expect]
+// copied from swc's tests
+f<x>, g<y>;
+[f<x>];
+f<x> ? g<y> : h<z>;
+f<x> ^ g<y>;
+f<x> & g<y>;
+f<x> | g<y>;
+f<x> && g<y>;
+f<x> || g<y>;
+{
+    f<x>;
+}
+f<x> ?? g<y>;
+f<x> == g<y>;
+f<x> === g<y>;
+f<x> != g<y>;
+f<x> !== g<y>;
