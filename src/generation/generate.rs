@@ -174,7 +174,8 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       Node::AssignExpr(node) => gen_assignment_expr(node, context),
       Node::AwaitExpr(node) => gen_await_expr(node, context),
       Node::BinExpr(node) => gen_binary_expr(node, context),
-      Node::CallExpr(node) => gen_call_expr(node, context),
+      Node::CallExpr(node) => gen_call_or_opt_expr(node.into(), context),
+      Node::OptCall(node) => gen_call_or_opt_expr(node.into(), context),
       Node::Import(_) => "import".into(),
       Node::ClassExpr(node) => gen_class_expr(node, context),
       Node::CondExpr(node) => gen_conditional_expr(node, context),
@@ -188,7 +189,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       Node::SuperPropExpr(node) => gen_super_prop_expr(node, context),
       Node::NewExpr(node) => gen_new_expr(node, context),
       Node::ObjectLit(node) => gen_object_lit(node, context),
-      Node::OptChainExpr(node) => gen_node(node.expr.into(), context),
+      Node::OptChainExpr(node) => gen_node(node.base.into(), context),
       Node::ParenExpr(node) => gen_paren_expr(node, context),
       Node::SeqExpr(node) => gen_sequence_expr(node, context),
       Node::SetterProp(node) => gen_setter_prop(node, context),
@@ -290,6 +291,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       Node::TsImportType(node) => gen_import_type(node, context),
       Node::TsIndexedAccessType(node) => gen_indexed_access_type(node, context),
       Node::TsInferType(node) => gen_infer_type(node, context),
+      Node::TsInstantiation(node) => gen_ts_instantiation(node, context),
       Node::TsIntersectionType(node) => gen_intersection_type(node, context),
       Node::TsLitType(node) => gen_lit_type(node, context),
       Node::TsMappedType(node) => gen_mapped_type(node, context),
@@ -557,10 +559,10 @@ fn gen_private_prop<'a>(node: &'a PrivateProp, context: &mut Context<'a>) -> Pri
       type_ann: &node.type_ann,
       is_static: node.is_static(),
       decorators: &node.decorators,
-      computed: node.computed(),
+      computed: false,
       is_declare: false,
       accessibility: node.accessibility(),
-      is_abstract: node.is_abstract(),
+      is_abstract: false,
       is_optional: node.is_optional(),
       is_override: node.is_override(),
       readonly: node.readonly(),
@@ -1859,7 +1861,7 @@ fn gen_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintIte
     } else {
       // get if in an argument
       match parent {
-        Node::ExprOrSpread(expr_or_spread) => !matches!(expr_or_spread.parent().kind(), NodeKind::CallExpr | NodeKind::NewExpr),
+        Node::ExprOrSpread(expr_or_spread) => !matches!(expr_or_spread.parent().kind(), NodeKind::CallExpr | NodeKind::OptCall | NodeKind::NewExpr),
         _ => true,
       }
     }
@@ -1904,23 +1906,25 @@ fn gen_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintIte
   }
 }
 
-fn gen_call_expr<'a>(node: &'a CallExpr, context: &mut Context<'a>) -> PrintItems {
-  return if node_helpers::is_test_library_call_expr(node, context.program) {
-    gen_test_library_call_expr(node, context)
-  } else {
-    // flatten the call expression and check if it should be generated as a flattened member like expression
-    let flattened_call_expr = flatten_member_like_expr(node.into(), context.program);
-    if flattened_call_expr.nodes.len() > 1 {
-      gen_for_flattened_member_like_expr(flattened_call_expr, context)
-    } else {
-      gen_call_expr_like(
-        CallExprLike {
-          original_call_expr: node,
-          generated_callee: gen_node(node.callee.into(), context),
-        },
-        context,
-      )
+fn gen_call_or_opt_expr<'a>(node: CallOrOptCallExpr<'a>, context: &mut Context<'a>) -> PrintItems {
+  if let CallOrOptCallExpr::CallExpr(node) = node {
+    if node_helpers::is_test_library_call_expr(node, context.program) {
+      return gen_test_library_call_expr(node, context);
     }
+  }
+
+  // flatten the call expression and check if it should be generated as a flattened member like expression
+  let flattened_call_expr = flatten_member_like_expr(node.into(), context.program);
+  return if flattened_call_expr.nodes.len() > 1 {
+    gen_for_flattened_member_like_expr(flattened_call_expr, context)
+  } else {
+    gen_call_expr_like(
+      CallExprLike {
+        original_call_expr: node,
+        generated_callee: gen_node(node.callee().into(), context),
+      },
+      context,
+    )
   };
 
   fn gen_test_library_call_expr<'a>(node: &'a CallExpr, context: &mut Context<'a>) -> PrintItems {
@@ -1961,7 +1965,7 @@ fn gen_call_expr<'a>(node: &'a CallExpr, context: &mut Context<'a>) -> PrintItem
 }
 
 struct CallExprLike<'a> {
-  original_call_expr: &'a CallExpr<'a>,
+  original_call_expr: CallOrOptCallExpr<'a>,
   generated_callee: PrintItems,
 }
 
@@ -1971,11 +1975,11 @@ fn gen_call_expr_like<'a>(node: CallExprLike<'a>, context: &mut Context<'a>) -> 
 
   items.extend(node.generated_callee);
 
-  if let Some(type_args) = call_expr.type_args {
+  if let Some(type_args) = call_expr.type_args() {
     items.extend(gen_node(type_args.into(), context));
   }
 
-  if node_helpers::is_optional_call_expr(call_expr) {
+  if call_expr.is_optional() {
     items.push_str("?.");
   }
 
@@ -1983,7 +1987,7 @@ fn gen_call_expr_like<'a>(node: CallExprLike<'a>, context: &mut Context<'a>) -> 
     GenParametersOrArgumentsOptions {
       node: call_expr.into(),
       span: call_expr.get_parameters_span(context),
-      nodes: call_expr.args.iter().map(|&node| node.into()).collect(),
+      nodes: call_expr.args().iter().map(|&node| node.into()).collect(),
       custom_close_paren: |_| None,
       is_parameters: false,
     },
@@ -2237,6 +2241,12 @@ fn should_add_parens_around_expr(node: Node, context: &Context) -> bool {
           return false;
         }
       }
+      Node::OptCall(call_expr) => {
+        if !call_expr.callee.span().contains(original_node.span()) {
+          // it's in an argument, so don't add parens
+          return false;
+        }
+      }
       Node::NewExpr(new_expr) => {
         if !new_expr.callee.span().contains(original_node.span()) {
           // it's in an argument, so don't add parens
@@ -2462,7 +2472,10 @@ fn should_skip_paren_expr(node: &ParenExpr, context: &Context) -> bool {
   // skip over an expr or spread if not a spread
   if let Some(expr_or_spread) = parent.to::<ExprOrSpread>() {
     // these should only appear in these nodes
-    let is_known_parent = matches!(expr_or_spread.parent().kind(), NodeKind::NewExpr | NodeKind::ArrayLit | NodeKind::CallExpr);
+    let is_known_parent = matches!(
+      expr_or_spread.parent().kind(),
+      NodeKind::NewExpr | NodeKind::ArrayLit | NodeKind::CallExpr | NodeKind::OptCall
+    );
     debug_assert!(is_known_parent);
     if is_known_parent && expr_or_spread.spread().is_none() {
       return true;
@@ -2574,8 +2587,8 @@ fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context
     } else {
       items.push_str("${");
       items.push_signal(Signal::FinishIgnoringIndent);
-      let keep_on_one_line = get_keep_on_one_line(&node);
-      let possible_surround_newlines = get_possible_surround_newlines(&node);
+      let keep_on_one_line = get_keep_on_one_line(node);
+      let possible_surround_newlines = get_possible_surround_newlines(node);
       let generated_expr = gen_node(node, context);
       items.extend(if keep_on_one_line {
         with_no_new_lines(generated_expr)
@@ -2626,31 +2639,33 @@ fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context
   }
 
   // handle this on a case by case basis for now
-  fn get_keep_on_one_line(node: &Node) -> bool {
+  fn get_keep_on_one_line(node: Node) -> bool {
     match node {
       Node::Ident(_) | Node::ThisExpr(_) | Node::SuperPropExpr(_) | Node::MetaPropExpr(_) | Node::Str(_) | Node::PrivateName(_) => true,
       Node::MemberExpr(expr) => keep_member_expr_on_one_line(expr),
-      Node::CallExpr(expr) => keep_call_expr_on_one_line(expr),
+      Node::CallExpr(expr) => keep_call_expr_on_one_line(expr.into()),
+      Node::OptCall(expr) => keep_call_expr_on_one_line(expr.into()),
       _ => false,
     }
   }
 
-  fn get_possible_surround_newlines(node: &Node) -> bool {
+  fn get_possible_surround_newlines(node: Node) -> bool {
     match node {
       Node::CondExpr(_) => true,
       Node::BinExpr(_) => true,
       Node::MemberExpr(expr) => !keep_member_expr_on_one_line(expr),
-      Node::CallExpr(expr) => !keep_call_expr_on_one_line(expr),
+      Node::CallExpr(expr) => !keep_call_expr_on_one_line(expr.into()),
+      Node::OptCall(expr) => !keep_call_expr_on_one_line(expr.into()),
       _ => false,
     }
   }
 
   fn keep_member_expr_on_one_line(expr: &MemberExpr) -> bool {
-    get_keep_on_one_line(&expr.obj.into()) && get_keep_on_one_line(&expr.prop.into()) && !matches!(expr.prop, MemberProp::Computed(_))
+    get_keep_on_one_line(expr.obj.into()) && get_keep_on_one_line(expr.prop.into()) && !matches!(expr.prop, MemberProp::Computed(_))
   }
 
-  fn keep_call_expr_on_one_line(expr: &CallExpr) -> bool {
-    expr.args.is_empty() && get_keep_on_one_line(&expr.callee.into())
+  fn keep_call_expr_on_one_line(expr: CallOrOptCallExpr) -> bool {
+    expr.args().is_empty() && get_keep_on_one_line(expr.callee().into())
   }
 }
 
@@ -5137,6 +5152,12 @@ fn gen_infer_type<'a>(node: &'a TsInferType, context: &mut Context<'a>) -> Print
   items
 }
 
+fn gen_ts_instantiation<'a>(node: &'a TsInstantiation, context: &mut Context<'a>) -> PrintItems {
+  let mut items = gen_node(node.expr.into(), context);
+  items.extend(gen_node(node.type_args.into(), context));
+  items
+}
+
 fn gen_intersection_type<'a>(node: &'a TsIntersectionType, context: &mut Context<'a>) -> PrintItems {
   gen_union_or_intersection_type(
     UnionOrIntersectionType {
@@ -5527,7 +5548,7 @@ fn gen_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, context
       for (i, type_node) in node.types.iter().enumerate() {
         let (allow_inline_multi_line, allow_inline_single_line) = {
           let is_last_value = i + 1 == types_count; // allow the last type to be single line
-          (allows_inline_multi_line(&type_node.into(), context, types_count > 1), is_last_value)
+          (allows_inline_multi_line(type_node.into(), context, types_count > 1), is_last_value)
         };
         let separator_token = context.token_finder.get_previous_token_if_operator(&type_node.span(), separator);
         let start_info = Info::new("startInfo");
@@ -6730,7 +6751,7 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
           Some(old_to_new_index) => *old_to_new_index.get(i).unwrap(),
           None => i,
         };
-        let (allow_inline_multi_line, allow_inline_single_line) = if let NodeOrSeparator::Node(value) = &value {
+        let (allow_inline_multi_line, allow_inline_single_line) = if let NodeOrSeparator::Node(value) = value {
           let is_last_value = node_index + 1 == nodes_count; // allow the last node to be single line
           (allows_inline_multi_line(value, context, nodes_count > 1), is_last_value)
         } else {
@@ -8489,14 +8510,14 @@ fn is_arrow_function_with_expr_body(node: &Node) -> bool {
   }
 }
 
-fn allows_inline_multi_line(node: &Node, context: &Context, has_siblings: bool) -> bool {
+fn allows_inline_multi_line(node: Node, context: &Context, has_siblings: bool) -> bool {
   return match node {
-    Node::Param(param) => allows_inline_multi_line(&param.pat.into(), context, has_siblings),
+    Node::Param(param) => allows_inline_multi_line(param.pat.into(), context, has_siblings),
     Node::TsAsExpr(as_expr) => {
-      allows_inline_multi_line(&as_expr.expr.into(), context, has_siblings)
+      allows_inline_multi_line(as_expr.expr.into(), context, has_siblings)
         && match as_expr.type_ann {
           TsType::TsTypeRef(_) | TsType::TsKeywordType(_) => true,
-          _ => allows_inline_multi_line(&as_expr.type_ann.into(), context, has_siblings),
+          _ => allows_inline_multi_line(as_expr.type_ann.into(), context, has_siblings),
         }
     }
     Node::FnExpr(_)
@@ -8508,25 +8529,26 @@ fn allows_inline_multi_line(node: &Node, context: &Context, has_siblings: bool) 
     | Node::TsTypeLit(_)
     | Node::TsTupleType(_)
     | Node::TsArrayType(_) => true,
-    Node::ExprOrSpread(node) => allows_inline_multi_line(&node.expr.into(), context, has_siblings),
-    Node::ParenExpr(node) => should_skip_paren_expr(node, context) && allows_inline_multi_line(&node.expr.into(), context, has_siblings),
+    Node::ExprOrSpread(node) => allows_inline_multi_line(node.expr.into(), context, has_siblings),
+    Node::ParenExpr(node) => should_skip_paren_expr(node, context) && allows_inline_multi_line(node.expr.into(), context, has_siblings),
     Node::TaggedTpl(_) | Node::Tpl(_) => !has_siblings,
-    Node::CallExpr(node) => !has_siblings && allow_inline_for_call_expr(node),
+    Node::CallExpr(node) => !has_siblings && allow_inline_for_call_expr(node.into()),
+    Node::OptCall(node) => !has_siblings && allow_inline_for_call_expr(node.into()),
     Node::BindingIdent(node) => match &node.type_ann {
-      Some(type_ann) => allows_inline_multi_line(&type_ann.type_ann.into(), context, has_siblings),
+      Some(type_ann) => allows_inline_multi_line(type_ann.type_ann.into(), context, has_siblings),
       None => false,
     },
     Node::AssignPat(node) => {
-      allows_inline_multi_line(&node.left.into(), context, has_siblings) || allows_inline_multi_line(&node.right.into(), context, has_siblings)
+      allows_inline_multi_line(node.left.into(), context, has_siblings) || allows_inline_multi_line(node.right.into(), context, has_siblings)
     }
-    Node::TsTypeAnn(type_ann) => allows_inline_multi_line(&type_ann.type_ann.into(), context, has_siblings),
-    Node::TsTupleElement(tuple_element) => allows_inline_multi_line(&tuple_element.ty.into(), context, has_siblings),
+    Node::TsTypeAnn(type_ann) => allows_inline_multi_line(type_ann.type_ann.into(), context, has_siblings),
+    Node::TsTupleElement(tuple_element) => allows_inline_multi_line(tuple_element.ty.into(), context, has_siblings),
     _ => false,
   };
 
-  fn allow_inline_for_call_expr(node: &CallExpr) -> bool {
+  fn allow_inline_for_call_expr(node: CallOrOptCallExpr) -> bool {
     // do not allow call exprs with nested call exprs in the member expr to be inline
-    return allow_for_callee(&node.callee);
+    return allow_for_callee(&node.callee());
 
     fn allow_for_callee(callee: &Callee) -> bool {
       match callee {
@@ -8539,7 +8561,10 @@ fn allows_inline_multi_line(node: &Node, context: &Context, has_siblings: bool) 
     fn allow_for_expr(expr: &Expr) -> bool {
       match expr {
         Expr::Member(member_expr) => allow_for_expr(&member_expr.obj),
-        Expr::Call(_) => false,
+        Expr::Call(_)
+        | Expr::OptChain(OptChainExpr {
+          base: OptChainBase::Call(_), ..
+        }) => false,
         _ => true,
       }
     }

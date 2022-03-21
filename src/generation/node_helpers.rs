@@ -143,7 +143,7 @@ pub fn count_spaces_between_jsx_children(previous_node: &Node, next_node: &Node,
 /// Tests if this is a call expression from common test libraries.
 pub fn is_test_library_call_expr(node: &CallExpr, program: &Program) -> bool {
   // Be very strict here to allow the user to opt out if they'd like.
-  if node.args.len() != 2 || node.type_args.is_some() || !is_valid_callee(&node.callee) || is_optional_call_expr(node) {
+  if node.args.len() != 2 || node.type_args.is_some() || !is_valid_callee(&node.callee) {
     return false;
   }
   if node.args[0].expr.kind() != NodeKind::Str && !node.args[0].expr.is::<Tpl>() {
@@ -218,10 +218,6 @@ pub fn is_test_library_call_expr(node: &CallExpr, program: &Program) -> bool {
       }
     }
   }
-}
-
-pub fn is_optional_call_expr(node: &dyn NodeTrait) -> bool {
-  node.parent().unwrap().kind() == NodeKind::OptChainExpr
 }
 
 pub fn is_expr_stmt_or_body_with_single_expr_stmt(node: Node) -> bool {

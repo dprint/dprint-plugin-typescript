@@ -1,6 +1,6 @@
 [package]
 name = "dprint-plugin-typescript"
-version = "0.64.3"
+version = "0.65.0"
 authors = ["David Sherret <dsherret@gmail.com>"]
 edition = "2021"
 homepage = "https://github.com/dprint/dprint-plugin-typescript"
@@ -26,7 +26,7 @@ tracing = ["dprint-core/tracing"]
 
 [dependencies]
 anyhow = "1.0.51"
-deno_ast = { version = "0.12.0", features = ["view"] }
+deno_ast = { version = "0.13.0", features = ["view"] }
 dprint-core = { version = "0.50.0", features = ["formatting"] }
 rustc-hash = "1.1.0"
 serde = { version = "1.0.118", features = ["derive"] }

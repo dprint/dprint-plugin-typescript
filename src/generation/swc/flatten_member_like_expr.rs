@@ -4,6 +4,8 @@ use deno_ast::swc::parser::token::Token;
 use deno_ast::swc::parser::token::TokenAndSpan;
 use deno_ast::view::*;
 
+use crate::generation::generate_types::CallOrOptCallExpr;
+
 use super::super::node_helpers;
 
 pub struct FlattenedMemberLikeExpr<'a> {
@@ -51,7 +53,7 @@ impl<'a> MemberLikeExprItem<'a> {
 }
 
 pub struct MemberLikeExprItemCallExpr<'a> {
-  pub original_call_expr: &'a CallExpr<'a>,
+  pub original_call_expr: CallOrOptCallExpr<'a>,
   pub callee: MemberLikeExprItem<'a>,
 }
 
@@ -100,23 +102,30 @@ fn push_descendant_nodes<'a>(node: Node<'a>, nodes: &mut Vec<MemberLikeExprItem<
       }
     }
     Node::OptChainExpr(opt_chain_expr) => {
-      push_descendant_nodes(opt_chain_expr.expr.into(), nodes, program);
+      push_descendant_nodes(opt_chain_expr.base.into(), nodes, program);
+    }
+    Node::OptCall(call_expr) => {
+      push_descendant_nodes_for_call_expr(call_expr.into(), nodes, program);
     }
     Node::CallExpr(call_expr) => {
       // leave test library call expressions as-is
-      if node_helpers::is_test_library_call_expr(call_expr, program) {
-        nodes.push(MemberLikeExprItem::Node(node));
+      if node_helpers::is_test_library_call_expr(&call_expr, program) {
+        nodes.push(MemberLikeExprItem::Node(call_expr.into()));
       } else {
-        push_descendant_nodes(call_expr.callee.into(), nodes, program);
-        let new_call_expr_callee = nodes.pop().unwrap();
-        nodes.push(MemberLikeExprItem::CallExpr(Box::new(MemberLikeExprItemCallExpr {
-          original_call_expr: call_expr,
-          callee: new_call_expr_callee,
-        })));
+        push_descendant_nodes_for_call_expr(call_expr.into(), nodes, program);
       }
     }
     node => {
       nodes.push(MemberLikeExprItem::Node(node));
     }
   }
+}
+
+fn push_descendant_nodes_for_call_expr<'a>(call_expr: CallOrOptCallExpr<'a>, nodes: &mut Vec<MemberLikeExprItem<'a>>, program: &Program<'a>) {
+  push_descendant_nodes(call_expr.callee().into(), nodes, program);
+  let new_call_expr_callee = nodes.pop().unwrap();
+  nodes.push(MemberLikeExprItem::CallExpr(Box::new(MemberLikeExprItemCallExpr {
+    original_call_expr: call_expr.into(),
+    callee: new_call_expr_callee,
+  })));
 }
