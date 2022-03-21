@@ -2444,12 +2444,17 @@ fn should_skip_paren_expr(node: &ParenExpr, context: &Context) -> bool {
     }
   }
 
+  // keep for `(val as number)++`
+  let parent = node.parent();
+  if parent.kind() == NodeKind::UpdateExpr && node.expr.kind() == NodeKind::TsAsExpr {
+    return false;
+  }
+
   if matches!(node.expr.kind(), NodeKind::ArrayLit) {
     return true;
   }
 
   // skip over any paren exprs within paren exprs and needless paren exprs
-  let parent = node.parent();
   if matches!(
     parent.kind(),
     NodeKind::ParenExpr
