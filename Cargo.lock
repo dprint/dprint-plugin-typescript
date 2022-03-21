@@ -252,6 +252,7 @@ dependencies = [
  "deno_ast",
  "dprint-core",
  "dprint-development",
+ "parking_lot_core",
  "rustc-hash",
  "serde",
  "serde_json",

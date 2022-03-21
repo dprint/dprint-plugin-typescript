@@ -1587,7 +1587,7 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> Pr
 
     fn is_first_param_not_identifier_or_has_type_annotation(params: &[Pat]) -> bool {
       match params.get(0) {
-        Some(Pat::Ident(node)) => node.type_ann.is_some(),
+        Some(Pat::Ident(node)) => node.type_ann.is_some() || node.id.optional(),
         _ => true,
       }
     }
