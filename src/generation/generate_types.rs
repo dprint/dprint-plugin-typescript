@@ -393,8 +393,8 @@ impl<'a> CallOrOptCallExpr<'a> {
 
   pub fn type_args(&self) -> Option<&'a TsTypeParamInstantiation<'a>> {
     match self {
-      CallOrOptCallExpr::CallExpr(node) => node.type_args.clone(),
-      CallOrOptCallExpr::OptCall(node) => node.type_args.clone(),
+      CallOrOptCallExpr::CallExpr(node) => node.type_args,
+      CallOrOptCallExpr::OptCall(node) => node.type_args,
     }
   }
 
@@ -407,8 +407,8 @@ impl<'a> CallOrOptCallExpr<'a> {
 
   pub fn callee(&self) -> Callee<'a> {
     match self {
-      CallOrOptCallExpr::CallExpr(node) => node.callee.clone(),
-      CallOrOptCallExpr::OptCall(node) => Callee::Expr(node.callee.clone()),
+      CallOrOptCallExpr::CallExpr(node) => node.callee,
+      CallOrOptCallExpr::OptCall(node) => Callee::Expr(node.callee),
     }
   }
 }
@@ -434,6 +434,7 @@ impl<'a> From<&'a OptCall<'a>> for CallOrOptCallExpr<'a> {
   }
 }
 
+#[allow(clippy::from_over_into)]
 impl<'a> Into<Node<'a>> for CallOrOptCallExpr<'a> {
   fn into(self) -> Node<'a> {
     match self {

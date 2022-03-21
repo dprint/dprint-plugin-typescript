@@ -109,7 +109,7 @@ fn push_descendant_nodes<'a>(node: Node<'a>, nodes: &mut Vec<MemberLikeExprItem<
     }
     Node::CallExpr(call_expr) => {
       // leave test library call expressions as-is
-      if node_helpers::is_test_library_call_expr(&call_expr, program) {
+      if node_helpers::is_test_library_call_expr(call_expr, program) {
         nodes.push(MemberLikeExprItem::Node(call_expr.into()));
       } else {
         push_descendant_nodes_for_call_expr(call_expr.into(), nodes, program);
@@ -125,7 +125,7 @@ fn push_descendant_nodes_for_call_expr<'a>(call_expr: CallOrOptCallExpr<'a>, nod
   push_descendant_nodes(call_expr.callee().into(), nodes, program);
   let new_call_expr_callee = nodes.pop().unwrap();
   nodes.push(MemberLikeExprItem::CallExpr(Box::new(MemberLikeExprItemCallExpr {
-    original_call_expr: call_expr.into(),
+    original_call_expr: call_expr,
     callee: new_call_expr_callee,
   })));
 }

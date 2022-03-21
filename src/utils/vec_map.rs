@@ -18,10 +18,10 @@ impl<T> VecMap<T> {
   }
 
   pub fn get(&self, index: usize) -> Option<&T> {
-    self.inner.get(index).map(|value| value.as_ref()).flatten()
+    self.inner.get(index).and_then(|value| value.as_ref())
   }
 
   pub fn remove(&mut self, index: usize) -> Option<T> {
-    self.inner.get_mut(index).map(|value| value.take()).flatten()
+    self.inner.get_mut(index).and_then(|value| value.take())
   }
 }

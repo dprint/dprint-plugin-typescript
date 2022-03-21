@@ -3578,11 +3578,11 @@ fn gen_string_literal<'a>(node: &'a Str, context: &mut Context<'a>) -> PrintItem
     }
 
     fn format_with_double(string_value: String) -> String {
-      format!("\"{}\"", string_value.replace("\"", "\\\""))
+      format!("\"{}\"", string_value.replace('"', "\\\""))
     }
 
     fn format_with_single(string_value: String) -> String {
-      format!("'{}'", string_value.replace("'", "\\'"))
+      format!("'{}'", string_value.replace('\'', "\\'"))
     }
 
     fn double_to_single(string_value: &str) -> i32 {
