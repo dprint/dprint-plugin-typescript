@@ -1,7 +1,6 @@
 use super::resolve_config::resolve_config;
 use super::types::*;
 use dprint_core::configuration::*;
-use std::collections::HashMap;
 
 /// TypeScript formatting configuration builder.
 ///
@@ -35,7 +34,7 @@ impl ConfigurationBuilder {
     if let Some(global_config) = &self.global_config {
       resolve_config(self.config.clone(), global_config).config
     } else {
-      let global_config = resolve_global_config(HashMap::new(), &Default::default()).config;
+      let global_config = resolve_global_config(ConfigKeyMap::new(), &Default::default()).config;
       resolve_config(self.config.clone(), &global_config).config
     }
   }
@@ -1116,7 +1115,7 @@ mod tests {
 
     let inner_config = config.get_inner_config();
     assert_eq!(inner_config.len(), 155);
-    let diagnostics = resolve_config(inner_config, &resolve_global_config(HashMap::new(), &Default::default()).config).diagnostics;
+    let diagnostics = resolve_config(inner_config, &resolve_global_config(ConfigKeyMap::new(), &Default::default()).config).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }
 }

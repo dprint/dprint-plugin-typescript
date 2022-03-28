@@ -222,30 +222,32 @@ dependencies = [
 
 [[package]]
 name = "dprint-core"
-version = "0.50.1"
+version = "0.54.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea55f574487c4afa1db9d9478c31b0b76616288cf757824cea5655df053be4d0"
+checksum = "4ac67835685dd407cfb415eec8a114bafa6ab6de9bad29ba93d29f874f40bc1a"
 dependencies = [
  "anyhow",
  "bumpalo",
+ "indexmap",
  "rustc-hash",
  "serde",
 ]
 
 [[package]]
 name = "dprint-development"
-version = "0.6.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a22cc5fdf064075afcbeecda77e61abd1b65ccaf00fe66f5035a41dbe92a1f4"
+checksum = "2f4d150ee861fd47009f4663b2bc2935886dee976a7ad168afa785098bc5896e"
 dependencies = [
  "anyhow",
  "console",
+ "indexmap",
  "similar",
 ]
 
 [[package]]
 name = "dprint-plugin-typescript"
-version = "0.65.1"
+version = "0.66.0"
 dependencies = [
  "anyhow",
  "debug-here",
@@ -363,6 +365,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "78cc372d058dcf6d5ecd98510e7fbc9e5aec4d21de70f65fea8fecebcd881bd4"
 
 [[package]]
+name = "hashbrown"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab5ef0d4909ef3724cc8cce6ccc8572c5c817592e9285f5464f8e86f8bd3726e"
+
+[[package]]
 name = "ident_case"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -377,6 +385,17 @@ dependencies = [
  "matches",
  "unicode-bidi",
  "unicode-normalization",
+]
+
+[[package]]
+name = "indexmap"
+version = "1.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "282a6247722caba404c065016bbfa522806e51714c34f5dfc3e4a3a46fcb4223"
+dependencies = [
+ "autocfg",
+ "hashbrown",
+ "serde",
 ]
 
 [[package]]

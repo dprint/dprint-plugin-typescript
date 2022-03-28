@@ -38,9 +38,9 @@ use super::swc::parse_swc_ast;
 ///     // save result here...
 /// }
 /// ```
-pub fn format_text(file_path: &Path, file_text: &str, config: &Configuration) -> Result<String> {
+pub fn format_text(file_path: &Path, file_text: &str, config: &Configuration) -> Result<Option<String>> {
   if super::utils::file_text_has_ignore_comment(file_text, &config.ignore_file_comment_text) {
-    Ok(String::from(file_text))
+    Ok(None)
   } else {
     let parsed_source = parse_swc_ast(file_path, file_text)?;
     inner_format(&parsed_source, config)
@@ -48,18 +48,18 @@ pub fn format_text(file_path: &Path, file_text: &str, config: &Configuration) ->
 }
 
 /// Formats an already parsed source. This is useful as a performance optimization.
-pub fn format_parsed_source(source: &ParsedSource, config: &Configuration) -> Result<String> {
+pub fn format_parsed_source(source: &ParsedSource, config: &Configuration) -> Result<Option<String>> {
   if super::utils::file_text_has_ignore_comment(source.source().text_str(), &config.ignore_file_comment_text) {
-    Ok(source.source().text_str().to_string())
+    Ok(None)
   } else {
     inner_format(source, config)
   }
 }
 
-fn inner_format(parsed_source: &ParsedSource, config: &Configuration) -> Result<String> {
+fn inner_format(parsed_source: &ParsedSource, config: &Configuration) -> Result<Option<String>> {
   ensure_no_specific_syntax_errors(parsed_source)?;
 
-  Ok(dprint_core::formatting::format(
+  let result = dprint_core::formatting::format(
     || {
       #[allow(clippy::let_and_return)]
       let print_items = generate(parsed_source, config);
@@ -67,7 +67,12 @@ fn inner_format(parsed_source: &ParsedSource, config: &Configuration) -> Result<
       print_items
     },
     config_to_print_options(parsed_source.source().text_str(), config),
-  ))
+  );
+  if result == parsed_source.source().text_str() {
+    Ok(None)
+  } else {
+    Ok(Some(result))
+  }
 }
 
 #[cfg(feature = "tracing")]

@@ -3,8 +3,7 @@ extern crate dprint_plugin_typescript;
 
 //#[macro_use] extern crate debug_here;
 
-use std::collections::HashMap;
-use std::fs::{self};
+use std::fs;
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -32,7 +31,7 @@ fn test_performance() {
     println!("---");
 
     if i == 0 {
-      fs::write("tests/performance/checker_output.txt", result).expect("Expected to write to the file.");
+      fs::write("tests/performance/checker_output.txt", result.as_deref().unwrap_or(&file_text)).expect("Expected to write to the file.");
     }
   }
 }
@@ -40,7 +39,7 @@ fn test_performance() {
 #[test]
 fn test_specs() {
   //debug_here!();
-  let global_config = resolve_global_config(HashMap::new(), &Default::default()).config;
+  let global_config = GlobalConfiguration::default();
 
   run_specs(
     &PathBuf::from("./tests/specs"),
