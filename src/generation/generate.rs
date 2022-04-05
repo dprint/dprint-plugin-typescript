@@ -1537,18 +1537,22 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> Pr
 
       items.extend(generated_body.into());
     } else {
-      let start_body_info = Info::new("startBody");
-      let end_body_info = Info::new("endBody");
-      items.push_info(start_body_info);
+      let start_body_ln = LineNumber::new("startBody");
+      let end_body_ln = LineNumber::new("endBody");
+      items.push_line_number(start_body_ln);
 
       if should_not_newline_after_arrow(&node.body, context) {
         items.push_str(" ");
       } else {
+        // todo: uncomment this? I was making a lot of changes so didn't want to do it yet
+        // items.extend(actions::if_column_number_changes(move |context| {
+        //   context.clear_line_number(end_body_ln);
+        // }));
         items.push_condition(conditions::if_above_width_or(
           context.config.indent_width,
           if_true_or(
             "newlineOrSpace",
-            Rc::new(move |context| condition_helpers::is_multiple_lines_delete(context, &start_body_info, &end_body_info)),
+            Rc::new(move |context| condition_helpers::is_multiple_lines(context, start_body_ln, end_body_ln)),
             Signal::NewLine.into(),
             Signal::SpaceOrNewLine.into(),
           )
@@ -1558,7 +1562,7 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> Pr
       }
 
       items.push_condition(conditions::indent_if_start_of_line(generated_body.into()));
-      items.push_info(end_body_info);
+      items.push_line_number(end_body_ln);
     }
 
     items
@@ -1673,7 +1677,8 @@ fn gen_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintIte
       context.program,
     );
   let indent_width = context.config.indent_width;
-  let binary_expr_start_info = Info::new("binExprStartInfo");
+  let binary_expr_start_il = IndentLevel::new("binExprStart");
+  let binary_expr_start_isol = IsStartOfLine::new("binExprStart");
   let allow_no_indent = get_allow_no_indent(node);
   let use_space_surrounding_operator = get_use_space_surrounding_operator(&node.op(), context);
   let is_parent_bin_expr = node.parent().kind() == NodeKind::BinExpr;
@@ -1687,8 +1692,7 @@ fn gen_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintIte
       BoolOrCondition::Bool(false) // let the parent handle the indent
     } else {
       BoolOrCondition::Condition(Rc::new(move |condition_context| {
-        let binary_expr_start_info = condition_context.get_resolved_info(&binary_expr_start_info)?;
-        if allow_no_indent && binary_expr_start_info.is_start_of_line() {
+        if allow_no_indent && condition_context.get_resolved_is_start_of_line(binary_expr_start_isol)? {
           return Some(false);
         }
         Some(condition_context.writer_info.is_start_of_line())
@@ -1697,7 +1701,8 @@ fn gen_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintIte
     options
   };
 
-  items.push_info(binary_expr_start_info);
+  items.push_indent_level(binary_expr_start_il);
+  items.push_is_start_of_line(binary_expr_start_isol);
 
   items.extend(
     ir_helpers::gen_separated_values(
@@ -1760,11 +1765,11 @@ fn gen_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintIte
                 if_true_or(
                   "indentIfNecessary",
                   Rc::new(move |context| {
-                    let binary_expr_start_info = context.get_resolved_info(&binary_expr_start_info)?;
-                    if allow_no_indent && binary_expr_start_info.is_start_of_line() {
+                    if allow_no_indent && context.get_resolved_is_start_of_line(binary_expr_start_isol)? {
                       return Some(false);
                     }
-                    let is_hanging = binary_expr_start_info.indent_level < context.writer_info.indent_level;
+                    let binary_expr_start_il = context.get_resolved_indent_level(binary_expr_start_il)?;
+                    let is_hanging = binary_expr_start_il < context.writer_info.indent_level;
                     Some(!is_hanging)
                   }),
                   with_queued_indent(node_items.into()),
@@ -2028,7 +2033,7 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
       || node_helpers::get_use_new_lines_for_nodes(&node.cons, &node.alt, context.program));
   let operator_position = get_operator_position(node, operator_token, context);
   let top_most_data = get_top_most_data(node, context);
-  let before_alternate_info = Info::new("beforeAlternateInfo");
+  let before_alternate_info = Info::new("beforeAlternate");
   let end_info = Info::new("endConditionalExpression");
   let mut items = PrintItems::new();
 
@@ -3318,7 +3323,7 @@ fn gen_jsx_namespaced_name<'a>(node: &'a JSXNamespacedName, context: &mut Contex
 fn gen_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Context<'a>) -> PrintItems {
   let space_before_self_closing_tag_slash = context.config.jsx_element_space_before_self_closing_tag_slash;
   let force_use_new_lines = get_force_is_multi_line(node, context);
-  let start_info = Info::new("openingElementStartInfo");
+  let start_info = Info::new("openingElementStart");
   let mut items = PrintItems::new();
 
   items.push_info(start_info);
@@ -3837,7 +3842,7 @@ fn gen_class_or_object_method<'a>(node: ClassOrObjectMethod<'a>, context: &mut C
     items.extend(gen_decorators(decorators, false, context));
   }
 
-  let start_header_lsil = LineStartIndentLevel::new("methodStartHeaderInfo");
+  let start_header_lsil = LineStartIndentLevel::new("methodStartHeader");
   items.push_line_start_indent_level(start_header_lsil);
 
   if let Some(accessibility) = node.accessibility {
@@ -5565,8 +5570,8 @@ fn gen_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, context
           (allows_inline_multi_line(type_node.into(), context, types_count > 1), is_last_value)
         };
         let separator_token = context.token_finder.get_previous_token_if_operator(&type_node.span(), separator);
-        let start_info = Info::new("startInfo");
-        let after_separator_info = Info::new("afterSeparatorInfo");
+        let start_info = Info::new("start");
+        let after_separator_info = Info::new("afterSeparator");
         let mut items = PrintItems::new();
         items.push_info(start_info);
         if let Some(separator_token) = separator_token {
@@ -6208,7 +6213,7 @@ fn gen_statements<'a>(inner_span: Span, stmts: Vec<Node<'a>>, context: &mut Cont
         }
 
         let mut items = PrintItems::new();
-        let end_info = Info::new("endStatementInfo");
+        let end_info = Info::new("endStatement");
         context.end_statement_or_member_infos.push(end_info);
         items.extend(gen_node(node, context));
         items.push_info(end_info);
@@ -6389,7 +6394,7 @@ where
         }
       }
 
-      let end_info = Info::new("endMemberInfo");
+      let end_info = Info::new("endMember");
       context.end_statement_or_member_infos.push(end_info);
       items.extend(if let Some(print_items) = optional_print_items {
         print_items
@@ -7468,8 +7473,8 @@ struct GenConditionalBraceBodyResult {
 
 fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, context: &mut Context<'a>) -> GenConditionalBraceBodyResult {
   // todo: reorganize...
-  let start_lc = LineAndColumn::new("startInfo");
-  let end_ln = LineNumber::new("endInfo");
+  let start_lc = LineAndColumn::new("start");
+  let end_ln = LineNumber::new("end");
   let start_header_ln = opts.start_header_info.map(|v| v.0);
   let start_header_lsil = opts.start_header_info.map(|v| v.1);
   let end_header_ln = opts.end_header_info;
@@ -7824,8 +7829,8 @@ struct GenJsxWithOpeningAndClosingResult {
 
 fn gen_jsx_with_opening_and_closing<'a>(opts: GenJsxWithOpeningAndClosingOptions<'a>, context: &mut Context<'a>) -> GenJsxWithOpeningAndClosingResult {
   let force_use_multi_lines = get_force_use_multi_lines(&opts.opening_element, &opts.children, context);
-  let start_info = Info::new("startInfo");
-  let end_info = Info::new("endInfo");
+  let start_info = Info::new("start");
+  let end_info = Info::new("end");
   let mut items = PrintItems::new();
   let inner_span = create_span(opts.opening_element.hi(), opts.closing_element.lo());
 
@@ -8288,8 +8293,8 @@ fn gen_block<'a>(gen_inner: impl FnOnce(Vec<Node<'a>>, &mut Context<'a>) -> Prin
   items.extend(gen_surrounded_by_tokens(
     |context| {
       let mut items = PrintItems::new();
-      let start_inner_info = Info::new("startStatementsInfo");
-      let end_inner_info = Info::new("endStatementsInfo");
+      let start_inner_info = Info::new("startStatements");
+      let end_inner_info = Info::new("endStatements");
       let is_tokens_same_line_and_empty = if let Some(span) = &span {
         span.start_line_fast(context.program) == span.end_line_fast(context.program) && opts.children.is_empty()
       } else {
