@@ -113,9 +113,10 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
     items.extend(gen_comments_as_trailing(&node_span, trailing_comments, context));
   }
 
-  let items = if let Some(info) = context.take_current_before_comments_start_info() {
+  let items = if let Some((ln, isol)) = context.take_current_before_comments_start_info() {
     let mut new_items = PrintItems::new();
-    new_items.push_info(info);
+    new_items.push_line_number(ln);
+    new_items.push_is_start_of_line(isol);
     new_items.extend(items);
     new_items
   } else {
@@ -645,15 +646,15 @@ fn gen_class_prop_common<'a>(node: GenClassPropCommon<'a>, context: &mut Context
 
 fn gen_static_block<'a>(node: &'a StaticBlock, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  let start_header_info = Info::new("staticBlockStart");
-  items.push_info(start_header_info);
+  let start_header_lsil = LineStartIndentLevel::new("staticBlockStart");
+  items.push_line_start_indent_level(start_header_lsil);
   items.push_str("static");
 
   items.extend(gen_brace_separator(
     GenBraceSeparatorOptions {
       brace_position: context.config.static_block_brace_position,
       open_brace_token: context.token_finder.get_first_open_brace_token_within(&node.body),
-      start_header_info: Some(start_header_info),
+      start_header_lsil: Some(start_header_lsil),
     },
     context,
   ));
@@ -667,6 +668,7 @@ fn gen_static_block<'a>(node: &'a StaticBlock, context: &mut Context<'a>) -> Pri
 fn gen_catch_clause<'a>(node: &'a CatchClause, context: &mut Context<'a>) -> PrintItems {
   // a bit overkill since the param will currently always just be an identifer
   let start_header_info = Info::new("catchClauseHeaderStart");
+  let start_header_lsil = LineStartIndentLevel::new("catchClauseHeaderStart");
   let end_header_info = Info::new("catchClauseHeaderEnd");
   let mut items = PrintItems::new();
 
@@ -698,7 +700,7 @@ fn gen_catch_clause<'a>(node: &'a CatchClause, context: &mut Context<'a>) -> Pri
         single_body_position,
         requires_braces_condition_ref: None,
         header_start_token: None,
-        start_header_info: Some(start_header_info),
+        start_header_info: Some((start_header_info, start_header_lsil)),
         end_header_info: Some(end_header_info),
       },
       context,
@@ -788,7 +790,7 @@ struct ClassDeclOrExpr<'a> {
 
 fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  let start_before_owned_comments_info = context.get_or_create_current_before_comments_start_info();
+  let (start_before_owned_comments_ln, start_before_owned_comments_isol) = context.get_or_create_current_before_comments_start_info();
 
   // generate decorators
   let parent_kind = node.node.parent().unwrap().kind();
@@ -797,8 +799,10 @@ fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'
   }
 
   // generate header and body
-  let start_header_info = Info::new("startHeader");
-  items.push_info(start_header_info);
+  let start_header_lsil = LineStartIndentLevel::new("startHeader");
+  items.push_line_start_indent_level(start_header_lsil);
+  let start_header_ln = LineNumber::new("startHeader");
+  items.push_line_number(start_header_ln);
 
   if node.is_declare {
     items.push_str("declare ");
@@ -819,8 +823,8 @@ fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'
   if let Some(super_class) = node.super_class {
     items.push_condition(conditions::new_line_if_hanging_space_otherwise(
       conditions::NewLineIfHangingSpaceOtherwiseOptions {
-        start_info: start_header_info,
-        end_info: None,
+        start_lsil: start_header_lsil,
+        end_lsil: None,
         space_char: Some(conditions::if_above_width_or(context.config.indent_width, Signal::SpaceOrNewLine.into(), " ".into()).into()),
       },
     ));
@@ -842,7 +846,7 @@ fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'
     GenExtendsOrImplementsOptions {
       text: "implements",
       type_items: node.implements,
-      start_header_info,
+      start_header_lsil,
       prefer_hanging: context.config.implements_clause_prefer_hanging,
     },
     context,
@@ -851,7 +855,7 @@ fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'
     GenMemberedBodyOptions {
       node: node.member_node,
       members: node.members,
-      start_header_info: Some(start_header_info),
+      start_header_lsil: Some(start_header_lsil),
       brace_position: node.brace_position,
       should_use_blank_line: move |previous, next, context| node_helpers::has_separating_blank_line(previous, next, context.program),
       separator: Separator::none(),
@@ -864,11 +868,10 @@ fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'
     if_true_or(
       "classExprConditionalIndent",
       Rc::new(move |context| {
-        let resolved_start_before_comments_info = context.get_resolved_info(&start_before_owned_comments_info)?;
-        if resolved_start_before_comments_info.is_start_of_line() {
+        if context.get_resolved_is_start_of_line(start_before_owned_comments_isol)? {
           Some(false)
         } else {
-          condition_helpers::is_multiple_lines(context, &start_before_owned_comments_info, &start_header_info)
+          condition_helpers::is_multiple_lines(context, start_before_owned_comments_ln, start_header_ln)
         }
       }),
       with_indent(items.into()),
@@ -911,11 +914,11 @@ fn gen_export_default_specifier<'a>(node: &'a ExportDefaultSpecifier, context: &
 }
 
 fn gen_enum_decl<'a>(node: &'a TsEnumDecl, context: &mut Context<'a>) -> PrintItems {
-  let start_header_info = Info::new("startHeader");
+  let start_header_lsil = LineStartIndentLevel::new("startHeader");
   let mut items = PrintItems::new();
 
   // header
-  items.push_info(start_header_info);
+  items.push_line_start_indent_level(start_header_lsil);
 
   if node.declare() {
     items.push_str("declare ");
@@ -932,7 +935,7 @@ fn gen_enum_decl<'a>(node: &'a TsEnumDecl, context: &mut Context<'a>) -> PrintIt
     GenMemberedBodyOptions {
       node: node.into(),
       members: node.members.iter().map(|&x| x.into()).collect(),
-      start_header_info: Some(start_header_info),
+      start_header_lsil: Some(start_header_lsil),
       brace_position: context.config.enum_declaration_brace_position,
       should_use_blank_line: move |previous, next, context| match member_spacing {
         MemberSpacing::BlankLine => true,
@@ -1043,11 +1046,11 @@ struct FunctionDeclOrExprNode<'a> {
 
 fn gen_function_decl_or_expr<'a>(node: FunctionDeclOrExprNode<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  let start_header_info = Info::new("functionHeaderStart");
+  let start_header_lsil = LineStartIndentLevel::new("functionHeaderStart");
   let func = node.func;
   let space_after_function_keyword = !node.is_func_decl && context.config.function_expression_space_after_function_keyword;
 
-  items.push_info(start_header_info);
+  items.push_line_start_indent_level(start_header_lsil);
   if node.declare {
     items.push_str("declare ");
   }
@@ -1085,7 +1088,7 @@ fn gen_function_decl_or_expr<'a>(node: FunctionDeclOrExprNode<'a>, context: &mut
       custom_close_paren: |context| {
         Some(gen_close_paren_with_type(
           GenCloseParenWithTypeOptions {
-            start_info: start_header_info,
+            start_lsil: start_header_lsil,
             type_node: func.return_type.map(|x| x.into()),
             type_node_separator: None,
             param_count: func.params.len(),
@@ -1110,7 +1113,7 @@ fn gen_function_decl_or_expr<'a>(node: FunctionDeclOrExprNode<'a>, context: &mut
       GenBraceSeparatorOptions {
         brace_position,
         open_brace_token,
-        start_header_info: Some(start_header_info),
+        start_header_lsil: Some(start_header_lsil),
       },
       context,
     ));
@@ -1235,9 +1238,9 @@ fn gen_import_equals_decl<'a>(node: &'a TsImportEqualsDecl, context: &mut Contex
 
 fn gen_interface_decl<'a>(node: &'a TsInterfaceDecl, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  let start_header_info = Info::new("startHeader");
-  items.push_info(start_header_info);
-  context.store_info_for_node(node, start_header_info);
+  let start_header_lsil = LineStartIndentLevel::new("startHeader");
+  items.push_line_start_indent_level(start_header_lsil);
+  context.store_lsil_for_node(node, start_header_lsil);
 
   if node.declare() {
     items.push_str("declare ");
@@ -1251,7 +1254,7 @@ fn gen_interface_decl<'a>(node: &'a TsInterfaceDecl, context: &mut Context<'a>) 
     GenExtendsOrImplementsOptions {
       text: "extends",
       type_items: node.extends.iter().map(|&x| x.into()).collect(),
-      start_header_info,
+      start_header_lsil,
       prefer_hanging: context.config.extends_clause_prefer_hanging,
     },
     context,
@@ -1295,8 +1298,8 @@ struct ModuleOrNamespaceDecl<'a> {
 fn gen_module_or_namespace_decl<'a>(node: ModuleOrNamespaceDecl<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
-  let start_header_info = Info::new("startHeader");
-  items.push_info(start_header_info);
+  let start_header_lsil = LineStartIndentLevel::new("startHeader");
+  items.push_line_start_indent_level(start_header_lsil);
 
   if node.declare {
     items.push_str("declare ");
@@ -1308,11 +1311,11 @@ fn gen_module_or_namespace_decl<'a>(node: ModuleOrNamespaceDecl<'a>, context: &m
   }
 
   items.extend(gen_node(node.id, context));
-  items.extend(gen_body(node.body, start_header_info, context));
+  items.extend(gen_body(node.body, start_header_lsil, context));
 
   return items;
 
-  fn gen_body<'a>(body: Option<&TsNamespaceBody<'a>>, start_header_info: Info, context: &mut Context<'a>) -> PrintItems {
+  fn gen_body<'a>(body: Option<&TsNamespaceBody<'a>>, start_header_lsil: LineStartIndentLevel, context: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
     if let Some(body) = body {
       match body {
@@ -1321,7 +1324,7 @@ fn gen_module_or_namespace_decl<'a>(node: ModuleOrNamespaceDecl<'a>, context: &m
             GenMemberedBodyOptions {
               node: (*block).into(),
               members: block.body.iter().map(|x| x.into()).collect(),
-              start_header_info: Some(start_header_info),
+              start_header_lsil: Some(start_header_lsil),
               brace_position: context.config.module_declaration_brace_position,
               should_use_blank_line: move |previous, next, context| node_helpers::has_separating_blank_line(previous, next, context.program),
               separator: Separator::none(),
@@ -1332,7 +1335,7 @@ fn gen_module_or_namespace_decl<'a>(node: ModuleOrNamespaceDecl<'a>, context: &m
         TsNamespaceBody::TsNamespaceDecl(decl) => {
           items.push_str(".");
           items.extend(gen_node(decl.id.into(), context));
-          items.extend(gen_body(Some(&decl.body), start_header_info, context));
+          items.extend(gen_body(Some(&decl.body), start_header_lsil, context));
         }
       }
     } else if context.config.semi_colons.is_true() {
@@ -1448,12 +1451,12 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> Pr
   };
 
   fn gen_inner<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> PrintItems {
-    let header_start_info = Info::new("arrowFunctionExpressionHeaderStart");
+    let header_start_lsil = LineStartIndentLevel::new("arrowFunctionExpressionHeaderStart");
     let header_items = {
       let mut items = PrintItems::new();
       let should_use_parens = get_should_use_parens(node, context);
 
-      items.push_info(header_start_info);
+      items.push_line_start_indent_level(header_start_lsil);
       if node.is_async() {
         items.push_str("async ");
       }
@@ -1472,7 +1475,7 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> Pr
               custom_close_paren: |context| {
                 Some(gen_close_paren_with_type(
                   GenCloseParenWithTypeOptions {
-                    start_info: header_start_info,
+                    start_lsil: header_start_lsil,
                     type_node: node.return_type.map(|x| x.into()),
                     type_node_separator: None,
                     param_count: node.params.len(),
@@ -1527,7 +1530,7 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> Pr
         GenBraceSeparatorOptions {
           brace_position: context.config.arrow_function_brace_position,
           open_brace_token,
-          start_header_info: Some(header_start_info),
+          start_header_lsil: Some(header_start_lsil),
         },
         context,
       ));
@@ -1545,7 +1548,7 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> Pr
           context.config.indent_width,
           if_true_or(
             "newlineOrSpace",
-            Rc::new(move |context| condition_helpers::is_multiple_lines(context, &start_body_info, &end_body_info)),
+            Rc::new(move |context| condition_helpers::is_multiple_lines_delete(context, &start_body_info, &end_body_info)),
             Signal::NewLine.into(),
             Signal::SpaceOrNewLine.into(),
           )
@@ -2813,9 +2816,9 @@ fn gen_external_module_ref<'a>(node: &'a TsExternalModuleRef, context: &mut Cont
 
 fn gen_call_signature_decl<'a>(node: &'a TsCallSignatureDecl, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  let start_info = Info::new("startCallSignature");
+  let start_lsil = LineStartIndentLevel::new("startCallSignature");
 
-  items.push_info(start_info);
+  items.push_line_start_indent_level(start_lsil);
   if let Some(type_params) = node.type_params {
     items.extend(gen_node(type_params.into(), context));
   }
@@ -2827,7 +2830,7 @@ fn gen_call_signature_decl<'a>(node: &'a TsCallSignatureDecl, context: &mut Cont
       custom_close_paren: |context| {
         Some(gen_close_paren_with_type(
           GenCloseParenWithTypeOptions {
-            start_info,
+            start_lsil,
             type_node: node.type_ann.map(|x| x.into()),
             type_node_separator: None,
             param_count: node.params.len(),
@@ -2845,9 +2848,9 @@ fn gen_call_signature_decl<'a>(node: &'a TsCallSignatureDecl, context: &mut Cont
 
 fn gen_construct_signature_decl<'a>(node: &'a TsConstructSignatureDecl, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  let start_info = Info::new("startConstructSignature");
+  let start_lsil = LineStartIndentLevel::new("startConstructSignature");
 
-  items.push_info(start_info);
+  items.push_line_start_indent_level(start_lsil);
   items.push_str("new");
   if context.config.construct_signature_space_after_new_keyword {
     items.push_str(" ");
@@ -2863,7 +2866,7 @@ fn gen_construct_signature_decl<'a>(node: &'a TsConstructSignatureDecl, context:
       custom_close_paren: |context| {
         Some(gen_close_paren_with_type(
           GenCloseParenWithTypeOptions {
-            start_info,
+            start_lsil,
             type_node: node.type_ann.map(|x| x.into()),
             type_node_separator: None,
             param_count: node.params.len(),
@@ -2937,8 +2940,8 @@ struct MethodSignatureLike<'a> {
 
 fn gen_method_signature_like<'a>(node: MethodSignatureLike<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  let start_info = Info::new("startMethodSignature");
-  items.push_info(start_info);
+  let start_lsil = LineStartIndentLevel::new("startMethodSignature");
+  items.push_line_start_indent_level(start_lsil);
 
   match node.method_kind {
     MethodSignatureLikeKind::Getter => items.push_str("get "),
@@ -2976,7 +2979,7 @@ fn gen_method_signature_like<'a>(node: MethodSignatureLike<'a>, context: &mut Co
         move |context| {
           Some(gen_close_paren_with_type(
             GenCloseParenWithTypeOptions {
-              start_info,
+              start_lsil,
               type_node,
               type_node_separator: None,
               param_count,
@@ -3024,13 +3027,13 @@ fn gen_property_signature<'a>(node: &'a TsPropertySignature, context: &mut Conte
 }
 
 fn gen_interface_body<'a>(node: &'a TsInterfaceBody, context: &mut Context<'a>) -> PrintItems {
-  let start_header_info = get_parent_info(node, context);
+  let start_header_lsil = get_parent_lsil(node, context);
 
   return gen_membered_body(
     GenMemberedBodyOptions {
       node: node.into(),
       members: node.body.iter().map(|x| x.into()).collect(),
-      start_header_info,
+      start_header_lsil,
       brace_position: context.config.interface_declaration_brace_position,
       should_use_blank_line: move |previous, next, context| node_helpers::has_separating_blank_line(previous, next, context.program),
       separator: context.config.semi_colons.into(),
@@ -3038,10 +3041,10 @@ fn gen_interface_body<'a>(node: &'a TsInterfaceBody, context: &mut Context<'a>) 
     context,
   );
 
-  fn get_parent_info(node: &TsInterfaceBody, context: &mut Context) -> Option<Info> {
+  fn get_parent_lsil(node: &TsInterfaceBody, context: &mut Context) -> Option<LineStartIndentLevel> {
     for ancestor in node.ancestors() {
       if let Node::TsInterfaceDecl(ancestor) = ancestor {
-        return context.get_info_for_node(ancestor).map(|x| x.to_owned());
+        return context.get_lsil_for_node(ancestor).map(|x| x.to_owned());
       }
     }
     None
@@ -3136,7 +3139,7 @@ fn handle_jsx_surrounding_parens(inner_items: PrintItems, context: &mut Context<
       if context.has_info_moved(&start_info)? {
         context.clear_info(&end_info);
       }
-      condition_helpers::is_multiple_lines(context, &start_info, &end_info)
+      condition_helpers::is_multiple_lines_delete(context, &start_info, &end_info)
     }),
     surround_with_parens(surround_with_new_lines(with_indent(inner_items_rc.into()))),
     {
@@ -3836,8 +3839,8 @@ fn gen_class_or_object_method<'a>(node: ClassOrObjectMethod<'a>, context: &mut C
     items.extend(gen_decorators(decorators, false, context));
   }
 
-  let start_header_info = Info::new("methodStartHeaderInfo");
-  items.push_info(start_header_info);
+  let start_header_lsil = LineStartIndentLevel::new("methodStartHeaderInfo");
+  items.push_line_start_indent_level(start_header_lsil);
 
   if let Some(accessibility) = node.accessibility {
     items.push_string(format!("{} ", accessibility_to_str(accessibility)));
@@ -3886,7 +3889,7 @@ fn gen_class_or_object_method<'a>(node: ClassOrObjectMethod<'a>, context: &mut C
         move |context| {
           Some(gen_close_paren_with_type(
             GenCloseParenWithTypeOptions {
-              start_info: start_header_info,
+              start_lsil: start_header_lsil,
               type_node: return_type,
               type_node_separator: None,
               param_count,
@@ -3906,7 +3909,7 @@ fn gen_class_or_object_method<'a>(node: ClassOrObjectMethod<'a>, context: &mut C
       GenBraceSeparatorOptions {
         brace_position,
         open_brace_token: context.token_finder.get_first_open_brace_token_within(&body),
-        start_header_info: Some(start_header_info),
+        start_header_lsil: Some(start_header_lsil),
       },
       context,
     ));
@@ -4010,7 +4013,7 @@ fn gen_do_while_stmt<'a>(node: &'a DoWhileStmt, context: &mut Context<'a>) -> Pr
       } else {
         None
       },
-      start_header_info: None,
+      start_header_lsil: None,
     },
     context,
   ));
@@ -4157,6 +4160,7 @@ fn gen_expr_stmt<'a>(stmt: &'a ExprStmt, context: &mut Context<'a>) -> PrintItem
 
 fn gen_for_stmt<'a>(node: &'a ForStmt, context: &mut Context<'a>) -> PrintItems {
   let start_header_info = Info::new("startHeader");
+  let start_header_lsil = LineStartIndentLevel::new("startHeader");
   let end_header_info = Info::new("endHeader");
   let first_inner_node = {
     if let Some(init) = &node.init {
@@ -4200,6 +4204,7 @@ fn gen_for_stmt<'a>(node: &'a ForStmt, context: &mut Context<'a>) -> PrintItems 
   let force_use_new_lines = get_use_new_lines(&first_inner_node, context);
   let mut items = PrintItems::new();
   items.push_info(start_header_info);
+  items.push_line_start_indent_level(start_header_lsil);
   items.push_str("for");
   if context.config.for_statement_space_after_for_keyword {
     items.push_str(" ");
@@ -4279,7 +4284,7 @@ fn gen_for_stmt<'a>(node: &'a ForStmt, context: &mut Context<'a>) -> PrintItems 
         single_body_position: Some(context.config.for_statement_single_body_position),
         requires_braces_condition_ref: None,
         header_start_token: None,
-        start_header_info: Some(start_header_info),
+        start_header_info: Some((start_header_info, start_header_lsil)),
         end_header_info: Some(end_header_info),
       },
       context,
@@ -4305,9 +4310,11 @@ fn gen_for_stmt<'a>(node: &'a ForStmt, context: &mut Context<'a>) -> PrintItems 
 
 fn gen_for_in_stmt<'a>(node: &'a ForInStmt, context: &mut Context<'a>) -> PrintItems {
   let start_header_info = Info::new("startHeader");
+  let start_header_lsil = LineStartIndentLevel::new("startHeader");
   let end_header_info = Info::new("endHeader");
   let mut items = PrintItems::new();
   items.push_info(start_header_info);
+  items.push_line_start_indent_level(start_header_lsil);
   items.push_str("for");
   if context.config.for_in_statement_space_after_for_keyword {
     items.push_str(" ");
@@ -4345,7 +4352,7 @@ fn gen_for_in_stmt<'a>(node: &'a ForInStmt, context: &mut Context<'a>) -> PrintI
         single_body_position: Some(context.config.for_in_statement_single_body_position),
         requires_braces_condition_ref: None,
         header_start_token: None,
-        start_header_info: Some(start_header_info),
+        start_header_info: Some((start_header_info, start_header_lsil)),
         end_header_info: Some(end_header_info),
       },
       context,
@@ -4358,9 +4365,11 @@ fn gen_for_in_stmt<'a>(node: &'a ForInStmt, context: &mut Context<'a>) -> PrintI
 
 fn gen_for_of_stmt<'a>(node: &'a ForOfStmt, context: &mut Context<'a>) -> PrintItems {
   let start_header_info = Info::new("startHeader");
+  let start_header_lsil = LineStartIndentLevel::new("startHeader");
   let end_header_info = Info::new("endHeader");
   let mut items = PrintItems::new();
   items.push_info(start_header_info);
+  items.push_line_start_indent_level(start_header_lsil);
   items.push_str("for");
   if context.config.for_of_statement_space_after_for_keyword {
     items.push_str(" ");
@@ -4402,7 +4411,7 @@ fn gen_for_of_stmt<'a>(node: &'a ForOfStmt, context: &mut Context<'a>) -> PrintI
         single_body_position: Some(context.config.for_of_statement_single_body_position),
         requires_braces_condition_ref: None,
         header_start_token: None,
-        start_header_info: Some(start_header_info),
+        start_header_info: Some((start_header_info, start_header_lsil)),
         end_header_info: Some(end_header_info),
       },
       context,
@@ -4481,7 +4490,9 @@ fn gen_if_stmt<'a>(node: &'a IfStmt, context: &mut Context<'a>) -> PrintItems {
     items.extend(gen_leading_comments(&alt, context));
 
     let start_else_header_info = Info::new("startElseHeader");
+    let start_else_header_lsil = LineStartIndentLevel::new("startElseHeader");
     items.push_info(start_else_header_info);
+    items.push_line_start_indent_level(start_else_header_lsil);
     items.push_str("else");
 
     if let Stmt::If(alt) = alt {
@@ -4498,7 +4509,7 @@ fn gen_if_stmt<'a>(node: &'a IfStmt, context: &mut Context<'a>) -> PrintItems {
             single_body_position: Some(context.config.if_statement_single_body_position),
             requires_braces_condition_ref: Some(result.open_brace_condition_ref),
             header_start_token: Some(else_keyword),
-            start_header_info: Some(start_else_header_info),
+            start_header_info: Some((start_else_header_info, start_else_header_lsil)),
             end_header_info: None,
           },
           context,
@@ -4542,9 +4553,9 @@ fn gen_return_stmt<'a>(node: &'a ReturnStmt, context: &mut Context<'a>) -> Print
 }
 
 fn gen_switch_stmt<'a>(node: &'a SwitchStmt, context: &mut Context<'a>) -> PrintItems {
-  let start_header_info = Info::new("startHeader");
+  let start_header_lsil = LineStartIndentLevel::new("startHeader");
   let mut items = PrintItems::new();
-  items.push_info(start_header_info);
+  items.push_line_start_indent_level(start_header_lsil);
   items.push_str("switch ");
   items.extend(gen_node_in_parens(
     |context| gen_node(node.discriminant.into(), context),
@@ -4559,7 +4570,7 @@ fn gen_switch_stmt<'a>(node: &'a SwitchStmt, context: &mut Context<'a>) -> Print
     GenMemberedBodyOptions {
       node: node.into(),
       members: node.cases.iter().map(|&x| x.into()).collect(),
-      start_header_info: Some(start_header_info),
+      start_header_lsil: Some(start_header_lsil),
       brace_position: context.config.switch_statement_brace_position,
       should_use_blank_line: |previous, next, context| {
         // do not put a blank line when the previous case has no body
@@ -4604,7 +4615,7 @@ fn gen_switch_case<'a>(node: &'a SwitchCase, context: &mut Context<'a>) -> Print
         GenBraceSeparatorOptions {
           brace_position: context.config.switch_case_brace_position,
           open_brace_token: context.token_finder.get_first_open_brace_token_within(&block_stmt_body),
-          start_header_info: None,
+          start_header_lsil: None,
         },
         context,
       ));
@@ -4842,9 +4853,11 @@ fn gen_var_declarator<'a>(node: &'a VarDeclarator, context: &mut Context<'a>) ->
 
 fn gen_while_stmt<'a>(node: &'a WhileStmt, context: &mut Context<'a>) -> PrintItems {
   let start_header_info = Info::new("startHeader");
+  let start_header_lsil = LineStartIndentLevel::new("startHeader");
   let end_header_info = Info::new("endHeader");
   let mut items = PrintItems::new();
   items.push_info(start_header_info);
+  items.push_line_start_indent_level(start_header_lsil);
   items.push_str("while");
   if context.config.while_statement_space_after_while_keyword {
     items.push_str(" ");
@@ -4869,7 +4882,7 @@ fn gen_while_stmt<'a>(node: &'a WhileStmt, context: &mut Context<'a>) -> PrintIt
         single_body_position: Some(context.config.while_statement_single_body_position),
         requires_braces_condition_ref: None,
         header_start_token: None,
-        start_header_info: Some(start_header_info),
+        start_header_info: Some((start_header_info, start_header_lsil)),
         end_header_info: Some(end_header_info),
       },
       context,
@@ -4986,9 +4999,9 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
 }
 
 fn gen_constructor_type<'a>(node: &'a TsConstructorType, context: &mut Context<'a>) -> PrintItems {
-  let start_info = Info::new("startConstructorType");
+  let start_lsil = LineStartIndentLevel::new("startConstructorType");
   let mut items = PrintItems::new();
-  items.push_info(start_info);
+  items.push_line_start_indent_level(start_lsil);
   if node.is_abstract() {
     items.push_str("abstract ");
   }
@@ -5008,7 +5021,7 @@ fn gen_constructor_type<'a>(node: &'a TsConstructorType, context: &mut Context<'
       custom_close_paren: |context| {
         Some(gen_close_paren_with_type(
           GenCloseParenWithTypeOptions {
-            start_info,
+            start_lsil,
             type_node: Some(node.type_ann.into()),
             type_node_separator: Some({
               let mut items = PrintItems::new();
@@ -5031,7 +5044,7 @@ fn gen_constructor_type<'a>(node: &'a TsConstructorType, context: &mut Context<'
 }
 
 fn gen_function_type<'a>(node: &'a TsFnType, context: &mut Context<'a>) -> PrintItems {
-  let start_info = Info::new("startFunctionType");
+  let start_lsil = LineStartIndentLevel::new("startFunctionType");
   let mut items = PrintItems::new();
   let mut indent_after_arrow_condition = if_true(
     "indentIfIsStartOfLineAfterArrow",
@@ -5040,7 +5053,7 @@ fn gen_function_type<'a>(node: &'a TsFnType, context: &mut Context<'a>) -> Print
   );
   let indent_after_arrow_condition_ref = indent_after_arrow_condition.get_reference();
 
-  items.push_info(start_info);
+  items.push_line_start_indent_level(start_lsil);
   if let Some(type_params) = node.type_params {
     items.extend(gen_node(type_params.into(), context));
   }
@@ -5052,7 +5065,7 @@ fn gen_function_type<'a>(node: &'a TsFnType, context: &mut Context<'a>) -> Print
       custom_close_paren: |context| {
         Some(gen_close_paren_with_type(
           GenCloseParenWithTypeOptions {
-            start_info,
+            start_lsil,
             type_node: Some(node.type_ann.into()),
             type_node_separator: {
               let mut items = PrintItems::new();
@@ -5195,7 +5208,7 @@ fn gen_mapped_type<'a>(node: &'a TsMappedType, context: &mut Context<'a>) -> Pri
       let is_different_line_than_start = if force_use_new_lines {
         condition_resolvers::true_resolver()
       } else {
-        Rc::new(move |context: &mut ConditionResolverContext| condition_helpers::is_on_different_line(context, &start_info))
+        Rc::new(move |context: &mut ConditionResolverContext| condition_helpers::is_on_different_line_delete(context, &start_info))
       };
       let inner_items = {
         let mut items = PrintItems::new();
@@ -6098,7 +6111,7 @@ where
 {
   node: Node<'a>,
   members: Vec<Node<'a>>,
-  start_header_info: Option<Info>,
+  start_header_lsil: Option<LineStartIndentLevel>,
   brace_position: BracePosition,
   should_use_blank_line: FShouldUseBlankLine,
   separator: Separator,
@@ -6124,7 +6137,7 @@ where
     GenBraceSeparatorOptions {
       brace_position: opts.brace_position,
       open_brace_token: Some(open_brace_token),
-      start_header_info: opts.start_header_info,
+      start_header_lsil: opts.start_header_lsil,
     },
     context,
   ));
@@ -6551,7 +6564,7 @@ where
 }
 
 struct GenCloseParenWithTypeOptions<'a> {
-  start_info: Info,
+  start_lsil: LineStartIndentLevel,
   type_node: Option<Node<'a>>,
   type_node_separator: Option<PrintItems>,
   param_count: usize,
@@ -6562,7 +6575,7 @@ fn gen_close_paren_with_type<'a>(opts: GenCloseParenWithTypeOptions<'a>, context
   let type_node_start_info = Info::new("typeNodeStart");
   let has_type_node = opts.type_node.is_some();
   let type_node_end_info = Info::new("typeNodeEnd");
-  let start_info = opts.start_info;
+  let start_lsil = opts.start_lsil;
   let generated_type_node = gen_type_node(
     opts.type_node,
     opts.type_node_separator,
@@ -6580,8 +6593,8 @@ fn gen_close_paren_with_type<'a>(opts: GenCloseParenWithTypeOptions<'a>, context
         return Some(false);
       }
 
-      if let Some(is_hanging) = condition_helpers::is_hanging(context, &start_info, &None) {
-        if let Some(is_multiple_lines) = condition_helpers::is_multiple_lines(context, &type_node_start_info, &type_node_end_info) {
+      if let Some(is_hanging) = condition_helpers::is_hanging(context, start_lsil, None) {
+        if let Some(is_multiple_lines) = condition_helpers::is_multiple_lines_delete(context, &type_node_start_info, &type_node_end_info) {
           return Some(is_hanging && is_multiple_lines);
         }
       }
@@ -6934,16 +6947,16 @@ fn gen_type_ann_with_colon<'a>(type_ann: Node<'a>, colon_token: Option<&TokenAnd
 struct GenBraceSeparatorOptions<'a> {
   brace_position: BracePosition,
   open_brace_token: Option<&'a TokenAndSpan>,
-  start_header_info: Option<Info>,
+  start_header_lsil: Option<LineStartIndentLevel>,
 }
 
 fn gen_brace_separator<'a>(opts: GenBraceSeparatorOptions<'a>, context: &mut Context) -> PrintItems {
   match opts.brace_position {
     BracePosition::SameLineUnlessHanging => {
-      if let Some(start_header_info) = opts.start_header_info {
+      if let Some(start_header_lsil) = opts.start_header_lsil {
         conditions::new_line_if_hanging_space_otherwise(conditions::NewLineIfHangingSpaceOtherwiseOptions {
-          start_info: start_header_info,
-          end_info: None,
+          start_lsil: start_header_lsil,
+          end_lsil: None,
           space_char: Some(space_if_not_start_line()),
         })
         .into()
@@ -7034,7 +7047,7 @@ fn get_paren_span<'a>(inner_span: &Span, context: &mut Context<'a>) -> Option<Sp
 struct GenExtendsOrImplementsOptions<'a> {
   text: &'a str,
   type_items: Vec<Node<'a>>,
-  start_header_info: Info,
+  start_header_lsil: LineStartIndentLevel,
   prefer_hanging: bool,
 }
 
@@ -7047,8 +7060,8 @@ fn gen_extends_or_implements<'a>(opts: GenExtendsOrImplementsOptions<'a>, contex
 
   items.push_condition(conditions::new_line_if_hanging_space_otherwise(
     conditions::NewLineIfHangingSpaceOtherwiseOptions {
-      start_info: opts.start_header_info,
-      end_info: None,
+      start_lsil: opts.start_header_lsil,
+      end_lsil: None,
       space_char: Some(conditions::if_above_width_or(context.config.indent_width, Signal::SpaceOrNewLine.into(), " ".into()).into()),
     },
   ));
@@ -7215,7 +7228,7 @@ fn gen_for_flattened_member_like_expr<'a>(node: FlattenedMemberLikeExpr<'a>, con
       } else {
         items.push_condition(if_true_or(
           "isMultipleLines",
-          Rc::new(move |context| condition_helpers::is_multiple_lines(context, &member_expr_start_info, &member_expr_end_info)),
+          Rc::new(move |context| condition_helpers::is_multiple_lines_delete(context, &member_expr_start_info, &member_expr_end_info)),
           Signal::NewLine.into(),
           Signal::PossibleNewLine.into(),
         ));
@@ -7406,10 +7419,12 @@ fn gen_header_with_conditional_brace_body<'a>(
   context: &mut Context<'a>,
 ) -> GenHeaderWithConditionalBraceBodyResult {
   let start_header_info = Info::new("startHeader");
+  let start_header_lsil = LineStartIndentLevel::new("startHeader");
   let end_header_info = Info::new("endHeader");
   let mut items = PrintItems::new();
 
   items.push_info(start_header_info);
+  items.push_line_start_indent_level(start_header_lsil);
   items.extend(new_line_group(opts.generated_header));
   items.push_info(end_header_info);
   let result = gen_conditional_brace_body(
@@ -7421,7 +7436,7 @@ fn gen_header_with_conditional_brace_body<'a>(
       single_body_position: opts.single_body_position,
       requires_braces_condition_ref: opts.requires_braces_condition_ref,
       header_start_token: None,
-      start_header_info: Some(start_header_info),
+      start_header_info: Some((start_header_info, start_header_lsil)),
       end_header_info: Some(end_header_info),
     },
     context,
@@ -7443,7 +7458,7 @@ struct GenConditionalBraceBodyOptions<'a> {
   single_body_position: Option<SingleBodyPosition>,
   requires_braces_condition_ref: Option<ConditionReference>,
   header_start_token: Option<&'a TokenAndSpan>,
-  start_header_info: Option<Info>,
+  start_header_info: Option<(Info, LineStartIndentLevel)>,
   end_header_info: Option<Info>,
 }
 
@@ -7457,7 +7472,8 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
   // todo: reorganize...
   let start_info = Info::new("startInfo");
   let end_info = Info::new("endInfo");
-  let start_header_info = opts.start_header_info;
+  let start_header_info = opts.start_header_info.map(|v| v.0);
+  let start_header_lsil = opts.start_header_info.map(|v| v.1);
   let end_header_info = opts.end_header_info;
   let requires_braces_condition = opts.requires_braces_condition_ref;
   let start_inner_text_info = Info::new("startInnerText");
@@ -7530,7 +7546,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
               if force_braces {
                 Some(true)
               } else {
-                let is_multiple_lines = condition_helpers::is_multiple_lines(condition_context, &start_header_info.unwrap_or(start_info), &end_info)?;
+                let is_multiple_lines = condition_helpers::is_multiple_lines_delete(condition_context, &start_header_info.unwrap_or(start_info), &end_info)?;
                 Some(is_multiple_lines)
               }
             }
@@ -7542,13 +7558,13 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
               }
               if let Some(start_header_info) = &start_header_info {
                 if let Some(end_header_info) = &end_header_info {
-                  let is_header_multiple_lines = condition_helpers::is_multiple_lines(condition_context, start_header_info, end_header_info)?;
+                  let is_header_multiple_lines = condition_helpers::is_multiple_lines_delete(condition_context, start_header_info, end_header_info)?;
                   if is_header_multiple_lines {
                     return Some(true);
                   }
                 }
               }
-              let is_statements_multiple_lines = condition_helpers::is_multiple_lines(condition_context, &start_statements_info, &end_statements_info)?;
+              let is_statements_multiple_lines = condition_helpers::is_multiple_lines_delete(condition_context, &start_statements_info, &end_statements_info)?;
               if is_statements_multiple_lines {
                 return Some(true);
               }
@@ -7571,7 +7587,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
           GenBraceSeparatorOptions {
             brace_position: opts.brace_position,
             open_brace_token,
-            start_header_info,
+            start_header_lsil,
           },
           context,
         ));
@@ -7908,7 +7924,7 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
           condition_context.clear_info(&parent_end_info);
         }
         // use newlines if the entire jsx element is on multiple lines
-        condition_helpers::is_multiple_lines(condition_context, &parent_start_info, &parent_end_info)
+        condition_helpers::is_multiple_lines_delete(condition_context, &parent_start_info, &parent_end_info)
       }),
       gen_for_new_lines(generated_children.clone(), opts.inner_span, context),
       gen_for_single_line(generated_children, context),
@@ -8092,13 +8108,13 @@ fn jsx_space_separator(previous_node: &Node, current_node: &Node, context: &Cont
       "jsxIsLastChildMultiLine",
       Rc::new(move |condition_context| {
         if let Some((start_info, end_info)) = previous_node_info_range {
-          let result = condition_helpers::is_multiple_lines(condition_context, &start_info, &end_info)?;
+          let result = condition_helpers::is_multiple_lines_delete(condition_context, &start_info, &end_info)?;
           if result {
             return Some(true);
           }
         }
         if let Some((start_info, end_info)) = current_node_info_range {
-          let result = condition_helpers::is_multiple_lines(condition_context, &start_info, &end_info)?;
+          let result = condition_helpers::is_multiple_lines_delete(condition_context, &start_info, &end_info)?;
           if result {
             return Some(true);
           }
@@ -8139,37 +8155,21 @@ fn jsx_space_separator(previous_node: &Node, current_node: &Node, context: &Cont
       return items;
     }
 
-    let start_info = Info::new("jsxSpaceStartInfo");
-    let end_info = Info::new("jsxSpaceEndInfo");
+    let start_line = LineNumber::new("jsxSpaceStartLine");
+    let end_line = LineNumber::new("jsxSpaceEndLine");
+    items.push_line_number_anchor(LineNumberAnchor::new(end_line));
+    items.push_line_number(start_line);
+    items.extend(actions::if_column_number_changes(move |context| {
+      context.clear_line_number(end_line);
+    }));
 
-    // Force resolving the end_info again when the start_info changes its position
-    // Note: This actually might not be required, but probably good to do just in case
-    // todo: This probably could be pushed down into dprint_core with better design.
-    // The true and false path being blank implies that probably a new kind of print item
-    // should be introduced
-    items.push_condition(Condition::new(
-      "resetEndInfoOnStartInfoLineNumberChange",
-      ConditionProperties {
-        condition: Rc::new(move |condition_context| {
-          let resolved_start_info = condition_context.get_resolved_info(&start_info)?;
-          if resolved_start_info.line_number != condition_context.writer_info.line_number {
-            condition_context.clear_info(&end_info);
-          }
-          Some(false)
-        }),
-        true_path: None,
-        false_path: None,
-      },
-    ));
-    items.push_info(start_info);
-
-    items.push_condition(Condition::new_with_dependent_infos(
+    let mut condition = Condition::new(
       "jsxSpaceOrNewLineIsMultipleLines",
       ConditionProperties {
         condition: Rc::new(move |context| {
-          let resolved_start_info = context.get_resolved_info(&start_info)?;
-          let resolved_end_info = context.get_resolved_info(&end_info)?;
-          Some(resolved_start_info.line_number < resolved_end_info.line_number)
+          let start_line = context.get_resolved_line_number(start_line)?;
+          let end_line = context.get_resolved_line_number(end_line)?;
+          Some(start_line < end_line)
         }),
         true_path: {
           let mut items = PrintItems::new();
@@ -8180,9 +8180,12 @@ fn jsx_space_separator(previous_node: &Node, current_node: &Node, context: &Cont
         },
         false_path: Some(Signal::SpaceOrNewLine.into()),
       },
-      vec![end_info],
-    ));
-    items.push_info(end_info);
+    );
+    let condition_reevaluation = condition.create_reevaluation();
+
+    items.push_condition(condition);
+    items.push_line_number(end_line);
+    items.push_reevaluation(condition_reevaluation);
     items
   }
 }
@@ -8304,7 +8307,7 @@ fn gen_block<'a>(gen_inner: impl FnOnce(Vec<Node<'a>>, &mut Context<'a>) -> Prin
       if is_tokens_same_line_and_empty {
         items.push_condition(if_true(
           "newLineIfDifferentLine",
-          Rc::new(move |context| condition_helpers::is_on_different_line(context, &before_open_token_info)),
+          Rc::new(move |context| condition_helpers::is_on_different_line_delete(context, &before_open_token_info)),
           Signal::NewLine.into(),
         ));
       } else {

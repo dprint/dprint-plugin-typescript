@@ -6,6 +6,9 @@ use deno_ast::swc::parser::token::TokenAndSpan;
 use deno_ast::view::*;
 use dprint_core::formatting::ConditionReference;
 use dprint_core::formatting::Info;
+use dprint_core::formatting::IsStartOfLine;
+use dprint_core::formatting::LineNumber;
+use dprint_core::formatting::LineStartIndentLevel;
 use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
 
@@ -24,8 +27,9 @@ pub struct Context<'a> {
   handled_comments: FxHashSet<BytePos>,
   stored_infos: FxHashMap<(BytePos, BytePos), Info>,
   stored_info_ranges: FxHashMap<(BytePos, BytePos), (Info, Info)>,
+  stored_lsil: FxHashMap<(BytePos, BytePos), LineStartIndentLevel>,
   pub end_statement_or_member_infos: Stack<Info>,
-  before_comments_start_info_stack: Stack<(Span, Info)>,
+  before_comments_start_info_stack: Stack<(Span, LineNumber, IsStartOfLine)>,
   if_stmt_last_brace_condition_ref: Option<ConditionReference>,
   expr_stmt_single_line_parent_brace_ref: Option<ConditionReference>,
   /// Used for ensuring nodes are parsed in order.
@@ -46,6 +50,7 @@ impl<'a> Context<'a> {
       handled_comments: FxHashSet::default(),
       stored_infos: FxHashMap::default(),
       stored_info_ranges: FxHashMap::default(),
+      stored_lsil: FxHashMap::default(),
       end_statement_or_member_infos: Stack::new(),
       before_comments_start_info_stack: Stack::new(),
       if_stmt_last_brace_condition_ref: None,
@@ -83,6 +88,14 @@ impl<'a> Context<'a> {
     self.stored_info_ranges.get(&(node.lo(), node.hi())).map(|x| x.to_owned())
   }
 
+  pub fn store_lsil_for_node(&mut self, node: &dyn Spanned, lsil: LineStartIndentLevel) {
+    self.stored_lsil.insert((node.lo(), node.hi()), lsil);
+  }
+
+  pub fn get_lsil_for_node(&self, node: &dyn Spanned) -> Option<LineStartIndentLevel> {
+    self.stored_lsil.get(&(node.lo(), node.hi())).map(|x| x.to_owned())
+  }
+
   pub fn store_if_stmt_last_brace_condition_ref(&mut self, condition_reference: ConditionReference) {
     self.if_stmt_last_brace_condition_ref = Some(condition_reference);
   }
@@ -99,29 +112,31 @@ impl<'a> Context<'a> {
     self.expr_stmt_single_line_parent_brace_ref.take()
   }
 
-  pub fn get_or_create_current_before_comments_start_info(&mut self) -> Info {
+  pub fn get_or_create_current_before_comments_start_info(&mut self) -> (LineNumber, IsStartOfLine) {
     let current_span = self.current_node.span();
-    if let Some((span, info)) = self.before_comments_start_info_stack.peek() {
+    if let Some((span, ln, isol)) = self.before_comments_start_info_stack.peek() {
       if *span == current_span {
-        return *info;
+        return (*ln, *isol);
       }
     }
 
-    let new_info = Info::new("beforeComments");
-    self.before_comments_start_info_stack.push((current_span, new_info));
-    new_info
+    let new_ln = LineNumber::new("beforeComments");
+    let new_isol = IsStartOfLine::new("beforeComments");
+    self.before_comments_start_info_stack.push((current_span, new_ln, new_isol));
+    (new_ln, new_isol)
   }
 
-  pub fn take_current_before_comments_start_info(&mut self) -> Option<Info> {
+  pub fn take_current_before_comments_start_info(&mut self) -> Option<(LineNumber, IsStartOfLine)> {
     let mut had_span = false;
-    if let Some((span, _)) = self.before_comments_start_info_stack.peek() {
+    if let Some((span, _, _)) = self.before_comments_start_info_stack.peek() {
       if *span == self.current_node.span() {
         had_span = true;
       }
     }
 
     if had_span {
-      Some(self.before_comments_start_info_stack.pop().1)
+      let (_, ln, isol) = self.before_comments_start_info_stack.pop();
+      Some((ln, isol))
     } else {
       None
     }
