@@ -80,9 +80,10 @@ jobs:
       if: matrix.config.kind == 'test_release' && startsWith(github.ref, 'refs/tags/') && github.repository == 'dprint/dprint-plugin-typescript'
       run: cargo login ${{ secrets.CRATES_TOKEN }}
 
-    - name: Cargo publish
-      if: matrix.config.kind == 'test_release' && startsWith(github.ref, 'refs/tags/') && github.repository == 'dprint/dprint-plugin-typescript'
-      run: cargo publish
+    # manually doing this until swc is updated with string-cache https://github.com/servo/string-cache/pull/254
+    #- name: Cargo publish
+    #  if: matrix.config.kind == 'test_release' && startsWith(github.ref, 'refs/tags/') && github.repository == 'dprint/dprint-plugin-typescript'
+    #  run: cargo publish
 
       # GITHUB RELEASE
     - name: Pre-release

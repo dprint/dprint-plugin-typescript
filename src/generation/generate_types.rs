@@ -255,9 +255,9 @@ impl<'a> ParametersSpanned for &ArrowExpr<'a> {
   }
 }
 
-impl<'a> ParametersSpanned for &CallExpr<'a> {
+impl<'a> ParametersSpanned for CallOrOptCallExpr<'a> {
   fn get_parameters_span(&self, context: &mut Context) -> Option<Span> {
-    get_params_or_args_span(self.lo(), self.args.iter().map(|a| a.span()).collect(), self.hi(), context)
+    get_params_or_args_span(self.lo(), self.args().iter().map(|a| a.span()).collect(), self.hi(), context)
   }
 }
 
@@ -378,4 +378,68 @@ fn get_params_or_args_span(start_pos: BytePos, params: Vec<Span>, following_pos:
     hi: close_token_end,
     ctxt: Default::default(),
   })
+}
+
+#[derive(Copy, Clone)]
+pub enum CallOrOptCallExpr<'a> {
+  CallExpr(&'a CallExpr<'a>),
+  OptCall(&'a OptCall<'a>),
+}
+
+impl<'a> CallOrOptCallExpr<'a> {
+  pub fn is_optional(&self) -> bool {
+    matches!(self, CallOrOptCallExpr::OptCall(_))
+  }
+
+  pub fn type_args(&self) -> Option<&'a TsTypeParamInstantiation<'a>> {
+    match self {
+      CallOrOptCallExpr::CallExpr(node) => node.type_args,
+      CallOrOptCallExpr::OptCall(node) => node.type_args,
+    }
+  }
+
+  pub fn args(&self) -> &Vec<&'a ExprOrSpread<'a>> {
+    match self {
+      CallOrOptCallExpr::CallExpr(node) => &node.args,
+      CallOrOptCallExpr::OptCall(node) => &node.args,
+    }
+  }
+
+  pub fn callee(&self) -> Callee<'a> {
+    match self {
+      CallOrOptCallExpr::CallExpr(node) => node.callee,
+      CallOrOptCallExpr::OptCall(node) => Callee::Expr(node.callee),
+    }
+  }
+}
+
+impl<'a> Spanned for CallOrOptCallExpr<'a> {
+  fn span(&self) -> deno_ast::swc::common::Span {
+    match self {
+      CallOrOptCallExpr::CallExpr(node) => node.span(),
+      CallOrOptCallExpr::OptCall(node) => node.span(),
+    }
+  }
+}
+
+impl<'a> From<&'a CallExpr<'a>> for CallOrOptCallExpr<'a> {
+  fn from(call_expr: &'a CallExpr<'a>) -> Self {
+    CallOrOptCallExpr::CallExpr(call_expr)
+  }
+}
+
+impl<'a> From<&'a OptCall<'a>> for CallOrOptCallExpr<'a> {
+  fn from(opt_call: &'a OptCall<'a>) -> Self {
+    CallOrOptCallExpr::OptCall(opt_call)
+  }
+}
+
+#[allow(clippy::from_over_into)]
+impl<'a> Into<Node<'a>> for CallOrOptCallExpr<'a> {
+  fn into(self) -> Node<'a> {
+    match self {
+      CallOrOptCallExpr::CallExpr(node) => node.into(),
+      CallOrOptCallExpr::OptCall(node) => node.into(),
+    }
+  }
 }

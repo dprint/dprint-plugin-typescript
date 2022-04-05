@@ -7,16 +7,16 @@ use dprint_core::configuration::*;
 /// # Example
 ///
 /// ```
-/// use std::collections::HashMap;
-/// use dprint_core::configuration::{resolve_global_config};
-/// use dprint_plugin_typescript::configuration::{resolve_config};
+/// use dprint_core::configuration::ConfigKeyMap;
+/// use dprint_core::configuration::resolve_global_config;
+/// use dprint_plugin_typescript::configuration::resolve_config;
 ///
-/// let config_map = HashMap::new(); // get a collection of key value pairs from somewhere
+/// let config_map = ConfigKeyMap::new(); // get a collection of key value pairs from somewhere
 /// let global_config_result = resolve_global_config(config_map, &Default::default());
 ///
 /// // check global_config_result.diagnostics here...
 ///
-/// let typescript_config_map = HashMap::new(); // get a collection of k/v pairs from somewhere
+/// let typescript_config_map = ConfigKeyMap::new(); // get a collection of k/v pairs from somewhere
 /// let config_result = resolve_config(
 ///     typescript_config_map,
 ///     &global_config_result.config
@@ -308,7 +308,6 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
 mod tests {
   use dprint_core::configuration::resolve_global_config;
   use dprint_core::configuration::NewLineKind;
-  use std::collections::HashMap;
 
   use super::super::builder::ConfigurationBuilder;
   use super::*;
@@ -317,7 +316,7 @@ mod tests {
 
   #[test]
   fn handle_global_config() {
-    let mut global_config = HashMap::new();
+    let mut global_config = ConfigKeyMap::new();
     global_config.insert(String::from("lineWidth"), ConfigKeyValue::from_i32(80));
     global_config.insert(String::from("indentWidth"), ConfigKeyValue::from_i32(8));
     global_config.insert(String::from("newLineKind"), ConfigKeyValue::from_str("crlf"));
@@ -333,9 +332,9 @@ mod tests {
 
   #[test]
   fn handle_deno_config() {
-    let mut config = HashMap::new();
+    let mut config = ConfigKeyMap::new();
     config.insert(String::from("deno"), ConfigKeyValue::from_bool(true));
-    let global_config = resolve_global_config(HashMap::new(), &Default::default()).config;
+    let global_config = resolve_global_config(ConfigKeyMap::new(), &Default::default()).config;
     let result = resolve_config(config, &global_config);
     let expected_config = ConfigurationBuilder::new().deno().build();
     // todo: test that both objects equal each other
@@ -346,10 +345,10 @@ mod tests {
 
   #[test]
   fn handle_deno_config_with_overwrites() {
-    let mut config = HashMap::new();
+    let mut config = ConfigKeyMap::new();
     config.insert(String::from("deno"), ConfigKeyValue::from_bool(true));
     config.insert(String::from("indentWidth"), ConfigKeyValue::from_i32(8));
-    let global_config = resolve_global_config(HashMap::new(), &Default::default()).config;
+    let global_config = resolve_global_config(ConfigKeyMap::new(), &Default::default()).config;
     let result = resolve_config(config, &global_config);
     let expected_config = ConfigurationBuilder::new().deno().build();
     assert_eq!(result.config.indent_width, 8);

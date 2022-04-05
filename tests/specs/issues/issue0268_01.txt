@@ -1,0 +1,14 @@
+-- file.js --
+== should parse ==
+const x = {
+prop: isCorrect
+    ? fn => ({})
+    : fn => true,
+};
+
+[expect]
+const x = {
+    prop: isCorrect
+        ? fn => ({})
+        : fn => true,
+};

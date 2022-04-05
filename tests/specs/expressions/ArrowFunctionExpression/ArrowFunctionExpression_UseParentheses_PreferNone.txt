@@ -34,3 +34,9 @@ const t = (...a) => 5;
 
 [expect]
 const t = (...a) => 5;
+
+== should not remove when optional ==
+const t = (a?) => 5;
+
+[expect]
+const t = (a?) => 5;

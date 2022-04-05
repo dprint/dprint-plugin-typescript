@@ -1,0 +1,7 @@
+== should not remove parens for TSAsExpr being incremented ==
+(a as number)++;
+(a as number)--;
+
+[expect]
+(a as number)++;
+(a as number)--;
