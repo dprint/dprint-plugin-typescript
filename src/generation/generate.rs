@@ -4150,10 +4150,10 @@ fn gen_expr_stmt<'a>(stmt: &'a ExprStmt, context: &mut Context<'a>) -> PrintItem
               // condition will both contain the same text to look for. This is probably not robust
               // and perhaps instead there should be a way to do something like "get the next character" in
               // the printer.
-              if let Some(result) = should_add_semi_colon(condition.get_true_path()) {
+              if let Some(result) = should_add_semi_colon(condition.true_path()) {
                 return Some(result);
               }
-              if let Some(result) = should_add_semi_colon(condition.get_false_path()) {
+              if let Some(result) = should_add_semi_colon(condition.false_path()) {
                 return Some(result);
               }
             }
@@ -5060,7 +5060,7 @@ fn gen_function_type<'a>(node: &'a TsFnType, context: &mut Context<'a>) -> Print
     condition_resolvers::is_start_of_line(),
     Signal::StartIndent.into(),
   );
-  let indent_after_arrow_condition_ref = indent_after_arrow_condition.get_reference();
+  let indent_after_arrow_condition_ref = indent_after_arrow_condition.create_reference();
 
   items.push_info(start_lsil);
   if let Some(type_params) = node.type_params {
@@ -7519,7 +7519,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
     }),
     Signal::SpaceOrNewLine.into(),
   );
-  let inner_brace_space_condition_ref = inner_brace_space_condition.get_reference();
+  let inner_brace_space_condition_ref = inner_brace_space_condition.create_reference();
   let mut newline_condition = if_true(
     "newLineCondition",
     Rc::new(move |condition_context| {
@@ -7539,7 +7539,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
     }),
     Signal::NewLine.into(),
   );
-  let newline_condition_ref = newline_condition.get_reference();
+  let newline_condition_ref = newline_condition.create_reference();
   let force_braces = get_force_braces(&opts.body_node);
   let mut open_brace_condition = Condition::new(
     "openBrace",
@@ -7610,7 +7610,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
     },
   );
   let open_brace_condition_reevaluation = open_brace_condition.create_reevaluation();
-  let open_brace_condition_ref = open_brace_condition.get_reference();
+  let open_brace_condition_ref = open_brace_condition.create_reference();
 
   // store the brace condition if ASI and the body is an expression statement
   if context.config.semi_colons == SemiColons::Asi && node_helpers::is_expr_stmt_or_body_with_single_expr_stmt(opts.body_node) {
@@ -7696,7 +7696,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
       items
     },
   );
-  let close_brace_condition_ref = close_brace_condition.get_reference();
+  let close_brace_condition_ref = close_brace_condition.create_reference();
   items.push_condition(close_brace_condition);
   items.push_info(end_ln);
   items.push_reevaluation(open_brace_condition_reevaluation);
