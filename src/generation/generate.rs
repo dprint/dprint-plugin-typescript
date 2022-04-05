@@ -2033,12 +2033,13 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
       || node_helpers::get_use_new_lines_for_nodes(&node.cons, &node.alt, context.program));
   let operator_position = get_operator_position(node, operator_token, context);
   let top_most_data = get_top_most_data(node, context);
-  let before_alternate_info = Info::new("beforeAlternate");
+  let before_alternate_ln = LineNumber::new("beforeAlternate");
   let end_info = Info::new("endConditionalExpression");
   let mut items = PrintItems::new();
 
   if top_most_data.is_top_most {
-    items.push_info(top_most_data.top_most_info);
+    items.push_line_number(top_most_data.top_most_ln);
+    items.push_indent_level(top_most_data.top_most_il);
   }
 
   items.extend(ir_helpers::new_line_group(with_queued_indent(gen_node_with_inner_gen(
@@ -2063,8 +2064,8 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
     items.push_signal(Signal::NewLine);
   } else {
     items.push_condition(conditions::new_line_if_multiple_lines_space_or_new_line_otherwise(
-      top_most_data.top_most_info,
-      Some(before_alternate_info),
+      top_most_data.top_most_ln,
+      Some(before_alternate_ln),
     ));
   }
 
@@ -2099,15 +2100,15 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
       items.push_signal(Signal::NewLine);
     } else {
       items.push_condition(conditions::new_line_if_multiple_lines_space_or_new_line_otherwise(
-        top_most_data.top_most_info,
-        Some(before_alternate_info),
+        top_most_data.top_most_ln,
+        Some(before_alternate_ln),
       ));
     }
 
     if operator_position == OperatorPosition::NextLine {
       items.push_str(": ");
     }
-    items.push_info(before_alternate_info);
+    items.push_line_number(before_alternate_ln);
     items.extend(ir_helpers::new_line_group(gen_node_with_inner_gen(node.alt.into(), context, |items, _| {
       if operator_position == OperatorPosition::NextLine {
         conditions::indent_if_start_of_line(items).into()
@@ -2124,13 +2125,13 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
     items.push_condition(conditions::indent_if_start_of_line(cons_and_alt_items));
   } else {
     let cons_and_alt_items = cons_and_alt_items.into_rc_path();
-    let top_most_info = top_most_data.top_most_info;
+    let top_most_il = top_most_data.top_most_il;
     items.push_condition(if_true_or(
       "indentIfSameIndentationAsTopMostAndStartOfLine",
       Rc::new(move |context| {
         if context.writer_info.is_start_of_line() {
-          let top_most_info = context.get_resolved_info(&top_most_info)?;
-          Some(context.writer_info.indent_level == top_most_info.indent_level)
+          let top_most_il = context.get_resolved_indent_level(top_most_il)?;
+          Some(context.writer_info.indent_level == top_most_il)
         } else {
           Some(false)
         }
@@ -2143,7 +2144,8 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
   return items;
 
   struct TopMostData {
-    top_most_info: Info,
+    top_most_ln: LineNumber,
+    top_most_il: IndentLevel,
     is_top_most: bool,
   }
 
@@ -2165,19 +2167,26 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
     }
 
     let is_top_most = top_most_node.span() == node.span();
-    let top_most_info = get_or_set_top_most_info(top_most_node.lo(), is_top_most, context);
+    let (top_most_ln, top_most_il) = get_or_set_top_most_ln(top_most_node.lo(), is_top_most, context);
 
-    return TopMostData { is_top_most, top_most_info };
+    return TopMostData {
+      is_top_most,
+      top_most_ln,
+      top_most_il,
+    };
 
-    fn get_or_set_top_most_info(top_most_expr_start: BytePos, is_top_most: bool, context: &mut Context) -> Info {
+    fn get_or_set_top_most_ln(top_most_expr_start: BytePos, is_top_most: bool, context: &mut Context) -> (LineNumber, IndentLevel) {
       if is_top_most {
-        let info = Info::new("conditionalExprStart");
-        context.store_info_for_node(&top_most_expr_start, info);
-        info
+        let ln = LineNumber::new("conditionalExprStart");
+        let il = IndentLevel::new("conditionalExprStart");
+        context.store_ln_for_node(&top_most_expr_start, ln);
+        context.store_il_for_node(&top_most_expr_start, il);
+        (ln, il)
       } else {
-        context
-          .get_info_for_node(&top_most_expr_start)
-          .expect("Expected to have the top most expr info stored")
+        (
+          context.get_ln_for_node(&top_most_expr_start).unwrap(),
+          context.get_il_for_node(&top_most_expr_start).unwrap(),
+        )
       }
     }
   }
@@ -4910,7 +4919,7 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
   let top_most_data = get_top_most_data(node, context);
   let is_parent_conditional_type = node.parent().kind() == NodeKind::TsConditionalType;
   let mut items = PrintItems::new();
-  let before_false_info = Info::new("beforeFalse");
+  let before_false_ln = LineNumber::new("beforeFalse");
 
   // main area
   items.extend(ir_helpers::new_line_group(gen_node(node.check_type.into(), context)));
@@ -4918,7 +4927,7 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
   items.push_signal(Signal::SpaceOrNewLine);
 
   if top_most_data.is_top_most {
-    items.push_info(top_most_data.top_most_info);
+    items.push_line_number(top_most_data.top_most_ln);
   }
 
   items.push_condition(conditions::indent_if_start_of_line(ir_helpers::new_line_group(gen_node(
@@ -4938,14 +4947,14 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
     items.push_signal(Signal::NewLine);
   } else {
     items.push_condition(conditions::new_line_if_multiple_lines_space_or_new_line_otherwise(
-      top_most_data.top_most_info,
-      Some(before_false_info),
+      top_most_data.top_most_ln,
+      Some(before_false_ln),
     ));
   }
 
   let false_type_generated = {
     let mut items = PrintItems::new();
-    items.push_info(before_false_info);
+    items.push_line_number(before_false_ln);
     items.push_str(": ");
     items.extend(ir_helpers::new_line_group(gen_node(node.false_type.into(), context)));
     items
@@ -4960,7 +4969,7 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
   return items;
 
   struct TopMostData {
-    top_most_info: Info,
+    top_most_ln: LineNumber,
     is_top_most: bool,
   }
 
@@ -4983,19 +4992,17 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
     }
 
     let is_top_most = top_most_node.span() == node.span();
-    let top_most_info = get_or_set_top_most_info(top_most_node.lo(), is_top_most, context);
+    let top_most_ln = get_or_set_top_most_ln(top_most_node.lo(), is_top_most, context);
 
-    return TopMostData { is_top_most, top_most_info };
+    return TopMostData { is_top_most, top_most_ln };
 
-    fn get_or_set_top_most_info(top_most_expr_start: BytePos, is_top_most: bool, context: &mut Context) -> Info {
+    fn get_or_set_top_most_ln(top_most_expr_start: BytePos, is_top_most: bool, context: &mut Context) -> LineNumber {
       if is_top_most {
-        let info = Info::new("conditionalTypeStart");
-        context.store_info_for_node(&top_most_expr_start, info);
-        info
+        let ln = LineNumber::new("conditionalTypeStart");
+        context.store_ln_for_node(&top_most_expr_start, ln);
+        ln
       } else {
-        context
-          .get_info_for_node(&top_most_expr_start)
-          .expect("Expected to have the top most expr info stored")
+        context.get_ln_for_node(&top_most_expr_start).unwrap()
       }
     }
   }

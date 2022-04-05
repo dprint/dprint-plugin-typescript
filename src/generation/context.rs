@@ -5,6 +5,7 @@ use deno_ast::swc::common::Spanned;
 use deno_ast::swc::parser::token::TokenAndSpan;
 use deno_ast::view::*;
 use dprint_core::formatting::ConditionReference;
+use dprint_core::formatting::IndentLevel;
 use dprint_core::formatting::Info;
 use dprint_core::formatting::IsStartOfLine;
 use dprint_core::formatting::LineNumber;
@@ -25,9 +26,10 @@ pub struct Context<'a> {
   pub current_node: Node<'a>,
   pub parent_stack: Stack<Node<'a>>,
   handled_comments: FxHashSet<BytePos>,
-  stored_infos: FxHashMap<(BytePos, BytePos), Info>,
   stored_info_ranges: FxHashMap<(BytePos, BytePos), (Info, Info)>,
   stored_lsil: FxHashMap<(BytePos, BytePos), LineStartIndentLevel>,
+  stored_ln: FxHashMap<(BytePos, BytePos), LineNumber>,
+  stored_il: FxHashMap<(BytePos, BytePos), IndentLevel>,
   pub end_statement_or_member_infos: Stack<Info>,
   before_comments_start_info_stack: Stack<(Span, LineNumber, IsStartOfLine)>,
   if_stmt_last_brace_condition_ref: Option<ConditionReference>,
@@ -48,9 +50,10 @@ impl<'a> Context<'a> {
       current_node,
       parent_stack: Stack::new(),
       handled_comments: FxHashSet::default(),
-      stored_infos: FxHashMap::default(),
       stored_info_ranges: FxHashMap::default(),
       stored_lsil: FxHashMap::default(),
+      stored_ln: FxHashMap::default(),
+      stored_il: FxHashMap::default(),
       end_statement_or_member_infos: Stack::new(),
       before_comments_start_info_stack: Stack::new(),
       if_stmt_last_brace_condition_ref: None,
@@ -72,14 +75,6 @@ impl<'a> Context<'a> {
     self.handled_comments.insert(comment.lo());
   }
 
-  pub fn store_info_for_node(&mut self, node: &dyn Spanned, info: Info) {
-    self.stored_infos.insert((node.lo(), node.hi()), info);
-  }
-
-  pub fn get_info_for_node(&self, node: &dyn Spanned) -> Option<Info> {
-    self.stored_infos.get(&(node.lo(), node.hi())).map(|x| x.to_owned())
-  }
-
   pub fn store_info_range_for_node(&mut self, node: &dyn Spanned, infos: (Info, Info)) {
     self.stored_info_ranges.insert((node.lo(), node.hi()), infos);
   }
@@ -94,6 +89,22 @@ impl<'a> Context<'a> {
 
   pub fn get_lsil_for_node(&self, node: &dyn Spanned) -> Option<LineStartIndentLevel> {
     self.stored_lsil.get(&(node.lo(), node.hi())).map(|x| x.to_owned())
+  }
+
+  pub fn store_ln_for_node(&mut self, node: &dyn Spanned, ln: LineNumber) {
+    self.stored_ln.insert((node.lo(), node.hi()), ln);
+  }
+
+  pub fn get_ln_for_node(&self, node: &dyn Spanned) -> Option<LineNumber> {
+    self.stored_ln.get(&(node.lo(), node.hi())).map(|x| x.to_owned())
+  }
+
+  pub fn store_il_for_node(&mut self, node: &dyn Spanned, il: IndentLevel) {
+    self.stored_il.insert((node.lo(), node.hi()), il);
+  }
+
+  pub fn get_il_for_node(&self, node: &dyn Spanned) -> Option<IndentLevel> {
+    self.stored_il.get(&(node.lo(), node.hi())).map(|x| x.to_owned())
   }
 
   pub fn store_if_stmt_last_brace_condition_ref(&mut self, condition_reference: ConditionReference) {
