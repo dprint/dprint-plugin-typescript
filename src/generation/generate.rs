@@ -869,7 +869,7 @@ fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'
     if_true_or(
       "classExprConditionalIndent",
       Rc::new(move |context| {
-        if context.get_resolved_is_start_of_line(start_before_owned_comments_isol)? {
+        if context.resolved_is_start_of_line(start_before_owned_comments_isol)? {
           Some(false)
         } else {
           condition_helpers::is_multiple_lines(context, start_before_owned_comments_ln, start_header_ln)
@@ -1693,7 +1693,7 @@ fn gen_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintIte
       BoolOrCondition::Bool(false) // let the parent handle the indent
     } else {
       BoolOrCondition::Condition(Rc::new(move |condition_context| {
-        if allow_no_indent && condition_context.get_resolved_is_start_of_line(binary_expr_start_isol)? {
+        if allow_no_indent && condition_context.resolved_is_start_of_line(binary_expr_start_isol)? {
           return Some(false);
         }
         Some(condition_context.writer_info.is_start_of_line())
@@ -1766,10 +1766,10 @@ fn gen_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintIte
                 if_true_or(
                   "indentIfNecessary",
                   Rc::new(move |context| {
-                    if allow_no_indent && context.get_resolved_is_start_of_line(binary_expr_start_isol)? {
+                    if allow_no_indent && context.resolved_is_start_of_line(binary_expr_start_isol)? {
                       return Some(false);
                     }
-                    let binary_expr_start_il = context.get_resolved_indent_level(binary_expr_start_il)?;
+                    let binary_expr_start_il = context.resolved_indent_level(binary_expr_start_il)?;
                     let is_hanging = binary_expr_start_il < context.writer_info.indent_level;
                     Some(!is_hanging)
                   }),
@@ -2132,7 +2132,7 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
       "indentIfSameIndentationAsTopMostAndStartOfLine",
       Rc::new(move |context| {
         if context.writer_info.is_start_of_line() {
-          let top_most_il = context.get_resolved_indent_level(top_most_il)?;
+          let top_most_il = context.resolved_indent_level(top_most_il)?;
           Some(context.writer_info.indent_level == top_most_il)
         } else {
           Some(false)
@@ -6497,8 +6497,8 @@ where
         items.push_condition(if_true(
           "isDifferentLineAndStartLineIndentation",
           Rc::new(move |context| {
-            let start_ln = context.get_resolved_line_number(start_ln)?;
-            let start_lsil = context.get_resolved_line_start_indent_level(start_lsil)?;
+            let start_ln = context.resolved_line_number(start_ln)?;
+            let start_lsil = context.resolved_line_start_indent_level(start_lsil)?;
             let is_different_line = start_ln != context.writer_info.line_number;
             let is_different_start_line_indentation = start_lsil != context.writer_info.line_start_indent_level;
             Some(is_different_line && is_different_start_line_indentation)
@@ -7510,8 +7510,8 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
       if is_body_empty_stmt {
         return Some(false);
       }
-      let (start_inner_line, start_inner_column) = condition_context.get_resolved_line_and_column(start_inner_text_lc)?;
-      let (end_stmts_line, end_stmts_column) = condition_context.get_resolved_line_and_column(end_statements_lc)?;
+      let (start_inner_line, start_inner_column) = condition_context.resolved_line_and_column(start_inner_text_lc)?;
+      let (end_stmts_line, end_stmts_column) = condition_context.resolved_line_and_column(end_statements_lc)?;
       if start_inner_line < end_stmts_line {
         return Some(false);
       }
@@ -7530,11 +7530,11 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
       if should_use_new_line {
         return Some(true);
       }
-      let start_header_ln = condition_context.get_resolved_line_number(start_header_ln?)?;
+      let start_header_ln = condition_context.resolved_line_number(start_header_ln?)?;
       if start_header_ln < condition_context.writer_info.line_number {
         return Some(true);
       }
-      let resolved_end_statements_ln = condition_context.get_resolved_line_number(end_statements_lc.line)?;
+      let resolved_end_statements_ln = condition_context.resolved_line_number(end_statements_lc.line)?;
       Some(resolved_end_statements_ln > start_header_ln)
     }),
     Signal::NewLine.into(),
@@ -7844,7 +7844,7 @@ fn gen_jsx_with_opening_and_closing<'a>(opts: GenJsxWithOpeningAndClosingOptions
   let inner_span = create_span(opts.opening_element.hi(), opts.closing_element.lo());
 
   items.extend(actions::action("clearEndIfPosChanges", move |context| {
-    if let Some((line, column)) = context.get_resolved_line_and_column(start_lc) {
+    if let Some((line, column)) = context.resolved_line_and_column(start_lc) {
       if context.writer_info.line_number != line || context.writer_info.column_number != column {
         context.clear_info(end_ln);
       }
@@ -7937,7 +7937,7 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
       "jsxChildrenNewLinesOrNot",
       Rc::new(move |condition_context| {
         // use newlines if the header is multiple lines
-        if condition_context.get_resolved_line_number(parent_start_ln)? < condition_context.writer_info.line_number {
+        if condition_context.resolved_line_number(parent_start_ln)? < condition_context.writer_info.line_number {
           return Some(true);
         }
 
@@ -8185,8 +8185,8 @@ fn jsx_space_separator(previous_node: &Node, current_node: &Node, context: &Cont
       "jsxSpaceOrNewLineIsMultipleLines",
       ConditionProperties {
         condition: Rc::new(move |context| {
-          let start_line = context.get_resolved_line_number(start_line)?;
-          let end_line = context.get_resolved_line_number(end_line)?;
+          let start_line = context.resolved_line_number(start_line)?;
+          let end_line = context.resolved_line_number(end_line)?;
           Some(start_line < end_line)
         }),
         true_path: {
