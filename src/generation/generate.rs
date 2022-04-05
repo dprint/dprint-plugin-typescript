@@ -3126,21 +3126,19 @@ fn handle_jsx_surrounding_parens(inner_items: PrintItems, context: &mut Context<
     return surround_with_newlines_indented_if_multi_line(inner_items, context.config.indent_width);
   }
 
-  let start_info = Info::new("conditionalParenStartInfo");
-  let end_info = Info::new("conditionalParenEndInfo");
+  let start_ln = LineNumber::new("conditionalParenStart");
+  let end_ln = LineNumber::new("conditionalParenEnd");
   let mut items = PrintItems::new();
   let inner_items_rc = inner_items.into_rc_path();
 
-  items.push_info(start_info);
+  items.push_line_number(start_ln);
+  items.push_line_number_anchor(LineNumberAnchor::new(end_ln));
+  items.extend(actions::if_column_number_changes(move |context| {
+    context.clear_line_number(end_ln);
+  }));
   items.push_condition(if_true_or(
     "parensOrNewlinesIfMultipleLines",
-    Rc::new(move |context| {
-      // clear the end info when the start info changes
-      if context.has_info_moved(&start_info)? {
-        context.clear_info(&end_info);
-      }
-      condition_helpers::is_multiple_lines_delete(context, &start_info, &end_info)
-    }),
+    Rc::new(move |context| condition_helpers::is_multiple_lines(context, start_ln, end_ln)),
     surround_with_parens(surround_with_new_lines(with_indent(inner_items_rc.into()))),
     {
       let mut items = PrintItems::new();
@@ -3150,7 +3148,7 @@ fn handle_jsx_surrounding_parens(inner_items: PrintItems, context: &mut Context<
     },
   ));
 
-  items.push_info(end_info);
+  items.push_line_number(end_ln);
   return items;
 
   fn should_jsx_surround_newlines(node: &Node, context: &Context) -> bool {
@@ -7470,8 +7468,7 @@ struct GenConditionalBraceBodyResult {
 
 fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, context: &mut Context<'a>) -> GenConditionalBraceBodyResult {
   // todo: reorganize...
-  let start_ln = LineNumber::new("startInfo");
-  let start_col = ColumnNumber::new("startInfo");
+  let start_lc = LineAndColumn::new("startInfo");
   let end_ln = LineNumber::new("endInfo");
   let start_header_ln = opts.start_header_info.map(|v| v.0);
   let start_header_lsil = opts.start_header_info.map(|v| v.1);
@@ -7546,7 +7543,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
               if force_braces {
                 Some(true)
               } else {
-                let is_multiple_lines = condition_helpers::is_multiple_lines(condition_context, start_header_ln.unwrap_or(start_ln), end_ln)?;
+                let is_multiple_lines = condition_helpers::is_multiple_lines(condition_context, start_header_ln.unwrap_or(start_lc.line), end_ln)?;
                 Some(is_multiple_lines)
               }
             }
@@ -7608,8 +7605,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
 
   // generate body
   let mut items = PrintItems::new();
-  items.push_line_number(start_ln);
-  items.push_column_number(start_col);
+  items.push_line_and_column(start_lc);
   items.push_condition(open_brace_condition);
   items.push_info(start_inner_text_info);
   let generated_comments = gen_comment_collection(header_trailing_comments.into_iter(), None, None, context);
@@ -7624,7 +7620,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
   if !is_body_empty_stmt {
     items.push_condition(if_true(
       "spaceIfAtStart",
-      Rc::new(move |context| condition_helpers::is_at_same_position(context, start_ln, start_col)),
+      Rc::new(move |context| condition_helpers::is_at_same_position(context, start_lc)),
       Signal::SpaceOrNewLine.into(),
     ));
   }
@@ -8378,8 +8374,8 @@ fn gen_surrounded_by_tokens<'a>(
       }
       items.extend(gen_inner(context));
 
-      let before_trailing_comments_info = Info::new("beforeTrailingComments");
-      items.push_info(before_trailing_comments_info);
+      let before_trailing_comments_lc = LineAndColumn::new("beforeTrailingComments");
+      items.push_line_and_column(before_trailing_comments_lc);
       items.extend(with_indent(gen_trailing_comments_as_statements(&open_token_end, context)));
       items.extend(with_indent(gen_comments_as_statements(
         close_token_start.leading_comments_fast(context.program),
@@ -8389,7 +8385,7 @@ fn gen_surrounded_by_tokens<'a>(
       items.push_condition(if_true(
         "newLineIfHasCommentsAndNotStartOfNewLine",
         Rc::new(move |context| {
-          let had_comments = !condition_helpers::is_at_same_position_delete(context, &before_trailing_comments_info)?;
+          let had_comments = !condition_helpers::is_at_same_position(context, before_trailing_comments_lc)?;
           Some(had_comments && !context.writer_info.is_start_of_line())
         }),
         Signal::NewLine.into(),
