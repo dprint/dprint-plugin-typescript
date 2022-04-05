@@ -26,7 +26,7 @@ pub struct Context<'a> {
   pub current_node: Node<'a>,
   pub parent_stack: Stack<Node<'a>>,
   handled_comments: FxHashSet<BytePos>,
-  stored_info_ranges: FxHashMap<(BytePos, BytePos), (Info, Info)>,
+  stored_ln_ranges: FxHashMap<(BytePos, BytePos), (LineNumber, LineNumber)>,
   stored_lsil: FxHashMap<(BytePos, BytePos), LineStartIndentLevel>,
   stored_ln: FxHashMap<(BytePos, BytePos), LineNumber>,
   stored_il: FxHashMap<(BytePos, BytePos), IndentLevel>,
@@ -50,7 +50,7 @@ impl<'a> Context<'a> {
       current_node,
       parent_stack: Stack::new(),
       handled_comments: FxHashSet::default(),
-      stored_info_ranges: FxHashMap::default(),
+      stored_ln_ranges: FxHashMap::default(),
       stored_lsil: FxHashMap::default(),
       stored_ln: FxHashMap::default(),
       stored_il: FxHashMap::default(),
@@ -75,12 +75,12 @@ impl<'a> Context<'a> {
     self.handled_comments.insert(comment.lo());
   }
 
-  pub fn store_info_range_for_node(&mut self, node: &dyn Spanned, infos: (Info, Info)) {
-    self.stored_info_ranges.insert((node.lo(), node.hi()), infos);
+  pub fn store_info_range_for_node(&mut self, node: &dyn Spanned, lns: (LineNumber, LineNumber)) {
+    self.stored_ln_ranges.insert((node.lo(), node.hi()), lns);
   }
 
-  pub fn get_info_range_for_node(&self, node: &dyn Spanned) -> Option<(Info, Info)> {
-    self.stored_info_ranges.get(&(node.lo(), node.hi())).map(|x| x.to_owned())
+  pub fn get_ln_range_for_node(&self, node: &dyn Spanned) -> Option<(LineNumber, LineNumber)> {
+    self.stored_ln_ranges.get(&(node.lo(), node.hi())).map(|x| x.to_owned())
   }
 
   pub fn store_lsil_for_node(&mut self, node: &dyn Spanned, lsil: LineStartIndentLevel) {

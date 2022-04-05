@@ -3222,18 +3222,18 @@ fn gen_jsx_element<'a>(node: &'a JSXElement, context: &mut Context<'a>) -> Print
       },
       context,
     );
-    context.store_info_range_for_node(node, (result.start_info, result.end_info));
+    context.store_info_range_for_node(node, (result.start_ln, result.end_ln));
     result.items
   } else {
-    let start_info = Info::new("jsxElementStart");
-    let end_info = Info::new("jsxElementEnd");
+    let start_ln = LineNumber::new("jsxElementStart");
+    let end_ln = LineNumber::new("jsxElementEnd");
     let mut items = PrintItems::new();
 
-    context.store_info_range_for_node(node, (start_info, end_info));
+    context.store_info_range_for_node(node, (start_ln, end_ln));
 
-    items.push_info(start_info);
+    items.push_line_number(start_ln);
     items.extend(gen_node(node.opening.into(), context));
-    items.push_info(end_info);
+    items.push_line_number(end_ln);
     items
   };
 
@@ -3308,7 +3308,7 @@ fn gen_jsx_fragment<'a>(node: &'a JSXFragment, context: &mut Context<'a>) -> Pri
     context,
   );
 
-  context.store_info_range_for_node(node, (result.start_info, result.end_info));
+  context.store_info_range_for_node(node, (result.start_ln, result.end_ln));
 
   handle_jsx_surrounding_parens(result.items, context)
 }
@@ -7830,33 +7830,44 @@ struct GenJsxWithOpeningAndClosingOptions<'a> {
 
 struct GenJsxWithOpeningAndClosingResult {
   items: PrintItems,
-  start_info: Info,
-  end_info: Info,
+  start_ln: LineNumber,
+  end_ln: LineNumber,
 }
 
 fn gen_jsx_with_opening_and_closing<'a>(opts: GenJsxWithOpeningAndClosingOptions<'a>, context: &mut Context<'a>) -> GenJsxWithOpeningAndClosingResult {
   let force_use_multi_lines = get_force_use_multi_lines(&opts.opening_element, &opts.children, context);
-  let start_info = Info::new("start");
-  let end_info = Info::new("end");
+  let start_lc = LineAndColumn::new("start");
+  let end_ln = LineNumber::new("end");
   let mut items = PrintItems::new();
   let inner_span = create_span(opts.opening_element.hi(), opts.closing_element.lo());
 
-  items.push_info(start_info);
+  items.extend(actions::action("clearEndIfPosChanges", move |context| {
+    if let Some((line, column)) = context.get_resolved_line_and_column(start_lc) {
+      if context.writer_info.line_number != line || context.writer_info.column_number != column {
+        context.clear_line_number(end_ln);
+      }
+    }
+  }));
+  items.push_line_and_column(start_lc);
   items.extend(gen_node(opts.opening_element, context));
   items.extend(gen_jsx_children(
     GenJsxChildrenOptions {
       inner_span,
       children: opts.children,
-      parent_start_info: start_info,
-      parent_end_info: end_info,
+      parent_start_ln: start_lc.line,
+      parent_end_ln: end_ln,
       force_use_multi_lines,
     },
     context,
   ));
   items.extend(gen_node(opts.closing_element, context));
-  items.push_info(end_info);
+  items.push_line_number(end_ln);
 
-  return GenJsxWithOpeningAndClosingResult { items, start_info, end_info };
+  return GenJsxWithOpeningAndClosingResult {
+    items,
+    start_ln: start_lc.line,
+    end_ln,
+  };
 
   fn get_force_use_multi_lines(opening_element: &Node, children: &[Node], context: &mut Context) -> bool {
     if context.config.jsx_force_new_lines_surrounding_content {
@@ -7889,8 +7900,8 @@ fn gen_jsx_with_opening_and_closing<'a>(opts: GenJsxWithOpeningAndClosingOptions
 struct GenJsxChildrenOptions<'a> {
   inner_span: Span,
   children: Vec<Node<'a>>,
-  parent_start_info: Info,
-  parent_end_info: Info,
+  parent_start_ln: LineNumber,
+  parent_end_ln: LineNumber,
   force_use_multi_lines: bool,
 }
 
@@ -7913,8 +7924,8 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
       })
     })
     .collect::<Vec<_>>();
-  let parent_start_info = opts.parent_start_info;
-  let parent_end_info = opts.parent_end_info;
+  let parent_start_ln = opts.parent_start_ln;
+  let parent_end_ln = opts.parent_end_ln;
 
   if opts.force_use_multi_lines {
     return gen_for_new_lines(generated_children, opts.inner_span, context);
@@ -7924,17 +7935,12 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
       "jsxChildrenNewLinesOrNot",
       Rc::new(move |condition_context| {
         // use newlines if the header is multiple lines
-        let resolved_parent_start_info = condition_context.get_resolved_info(&parent_start_info)?;
-        if resolved_parent_start_info.line_number < condition_context.writer_info.line_number {
+        if condition_context.get_resolved_line_number(parent_start_ln)? < condition_context.writer_info.line_number {
           return Some(true);
         }
 
-        // clear the end info when the start info changes
-        if condition_context.has_info_moved(&parent_start_info)? {
-          condition_context.clear_info(&parent_end_info);
-        }
         // use newlines if the entire jsx element is on multiple lines
-        condition_helpers::is_multiple_lines_delete(condition_context, &parent_start_info, &parent_end_info)
+        condition_helpers::is_multiple_lines(condition_context, parent_start_ln, parent_end_ln)
       }),
       gen_for_new_lines(generated_children.clone(), opts.inner_span, context),
       gen_for_single_line(generated_children, context),
@@ -8101,30 +8107,30 @@ fn jsx_space_separator(previous_node: &Node, current_node: &Node, context: &Cont
     matches!(node, Node::JSXElement(_) | Node::JSXFragment(_))
   }
 
-  fn get_node_info_range(node: &Node, context: &Context) -> Option<(Info, Info)> {
+  fn get_node_ln_range(node: &Node, context: &Context) -> Option<(LineNumber, LineNumber)> {
     if node_should_force_newline_if_multi_line(node) {
-      context.get_info_range_for_node(node)
+      context.get_ln_range_for_node(node)
     } else {
       None
     }
   }
 
   fn jsx_force_space_with_newline_if_either_node_multi_line(previous_node: &Node, current_node: &Node, context: &Context) -> PrintItems {
-    let previous_node_info_range = get_node_info_range(previous_node, context);
-    let current_node_info_range = get_node_info_range(current_node, context);
+    let previous_node_ln_range = get_node_ln_range(previous_node, context);
+    let current_node_ln_range = get_node_ln_range(current_node, context);
     let spaces_between_count = node_helpers::count_spaces_between_jsx_children(previous_node, current_node, context.program);
     let jsx_space_expr_text = get_jsx_space_text(spaces_between_count, context);
     if_true_or(
       "jsxIsLastChildMultiLine",
       Rc::new(move |condition_context| {
-        if let Some((start_info, end_info)) = previous_node_info_range {
-          let result = condition_helpers::is_multiple_lines_delete(condition_context, &start_info, &end_info)?;
+        if let Some((start_ln, end_ln)) = previous_node_ln_range {
+          let result = condition_helpers::is_multiple_lines(condition_context, start_ln, end_ln)?;
           if result {
             return Some(true);
           }
         }
-        if let Some((start_info, end_info)) = current_node_info_range {
-          let result = condition_helpers::is_multiple_lines_delete(condition_context, &start_info, &end_info)?;
+        if let Some((start_ln, end_ln)) = current_node_ln_range {
+          let result = condition_helpers::is_multiple_lines(condition_context, start_ln, end_ln)?;
           if result {
             return Some(true);
           }
