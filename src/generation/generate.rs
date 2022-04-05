@@ -3332,10 +3332,10 @@ fn gen_jsx_namespaced_name<'a>(node: &'a JSXNamespacedName, context: &mut Contex
 fn gen_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Context<'a>) -> PrintItems {
   let space_before_self_closing_tag_slash = context.config.jsx_element_space_before_self_closing_tag_slash;
   let force_use_new_lines = get_force_is_multi_line(node, context);
-  let start_info = Info::new("openingElementStart");
+  let start_lsil = LineStartIndentLevel::new("openingElementStart");
   let mut items = PrintItems::new();
 
-  items.push_info(start_info);
+  items.push_line_start_indent_level(start_lsil);
   items.push_str("<");
   items.extend(gen_node(node.name.into(), context));
   if let Some(type_args) = node.type_args {
@@ -3388,7 +3388,7 @@ fn gen_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Contex
     }
     items.push_str("/");
   } else if context.config.jsx_attributes_prefer_hanging {
-    items.push_condition(conditions::new_line_if_hanging(start_info, None));
+    items.push_condition(conditions::new_line_if_hanging(start_lsil, None));
   }
   items.push_str(">");
 
@@ -5211,14 +5211,14 @@ fn gen_mapped_type<'a>(node: &'a TsMappedType, context: &mut Context<'a>) -> Pri
 
   let span = node.span();
   let mut items = PrintItems::new();
-  let start_info = Info::new("startMappedType");
-  items.push_info(start_info);
+  let start_ln = LineNumber::new("startMappedType");
+  items.push_line_number(start_ln);
   items.extend(gen_surrounded_by_tokens(
     |context| {
-      let is_different_line_than_start = if force_use_new_lines {
+      let is_different_line_than_start: ConditionResolver = if force_use_new_lines {
         condition_resolvers::true_resolver()
       } else {
-        Rc::new(move |context: &mut ConditionResolverContext| condition_helpers::is_on_different_line_delete(context, &start_info))
+        Rc::new(move |context| condition_helpers::is_on_different_line(context, start_ln))
       };
       let inner_items = {
         let mut items = PrintItems::new();
@@ -5577,10 +5577,10 @@ fn gen_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, context
           (allows_inline_multi_line(type_node.into(), context, types_count > 1), is_last_value)
         };
         let separator_token = context.token_finder.get_previous_token_if_operator(&type_node.span(), separator);
-        let start_info = Info::new("start");
-        let after_separator_info = Info::new("afterSeparator");
+        let start_lc = LineAndColumn::new("start");
+        let after_separator_ln = LineNumber::new("afterSeparator");
         let mut items = PrintItems::new();
-        items.push_info(start_info);
+        items.push_line_and_column(start_lc);
         if let Some(separator_token) = separator_token {
           items.extend(gen_leading_comments(separator_token, context));
         }
@@ -5593,13 +5593,13 @@ fn gen_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, context
         if let Some(separator_token) = separator_token {
           items.extend(gen_trailing_comments(separator_token, context));
         }
-        items.push_info(after_separator_info);
+        items.push_line_number(after_separator_ln);
 
         items.push_condition(if_true(
           "afterSeparatorSpace",
           Rc::new(move |condition_context| {
-            let is_on_same_line = condition_helpers::is_on_same_line_delete(condition_context, &after_separator_info)?;
-            let is_at_same_position = condition_helpers::is_at_same_position_delete(condition_context, &start_info)?;
+            let is_on_same_line = condition_helpers::is_on_same_line(condition_context, after_separator_ln)?;
+            let is_at_same_position = condition_helpers::is_at_same_position(condition_context, start_lc)?;
             Some(is_on_same_line && !is_at_same_position)
           }),
           Signal::SpaceIfNotTrailing.into(),
@@ -6487,18 +6487,21 @@ where
       let mut items = PrintItems::new();
 
       if !force_use_new_lines && nodes.len() == 1 && is_arrow_function_with_expr_body(&nodes[0]) {
-        let start_info = Info::new("startArrow");
+        let start_ln = LineNumber::new("startArrow");
+        let start_lsil = LineStartIndentLevel::new("startArrow");
         let generated_node = gen_node(nodes.into_iter().next().unwrap(), context);
 
-        items.push_info(start_info);
+        items.push_line_number(start_ln);
+        items.push_line_start_indent_level(start_lsil);
         items.push_signal(Signal::PossibleNewLine);
         items.push_condition(conditions::indent_if_start_of_line(generated_node));
         items.push_condition(if_true(
           "isDifferentLineAndStartLineIndentation",
           Rc::new(move |context| {
-            let start_info = context.get_resolved_info(&start_info)?;
-            let is_different_line = start_info.line_number != context.writer_info.line_number;
-            let is_different_start_line_indentation = start_info.line_start_indent_level != context.writer_info.line_start_indent_level;
+            let start_ln = context.get_resolved_line_number(start_ln)?;
+            let start_lsil = context.get_resolved_line_start_indent_level(start_lsil)?;
+            let is_different_line = start_ln != context.writer_info.line_number;
+            let is_different_start_line_indentation = start_lsil != context.writer_info.line_start_indent_level;
             Some(is_different_line && is_different_start_line_indentation)
           }),
           Signal::NewLine.into(),
@@ -6582,15 +6585,15 @@ struct GenCloseParenWithTypeOptions<'a> {
 
 fn gen_close_paren_with_type<'a>(opts: GenCloseParenWithTypeOptions<'a>, context: &mut Context<'a>) -> PrintItems {
   // todo: clean this up a bit
-  let type_node_start_info = Info::new("typeNodeStart");
+  let type_node_start_ln = LineNumber::new("typeNodeStart");
   let has_type_node = opts.type_node.is_some();
-  let type_node_end_info = Info::new("typeNodeEnd");
+  let type_node_end_ln = LineNumber::new("typeNodeEnd");
   let start_lsil = opts.start_lsil;
   let generated_type_node = gen_type_node(
     opts.type_node,
     opts.type_node_separator,
-    type_node_start_info,
-    type_node_end_info,
+    type_node_start_ln,
+    type_node_end_ln,
     opts.param_count,
     context,
   );
@@ -6604,7 +6607,7 @@ fn gen_close_paren_with_type<'a>(opts: GenCloseParenWithTypeOptions<'a>, context
       }
 
       if let Some(is_hanging) = condition_helpers::is_hanging(context, start_lsil, None) {
-        if let Some(is_multiple_lines) = condition_helpers::is_multiple_lines_delete(context, &type_node_start_info, &type_node_end_info) {
+        if let Some(is_multiple_lines) = condition_helpers::is_multiple_lines(context, type_node_start_ln, type_node_end_ln) {
           return Some(is_hanging && is_multiple_lines);
         }
       }
@@ -6619,15 +6622,15 @@ fn gen_close_paren_with_type<'a>(opts: GenCloseParenWithTypeOptions<'a>, context
   fn gen_type_node<'a>(
     type_node: Option<Node<'a>>,
     type_node_separator: Option<PrintItems>,
-    type_node_start_info: Info,
-    type_node_end_info: Info,
+    type_node_start_ln: LineNumber,
+    type_node_end_ln: LineNumber,
     param_count: usize,
     context: &mut Context<'a>,
   ) -> PrintItems {
     let mut items = PrintItems::new();
     return if let Some(type_node) = type_node {
       let use_new_line_group = get_use_new_line_group(param_count, &type_node, context);
-      items.push_info(type_node_start_info);
+      items.push_line_number(type_node_start_ln);
       if let Some(type_node_separator) = type_node_separator {
         items.extend(type_node_separator);
       } else {
@@ -6639,7 +6642,7 @@ fn gen_close_paren_with_type<'a>(opts: GenCloseParenWithTypeOptions<'a>, context
       }
       let generated_type_node = gen_node(type_node, context);
       items.extend(generated_type_node);
-      items.push_info(type_node_end_info);
+      items.push_line_number(type_node_end_ln);
 
       if use_new_line_group {
         new_line_group(items)
@@ -8299,10 +8302,10 @@ struct GenBlockOptions<'a> {
 
 fn gen_block<'a>(gen_inner: impl FnOnce(Vec<Node<'a>>, &mut Context<'a>) -> PrintItems, opts: GenBlockOptions<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  let before_open_token_info = Info::new("after_open_token_info");
+  let before_open_token_ln = LineNumber::new("after_open_token_info");
   let first_member_span = opts.children.get(0).map(|x| x.span());
   let span = opts.span;
-  items.push_info(before_open_token_info);
+  items.push_line_number(before_open_token_ln);
   items.extend(gen_surrounded_by_tokens(
     |context| {
       let mut items = PrintItems::new();
@@ -8323,7 +8326,7 @@ fn gen_block<'a>(gen_inner: impl FnOnce(Vec<Node<'a>>, &mut Context<'a>) -> Prin
       if is_tokens_same_line_and_empty {
         items.push_condition(if_true(
           "newLineIfDifferentLine",
-          Rc::new(move |context| condition_helpers::is_on_different_line_delete(context, &before_open_token_info)),
+          Rc::new(move |context| condition_helpers::is_on_different_line(context, before_open_token_ln)),
           Signal::NewLine.into(),
         ));
       } else {
