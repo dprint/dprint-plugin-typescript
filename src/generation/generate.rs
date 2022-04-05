@@ -667,12 +667,12 @@ fn gen_static_block<'a>(node: &'a StaticBlock, context: &mut Context<'a>) -> Pri
 
 fn gen_catch_clause<'a>(node: &'a CatchClause, context: &mut Context<'a>) -> PrintItems {
   // a bit overkill since the param will currently always just be an identifer
-  let start_header_info = Info::new("catchClauseHeaderStart");
+  let start_header_ln = LineNumber::new("catchClauseHeaderStart");
   let start_header_lsil = LineStartIndentLevel::new("catchClauseHeaderStart");
-  let end_header_info = Info::new("catchClauseHeaderEnd");
+  let end_header_ln = LineNumber::new("catchClauseHeaderEnd");
   let mut items = PrintItems::new();
 
-  items.push_info(start_header_info);
+  items.push_line_number(start_header_ln);
   items.push_str("catch");
 
   if let Some(param) = &node.param {
@@ -680,7 +680,7 @@ fn gen_catch_clause<'a>(node: &'a CatchClause, context: &mut Context<'a>) -> Pri
     items.extend(gen_node(param.into(), context));
     items.push_str(")");
   }
-  items.push_info(end_header_info);
+  items.push_line_number(end_header_ln);
 
   let try_stmt = node.parent();
   let single_body_position = if try_stmt.finalizer.is_some() {
@@ -700,8 +700,8 @@ fn gen_catch_clause<'a>(node: &'a CatchClause, context: &mut Context<'a>) -> Pri
         single_body_position,
         requires_braces_condition_ref: None,
         header_start_token: None,
-        start_header_info: Some((start_header_info, start_header_lsil)),
-        end_header_info: Some(end_header_info),
+        start_header_info: Some((start_header_ln, start_header_lsil)),
+        end_header_info: Some(end_header_ln),
       },
       context,
     )
@@ -4159,9 +4159,9 @@ fn gen_expr_stmt<'a>(stmt: &'a ExprStmt, context: &mut Context<'a>) -> PrintItem
 }
 
 fn gen_for_stmt<'a>(node: &'a ForStmt, context: &mut Context<'a>) -> PrintItems {
-  let start_header_info = Info::new("startHeader");
+  let start_header_ln = LineNumber::new("startHeader");
   let start_header_lsil = LineStartIndentLevel::new("startHeader");
-  let end_header_info = Info::new("endHeader");
+  let end_header_ln = LineNumber::new("endHeader");
   let first_inner_node = {
     if let Some(init) = &node.init {
       init.span()
@@ -4203,7 +4203,7 @@ fn gen_for_stmt<'a>(node: &'a ForStmt, context: &mut Context<'a>) -> PrintItems 
   };
   let force_use_new_lines = get_use_new_lines(&first_inner_node, context);
   let mut items = PrintItems::new();
-  items.push_info(start_header_info);
+  items.push_line_number(start_header_ln);
   items.push_line_start_indent_level(start_header_lsil);
   items.push_str("for");
   if context.config.for_statement_space_after_for_keyword {
@@ -4272,7 +4272,7 @@ fn gen_for_stmt<'a>(node: &'a ForStmt, context: &mut Context<'a>) -> PrintItems 
     context,
   ));
 
-  items.push_info(end_header_info);
+  items.push_line_number(end_header_ln);
 
   items.extend(
     gen_conditional_brace_body(
@@ -4284,8 +4284,8 @@ fn gen_for_stmt<'a>(node: &'a ForStmt, context: &mut Context<'a>) -> PrintItems 
         single_body_position: Some(context.config.for_statement_single_body_position),
         requires_braces_condition_ref: None,
         header_start_token: None,
-        start_header_info: Some((start_header_info, start_header_lsil)),
-        end_header_info: Some(end_header_info),
+        start_header_info: Some((start_header_ln, start_header_lsil)),
+        end_header_info: Some(end_header_ln),
       },
       context,
     )
@@ -4309,11 +4309,11 @@ fn gen_for_stmt<'a>(node: &'a ForStmt, context: &mut Context<'a>) -> PrintItems 
 }
 
 fn gen_for_in_stmt<'a>(node: &'a ForInStmt, context: &mut Context<'a>) -> PrintItems {
-  let start_header_info = Info::new("startHeader");
+  let start_header_ln = LineNumber::new("startHeader");
   let start_header_lsil = LineStartIndentLevel::new("startHeader");
-  let end_header_info = Info::new("endHeader");
+  let end_header_ln = LineNumber::new("endHeader");
   let mut items = PrintItems::new();
-  items.push_info(start_header_info);
+  items.push_line_number(start_header_ln);
   items.push_line_start_indent_level(start_header_lsil);
   items.push_str("for");
   if context.config.for_in_statement_space_after_for_keyword {
@@ -4340,7 +4340,7 @@ fn gen_for_in_stmt<'a>(node: &'a ForInStmt, context: &mut Context<'a>) -> PrintI
     },
     context,
   ));
-  items.push_info(end_header_info);
+  items.push_line_number(end_header_ln);
 
   items.extend(
     gen_conditional_brace_body(
@@ -4352,8 +4352,8 @@ fn gen_for_in_stmt<'a>(node: &'a ForInStmt, context: &mut Context<'a>) -> PrintI
         single_body_position: Some(context.config.for_in_statement_single_body_position),
         requires_braces_condition_ref: None,
         header_start_token: None,
-        start_header_info: Some((start_header_info, start_header_lsil)),
-        end_header_info: Some(end_header_info),
+        start_header_info: Some((start_header_ln, start_header_lsil)),
+        end_header_info: Some(end_header_ln),
       },
       context,
     )
@@ -4364,11 +4364,11 @@ fn gen_for_in_stmt<'a>(node: &'a ForInStmt, context: &mut Context<'a>) -> PrintI
 }
 
 fn gen_for_of_stmt<'a>(node: &'a ForOfStmt, context: &mut Context<'a>) -> PrintItems {
-  let start_header_info = Info::new("startHeader");
+  let start_header_ln = LineNumber::new("startHeader");
   let start_header_lsil = LineStartIndentLevel::new("startHeader");
-  let end_header_info = Info::new("endHeader");
+  let end_header_ln = LineNumber::new("endHeader");
   let mut items = PrintItems::new();
-  items.push_info(start_header_info);
+  items.push_line_number(start_header_ln);
   items.push_line_start_indent_level(start_header_lsil);
   items.push_str("for");
   if context.config.for_of_statement_space_after_for_keyword {
@@ -4399,7 +4399,7 @@ fn gen_for_of_stmt<'a>(node: &'a ForOfStmt, context: &mut Context<'a>) -> PrintI
     },
     context,
   ));
-  items.push_info(end_header_info);
+  items.push_line_number(end_header_ln);
 
   items.extend(
     gen_conditional_brace_body(
@@ -4411,8 +4411,8 @@ fn gen_for_of_stmt<'a>(node: &'a ForOfStmt, context: &mut Context<'a>) -> PrintI
         single_body_position: Some(context.config.for_of_statement_single_body_position),
         requires_braces_condition_ref: None,
         header_start_token: None,
-        start_header_info: Some((start_header_info, start_header_lsil)),
-        end_header_info: Some(end_header_info),
+        start_header_info: Some((start_header_ln, start_header_lsil)),
+        end_header_info: Some(end_header_ln),
       },
       context,
     )
@@ -4489,9 +4489,9 @@ fn gen_if_stmt<'a>(node: &'a IfStmt, context: &mut Context<'a>) -> PrintItems {
     items.extend(gen_leading_comments(else_keyword, context));
     items.extend(gen_leading_comments(&alt, context));
 
-    let start_else_header_info = Info::new("startElseHeader");
+    let start_else_header_ln = LineNumber::new("startElseHeader");
     let start_else_header_lsil = LineStartIndentLevel::new("startElseHeader");
-    items.push_info(start_else_header_info);
+    items.push_line_number(start_else_header_ln);
     items.push_line_start_indent_level(start_else_header_lsil);
     items.push_str("else");
 
@@ -4509,7 +4509,7 @@ fn gen_if_stmt<'a>(node: &'a IfStmt, context: &mut Context<'a>) -> PrintItems {
             single_body_position: Some(context.config.if_statement_single_body_position),
             requires_braces_condition_ref: Some(result.open_brace_condition_ref),
             header_start_token: Some(else_keyword),
-            start_header_info: Some((start_else_header_info, start_else_header_lsil)),
+            start_header_info: Some((start_else_header_ln, start_else_header_lsil)),
             end_header_info: None,
           },
           context,
@@ -4852,11 +4852,11 @@ fn gen_var_declarator<'a>(node: &'a VarDeclarator, context: &mut Context<'a>) ->
 }
 
 fn gen_while_stmt<'a>(node: &'a WhileStmt, context: &mut Context<'a>) -> PrintItems {
-  let start_header_info = Info::new("startHeader");
+  let start_header_ln = LineNumber::new("startHeader");
   let start_header_lsil = LineStartIndentLevel::new("startHeader");
-  let end_header_info = Info::new("endHeader");
+  let end_header_ln = LineNumber::new("endHeader");
   let mut items = PrintItems::new();
-  items.push_info(start_header_info);
+  items.push_line_number(start_header_ln);
   items.push_line_start_indent_level(start_header_lsil);
   items.push_str("while");
   if context.config.while_statement_space_after_while_keyword {
@@ -4871,7 +4871,7 @@ fn gen_while_stmt<'a>(node: &'a WhileStmt, context: &mut Context<'a>) -> PrintIt
     },
     context,
   ));
-  items.push_info(end_header_info);
+  items.push_line_number(end_header_ln);
   items.extend(
     gen_conditional_brace_body(
       GenConditionalBraceBodyOptions {
@@ -4882,8 +4882,8 @@ fn gen_while_stmt<'a>(node: &'a WhileStmt, context: &mut Context<'a>) -> PrintIt
         single_body_position: Some(context.config.while_statement_single_body_position),
         requires_braces_condition_ref: None,
         header_start_token: None,
-        start_header_info: Some((start_header_info, start_header_lsil)),
-        end_header_info: Some(end_header_info),
+        start_header_info: Some((start_header_ln, start_header_lsil)),
+        end_header_info: Some(end_header_ln),
       },
       context,
     )
@@ -5589,7 +5589,7 @@ fn gen_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, context
           "afterSeparatorSpace",
           Rc::new(move |condition_context| {
             let is_on_same_line = condition_helpers::is_on_same_line(condition_context, &after_separator_info)?;
-            let is_at_same_position = condition_helpers::is_at_same_position(condition_context, &start_info)?;
+            let is_at_same_position = condition_helpers::is_at_same_position_delete(condition_context, &start_info)?;
             Some(is_on_same_line && !is_at_same_position)
           }),
           Signal::SpaceIfNotTrailing.into(),
@@ -7418,15 +7418,15 @@ fn gen_header_with_conditional_brace_body<'a>(
   opts: GenHeaderWithConditionalBraceBodyOptions<'a>,
   context: &mut Context<'a>,
 ) -> GenHeaderWithConditionalBraceBodyResult {
-  let start_header_info = Info::new("startHeader");
+  let start_header_ln = LineNumber::new("startHeader");
   let start_header_lsil = LineStartIndentLevel::new("startHeader");
-  let end_header_info = Info::new("endHeader");
+  let end_header_ln = LineNumber::new("endHeader");
   let mut items = PrintItems::new();
 
-  items.push_info(start_header_info);
+  items.push_line_number(start_header_ln);
   items.push_line_start_indent_level(start_header_lsil);
   items.extend(new_line_group(opts.generated_header));
-  items.push_info(end_header_info);
+  items.push_line_number(end_header_ln);
   let result = gen_conditional_brace_body(
     GenConditionalBraceBodyOptions {
       parent: opts.parent,
@@ -7436,8 +7436,8 @@ fn gen_header_with_conditional_brace_body<'a>(
       single_body_position: opts.single_body_position,
       requires_braces_condition_ref: opts.requires_braces_condition_ref,
       header_start_token: None,
-      start_header_info: Some((start_header_info, start_header_lsil)),
-      end_header_info: Some(end_header_info),
+      start_header_info: Some((start_header_ln, start_header_lsil)),
+      end_header_info: Some(end_header_ln),
     },
     context,
   );
@@ -7458,8 +7458,8 @@ struct GenConditionalBraceBodyOptions<'a> {
   single_body_position: Option<SingleBodyPosition>,
   requires_braces_condition_ref: Option<ConditionReference>,
   header_start_token: Option<&'a TokenAndSpan>,
-  start_header_info: Option<(Info, LineStartIndentLevel)>,
-  end_header_info: Option<Info>,
+  start_header_info: Option<(LineNumber, LineStartIndentLevel)>,
+  end_header_info: Option<LineNumber>,
 }
 
 struct GenConditionalBraceBodyResult {
@@ -7470,11 +7470,12 @@ struct GenConditionalBraceBodyResult {
 
 fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, context: &mut Context<'a>) -> GenConditionalBraceBodyResult {
   // todo: reorganize...
-  let start_info = Info::new("startInfo");
-  let end_info = Info::new("endInfo");
-  let start_header_info = opts.start_header_info.map(|v| v.0);
+  let start_ln = LineNumber::new("startInfo");
+  let start_col = ColumnNumber::new("startInfo");
+  let end_ln = LineNumber::new("endInfo");
+  let start_header_ln = opts.start_header_info.map(|v| v.0);
   let start_header_lsil = opts.start_header_info.map(|v| v.1);
-  let end_header_info = opts.end_header_info;
+  let end_header_ln = opts.end_header_info;
   let requires_braces_condition = opts.requires_braces_condition_ref;
   let start_inner_text_info = Info::new("startInnerText");
   let start_statements_info = Info::new("startStatements");
@@ -7518,19 +7519,18 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
       if should_use_new_line {
         return Some(true);
       }
-      let start_header_info = start_header_info.as_ref()?;
-      let resolved_start_info = condition_context.get_resolved_info(start_header_info)?;
-      if resolved_start_info.line_number < condition_context.writer_info.line_number {
+      let start_header_ln = condition_context.get_resolved_line_number(start_header_ln?)?;
+      if start_header_ln < condition_context.writer_info.line_number {
         return Some(true);
       }
       let resolved_end_statements_info = condition_context.get_resolved_info(&end_statements_info)?;
-      Some(resolved_end_statements_info.line_number > resolved_start_info.line_number)
+      Some(resolved_end_statements_info.line_number > start_header_ln)
     }),
     Signal::NewLine.into(),
   );
   let newline_condition_ref = newline_condition.get_reference();
   let force_braces = get_force_braces(&opts.body_node);
-  let mut open_brace_condition = Condition::new_with_dependent_infos(
+  let mut open_brace_condition = Condition::new(
     "openBrace",
     ConditionProperties {
       condition: {
@@ -7546,7 +7546,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
               if force_braces {
                 Some(true)
               } else {
-                let is_multiple_lines = condition_helpers::is_multiple_lines_delete(condition_context, &start_header_info.unwrap_or(start_info), &end_info)?;
+                let is_multiple_lines = condition_helpers::is_multiple_lines(condition_context, start_header_ln.unwrap_or(start_ln), end_ln)?;
                 Some(is_multiple_lines)
               }
             }
@@ -7556,9 +7556,9 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
               if force_braces || body_should_be_multi_line {
                 return Some(true);
               }
-              if let Some(start_header_info) = &start_header_info {
-                if let Some(end_header_info) = &end_header_info {
-                  let is_header_multiple_lines = condition_helpers::is_multiple_lines_delete(condition_context, start_header_info, end_header_info)?;
+              if let Some(start_header_ln) = start_header_ln {
+                if let Some(end_header_ln) = end_header_ln {
+                  let is_header_multiple_lines = condition_helpers::is_multiple_lines(condition_context, start_header_ln, end_header_ln)?;
                   if is_header_multiple_lines {
                     return Some(true);
                   }
@@ -7597,8 +7597,8 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
       },
       false_path: None,
     },
-    vec![end_info],
   );
+  let open_brace_condition_reevaluation = open_brace_condition.create_reevaluation();
   let open_brace_condition_ref = open_brace_condition.get_reference();
 
   // store the brace condition if ASI and the body is an expression statement
@@ -7608,7 +7608,8 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
 
   // generate body
   let mut items = PrintItems::new();
-  items.push_info(start_info);
+  items.push_line_number(start_ln);
+  items.push_column_number(start_col);
   items.push_condition(open_brace_condition);
   items.push_info(start_inner_text_info);
   let generated_comments = gen_comment_collection(header_trailing_comments.into_iter(), None, None, context);
@@ -7623,7 +7624,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
   if !is_body_empty_stmt {
     items.push_condition(if_true(
       "spaceIfAtStart",
-      Rc::new(move |context| condition_helpers::is_at_same_position(context, &start_info)),
+      Rc::new(move |context| condition_helpers::is_at_same_position(context, start_ln, start_col)),
       Signal::SpaceOrNewLine.into(),
     ));
   }
@@ -7671,7 +7672,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
         if_true(
           "closeBraceSpace",
           Rc::new(move |condition_context| {
-            if condition_helpers::is_at_same_position(condition_context, &start_inner_text_info)? {
+            if condition_helpers::is_at_same_position_delete(condition_context, &start_inner_text_info)? {
               return Some(false);
             }
             let had_space = condition_context.get_resolved_condition(&inner_brace_space_condition_ref)?;
@@ -7687,7 +7688,8 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
   );
   let close_brace_condition_ref = close_brace_condition.get_reference();
   items.push_condition(close_brace_condition);
-  items.push_info(end_info);
+  items.push_line_number(end_ln);
+  items.push_reevaluation(open_brace_condition_reevaluation);
 
   // return result
   return GenConditionalBraceBodyResult {
@@ -8387,7 +8389,7 @@ fn gen_surrounded_by_tokens<'a>(
       items.push_condition(if_true(
         "newLineIfHasCommentsAndNotStartOfNewLine",
         Rc::new(move |context| {
-          let had_comments = !condition_helpers::is_at_same_position(context, &before_trailing_comments_info)?;
+          let had_comments = !condition_helpers::is_at_same_position_delete(context, &before_trailing_comments_info)?;
           Some(had_comments && !context.writer_info.is_start_of_line())
         }),
         Signal::NewLine.into(),
