@@ -4467,9 +4467,9 @@ fn gen_if_stmt<'a>(node: &'a IfStmt, context: &mut Context<'a>) -> PrintItems {
     },
     context,
   );
-  let if_stmt_start_info = Info::new("ifStmtStart");
+  let if_stmt_start_ln = LineNumber::new("ifStmtStart");
 
-  items.push_info(if_stmt_start_info);
+  items.push_line_number(if_stmt_start_ln);
   items.extend(result.generated_node);
 
   if let Some(alt) = node.alt {
@@ -4483,7 +4483,7 @@ fn gen_if_stmt<'a>(node: &'a IfStmt, context: &mut Context<'a>) -> PrintItems {
       context.config.if_statement_next_control_flow_position,
       &cons_span,
       "else",
-      if_stmt_start_info,
+      if_stmt_start_ln,
       Some(result.close_brace_condition_ref),
       context,
     ));
@@ -4706,9 +4706,9 @@ fn gen_try_stmt<'a>(node: &'a TryStmt, context: &mut Context<'a>) -> PrintItems 
   let brace_position = context.config.try_statement_brace_position;
   let next_control_flow_position = context.config.try_statement_next_control_flow_position;
   let mut last_block_span = node.block.span();
-  let mut last_block_start_info = Info::new("tryStart");
+  let mut last_block_start_ln = LineNumber::new("tryStart");
 
-  items.push_info(last_block_start_info);
+  items.push_line_number(last_block_start_ln);
   items.push_str("try");
 
   items.extend(
@@ -4730,13 +4730,13 @@ fn gen_try_stmt<'a>(node: &'a TryStmt, context: &mut Context<'a>) -> PrintItems 
   );
 
   if let Some(handler) = node.handler {
-    let handler_start_info = Info::new("handlerStart");
-    items.push_info(handler_start_info);
+    let handler_start_ln = LineNumber::new("handlerStart");
+    items.push_line_number(handler_start_ln);
     items.extend(gen_control_flow_separator(
       next_control_flow_position,
       &last_block_span,
       "catch",
-      last_block_start_info,
+      last_block_start_ln,
       None,
       context,
     ));
@@ -4744,7 +4744,7 @@ fn gen_try_stmt<'a>(node: &'a TryStmt, context: &mut Context<'a>) -> PrintItems 
     items.extend(gen_node(handler.into(), context));
 
     // set the next block to check the handler start info
-    last_block_start_info = handler_start_info;
+    last_block_start_ln = handler_start_ln;
   }
 
   if let Some(finalizer) = node.finalizer {
@@ -4752,7 +4752,7 @@ fn gen_try_stmt<'a>(node: &'a TryStmt, context: &mut Context<'a>) -> PrintItems 
       next_control_flow_position,
       &last_block_span,
       "finally",
-      last_block_start_info,
+      last_block_start_ln,
       None,
       context,
     ));
@@ -5598,7 +5598,7 @@ fn gen_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, context
         items.push_condition(if_true(
           "afterSeparatorSpace",
           Rc::new(move |condition_context| {
-            let is_on_same_line = condition_helpers::is_on_same_line(condition_context, &after_separator_info)?;
+            let is_on_same_line = condition_helpers::is_on_same_line_delete(condition_context, &after_separator_info)?;
             let is_at_same_position = condition_helpers::is_at_same_position_delete(condition_context, &start_info)?;
             Some(is_on_same_line && !is_at_same_position)
           }),
@@ -7366,7 +7366,7 @@ fn gen_control_flow_separator(
   next_control_flow_position: NextControlFlowPosition,
   previous_node_block: &Span,
   token_text: &str,
-  previous_start_info: Info,
+  previous_start_ln: LineNumber,
   previous_close_brace_condition_ref: Option<ConditionReference>,
   context: &mut Context,
 ) -> PrintItems {
@@ -7377,7 +7377,7 @@ fn gen_control_flow_separator(
         "newLineOrSpace",
         Rc::new(move |condition_context| {
           // newline if on the same line as the previous
-          if condition_helpers::is_on_same_line(condition_context, &previous_start_info)? {
+          if condition_helpers::is_on_same_line(condition_context, previous_start_ln)? {
             return Some(true);
           }
 
