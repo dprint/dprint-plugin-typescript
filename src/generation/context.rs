@@ -6,7 +6,6 @@ use deno_ast::swc::parser::token::TokenAndSpan;
 use deno_ast::view::*;
 use dprint_core::formatting::ConditionReference;
 use dprint_core::formatting::IndentLevel;
-use dprint_core::formatting::Info;
 use dprint_core::formatting::IsStartOfLine;
 use dprint_core::formatting::LineNumber;
 use dprint_core::formatting::LineStartIndentLevel;
@@ -30,7 +29,7 @@ pub struct Context<'a> {
   stored_lsil: FxHashMap<(BytePos, BytePos), LineStartIndentLevel>,
   stored_ln: FxHashMap<(BytePos, BytePos), LineNumber>,
   stored_il: FxHashMap<(BytePos, BytePos), IndentLevel>,
-  pub end_statement_or_member_infos: Stack<Info>,
+  pub end_statement_or_member_lns: Stack<LineNumber>,
   before_comments_start_info_stack: Stack<(Span, LineNumber, IsStartOfLine)>,
   if_stmt_last_brace_condition_ref: Option<ConditionReference>,
   expr_stmt_single_line_parent_brace_ref: Option<ConditionReference>,
@@ -54,7 +53,7 @@ impl<'a> Context<'a> {
       stored_lsil: FxHashMap::default(),
       stored_ln: FxHashMap::default(),
       stored_il: FxHashMap::default(),
-      end_statement_or_member_infos: Stack::new(),
+      end_statement_or_member_lns: Stack::new(),
       before_comments_start_info_stack: Stack::new(),
       if_stmt_last_brace_condition_ref: None,
       expr_stmt_single_line_parent_brace_ref: None,

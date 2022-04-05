@@ -37,5 +37,5 @@ parking_lot_core = "=0.8.0" # wait on string_cache to be updated in swc
 
 [dev-dependencies]
 debug-here = "0.2"
-dprint-development = "0.8.0"
+dprint-development = { path = "../dprint/crates/development" }
 serde_json = { version = "1.0" }
