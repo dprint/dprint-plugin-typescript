@@ -330,6 +330,18 @@
         "description": "Use commas."
       }]
     },
+    "spaceAround": {
+      "description": "Whether to place spaces around enclosed expressions.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `myFunction( true )`"
+      }, {
+        "const": false,
+        "description": "Ex. `myFunction(true)`"
+      }]
+    },
     "spaceSurroundingProperties": {
       "description": "Whether to add a space surrounding the properties of single line object-like nodes.",
       "type": "boolean",
@@ -762,6 +774,45 @@
     },
     "enumDeclaration.memberSpacing": {
       "$ref": "#/definitions/enumDeclaration.memberSpacing"
+    },
+    "spaceAround": {
+      "$ref": "#/definitions/spaceAround"
+    },
+    "arguments.spaceAround": {
+      "$ref": "#/definitions/spaceAround"
+    },
+    "arrayExpression.spaceAround": {
+      "$ref": "#/definitions/spaceAround"
+    },
+    "arrayPattern.spaceAround": {
+      "$ref": "#/definitions/spaceAround"
+    },
+    "doWhileStatement.spaceAround": {
+      "$ref": "#/definitions/spaceAround"
+    },
+    "forInStatement.spaceAround": {
+      "$ref": "#/definitions/spaceAround"
+    },
+    "forOfStatement.spaceAround": {
+      "$ref": "#/definitions/spaceAround"
+    },
+    "forStatement.spaceAround": {
+      "$ref": "#/definitions/spaceAround"
+    },
+    "ifStatement.spaceAround": {
+      "$ref": "#/definitions/spaceAround"
+    },
+    "parameters.spaceAround": {
+      "$ref": "#/definitions/spaceAround"
+    },
+    "switchStatement.spaceAround": {
+      "$ref": "#/definitions/spaceAround"
+    },
+    "tupleType.spaceAround": {
+      "$ref": "#/definitions/spaceAround"
+    },
+    "whileStatement.spaceAround": {
+      "$ref": "#/definitions/spaceAround"
     },
     "spaceSurroundingProperties": {
       "$ref": "#/definitions/spaceSurroundingProperties"
