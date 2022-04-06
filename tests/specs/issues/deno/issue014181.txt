@@ -1,0 +1,20 @@
+~~ deno: true ~~
+== should format (only) ==
+export default (foo, bar) => {
+  return {
+    "foo_long_ish": foo.length === 0 ? foo : foo.reduceRight(long_reducer("foo")),
+    "bar_long_ish": bar.length === 0 ? bar : bar.reduceRight(long_reducer("bar")),
+  };
+};
+
+[expect]
+export default (foo, bar) => {
+  return {
+    "foo_long_ish": foo.length === 0
+      ? foo
+      : foo.reduceRight(long_reducer("foo")),
+    "bar_long_ish": bar.length === 0
+      ? bar
+      : bar.reduceRight(long_reducer("bar")),
+  };
+};

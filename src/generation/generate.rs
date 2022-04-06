@@ -2057,20 +2057,18 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
     },
   ))));
 
-  // force re-evaluation of all the conditions below once the end info has been reached
-  // todo: don't use this
-  items.push_condition(conditions::force_reevaluation_once_resolved_deprecated(
-    context.end_statement_or_member_lns.peek().copied().unwrap_or(end_ln),
-  ));
+  items.push_anchor(LineNumberAnchor::new(end_ln));
+  items.push_anchor(LineNumberAnchor::new(before_alternate_ln));
 
-  if force_new_lines {
+  let multi_line_reevaluation = if force_new_lines {
     items.push_signal(Signal::NewLine);
+    None
   } else {
-    items.push_condition(conditions::new_line_if_multiple_lines_space_or_new_line_otherwise(
-      top_most_data.top_most_ln,
-      Some(before_alternate_ln),
-    ));
-  }
+    let mut condition = conditions::new_line_if_multiple_lines_space_or_new_line_otherwise(top_most_data.top_most_ln, Some(before_alternate_ln));
+    let reevaluation = condition.create_reevaluation();
+    items.push_condition(condition);
+    Some(reevaluation)
+  };
 
   let cons_and_alt_items = {
     let mut items = PrintItems::new();
@@ -2120,6 +2118,10 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
       }
     })));
     items.push_info(end_ln);
+
+    if let Some(reevaluation) = multi_line_reevaluation {
+      items.push_reevaluation(reevaluation);
+    }
 
     items
   };
