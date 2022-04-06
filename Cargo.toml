@@ -27,7 +27,7 @@ tracing = ["dprint-core/tracing"]
 [dependencies]
 anyhow = "1.0.51"
 deno_ast = { version = "0.13.0", features = ["view"] }
-dprint-core = { version = "0.54.1", features = ["formatting"] }
+dprint-core = { version = "0.55.0", features = ["formatting"] }
 rustc-hash = "1.1.0"
 serde = { version = "1.0.118", features = ["derive"] }
 serde_json = { version = "1.0", optional = true }
@@ -37,5 +37,5 @@ parking_lot_core = "=0.8.0" # wait on string_cache to be updated in swc
 
 [dev-dependencies]
 debug-here = "0.2"
-dprint-development = "0.8.0"
+dprint-development = "0.9.0"
 serde_json = { version = "1.0" }
