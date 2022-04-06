@@ -1,0 +1,10 @@
+~~ arrayPattern.spaceAround: true ~~
+== should format with space around elements ==
+const [testing, other] = arr;
+function foo([testing, other]) {
+}
+
+[expect]
+const [ testing, other ] = arr;
+function foo([ testing, other ]) {
+}

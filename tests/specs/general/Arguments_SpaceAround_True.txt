@@ -1,0 +1,22 @@
+~~ lineWidth: 30, arguments.spaceAround: true ~~
+== should add spaces around arguments ==
+testing(true);
+testing(1, 2, 3);
+testing({a: 5});
+testing({abcdefghijklmnop: true, bcdefg: false});
+testing(123456, 123456, 123456, 123456);
+
+[expect]
+testing( true );
+testing( 1, 2, 3 );
+testing( { a: 5 } );
+testing( {
+    abcdefghijklmnop: true,
+    bcdefg: false,
+} );
+testing(
+    123456,
+    123456,
+    123456,
+    123456,
+);

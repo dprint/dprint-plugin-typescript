@@ -1,0 +1,8 @@
+~~ whileStatement.spaceAround: true ~~
+== should format with space around the condition ==
+while (i <= arr.length) {
+}
+
+[expect]
+while ( i <= arr.length ) {
+}

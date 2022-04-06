@@ -1,0 +1,12 @@
+~~ doWhileStatement.spaceAround: true ~~
+== should format with space around the condition ==
+do {
+    a;
+    b;
+} while (true);
+
+[expect]
+do {
+    a;
+    b;
+} while ( true );

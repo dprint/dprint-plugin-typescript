@@ -1,0 +1,18 @@
+~~ lineWidth: 80, parameters.spaceAround: true ~~
+== should add spaces around parameters ==
+function testing(param1: string, param2: boolean) {
+}
+const testing = (param1: string, param2: boolean) => {};
+class Foo {
+    public bar(param1: number, param2: string) {
+    }
+}
+
+[expect]
+function testing( param1: string, param2: boolean ) {
+}
+const testing = ( param1: string, param2: boolean ) => {};
+class Foo {
+    public bar( param1: number, param2: string ) {
+    }
+}

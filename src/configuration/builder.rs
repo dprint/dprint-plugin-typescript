@@ -431,6 +431,14 @@ impl ConfigurationBuilder {
     self.insert("whileStatement.spaceAfterWhileKeyword", value.into())
   }
 
+  /// Whether to place spaces around enclosed expressions.
+  ///
+  /// * `true` - Ex. `myFunction( true )`
+  /// * `false` (default) - Ex. `myFunction(true)`
+  pub fn space_around(&mut self, value: bool) -> &mut Self {
+    self.insert("spaceAround", value.into())
+  }
+
   /* situational */
 
   /// Whether to use parentheses for arrow functions.
@@ -924,6 +932,56 @@ impl ConfigurationBuilder {
     self.insert("variableStatement.preferSingleLine", value.into())
   }
 
+  /* space around */
+
+  pub fn arguments_space_around(&mut self, value: bool) -> &mut Self {
+    self.insert("arguments.spaceAround", value.into())
+  }
+
+  pub fn array_expression_space_around(&mut self, value: bool) -> &mut Self {
+    self.insert("arrayExpression.spaceAround", value.into())
+  }
+
+  pub fn array_pattern_space_around(&mut self, value: bool) -> &mut Self {
+    self.insert("arrayPattern.spaceAround", value.into())
+  }
+
+  pub fn do_while_statement_space_around(&mut self, value: bool) -> &mut Self {
+    self.insert("doWhileStatement.spaceAround", value.into())
+  }
+
+  pub fn for_in_statement_space_around(&mut self, value: bool) -> &mut Self {
+    self.insert("forInStatement.spaceAround", value.into())
+  }
+
+  pub fn for_of_statement_space_around(&mut self, value: bool) -> &mut Self {
+    self.insert("forOfStatement.spaceAround", value.into())
+  }
+
+  pub fn for_statement_space_around(&mut self, value: bool) -> &mut Self {
+    self.insert("forStatement.spaceAround", value.into())
+  }
+
+  pub fn if_statement_space_around(&mut self, value: bool) -> &mut Self {
+    self.insert("ifStatement.spaceAround", value.into())
+  }
+
+  pub fn parameters_space_around(&mut self, value: bool) -> &mut Self {
+    self.insert("parameters.spaceAround", value.into())
+  }
+
+  pub fn switch_statement_space_around(&mut self, value: bool) -> &mut Self {
+    self.insert("switchStatement.spaceAround", value.into())
+  }
+
+  pub fn tuple_type_space_around(&mut self, value: bool) -> &mut Self {
+    self.insert("tupleType.spaceAround", value.into())
+  }
+
+  pub fn while_statement_space_around(&mut self, value: bool) -> &mut Self {
+    self.insert("whileStatement.spaceAround", value.into())
+  }
+
   #[cfg(test)]
   pub(super) fn get_inner_config(&self) -> ConfigKeyMap {
     self.config.clone()
@@ -1111,10 +1169,23 @@ mod tests {
       .type_annotation_space_before_colon(true)
       .type_assertion_space_before_expression(true)
       .type_literal_space_surrounding_properties(false)
-      .while_statement_space_after_while_keyword(true);
+      .while_statement_space_after_while_keyword(true)
+      /* space around */
+      .arguments_space_around(true)
+      .array_expression_space_around(true)
+      .array_pattern_space_around(true)
+      .do_while_statement_space_around(true)
+      .for_in_statement_space_around(true)
+      .for_of_statement_space_around(true)
+      .for_statement_space_around(true)
+      .if_statement_space_around(true)
+      .parameters_space_around(true)
+      .switch_statement_space_around(true)
+      .tuple_type_space_around(true)
+      .while_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 155);
+    assert_eq!(inner_config.len(), 167);
     let diagnostics = resolve_config(inner_config, &resolve_global_config(ConfigKeyMap::new(), &Default::default()).config).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

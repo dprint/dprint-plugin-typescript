@@ -568,4 +568,28 @@ pub struct Configuration {
   pub type_literal_space_surrounding_properties: bool,
   #[serde(rename = "whileStatement.spaceAfterWhileKeyword")]
   pub while_statement_space_after_while_keyword: bool,
+  #[serde(rename = "arguments.spaceAround")]
+  pub arguments_space_around: bool,
+  #[serde(rename = "arrayExpression.spaceAround")]
+  pub array_expression_space_around: bool,
+  #[serde(rename = "arrayPattern.spaceAround")]
+  pub array_pattern_space_around: bool,
+  #[serde(rename = "doWhileStatement.spaceAround")]
+  pub do_while_statement_space_around: bool,
+  #[serde(rename = "forInStatement.spaceAround")]
+  pub for_in_statement_space_around: bool,
+  #[serde(rename = "forOfStatement.spaceAround")]
+  pub for_of_statement_space_around: bool,
+  #[serde(rename = "forStatement.spaceAround")]
+  pub for_statement_space_around: bool,
+  #[serde(rename = "ifStatement.spaceAround")]
+  pub if_statement_space_around: bool,
+  #[serde(rename = "parameters.spaceAround")]
+  pub parameters_space_around: bool,
+  #[serde(rename = "switchStatement.spaceAround")]
+  pub switch_statement_space_around: bool,
+  #[serde(rename = "tupleType.spaceAround")]
+  pub tuple_type_space_around: bool,
+  #[serde(rename = "whileStatement.spaceAround")]
+  pub while_statement_space_around: bool,
 }
