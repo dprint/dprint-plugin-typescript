@@ -1,5 +1,5 @@
 ~~ deno: true ~~
-== should format (only) ==
+== should format ==
 export default (foo, bar) => {
   return {
     "foo_long_ish": foo.length === 0 ? foo : foo.reduceRight(long_reducer("foo")),
