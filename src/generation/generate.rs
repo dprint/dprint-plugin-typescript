@@ -1438,6 +1438,7 @@ fn gen_array_expr<'a>(node: &'a ArrayLit, context: &mut Context<'a>) -> PrintIte
       prefer_hanging: context.config.array_expression_prefer_hanging,
       prefer_single_line: context.config.array_expression_prefer_single_line,
       trailing_commas: context.config.array_expression_trailing_commas,
+      space_around: context.config.array_expression_space_around,
     },
     context,
   )
@@ -2417,6 +2418,7 @@ fn gen_paren_expr<'a>(node: &'a ParenExpr, context: &mut Context<'a>) -> PrintIt
       inner_span: node.expr.span(),
       prefer_hanging: true,
       allow_open_paren_trailing_comments: true,
+      single_line_space_around: false,
     },
     context,
   ))
@@ -3713,6 +3715,7 @@ fn gen_array_pat<'a>(node: &'a ArrayPat, context: &mut Context<'a>) -> PrintItem
       prefer_hanging: context.config.array_pattern_prefer_hanging,
       prefer_single_line: context.config.array_pattern_prefer_single_line,
       trailing_commas: context.config.array_pattern_trailing_commas,
+      space_around: context.config.array_pattern_space_around,
     },
     context,
   ));
@@ -4042,6 +4045,7 @@ fn gen_do_while_stmt<'a>(node: &'a DoWhileStmt, context: &mut Context<'a>) -> Pr
       inner_span: node.test.span(),
       prefer_hanging: context.config.do_while_statement_prefer_hanging,
       allow_open_paren_trailing_comments: false,
+      single_line_space_around: context.config.do_while_statement_space_around,
     },
     context,
   ));
@@ -4282,6 +4286,7 @@ fn gen_for_stmt<'a>(node: &'a ForStmt, context: &mut Context<'a>) -> PrintItems 
       inner_span: create_span(first_inner_node.lo(), last_inner_node.hi()),
       prefer_hanging: context.config.for_statement_prefer_hanging,
       allow_open_paren_trailing_comments: false,
+      single_line_space_around: context.config.for_statement_space_around,
     },
     context,
   ));
@@ -4351,6 +4356,7 @@ fn gen_for_in_stmt<'a>(node: &'a ForInStmt, context: &mut Context<'a>) -> PrintI
       inner_span: inner_header_span,
       prefer_hanging: context.config.for_in_statement_prefer_hanging,
       allow_open_paren_trailing_comments: false,
+      single_line_space_around: context.config.for_in_statement_space_around,
     },
     context,
   ));
@@ -4410,6 +4416,7 @@ fn gen_for_of_stmt<'a>(node: &'a ForOfStmt, context: &mut Context<'a>) -> PrintI
       inner_span: inner_header_span,
       prefer_hanging: context.config.for_of_statement_prefer_hanging,
       allow_open_paren_trailing_comments: false,
+      single_line_space_around: context.config.for_of_statement_space_around,
     },
     context,
   ));
@@ -4457,6 +4464,7 @@ fn gen_if_stmt<'a>(node: &'a IfStmt, context: &mut Context<'a>) -> PrintItems {
             inner_span: test.span(),
             prefer_hanging: context.config.if_statement_prefer_hanging,
             allow_open_paren_trailing_comments: false,
+            single_line_space_around: context.config.if_statement_space_around,
           },
           context,
         ));
@@ -4577,6 +4585,7 @@ fn gen_switch_stmt<'a>(node: &'a SwitchStmt, context: &mut Context<'a>) -> Print
       inner_span: node.discriminant.span(),
       prefer_hanging: context.config.switch_statement_prefer_hanging,
       allow_open_paren_trailing_comments: false,
+      single_line_space_around: context.config.switch_statement_space_around,
     },
     context,
   ));
@@ -4879,6 +4888,7 @@ fn gen_while_stmt<'a>(node: &'a WhileStmt, context: &mut Context<'a>) -> PrintIt
       inner_span: node.test.span(),
       prefer_hanging: context.config.while_statement_prefer_hanging,
       allow_open_paren_trailing_comments: false,
+      single_line_space_around: context.config.while_statement_space_around,
     },
     context,
   ));
@@ -5303,6 +5313,7 @@ fn gen_mapped_type<'a>(node: &'a TsMappedType, context: &mut Context<'a>) -> Pri
       first_member: Some(node.type_param.span()),
       prefer_single_line_when_empty: false,
       allow_open_token_trailing_comments: true,
+      single_line_space_around: false,
     },
     context,
   ));
@@ -5331,6 +5342,7 @@ fn gen_parenthesized_type<'a>(node: &'a TsParenthesizedType, context: &mut Conte
       inner_span: node.type_ann.span(),
       prefer_hanging: true,
       allow_open_paren_trailing_comments: true,
+      single_line_space_around: false,
     },
     context,
   ))
@@ -5370,6 +5382,7 @@ fn gen_tuple_type<'a>(node: &'a TsTupleType, context: &mut Context<'a>) -> Print
       prefer_hanging: context.config.tuple_type_prefer_hanging,
       prefer_single_line: context.config.tuple_type_prefer_single_line,
       trailing_commas: context.config.tuple_type_trailing_commas,
+      space_around: context.config.tuple_type_space_around,
     },
     context,
   )
@@ -6021,6 +6034,7 @@ struct GenArrayLikeNodesOptions<'a> {
   nodes: Vec<Option<Node<'a>>>,
   prefer_hanging: bool,
   prefer_single_line: bool,
+  space_around: bool,
   trailing_commas: TrailingCommas,
 }
 
@@ -6048,6 +6062,7 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
     TrailingCommas::Never
   };
   let prefer_hanging = opts.prefer_hanging;
+  let space_around = opts.space_around;
   let force_use_new_lines = get_force_use_new_lines(&node, &nodes, opts.prefer_single_line, context);
   let mut items = PrintItems::new();
   let first_member = nodes.get(0).map(|x| x.span());
@@ -6061,8 +6076,8 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
           force_use_new_lines,
           allow_blank_lines: true,
           separator: trailing_commas.into(),
-          single_line_space_at_start: false,
-          single_line_space_at_end: false,
+          single_line_space_at_start: space_around,
+          single_line_space_at_end: space_around,
           custom_single_line_separator: None,
           multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(),
           force_possible_newline_at_start: false,
@@ -6079,6 +6094,7 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
       first_member,
       prefer_single_line_when_empty: true,
       allow_open_token_trailing_comments: true,
+      single_line_space_around: false,
     },
     context,
   ));
@@ -6479,6 +6495,11 @@ where
   } else {
     context.config.arguments_prefer_hanging
   };
+  let space_around = if is_parameters {
+    context.config.parameters_space_around
+  } else {
+    context.config.arguments_space_around
+  };
   let trailing_commas = get_trailing_commas(&opts.node, &nodes, is_parameters, context);
 
   return gen_surrounded_by_tokens(
@@ -6513,8 +6534,8 @@ where
             force_use_new_lines,
             allow_blank_lines: false,
             separator: trailing_commas.into(),
-            single_line_space_at_start: false,
-            single_line_space_at_end: false,
+            single_line_space_at_start: space_around,
+            single_line_space_at_end: space_around,
             custom_single_line_separator: None,
             multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(),
             force_possible_newline_at_start: is_parameters,
@@ -6534,6 +6555,7 @@ where
       first_member: first_member_span,
       prefer_single_line_when_empty: true,
       allow_open_token_trailing_comments: true,
+      single_line_space_around: false,
     },
     context,
   );
@@ -7000,6 +7022,7 @@ struct GenNodeInParensOptions {
   inner_span: Span,
   prefer_hanging: bool,
   allow_open_paren_trailing_comments: bool,
+  single_line_space_around: bool,
 }
 
 fn gen_node_in_parens<'a>(gen_node: impl FnOnce(&mut Context<'a>) -> PrintItems, opts: GenNodeInParensOptions, context: &mut Context<'a>) -> PrintItems {
@@ -7026,6 +7049,7 @@ fn gen_node_in_parens<'a>(gen_node: impl FnOnce(&mut Context<'a>) -> PrintItems,
       first_member: Some(inner_span),
       prefer_single_line_when_empty: true,
       allow_open_token_trailing_comments: opts.allow_open_paren_trailing_comments,
+      single_line_space_around: opts.single_line_space_around,
     },
     context,
   );
@@ -7160,6 +7184,7 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
       first_member: first_member_span,
       prefer_single_line_when_empty: true,
       allow_open_token_trailing_comments: true,
+      single_line_space_around: false,
     },
     context,
   ));
@@ -7298,6 +7323,7 @@ fn gen_computed_prop_like<'a>(
       first_member: Some(inner_node_span),
       prefer_single_line_when_empty: false,
       allow_open_token_trailing_comments: true,
+      single_line_space_around: false,
     },
     context,
   ));
@@ -8345,6 +8371,7 @@ fn gen_block<'a>(gen_inner: impl FnOnce(Vec<Node<'a>>, &mut Context<'a>) -> Prin
       first_member: first_member_span,
       prefer_single_line_when_empty: false,
       allow_open_token_trailing_comments: true,
+      single_line_space_around: false,
     },
     context,
   ));
@@ -8359,6 +8386,7 @@ struct GenSurroundedByTokensOptions {
   first_member: Option<Span>,
   prefer_single_line_when_empty: bool,
   allow_open_token_trailing_comments: bool,
+  single_line_space_around: bool,
 }
 
 fn gen_surrounded_by_tokens<'a>(
@@ -8380,12 +8408,19 @@ fn gen_surrounded_by_tokens<'a>(
 
     // generate
     let open_token_start_line = open_token_end.start_line_fast(context.program);
+    let is_single_line;
 
     items.extend(gen_leading_comments(&span, context));
     items.push_str(opts.open_token);
     if let Some(first_member) = opts.first_member {
       let first_member_start_line = first_member.start_line_fast(context.program);
-      if opts.allow_open_token_trailing_comments && open_token_start_line < first_member_start_line {
+      is_single_line = open_token_start_line == first_member_start_line;
+
+      if is_single_line && opts.single_line_space_around {
+        items.push_str(" ");
+      }
+
+      if opts.allow_open_token_trailing_comments && !is_single_line {
         items.extend(gen_first_line_trailing_comment(
           open_token_start_line,
           open_token_end.trailing_comments_fast(context.program),
@@ -8412,7 +8447,12 @@ fn gen_surrounded_by_tokens<'a>(
       ));
     } else {
       let comments = open_token_end.trailing_comments_fast(context.program);
-      let is_single_line = open_token_start_line == close_token_start.start_line_fast(context.program);
+      is_single_line = open_token_start_line == close_token_start.start_line_fast(context.program);
+
+      if is_single_line && opts.single_line_space_around {
+        items.push_str(" ");
+      }
+
       if !comments.is_empty() {
         // generate the trailing comment on the first line only if multi-line and if a comment line
         if !is_single_line {
@@ -8445,8 +8485,8 @@ fn gen_surrounded_by_tokens<'a>(
                   prefer_hanging: false,
                   force_use_new_lines: !is_single_line,
                   allow_blank_lines: true,
-                  single_line_space_at_start: false,
-                  single_line_space_at_end: false,
+                  single_line_space_at_start: opts.single_line_space_around,
+                  single_line_space_at_end: opts.single_line_space_around,
                   single_line_separator: Signal::SpaceOrNewLine.into(),
                   indent_width,
                   multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(),
@@ -8464,6 +8504,10 @@ fn gen_surrounded_by_tokens<'a>(
       } else if !is_single_line && !opts.prefer_single_line_when_empty {
         items.push_signal(Signal::NewLine);
       }
+    }
+
+    if is_single_line && opts.single_line_space_around {
+      items.push_str(" ");
     }
   } else {
     // todo: have a warning here when this happens

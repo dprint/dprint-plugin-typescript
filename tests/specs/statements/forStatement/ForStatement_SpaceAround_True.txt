@@ -1,0 +1,8 @@
+~~ forStatement.spaceAround: true ~~
+== should format with space around the loop initializers ==
+for (let i = 0; i < arr.length; i++) {
+}
+
+[expect]
+for ( let i = 0; i < arr.length; i++ ) {
+}

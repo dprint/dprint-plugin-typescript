@@ -1,0 +1,6 @@
+~~ arrayExpression.spaceAround: true ~~
+== should format with space around elements ==
+const foo = [1, 2, 3, "bar"];
+
+[expect]
+const foo = [ 1, 2, 3, "bar" ];
