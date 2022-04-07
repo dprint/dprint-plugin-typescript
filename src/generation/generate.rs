@@ -5408,6 +5408,13 @@ fn gen_type_ann<'a>(node: &'a TsTypeAnn, context: &mut Context<'a>) -> PrintItem
 fn gen_type_param<'a>(node: &'a TsTypeParam, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
+  if node.is_in() {
+    items.push_str("in ");
+  }
+  if node.is_out() {
+    items.push_str("out ");
+  }
+
   items.extend(gen_node(node.name.into(), context));
 
   if let Some(constraint) = &node.constraint {

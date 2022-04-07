@@ -194,6 +194,8 @@ dependencies = [
 [[package]]
 name = "deno_ast"
 version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc8868538999df5fae866dfe9841750fb57b45be49b948e173ad6a7023c0428c"
 dependencies = [
  "dprint-swc-ecma-ast-view",
  "serde",
@@ -230,7 +232,7 @@ dependencies = [
 
 [[package]]
 name = "dprint-plugin-typescript"
-version = "0.66.0"
+version = "0.66.1"
 dependencies = [
  "anyhow",
  "debug-here",
