@@ -127,7 +127,19 @@ mod test {
     run_diagnostic_test(
       "./test.ts",
       "type T =\n  | unknown\n  { } & unknown;",
-      concat!("Line 3, column 7: Expression expected\n", "\n", "    { } & unknown;\n", "        ~"),
+      concat!("Line 3, column 7: Expression expected\n\n", "    { } & unknown;\n", "        ~"),
+    );
+  }
+
+  #[test]
+  fn it_should_error_for_exected_close_brace() {
+    // swc can parse this, but we explicitly fail formatting
+    // in this scenario because I believe it might cause more
+    // harm than good.
+    run_diagnostic_test(
+      "./test.ts",
+      "class Test {",
+      concat!("Line 1, column 12: Expected '}', got '<eof>'\n\n", "  class Test {\n", "             ~"),
     );
   }
 

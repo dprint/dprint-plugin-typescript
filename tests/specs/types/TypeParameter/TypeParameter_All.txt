@@ -29,3 +29,10 @@ class Test<
     TestingThisOut extends Testing,
 > {
 }
+
+== should support in and out ==
+type Test<  in   T,  out  U,  in   out V>  ={
+}
+
+[expect]
+type Test<in T, out U, in out V> = {};

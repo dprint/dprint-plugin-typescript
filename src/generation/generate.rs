@@ -1575,7 +1575,7 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> Pr
       BlockStmtOrExpr::BlockStmt(_) => true,
       BlockStmtOrExpr::Expr(expr) => match expr {
         Expr::Paren(_) | Expr::Array(_) => true,
-        Expr::Tpl(tpl) => tpl.quasis[0].raw.value().starts_with(|c: char| c == '\n' || c == '\r'),
+        Expr::Tpl(tpl) => tpl.quasis[0].raw().starts_with(|c: char| c == '\n' || c == '\r'),
         _ => is_jsx_paren_expr_handled_node(&expr.into(), context),
       },
     }
@@ -5407,6 +5407,13 @@ fn gen_type_ann<'a>(node: &'a TsTypeAnn, context: &mut Context<'a>) -> PrintItem
 
 fn gen_type_param<'a>(node: &'a TsTypeParam, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
+
+  if node.is_in() {
+    items.push_str("in ");
+  }
+  if node.is_out() {
+    items.push_str("out ");
+  }
 
   items.extend(gen_node(node.name.into(), context));
 

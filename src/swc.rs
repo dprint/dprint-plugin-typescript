@@ -52,7 +52,11 @@ pub fn ensure_no_specific_syntax_errors(parsed_source: &ParsedSource) -> Result<
           // expected semi-colon
           SyntaxError::TS1005 |
           // expected expression
-          SyntaxError::TS1109
+          SyntaxError::TS1109 |
+          // expected token
+          SyntaxError::Expected(_, _) |
+          // unexpected token
+          SyntaxError::Unexpected { .. }
       )
     })
     .collect::<Vec<_>>();
