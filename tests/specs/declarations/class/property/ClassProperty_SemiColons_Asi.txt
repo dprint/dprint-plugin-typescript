@@ -8,3 +8,21 @@ class Test {
 class Test {
     prop: string
 }
+
+== should not remove semi on property before computed ==
+class Test {
+    readonly a = "prop";
+    ["b"] = 2;
+    ["c"]() {
+        return 0;
+    }
+}
+
+[expect]
+class Test {
+    readonly a = "prop";
+    ["b"] = 2;
+    ["c"]() {
+        return 0
+    }
+}

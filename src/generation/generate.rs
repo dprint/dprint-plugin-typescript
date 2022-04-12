@@ -480,6 +480,7 @@ fn gen_private_method<'a>(node: &'a PrivateMethod, context: &mut Context<'a>) ->
 fn gen_class_prop<'a>(node: &'a ClassProp, context: &mut Context<'a>) -> PrintItems {
   gen_class_prop_common(
     GenClassPropCommon {
+      original: node.into(),
       key: node.key.into(),
       value: &node.value,
       type_ann: &node.type_ann,
@@ -555,6 +556,7 @@ fn gen_private_name<'a>(node: &'a PrivateName, context: &mut Context<'a>) -> Pri
 fn gen_private_prop<'a>(node: &'a PrivateProp, context: &mut Context<'a>) -> PrintItems {
   gen_class_prop_common(
     GenClassPropCommon {
+      original: node.into(),
       key: node.key.into(),
       value: &node.value,
       type_ann: &node.type_ann,
@@ -574,6 +576,7 @@ fn gen_private_prop<'a>(node: &'a PrivateProp, context: &mut Context<'a>) -> Pri
 }
 
 struct GenClassPropCommon<'a> {
+  pub original: Node<'a>,
   pub key: Node<'a>,
   pub value: &'a Option<Expr<'a>>,
   pub type_ann: &'a Option<&'a TsTypeAnn<'a>>,
@@ -637,7 +640,12 @@ fn gen_class_prop_common<'a>(node: GenClassPropCommon<'a>, context: &mut Context
     items.extend(gen_assignment(value.into(), "=", context));
   }
 
-  if context.config.semi_colons.is_true() {
+  let should_semi = context.config.semi_colons.is_true()
+    || matches!(
+      node.original.next_token_fast(context.program),
+      Some(TokenAndSpan { token: Token::LBracket, .. })
+    );
+  if should_semi {
     items.push_str(";");
   }
 
