@@ -7479,6 +7479,7 @@ fn gen_header_with_conditional_brace_body<'a>(
   let mut items = PrintItems::new();
 
   items.push_info(start_header_ln);
+  items.push_anchor(LineNumberAnchor::new(end_header_ln));
   items.push_info(start_header_lsil);
   items.extend(new_line_group(opts.generated_header));
   items.push_info(end_header_ln);
@@ -7663,6 +7664,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
   // generate body
   let mut items = PrintItems::new();
   items.push_line_and_column(start_lc);
+  items.push_anchor(LineNumberAnchor::new(end_ln));
   items.push_condition(open_brace_condition);
   items.push_line_and_column(start_inner_text_lc);
   let generated_comments = gen_comment_collection(header_trailing_comments.into_iter(), None, None, context);
