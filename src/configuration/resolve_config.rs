@@ -52,25 +52,25 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     line_width: get_value(
       &mut config,
       "lineWidth",
-      global_config.line_width.unwrap_or(DEFAULT_GLOBAL_CONFIGURATION.line_width),
+      global_config.line_width.unwrap_or(RECOMMENDED_GLOBAL_CONFIGURATION.line_width),
       &mut diagnostics,
     ),
     use_tabs: get_value(
       &mut config,
       "useTabs",
-      global_config.use_tabs.unwrap_or(DEFAULT_GLOBAL_CONFIGURATION.use_tabs),
+      global_config.use_tabs.unwrap_or(RECOMMENDED_GLOBAL_CONFIGURATION.use_tabs),
       &mut diagnostics,
     ),
     indent_width: get_value(
       &mut config,
       "indentWidth",
-      global_config.indent_width.unwrap_or(DEFAULT_GLOBAL_CONFIGURATION.indent_width),
+      global_config.indent_width.unwrap_or(RECOMMENDED_GLOBAL_CONFIGURATION.indent_width),
       &mut diagnostics,
     ),
     new_line_kind: get_value(
       &mut config,
       "newLineKind",
-      global_config.new_line_kind.unwrap_or(DEFAULT_GLOBAL_CONFIGURATION.new_line_kind),
+      global_config.new_line_kind.unwrap_or(RECOMMENDED_GLOBAL_CONFIGURATION.new_line_kind),
       &mut diagnostics,
     ),
     quote_style,
@@ -312,7 +312,15 @@ mod tests {
   use super::super::builder::ConfigurationBuilder;
   use super::*;
 
-  // todo: more tests, but this is currently tested by the javascript code in dprint-plugin-typescript
+  #[test]
+  fn handle_global_config_default() {
+    let config_builder = ConfigurationBuilder::new();
+    let config = config_builder.build();
+    assert_eq!(config.line_width, 120);
+    assert_eq!(config.indent_width, 2);
+    assert_eq!(config.new_line_kind, NewLineKind::LineFeed);
+    assert!(!config.use_tabs);
+  }
 
   #[test]
   fn handle_global_config() {
@@ -326,8 +334,8 @@ mod tests {
     let config = config_builder.global_config(global_config).build();
     assert_eq!(config.line_width, 80);
     assert_eq!(config.indent_width, 8);
-    assert_eq!(config.new_line_kind == NewLineKind::CarriageReturnLineFeed, true);
-    assert_eq!(config.use_tabs, true);
+    assert_eq!(config.new_line_kind, NewLineKind::CarriageReturnLineFeed);
+    assert!(config.use_tabs);
   }
 
   #[test]

@@ -39,7 +39,8 @@ fn test_performance() {
 #[test]
 fn test_specs() {
   //debug_here!();
-  let global_config = GlobalConfiguration::default();
+  let mut global_config = GlobalConfiguration::default();
+  global_config.indent_width = Some(4); // for the tests only because a higher indent width increases the likelihood of problems
 
   run_specs(
     &PathBuf::from("./tests/specs"),
