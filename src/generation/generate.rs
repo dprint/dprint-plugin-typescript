@@ -5930,21 +5930,30 @@ fn gen_js_doc(comment: &Comment, _context: &mut Context) -> PrintItems {
         items.push_signal(Signal::NewLine);
       }
       let mut text = String::new();
+      // leading asterisk
       text.push_str(if i == 0 { "*" } else { " *" });
-      if !line.is_empty() {
+
+      // line start space
+      let is_first_or_last = i == 0 || i == lines.len() - 1;
+      let is_first_or_last_with_start_asterisk = is_first_or_last && line.chars().next() == Some('*');
+      if !line.is_empty() && !is_first_or_last_with_start_asterisk {
         text.push(' ');
       }
+
+      // line text
       items.push_string(text);
       if !line.is_empty() {
         items.extend(gen_from_raw_string(line));
       }
     }
 
-    if lines.len() > 1 && lines.last().map(|l| l.is_empty()).unwrap_or(false) {
-      items.push_str("/");
+    items.push_str(if lines.len() > 1 && lines.last().map(|l| l.is_empty()).unwrap_or(false) {
+      "/"
+    } else if lines.len() > 1 && lines.last().map(|l| l.chars().last() == Some('*')).unwrap_or(false) {
+      "*/"
     } else {
-      items.push_str(" */");
-    }
+      " */"
+    });
 
     items
   }

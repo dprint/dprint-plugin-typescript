@@ -136,3 +136,15 @@ const t;
  * 	test	test
  */
 const t;
+
+== should not add spaces jsdoc when sibling char is asterisk ==
+/******
+ *Test
+ ****/
+const t;
+
+[expect]
+/******
+ * Test
+ ****/
+const t;
