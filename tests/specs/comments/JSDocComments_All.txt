@@ -140,11 +140,27 @@ const t;
 == should not add spaces jsdoc when sibling char is asterisk ==
 /******
  *Test
+ *****
+ *Test
  ****/
 const t;
 
 [expect]
 /******
  * Test
+ *****
+ * Test
  ****/
 const t;
+
+== should not remove the space in this scenario with an asterisk ==
+/** **UNSTABLE**: New API, yet to be vetted.
+ * Testing
+ * **UNSTABLE** test*/
+const test = 5;
+
+[expect]
+/** **UNSTABLE**: New API, yet to be vetted.
+ * Testing
+ * **UNSTABLE** test */
+const test = 5;

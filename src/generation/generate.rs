@@ -5907,11 +5907,7 @@ fn gen_js_doc(comment: &Comment, _context: &mut Context) -> PrintItems {
     let mut chars = text.char_indices();
     while let Some((byte_index, c)) = chars.next() {
       if c == '*' {
-        if matches!(chars.next(), Some((_, ' '))) {
-          return byte_index + 2;
-        } else {
-          return byte_index + 1;
-        }
+        return byte_index + 1;
       } else if !c.is_whitespace() {
         return byte_index;
       }
@@ -5934,9 +5930,8 @@ fn gen_js_doc(comment: &Comment, _context: &mut Context) -> PrintItems {
       text.push_str(if i == 0 { "*" } else { " *" });
 
       // line start space
-      let is_first_or_last = i == 0 || i == lines.len() - 1;
-      let is_first_or_last_with_start_asterisk = is_first_or_last && line.chars().next() == Some('*');
-      if !line.is_empty() && !is_first_or_last_with_start_asterisk {
+      let is_space_or_asterisk = matches!(line.chars().next(), Some('*' | ' '));
+      if !line.is_empty() && !is_space_or_asterisk {
         text.push(' ');
       }
 
