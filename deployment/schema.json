@@ -703,7 +703,7 @@
     },
     "indentWidth": {
       "description": "The number of columns for an indent.",
-      "default": 4,
+      "default": 2,
       "type": "number"
     },
     "useTabs": {
