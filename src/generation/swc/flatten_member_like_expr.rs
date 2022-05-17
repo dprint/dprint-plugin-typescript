@@ -1,8 +1,8 @@
-use deno_ast::swc::common::Span;
-use deno_ast::swc::common::Spanned;
 use deno_ast::swc::parser::token::Token;
-use deno_ast::swc::parser::token::TokenAndSpan;
 use deno_ast::view::*;
+use deno_ast::SourcePos;
+use deno_ast::SourceRanged;
+use deno_ast::TokenAndRange;
 
 use crate::generation::generate_types::CallOrOptCallExpr;
 
@@ -16,16 +16,24 @@ pub struct FlattenedMemberLikeExpr<'a> {
 
 pub enum MemberLikeExprItem<'a> {
   Node(Node<'a>),
-  Token(&'a TokenAndSpan),
+  Token(&'a TokenAndRange),
   CallExpr(Box<MemberLikeExprItemCallExpr<'a>>),
 }
 
-impl<'a> Spanned for MemberLikeExprItem<'a> {
-  fn span(&self) -> Span {
+impl<'a> SourceRanged for MemberLikeExprItem<'a> {
+  fn start(&self) -> SourcePos {
     match self {
-      MemberLikeExprItem::Node(node) => node.span(),
-      MemberLikeExprItem::Token(token) => token.span,
-      MemberLikeExprItem::CallExpr(call_expr) => Span::new(call_expr.callee.span().lo(), call_expr.original_call_expr.hi(), Default::default()),
+      MemberLikeExprItem::Node(node) => node.range().start,
+      MemberLikeExprItem::Token(token) => token.range.start,
+      MemberLikeExprItem::CallExpr(call_expr) => call_expr.callee.start(),
+    }
+  }
+
+  fn end(&self) -> SourcePos {
+    match self {
+      MemberLikeExprItem::Node(node) => node.range().end,
+      MemberLikeExprItem::Token(token) => token.range.end,
+      MemberLikeExprItem::CallExpr(call_expr) => call_expr.original_call_expr.end(),
     }
   }
 }

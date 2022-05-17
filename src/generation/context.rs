@@ -1,9 +1,11 @@
 use deno_ast::swc::common::comments::Comment;
-use deno_ast::swc::common::BytePos;
-use deno_ast::swc::common::Span;
-use deno_ast::swc::common::Spanned;
-use deno_ast::swc::parser::token::TokenAndSpan;
 use deno_ast::view::*;
+use deno_ast::SourcePos;
+use deno_ast::SourceRange;
+use deno_ast::SourceRanged;
+use deno_ast::SourceTextInfoProvider;
+use deno_ast::SwcSourceRanged;
+use deno_ast::TokenAndRange;
 use dprint_core::formatting::ConditionReference;
 use dprint_core::formatting::IndentLevel;
 use dprint_core::formatting::IsStartOfLine;
@@ -24,22 +26,22 @@ pub struct Context<'a> {
   pub token_finder: TokenFinder<'a>,
   pub current_node: Node<'a>,
   pub parent_stack: Stack<Node<'a>>,
-  handled_comments: FxHashSet<BytePos>,
-  stored_ln_ranges: FxHashMap<(BytePos, BytePos), (LineNumber, LineNumber)>,
-  stored_lsil: FxHashMap<(BytePos, BytePos), LineStartIndentLevel>,
-  stored_ln: FxHashMap<(BytePos, BytePos), LineNumber>,
-  stored_il: FxHashMap<(BytePos, BytePos), IndentLevel>,
+  handled_comments: FxHashSet<SourcePos>,
+  stored_ln_ranges: FxHashMap<(SourcePos, SourcePos), (LineNumber, LineNumber)>,
+  stored_lsil: FxHashMap<(SourcePos, SourcePos), LineStartIndentLevel>,
+  stored_ln: FxHashMap<(SourcePos, SourcePos), LineNumber>,
+  stored_il: FxHashMap<(SourcePos, SourcePos), IndentLevel>,
   pub end_statement_or_member_lns: Stack<LineNumber>,
-  before_comments_start_info_stack: Stack<(Span, LineNumber, IsStartOfLine)>,
+  before_comments_start_info_stack: Stack<(SourceRange, LineNumber, IsStartOfLine)>,
   if_stmt_last_brace_condition_ref: Option<ConditionReference>,
   expr_stmt_single_line_parent_brace_ref: Option<ConditionReference>,
   /// Used for ensuring nodes are parsed in order.
   #[cfg(debug_assertions)]
-  pub last_generated_node_pos: u32,
+  pub last_generated_node_pos: SourcePos,
 }
 
 impl<'a> Context<'a> {
-  pub fn new(is_jsx: bool, tokens: &'a [TokenAndSpan], current_node: Node<'a>, program: &'a Program<'a>, config: &'a Configuration) -> Context<'a> {
+  pub fn new(is_jsx: bool, tokens: &'a [TokenAndRange], current_node: Node<'a>, program: &'a Program<'a>, config: &'a Configuration) -> Context<'a> {
     Context {
       is_jsx,
       program,
@@ -58,7 +60,7 @@ impl<'a> Context<'a> {
       if_stmt_last_brace_condition_ref: None,
       expr_stmt_single_line_parent_brace_ref: None,
       #[cfg(debug_assertions)]
-      last_generated_node_pos: 0,
+      last_generated_node_pos: program.text_info().range().start.into(),
     }
   }
 
@@ -67,43 +69,43 @@ impl<'a> Context<'a> {
   }
 
   pub fn has_handled_comment(&self, comment: &Comment) -> bool {
-    self.handled_comments.contains(&comment.lo())
+    self.handled_comments.contains(&comment.start())
   }
 
   pub fn mark_comment_handled(&mut self, comment: &Comment) {
-    self.handled_comments.insert(comment.lo());
+    self.handled_comments.insert(comment.start());
   }
 
-  pub fn store_info_range_for_node(&mut self, node: &dyn Spanned, lns: (LineNumber, LineNumber)) {
-    self.stored_ln_ranges.insert((node.lo(), node.hi()), lns);
+  pub fn store_info_range_for_node(&mut self, node: &dyn SourceRanged, lns: (LineNumber, LineNumber)) {
+    self.stored_ln_ranges.insert((node.start(), node.end()), lns);
   }
 
-  pub fn get_ln_range_for_node(&self, node: &dyn Spanned) -> Option<(LineNumber, LineNumber)> {
-    self.stored_ln_ranges.get(&(node.lo(), node.hi())).map(|x| x.to_owned())
+  pub fn get_ln_range_for_node(&self, node: &dyn SourceRanged) -> Option<(LineNumber, LineNumber)> {
+    self.stored_ln_ranges.get(&(node.start(), node.end())).map(|x| x.to_owned())
   }
 
-  pub fn store_lsil_for_node(&mut self, node: &dyn Spanned, lsil: LineStartIndentLevel) {
-    self.stored_lsil.insert((node.lo(), node.hi()), lsil);
+  pub fn store_lsil_for_node(&mut self, node: &dyn SourceRanged, lsil: LineStartIndentLevel) {
+    self.stored_lsil.insert((node.start(), node.end()), lsil);
   }
 
-  pub fn get_lsil_for_node(&self, node: &dyn Spanned) -> Option<LineStartIndentLevel> {
-    self.stored_lsil.get(&(node.lo(), node.hi())).map(|x| x.to_owned())
+  pub fn get_lsil_for_node(&self, node: &dyn SourceRanged) -> Option<LineStartIndentLevel> {
+    self.stored_lsil.get(&(node.start(), node.end())).map(|x| x.to_owned())
   }
 
-  pub fn store_ln_for_node(&mut self, node: &dyn Spanned, ln: LineNumber) {
-    self.stored_ln.insert((node.lo(), node.hi()), ln);
+  pub fn store_ln_for_node(&mut self, node: &dyn SourceRanged, ln: LineNumber) {
+    self.stored_ln.insert((node.start(), node.end()), ln);
   }
 
-  pub fn get_ln_for_node(&self, node: &dyn Spanned) -> Option<LineNumber> {
-    self.stored_ln.get(&(node.lo(), node.hi())).map(|x| x.to_owned())
+  pub fn get_ln_for_node(&self, node: &dyn SourceRanged) -> Option<LineNumber> {
+    self.stored_ln.get(&(node.start(), node.end())).map(|x| x.to_owned())
   }
 
-  pub fn store_il_for_node(&mut self, node: &dyn Spanned, il: IndentLevel) {
-    self.stored_il.insert((node.lo(), node.hi()), il);
+  pub fn store_il_for_node(&mut self, node: &dyn SourceRanged, il: IndentLevel) {
+    self.stored_il.insert((node.start(), node.end()), il);
   }
 
-  pub fn get_il_for_node(&self, node: &dyn Spanned) -> Option<IndentLevel> {
-    self.stored_il.get(&(node.lo(), node.hi())).map(|x| x.to_owned())
+  pub fn get_il_for_node(&self, node: &dyn SourceRanged) -> Option<IndentLevel> {
+    self.stored_il.get(&(node.start(), node.end())).map(|x| x.to_owned())
   }
 
   pub fn store_if_stmt_last_brace_condition_ref(&mut self, condition_reference: ConditionReference) {
@@ -123,28 +125,28 @@ impl<'a> Context<'a> {
   }
 
   pub fn get_or_create_current_before_comments_start_info(&mut self) -> (LineNumber, IsStartOfLine) {
-    let current_span = self.current_node.span();
-    if let Some((span, ln, isol)) = self.before_comments_start_info_stack.peek() {
-      if *span == current_span {
+    let current_range = self.current_node.range();
+    if let Some((range, ln, isol)) = self.before_comments_start_info_stack.peek() {
+      if *range == current_range {
         return (*ln, *isol);
       }
     }
 
     let new_ln = LineNumber::new("beforeComments");
     let new_isol = IsStartOfLine::new("beforeComments");
-    self.before_comments_start_info_stack.push((current_span, new_ln, new_isol));
+    self.before_comments_start_info_stack.push((current_range, new_ln, new_isol));
     (new_ln, new_isol)
   }
 
   pub fn take_current_before_comments_start_info(&mut self) -> Option<(LineNumber, IsStartOfLine)> {
-    let mut had_span = false;
-    if let Some((span, _, _)) = self.before_comments_start_info_stack.peek() {
-      if *span == self.current_node.span() {
-        had_span = true;
+    let mut had_range = false;
+    if let Some((range, _, _)) = self.before_comments_start_info_stack.peek() {
+      if *range == self.current_node.range() {
+        had_range = true;
       }
     }
 
-    if had_span {
+    if had_range {
       let (_, ln, isol) = self.before_comments_start_info_stack.pop();
       Some((ln, isol))
     } else {
@@ -161,8 +163,8 @@ impl<'a> Context<'a> {
   }
 
   #[cfg(debug_assertions)]
-  pub fn assert_text(&self, span: Span, expected_text: &str) {
-    let actual_text = span.text_fast(self.program);
+  pub fn assert_text(&self, range: SourceRange, expected_text: &str) {
+    let actual_text = range.text_fast(self.program);
     if actual_text != expected_text {
       panic!("Debug Panic Expected text `{}`, but found `{}`", expected_text, actual_text)
     }

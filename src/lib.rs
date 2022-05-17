@@ -3,6 +3,8 @@
 #![allow(clippy::if_same_then_else)]
 #![allow(clippy::vec_init_then_push)]
 #![allow(clippy::type_complexity)]
+#![deny(clippy::disallowed_methods)]
+#![deny(clippy::disallowed_types)]
 
 extern crate dprint_core;
 
