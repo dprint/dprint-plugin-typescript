@@ -1,19 +1,20 @@
 use deno_ast::swc::parser::token::Token;
+use deno_ast::swc::parser::token::TokenAndSpan;
 use deno_ast::view::*;
 use deno_ast::CommentsIterator;
 use deno_ast::SourcePos;
 use deno_ast::SourceRanged;
 use deno_ast::SourceTextInfoProvider;
-use deno_ast::TokenAndRange;
+use deno_ast::SwcSourceRanged;
 
 pub struct CommentTracker<'a> {
   program: &'a Program<'a>,
-  tokens: &'a [TokenAndRange],
+  tokens: &'a [TokenAndSpan],
   token_index: usize,
 }
 
 impl<'a> CommentTracker<'a> {
-  pub fn new(program: &'a Program<'a>, tokens: &'a [TokenAndRange]) -> CommentTracker<'a> {
+  pub fn new(program: &'a Program<'a>, tokens: &'a [TokenAndSpan]) -> CommentTracker<'a> {
     CommentTracker {
       program,
       tokens,

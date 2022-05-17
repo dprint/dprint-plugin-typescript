@@ -1,7 +1,8 @@
 use super::super::Context;
+use deno_ast::swc::parser::token::TokenAndSpan;
 use deno_ast::view::*;
 use deno_ast::SourceRanged;
-use deno_ast::TokenAndRange;
+use deno_ast::SwcSourceRanged;
 
 use super::extensions::*;
 use crate::configuration::*;
@@ -14,7 +15,7 @@ pub struct BinExprItem<'a> {
 
 #[derive(Clone)]
 pub struct BinExprOp<'a> {
-  pub token: &'a TokenAndRange,
+  pub token: &'a TokenAndSpan,
   pub op: BinaryOp,
 }
 
@@ -77,7 +78,7 @@ pub fn get_flattened_bin_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) 
     }
   }
 
-  fn get_operator_position(node: &BinExpr, operator_token: &TokenAndRange, context: &Context) -> OperatorPosition {
+  fn get_operator_position(node: &BinExpr, operator_token: &TokenAndSpan, context: &Context) -> OperatorPosition {
     match context.config.binary_expression_operator_position {
       OperatorPosition::NextLine => OperatorPosition::NextLine,
       OperatorPosition::SameLine => OperatorPosition::SameLine,

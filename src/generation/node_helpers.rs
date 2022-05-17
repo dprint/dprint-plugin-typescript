@@ -81,8 +81,8 @@ pub fn nodes_have_only_spaces_between(previous_node: &Node, next_node: &Node, pr
     crate::utils::has_no_new_lines_in_leading_whitespace(next_node_text) && next_node_text.starts_with(' ')
   } else {
     let text_info = program.text_info();
-    let range = SourceRange::new(previous_node.end(), next_node.start()).as_std_range(text_info.range().start);
-    crate::utils::is_not_empty_and_only_spaces(&text_info.text_str()[range])
+    let range = SourceRange::new(previous_node.end(), next_node.start());
+    crate::utils::is_not_empty_and_only_spaces(&text_info.range_text(&range))
   }
 }
 

@@ -1,11 +1,11 @@
 use deno_ast::swc::common::comments::Comment;
+use deno_ast::swc::parser::token::TokenAndSpan;
 use deno_ast::view::*;
 use deno_ast::SourcePos;
 use deno_ast::SourceRange;
 use deno_ast::SourceRanged;
 use deno_ast::SourceTextInfoProvider;
 use deno_ast::SwcSourceRanged;
-use deno_ast::TokenAndRange;
 use dprint_core::formatting::ConditionReference;
 use dprint_core::formatting::IndentLevel;
 use dprint_core::formatting::IsStartOfLine;
@@ -41,7 +41,7 @@ pub struct Context<'a> {
 }
 
 impl<'a> Context<'a> {
-  pub fn new(is_jsx: bool, tokens: &'a [TokenAndRange], current_node: Node<'a>, program: &'a Program<'a>, config: &'a Configuration) -> Context<'a> {
+  pub fn new(is_jsx: bool, tokens: &'a [TokenAndSpan], current_node: Node<'a>, program: &'a Program<'a>, config: &'a Configuration) -> Context<'a> {
     Context {
       is_jsx,
       program,
