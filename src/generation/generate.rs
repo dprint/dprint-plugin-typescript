@@ -6511,15 +6511,18 @@ where
   let custom_close_paren = opts.custom_close_paren;
   let first_member_span = opts.nodes.iter().map(|n| n.span()).next();
   let nodes = opts.nodes;
+  let nodes_length = nodes.len();
   let prefer_hanging = if is_parameters {
     context.config.parameters_prefer_hanging
   } else {
     context.config.arguments_prefer_hanging
   };
-  let space_around = if is_parameters {
+  let space_around = if nodes_length > 0 && is_parameters {
     context.config.parameters_space_around
-  } else {
+  } else if nodes_length > 0 {
     context.config.arguments_space_around
+  } else {
+    false
   };
   let trailing_commas = get_trailing_commas(&opts.node, &nodes, is_parameters, context);
 
