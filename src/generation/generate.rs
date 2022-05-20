@@ -1658,6 +1658,7 @@ fn gen_const_assertion<'a>(node: &'a TsConstAssertion, context: &mut Context<'a>
 }
 
 fn gen_assignment_expr<'a>(node: &'a AssignExpr, context: &mut Context<'a>) -> PrintItems {
+  // check for a nested assignment (ex. `a = b = c`)
   if node.op() == AssignOp::Assign {
     if let Expr::Assign(right) = node.right {
       if right.op() == AssignOp::Assign {
@@ -1709,6 +1710,8 @@ fn gen_assignment_expr<'a>(node: &'a AssignExpr, context: &mut Context<'a>) -> P
       }
     }
   }
+
+  // parse a single assignment (ex. `a = b` and not `a = b = c`)
   let mut items = PrintItems::new();
   items.extend(gen_node(node.left.into(), context));
   items.extend(gen_assignment(node.right.into(), node.op().as_str(), context));
