@@ -1675,13 +1675,13 @@ fn gen_assignment_expr<'a>(node: &'a AssignExpr, context: &mut Context<'a>) -> P
             let mut generated_nodes = Vec::new();
             for item in flattened_items.into_iter() {
               let lines_span = Some(ir_helpers::LinesSpan {
-                start_line: item.expr.span().start_line_fast(context.program),
-                end_line: item.expr.span().end_line_fast(context.program),
+                start_line: item.expr.range().start_line_fast(context.program),
+                end_line: item.expr.range().end_line_fast(context.program),
               });
               let mut items = gen_node(item.expr, context);
               if let Some(op) = item.post_op {
                 items.push_str(" =");
-                items.extend(gen_trailing_comments(&op, context));
+                items.extend(gen_trailing_comments(&op.range(), context));
               } else {
                 items = indent_if_start_of_line(items).into();
               }
