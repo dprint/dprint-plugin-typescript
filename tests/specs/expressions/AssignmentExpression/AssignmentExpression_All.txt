@@ -45,3 +45,15 @@ a ??= b;
 a &&= b;
 a ||= b;
 a ??= b;
+
+== should go multi-line once excessive -- probably minified file, so don't really care about this ==
+a = b = c = d;
+a = b = c = d = e;
+
+[expect]
+a = b = c = d;
+a =
+    b =
+    c =
+    d =
+        e;

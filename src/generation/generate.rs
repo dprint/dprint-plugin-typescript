@@ -1660,6 +1660,60 @@ fn gen_const_assertion<'a>(node: &'a TsConstAssertion, context: &mut Context<'a>
 }
 
 fn gen_assignment_expr<'a>(node: &'a AssignExpr, context: &mut Context<'a>) -> PrintItems {
+  // check for a nested assignment (ex. `a = b = c`)
+  if node.op() == AssignOp::Assign {
+    if let Expr::Assign(right) = node.right {
+      if right.op() == AssignOp::Assign {
+        let flattened_items = get_flattened_assign_expr(node, context);
+        // if the number of assignments chained is excessive, then it's probably minified
+        // so force using newlines to optimize formatting
+        let force_use_new_lines = flattened_items.len() > 4
+          || node_helpers::get_use_new_lines_for_nodes(&flattened_items[0].expr, &flattened_items.last().unwrap().expr, context.program);
+        let indent_width = context.config.indent_width;
+        return ir_helpers::gen_separated_values(
+          |_| {
+            let mut generated_nodes = Vec::new();
+            for item in flattened_items.into_iter() {
+              let lines_span = Some(ir_helpers::LinesSpan {
+                start_line: item.expr.span().start_line_fast(context.program),
+                end_line: item.expr.span().end_line_fast(context.program),
+              });
+              let mut items = gen_node(item.expr, context);
+              if let Some(op) = item.post_op {
+                items.push_str(" =");
+                items.extend(gen_trailing_comments(&op, context));
+              } else {
+                items = indent_if_start_of_line(items).into();
+              }
+
+              generated_nodes.push(ir_helpers::GeneratedValue {
+                items,
+                lines_span,
+                allow_inline_multi_line: true,
+                allow_inline_single_line: true,
+              });
+            }
+
+            generated_nodes
+          },
+          ir_helpers::GenSeparatedValuesOptions {
+            prefer_hanging: false,
+            force_use_new_lines,
+            allow_blank_lines: false,
+            single_line_space_at_start: false,
+            single_line_space_at_end: false,
+            single_line_separator: Signal::SpaceOrNewLine.into(),
+            indent_width,
+            multi_line_options: ir_helpers::MultiLineOptions::same_line_start_hanging_indent(),
+            force_possible_newline_at_start: false,
+          },
+        )
+        .items;
+      }
+    }
+  }
+
+  // parse a single assignment (ex. `a = b` and not `a = b = c`)
   let mut items = PrintItems::new();
   items.extend(gen_node(node.left.into(), context));
   items.extend(gen_assignment(node.right.into(), node.op().as_str(), context));
@@ -6517,15 +6571,18 @@ where
   let custom_close_paren = opts.custom_close_paren;
   let first_member_range = opts.nodes.iter().map(|n| n.range()).next();
   let nodes = opts.nodes;
+  let nodes_length = nodes.len();
   let prefer_hanging = if is_parameters {
     context.config.parameters_prefer_hanging
   } else {
     context.config.arguments_prefer_hanging
   };
-  let space_around = if is_parameters {
+  let space_around = if nodes_length > 0 && is_parameters {
     context.config.parameters_space_around
-  } else {
+  } else if nodes_length > 0 {
     context.config.arguments_space_around
+  } else {
+    false
   };
   let trailing_commas = get_trailing_commas(&opts.node, &nodes, is_parameters, context);
 
@@ -8303,7 +8360,7 @@ fn gen_assignment_like_with_token<'a>(expr: Node<'a>, op: &str, op_token: Option
     items.push_str(op)
   } else {
     items.push_string(format!(" {}", op))
-  }; // good enough for now...
+  }
 
   let op_end = op_token
     .map(|x| x.end())

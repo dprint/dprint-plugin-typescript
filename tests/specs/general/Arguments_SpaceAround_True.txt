@@ -20,3 +20,11 @@ testing(
     123456,
     123456,
 );
+
+== should not add spaces on empty arguments ==
+testing()
+testing() === true;
+
+[expect]
+testing();
+testing() === true;
