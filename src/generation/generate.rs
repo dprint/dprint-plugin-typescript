@@ -1,14 +1,16 @@
 use deno_ast::swc::common::comments::Comment;
 use deno_ast::swc::common::comments::CommentKind;
-use deno_ast::swc::common::BytePos;
-use deno_ast::swc::common::Span;
-use deno_ast::swc::common::Spanned;
 use deno_ast::swc::parser::lexer::util::CharExt;
 use deno_ast::swc::parser::token::Token;
 use deno_ast::swc::parser::token::TokenAndSpan;
 use deno_ast::view::*;
+use deno_ast::CommentsIterator;
 use deno_ast::MediaType;
 use deno_ast::ParsedSource;
+use deno_ast::SourcePos;
+use deno_ast::SourceRange;
+use deno_ast::SourceRanged;
+use deno_ast::SourceRangedForSpanned;
 use dprint_core::formatting::condition_resolvers;
 use dprint_core::formatting::conditions::*;
 use dprint_core::formatting::ir_helpers::*;
@@ -52,11 +54,11 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
   let node_kind = node.kind();
   // println!("Node kind: {:?}", node_kind);
   // println!("Text: {:?}", node.text());
-  // println!("Span: {:?}", node.span());
+  // println!("Range: {:?}", node.range());
 
   // store info
   let past_current_node = std::mem::replace(&mut context.current_node, node);
-  let parent_hi = past_current_node.hi();
+  let parent_hi = past_current_node.end();
   context.parent_stack.push(past_current_node);
 
   // handle decorators (since their starts can come before their parent)
@@ -67,9 +69,9 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
   assert_generated_in_order(&node, context);
 
   // parse item
-  let node_span = node.span();
-  let node_hi = node_span.hi;
-  let node_lo = node_span.lo;
+  let node_range = node.range();
+  let node_start = node_range.start;
+  let node_end = node_range.end;
   let mut has_ignore_comment = false;
 
   // do not get the comments for modules as this will be handled in gen_statements
@@ -78,16 +80,16 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
     if get_first_child_owns_leading_comments_on_same_line(&node, context) {
       // Some block comments should belong to the first child rather than the
       // parent node because their first child may end up on the next line.
-      let leading_comments = node_lo.leading_comments_fast(context.program);
+      let leading_comments = node_start.leading_comments_fast(context.program);
       has_ignore_comment = get_has_ignore_comment(&leading_comments, &node, context);
       let node_start_line = node.start_line_fast(context.program);
       let leading_comments_on_previous_lines =
         leading_comments.take_while(|c| c.kind == CommentKind::Line || c.start_line_fast(context.program) < node_start_line);
       items.extend(gen_comment_collection(leading_comments_on_previous_lines, None, None, context));
     } else {
-      let leading_comments = context.comments.leading_comments_with_previous(node_lo);
+      let leading_comments = context.comments.leading_comments_with_previous(node_start);
       has_ignore_comment = get_has_ignore_comment(&leading_comments, &node, context);
-      items.extend(gen_comments_as_leading(&node_span, leading_comments, context));
+      items.extend(gen_comments_as_leading(&node_range, leading_comments, context));
     }
   }
 
@@ -97,8 +99,8 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
     items.extend(inner_gen(ir_helpers::gen_from_raw_string(node.text_fast(context.program)), context));
 
     // mark any previous comments as handled
-    for comment in context.comments.trailing_comments_with_previous(node_hi) {
-      if comment.lo() < node_hi {
+    for comment in context.comments.trailing_comments_with_previous(node_end) {
+      if comment.start() < node_end {
         context.mark_comment_handled(comment);
       }
     }
@@ -108,9 +110,9 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
 
   // Get the trailing comments -- This needs to be done based on the parse
   // stack order because certain nodes like binary expressions are flattened
-  if node_hi != parent_hi || matches!(context.parent().kind(), NodeKind::Module | NodeKind::Script) {
-    let trailing_comments = context.comments.trailing_comments_with_previous(node_hi);
-    items.extend(gen_comments_as_trailing(&node_span, trailing_comments, context));
+  if node_end != parent_hi || matches!(context.parent().kind(), NodeKind::Module | NodeKind::Script) {
+    let trailing_comments = context.comments.trailing_comments_with_previous(node_end);
+    items.extend(gen_comments_as_trailing(&node_range, trailing_comments, context));
   }
 
   let items = if let Some((ln, isol)) = context.take_current_before_comments_start_info() {
@@ -357,7 +359,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
 
   #[cfg(debug_assertions)]
   fn assert_generated_in_order(node: &Node, context: &mut Context) {
-    let node_pos = node.lo().0;
+    let node_pos = node.start();
     if context.last_generated_node_pos > node_pos {
       // When this panic happens it means that a node with a start further
       // along in the file has been generated before this current node. When
@@ -382,8 +384,8 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
 
 fn get_has_ignore_comment<'a>(leading_comments: &CommentsIterator<'a>, node: &Node<'a>, context: &mut Context<'a>) -> bool {
   let comments = match node.parent() {
-    Some(Node::JSXElement(jsx_element)) => get_comments_for_jsx_children(&jsx_element.children, &node.lo(), context),
-    Some(Node::JSXFragment(jsx_fragment)) => get_comments_for_jsx_children(&jsx_fragment.children, &node.lo(), context),
+    Some(Node::JSXElement(jsx_element)) => get_comments_for_jsx_children(&jsx_element.children, &node.start(), context),
+    Some(Node::JSXFragment(jsx_fragment)) => get_comments_for_jsx_children(&jsx_fragment.children, &node.start(), context),
     _ => leading_comments.clone(),
   };
 
@@ -395,9 +397,9 @@ fn get_has_ignore_comment<'a>(leading_comments: &CommentsIterator<'a>, node: &No
 
   return false;
 
-  fn get_comments_for_jsx_children<'a>(children: &[JSXElementChild], node_lo: &BytePos, context: &mut Context<'a>) -> CommentsIterator<'a> {
+  fn get_comments_for_jsx_children<'a>(children: &[JSXElementChild], node_lo: &SourcePos, context: &mut Context<'a>) -> CommentsIterator<'a> {
     let mut iterator = CommentsIterator::empty();
-    let index = if let Ok(index) = children.binary_search_by_key(node_lo, |child| child.lo()) {
+    let index = if let Ok(index) = children.binary_search_by_key(node_lo, |child| child.start()) {
       index
     } else {
       return iterator;
@@ -433,7 +435,7 @@ fn gen_class_method<'a>(node: &'a ClassMethod, context: &mut Context<'a>) -> Pri
   gen_class_or_object_method(
     ClassOrObjectMethod {
       node: node.into(),
-      parameters_span: node.get_parameters_span(context),
+      parameters_range: node.get_parameters_range(context),
       decorators: Some(&node.function.decorators),
       accessibility: node.accessibility(),
       is_static: node.is_static(),
@@ -457,7 +459,7 @@ fn gen_private_method<'a>(node: &'a PrivateMethod, context: &mut Context<'a>) ->
   gen_class_or_object_method(
     ClassOrObjectMethod {
       node: node.into(),
-      parameters_span: node.get_parameters_span(context),
+      parameters_range: node.get_parameters_range(context),
       decorators: Some(&node.function.decorators),
       accessibility: node.accessibility(),
       is_static: node.is_static(),
@@ -503,7 +505,7 @@ fn gen_constructor<'a>(node: &'a Constructor, context: &mut Context<'a>) -> Prin
   gen_class_or_object_method(
     ClassOrObjectMethod {
       node: node.into(),
-      parameters_span: node.get_parameters_span(context),
+      parameters_range: node.get_parameters_range(context),
       decorators: None,
       accessibility: node.accessibility(),
       is_static: false,
@@ -621,7 +623,7 @@ fn gen_class_prop_common<'a>(node: GenClassPropCommon<'a>, context: &mut Context
     gen_computed_prop_like(
       |context| gen_node(inner_key_node, context),
       GenComputedPropLikeOptions {
-        inner_node_span: inner_key_node.span(),
+        inner_node_range: inner_key_node.range(),
       },
       context,
     )
@@ -661,7 +663,7 @@ fn gen_static_block<'a>(node: &'a StaticBlock, context: &mut Context<'a>) -> Pri
   items.extend(gen_brace_separator(
     GenBraceSeparatorOptions {
       brace_position: context.config.static_block_brace_position,
-      open_brace_token: context.token_finder.get_first_open_brace_token_within(&node.body),
+      open_brace_token: context.token_finder.get_first_open_brace_token_within(node.body),
       start_header_lsil: Some(start_header_lsil),
     },
     context,
@@ -702,7 +704,7 @@ fn gen_catch_clause<'a>(node: &'a CatchClause, context: &mut Context<'a>) -> Pri
   items.extend(
     gen_conditional_brace_body(
       GenConditionalBraceBodyOptions {
-        parent: node.span(),
+        parent: node.range(),
         body_node: node.body.into(),
         use_braces: UseBraces::Always,
         brace_position: context.config.try_statement_brace_position,
@@ -726,7 +728,7 @@ fn gen_computed_prop_name<'a>(node: &'a ComputedPropName, context: &mut Context<
   gen_computed_prop_like(
     |context| gen_node(node.expr.into(), context),
     GenComputedPropLikeOptions {
-      inner_node_span: node.expr.span(),
+      inner_node_range: node.expr.range(),
     },
     context,
   )
@@ -1093,7 +1095,7 @@ fn gen_function_decl_or_expr<'a>(node: FunctionDeclOrExprNode<'a>, context: &mut
     GenParametersOrArgumentsOptions {
       node: node.node,
       nodes: func.params.iter().map(|&node| node.into()).collect(),
-      span: func.get_parameters_span(context),
+      range: func.get_parameters_range(context),
       custom_close_paren: |context| {
         Some(gen_close_paren_with_type(
           GenCloseParenWithTypeOptions {
@@ -1169,9 +1171,9 @@ fn gen_import_decl<'a>(node: &'a ImportDecl, context: &mut Context<'a>) -> Print
     && named_imports.len() <= 1
     && node.start_line_fast(context.program) == node.end_line_fast(context.program);
   let has_named_imports = !named_imports.is_empty() || {
-    let from_keyword = context.token_finder.get_previous_token_if_from_keyword(&node.src);
+    let from_keyword = context.token_finder.get_previous_token_if_from_keyword(node.src);
     if let Some(from_keyword) = from_keyword {
-      context.token_finder.get_previous_token_if_close_brace(from_keyword).is_some()
+      context.token_finder.get_previous_token_if_close_brace(&from_keyword.range()).is_some()
     } else {
       false
     }
@@ -1480,7 +1482,7 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> Pr
           items.extend(gen_parameters_or_arguments(
             GenParametersOrArgumentsOptions {
               node: node.into(),
-              span: node.get_parameters_span(context),
+              range: node.get_parameters_range(context),
               nodes: node.params.iter().map(|node| node.into()).collect(),
               custom_close_paren: |context| {
                 Some(gen_close_paren_with_type(
@@ -1531,7 +1533,7 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> Pr
     }
     .into_rc_path();
     let open_brace_token = match &node.body {
-      BlockStmtOrExpr::BlockStmt(stmt) => context.token_finder.get_first_open_brace_token_within(stmt),
+      BlockStmtOrExpr::BlockStmt(stmt) => context.token_finder.get_first_open_brace_token_within(*stmt),
       _ => None,
     };
 
@@ -1673,13 +1675,13 @@ fn gen_assignment_expr<'a>(node: &'a AssignExpr, context: &mut Context<'a>) -> P
             let mut generated_nodes = Vec::new();
             for item in flattened_items.into_iter() {
               let lines_span = Some(ir_helpers::LinesSpan {
-                start_line: item.expr.span().start_line_fast(context.program),
-                end_line: item.expr.span().end_line_fast(context.program),
+                start_line: item.expr.range().start_line_fast(context.program),
+                end_line: item.expr.range().end_line_fast(context.program),
               });
               let mut items = gen_node(item.expr, context);
               if let Some(op) = item.post_op {
                 items.push_str(" =");
-                items.extend(gen_trailing_comments(&op, context));
+                items.extend(gen_trailing_comments(&op.range(), context));
               } else {
                 items = indent_if_start_of_line(items).into();
               }
@@ -1774,8 +1776,8 @@ fn gen_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintIte
         let mut generated_nodes = Vec::new();
         for bin_expr_item in flattened_binary_expr.into_iter() {
           let lines_span = Some(ir_helpers::LinesSpan {
-            start_line: bin_expr_item.expr.span().start_line_fast(context.program),
-            end_line: bin_expr_item.expr.span().end_line_fast(context.program),
+            start_line: bin_expr_item.expr.start_line_fast(context.program),
+            end_line: bin_expr_item.expr.end_line_fast(context.program),
           });
           let mut items = PrintItems::new();
 
@@ -2058,7 +2060,7 @@ fn gen_call_expr_like<'a>(node: CallExprLike<'a>, context: &mut Context<'a>) -> 
   items.push_condition(conditions::with_indent_if_start_of_line_indented(gen_parameters_or_arguments(
     GenParametersOrArgumentsOptions {
       node: call_expr.into(),
-      span: call_expr.get_parameters_span(context),
+      range: call_expr.get_parameters_range(context),
       nodes: call_expr.args().iter().map(|&node| node.into()).collect(),
       custom_close_paren: |_| None,
       is_parameters: false,
@@ -2137,7 +2139,7 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
 
     // add any preceeding comments of the question token
     items.extend({
-      let operator_token_leading_comments = get_leading_comments_on_previous_lines(operator_token, context);
+      let operator_token_leading_comments = get_leading_comments_on_previous_lines(&operator_token.range(), context);
       let mut items = gen_comment_collection(operator_token_leading_comments.into_iter(), None, None, context);
       if !items.is_empty() {
         items.push_signal(Signal::NewLine);
@@ -2223,7 +2225,7 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
 
     for ancestor in context.parent_stack.iter() {
       if let Node::CondExpr(parent) = ancestor {
-        if parent.alt.lo() == top_most_node.lo() {
+        if parent.alt.start() == top_most_node.start() {
           top_most_node = parent;
         } else {
           break;
@@ -2233,8 +2235,8 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
       }
     }
 
-    let is_top_most = top_most_node.span() == node.span();
-    let (top_most_ln, top_most_il) = get_or_set_top_most_ln(top_most_node.lo(), is_top_most, context);
+    let is_top_most = top_most_node.range() == node.range();
+    let (top_most_ln, top_most_il) = get_or_set_top_most_ln(top_most_node.start(), is_top_most, context);
 
     return TopMostData {
       is_top_most,
@@ -2242,7 +2244,7 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
       top_most_il,
     };
 
-    fn get_or_set_top_most_ln(top_most_expr_start: BytePos, is_top_most: bool, context: &mut Context) -> (LineNumber, IndentLevel) {
+    fn get_or_set_top_most_ln(top_most_expr_start: SourcePos, is_top_most: bool, context: &mut Context) -> (LineNumber, IndentLevel) {
       if is_top_most {
         let ln = LineNumber::new("conditionalExprStart");
         let il = IndentLevel::new("conditionalExprStart");
@@ -2320,35 +2322,35 @@ fn should_add_parens_around_expr(node: Node, context: &Context) -> bool {
         }
       }
       Node::CallExpr(call_expr) => {
-        if !call_expr.callee.span().contains(original_node.span()) {
+        if !call_expr.callee.range().contains(&original_node.range()) {
           // it's in an argument, so don't add parens
           return false;
         }
       }
       Node::OptCall(call_expr) => {
-        if !call_expr.callee.span().contains(original_node.span()) {
+        if !call_expr.callee.range().contains(&original_node.range()) {
           // it's in an argument, so don't add parens
           return false;
         }
       }
       Node::NewExpr(new_expr) => {
-        if !new_expr.callee.span().contains(original_node.span()) {
+        if !new_expr.callee.range().contains(&original_node.range()) {
           // it's in an argument, so don't add parens
           return false;
         }
       }
       Node::ExprStmt(_) => return true,
       Node::MemberExpr(expr) => {
-        if matches!(expr.prop, MemberProp::Computed(_)) && expr.prop.span().contains(original_node.span()) {
+        if matches!(expr.prop, MemberProp::Computed(_)) && expr.prop.range().contains(&original_node.range()) {
           return false;
         }
       }
       Node::CondExpr(cond_expr) => {
-        return cond_expr.test.span().contains(original_node.span());
+        return cond_expr.test.range().contains(&original_node.range());
       }
       Node::BinExpr(bin_expr) => {
         // we only care to add parens when it's the left most expr
-        if bin_expr.right.span().contains(original_node.span()) {
+        if bin_expr.right.range().contains(&original_node.range()) {
           return false;
         }
       }
@@ -2368,7 +2370,7 @@ fn gen_getter_prop<'a>(node: &'a GetterProp, context: &mut Context<'a>) -> Print
   gen_class_or_object_method(
     ClassOrObjectMethod {
       node: node.into(),
-      parameters_span: node.get_parameters_span(context),
+      parameters_range: node.get_parameters_range(context),
       decorators: None,
       accessibility: None,
       is_static: false,
@@ -2432,7 +2434,7 @@ fn gen_new_expr<'a>(node: &'a NewExpr, context: &mut Context<'a>) -> PrintItems 
   items.extend(gen_parameters_or_arguments(
     GenParametersOrArgumentsOptions {
       node: node.into(),
-      span: node.get_parameters_span(context),
+      range: node.get_parameters_range(context),
       nodes: args,
       custom_close_paren: |_| None,
       is_parameters: false,
@@ -2479,7 +2481,7 @@ fn gen_paren_expr<'a>(node: &'a ParenExpr, context: &mut Context<'a>) -> PrintIt
   let generated_items = conditions::with_indent_if_start_of_line_indented(gen_node_in_parens(
     |context| gen_node(node.expr.into(), context),
     GenNodeInParensOptions {
-      inner_span: node.expr.span(),
+      inner_range: node.expr.range(),
       prefer_hanging: true,
       allow_open_paren_trailing_comments: true,
       single_line_space_around: false,
@@ -2496,7 +2498,7 @@ fn gen_paren_expr<'a>(node: &'a ParenExpr, context: &mut Context<'a>) -> PrintIt
 
   fn get_use_new_line_group(node: &ParenExpr, context: &Context) -> bool {
     if let Node::ArrowExpr(arrow_expr) = node.parent() {
-      debug_assert!(arrow_expr.body.lo() == node.lo());
+      debug_assert!(arrow_expr.body.start() == node.start());
       use_new_line_group_for_arrow_body(arrow_expr, context)
     } else {
       true
@@ -2554,7 +2556,7 @@ fn should_skip_paren_expr(node: &ParenExpr, context: &Context) -> bool {
   }
 
   if let Node::AssignExpr(assign_expr) = parent {
-    if assign_expr.right.span().contains(node.span()) {
+    if assign_expr.right.range().contains(&node.range()) {
       return true;
     }
   }
@@ -2573,7 +2575,7 @@ fn should_skip_paren_expr(node: &ParenExpr, context: &Context) -> bool {
   }
 
   if let Node::MemberExpr(member_expr) = parent {
-    if matches!(member_expr.prop, MemberProp::Computed(_)) && member_expr.prop.span().contains(node.span()) {
+    if matches!(member_expr.prop, MemberProp::Computed(_)) && member_expr.prop.range().contains(&node.range()) {
       return true;
     }
   }
@@ -2606,7 +2608,7 @@ fn gen_setter_prop<'a>(node: &'a SetterProp, context: &mut Context<'a>) -> Print
   gen_class_or_object_method(
     ClassOrObjectMethod {
       node: node.into(),
-      parameters_span: node.get_parameters_span(context),
+      parameters_range: node.get_parameters_range(context),
       decorators: None,
       accessibility: None,
       is_static: false,
@@ -2640,7 +2642,7 @@ fn gen_tagged_tpl<'a>(node: &'a TaggedTpl, context: &mut Context<'a>) -> PrintIt
     items.extend(gen_node(type_params.into(), context));
   }
 
-  let generated_between_comments = gen_comments_between_lines_indented(node.tag.hi(), context);
+  let generated_between_comments = gen_comments_between_lines_indented(node.tag.end(), context);
   if generated_between_comments.is_empty() {
     items.push_condition(conditions::if_above_width_or(
       context.config.indent_width,
@@ -2710,7 +2712,7 @@ fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context
 
       let is_quasis = if let Some(current_quasis) = current_quasis {
         if let Some(current_expr) = current_expr {
-          current_quasis.lo() < current_expr.lo()
+          current_quasis.start() < current_expr.start()
         } else {
           true
         }
@@ -2907,7 +2909,7 @@ fn gen_call_signature_decl<'a>(node: &'a TsCallSignatureDecl, context: &mut Cont
   items.extend(gen_parameters_or_arguments(
     GenParametersOrArgumentsOptions {
       node: node.into(),
-      span: node.get_parameters_span(context),
+      range: node.get_parameters_range(context),
       nodes: node.params.iter().map(|node| node.into()).collect(),
       custom_close_paren: |context| {
         Some(gen_close_paren_with_type(
@@ -2943,7 +2945,7 @@ fn gen_construct_signature_decl<'a>(node: &'a TsConstructSignatureDecl, context:
   items.extend(gen_parameters_or_arguments(
     GenParametersOrArgumentsOptions {
       node: node.into(),
-      span: node.get_parameters_span(context),
+      range: node.get_parameters_range(context),
       nodes: node.params.iter().map(|node| node.into()).collect(),
       custom_close_paren: |context| {
         Some(gen_close_paren_with_type(
@@ -2977,7 +2979,9 @@ fn gen_index_signature<'a>(node: &'a TsIndexSignature, context: &mut Context<'a>
   let param: Node<'a> = node.params.get(0).expect("Expected the index signature to have one parameter.").into();
   items.extend(gen_computed_prop_like(
     |context| gen_node(param, context),
-    GenComputedPropLikeOptions { inner_node_span: param.span() },
+    GenComputedPropLikeOptions {
+      inner_node_range: param.range(),
+    },
     context,
   ));
   items.extend(gen_type_ann_with_colon_if_exists(&node.type_ann, context));
@@ -2993,7 +2997,7 @@ fn gen_method_signature<'a>(node: &'a TsMethodSignature, context: &mut Context<'
       computed: node.computed(),
       optional: node.optional(),
       key: node.key.into(),
-      parameters_span: node.get_parameters_span(context),
+      parameters_range: node.get_parameters_range(context),
       type_params: node.type_params.map(|p| p.into()),
       params: node.params.iter().map(|p| p.into()).collect(),
       type_ann: node.type_ann.map(|p| p.into()),
@@ -3015,7 +3019,7 @@ struct MethodSignatureLike<'a> {
   optional: bool,
   key: Node<'a>,
   type_params: Option<Node<'a>>,
-  parameters_span: Option<Span>,
+  parameters_range: Option<SourceRange>,
   params: Vec<Node<'a>>,
   type_ann: Option<Node<'a>>,
 }
@@ -3035,7 +3039,7 @@ fn gen_method_signature_like<'a>(node: MethodSignatureLike<'a>, context: &mut Co
     gen_computed_prop_like(
       |context| gen_node(node.key, context),
       GenComputedPropLikeOptions {
-        inner_node_span: node.key.span(),
+        inner_node_range: node.key.range(),
       },
       context,
     )
@@ -3054,7 +3058,7 @@ fn gen_method_signature_like<'a>(node: MethodSignatureLike<'a>, context: &mut Co
   items.extend(gen_parameters_or_arguments(
     GenParametersOrArgumentsOptions {
       node: node.node,
-      span: node.parameters_span,
+      range: node.parameters_range,
       nodes: node.params,
       custom_close_paren: {
         let type_node = node.type_ann;
@@ -3088,7 +3092,7 @@ fn gen_property_signature<'a>(node: &'a TsPropertySignature, context: &mut Conte
     gen_computed_prop_like(
       |context| gen_node(node.key.into(), context),
       GenComputedPropLikeOptions {
-        inner_node_span: node.key.span(),
+        inner_node_range: node.key.range(),
       },
       context,
     )
@@ -3437,8 +3441,8 @@ fn gen_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Contex
   }
 
   // generate trailing comments on different lines
-  let name_or_type_arg_end = node.type_args.map(|t| t.hi()).unwrap_or_else(|| node.name.hi());
-  let last_node_end = node.attrs.last().map(|n| n.hi()).unwrap_or(name_or_type_arg_end);
+  let name_or_type_arg_end = node.type_args.map(|t| t.end()).unwrap_or_else(|| node.name.end());
+  let last_node_end = node.attrs.last().map(|n| n.end()).unwrap_or(name_or_type_arg_end);
 
   let generated_comments = gen_comments_as_statements(last_node_end.trailing_comments_fast(context.program), None, context);
   if !generated_comments.is_empty() {
@@ -3608,7 +3612,7 @@ fn gen_string_literal<'a>(node: &'a Str, context: &mut Context<'a>) -> PrintItem
       _ => return false,
     };
 
-    key.span() == node.span() && matches!(key, Node::Str(_))
+    key.range() == node.range() && matches!(key, Node::Str(_))
   }
 
   fn get_string_literal_text(string_value: String, is_jsx_attribute: bool, should_remove_quotes_if_identifier: bool, context: &mut Context) -> String {
@@ -3721,7 +3725,7 @@ fn gen_string_literal<'a>(node: &'a Str, context: &mut Context<'a>) -> PrintItem
 fn gen_module<'a>(node: &'a Module, context: &mut Context<'a>) -> PrintItems {
   gen_program(
     ProgramInfo {
-      span: node.span(),
+      range: node.range(),
       shebang: node.shebang(),
       statements: node.body.iter().map(|x| x.into()).collect(),
     },
@@ -3732,7 +3736,7 @@ fn gen_module<'a>(node: &'a Module, context: &mut Context<'a>) -> PrintItems {
 fn gen_script<'a>(node: &'a Script, context: &mut Context<'a>) -> PrintItems {
   gen_program(
     ProgramInfo {
-      span: node.span(),
+      range: node.range(),
       shebang: node.shebang(),
       statements: node.body.iter().map(|x| x.into()).collect(),
     },
@@ -3741,7 +3745,7 @@ fn gen_script<'a>(node: &'a Script, context: &mut Context<'a>) -> PrintItems {
 }
 
 struct ProgramInfo<'a> {
-  span: Span,
+  range: SourceRange,
   shebang: &'a Option<deno_ast::swc::atoms::JsWord>,
   statements: Vec<Node<'a>>,
 }
@@ -3753,17 +3757,17 @@ fn gen_program<'a>(node: ProgramInfo<'a>, context: &mut Context<'a>) -> PrintIte
     items.push_string(shebang.to_string());
     items.push_signal(Signal::ExpectNewLine);
     if let Some(first_statement) = node.statements.first() {
-      if node_helpers::has_separating_blank_line(&node.span.lo, first_statement, context.program) {
+      if node_helpers::has_separating_blank_line(&node.range.start, first_statement, context.program) {
         items.push_signal(Signal::NewLine);
         items.push_signal(Signal::NewLine);
       }
     } else {
-      let shebang_end = BytePos(("#!".len() + shebang.len()) as u32);
+      let shebang_end = node.range.start + "#!".len() + shebang.len();
       items.extend(gen_trailing_comments_as_statements(&shebang_end, context));
     }
   }
 
-  items.extend(gen_statements(node.span, node.statements, context));
+  items.extend(gen_statements(node.range, node.statements, context));
 
   items
 }
@@ -3858,7 +3862,7 @@ fn gen_method_prop<'a>(node: &'a MethodProp, context: &mut Context<'a>) -> Print
   return gen_class_or_object_method(
     ClassOrObjectMethod {
       node: node.into(),
-      parameters_span: node.get_parameters_span(context),
+      parameters_range: node.get_parameters_range(context),
       decorators: None,
       accessibility: None,
       is_static: false,
@@ -3880,7 +3884,7 @@ fn gen_method_prop<'a>(node: &'a MethodProp, context: &mut Context<'a>) -> Print
 
 struct ClassOrObjectMethod<'a> {
   node: Node<'a>,
-  parameters_span: Option<Span>,
+  parameters_range: Option<SourceRange>,
   decorators: Option<&'a Vec<&'a Decorator<'a>>>,
   accessibility: Option<Accessibility>,
   is_static: bool,
@@ -3963,7 +3967,7 @@ fn gen_class_or_object_method<'a>(node: ClassOrObjectMethod<'a>, context: &mut C
   items.extend(gen_parameters_or_arguments(
     GenParametersOrArgumentsOptions {
       node: node.node,
-      span: node.parameters_span,
+      range: node.parameters_range,
       nodes: node.params,
       custom_close_paren: {
         let return_type = node.return_type;
@@ -4032,9 +4036,9 @@ fn accessibility_to_str(accessibility: Accessibility) -> &'static str {
 
 fn gen_block_stmt<'a>(node: &'a BlockStmt, context: &mut Context<'a>) -> PrintItems {
   gen_block(
-    |stmts, context| gen_statements(node.get_inner_span(context), stmts, context),
+    |stmts, context| gen_statements(node.get_inner_range(context), stmts, context),
     GenBlockOptions {
-      span: Some(node.span()),
+      range: Some(node.range()),
       children: node.stmts.iter().map(|x| x.into()).collect(),
     },
     context,
@@ -4106,7 +4110,7 @@ fn gen_do_while_stmt<'a>(node: &'a DoWhileStmt, context: &mut Context<'a>) -> Pr
   items.extend(gen_node_in_parens(
     |context| gen_node(node.test.into(), context),
     GenNodeInParensOptions {
-      inner_span: node.test.span(),
+      inner_range: node.test.range(),
       prefer_hanging: context.config.do_while_statement_prefer_hanging,
       allow_open_paren_trailing_comments: false,
       single_line_space_around: context.config.do_while_statement_space_around,
@@ -4246,25 +4250,25 @@ fn gen_for_stmt<'a>(node: &'a ForStmt, context: &mut Context<'a>) -> PrintItems 
   let end_header_ln = LineNumber::new("endHeader");
   let first_inner_node = {
     if let Some(init) = &node.init {
-      init.span()
+      init.range()
     } else {
       node
         .tokens_fast(context.program)
         .iter()
         .find(|t| t.token == Token::Semi)
         .expect("Expected to find a semi-colon in for stmt.")
-        .span
+        .range()
     }
   };
   let last_inner_node = {
     if let Some(update) = &node.update {
-      update.span()
+      update.range()
     } else if let Some(test) = &node.test {
       context
         .token_finder
-        .get_first_semi_colon_after(&test.span())
+        .get_first_semi_colon_after(&test.range())
         .expect("Expected to find second semi-colon in for stmt.")
-        .span
+        .range()
     } else if let Some(init) = &node.init {
       let first_semi_colon = context
         .token_finder
@@ -4272,15 +4276,15 @@ fn gen_for_stmt<'a>(node: &'a ForStmt, context: &mut Context<'a>) -> PrintItems 
         .expect("Expected to find a semi-colon in for stmt.");
       context
         .token_finder
-        .get_first_semi_colon_after(&first_semi_colon.span)
+        .get_first_semi_colon_after(&first_semi_colon.range())
         .expect("Expected to find second semi-colon in for stmt.")
-        .span
+        .range()
     } else {
       context
         .token_finder
         .get_first_semi_colon_after(&first_inner_node)
         .expect("Expected to find second semi-colon in for stmt.")
-        .span
+        .range()
     }
   };
   let force_use_new_lines = get_use_new_lines(&first_inner_node, context);
@@ -4347,7 +4351,7 @@ fn gen_for_stmt<'a>(node: &'a ForStmt, context: &mut Context<'a>) -> PrintItems 
       .items
     },
     GenNodeInParensOptions {
-      inner_span: create_span(first_inner_node.lo(), last_inner_node.hi()),
+      inner_range: SourceRange::new(first_inner_node.start(), last_inner_node.end()),
       prefer_hanging: context.config.for_statement_prefer_hanging,
       allow_open_paren_trailing_comments: false,
       single_line_space_around: context.config.for_statement_space_around,
@@ -4360,7 +4364,7 @@ fn gen_for_stmt<'a>(node: &'a ForStmt, context: &mut Context<'a>) -> PrintItems 
   items.extend(
     gen_conditional_brace_body(
       GenConditionalBraceBodyOptions {
-        parent: node.span(),
+        parent: node.range(),
         body_node: node.body.into(),
         use_braces: context.config.for_statement_use_braces,
         brace_position: context.config.for_statement_brace_position,
@@ -4377,14 +4381,14 @@ fn gen_for_stmt<'a>(node: &'a ForStmt, context: &mut Context<'a>) -> PrintItems 
 
   return items;
 
-  fn get_use_new_lines<'a>(node: &dyn Spanned, context: &mut Context<'a>) -> bool {
+  fn get_use_new_lines<'a>(node: &dyn SourceRanged, context: &mut Context<'a>) -> bool {
     if context.config.for_statement_prefer_single_line {
       return false;
     }
 
     let open_paren_token = context.token_finder.get_previous_token_if_open_paren(node);
     if let Some(open_paren_token) = open_paren_token {
-      node_helpers::get_use_new_lines_for_nodes(open_paren_token, node, context.program)
+      node_helpers::get_use_new_lines_for_nodes(&open_paren_token.range(), node, context.program)
     } else {
       false
     }
@@ -4402,7 +4406,7 @@ fn gen_for_in_stmt<'a>(node: &'a ForInStmt, context: &mut Context<'a>) -> PrintI
   if context.config.for_in_statement_space_after_for_keyword {
     items.push_str(" ");
   }
-  let inner_header_span = create_span(node.left.lo(), node.right.hi());
+  let inner_header_range = SourceRange::new(node.left.start(), node.right.end());
   items.extend(gen_node_in_parens(
     |context| {
       let mut items = PrintItems::new();
@@ -4417,7 +4421,7 @@ fn gen_for_in_stmt<'a>(node: &'a ForInStmt, context: &mut Context<'a>) -> PrintI
       items
     },
     GenNodeInParensOptions {
-      inner_span: inner_header_span,
+      inner_range: inner_header_range,
       prefer_hanging: context.config.for_in_statement_prefer_hanging,
       allow_open_paren_trailing_comments: false,
       single_line_space_around: context.config.for_in_statement_space_around,
@@ -4429,7 +4433,7 @@ fn gen_for_in_stmt<'a>(node: &'a ForInStmt, context: &mut Context<'a>) -> PrintI
   items.extend(
     gen_conditional_brace_body(
       GenConditionalBraceBodyOptions {
-        parent: node.span(),
+        parent: node.range(),
         body_node: node.body.into(),
         use_braces: context.config.for_in_statement_use_braces,
         brace_position: context.config.for_in_statement_brace_position,
@@ -4459,10 +4463,10 @@ fn gen_for_of_stmt<'a>(node: &'a ForOfStmt, context: &mut Context<'a>) -> PrintI
     items.push_str(" ");
   }
   if node.await_token().is_some() {
-    // todo: generate comments around await token span
+    // todo: generate comments around await token range
     items.push_str("await ");
   }
-  let inner_header_span = create_span(node.left.lo(), node.right.hi());
+  let inner_header_range = SourceRange::new(node.left.start(), node.right.end());
   items.extend(gen_node_in_parens(
     |context| {
       let mut items = PrintItems::new();
@@ -4477,7 +4481,7 @@ fn gen_for_of_stmt<'a>(node: &'a ForOfStmt, context: &mut Context<'a>) -> PrintI
       items
     },
     GenNodeInParensOptions {
-      inner_span: inner_header_span,
+      inner_range: inner_header_range,
       prefer_hanging: context.config.for_of_statement_prefer_hanging,
       allow_open_paren_trailing_comments: false,
       single_line_space_around: context.config.for_of_statement_space_around,
@@ -4489,7 +4493,7 @@ fn gen_for_of_stmt<'a>(node: &'a ForOfStmt, context: &mut Context<'a>) -> PrintI
   items.extend(
     gen_conditional_brace_body(
       GenConditionalBraceBodyOptions {
-        parent: node.span(),
+        parent: node.range(),
         body_node: node.body.into(),
         use_braces: context.config.for_of_statement_use_braces,
         brace_position: context.config.for_of_statement_brace_position,
@@ -4510,10 +4514,10 @@ fn gen_for_of_stmt<'a>(node: &'a ForOfStmt, context: &mut Context<'a>) -> PrintI
 fn gen_if_stmt<'a>(node: &'a IfStmt, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   let cons = node.cons;
-  let cons_span = cons.span();
+  let cons_range = cons.range();
   let result = gen_header_with_conditional_brace_body(
     GenHeaderWithConditionalBraceBodyOptions {
-      parent: node.span(),
+      parent: node.range(),
       body_node: cons.into(),
       generated_header: {
         let mut items = PrintItems::new();
@@ -4525,7 +4529,7 @@ fn gen_if_stmt<'a>(node: &'a IfStmt, context: &mut Context<'a>) -> PrintItems {
         items.extend(gen_node_in_parens(
           |context| gen_node(test.into(), context),
           GenNodeInParensOptions {
-            inner_span: test.span(),
+            inner_range: test.range(),
             prefer_hanging: context.config.if_statement_prefer_hanging,
             allow_open_paren_trailing_comments: false,
             single_line_space_around: context.config.if_statement_space_around,
@@ -4555,7 +4559,7 @@ fn gen_if_stmt<'a>(node: &'a IfStmt, context: &mut Context<'a>) -> PrintItems {
 
     items.extend(gen_control_flow_separator(
       context.config.if_statement_next_control_flow_position,
-      &cons_span,
+      &cons_range,
       "else",
       if_stmt_start_ln,
       Some(result.close_brace_condition_ref),
@@ -4572,7 +4576,7 @@ fn gen_if_stmt<'a>(node: &'a IfStmt, context: &mut Context<'a>) -> PrintItems {
       })
       .expect("Expected to find an else keyword.")
       .unwrap_token();
-    items.extend(gen_leading_comments(else_keyword, context));
+    items.extend(gen_leading_comments(&else_keyword.range(), context));
     items.extend(gen_leading_comments(&alt, context));
 
     let start_else_header_ln = LineNumber::new("startElseHeader");
@@ -4588,7 +4592,7 @@ fn gen_if_stmt<'a>(node: &'a IfStmt, context: &mut Context<'a>) -> PrintItems {
       items.extend(
         gen_conditional_brace_body(
           GenConditionalBraceBodyOptions {
-            parent: node.span(),
+            parent: node.range(),
             body_node: alt.into(),
             use_braces: context.config.if_statement_use_braces,
             brace_position: context.config.if_statement_brace_position,
@@ -4646,7 +4650,7 @@ fn gen_switch_stmt<'a>(node: &'a SwitchStmt, context: &mut Context<'a>) -> Print
   items.extend(gen_node_in_parens(
     |context| gen_node(node.discriminant.into(), context),
     GenNodeInParensOptions {
-      inner_span: node.discriminant.span(),
+      inner_range: node.discriminant.range(),
       prefer_hanging: context.config.switch_statement_prefer_hanging,
       allow_open_paren_trailing_comments: false,
       single_line_space_around: context.config.switch_statement_space_around,
@@ -4680,7 +4684,7 @@ fn gen_switch_case<'a>(node: &'a SwitchCase, context: &mut Context<'a>) -> Print
   let mut items = PrintItems::new();
   let colon_token = context
     .token_finder
-    .get_first_colon_token_after(&if let Some(test) = node.test { test.hi() } else { node.lo() })
+    .get_first_colon_token_after(&if let Some(test) = node.test { test.end() } else { node.start() })
     .expect("Expected to find a colon token.");
 
   if let Some(test) = &node.test {
@@ -4691,7 +4695,7 @@ fn gen_switch_case<'a>(node: &'a SwitchCase, context: &mut Context<'a>) -> Print
     items.push_str("default:");
   }
 
-  items.extend(gen_first_line_trailing_comments(&node.span(), node.cons.get(0).map(|x| x.span()), context));
+  items.extend(gen_first_line_trailing_comments(&node.range(), node.cons.get(0).map(|x| x.range()), context));
   let generated_trailing_comments = gen_trailing_comments_for_case(node, &block_stmt_body, context);
   if !node.cons.is_empty() {
     if let Some(block_stmt_body) = block_stmt_body {
@@ -4707,7 +4711,7 @@ fn gen_switch_case<'a>(node: &'a SwitchCase, context: &mut Context<'a>) -> Print
     } else {
       items.push_signal(Signal::NewLine);
       items.extend(ir_helpers::with_indent(gen_statements(
-        create_span(colon_token.hi(), node.hi()),
+        SourceRange::new(colon_token.end(), node.end()),
         node.cons.iter().map(|node| node.into()).collect(),
         context,
       )));
@@ -4718,35 +4722,35 @@ fn gen_switch_case<'a>(node: &'a SwitchCase, context: &mut Context<'a>) -> Print
 
   return items;
 
-  fn get_block_stmt_body(node: &SwitchCase) -> Option<Span> {
+  fn get_block_stmt_body(node: &SwitchCase) -> Option<SourceRange> {
     let first_cons = node.cons.get(0);
     if let Some(Stmt::Block(block_stmt)) = first_cons {
       if node.cons.len() == 1 {
-        return Some(block_stmt.span());
+        return Some(block_stmt.range());
       }
     }
     None
   }
 
-  fn gen_trailing_comments_for_case<'a>(node: &'a SwitchCase, block_stmt_body: &Option<Span>, context: &mut Context<'a>) -> PrintItems {
-    let node_span = node.span();
+  fn gen_trailing_comments_for_case<'a>(node: &'a SwitchCase, block_stmt_body: &Option<SourceRange>, context: &mut Context<'a>) -> PrintItems {
+    let node_range = node.range();
     let mut items = PrintItems::new();
     // generate the trailing comments as statements
-    let trailing_comments = get_trailing_comments_as_statements(&node_span, context);
+    let trailing_comments = get_trailing_comments_as_statements(&node_range, context);
     if !trailing_comments.is_empty() {
-      let last_case = node.parent().cases.iter().last();
+      let last_case = node.parent().cases.last();
       let is_last_case = match last_case {
-        Some(last_case) => last_case.lo() == node_span.lo,
+        Some(last_case) => last_case.start() == node_range.start,
         _ => false,
       };
       let mut is_equal_indent = block_stmt_body.is_some();
-      let mut last_node = node_span;
+      let mut last_node = node_range;
 
       for comment in trailing_comments {
         is_equal_indent = is_equal_indent || comment.start_column_fast(context.program) <= last_node.start_column_fast(context.program);
         let generated_comment = gen_comment_based_on_last_node(
           comment,
-          &Some(&last_node),
+          &Some(last_node),
           GenCommentBasedOnLastNodeOptions { separate_with_newlines: true },
           context,
         );
@@ -4756,7 +4760,7 @@ fn gen_switch_case<'a>(node: &'a SwitchCase, context: &mut Context<'a>) -> Print
         } else {
           ir_helpers::with_indent(generated_comment)
         });
-        last_node = comment.span();
+        last_node = comment.range();
       }
     }
     items
@@ -4777,7 +4781,7 @@ fn gen_try_stmt<'a>(node: &'a TryStmt, context: &mut Context<'a>) -> PrintItems 
   let mut items = PrintItems::new();
   let brace_position = context.config.try_statement_brace_position;
   let next_control_flow_position = context.config.try_statement_next_control_flow_position;
-  let mut last_block_span = node.block.span();
+  let mut last_block_range = node.block.range();
   let mut last_block_start_ln = LineNumber::new("tryStart");
 
   items.push_info(last_block_start_ln);
@@ -4786,7 +4790,7 @@ fn gen_try_stmt<'a>(node: &'a TryStmt, context: &mut Context<'a>) -> PrintItems 
   items.extend(
     gen_conditional_brace_body(
       GenConditionalBraceBodyOptions {
-        parent: node.span(),
+        parent: node.range(),
         body_node: node.block.into(),
         use_braces: UseBraces::Always, // braces required
         brace_position: context.config.try_statement_brace_position,
@@ -4806,13 +4810,13 @@ fn gen_try_stmt<'a>(node: &'a TryStmt, context: &mut Context<'a>) -> PrintItems 
     items.push_info(handler_start_ln);
     items.extend(gen_control_flow_separator(
       next_control_flow_position,
-      &last_block_span,
+      &last_block_range,
       "catch",
       last_block_start_ln,
       None,
       context,
     ));
-    last_block_span = handler.span();
+    last_block_range = handler.range();
     items.extend(gen_node(handler.into(), context));
 
     // set the next block to check the handler start info
@@ -4822,7 +4826,7 @@ fn gen_try_stmt<'a>(node: &'a TryStmt, context: &mut Context<'a>) -> PrintItems 
   if let Some(finalizer) = node.finalizer {
     items.extend(gen_control_flow_separator(
       next_control_flow_position,
-      &last_block_span,
+      &last_block_range,
       "finally",
       last_block_start_ln,
       None,
@@ -4832,7 +4836,7 @@ fn gen_try_stmt<'a>(node: &'a TryStmt, context: &mut Context<'a>) -> PrintItems 
     items.extend(
       gen_conditional_brace_body(
         GenConditionalBraceBodyOptions {
-          parent: node.span(),
+          parent: node.range(),
           body_node: finalizer.into(),
           use_braces: UseBraces::Always, // braces required
           brace_position,
@@ -4896,9 +4900,9 @@ fn gen_var_decl<'a>(node: &'a VarDecl, context: &mut Context<'a>) -> PrintItems 
     let use_semi_colons = context.config.semi_colons.is_true();
     use_semi_colons
       && match node.parent() {
-        Node::ForInStmt(node) => node.lo() >= node.body.lo(),
-        Node::ForOfStmt(node) => node.lo() >= node.body.lo(),
-        Node::ForStmt(node) => node.lo() >= node.body.lo(),
+        Node::ForInStmt(node) => node.start() >= node.body.start(),
+        Node::ForOfStmt(node) => node.start() >= node.body.start(),
+        Node::ForStmt(node) => node.start() >= node.body.start(),
         _ => use_semi_colons,
       }
   }
@@ -4921,7 +4925,7 @@ fn gen_var_declarator<'a>(node: &'a VarDeclarator, context: &mut Context<'a>) ->
   // Not ideal, but doing this here because of the abstraction used in
   // `gen_var_decl`. In the future this should probably be moved away.
   let var_dec = node.parent();
-  if var_dec.decls.len() > 1 && var_dec.decls[0].span() == node.span() {
+  if var_dec.decls.len() > 1 && var_dec.decls[0].range() == node.range() {
     let items = items.into_rc_path();
     if_true_or(
       "indentIfNotStartOfLine",
@@ -4949,7 +4953,7 @@ fn gen_while_stmt<'a>(node: &'a WhileStmt, context: &mut Context<'a>) -> PrintIt
   items.extend(gen_node_in_parens(
     |context| gen_node(node.test.into(), context),
     GenNodeInParensOptions {
-      inner_span: node.test.span(),
+      inner_range: node.test.range(),
       prefer_hanging: context.config.while_statement_prefer_hanging,
       allow_open_paren_trailing_comments: false,
       single_line_space_around: context.config.while_statement_space_around,
@@ -4960,7 +4964,7 @@ fn gen_while_stmt<'a>(node: &'a WhileStmt, context: &mut Context<'a>) -> PrintIt
   items.extend(
     gen_conditional_brace_body(
       GenConditionalBraceBodyOptions {
-        parent: node.span(),
+        parent: node.range(),
         body_node: node.body.into(),
         use_braces: context.config.while_statement_use_braces,
         brace_position: context.config.while_statement_brace_position,
@@ -5054,7 +5058,7 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
 
     for ancestor in context.parent_stack.iter() {
       if let Node::TsConditionalType(parent) = ancestor {
-        if parent.false_type.lo() == top_most_node.lo() {
+        if parent.false_type.start() == top_most_node.start() {
           top_most_node = parent;
         } else {
           break;
@@ -5064,12 +5068,12 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
       }
     }
 
-    let is_top_most = top_most_node.span() == node.span();
-    let top_most_ln = get_or_set_top_most_ln(top_most_node.lo(), is_top_most, context);
+    let is_top_most = top_most_node.range() == node.range();
+    let top_most_ln = get_or_set_top_most_ln(top_most_node.start(), is_top_most, context);
 
     return TopMostData { is_top_most, top_most_ln };
 
-    fn get_or_set_top_most_ln(top_most_expr_start: BytePos, is_top_most: bool, context: &mut Context) -> LineNumber {
+    fn get_or_set_top_most_ln(top_most_expr_start: SourcePos, is_top_most: bool, context: &mut Context) -> LineNumber {
       if is_top_most {
         let ln = LineNumber::new("conditionalTypeStart");
         context.store_ln_for_node(&top_most_expr_start, ln);
@@ -5099,7 +5103,7 @@ fn gen_constructor_type<'a>(node: &'a TsConstructorType, context: &mut Context<'
   items.extend(gen_parameters_or_arguments(
     GenParametersOrArgumentsOptions {
       node: node.into(),
-      span: node.get_parameters_span(context),
+      range: node.get_parameters_range(context),
       nodes: node.params.iter().map(|node| node.into()).collect(),
       custom_close_paren: |context| {
         Some(gen_close_paren_with_type(
@@ -5143,7 +5147,7 @@ fn gen_function_type<'a>(node: &'a TsFnType, context: &mut Context<'a>) -> Print
   items.extend(gen_parameters_or_arguments(
     GenParametersOrArgumentsOptions {
       node: node.into(),
-      span: node.get_parameters_span(context),
+      range: node.get_parameters_range(context),
       nodes: node.params.iter().map(|node| node.into()).collect(),
       custom_close_paren: |context| {
         Some(gen_close_paren_with_type(
@@ -5185,7 +5189,7 @@ fn gen_getter_signature<'a>(node: &'a TsGetterSignature, context: &mut Context<'
       computed: node.computed(),
       optional: node.optional(),
       key: node.key.into(),
-      parameters_span: node.get_parameters_span(context),
+      parameters_range: node.get_parameters_range(context),
       type_params: None,
       params: Vec::with_capacity(0),
       type_ann: node.type_ann.map(|p| p.into()),
@@ -5202,7 +5206,7 @@ fn gen_setter_signature<'a>(node: &'a TsSetterSignature, context: &mut Context<'
       computed: node.computed(),
       optional: node.optional(),
       key: node.key.into(),
-      parameters_span: node.get_parameters_span(context),
+      parameters_range: node.get_parameters_range(context),
       type_params: None,
       params: vec![node.param.into()],
       type_ann: None,
@@ -5239,7 +5243,7 @@ fn gen_indexed_access_type<'a>(node: &'a TsIndexedAccessType, context: &mut Cont
   items.extend(gen_computed_prop_like(
     |context| gen_node(node.index_type.into(), context),
     GenComputedPropLikeOptions {
-      inner_node_span: node.index_type.span(),
+      inner_node_range: node.index_type.range(),
     },
     context,
   ));
@@ -5280,9 +5284,9 @@ fn gen_lit_type<'a>(node: &'a TsLitType, context: &mut Context<'a>) -> PrintItem
 
 fn gen_mapped_type<'a>(node: &'a TsMappedType, context: &mut Context<'a>) -> PrintItems {
   let force_use_new_lines =
-    !context.config.mapped_type_prefer_single_line && node_helpers::get_use_new_lines_for_nodes(&node.lo(), &node.type_param, context.program);
+    !context.config.mapped_type_prefer_single_line && node_helpers::get_use_new_lines_for_nodes(&node.start(), node.type_param, context.program);
 
-  let span = node.span();
+  let range = node.range();
   let mut items = PrintItems::new();
   let start_ln = LineNumber::new("startMappedType");
   items.push_info(start_ln);
@@ -5302,7 +5306,7 @@ fn gen_mapped_type<'a>(node: &'a TsMappedType, context: &mut Context<'a>) -> Pri
         // steal the inner node's comments.
         let generated_semi_colon_comments = {
           let node_tokens = node.tokens_fast(context.program);
-          gen_trailing_comments(&node_tokens[node_tokens.len() - 2], context)
+          gen_trailing_comments(&node_tokens[node_tokens.len() - 2].range(), context)
         };
 
         if let Some(readonly) = node.readonly() {
@@ -5313,10 +5317,9 @@ fn gen_mapped_type<'a>(node: &'a TsMappedType, context: &mut Context<'a>) -> Pri
           });
         }
 
-        let computed_inner_span = Span::new(
-          node.type_param.lo(),
-          node.name_type.map(|t| t.hi()).unwrap_or_else(|| node.type_param.hi()),
-          Default::default(),
+        let computed_inner_range = SourceRange::new(
+          node.type_param.start(),
+          node.name_type.map(|t| t.end()).unwrap_or_else(|| node.type_param.end()),
         );
         items.extend(gen_computed_prop_like(
           |context| {
@@ -5335,7 +5338,7 @@ fn gen_mapped_type<'a>(node: &'a TsMappedType, context: &mut Context<'a>) -> Pri
             items
           },
           GenComputedPropLikeOptions {
-            inner_node_span: computed_inner_span,
+            inner_node_range: computed_inner_range,
           },
           context,
         ));
@@ -5373,8 +5376,8 @@ fn gen_mapped_type<'a>(node: &'a TsMappedType, context: &mut Context<'a>) -> Pri
     GenSurroundedByTokensOptions {
       open_token: "{",
       close_token: "}",
-      span: Some(span),
-      first_member: Some(node.type_param.span()),
+      range: Some(range),
+      first_member: Some(node.type_param.range()),
       prefer_single_line_when_empty: false,
       allow_open_token_trailing_comments: true,
       single_line_space_around: false,
@@ -5403,7 +5406,7 @@ fn gen_parenthesized_type<'a>(node: &'a TsParenthesizedType, context: &mut Conte
   let generated_type = conditions::with_indent_if_start_of_line_indented(gen_node_in_parens(
     |context| gen_node(node.type_ann.into(), context),
     GenNodeInParensOptions {
-      inner_span: node.type_ann.span(),
+      inner_range: node.type_ann.range(),
       prefer_hanging: true,
       allow_open_paren_trailing_comments: true,
       single_line_space_around: false,
@@ -5531,7 +5534,7 @@ fn gen_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -
 
     // trailing commas should be allowed in type parameters only—not arguments
     if let Some(type_params) = node.parent().get_type_parameters() {
-      if type_params.lo() == node.lo() {
+      if type_params.start() == node.start() {
         // Use trailing commas for function expressions in a JSX file
         // if the absence of one would lead to a parsing ambiguity.
         if context.is_jsx && (node.parent().kind() == NodeKind::ArrowExpr || node.parent().parent().unwrap().kind() == NodeKind::FnExpr) {
@@ -5558,7 +5561,7 @@ fn gen_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -
       false
     } else {
       let first_param = &params[0];
-      let angle_bracket_pos = node.lo();
+      let angle_bracket_pos = node.start();
       node_helpers::get_use_new_lines_for_nodes(&angle_bracket_pos, first_param, context.program)
     }
   }
@@ -5630,7 +5633,7 @@ fn gen_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, context
   let force_use_new_lines = get_use_new_lines_for_nodes(node.types, context.config.union_and_intersection_type_prefer_single_line, context);
   let separator = if node.is_union { "|" } else { "&" };
 
-  let leading_comments = node.node.span().leading_comments_fast(context.program);
+  let leading_comments = node.node.range().leading_comments_fast(context.program);
   let has_leading_comments = !leading_comments.is_empty();
 
   let indent_width = context.config.indent_width;
@@ -5659,13 +5662,13 @@ fn gen_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, context
           let is_last_value = i + 1 == types_count; // allow the last type to be single line
           (allows_inline_multi_line(type_node.into(), context, types_count > 1), is_last_value)
         };
-        let separator_token = context.token_finder.get_previous_token_if_operator(&type_node.span(), separator);
+        let separator_token = context.token_finder.get_previous_token_if_operator(&type_node.range(), separator);
         let start_lc = LineAndColumn::new("start");
         let after_separator_ln = LineNumber::new("afterSeparator");
         let mut items = PrintItems::new();
         items.push_line_and_column(start_lc);
         if let Some(separator_token) = separator_token {
-          items.extend(gen_leading_comments(separator_token, context));
+          items.extend(gen_leading_comments(&separator_token.range(), context));
         }
         if i == 0 && !is_parent_union_or_intersection {
           items.push_condition(if_true("separatorIfMultiLine", is_multi_line_or_hanging.clone(), separator.into()));
@@ -5674,7 +5677,7 @@ fn gen_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, context
         }
 
         if let Some(separator_token) = separator_token {
-          items.extend(gen_trailing_comments(separator_token, context));
+          items.extend(gen_trailing_comments(&separator_token.range(), context));
         }
         items.push_info(after_separator_ln);
 
@@ -5723,12 +5726,12 @@ fn gen_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, context
 
 /* comments */
 
-fn gen_leading_comments<'a>(node: &dyn Spanned, context: &mut Context<'a>) -> PrintItems {
+fn gen_leading_comments<'a>(node: &dyn SourceRanged, context: &mut Context<'a>) -> PrintItems {
   let leading_comments = node.leading_comments_fast(context.program);
   gen_comments_as_leading(node, leading_comments, context)
 }
 
-fn gen_comments_as_leading<'a>(node: &dyn Spanned, comments: CommentsIterator<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_comments_as_leading<'a>(node: &dyn SourceRanged, comments: CommentsIterator<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   if let Some(last_comment) = comments.peek_last_comment() {
     let last_comment_previously_handled = context.has_handled_comment(last_comment);
@@ -5754,12 +5757,12 @@ fn gen_comments_as_leading<'a>(node: &dyn Spanned, comments: CommentsIterator<'a
   items
 }
 
-fn gen_trailing_comments_as_statements<'a>(node: &dyn Spanned, context: &mut Context<'a>) -> PrintItems {
+fn gen_trailing_comments_as_statements<'a>(node: &dyn SourceRanged, context: &mut Context<'a>) -> PrintItems {
   let unhandled_comments = get_trailing_comments_as_statements(node, context);
   gen_comments_as_statements(unhandled_comments.into_iter(), Some(node), context)
 }
 
-fn get_leading_comments_on_previous_lines<'a>(node: &dyn Spanned, context: &mut Context<'a>) -> Vec<&'a Comment> {
+fn get_leading_comments_on_previous_lines<'a>(node: &dyn SourceRanged, context: &mut Context<'a>) -> Vec<&'a Comment> {
   let node_start_line = node.start_line_fast(context.program);
   node
     .leading_comments_fast(context.program)
@@ -5767,7 +5770,7 @@ fn get_leading_comments_on_previous_lines<'a>(node: &dyn Spanned, context: &mut 
     .collect::<Vec<_>>()
 }
 
-fn get_trailing_comments_as_statements<'a>(node: &dyn Spanned, context: &mut Context<'a>) -> Vec<&'a Comment> {
+fn get_trailing_comments_as_statements<'a>(node: &dyn SourceRanged, context: &mut Context<'a>) -> Vec<&'a Comment> {
   let mut comments = Vec::new();
   let node_end_line = node.end_line_fast(context.program);
   for comment in node.trailing_comments_fast(context.program) {
@@ -5778,8 +5781,8 @@ fn get_trailing_comments_as_statements<'a>(node: &dyn Spanned, context: &mut Con
   comments
 }
 
-fn gen_comments_as_statements<'a>(comments: impl Iterator<Item = &'a Comment>, last_node: Option<&dyn Spanned>, context: &mut Context<'a>) -> PrintItems {
-  let mut last_node = last_node;
+fn gen_comments_as_statements<'a>(comments: impl Iterator<Item = &'a Comment>, last_node: Option<&dyn SourceRanged>, context: &mut Context<'a>) -> PrintItems {
+  let mut last_node = last_node.map(|l| l.range());
   let mut items = PrintItems::new();
   for comment in comments {
     if !context.has_handled_comment(comment) {
@@ -5789,13 +5792,13 @@ fn gen_comments_as_statements<'a>(comments: impl Iterator<Item = &'a Comment>, l
         GenCommentBasedOnLastNodeOptions { separate_with_newlines: true },
         context,
       ));
-      last_node = Some(comment);
+      last_node = Some(comment.range());
     }
   }
   items
 }
 
-fn gen_comments_between_lines_indented(start_between_pos: BytePos, context: &mut Context) -> PrintItems {
+fn gen_comments_between_lines_indented(start_between_pos: SourcePos, context: &mut Context) -> PrintItems {
   let trailing_comments = get_comments_between_lines(start_between_pos, context);
   let mut items = PrintItems::new();
 
@@ -5815,7 +5818,7 @@ fn gen_comments_between_lines_indented(start_between_pos: BytePos, context: &mut
 
   return items;
 
-  fn get_comments_between_lines<'a>(previous_token_end: BytePos, context: &mut Context<'a>) -> Vec<&'a Comment> {
+  fn get_comments_between_lines<'a>(previous_token_end: SourcePos, context: &mut Context<'a>) -> Vec<&'a Comment> {
     let mut comments = Vec::new();
     let trailing_comments = previous_token_end.trailing_comments_fast(context.program);
     if !trailing_comments.is_empty() {
@@ -5834,11 +5837,11 @@ fn gen_comments_between_lines_indented(start_between_pos: BytePos, context: &mut
 
 fn gen_comment_collection<'a>(
   comments: impl Iterator<Item = &'a Comment>,
-  last_node: Option<&dyn Spanned>,
-  next_node: Option<&dyn Spanned>,
+  last_node: Option<&dyn SourceRanged>,
+  next_node: Option<&dyn SourceRanged>,
   context: &mut Context<'a>,
 ) -> PrintItems {
-  let mut last_node = last_node;
+  let mut last_node = last_node.map(|l| l.range());
   let mut items = PrintItems::new();
   let next_node_start_line = next_node.map(|n| n.start_line_fast(context.program));
   for comment in comments {
@@ -5855,7 +5858,7 @@ fn gen_comment_collection<'a>(
         },
         context,
       ));
-      last_node = Some(comment);
+      last_node = Some(comment.range());
     }
   }
   items
@@ -5867,7 +5870,7 @@ struct GenCommentBasedOnLastNodeOptions {
 
 fn gen_comment_based_on_last_node(
   comment: &Comment,
-  last_node: &Option<&dyn Spanned>,
+  last_node: &Option<SourceRange>,
   opts: GenCommentBasedOnLastNodeOptions,
   context: &mut Context,
 ) -> PrintItems {
@@ -5958,8 +5961,7 @@ fn gen_js_doc(comment: &Comment, _context: &mut Context) -> PrintItems {
   }
 
   fn get_line_start_index(text: &str) -> usize {
-    let mut chars = text.char_indices();
-    while let Some((byte_index, c)) = chars.next() {
+    for (byte_index, c) in text.char_indices() {
       if c == '*' {
         return byte_index + 1;
       } else if !c.is_whitespace() {
@@ -5998,7 +6000,7 @@ fn gen_js_doc(comment: &Comment, _context: &mut Context) -> PrintItems {
 
     items.push_str(if lines.len() > 1 && lines.last().map(|l| l.is_empty()).unwrap_or(false) {
       "/"
-    } else if lines.len() > 1 && lines.last().map(|l| l.chars().last() == Some('*')).unwrap_or(false) {
+    } else if lines.len() > 1 && lines.last().map(|l| l.ends_with('*')).unwrap_or(false) {
       "*/"
     } else {
       " */"
@@ -6008,11 +6010,11 @@ fn gen_js_doc(comment: &Comment, _context: &mut Context) -> PrintItems {
   }
 }
 
-fn gen_first_line_trailing_comments<'a>(node: &dyn Spanned, first_member: Option<Span>, context: &mut Context<'a>) -> PrintItems {
+fn gen_first_line_trailing_comments<'a>(node: &dyn SourceRanged, first_member: Option<SourceRange>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   let node_start_line = node.start_line_fast(context.program);
 
-  for comment in get_comments(&node, &first_member, context) {
+  for comment in get_comments(node, &first_member, context) {
     if comment.start_line_fast(context.program) == node_start_line {
       if let Some(generated_comment) = gen_comment(comment, context) {
         if comment.kind == CommentKind::Line {
@@ -6025,7 +6027,7 @@ fn gen_first_line_trailing_comments<'a>(node: &dyn Spanned, first_member: Option
 
   return items;
 
-  fn get_comments<'a>(node: &dyn Spanned, first_member: &Option<Span>, context: &mut Context<'a>) -> Vec<&'a Comment> {
+  fn get_comments<'a>(node: &dyn SourceRanged, first_member: &Option<SourceRange>, context: &mut Context<'a>) -> Vec<&'a Comment> {
     let mut comments = Vec::new();
     if let Some(first_member) = first_member {
       comments.extend(first_member.leading_comments_fast(context.program));
@@ -6035,12 +6037,12 @@ fn gen_first_line_trailing_comments<'a>(node: &dyn Spanned, first_member: Option
   }
 }
 
-fn gen_trailing_comments<'a>(node: &dyn Spanned, context: &mut Context<'a>) -> PrintItems {
+fn gen_trailing_comments<'a>(node: &dyn SourceRanged, context: &mut Context<'a>) -> PrintItems {
   let trailing_comments = node.trailing_comments_fast(context.program);
   gen_comments_as_trailing(node, trailing_comments, context)
 }
 
-fn gen_comments_as_trailing<'a>(node: &dyn Spanned, trailing_comments: CommentsIterator<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_comments_as_trailing<'a>(node: &dyn SourceRanged, trailing_comments: CommentsIterator<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
   // don't do extra work
@@ -6068,7 +6070,7 @@ fn gen_comments_as_trailing<'a>(node: &dyn Spanned, trailing_comments: CommentsI
   items
 }
 
-fn get_trailing_comments_same_line<'a>(node: &dyn Spanned, trailing_comments: CommentsIterator<'a>, context: &mut Context<'a>) -> Vec<&'a Comment> {
+fn get_trailing_comments_same_line<'a>(node: &dyn SourceRanged, trailing_comments: CommentsIterator<'a>, context: &mut Context<'a>) -> Vec<&'a Comment> {
   // use the roslyn definition of trailing comments
   let node_end_line = node.end_line_fast(context.program);
   let trailing_comments_on_same_line = trailing_comments
@@ -6084,22 +6086,22 @@ fn get_trailing_comments_same_line<'a>(node: &dyn Spanned, trailing_comments: Co
   // block comments after a comma on the same line as the next token are not considered a trailing comment of this node
   // ex. `a, /* 1 */ b`, the comment belongs to `b` and not `a`
   let comma_end = if node.text_fast(context.program) == "," {
-    Some(node.hi())
+    Some(node.end())
   } else {
-    context.token_finder.get_next_token_if_comma(&node.span()).map(|t| t.hi())
+    context.token_finder.get_next_token_if_comma(&node.range()).map(|t| t.end())
   };
   if let Some(comma_end) = comma_end {
     let next_token_pos = context.token_finder.get_next_token_pos_after(&comma_end);
     let next_token_pos_line_start = next_token_pos.start_line_fast(context.program);
     if next_token_pos_line_start == node_end_line {
-      return trailing_comments_on_same_line.into_iter().filter(|c| c.lo() < comma_end).collect::<Vec<_>>();
+      return trailing_comments_on_same_line.into_iter().filter(|c| c.start() < comma_end).collect::<Vec<_>>();
     }
   }
   trailing_comments_on_same_line
 }
 
 fn get_jsx_empty_expr_comments<'a>(node: &JSXEmptyExpr, context: &mut Context<'a>) -> CommentsIterator<'a> {
-  node.hi().leading_comments_fast(context.program)
+  node.end().leading_comments_fast(context.program)
 }
 
 /* helpers */
@@ -6140,7 +6142,7 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
   let space_around = opts.space_around;
   let force_use_new_lines = get_force_use_new_lines(&node, &nodes, opts.prefer_single_line, context);
   let mut items = PrintItems::new();
-  let first_member = nodes.get(0).map(|x| x.span());
+  let first_member = nodes.get(0).map(|x| x.range());
 
   items.extend(gen_surrounded_by_tokens(
     |context| {
@@ -6165,7 +6167,7 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
     GenSurroundedByTokensOptions {
       open_token: "[",
       close_token: "]",
-      span: Some(node.span()),
+      range: Some(node.range()),
       first_member,
       prefer_single_line_when_empty: true,
       allow_open_token_trailing_comments: true,
@@ -6176,7 +6178,7 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
 
   return items;
 
-  fn get_force_use_new_lines(node: &dyn Spanned, nodes: &[NodeOrSeparator], prefer_single_line: bool, context: &mut Context) -> bool {
+  fn get_force_use_new_lines(node: &dyn SourceRanged, nodes: &[NodeOrSeparator], prefer_single_line: bool, context: &mut Context) -> bool {
     if nodes.is_empty() {
       false
     } else if prefer_single_line {
@@ -6190,7 +6192,7 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
         .expect("Expected to find an open bracket token.");
 
       // todo: tests for this (ex. [\n,] -> [\n    ,\n])
-      node_helpers::get_use_new_lines_for_nodes(open_bracket_token, &nodes[0], context.program)
+      node_helpers::get_use_new_lines_for_nodes(&open_bracket_token.range(), &nodes[0], context.program)
     }
   }
 
@@ -6249,7 +6251,7 @@ where
     |members, context| {
       gen_members(
         GenMembersOptions {
-          inner_span: create_span(open_brace_token.hi(), close_brace_token.lo()),
+          inner_range: SourceRange::new(open_brace_token.end(), close_brace_token.start()),
           items: members.into_iter().map(|node| (node, None)).collect(),
           should_use_space: None,
           should_use_new_line: None,
@@ -6261,7 +6263,7 @@ where
       )
     },
     GenBlockOptions {
-      span: Some(create_span(open_brace_token.lo(), close_brace_token.hi())),
+      range: Some(SourceRange::new(open_brace_token.start(), close_brace_token.end())),
       children: opts.members,
     },
     context,
@@ -6270,20 +6272,20 @@ where
   items
 }
 
-fn gen_statements<'a>(inner_span: Span, stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> PrintItems {
+fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> PrintItems {
   let stmt_groups = get_stmt_groups(stmts, context);
   let mut items = PrintItems::new();
-  let mut last_node: Option<Span> = None;
+  let mut last_node: Option<SourceRange> = None;
   let stmt_group_len = stmt_groups.len();
 
   for (stmt_group_index, stmt_group) in stmt_groups.into_iter().enumerate() {
     if stmt_group.kind == StmtGroupKind::Imports || stmt_group.kind == StmtGroupKind::Exports {
       // keep the leading comments of the stmt group on the same line
-      let comments = get_leading_comments_on_previous_lines(&stmt_group.nodes.first().as_ref().unwrap().lo(), context);
-      let last_comment = comments.iter().filter(|c| !context.has_handled_comment(c)).last().map(|c| c.span);
+      let comments = get_leading_comments_on_previous_lines(&stmt_group.nodes.first().as_ref().unwrap().start(), context);
+      let last_comment = comments.iter().filter(|c| !context.has_handled_comment(c)).last().map(|c| c.range());
       items.extend(gen_comments_as_statements(
         comments.into_iter(),
-        last_node.as_ref().map(|x| x as &dyn Spanned),
+        last_node.as_ref().map(|x| x as &dyn SourceRanged),
         context,
       ));
       last_node = last_comment.or(last_node);
@@ -6317,7 +6319,7 @@ fn gen_statements<'a>(inner_span: Span, stmts: Vec<Node<'a>>, context: &mut Cont
         generated_nodes.push(items);
         context.end_statement_or_member_lns.pop();
 
-        last_node = Some(node.span());
+        last_node = Some(node.range());
       } else {
         let mut items = PrintItems::new();
         let leading_comments = node.leading_comments_fast(context.program);
@@ -6334,7 +6336,7 @@ fn gen_statements<'a>(inner_span: Span, stmts: Vec<Node<'a>>, context: &mut Cont
 
         // ensure if this is last that it generates the trailing comment statements
         if stmt_group_index == stmt_group_len - 1 && i == nodes_len - 1 {
-          last_node = Some(node.span());
+          last_node = Some(node.range());
         }
       }
     }
@@ -6359,7 +6361,11 @@ fn gen_statements<'a>(inner_span: Span, stmts: Vec<Node<'a>>, context: &mut Cont
   }
 
   if stmt_group_len == 0 {
-    items.extend(gen_comments_as_statements(inner_span.hi.leading_comments_fast(context.program), None, context));
+    items.extend(gen_comments_as_statements(
+      inner_range.end.leading_comments_fast(context.program),
+      None,
+      context,
+    ));
   }
 
   return items;
@@ -6380,7 +6386,7 @@ fn gen_member_or_member_expr_stmt_comments(node: &Node, context: &mut Context) -
   let mut items = PrintItems::new();
   let leading_comments = node.leading_comments_fast(context.program);
   items.extend(gen_comments_as_statements(leading_comments.clone(), None, context));
-  let trailing_comments = get_trailing_comments_same_line(&node, node.trailing_comments_fast(context.program), context);
+  let trailing_comments = get_trailing_comments_same_line(node, node.trailing_comments_fast(context.program), context);
   if !trailing_comments.is_empty() {
     if !leading_comments.is_empty() {
       items.push_signal(Signal::NewLine);
@@ -6452,7 +6458,7 @@ struct GenMembersOptions<'a, FShouldUseBlankLine>
 where
   FShouldUseBlankLine: Fn(&Node, &Node, &mut Context) -> bool,
 {
-  inner_span: Span,
+  inner_range: SourceRange,
   items: Vec<(Node<'a>, Option<PrintItems>)>,
   should_use_space: Option<Box<dyn Fn(&Node, &Node, &mut Context) -> bool>>, // todo: Remove putting functions on heap by using type parameters?
   should_use_new_line: Option<Box<dyn Fn(&Node, &Node, &mut Context) -> bool>>,
@@ -6521,7 +6527,7 @@ where
 
   if children_len == 0 {
     items.extend(gen_comments_as_statements(
-      opts.inner_span.hi.leading_comments_fast(context.program),
+      opts.inner_range.end.leading_comments_fast(context.program),
       None,
       context,
     ));
@@ -6548,7 +6554,7 @@ where
   F: FnOnce(&mut Context<'a>) -> Option<PrintItems>,
 {
   node: Node<'a>,
-  span: Option<Span>,
+  range: Option<SourceRange>,
   nodes: Vec<Node<'a>>,
   custom_close_paren: F,
   is_parameters: bool,
@@ -6561,9 +6567,9 @@ where
   let is_parameters = opts.is_parameters;
   let prefer_single_line = is_parameters && context.config.parameters_prefer_single_line || !is_parameters && context.config.arguments_prefer_single_line;
   let force_use_new_lines = get_use_new_lines_for_nodes_with_preceeding_token("(", &opts.nodes, prefer_single_line, context);
-  let span = opts.span;
+  let range = opts.range;
   let custom_close_paren = opts.custom_close_paren;
-  let first_member_span = opts.nodes.iter().map(|n| n.span()).next();
+  let first_member_range = opts.nodes.iter().map(|n| n.range()).next();
   let nodes = opts.nodes;
   let nodes_length = nodes.len();
   let prefer_hanging = if is_parameters {
@@ -6629,8 +6635,8 @@ where
     GenSurroundedByTokensOptions {
       open_token: "(",
       close_token: ")",
-      span,
-      first_member: first_member_span,
+      range,
+      first_member: first_member_range,
       prefer_single_line_when_empty: true,
       allow_open_token_trailing_comments: true,
       single_line_space_around: false,
@@ -6831,11 +6837,18 @@ enum NodeOrSeparator<'a> {
   Separator(&'a TokenAndSpan),
 }
 
-impl<'a> Spanned for NodeOrSeparator<'a> {
-  fn span(&self) -> Span {
+impl<'a> SourceRanged for NodeOrSeparator<'a> {
+  fn start(&self) -> SourcePos {
     match self {
-      NodeOrSeparator::Node(node) => node.span(),
-      NodeOrSeparator::Separator(token) => token.span(),
+      NodeOrSeparator::Node(node) => node.start(),
+      NodeOrSeparator::Separator(token) => token.start(),
+    }
+  }
+
+  fn end(&self) -> SourcePos {
+    match self {
+      NodeOrSeparator::Node(node) => node.end(),
+      NodeOrSeparator::Separator(token) => token.end(),
     }
   }
 }
@@ -6908,9 +6921,9 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
               let mut items = PrintItems::new();
               // don't use gen_leading_comments here because we don't want a space between the block comment and separator (comma)
               let leading_comments = separator_token.leading_comments_fast(context.program);
-              items.extend(gen_comment_collection(leading_comments, None, Some(separator_token), context));
+              items.extend(gen_comment_collection(leading_comments, None, Some(&separator_token.range()), context));
               items.extend(generated_separator);
-              items.extend(gen_first_line_trailing_comments(separator_token, None, context));
+              items.extend(gen_first_line_trailing_comments(&separator_token.range(), None, context));
               items
             }
           }
@@ -6986,7 +6999,7 @@ fn gen_node_with_separator<'a>(value: Node<'a>, generated_separator: PrintItems,
 
   // get the trailing comments after the comma token (if the separator in the file is currently a comma)
   let generated_trailing_comments = if let Some(comma_token) = comma_token {
-    gen_trailing_comments(comma_token, context)
+    gen_trailing_comments(&comma_token.range(), context)
   } else {
     PrintItems::new()
   };
@@ -7044,7 +7057,7 @@ fn gen_type_ann_with_colon_if_exists<'a>(type_ann: &Option<&TsTypeAnn<'a>>, cont
     if context.config.type_annotation_space_before_colon {
       items.push_str(" ");
     }
-    let colon_token = context.token_finder.get_first_colon_token_within(type_ann);
+    let colon_token = context.token_finder.get_first_colon_token_within(*type_ann);
     #[cfg(debug_assertions)]
     assert_has_op(":", colon_token, context);
     items.extend(gen_type_ann_with_colon((*type_ann).into(), colon_token, context));
@@ -7080,7 +7093,7 @@ fn gen_brace_separator<'a>(opts: GenBraceSeparatorOptions<'a>, context: &mut Con
     BracePosition::NextLine => Signal::NewLine.into(),
     BracePosition::Maintain => {
       if let Some(open_brace_token) = opts.open_brace_token {
-        if node_helpers::is_first_node_on_line(open_brace_token, context.program) {
+        if node_helpers::is_first_node_on_line(&open_brace_token.range(), context.program) {
           Signal::NewLine.into()
         } else {
           space_if_not_start_line()
@@ -7097,16 +7110,16 @@ fn space_if_not_start_line() -> PrintItems {
 }
 
 struct GenNodeInParensOptions {
-  inner_span: Span,
+  inner_range: SourceRange,
   prefer_hanging: bool,
   allow_open_paren_trailing_comments: bool,
   single_line_space_around: bool,
 }
 
 fn gen_node_in_parens<'a>(gen_node: impl FnOnce(&mut Context<'a>) -> PrintItems, opts: GenNodeInParensOptions, context: &mut Context<'a>) -> PrintItems {
-  let inner_span = opts.inner_span;
-  let paren_span = get_paren_span(&inner_span, context);
-  let force_use_new_lines = get_force_use_new_lines(inner_span, &paren_span, context);
+  let inner_range = opts.inner_range;
+  let paren_range = get_paren_range(&inner_range, context);
+  let force_use_new_lines = get_force_use_new_lines(inner_range, &paren_range, context);
 
   return gen_surrounded_by_tokens(
     |context| {
@@ -7123,8 +7136,8 @@ fn gen_node_in_parens<'a>(gen_node: impl FnOnce(&mut Context<'a>) -> PrintItems,
     GenSurroundedByTokensOptions {
       open_token: "(",
       close_token: ")",
-      span: paren_span,
-      first_member: Some(inner_span),
+      range: paren_range,
+      first_member: Some(inner_range),
       prefer_single_line_when_empty: true,
       allow_open_token_trailing_comments: opts.allow_open_paren_trailing_comments,
       single_line_space_around: opts.single_line_space_around,
@@ -7132,26 +7145,26 @@ fn gen_node_in_parens<'a>(gen_node: impl FnOnce(&mut Context<'a>) -> PrintItems,
     context,
   );
 
-  fn get_force_use_new_lines(inner_span: Span, paren_span: &Option<Span>, context: &mut Context) -> bool {
+  fn get_force_use_new_lines(inner_range: SourceRange, paren_range: &Option<SourceRange>, context: &mut Context) -> bool {
     if !context.config.parentheses_prefer_single_line {
-      if let Some(paren_span) = &paren_span {
-        if node_helpers::get_use_new_lines_for_nodes(&paren_span.lo(), &inner_span, context.program) {
+      if let Some(paren_range) = &paren_range {
+        if node_helpers::get_use_new_lines_for_nodes(&paren_range.start(), &inner_range, context.program) {
           return true;
         }
       }
     }
 
-    has_any_node_comment_on_different_line(&[inner_span], context)
+    has_any_node_comment_on_different_line(&[inner_range], context)
   }
 }
 
-fn get_paren_span<'a>(inner_span: &Span, context: &mut Context<'a>) -> Option<Span> {
-  let open_paren = context.token_finder.get_previous_token_if_open_paren(inner_span);
-  let close_paren = context.token_finder.get_next_token_if_close_paren(inner_span);
+fn get_paren_range<'a>(inner_range: &SourceRange, context: &mut Context<'a>) -> Option<SourceRange> {
+  let open_paren = context.token_finder.get_previous_token_if_open_paren(inner_range);
+  let close_paren = context.token_finder.get_next_token_if_close_paren(inner_range);
 
   if let Some(open_paren) = open_paren {
     if let Some(close_paren) = close_paren {
-      return Some(create_span(open_paren.lo(), close_paren.hi()));
+      return Some(SourceRange::new(open_paren.start(), close_paren.end()));
     }
   }
 
@@ -7224,9 +7237,9 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
   let close_brace_token = child_tokens.iter().rev().find(|t| t.token == Token::RBrace);
   let force_multi_line = get_use_new_lines_for_nodes_with_preceeding_token("{", &opts.members, opts.prefer_single_line, context);
 
-  let first_member_span = opts.members.get(0).map(|x| x.span());
-  let obj_span = if let (Some(open_brace_token), Some(close_brace_token)) = (open_brace_token, close_brace_token) {
-    Some(create_span(open_brace_token.lo(), close_brace_token.hi()))
+  let first_member_range = opts.members.get(0).map(|x| x.range());
+  let obj_range = if let (Some(open_brace_token), Some(close_brace_token)) = (open_brace_token, close_brace_token) {
+    Some(SourceRange::new(open_brace_token.start(), close_brace_token.end()))
   } else {
     None
   };
@@ -7258,8 +7271,8 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
     GenSurroundedByTokensOptions {
       open_token: "{",
       close_token: "}",
-      span: obj_span,
-      first_member: first_member_span,
+      range: obj_range,
+      first_member: first_member_range,
       prefer_single_line_when_empty: true,
       allow_open_token_trailing_comments: true,
       single_line_space_around: false,
@@ -7368,7 +7381,7 @@ fn gen_for_flattened_member_like_expr<'a>(node: FlattenedMemberLikeExpr<'a>, con
 }
 
 struct GenComputedPropLikeOptions {
-  inner_node_span: Span,
+  inner_node_range: SourceRange,
 }
 
 fn gen_computed_prop_like<'a>(
@@ -7376,11 +7389,11 @@ fn gen_computed_prop_like<'a>(
   opts: GenComputedPropLikeOptions,
   context: &mut Context<'a>,
 ) -> PrintItems {
-  let inner_node_span = opts.inner_node_span;
-  let span = get_bracket_span(&inner_node_span, context);
+  let inner_node_range = opts.inner_node_range;
+  let range = get_bracket_range(&inner_node_range, context);
   let force_use_new_lines = !context.config.computed_prefer_single_line
-    && if let Some(span) = &span {
-      node_helpers::get_use_new_lines_for_nodes(&span.lo(), &inner_node_span.lo(), context.program)
+    && if let Some(range) = &range {
+      node_helpers::get_use_new_lines_for_nodes(&range.start(), &inner_node_range.start(), context.program)
     } else {
       false
     };
@@ -7397,8 +7410,8 @@ fn gen_computed_prop_like<'a>(
     GenSurroundedByTokensOptions {
       open_token: "[",
       close_token: "]",
-      span,
-      first_member: Some(inner_node_span),
+      range,
+      first_member: Some(inner_node_range),
       prefer_single_line_when_empty: false,
       allow_open_token_trailing_comments: true,
       single_line_space_around: false,
@@ -7406,12 +7419,12 @@ fn gen_computed_prop_like<'a>(
     context,
   ));
 
-  fn get_bracket_span(node: &dyn Spanned, context: &mut Context) -> Option<Span> {
+  fn get_bracket_range(node: &dyn SourceRanged, context: &mut Context) -> Option<SourceRange> {
     let open_bracket = context.token_finder.get_previous_token_if_open_bracket(node);
     let close_bracket = context.token_finder.get_next_token_if_close_bracket(node);
     if let Some(open_bracket) = open_bracket {
       if let Some(close_bracket) = close_bracket {
-        return Some(create_span(open_bracket.lo(), close_bracket.hi()));
+        return Some(SourceRange::new(open_bracket.start(), close_bracket.end()));
       }
     }
 
@@ -7431,7 +7444,7 @@ fn gen_decorators<'a>(decorators: &[&'a Decorator<'a>], is_inline: bool, context
 
   let force_use_new_lines = !context.config.decorators_prefer_single_line
     && decorators.len() >= 2
-    && node_helpers::get_use_new_lines_for_nodes(&decorators[0], &decorators[1], context.program);
+    && node_helpers::get_use_new_lines_for_nodes(decorators[0], decorators[1], context.program);
 
   let separated_values_result = gen_separated_values_with_result(
     GenSeparatedValuesParams {
@@ -7461,7 +7474,7 @@ fn gen_decorators<'a>(decorators: &[&'a Decorator<'a>], is_inline: bool, context
 
   // generate the comments between the last decorator and the next token
   if let Some(last_dec) = decorators.last() {
-    let next_token_pos = context.token_finder.get_next_token_pos_after(last_dec);
+    let next_token_pos = context.token_finder.get_next_token_pos_after(*last_dec);
     items.extend(gen_leading_comments(&next_token_pos, context));
   }
 
@@ -7470,7 +7483,7 @@ fn gen_decorators<'a>(decorators: &[&'a Decorator<'a>], is_inline: bool, context
 
 fn gen_control_flow_separator(
   next_control_flow_position: NextControlFlowPosition,
-  previous_node_block: &Span,
+  previous_node_block: &SourceRange,
   token_text: &str,
   previous_start_ln: LineNumber,
   previous_close_brace_condition_ref: Option<ConditionReference>,
@@ -7504,7 +7517,7 @@ fn gen_control_flow_separator(
     NextControlFlowPosition::Maintain => {
       let token = context.token_finder.get_first_keyword_after(previous_node_block, token_text);
 
-      if token.is_some() && node_helpers::is_first_node_on_line(token.unwrap(), context.program) {
+      if token.is_some() && node_helpers::is_first_node_on_line(&token.unwrap().range(), context.program) {
         items.push_signal(Signal::NewLine);
       } else {
         items.push_str(" ");
@@ -7515,7 +7528,7 @@ fn gen_control_flow_separator(
 }
 
 struct GenHeaderWithConditionalBraceBodyOptions<'a> {
-  parent: Span,
+  parent: SourceRange,
   body_node: Node<'a>,
   generated_header: PrintItems,
   use_braces: UseBraces,
@@ -7568,7 +7581,7 @@ fn gen_header_with_conditional_brace_body<'a>(
 }
 
 struct GenConditionalBraceBodyOptions<'a> {
-  parent: Span,
+  parent: SourceRange,
   body_node: Node<'a>,
   use_braces: UseBraces,
   brace_position: BracePosition,
@@ -7752,7 +7765,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
       // by parsing the header trailing comments
       items.extend(gen_leading_comments(body_node, context));
       items.extend(gen_statements(
-        body_node.get_inner_span(context),
+        body_node.get_inner_range(context),
         body_node.stmts.iter().map(|x| x.into()).collect(),
         context,
       ));
@@ -7761,9 +7774,9 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
   } else {
     items.extend(ir_helpers::with_indent({
       let mut items = PrintItems::new();
-      let body_node_span = opts.body_node.span();
+      let body_node_range = opts.body_node.range();
       items.extend(gen_node(opts.body_node, context));
-      items.extend(gen_trailing_comments(&body_node_span, context));
+      items.extend(gen_trailing_comments(&body_node_range, context));
       items
     }));
   }
@@ -7819,7 +7832,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
     body_should_be_multi_line: bool,
     single_body_position: &Option<SingleBodyPosition>,
     header_start_token: &Option<&'a TokenAndSpan>,
-    parent: &Span,
+    parent: &SourceRange,
     context: &mut Context<'a>,
   ) -> bool {
     if body_should_be_multi_line {
@@ -7858,7 +7871,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
       body_node.start_line_fast(context.program)
     }
 
-    fn get_header_start_line<'a>(header_start_token: &Option<&'a TokenAndSpan>, parent: &Span, context: &mut Context<'a>) -> usize {
+    fn get_header_start_line<'a>(header_start_token: &Option<&'a TokenAndSpan>, parent: &SourceRange, context: &mut Context<'a>) -> usize {
       if let Some(header_start_token) = header_start_token {
         return header_start_token.start_line_fast(context.program);
       }
@@ -7879,7 +7892,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
       return has_leading_comment_on_different_line(body_node, header_trailing_comments, context.program);
     }
 
-    fn has_leading_comment_on_different_line(node: &dyn Spanned, header_trailing_comments: &[&Comment], program: &Program) -> bool {
+    fn has_leading_comment_on_different_line(node: &dyn SourceRanged, header_trailing_comments: &[&Comment], program: &Program) -> bool {
       node_helpers::has_leading_comment_on_different_line(node, /* comments to ignore */ Some(header_trailing_comments), program)
     }
   }
@@ -7903,7 +7916,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
 
       let open_brace_token = context
         .token_finder
-        .get_first_open_brace_token_within(block_stmt)
+        .get_first_open_brace_token_within(*block_stmt)
         .expect("Expected to find an open brace token.");
       let body_node_start_line = body_node.start_line_fast(context.program);
       comments.extend(
@@ -7923,7 +7936,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
 
   fn get_open_brace_token<'a>(body_node: &Node<'a>, context: &mut Context<'a>) -> Option<&'a TokenAndSpan> {
     if let Node::BlockStmt(block_stmt) = body_node {
-      context.token_finder.get_first_open_brace_token_within(block_stmt)
+      context.token_finder.get_first_open_brace_token_within(*block_stmt)
     } else {
       None
     }
@@ -7947,7 +7960,7 @@ fn gen_jsx_with_opening_and_closing<'a>(opts: GenJsxWithOpeningAndClosingOptions
   let start_lc = LineAndColumn::new("start");
   let end_ln = LineNumber::new("end");
   let mut items = PrintItems::new();
-  let inner_span = create_span(opts.opening_element.hi(), opts.closing_element.lo());
+  let inner_range = SourceRange::new(opts.opening_element.end(), opts.closing_element.start());
 
   items.extend(actions::action("clearEndIfPosChanges", move |context| {
     if let Some((line, column)) = context.resolved_line_and_column(start_lc) {
@@ -7960,7 +7973,7 @@ fn gen_jsx_with_opening_and_closing<'a>(opts: GenJsxWithOpeningAndClosingOptions
   items.extend(gen_node(opts.opening_element, context));
   items.extend(gen_jsx_children(
     GenJsxChildrenOptions {
-      inner_span,
+      inner_range,
       children: opts.children,
       parent_start_ln: start_lc.line,
       parent_end_ln: end_ln,
@@ -8006,7 +8019,7 @@ fn gen_jsx_with_opening_and_closing<'a>(opts: GenJsxWithOpeningAndClosingOptions
 }
 
 struct GenJsxChildrenOptions<'a> {
-  inner_span: Span,
+  inner_range: SourceRange,
   children: Vec<Node<'a>>,
   parent_start_ln: LineNumber,
   parent_end_ln: LineNumber,
@@ -8036,7 +8049,7 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
   let parent_end_ln = opts.parent_end_ln;
 
   if opts.force_use_multi_lines {
-    return gen_for_new_lines(generated_children, opts.inner_span, context);
+    return gen_for_new_lines(generated_children, opts.inner_range, context);
   } else {
     // decide whether newlines should be used or not
     return if_true_or(
@@ -8050,7 +8063,7 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
         // use newlines if the entire jsx element is on multiple lines
         condition_helpers::is_multiple_lines(condition_context, parent_start_ln, parent_end_ln)
       }),
-      gen_for_new_lines(generated_children.clone(), opts.inner_span, context),
+      gen_for_new_lines(generated_children.clone(), opts.inner_range, context),
       gen_for_single_line(generated_children, context),
     )
     .into();
@@ -8086,13 +8099,13 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
     children
   }
 
-  fn gen_for_new_lines<'a>(children: Vec<(Node<'a>, Option<PrintItemPath>)>, inner_span: Span, context: &mut Context<'a>) -> PrintItems {
+  fn gen_for_new_lines<'a>(children: Vec<(Node<'a>, Option<PrintItemPath>)>, inner_range: SourceRange, context: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
     let has_children = !children.is_empty();
     items.push_signal(Signal::NewLine);
     items.extend(ir_helpers::with_indent(gen_members(
       GenMembersOptions {
-        inner_span,
+        inner_range,
         items: children.into_iter().map(|(a, b)| (a, Some(b.into()))).collect(),
         should_use_space: Some(Box::new(|previous, next, context| {
           if has_jsx_space_between(previous, next, context.program) {
@@ -8350,7 +8363,7 @@ fn gen_assignment_like_with_token<'a>(expr: Node<'a>, op: &str, op_token: Option
   }
 
   let op_end = op_token
-    .map(|x| x.hi())
+    .map(|x| x.end())
     .unwrap_or_else(|| context.token_finder.get_previous_token_end_before(&expr));
   let op_trailing_comments = gen_comments_between_lines_indented(op_end, context);
   let had_op_trailing_comments = !op_trailing_comments.is_empty();
@@ -8401,23 +8414,23 @@ fn gen_assignment_like_with_token<'a>(expr: Node<'a>, op: &str, op_token: Option
 }
 
 struct GenBlockOptions<'a> {
-  span: Option<Span>,
+  range: Option<SourceRange>,
   children: Vec<Node<'a>>,
 }
 
 fn gen_block<'a>(gen_inner: impl FnOnce(Vec<Node<'a>>, &mut Context<'a>) -> PrintItems, opts: GenBlockOptions<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   let before_open_token_ln = LineNumber::new("after_open_token_info");
-  let first_member_span = opts.children.get(0).map(|x| x.span());
-  let span = opts.span;
+  let first_member_range = opts.children.get(0).map(|x| x.range());
+  let range = opts.range;
   items.push_info(before_open_token_ln);
   items.extend(gen_surrounded_by_tokens(
     |context| {
       let mut items = PrintItems::new();
       let start_inner_lc = LineAndColumn::new("startStatements");
       let end_inner_lc = LineAndColumn::new("endStatements");
-      let is_tokens_same_line_and_empty = if let Some(span) = &span {
-        span.start_line_fast(context.program) == span.end_line_fast(context.program) && opts.children.is_empty()
+      let is_tokens_same_line_and_empty = if let Some(range) = &range {
+        range.start_line_fast(context.program) == range.end_line_fast(context.program) && opts.children.is_empty()
       } else {
         true
       };
@@ -8447,8 +8460,8 @@ fn gen_block<'a>(gen_inner: impl FnOnce(Vec<Node<'a>>, &mut Context<'a>) -> Prin
     GenSurroundedByTokensOptions {
       open_token: "{",
       close_token: "}",
-      span,
-      first_member: first_member_span,
+      range,
+      first_member: first_member_range,
       prefer_single_line_when_empty: false,
       allow_open_token_trailing_comments: true,
       single_line_space_around: false,
@@ -8462,8 +8475,8 @@ struct GenSurroundedByTokensOptions {
   open_token: &'static str,
   close_token: &'static str,
   /// When `None`, means the tokens are missing
-  span: Option<Span>,
-  first_member: Option<Span>,
+  range: Option<SourceRange>,
+  first_member: Option<SourceRange>,
   prefer_single_line_when_empty: bool,
   allow_open_token_trailing_comments: bool,
   single_line_space_around: bool,
@@ -8476,21 +8489,21 @@ fn gen_surrounded_by_tokens<'a>(
   context: &mut Context<'a>,
 ) -> PrintItems {
   let mut items = PrintItems::new();
-  if let Some(span) = opts.span {
-    let open_token_end = BytePos(span.lo.0 + (opts.open_token.len() as u32));
-    let close_token_start = BytePos(span.hi.0 - (opts.close_token.len() as u32));
+  if let Some(range) = opts.range {
+    let open_token_end = range.start() + opts.open_token.len();
+    let close_token_start = range.end() - opts.close_token.len();
 
     // assert the tokens are in the place the caller says they are
     #[cfg(debug_assertions)]
-    context.assert_text(create_span(span.lo, open_token_end.lo()), opts.open_token);
+    context.assert_text(SourceRange::new(range.start, open_token_end.start()), opts.open_token);
     #[cfg(debug_assertions)]
-    context.assert_text(create_span(close_token_start.lo(), span.hi), opts.close_token);
+    context.assert_text(SourceRange::new(close_token_start.start(), range.end), opts.close_token);
 
     // generate
     let open_token_start_line = open_token_end.start_line_fast(context.program);
     let is_single_line;
 
-    items.extend(gen_leading_comments(&span, context));
+    items.extend(gen_leading_comments(&range, context));
     items.push_str(opts.open_token);
     if let Some(first_member) = opts.first_member {
       let first_member_start_line = first_member.start_line_fast(context.program);
@@ -8623,7 +8636,7 @@ fn gen_surrounded_by_tokens<'a>(
 #[cfg(debug_assertions)]
 fn assert_has_op<'a>(op: &str, op_token: Option<&TokenAndSpan>, context: &mut Context<'a>) {
   if let Some(op_token) = op_token {
-    context.assert_text(create_span(op_token.lo(), op_token.hi()), op);
+    context.assert_text(SourceRange::new(op_token.start(), op_token.end()), op);
   } else {
     panic!("Debug panic! Expected to have op token: {}", op);
   }
@@ -8723,7 +8736,12 @@ fn allows_inline_multi_line(node: Node, context: &Context, has_siblings: bool) -
   }
 }
 
-fn get_use_new_lines_for_nodes_with_preceeding_token(open_token_text: &str, nodes: &[impl Spanned], prefer_single_line: bool, context: &mut Context) -> bool {
+fn get_use_new_lines_for_nodes_with_preceeding_token(
+  open_token_text: &str,
+  nodes: &[impl SourceRanged],
+  prefer_single_line: bool,
+  context: &mut Context,
+) -> bool {
   if nodes.is_empty() {
     return false;
   }
@@ -8737,7 +8755,7 @@ fn get_use_new_lines_for_nodes_with_preceeding_token(open_token_text: &str, node
 
     if let Some(previous_token) = previous_token {
       if previous_token.text_fast(context.program) == open_token_text {
-        return node_helpers::get_use_new_lines_for_nodes(previous_token, first_node, context.program);
+        return node_helpers::get_use_new_lines_for_nodes(&previous_token.range(), first_node, context.program);
       }
     }
 
@@ -8746,7 +8764,7 @@ fn get_use_new_lines_for_nodes_with_preceeding_token(open_token_text: &str, node
   }
 }
 
-fn get_use_new_lines_for_nodes(nodes: &[impl Spanned], prefer_single_line: bool, context: &mut Context) -> bool {
+fn get_use_new_lines_for_nodes(nodes: &[impl SourceRanged], prefer_single_line: bool, context: &mut Context) -> bool {
   if nodes.len() < 2 {
     return false;
   }
@@ -8760,7 +8778,7 @@ fn get_use_new_lines_for_nodes(nodes: &[impl Spanned], prefer_single_line: bool,
 }
 
 /// Gets if any of the provided nodes have leading or trailing comments on a different line.
-fn has_any_node_comment_on_different_line(nodes: &[impl Spanned], context: &mut Context) -> bool {
+fn has_any_node_comment_on_different_line(nodes: &[impl SourceRanged], context: &mut Context) -> bool {
   for (i, node) in nodes.iter().enumerate() {
     if i == 0 {
       let first_node_start_line = node.start_line_fast(context.program);
@@ -8772,12 +8790,12 @@ fn has_any_node_comment_on_different_line(nodes: &[impl Spanned], context: &mut 
       }
     }
 
-    let node_end = node.hi();
-    let next_node_pos = nodes.get(i + 1).map(|n| n.lo());
+    let node_end = node.end();
+    let next_node_pos = nodes.get(i + 1).map(|n| n.start());
     if check_pos_has_trailing_comments(node_end, next_node_pos, context) {
       return true;
     } else if let Some(comma) = context.token_finder.get_next_token_if_comma(&node_end) {
-      if check_pos_has_trailing_comments(comma.hi(), next_node_pos, context) {
+      if check_pos_has_trailing_comments(comma.end(), next_node_pos, context) {
         return true;
       }
     }
@@ -8785,7 +8803,7 @@ fn has_any_node_comment_on_different_line(nodes: &[impl Spanned], context: &mut 
 
   return false;
 
-  fn check_pos_has_trailing_comments(end: BytePos, next_node_pos: Option<BytePos>, context: &mut Context) -> bool {
+  fn check_pos_has_trailing_comments(end: SourcePos, next_node_pos: Option<SourcePos>, context: &mut Context) -> bool {
     let end_line = end.end_line_fast(context.program);
     let stop_line = next_node_pos.map(|p| p.start_line_fast(context.program));
 
@@ -8892,12 +8910,4 @@ fn get_tokens_from_children_with_tokens<'a>(node: &Node<'a>, program: &Program<'
       _ => None,
     })
     .collect::<Vec<_>>()
-}
-
-fn create_span(lo: BytePos, hi: BytePos) -> Span {
-  Span {
-    lo,
-    hi,
-    ctxt: Default::default(),
-  }
 }

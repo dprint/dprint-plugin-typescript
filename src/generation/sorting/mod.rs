@@ -1,9 +1,9 @@
 mod module_specifiers;
 use module_specifiers::*;
 
-use deno_ast::swc::common::Span;
-use deno_ast::swc::common::Spanned;
 use deno_ast::view::*;
+use deno_ast::SourceRange;
+use deno_ast::SourceRanged;
 use std::cmp::Ordering;
 
 use crate::configuration::*;
@@ -53,7 +53,7 @@ fn cmp_optional_nodes<'a>(
   a: Option<&Node<'a>>,
   b: Option<&Node<'a>>,
   program: &Program<'a>,
-  cmp_func: impl Fn(&dyn Spanned, &dyn Spanned, &Program<'a>) -> Ordering,
+  cmp_func: impl Fn(&dyn SourceRanged, &dyn SourceRanged, &Program<'a>) -> Ordering,
 ) -> Ordering {
   if let Some(a) = a {
     if let Some(b) = b {
@@ -68,7 +68,12 @@ fn cmp_optional_nodes<'a>(
   }
 }
 
-fn cmp_nodes<'a>(a: &Node<'a>, b: &Node<'a>, program: &Program<'a>, cmp_func: impl Fn(&dyn Spanned, &dyn Spanned, &Program<'a>) -> Ordering) -> Ordering {
+fn cmp_nodes<'a>(
+  a: &Node<'a>,
+  b: &Node<'a>,
+  program: &Program<'a>,
+  cmp_func: impl Fn(&dyn SourceRanged, &dyn SourceRanged, &Program<'a>) -> Ordering,
+) -> Ordering {
   let a_nodes = get_comparison_nodes(a);
   let b_nodes = get_comparison_nodes(b);
 
@@ -90,43 +95,43 @@ fn cmp_nodes<'a>(a: &Node<'a>, b: &Node<'a>, program: &Program<'a>, cmp_func: im
   }
 }
 
-fn get_comparison_nodes(node: &Node) -> Vec<Span> {
+fn get_comparison_nodes(node: &Node) -> Vec<SourceRange> {
   match node {
     Node::ImportNamedSpecifier(node) => {
       if let Some(imported) = &node.imported {
-        vec![imported.span(), node.local.span()]
+        vec![imported.range(), node.local.range()]
       } else {
-        vec![node.local.span()]
+        vec![node.local.range()]
       }
     }
     Node::ExportNamedSpecifier(node) => {
       if let Some(exported) = &node.exported {
-        vec![node.orig.span(), exported.span()]
+        vec![node.orig.range(), exported.range()]
       } else {
-        vec![node.orig.span()]
+        vec![node.orig.range()]
       }
     }
     Node::ImportDecl(node) => {
-      vec![node.src.span()]
+      vec![node.src.range()]
     }
     Node::NamedExport(node) => {
       if let Some(src) = &node.src {
-        vec![src.span()]
-      } else {
-        #[cfg(debug_assertions)]
+        vec![src.range()]
+      } else if cfg!(debug_assertions) {
         unimplemented!("Should not call this for named exports with src.");
-        #[cfg(not(debug_assertions))]
-        vec![node.span()]
+      } else {
+        vec![node.range()]
       }
     }
     Node::ExportAll(node) => {
-      vec![node.src.span()]
+      vec![node.src.range()]
     }
     _ => {
-      #[cfg(debug_assertions)]
-      unimplemented!("Not implemented sort node.");
-      #[cfg(not(debug_assertions))]
-      vec![node.span()]
+      if cfg!(debug_assertions) {
+        unimplemented!("Not implemented sort node.");
+      } else {
+        vec![node.range()]
+      }
     }
   }
 }

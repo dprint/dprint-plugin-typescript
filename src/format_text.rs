@@ -49,7 +49,7 @@ pub fn format_text(file_path: &Path, file_text: &str, config: &Configuration) ->
 
 /// Formats an already parsed source. This is useful as a performance optimization.
 pub fn format_parsed_source(source: &ParsedSource, config: &Configuration) -> Result<Option<String>> {
-  if super::utils::file_text_has_ignore_comment(source.source().text_str(), &config.ignore_file_comment_text) {
+  if super::utils::file_text_has_ignore_comment(source.text_info().text_str(), &config.ignore_file_comment_text) {
     Ok(None)
   } else {
     inner_format(source, config)
@@ -66,9 +66,9 @@ fn inner_format(parsed_source: &ParsedSource, config: &Configuration) -> Result<
       // println!("{}", print_items.get_as_text());
       print_items
     },
-    config_to_print_options(parsed_source.source().text_str(), config),
+    config_to_print_options(parsed_source.text_info().text_str(), config),
   );
-  if result == parsed_source.source().text_str() {
+  if result == parsed_source.text_info().text_str() {
     Ok(None)
   } else {
     Ok(Some(result))

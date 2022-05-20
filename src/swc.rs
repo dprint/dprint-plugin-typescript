@@ -27,16 +27,16 @@ pub fn parse_swc_ast(file_path: &Path, file_text: &str) -> Result<ParsedSource> 
   }
 }
 
-fn parse_inner(file_path: &Path, file_text: SourceTextInfo) -> Result<ParsedSource> {
+fn parse_inner(file_path: &Path, text_info: SourceTextInfo) -> Result<ParsedSource> {
   let parsed_source = deno_ast::parse_program(deno_ast::ParseParams {
     specifier: file_path.to_string_lossy().to_string(),
     capture_tokens: true,
     maybe_syntax: None,
     media_type: file_path.into(),
     scope_analysis: false,
-    source: file_text.clone(),
+    text_info: text_info.clone(),
   })
-  .map_err(|diagnostic| anyhow!("{}", format_diagnostic(&diagnostic, file_text.text_str())))?;
+  .map_err(|diagnostic| anyhow!("{}", format_diagnostic(&diagnostic, &text_info)))?;
   Ok(parsed_source)
 }
 
@@ -69,7 +69,7 @@ pub fn ensure_no_specific_syntax_errors(parsed_source: &ParsedSource) -> Result<
       if !final_message.is_empty() {
         final_message.push_str("\n\n");
       }
-      final_message.push_str(&format_diagnostic(error, parsed_source.source().text_str()));
+      final_message.push_str(&format_diagnostic(error, parsed_source.text_info()));
     }
     bail!("{}", final_message)
   }
@@ -79,9 +79,10 @@ fn get_lowercase_extension(file_path: &Path) -> Option<String> {
   file_path.extension().and_then(|e| e.to_str()).map(|f| f.to_lowercase())
 }
 
-fn format_diagnostic(error: &Diagnostic, file_text: &str) -> String {
-  let error_span = error.span;
-  dprint_core::formatting::utils::string_utils::format_diagnostic(Some((error_span.lo().0 as usize, error_span.hi().0 as usize)), &error.message(), file_text)
+fn format_diagnostic(error: &Diagnostic, text_info: &SourceTextInfo) -> String {
+  let file_text = text_info.text_str();
+  let range = error.range.as_byte_range(text_info.range().start);
+  dprint_core::formatting::utils::string_utils::format_diagnostic(Some((range.start, range.end)), &error.message(), file_text)
 }
 
 #[cfg(test)]

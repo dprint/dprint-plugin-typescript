@@ -1,19 +1,20 @@
 use deno_ast::swc::common::comments::CommentKind;
-use deno_ast::swc::common::BytePos;
-use deno_ast::swc::common::Span;
-use deno_ast::swc::common::Spanned;
 use deno_ast::view::*;
+use deno_ast::SourcePos;
+use deno_ast::SourceRange;
+use deno_ast::SourceRanged;
+use deno_ast::SourceRangedForSpanned;
 
 use super::*;
 
-pub trait SpannedExtensions {
+pub trait RangedExtensions {
   fn start_line_with_comments(&self, context: &mut Context) -> usize;
   fn end_line_with_comments(&self, context: &mut Context) -> usize;
 }
 
-impl<T> SpannedExtensions for T
+impl<T> RangedExtensions for T
 where
-  T: Spanned,
+  T: SourceRanged,
 {
   /// Gets the start line with possible first leading comment start.
   fn start_line_with_comments(&self, context: &mut Context) -> usize {
@@ -25,7 +26,7 @@ where
     if leading_comments.is_empty() {
       self.start_line_fast(context.program)
     } else {
-      let lo = self.lo();
+      let lo = self.start();
       let previous_token = context.token_finder.get_previous_token(&lo);
       if let Some(previous_token) = previous_token {
         let previous_end_line = previous_token.end_line_fast(context.program);
@@ -52,7 +53,11 @@ where
   /// Gets the end line with possible trailing multi-line block comment end.
   fn end_line_with_comments(&self, context: &mut Context) -> usize {
     // start searching from after the trailing comma if it exists
-    let search_end = context.token_finder.get_next_token_if_comma(self).map(|x| x.hi()).unwrap_or_else(|| self.hi());
+    let search_end = context
+      .token_finder
+      .get_next_token_if_comma(self)
+      .map(|x| x.end())
+      .unwrap_or_else(|| self.end());
     let trailing_comments = search_end.trailing_comments_fast(context.program);
     let previous_end_line = search_end.end_line_fast(context.program);
     for comment in trailing_comments {
@@ -83,11 +88,18 @@ pub enum TypeParamNode<'a> {
   Decl(&'a TsTypeParamDecl<'a>),
 }
 
-impl<'a> Spanned for TypeParamNode<'a> {
-  fn span(&self) -> Span {
+impl<'a> SourceRanged for TypeParamNode<'a> {
+  fn start(&self) -> SourcePos {
     match self {
-      TypeParamNode::Instantiation(node) => node.span(),
-      TypeParamNode::Decl(node) => node.span(),
+      TypeParamNode::Instantiation(node) => node.start(),
+      TypeParamNode::Decl(node) => node.start(),
+    }
+  }
+
+  fn end(&self) -> SourcePos {
+    match self {
+      TypeParamNode::Instantiation(node) => node.end(),
+      TypeParamNode::Decl(node) => node.end(),
     }
   }
 }
@@ -108,36 +120,32 @@ impl<'a> TypeParamNode<'a> {
   }
 }
 
-/* InnerSpanned */
+/* InnerRanged */
 
-pub trait InnerSpanned {
-  fn get_inner_span(&self, context: &mut Context) -> Span;
+pub trait InnerRanged {
+  fn get_inner_range(&self, context: &mut Context) -> SourceRange;
 }
 
-impl<'a> InnerSpanned for &BlockStmt<'a> {
-  fn get_inner_span(&self, _: &mut Context) -> Span {
-    get_inner_span_for_object_like(&self.span())
+impl<'a> InnerRanged for &BlockStmt<'a> {
+  fn get_inner_range(&self, _: &mut Context) -> SourceRange {
+    get_inner_range_for_object_like(&self.range())
   }
 }
 
-impl<'a> InnerSpanned for &ObjectLit<'a> {
-  fn get_inner_span(&self, _: &mut Context) -> Span {
-    get_inner_span_for_object_like(&self.span())
+impl<'a> InnerRanged for &ObjectLit<'a> {
+  fn get_inner_range(&self, _: &mut Context) -> SourceRange {
+    get_inner_range_for_object_like(&self.range())
   }
 }
 
-impl<'a> InnerSpanned for &ObjectPat<'a> {
-  fn get_inner_span(&self, _: &mut Context) -> Span {
-    get_inner_span_for_object_like(&self.span())
+impl<'a> InnerRanged for &ObjectPat<'a> {
+  fn get_inner_range(&self, _: &mut Context) -> SourceRange {
+    get_inner_range_for_object_like(&self.range())
   }
 }
 
-fn get_inner_span_for_object_like(span: &Span) -> Span {
-  Span {
-    lo: BytePos(span.lo.0 + 1),
-    hi: BytePos(span.hi.0 - 1),
-    ctxt: Default::default(),
-  }
+fn get_inner_range_for_object_like(range: &SourceRange) -> SourceRange {
+  SourceRange::new(range.start + 1, range.end - 1)
 }
 
 pub trait NodeExtensions<'a> {
@@ -167,174 +175,174 @@ impl<'a> NodeExtensions<'a> for Node<'a> {
   }
 }
 
-/* ParametersSpanned */
+/* ParametersRanged */
 
-pub trait ParametersSpanned {
-  fn get_parameters_span(&self, context: &mut Context) -> Option<Span>;
+pub trait ParametersRanged {
+  fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange>;
 }
 
-impl<'a> ParametersSpanned for &Function<'a> {
-  fn get_parameters_span(&self, context: &mut Context) -> Option<Span> {
-    get_params_or_args_span(
-      self.lo(),
-      self.params.iter().map(|x| x.span()).collect(),
+impl<'a> ParametersRanged for &Function<'a> {
+  fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
+    get_params_or_args_range(
+      self.start(),
+      self.params.iter().map(|x| x.range()).collect(),
       self
         .return_type
-        .map(|t| t.lo())
-        .or_else(|| self.body.as_ref().map(|b| b.lo()))
-        .unwrap_or_else(|| self.hi()),
+        .map(|t| t.start())
+        .or_else(|| self.body.as_ref().map(|b| b.start()))
+        .unwrap_or_else(|| self.end()),
       context,
     )
   }
 }
 
-impl<'a> ParametersSpanned for &PrivateMethod<'a> {
-  fn get_parameters_span(&self, context: &mut Context) -> Option<Span> {
-    self.function.get_parameters_span(context)
+impl<'a> ParametersRanged for &PrivateMethod<'a> {
+  fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
+    self.function.get_parameters_range(context)
   }
 }
 
-impl<'a> ParametersSpanned for &ClassMethod<'a> {
-  fn get_parameters_span(&self, context: &mut Context) -> Option<Span> {
-    self.function.get_parameters_span(context)
+impl<'a> ParametersRanged for &ClassMethod<'a> {
+  fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
+    self.function.get_parameters_range(context)
   }
 }
 
-impl<'a> ParametersSpanned for &Constructor<'a> {
-  fn get_parameters_span(&self, context: &mut Context) -> Option<Span> {
-    get_params_or_args_span(
-      self.lo(),
-      self.params.iter().map(|x| x.span()).collect(),
-      self.body.as_ref().map(|t| t.lo()).unwrap_or_else(|| self.hi()),
+impl<'a> ParametersRanged for &Constructor<'a> {
+  fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
+    get_params_or_args_range(
+      self.start(),
+      self.params.iter().map(|x| x.range()).collect(),
+      self.body.as_ref().map(|t| t.start()).unwrap_or_else(|| self.end()),
       context,
     )
   }
 }
 
-impl<'a> ParametersSpanned for &MethodProp<'a> {
-  fn get_parameters_span(&self, context: &mut Context) -> Option<Span> {
-    self.function.get_parameters_span(context)
+impl<'a> ParametersRanged for &MethodProp<'a> {
+  fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
+    self.function.get_parameters_range(context)
   }
 }
 
-impl<'a> ParametersSpanned for &GetterProp<'a> {
-  fn get_parameters_span(&self, context: &mut Context) -> Option<Span> {
-    get_params_or_args_span(
-      self.lo(),
+impl<'a> ParametersRanged for &GetterProp<'a> {
+  fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
+    get_params_or_args_range(
+      self.start(),
       vec![],
       self
         .type_ann
         .as_ref()
-        .map(|t| t.lo())
-        .or_else(|| self.body.as_ref().map(|t| t.lo()))
-        .unwrap_or_else(|| self.hi()),
+        .map(|t| t.start())
+        .or_else(|| self.body.as_ref().map(|t| t.start()))
+        .unwrap_or_else(|| self.end()),
       context,
     )
   }
 }
 
-impl<'a> ParametersSpanned for &SetterProp<'a> {
-  fn get_parameters_span(&self, context: &mut Context) -> Option<Span> {
-    get_params_or_args_span(
-      self.lo(),
-      vec![self.param.span()],
-      self.body.as_ref().map(|t| t.lo()).unwrap_or_else(|| self.hi()),
+impl<'a> ParametersRanged for &SetterProp<'a> {
+  fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
+    get_params_or_args_range(
+      self.start(),
+      vec![self.param.range()],
+      self.body.as_ref().map(|t| t.start()).unwrap_or_else(|| self.end()),
       context,
     )
   }
 }
 
-impl<'a> ParametersSpanned for &ArrowExpr<'a> {
-  fn get_parameters_span(&self, context: &mut Context) -> Option<Span> {
-    get_params_or_args_span(
-      self.lo(),
-      self.params.iter().map(|x| x.span()).collect(),
-      self.return_type.as_ref().map(|t| t.lo()).unwrap_or_else(|| self.body.lo()),
+impl<'a> ParametersRanged for &ArrowExpr<'a> {
+  fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
+    get_params_or_args_range(
+      self.start(),
+      self.params.iter().map(|x| x.range()).collect(),
+      self.return_type.as_ref().map(|t| t.start()).unwrap_or_else(|| self.body.start()),
       context,
     )
   }
 }
 
-impl<'a> ParametersSpanned for CallOrOptCallExpr<'a> {
-  fn get_parameters_span(&self, context: &mut Context) -> Option<Span> {
-    get_params_or_args_span(self.lo(), self.args().iter().map(|a| a.span()).collect(), self.hi(), context)
+impl<'a> ParametersRanged for CallOrOptCallExpr<'a> {
+  fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
+    get_params_or_args_range(self.start(), self.args().iter().map(|a| a.range()).collect(), self.end(), context)
   }
 }
 
-impl<'a> ParametersSpanned for &NewExpr<'a> {
-  fn get_parameters_span(&self, context: &mut Context) -> Option<Span> {
-    get_params_or_args_span(
-      self.lo(),
-      self.args.as_ref().map(|args| args.iter().map(|a| a.span()).collect()).unwrap_or_default(),
-      self.hi(),
+impl<'a> ParametersRanged for &NewExpr<'a> {
+  fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
+    get_params_or_args_range(
+      self.start(),
+      self.args.as_ref().map(|args| args.iter().map(|a| a.range()).collect()).unwrap_or_default(),
+      self.end(),
       context,
     )
   }
 }
 
-impl<'a> ParametersSpanned for &TsCallSignatureDecl<'a> {
-  fn get_parameters_span(&self, context: &mut Context) -> Option<Span> {
-    get_params_or_args_span(
-      self.lo(),
-      self.params.iter().map(|x| x.span()).collect(),
-      self.type_ann.as_ref().map(|t| t.lo()).unwrap_or_else(|| self.hi()),
+impl<'a> ParametersRanged for &TsCallSignatureDecl<'a> {
+  fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
+    get_params_or_args_range(
+      self.start(),
+      self.params.iter().map(|x| x.range()).collect(),
+      self.type_ann.as_ref().map(|t| t.start()).unwrap_or_else(|| self.end()),
       context,
     )
   }
 }
 
-impl<'a> ParametersSpanned for &TsConstructSignatureDecl<'a> {
-  fn get_parameters_span(&self, context: &mut Context) -> Option<Span> {
-    get_params_or_args_span(
-      self.lo(),
-      self.params.iter().map(|x| x.span()).collect(),
-      self.type_ann.as_ref().map(|t| t.lo()).unwrap_or_else(|| self.hi()),
+impl<'a> ParametersRanged for &TsConstructSignatureDecl<'a> {
+  fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
+    get_params_or_args_range(
+      self.start(),
+      self.params.iter().map(|x| x.range()).collect(),
+      self.type_ann.as_ref().map(|t| t.start()).unwrap_or_else(|| self.end()),
       context,
     )
   }
 }
 
-impl<'a> ParametersSpanned for &TsGetterSignature<'a> {
-  fn get_parameters_span(&self, context: &mut Context) -> Option<Span> {
-    get_params_or_args_span(
-      self.lo(),
+impl<'a> ParametersRanged for &TsGetterSignature<'a> {
+  fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
+    get_params_or_args_range(
+      self.start(),
       Vec::with_capacity(0),
-      self.type_ann.as_ref().map(|t| t.lo()).unwrap_or_else(|| self.hi()),
+      self.type_ann.as_ref().map(|t| t.start()).unwrap_or_else(|| self.end()),
       context,
     )
   }
 }
 
-impl<'a> ParametersSpanned for &TsSetterSignature<'a> {
-  fn get_parameters_span(&self, context: &mut Context) -> Option<Span> {
-    get_params_or_args_span(self.lo(), vec![self.param.span()], self.hi(), context)
+impl<'a> ParametersRanged for &TsSetterSignature<'a> {
+  fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
+    get_params_or_args_range(self.start(), vec![self.param.range()], self.end(), context)
   }
 }
 
-impl<'a> ParametersSpanned for &TsMethodSignature<'a> {
-  fn get_parameters_span(&self, context: &mut Context) -> Option<Span> {
-    get_params_or_args_span(
-      self.lo(),
-      self.params.iter().map(|x| x.span()).collect(),
-      self.type_ann.as_ref().map(|t| t.lo()).unwrap_or_else(|| self.hi()),
+impl<'a> ParametersRanged for &TsMethodSignature<'a> {
+  fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
+    get_params_or_args_range(
+      self.start(),
+      self.params.iter().map(|x| x.range()).collect(),
+      self.type_ann.as_ref().map(|t| t.start()).unwrap_or_else(|| self.end()),
       context,
     )
   }
 }
 
-impl<'a> ParametersSpanned for &TsConstructorType<'a> {
-  fn get_parameters_span(&self, context: &mut Context) -> Option<Span> {
-    get_params_or_args_span(self.lo(), self.params.iter().map(|x| x.span()).collect(), self.type_ann.lo(), context)
+impl<'a> ParametersRanged for &TsConstructorType<'a> {
+  fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
+    get_params_or_args_range(self.start(), self.params.iter().map(|x| x.range()).collect(), self.type_ann.start(), context)
   }
 }
 
-impl<'a> ParametersSpanned for &TsFnType<'a> {
-  fn get_parameters_span(&self, context: &mut Context) -> Option<Span> {
-    get_params_or_args_span(self.lo(), self.params.iter().map(|x| x.span()).collect(), self.type_ann.lo(), context)
+impl<'a> ParametersRanged for &TsFnType<'a> {
+  fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
+    get_params_or_args_range(self.start(), self.params.iter().map(|x| x.range()).collect(), self.type_ann.start(), context)
   }
 }
 
-fn get_params_or_args_span(start_pos: BytePos, params: Vec<Span>, following_pos: BytePos, context: &mut Context) -> Option<Span> {
+fn get_params_or_args_range(start_pos: SourcePos, params: Vec<SourceRange>, following_pos: SourcePos, context: &mut Context) -> Option<SourceRange> {
   let close_token_end = {
     let close_paren = if let Some(last_param) = params.last() {
       context.token_finder.get_first_close_paren_after(last_param)
@@ -342,7 +350,7 @@ fn get_params_or_args_span(start_pos: BytePos, params: Vec<Span>, following_pos:
       context.token_finder.get_first_close_paren_before(&following_pos)
     };
     if let Some(close_paren) = close_paren {
-      let end = close_paren.hi();
+      let end = close_paren.end();
       if end > start_pos {
         Some(end)
       } else {
@@ -355,14 +363,14 @@ fn get_params_or_args_span(start_pos: BytePos, params: Vec<Span>, following_pos:
   let close_token_start = {
     let open_paren = context.token_finder.get_first_open_paren_before(&{
       if let Some(first_param) = params.first() {
-        first_param.lo()
+        first_param.start()
       } else {
         close_token_end
       }
     });
 
     if let Some(open_paren) = open_paren {
-      let pos = open_paren.lo();
+      let pos = open_paren.start();
       if pos >= start_pos {
         Some(pos)
       } else {
@@ -373,11 +381,7 @@ fn get_params_or_args_span(start_pos: BytePos, params: Vec<Span>, following_pos:
     }
   }?;
 
-  Some(Span {
-    lo: close_token_start,
-    hi: close_token_end,
-    ctxt: Default::default(),
-  })
+  Some(SourceRange::new(close_token_start, close_token_end))
 }
 
 #[derive(Copy, Clone)]
@@ -413,11 +417,18 @@ impl<'a> CallOrOptCallExpr<'a> {
   }
 }
 
-impl<'a> Spanned for CallOrOptCallExpr<'a> {
-  fn span(&self) -> deno_ast::swc::common::Span {
+impl<'a> SourceRanged for CallOrOptCallExpr<'a> {
+  fn start(&self) -> SourcePos {
     match self {
-      CallOrOptCallExpr::CallExpr(node) => node.span(),
-      CallOrOptCallExpr::OptCall(node) => node.span(),
+      CallOrOptCallExpr::CallExpr(node) => node.start(),
+      CallOrOptCallExpr::OptCall(node) => node.start(),
+    }
+  }
+
+  fn end(&self) -> SourcePos {
+    match self {
+      CallOrOptCallExpr::CallExpr(node) => node.end(),
+      CallOrOptCallExpr::OptCall(node) => node.end(),
     }
   }
 }

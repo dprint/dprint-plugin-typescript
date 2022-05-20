@@ -1,12 +1,15 @@
 use deno_ast::swc::common::comments::Comment;
-use deno_ast::swc::common::BytePos;
-use deno_ast::swc::common::Spanned;
 use deno_ast::view::*;
+use deno_ast::SourcePos;
+use deno_ast::SourceRange;
+use deno_ast::SourceRanged;
+use deno_ast::SourceRangedForSpanned;
+use deno_ast::SourceTextInfoProvider;
 
-pub fn is_first_node_on_line(node: &dyn Spanned, program: &Program) -> bool {
-  let start = node.lo().0 as usize;
-  let source_file = program.source_file().unwrap();
-  let source_file_text = source_file.text().as_bytes();
+pub fn is_first_node_on_line(node: &dyn SourceRanged, program: &Program) -> bool {
+  let text_info = program.text_info();
+  let start = node.start().as_byte_index(text_info.range().start);
+  let source_file_text = text_info.text_str().as_bytes();
 
   for i in (0..start).rev() {
     let c = source_file_text[i];
@@ -18,10 +21,10 @@ pub fn is_first_node_on_line(node: &dyn Spanned, program: &Program) -> bool {
   true
 }
 
-pub fn has_separating_blank_line(first_node: &dyn Spanned, second_node: &dyn Spanned, program: &Program) -> bool {
+pub fn has_separating_blank_line(first_node: &dyn SourceRanged, second_node: &dyn SourceRanged, program: &Program) -> bool {
   return get_second_start_line(first_node, second_node, program) > first_node.end_line_fast(program) + 1;
 
-  fn get_second_start_line(first_node: &dyn Spanned, second_node: &dyn Spanned, program: &Program) -> usize {
+  fn get_second_start_line(first_node: &dyn SourceRanged, second_node: &dyn SourceRanged, program: &Program) -> usize {
     let leading_comments = second_node.leading_comments_fast(program);
 
     for comment in leading_comments {
@@ -35,20 +38,24 @@ pub fn has_separating_blank_line(first_node: &dyn Spanned, second_node: &dyn Spa
   }
 }
 
-pub fn get_use_new_lines_for_nodes(first_node: &dyn Spanned, second_node: &dyn Spanned, program: &Program) -> bool {
+pub fn get_use_new_lines_for_nodes(first_node: &dyn SourceRanged, second_node: &dyn SourceRanged, program: &Program) -> bool {
   first_node.end_line_fast(program) != second_node.start_line_fast(program)
 }
 
-pub fn has_leading_comment_on_different_line<'a>(node: &dyn Spanned, comments_to_ignore: Option<&[&'a Comment]>, program: &Program<'a>) -> bool {
+pub fn has_leading_comment_on_different_line<'a>(node: &dyn SourceRanged, comments_to_ignore: Option<&[&'a Comment]>, program: &Program<'a>) -> bool {
   get_leading_comment_on_different_line(node, comments_to_ignore, program).is_some()
 }
 
-pub fn get_leading_comment_on_different_line<'a>(node: &dyn Spanned, comments_to_ignore: Option<&[&'a Comment]>, program: &Program<'a>) -> Option<&'a Comment> {
-  let comments_to_ignore: Option<Vec<BytePos>> = comments_to_ignore.map(|x| x.iter().map(|c| c.lo()).collect());
+pub fn get_leading_comment_on_different_line<'a>(
+  node: &dyn SourceRanged,
+  comments_to_ignore: Option<&[&'a Comment]>,
+  program: &Program<'a>,
+) -> Option<&'a Comment> {
+  let comments_to_ignore: Option<Vec<SourcePos>> = comments_to_ignore.map(|x| x.iter().map(|c| c.start()).collect());
   let node_start_line = node.start_line_fast(program);
   for comment in node.leading_comments_fast(program) {
     if let Some(comments_to_ignore) = &comments_to_ignore {
-      if comments_to_ignore.contains(&comment.lo()) {
+      if comments_to_ignore.contains(&comment.start()) {
         continue;
       }
     }
@@ -73,8 +80,9 @@ pub fn nodes_have_only_spaces_between(previous_node: &Node, next_node: &Node, pr
     let next_node_text = next_node.text_fast(program);
     crate::utils::has_no_new_lines_in_leading_whitespace(next_node_text) && next_node_text.starts_with(' ')
   } else {
-    let source_file = program.source_file().unwrap();
-    crate::utils::is_not_empty_and_only_spaces(&source_file.text()[previous_node.hi().0 as usize..next_node.lo().0 as usize])
+    let text_info = program.text_info();
+    let range = SourceRange::new(previous_node.end(), next_node.start());
+    crate::utils::is_not_empty_and_only_spaces(text_info.range_text(&range))
   }
 }
 
