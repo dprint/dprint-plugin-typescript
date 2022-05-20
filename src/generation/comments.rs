@@ -4,8 +4,8 @@ use deno_ast::view::*;
 use deno_ast::CommentsIterator;
 use deno_ast::SourcePos;
 use deno_ast::SourceRanged;
+use deno_ast::SourceRangedForSpanned;
 use deno_ast::SourceTextInfoProvider;
-use deno_ast::SwcSourceRanged;
 
 pub struct CommentTracker<'a> {
   program: &'a Program<'a>,

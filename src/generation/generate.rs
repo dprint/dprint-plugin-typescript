@@ -10,7 +10,7 @@ use deno_ast::ParsedSource;
 use deno_ast::SourcePos;
 use deno_ast::SourceRange;
 use deno_ast::SourceRanged;
-use deno_ast::SwcSourceRanged;
+use deno_ast::SourceRangedForSpanned;
 use dprint_core::formatting::condition_resolvers;
 use dprint_core::formatting::conditions::*;
 use dprint_core::formatting::ir_helpers::*;

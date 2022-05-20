@@ -3,8 +3,8 @@ use deno_ast::swc::parser::token::TokenAndSpan;
 use deno_ast::view::*;
 use deno_ast::SourcePos;
 use deno_ast::SourceRanged;
+use deno_ast::SourceRangedForSpanned;
 use deno_ast::SourceTextInfoProvider;
-use deno_ast::SwcSourceRanged;
 use std::str;
 
 // todo: This is legacy from when swc-ecma-ast-view wasn't used.

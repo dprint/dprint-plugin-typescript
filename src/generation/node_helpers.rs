@@ -3,12 +3,12 @@ use deno_ast::view::*;
 use deno_ast::SourcePos;
 use deno_ast::SourceRange;
 use deno_ast::SourceRanged;
+use deno_ast::SourceRangedForSpanned;
 use deno_ast::SourceTextInfoProvider;
-use deno_ast::SwcSourceRanged;
 
 pub fn is_first_node_on_line(node: &dyn SourceRanged, program: &Program) -> bool {
   let text_info = program.text_info();
-  let start = node.start() - text_info.range().start;
+  let start = node.start().as_byte_index(text_info.range().start);
   let source_file_text = text_info.text_str().as_bytes();
 
   for i in (0..start).rev() {
@@ -82,7 +82,7 @@ pub fn nodes_have_only_spaces_between(previous_node: &Node, next_node: &Node, pr
   } else {
     let text_info = program.text_info();
     let range = SourceRange::new(previous_node.end(), next_node.start());
-    crate::utils::is_not_empty_and_only_spaces(&text_info.range_text(&range))
+    crate::utils::is_not_empty_and_only_spaces(text_info.range_text(&range))
   }
 }
 

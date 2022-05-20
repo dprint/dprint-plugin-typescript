@@ -81,7 +81,7 @@ fn get_lowercase_extension(file_path: &Path) -> Option<String> {
 
 fn format_diagnostic(error: &Diagnostic, text_info: &SourceTextInfo) -> String {
   let file_text = text_info.text_str();
-  let range = error.range.as_std_range(text_info.range().start);
+  let range = error.range.as_byte_range(text_info.range().start);
   dprint_core::formatting::utils::string_utils::format_diagnostic(Some((range.start, range.end)), &error.message(), file_text)
 }
 
