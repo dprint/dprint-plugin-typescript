@@ -1,0 +1,19 @@
+~~ binaryExpression.operatorPosition: sameLine, indentWidth: 2, lineWidth: 80 ~~
+== should eventually format ==
+if (
+  (a
+    && ((
+      test
+    ) || aatestingThisOutTestteststestTestingatesttestatesttesttesttesttestestaa))
+) {
+}
+
+[expect]
+if (
+  (a &&
+    ((
+      test
+    ) ||
+      aatestingThisOutTestteststestTestingatesttestatesttesttesttesttestestaa))
+) {
+}
