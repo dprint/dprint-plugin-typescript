@@ -1,0 +1,5 @@
+== should format as-is ==
+import Foo, {} from "./foo.ts";
+
+[expect]
+import Foo, {} from "./foo.ts";

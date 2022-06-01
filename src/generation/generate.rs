@@ -1188,7 +1188,7 @@ fn gen_import_decl<'a>(node: &'a ImportDecl, context: &mut Context<'a>) -> Print
 
   if let Some(default_import) = default_import {
     items.extend(gen_node(default_import.into(), context));
-    if namespace_import.is_some() || !named_imports.is_empty() {
+    if namespace_import.is_some() || has_named_imports {
       items.push_str(", ");
     }
   }
