@@ -26,3 +26,24 @@ export {
     e, /* and
 not ok */
 } from "./test.ts";
+
+== should collapse a multi-line one ==
+export {
+
+  a,
+
+  b,
+  c,
+  /* testing */
+  d,
+} from "./test.ts";
+export {
+  a,
+  b,
+  c,
+  d,
+} from "./test.ts";
+
+[expect]
+export { a, b, c, /* testing */ d } from "./test.ts";
+export { a, b, c, d } from "./test.ts";
