@@ -96,26 +96,26 @@ import {
 } from "testingtttttttttttttttttttttttttttttt";
 
 == should sort the import declarations in alphabetical order based on the module specifiers ==
-import "./a.ts";
-import "../a.ts";
-import "../../b.ts";
-import "../../a.ts";
-import "b.ts";
-import "a.ts";
-import "c.ts";
+import { a } from "./a.ts";
+import { a } from "../a.ts";
+import { a } from "../../b.ts";
+import { a } from "../../a.ts";
+import { a } from "b.ts";
+import { a } from "a.ts";
+import { a } from "c.ts";
 
-import "a.ts";
+import { a } from "a.ts";
 
 [expect]
-import "a.ts";
-import "b.ts";
-import "c.ts";
-import "../../a.ts";
-import "../../b.ts";
-import "../a.ts";
-import "./a.ts";
+import { a } from "a.ts";
+import { a } from "b.ts";
+import { a } from "c.ts";
+import { a } from "../../a.ts";
+import { a } from "../../b.ts";
+import { a } from "../a.ts";
+import { a } from "./a.ts";
 
-import "a.ts";
+import { a } from "a.ts";
 
 == should sort the imports in alphabetical order ==
 import { d, c, B, a, E, f2, f, f1} from "test";

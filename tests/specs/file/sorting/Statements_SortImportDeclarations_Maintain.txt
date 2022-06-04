@@ -1,8 +1,8 @@
 ~~ module.sortImportDeclarations: maintain ~~
 == should keep the imports declaration sort order as-is ==
-import {} from "b.ts";
-import {} from "a.ts";
+import { a } from "b.ts";
+import { a } from "a.ts";
 
 [expect]
-import {} from "b.ts";
-import {} from "a.ts";
+import { a } from "b.ts";
+import { a } from "a.ts";

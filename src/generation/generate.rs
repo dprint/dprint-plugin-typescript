@@ -6417,7 +6417,7 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<S
   for stmt in stmts {
     let last_end_line = previous_last_end_line.take();
     let stmt_group_kind = match stmt {
-      Node::ImportDecl(_) => StmtGroupKind::Imports,
+      Node::ImportDecl(decl) if !decl.specifiers.is_empty() => StmtGroupKind::Imports,
       Node::ExportAll(_) => StmtGroupKind::Exports,
       Node::NamedExport(NamedExport { src: Some(_), .. }) => StmtGroupKind::Exports,
       _ => StmtGroupKind::Other,
