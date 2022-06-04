@@ -986,10 +986,12 @@ fn gen_export_named_decl<'a>(node: &'a NamedExport, context: &mut Context<'a>) -
     }
   }
 
-  let should_single_line = default_export.is_none()
-    && namespace_export.is_none()
-    && named_exports.len() <= 1
-    && node.start_line_fast(context.program) == node.end_line_fast(context.program);
+  let force_single_line = context.config.export_declaration_force_single_line && !contains_line_or_multiline_comment(&node.into(), &context.program);
+  let should_single_line = force_single_line
+    || (default_export.is_none()
+      && namespace_export.is_none()
+      && named_exports.len() <= 1
+      && node.start_line_fast(context.program) == node.end_line_fast(context.program));
 
   // generate
   let mut items = PrintItems::new();
@@ -1166,10 +1168,12 @@ fn gen_import_decl<'a>(node: &'a ImportDecl, context: &mut Context<'a>) -> Print
     }
   }
 
-  let should_single_line = default_import.is_none()
-    && namespace_import.is_none()
-    && named_imports.len() <= 1
-    && node.start_line_fast(context.program) == node.end_line_fast(context.program);
+  let force_single_line = context.config.import_declaration_force_single_line && !contains_line_or_multiline_comment(&node.into(), &context.program);
+  let should_single_line = force_single_line
+    || (default_import.is_none()
+      && namespace_import.is_none()
+      && named_imports.len() <= 1
+      && node.start_line_fast(context.program) == node.end_line_fast(context.program));
   let has_named_imports = !named_imports.is_empty() || {
     let from_keyword = context.token_finder.get_previous_token_if_from_keyword(node.src);
     if let Some(from_keyword) = from_keyword {
