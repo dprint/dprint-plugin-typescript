@@ -52,13 +52,12 @@ pub fn format_parsed_source(source: &ParsedSource, config: &Configuration) -> Re
   if super::utils::file_text_has_ignore_comment(source.text_info().text_str(), &config.ignore_file_comment_text) {
     Ok(None)
   } else {
+    ensure_no_specific_syntax_errors(source)?;
     inner_format(source, config)
   }
 }
 
 fn inner_format(parsed_source: &ParsedSource, config: &Configuration) -> Result<Option<String>> {
-  ensure_no_specific_syntax_errors(parsed_source)?;
-
   let result = dprint_core::formatting::format(
     || {
       #[allow(clippy::let_and_return)]
@@ -88,67 +87,5 @@ fn config_to_print_options(file_text: &str, config: &Configuration) -> PrintOpti
     max_width: config.line_width,
     use_tabs: config.use_tabs,
     new_line_text: resolve_new_line_kind(file_text, config.new_line_kind),
-  }
-}
-
-#[cfg(test)]
-mod test {
-  use std::path::PathBuf;
-
-  use crate::configuration::ConfigurationBuilder;
-
-  use super::*;
-
-  #[test]
-  fn it_should_error_for_no_equals_sign_in_var_decl() {
-    run_diagnostic_test(
-      "./test.ts",
-      "const Methods {\nf: (x, y) => x + y,\n};",
-      concat!("Line 1, column 15: Expected a semicolon\n", "\n", "  const Methods {\n", "                ~"),
-    );
-  }
-
-  #[test]
-  fn it_should_error_when_var_stmts_sep_by_comma() {
-    run_diagnostic_test(
-      "./test.ts",
-      "let a = 0, let b = 1;",
-      concat!(
-        "Line 1, column 16: Expected a semicolon\n",
-        "\n",
-        "  let a = 0, let b = 1;\n",
-        "                 ~"
-      ),
-    );
-  }
-
-  #[test]
-  fn it_should_error_for_exected_expr_issue_121() {
-    run_diagnostic_test(
-      "./test.ts",
-      "type T =\n  | unknown\n  { } & unknown;",
-      concat!("Line 3, column 7: Expression expected\n\n", "    { } & unknown;\n", "        ~"),
-    );
-  }
-
-  #[test]
-  fn it_should_error_for_exected_close_brace() {
-    // swc can parse this, but we explicitly fail formatting
-    // in this scenario because I believe it might cause more
-    // harm than good.
-    run_diagnostic_test(
-      "./test.ts",
-      "class Test {",
-      concat!("Line 1, column 12: Expected '}', got '<eof>'\n\n", "  class Test {\n", "             ~"),
-    );
-  }
-
-  fn run_diagnostic_test(file_path: &str, text: &str, expected: &str) {
-    let file_path = PathBuf::from(file_path);
-    let parsed_source = crate::swc::parse_swc_ast(&file_path, text).unwrap();
-    let config = ConfigurationBuilder::new().build();
-    // ensure it happens for both of these methods
-    assert_eq!(format_text(&file_path, text, &config).err().unwrap().to_string(), expected);
-    assert_eq!(format_parsed_source(&parsed_source, &config).err().unwrap().to_string(), expected);
   }
 }
