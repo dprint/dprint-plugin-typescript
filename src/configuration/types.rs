@@ -508,6 +508,11 @@ pub struct Configuration {
   pub union_and_intersection_type_prefer_single_line: bool,
   #[serde(rename = "variableStatement.preferSingleLine")]
   pub variable_statement_prefer_single_line: bool,
+  /* force single line */
+  #[serde(rename = "importDeclaration.forceSingleLine")]
+  pub import_declaration_force_single_line: bool,
+  #[serde(rename = "exportDeclaration.forceSingleLine")]
+  pub export_declaration_force_single_line: bool,
 
   /* use space separator */
   #[serde(rename = "binaryExpression.spaceSurroundingBitwiseAndArithmeticOperator")]

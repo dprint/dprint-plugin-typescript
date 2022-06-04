@@ -237,6 +237,18 @@
         "description": ""
       }]
     },
+    "forceSingleLine": {
+      "description": "If code should be forced to be on a single line if able.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": ""
+      }, {
+        "const": false,
+        "description": ""
+      }]
+    },
     "sortOrder": {
       "description": "The kind of sort ordering to use.",
       "type": "string",
@@ -1210,6 +1222,12 @@
     },
     "variableStatement.preferSingleLine": {
       "$ref": "#/definitions/preferSingleLine"
+    },
+    "exportDeclaration.forceSingleLine": {
+      "$ref": "#/definitions/forceSingleLine"
+    },
+    "importDeclaration.forceSingleLine": {
+      "$ref": "#/definitions/forceSingleLine"
     }
   }
 }

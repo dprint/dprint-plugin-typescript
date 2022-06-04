@@ -713,6 +713,16 @@ impl ConfigurationBuilder {
     self.insert("whileStatement.preferHanging", value.into())
   }
 
+  /* force single line */
+
+  pub fn export_declaration_force_single_line(&mut self, value: bool) -> &mut Self {
+    self.insert("exportDeclaration.forceSingleLine", value.into())
+  }
+
+  pub fn import_declaration_force_single_line(&mut self, value: bool) -> &mut Self {
+    self.insert("importDeclaration.forceSingleLine", value.into())
+  }
+
   /* member spacing */
 
   pub fn enum_declaration_member_spacing(&mut self, value: MemberSpacing) -> &mut Self {
@@ -1140,6 +1150,9 @@ mod tests {
       .type_parameters_prefer_single_line(false)
       .union_and_intersection_type_prefer_single_line(false)
       .variable_statement_prefer_single_line(false)
+      /* force single line */
+      .export_declaration_force_single_line(true)
+      .import_declaration_force_single_line(true)
       /* space settings */
       .binary_expression_space_surrounding_bitwise_and_arithmetic_operator(true)
       .comment_line_force_space_after_slashes(false)
@@ -1185,7 +1198,7 @@ mod tests {
       .while_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 167);
+    assert_eq!(inner_config.len(), 169);
     let diagnostics = resolve_config(inner_config, &resolve_global_config(ConfigKeyMap::new(), &Default::default()).config).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }
