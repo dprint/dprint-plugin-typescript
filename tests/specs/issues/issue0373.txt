@@ -1,0 +1,6 @@
+-- file.js --
+== should format without error ==
+const Template = args => <CurrencyInput {...args[0]} />;
+
+[expect]
+const Template = args => <CurrencyInput {...args[0]} />;
