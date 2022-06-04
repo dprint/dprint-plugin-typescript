@@ -1005,8 +1005,11 @@ fn gen_export_named_decl<'a>(node: &'a NamedExport, context: &mut Context<'a>) -
     items.extend(gen_node(default_export.into(), context));
   } else if !named_exports.is_empty() {
     items.extend(gen_named_import_or_export_specifiers(
-      node.into(),
-      named_exports.into_iter().map(|x| x.into()).collect(),
+      GenNamedImportOrExportSpecifierOptions {
+        parent: node.into(),
+        specifiers: named_exports.into_iter().map(|x| x.into()).collect(),
+        force_single_line,
+      },
       context,
     ));
   } else if let Some(namespace_export) = namespace_export {
@@ -1202,8 +1205,11 @@ fn gen_import_decl<'a>(node: &'a ImportDecl, context: &mut Context<'a>) -> Print
 
   if has_named_imports {
     items.extend(gen_named_import_or_export_specifiers(
-      node.into(),
-      named_imports.into_iter().map(|x| x.into()).collect(),
+      GenNamedImportOrExportSpecifierOptions {
+        parent: node.into(),
+        specifiers: named_imports.into_iter().map(|x| x.into()).collect(),
+        force_single_line,
+      },
       context,
     ));
   }
@@ -1383,17 +1389,24 @@ fn gen_type_alias<'a>(node: &'a TsTypeAliasDecl, context: &mut Context<'a>) -> P
 
 /* exports */
 
-fn gen_named_import_or_export_specifiers<'a>(parent: Node<'a>, specifiers: Vec<Node<'a>>, context: &mut Context<'a>) -> PrintItems {
+struct GenNamedImportOrExportSpecifierOptions<'a> {
+  parent: Node<'a>,
+  specifiers: Vec<Node<'a>>,
+  force_single_line: bool,
+}
+
+fn gen_named_import_or_export_specifiers<'a>(opts: GenNamedImportOrExportSpecifierOptions<'a>, context: &mut Context<'a>) -> PrintItems {
   return gen_object_like_node(
     GenObjectLikeNodeOptions {
-      node: parent,
-      members: specifiers,
-      separator: get_trailing_commas(&parent, context).into(),
-      prefer_hanging: get_prefer_hanging(&parent, context),
-      prefer_single_line: get_prefer_single_line(&parent, context),
-      surround_single_line_with_spaces: get_use_space(&parent, context),
+      node: opts.parent,
+      members: opts.specifiers,
+      separator: get_trailing_commas(&opts.parent, context).into(),
+      prefer_hanging: get_prefer_hanging(&opts.parent, context),
+      prefer_single_line: get_prefer_single_line(&opts.parent, context),
+      force_single_line: opts.force_single_line,
+      surround_single_line_with_spaces: get_use_space(&opts.parent, context),
       allow_blank_lines: false,
-      node_sorter: get_node_sorter(&parent, context),
+      node_sorter: get_node_sorter(&opts.parent, context),
     },
     context,
   );
@@ -2463,6 +2476,7 @@ fn gen_object_lit<'a>(node: &'a ObjectLit, context: &mut Context<'a>) -> PrintIt
       separator: context.config.object_expression_trailing_commas.into(),
       prefer_hanging: context.config.object_expression_prefer_hanging,
       prefer_single_line: context.config.object_expression_prefer_single_line,
+      force_single_line: false,
       surround_single_line_with_spaces: context.config.object_expression_space_surrounding_properties,
       allow_blank_lines: true,
       node_sorter: None,
@@ -3158,6 +3172,7 @@ fn gen_type_lit<'a>(node: &'a TsTypeLit, context: &mut Context<'a>) -> PrintItem
       },
       prefer_hanging: context.config.type_literal_prefer_hanging,
       prefer_single_line: context.config.type_literal_prefer_single_line,
+      force_single_line: false,
       surround_single_line_with_spaces: context.config.type_literal_space_surrounding_properties,
       allow_blank_lines: true,
       node_sorter: None,
@@ -3838,6 +3853,7 @@ fn gen_object_pat<'a>(node: &'a ObjectPat, context: &mut Context<'a>) -> PrintIt
       separator: get_trailing_commas(node, context).into(),
       prefer_hanging: context.config.object_pattern_prefer_hanging,
       prefer_single_line: context.config.object_pattern_prefer_single_line,
+      force_single_line: false,
       surround_single_line_with_spaces: context.config.object_pattern_space_surrounding_properties,
       allow_blank_lines: true,
       node_sorter: None,
@@ -5747,13 +5763,31 @@ fn gen_comments_as_leading<'a>(node: &dyn SourceRanged, comments: CommentsIterat
       let node_start_line = node.start_line_fast(context.program);
       let last_comment_end_line = last_comment.end_line_fast(context.program);
       if node_start_line > last_comment_end_line {
-        items.push_signal(Signal::NewLine);
+        items.push_condition(if_true_or(
+          "spaceIfForcingNoNewlines",
+          condition_resolvers::is_forcing_no_newlines(),
+          Signal::SpaceIfNotTrailing.into(),
+          {
+            let mut items = PrintItems::new();
+            items.push_signal(Signal::NewLine);
 
-        if node_start_line - 1 > last_comment_end_line {
-          items.push_signal(Signal::NewLine);
+            if node_start_line - 1 > last_comment_end_line {
+              items.push_signal(Signal::NewLine);
+            }
+            items
+          },
+        ));
+      } else if last_comment.kind == CommentKind::Block {
+        if node_start_line == last_comment_end_line {
+          items.push_signal(Signal::SpaceIfNotTrailing);
+        } else {
+          // use a space if no newlines are currently being forced
+          items.push_condition(if_true(
+            "conditionalCommentBlockSpace",
+            condition_resolvers::is_forcing_no_newlines(),
+            Signal::SpaceIfNotTrailing.into(),
+          ));
         }
-      } else if last_comment.kind == CommentKind::Block && node_start_line == last_comment_end_line {
-        items.push_signal(Signal::SpaceIfNotTrailing);
       }
     }
   }
@@ -7228,6 +7262,7 @@ struct GenObjectLikeNodeOptions<'a> {
   separator: Separator,
   prefer_hanging: bool,
   prefer_single_line: bool,
+  force_single_line: bool,
   surround_single_line_with_spaces: bool,
   allow_blank_lines: bool,
   node_sorter: Option<Box<dyn Fn((usize, Option<&Node<'a>>), (usize, Option<&Node<'a>>), &Program<'a>) -> std::cmp::Ordering>>,
@@ -7239,7 +7274,7 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
   let child_tokens = get_tokens_from_children_with_tokens(&opts.node, context.program);
   let open_brace_token = child_tokens.iter().find(|t| t.token == Token::LBrace);
   let close_brace_token = child_tokens.iter().rev().find(|t| t.token == Token::RBrace);
-  let force_multi_line = get_use_new_lines_for_nodes_with_preceeding_token("{", &opts.members, opts.prefer_single_line, context);
+  let force_multi_line = !opts.force_single_line && get_use_new_lines_for_nodes_with_preceeding_token("{", &opts.members, opts.prefer_single_line, context);
 
   let first_member_range = opts.members.get(0).map(|x| x.range());
   let obj_range = if let (Some(open_brace_token), Some(close_brace_token)) = (open_brace_token, close_brace_token) {

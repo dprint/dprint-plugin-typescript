@@ -26,3 +26,31 @@ import {
     e, /* and
 not ok */
 } from "./test.ts";
+
+== should collapse a multi-line one ==
+import { /* a */
+
+  a,
+
+  /* test */ b, /* other */
+  c,
+  /* testing */
+  d,
+} from "./test.ts"; // actually, a block comment at the start of this line causes a bug
+// where the block comment will not have a space after it. Not worth fixing though
+// because it will be fixed by formatting again (which the CLI does automatically)
+// and it's super rare that someone would put a comment there.
+import {
+  /* a */
+  a,
+  b,
+  c,
+  d,
+} from "./test.ts";
+
+[expect]
+import { /* a */ a, /* test */ b, /* other */ c, /* testing */ d } from "./test.ts"; // actually, a block comment at the start of this line causes a bug
+// where the block comment will not have a space after it. Not worth fixing though
+// because it will be fixed by formatting again (which the CLI does automatically)
+// and it's super rare that someone would put a comment there.
+import { /* a */ a, b, c, d } from "./test.ts";
