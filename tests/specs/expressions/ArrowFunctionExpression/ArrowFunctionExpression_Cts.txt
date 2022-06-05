@@ -1,0 +1,10 @@
+-- file.cts --
+== should keep trailing comma for type parameter with only identifier ==
+const x = <T,>(value: T): T => value;
+const y = <T extends string>(value: T): T => value;
+const z = <T, U>(value: T): T => value;
+
+[expect]
+const x = <T,>(value: T): T => value;
+const y = <T extends string>(value: T): T => value;
+const z = <T, U>(value: T): T => value;

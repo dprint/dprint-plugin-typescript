@@ -1,6 +1,7 @@
 use deno_ast::swc::common::comments::Comment;
 use deno_ast::swc::parser::token::TokenAndSpan;
 use deno_ast::view::*;
+use deno_ast::MediaType;
 use deno_ast::SourcePos;
 use deno_ast::SourceRange;
 use deno_ast::SourceRanged;
@@ -19,7 +20,7 @@ use crate::configuration::*;
 use crate::utils::Stack;
 
 pub struct Context<'a> {
-  pub is_jsx: bool,
+  pub media_type: MediaType,
   pub program: &'a Program<'a>,
   pub config: &'a Configuration,
   pub comments: CommentTracker<'a>,
@@ -41,9 +42,9 @@ pub struct Context<'a> {
 }
 
 impl<'a> Context<'a> {
-  pub fn new(is_jsx: bool, tokens: &'a [TokenAndSpan], current_node: Node<'a>, program: &'a Program<'a>, config: &'a Configuration) -> Context<'a> {
+  pub fn new(media_type: MediaType, tokens: &'a [TokenAndSpan], current_node: Node<'a>, program: &'a Program<'a>, config: &'a Configuration) -> Context<'a> {
     Context {
-      is_jsx,
+      media_type,
       program,
       config,
       comments: CommentTracker::new(program, tokens),
@@ -62,6 +63,10 @@ impl<'a> Context<'a> {
       #[cfg(debug_assertions)]
       last_generated_node_pos: program.text_info().range().start.into(),
     }
+  }
+
+  pub fn is_jsx(&self) -> bool {
+    matches!(self.media_type, MediaType::Tsx | MediaType::Jsx | MediaType::JavaScript)
   }
 
   pub fn parent(&self) -> &Node<'a> {

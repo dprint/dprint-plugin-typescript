@@ -30,8 +30,7 @@ pub fn generate(parsed_source: &ParsedSource, config: &Configuration) -> PrintIt
 
   parsed_source.with_view(|program| {
     let program_node = program.into();
-    let is_jsx = matches!(parsed_source.media_type(), MediaType::Tsx | MediaType::Jsx | MediaType::JavaScript);
-    let mut context = Context::new(is_jsx, parsed_source.tokens(), program_node, &program, config);
+    let mut context = Context::new(parsed_source.media_type(), parsed_source.tokens(), program_node, &program, config);
     let mut items = gen_node(program_node, &mut context);
     items.push_condition(if_true(
       "endOfFileNewLine",
@@ -986,7 +985,7 @@ fn gen_export_named_decl<'a>(node: &'a NamedExport, context: &mut Context<'a>) -
     }
   }
 
-  let force_single_line = context.config.export_declaration_force_single_line && !contains_line_or_multiline_comment(&node.into(), &context.program);
+  let force_single_line = context.config.export_declaration_force_single_line && !contains_line_or_multiline_comment(&node.into(), context.program);
   let should_single_line = force_single_line
     || (default_export.is_none()
       && namespace_export.is_none()
@@ -1171,7 +1170,7 @@ fn gen_import_decl<'a>(node: &'a ImportDecl, context: &mut Context<'a>) -> Print
     }
   }
 
-  let force_single_line = context.config.import_declaration_force_single_line && !contains_line_or_multiline_comment(&node.into(), &context.program);
+  let force_single_line = context.config.import_declaration_force_single_line && !contains_line_or_multiline_comment(&node.into(), context.program);
   let should_single_line = force_single_line
     || (default_import.is_none()
       && namespace_import.is_none()
@@ -5557,7 +5556,10 @@ fn gen_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -
       if type_params.start() == node.start() {
         // Use trailing commas for function expressions in a JSX file
         // if the absence of one would lead to a parsing ambiguity.
-        if context.is_jsx && (node.parent().kind() == NodeKind::ArrowExpr || node.parent().parent().unwrap().kind() == NodeKind::FnExpr) {
+        let is_jsx_fn_expr = context.is_jsx() && (node.parent().kind() == NodeKind::ArrowExpr || node.parent().parent().unwrap().kind() == NodeKind::FnExpr);
+        // Prevent "This syntax is reserved in files with the .mts or .cts extension." diagnostic.
+        let is_cts_mts_arrow_fn = matches!(context.media_type, MediaType::Cts | MediaType::Mts) && node.parent().kind() == NodeKind::ArrowExpr;
+        if is_jsx_fn_expr || is_cts_mts_arrow_fn {
           let children = type_params.children();
           // It is not ambiguous if there are multiple type parameters.
           if children.len() == 1 && children[0].kind() == NodeKind::TsTypeParam {

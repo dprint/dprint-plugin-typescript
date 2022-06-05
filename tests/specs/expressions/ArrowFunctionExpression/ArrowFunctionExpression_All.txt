@@ -131,3 +131,9 @@ prefixCommon.map((c) => ({
     type: DiffType.common,
     value: c,
 }));
+
+== should not keep trailing comma for type parameter with only identifier since this is not a cts or mts file ==
+const x = <T,>(value: T): T => value;
+
+[expect]
+const x = <T>(value: T): T => value;
