@@ -197,3 +197,9 @@ typeAssertedNumber = /* @type {number} */ (numberOrString);
 typeAssertedNumber = /** @type {number} */ (numberOrString);
 // not a js doc so won't keep it
 typeAssertedNumber = /* @type {number} */ numberOrString;
+
+== should remove for block comment same line ==
+test = (/* 1 */ other /* 2 */);
+
+[expect]
+test = /* 1 */ other /* 2 */;

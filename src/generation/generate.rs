@@ -2524,7 +2524,7 @@ fn gen_paren_expr<'a>(node: &'a ParenExpr, context: &mut Context<'a>) -> PrintIt
 }
 
 fn should_skip_paren_expr(node: &ParenExpr, context: &Context) -> bool {
-  if node_helpers::has_surrounding_comments(&node.expr.into(), context.program) {
+  if node_helpers::has_surrounding_different_line_comments(&node.expr.into(), context.program) {
     return false;
   }
 
@@ -5426,6 +5426,10 @@ fn gen_qualified_name<'a>(node: &'a TsQualifiedName, context: &mut Context<'a>) 
 }
 
 fn gen_parenthesized_type<'a>(node: &'a TsParenthesizedType, context: &mut Context<'a>) -> PrintItems {
+  if should_skip_parenthesized_type(node, context) {
+    return gen_node(node.type_ann.into(), context);
+  }
+
   let generated_type = conditions::with_indent_if_start_of_line_indented(gen_node_in_parens(
     |context| gen_node(node.type_ann.into(), context),
     GenNodeInParensOptions {
@@ -5447,6 +5451,14 @@ fn gen_parenthesized_type<'a>(node: &'a TsParenthesizedType, context: &mut Conte
   fn use_new_line_group(node: &TsParenthesizedType) -> bool {
     !matches!(node.parent(), Node::TsTypeAliasDecl(_))
   }
+}
+
+fn should_skip_parenthesized_type(node: &TsParenthesizedType, context: &mut Context) -> bool {
+  if node_helpers::has_surrounding_different_line_comments(&node.type_ann.into(), context.program) {
+    return false;
+  }
+
+  matches!(node.parent().kind(), NodeKind::TsTypeAnn | NodeKind::TsTypeAliasDecl)
 }
 
 fn gen_rest_type<'a>(node: &'a TsRestType, context: &mut Context<'a>) -> PrintItems {
@@ -5659,22 +5671,15 @@ fn gen_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, context
   let force_use_new_lines = get_use_new_lines_for_nodes(node.types, context.config.union_and_intersection_type_prefer_single_line, context);
   let separator = if node.is_union { "|" } else { "&" };
 
-  let leading_comments = node.node.range().leading_comments_fast(context.program);
-  let has_leading_comments = !leading_comments.is_empty();
-
   let indent_width = context.config.indent_width;
   let prefer_hanging = context.config.union_and_intersection_type_prefer_hanging;
   let is_parent_union_or_intersection = matches!(node.node.parent().unwrap().kind(), NodeKind::TsUnionType | NodeKind::TsIntersectionType);
   let multi_line_options = if !is_parent_union_or_intersection {
-    if use_surround_newlines(&node.node) {
+    if use_surround_newlines(&node.node, context) {
       ir_helpers::MultiLineOptions::surround_newlines_indented()
-    } else if has_leading_comments {
-      ir_helpers::MultiLineOptions::same_line_no_indent()
     } else {
       ir_helpers::MultiLineOptions::new_line_start()
     }
-  } else if has_leading_comments {
-    ir_helpers::MultiLineOptions::same_line_no_indent()
   } else {
     ir_helpers::MultiLineOptions::same_line_start_hanging_indent()
   };
@@ -5745,8 +5750,13 @@ fn gen_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, context
 
   return items;
 
-  fn use_surround_newlines(node: &Node) -> bool {
-    matches!(node.parent().unwrap(), Node::TsTypeAssertion(_) | Node::TsParenthesizedType(_))
+  fn use_surround_newlines(node: &Node, context: &mut Context) -> bool {
+    let parent = node.parent().unwrap();
+    match parent {
+      Node::TsTypeAssertion(_) => true,
+      Node::TsParenthesizedType(paren_type) => !should_skip_parenthesized_type(paren_type, context),
+      _ => false,
+    }
   }
 }
 

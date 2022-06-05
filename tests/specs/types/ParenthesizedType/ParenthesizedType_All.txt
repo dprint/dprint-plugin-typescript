@@ -1,17 +1,20 @@
+~~ lineWidth: 80 ~~
 == should format ==
-type Test = (  string | number   );
+type Test = test & (  string | number   );
 
 [expect]
-type Test = (string | number);
+type Test = test & (string | number);
 
 == should format on multiple lines ==
-type Test = (
+type Test = test & (
     string | number);
 
 [expect]
-type Test = (
-    string | number
-);
+type Test =
+    & test
+    & (
+        string | number
+    );
 
 == should use indent if on a line with hanging indentation ==
 type Test = test
@@ -50,3 +53,35 @@ type Test = (
     // test
     testing
 );
+
+== should remove when not necessary ==
+type Test = (
+    testing
+);
+
+[expect]
+type Test = testing;
+
+== should remove even when block comment inside parenthesized type on same line ==
+export type T = (/*1*/ testing | testing | testing | testing);
+export type U = (/*1*/ testing | testing | testing | testingtestingtestingtesting);
+
+[expect]
+export type T = /*1*/ testing | testing | testing | testing;
+export type U =
+    | /*1*/ testing
+    | testing
+    | testing
+    | testingtestingtestingtesting;
+
+== should remove for comment block comment inside parenthesized type on same line ==
+export type T = (testing | testing | testing | testing /*1*/);
+export type U = (testing | testing | testing | testingtestingtestingtesting /*1*/);
+
+[expect]
+export type T = testing | testing | testing | testing /*1*/;
+export type U =
+    | testing
+    | testing
+    | testing
+    | testingtestingtestingtesting /*1*/;

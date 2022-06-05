@@ -1,0 +1,9 @@
+== should parse and remove unnecessary parens in return type ==
+Array(5).fill(0).map((_, i): ({ loading: false }) => ({
+    loading: false,
+}));
+
+[expect]
+Array(5).fill(0).map((_, i): { loading: false } => ({
+    loading: false,
+}));

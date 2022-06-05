@@ -60,9 +60,13 @@ export type T =
 
 == should handle block comment on current line ==
 export type T = /* test */ t | u;
+export type U = /* test */
+t|u
 
 [expect]
 export type T = /* test */ t | u;
+export type U = /* test */
+    t | u;
 
 == should handle block comment on next line ==
 export type T =
@@ -87,16 +91,15 @@ export type T =
     | test
     | tttttttttttttttt;
 
-== should handle a block comment inside parenthesized type ==
-export type T = (/*1*/ testing | testing | testing | testing);
+== should handle a block comment on the same line when going multi-line ==
+export type T = /*1*/ testing | testing | testing | testing;
 
 [expect]
-export type T = (
+export type T =
     | /*1*/ testing
     | testing
     | testing
-    | testing
-);
+    | testing;
 
 == should keep block comment at top of union ==
 export type T =

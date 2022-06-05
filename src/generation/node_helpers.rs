@@ -1,4 +1,5 @@
 use deno_ast::swc::common::comments::Comment;
+use deno_ast::swc::common::comments::CommentKind;
 use deno_ast::view::*;
 use deno_ast::SourcePos;
 use deno_ast::SourceRange;
@@ -70,6 +71,29 @@ pub fn get_leading_comment_on_different_line<'a>(
 
 pub fn has_surrounding_comments(node: &Node, program: &Program) -> bool {
   !node.leading_comments_fast(program).is_empty() || !node.trailing_comments_fast(program).is_empty()
+}
+
+pub fn has_surrounding_different_line_comments(node: &Node, program: &Program) -> bool {
+  let leading_comments = node.leading_comments_fast(program);
+  if !leading_comments.is_empty() {
+    let start_line = node.start_line_fast(program);
+    for leading_comment in leading_comments {
+      if leading_comment.start_line_fast(program) != start_line {
+        return true;
+      }
+    }
+  }
+  let trailing_comments = node.trailing_comments_fast(program);
+  if !trailing_comments.is_empty() {
+    let end_line = node.end_line_fast(program);
+    for trailing_comment in trailing_comments {
+      if trailing_comment.kind == CommentKind::Line || trailing_comment.end_line_fast(program) != end_line {
+        return true;
+      }
+    }
+  }
+
+  false
 }
 
 pub fn nodes_have_only_spaces_between(previous_node: &Node, next_node: &Node, program: &Program) -> bool {

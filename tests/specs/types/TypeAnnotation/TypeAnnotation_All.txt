@@ -25,3 +25,23 @@ const t:
 const t:
     // test
     string;
+
+== should remove needless paren type ==
+const t: (string | number);
+function f(): (string | number) {}
+interface T {
+    a: (string | number);
+}
+class c {
+    a: (string | number);
+}
+
+[expect]
+const t: string | number;
+function f(): string | number {}
+interface T {
+    a: string | number;
+}
+class c {
+    a: string | number;
+}
