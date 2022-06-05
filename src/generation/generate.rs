@@ -3733,6 +3733,10 @@ fn gen_string_literal<'a>(node: &'a Str, context: &mut Context<'a>) -> PrintItem
           was_last_backslash = false;
         }
       }
+      if was_last_backslash {
+        // backslashes can be the last character in a jsx string literal
+        new_string.push('\\');
+      }
       new_string
     }
   }

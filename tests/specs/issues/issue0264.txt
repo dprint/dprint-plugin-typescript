@@ -1,0 +1,16 @@
+-- file.jsx --
+== should keep backslash in quote ==
+return (
+    <>
+        <A b="\" c="|" d="test\"/>
+        <A b="c"/>
+    </>
+);
+
+[expect]
+return (
+    <>
+        <A b="\" c="|" d="test\" />
+        <A b="c" />
+    </>
+);
