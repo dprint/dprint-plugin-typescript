@@ -132,7 +132,7 @@
         "description": "Forces the use of braces. Will add them if they aren't used."
       }, {
         "const": "preferNone",
-        "description": "Forces no braces when when the header is one line and body is one line. Otherwise forces braces."
+        "description": "Forces no braces when the header is one line and body is one line. Otherwise forces braces."
       }]
     },
     "bracePosition": {

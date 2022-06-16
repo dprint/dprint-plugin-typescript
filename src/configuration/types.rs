@@ -133,7 +133,7 @@ pub enum UseBraces {
   WhenNotSingleLine,
   /// Forces the use of braces. Will add them if they aren't used.
   Always,
-  /// Forces no braces when when the header is one line and body is one line. Otherwise forces braces.
+  /// Forces no braces when the header is one line and body is one line. Otherwise forces braces.
   PreferNone,
 }
 
