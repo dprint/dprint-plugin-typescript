@@ -705,7 +705,7 @@
   },
   "properties": {
     "locked": {
-      "description": "Whether the configuration is not allowed to be overriden or extended.",
+      "description": "Whether the configuration is not allowed to be overridden or extended.",
       "type": "boolean"
     },
     "lineWidth": {
