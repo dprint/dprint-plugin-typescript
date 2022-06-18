@@ -6,7 +6,6 @@ use deno_ast::SourcePos;
 use deno_ast::SourceRange;
 use deno_ast::SourceRanged;
 use deno_ast::SourceRangedForSpanned;
-use deno_ast::SourceTextInfoProvider;
 use dprint_core::formatting::ConditionReference;
 use dprint_core::formatting::IndentLevel;
 use dprint_core::formatting::IsStartOfLine;
@@ -61,7 +60,7 @@ impl<'a> Context<'a> {
       if_stmt_last_brace_condition_ref: None,
       expr_stmt_single_line_parent_brace_ref: None,
       #[cfg(debug_assertions)]
-      last_generated_node_pos: program.text_info().range().start.into(),
+      last_generated_node_pos: deno_ast::SourceTextInfoProvider::text_info(program).range().start.into(),
     }
   }
 
