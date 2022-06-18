@@ -5035,12 +5035,21 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
     context,
   ))));
   items.push_signal(Signal::SpaceOrNewLine);
-  items.push_condition(conditions::indent_if_start_of_line({
-    let mut items = PrintItems::new();
-    items.push_str("? ");
-    items.extend(ir_helpers::new_line_group(gen_node(node.true_type.into(), context)));
-    items
-  }));
+  items.push_condition({
+    let inner_items = {
+      let mut items = PrintItems::new();
+      items.push_str("? ");
+      items.extend(ir_helpers::new_line_group(gen_node(node.true_type.into(), context)));
+      items
+    }
+    .into_rc_path();
+    if_true_or(
+      "isStartOfLineIndentElseQueue",
+      condition_resolvers::is_start_of_line(),
+      with_indent(inner_items.into()),
+      with_queued_indent(inner_items.into()),
+    )
+  });
 
   // false type
   if use_new_lines {
