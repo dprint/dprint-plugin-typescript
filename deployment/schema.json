@@ -132,7 +132,7 @@
         "description": "Forces the use of braces. Will add them if they aren't used."
       }, {
         "const": "preferNone",
-        "description": "Forces no braces when when the header is one line and body is one line. Otherwise forces braces."
+        "description": "Forces no braces when the header is one line and body is one line. Otherwise forces braces."
       }]
     },
     "bracePosition": {
@@ -655,7 +655,7 @@
       }]
     },
     "taggedTemplate.spaceBeforeLiteral": {
-      "description": "Whether to add a space before the literal in a tagged templte.",
+      "description": "Whether to add a space before the literal in a tagged template.",
       "type": "boolean",
       "default": true,
       "oneOf": [{
@@ -705,7 +705,7 @@
   },
   "properties": {
     "locked": {
-      "description": "Whether the configuration is not allowed to be overriden or extended.",
+      "description": "Whether the configuration is not allowed to be overridden or extended.",
       "type": "boolean"
     },
     "lineWidth": {
