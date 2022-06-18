@@ -1790,7 +1790,8 @@ fn gen_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintIte
     ir_helpers::gen_separated_values(
       |_| {
         let mut generated_nodes = Vec::new();
-        for bin_expr_item in flattened_binary_expr.into_iter() {
+        let mut bin_expr_items_iter = flattened_binary_expr.into_iter().peekable();
+        while let Some(bin_expr_item) = bin_expr_items_iter.next() {
           let lines_span = Some(ir_helpers::LinesSpan {
             start_line: bin_expr_item.expr.start_line_fast(context.program),
             end_line: bin_expr_item.expr.end_line_fast(context.program),
@@ -1800,22 +1801,9 @@ fn gen_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintIte
           let pre_op = bin_expr_item.pre_op;
           let post_op = bin_expr_item.post_op;
           let (leading_pre_op_comments, trailing_pre_op_comments) = if let Some(op) = &pre_op {
-            let op_line = op.token.start_line_fast(context.program);
             (
-              gen_op_comments(
-                op.token
-                  .leading_comments_fast(context.program)
-                  .filter(|x| x.kind == CommentKind::Block && x.start_line_fast(context.program) == op_line)
-                  .collect(),
-                context,
-              ),
-              gen_op_comments(
-                op.token
-                  .trailing_comments_fast(context.program)
-                  .filter(|x| x.kind == CommentKind::Block && x.start_line_fast(context.program) == op_line)
-                  .collect(),
-                context,
-              ),
+              gen_leading_comments_same_line(&op.token.range(), context),
+              gen_trailing_comments_same_line(&op.token.range(), context),
             )
           } else {
             (PrintItems::new(), PrintItems::new())
@@ -1826,7 +1814,6 @@ fn gen_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintIte
             if let Some(op) = pre_op {
               if !leading_pre_op_comments.is_empty() {
                 items.extend(leading_pre_op_comments);
-                items.push_str(" ");
               }
               items.push_str(op.op.as_str());
               if trailing_pre_op_comments.is_empty() {
@@ -1834,7 +1821,6 @@ fn gen_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintIte
                   items.push_str(" ");
                 }
               } else {
-                items.push_str(" ");
                 items.extend(trailing_pre_op_comments);
                 items.push_str(" ");
               }
@@ -1864,21 +1850,8 @@ fn gen_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintIte
             });
 
             if let Some(op) = post_op {
-              let op_line = op.token.start_line_fast(context.program);
-              let leading_post_op_comments = gen_op_comments(
-                op.token
-                  .leading_comments_fast(context.program)
-                  .filter(|x| x.kind == CommentKind::Block && x.start_line_fast(context.program) == op_line)
-                  .collect(),
-                context,
-              );
-              let trailing_post_op_comments = gen_op_comments(
-                op.token
-                  .trailing_comments_fast(context.program)
-                  .filter(|x| x.start_line_fast(context.program) == op_line)
-                  .collect(),
-                context,
-              );
+              let leading_post_op_comments = gen_leading_comments_same_line(&op.token.range(), context);
+              let trailing_post_op_comments = gen_trailing_comments_same_line(&op.token.range(), context);
               if leading_post_op_comments.is_empty() {
                 if use_space_surrounding_operator {
                   items.push_str(" ");
@@ -1886,12 +1859,15 @@ fn gen_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintIte
               } else {
                 items.push_str(" ");
                 items.extend(leading_post_op_comments);
-                items.push_str(" ");
               }
               items.push_str(op.op.as_str());
               if !trailing_post_op_comments.is_empty() {
-                items.push_str(" ");
                 items.extend(trailing_post_op_comments);
+              }
+            } else if let Some(next_item) = bin_expr_items_iter.peek() {
+              // put any line comments after the next pre-op on this line instead
+              if let Some(pre_op) = &next_item.pre_op {
+                items.extend(gen_trailing_comments_if_line_comment_same_line(&pre_op.token.range(), context));
               }
             }
 
@@ -1955,23 +1931,6 @@ fn gen_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintIte
         _ => true,
       }
     }
-  }
-
-  fn gen_op_comments(comments: Vec<&Comment>, context: &mut Context) -> PrintItems {
-    let mut items = PrintItems::new();
-    let mut had_comment_last = false;
-    for comment in comments {
-      if had_comment_last {
-        items.push_str(" ");
-      }
-      if let Some(comment) = gen_comment(comment, context) {
-        items.extend(comment);
-        had_comment_last = true;
-      } else {
-        had_comment_last = false;
-      }
-    }
-    items
   }
 
   fn get_use_space_surrounding_operator(op: &BinaryOp, context: &Context) -> bool {
@@ -5034,10 +4993,22 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
     node.extends_type.into(),
     context,
   ))));
-  items.push_signal(Signal::SpaceOrNewLine);
+
+  // add any preceeding comments of the question token
+  let question_token_start = context.token_finder.get_next_token_pos_after(&node.extends_type);
+  items.extend({
+    let comment_items = gen_leading_comments_on_previous_lines(&question_token_start, context);
+    if comment_items.is_empty() {
+      Signal::SpaceOrNewLine.into()
+    } else {
+      surround_with_new_lines(with_indent(comment_items))
+    }
+  });
+
   items.push_condition({
     let inner_items = {
       let mut items = PrintItems::new();
+      items.extend(gen_leading_comments_same_line(&question_token_start, context));
       items.push_str("? ");
       items.extend(ir_helpers::new_line_group(gen_node(node.true_type.into(), context)));
       items
@@ -5061,9 +5032,19 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
     ));
   }
 
+  // add any preceeding comments of the colon token
+  let colon_token_start = context.token_finder.get_next_token_pos_after(&node.true_type);
+  {
+    let comment_items = gen_leading_comments_on_previous_lines(&colon_token_start, context);
+    if !comment_items.is_empty() {
+      items.extend(with_indent(comment_items));
+    }
+  }
+
   let false_type_generated = {
     let mut items = PrintItems::new();
     items.push_info(before_false_ln);
+    items.extend(gen_leading_comments_same_line(&colon_token_start, context));
     items.push_str(": ");
     items.extend(ir_helpers::new_line_group(gen_node(node.false_type.into(), context)));
     items
@@ -5821,16 +5802,52 @@ fn gen_comments_as_leading<'a>(node: &dyn SourceRanged, comments: CommentsIterat
 }
 
 fn gen_trailing_comments_as_statements<'a>(node: &dyn SourceRanged, context: &mut Context<'a>) -> PrintItems {
-  let unhandled_comments = get_trailing_comments_as_statements(node, context);
-  gen_comments_as_statements(unhandled_comments.into_iter(), Some(node), context)
+  let comments = get_trailing_comments_as_statements(node, context);
+  gen_comments_as_statements(comments.into_iter(), Some(node), context)
+}
+
+fn gen_leading_comments_on_previous_lines<'a>(node: &dyn SourceRanged, context: &mut Context<'a>) -> PrintItems {
+  let unhandled_comments = get_leading_comments_on_previous_lines(node, context);
+  gen_comments_as_statements(unhandled_comments.into_iter(), None, context)
 }
 
 fn get_leading_comments_on_previous_lines<'a>(node: &dyn SourceRanged, context: &mut Context<'a>) -> Vec<&'a Comment> {
+  let leading_comments = node.leading_comments_fast(context.program);
+  if leading_comments.is_empty() {
+    return Vec::new(); // avoid extra calculations
+  }
   let node_start_line = node.start_line_fast(context.program);
-  node
-    .leading_comments_fast(context.program)
-    .take_while(|c| c.kind == CommentKind::Line || c.start_line_fast(context.program) < node_start_line)
+  let previous_token_line = node.previous_token_fast(context.program).map(|t| t.end_line_fast(context.program));
+  leading_comments
+    .take_while(|c| {
+      let line = c.start_line_fast(context.program);
+      line < node_start_line && previous_token_line.map(|line| line < node_start_line).unwrap_or(true)
+    })
     .collect::<Vec<_>>()
+}
+
+fn get_leading_comments_on_same_line<'a>(node: &dyn SourceRanged, context: &mut Context<'a>) -> Vec<&'a Comment> {
+  let leading_comments = node.leading_comments_fast(context.program);
+  if leading_comments.is_empty() {
+    Vec::new()
+  } else {
+    let node_start_line = node.start_line_fast(context.program);
+    leading_comments
+      .filter(|c| c.kind == CommentKind::Block || c.start_line_fast(context.program) == node_start_line)
+      .collect::<Vec<_>>()
+  }
+}
+
+fn get_trailing_comments_on_same_line<'a>(node: &dyn SourceRanged, context: &mut Context<'a>) -> Vec<&'a Comment> {
+  let trailing_comments = node.trailing_comments_fast(context.program);
+  if trailing_comments.is_empty() {
+    Vec::new()
+  } else {
+    let node_start_line = node.start_line_fast(context.program);
+    trailing_comments
+      .take_while(|c| c.kind == CommentKind::Block || c.start_line_fast(context.program) == node_start_line)
+      .collect::<Vec<_>>()
+  }
 }
 
 fn get_trailing_comments_as_statements<'a>(node: &dyn SourceRanged, context: &mut Context<'a>) -> Vec<&'a Comment> {
@@ -5922,6 +5939,66 @@ fn gen_comment_collection<'a>(
         context,
       ));
       last_node = Some(comment.range());
+    }
+  }
+  items
+}
+
+fn gen_leading_comments_same_line(node: &dyn SourceRanged, context: &mut Context) -> PrintItems {
+  let comments = get_leading_comments_on_same_line(node, context);
+  if comments.is_empty() {
+    PrintItems::new()
+  } else {
+    let mut items = gen_comments_same_line(comments, context);
+    if !items.is_empty() {
+      items.push_str(" ");
+    }
+    items
+  }
+}
+
+fn gen_trailing_comments_same_line(node: &dyn SourceRanged, context: &mut Context) -> PrintItems {
+  let comments = get_trailing_comments_on_same_line(node, context);
+  if comments.is_empty() {
+    PrintItems::new()
+  } else {
+    let mut items = PrintItems::new();
+    let comment_items = gen_comments_same_line(comments, context);
+    if !comment_items.is_empty() {
+      items.push_str(" ");
+      items.extend(comment_items);
+    }
+    items
+  }
+}
+
+fn gen_trailing_comments_if_line_comment_same_line(node: &dyn SourceRanged, context: &mut Context) -> PrintItems {
+  let comments = get_trailing_comments_on_same_line(node, context);
+  if !comments.iter().any(|c| c.kind == CommentKind::Line) {
+    PrintItems::new()
+  } else {
+    let mut items = PrintItems::new();
+    let comment_items = gen_comments_same_line(comments, context);
+    if !comment_items.is_empty() {
+      items.push_str(" ");
+      items.extend(comment_items);
+    }
+    items
+  }
+}
+
+fn gen_comments_same_line(comments: Vec<&Comment>, context: &mut Context) -> PrintItems {
+  let mut items = PrintItems::new();
+  let mut had_comment_last = false;
+  for comment in comments {
+    if had_comment_last {
+      items.push_str(" ");
+    }
+    if let Some(comment) = gen_comment(comment, context) {
+      items.extend(comment);
+      had_comment_last = true;
+    } else {
+      had_comment_last = false;
     }
   }
   items

@@ -43,3 +43,59 @@ type Type<T> = T extends string ? number
     : T extends number ? boolean
     : T extends other ? string
     : boolean;
+
+== should have object type indented in true type ==
+type T = U extends true ? {
+  prop1: string;
+  prop2: number;
+}
+  : true;
+type T = U extends testtesttttttttttttttttttttttaaaa ? {
+  prop1: string;
+  prop2: number;
+}
+  : true;
+
+[expect]
+type T = U extends true ? {
+        prop1: string;
+        prop2: number;
+    }
+    : true;
+type T = U extends testtesttttttttttttttttttttttaaaa
+    ? {
+        prop1: string;
+        prop2: number;
+    }
+    : true;
+
+== should support explanatory line comments ==
+type T = U extends true
+    // test
+    ? false
+    // other
+  : true;
+type T = U extends true // A
+    // B
+    ? false // C
+    // D
+    : true; // E
+type T = U extends true /* A */
+    /* B */ ? /* C */ false /* D */
+    /* E */ : /* F */ true;
+
+
+[expect]
+type T = U extends true
+    // test
+    ? false
+    // other
+    : true;
+type T = U extends true // A
+    // B
+    ? false // C
+    // D
+    : true; // E
+type T = U extends true /* A */
+    /* B */ ? /* C */ false /* D */
+    /* E */ : /* F */ true;

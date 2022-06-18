@@ -110,28 +110,3 @@ test ? testingThis : outABittt;
 test
     ? testingThis
     : outABittt;
-
-== should have object type indented in true type ==
-type T = U extends true ? {
-  prop1: string;
-  prop2: number;
-}
-  : true;
-type T = U extends testtestt ? {
-  prop1: string;
-  prop2: number;
-}
-  : true;
-
-[expect]
-type T = U extends true ? {
-        prop1: string;
-        prop2: number;
-    }
-    : true;
-type T = U extends testtestt
-    ? {
-        prop1: string;
-        prop2: number;
-    }
-    : true;
