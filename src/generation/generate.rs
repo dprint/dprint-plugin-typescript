@@ -6847,7 +6847,7 @@ fn gen_close_paren_with_type<'a>(opts: GenCloseParenWithTypeOptions<'a>, context
   items.push_condition(if_true(
     "newLineIfHeaderHangingAndTypeNodeMultipleLines",
     Rc::new(move |context| {
-      if !has_type_node {
+      if !has_type_node || context.writer_info.is_start_of_line() {
         return Some(false);
       }
 

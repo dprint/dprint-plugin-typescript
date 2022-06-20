@@ -1,0 +1,22 @@
+~~ deno: true ~~
+== should not add trailing blank line after parameters in function type ==
+// this is weird code, but it's set to maintain type argument newlines
+type TestingTestTesttttttt<T extends TestingTestingtestingTestingggg> =
+    T extends Testing ? (
+      ...args: Test<T["parameters"]>
+    ) => Other<
+      Test,
+      Test
+    >
+      : never;
+
+[expect]
+// this is weird code, but it's set to maintain type argument newlines
+type TestingTestTesttttttt<T extends TestingTestingtestingTestingggg> =
+  T extends Testing ? (
+      ...args: Test<T["parameters"]>
+    ) => Other<
+      Test,
+      Test
+    >
+    : never;
