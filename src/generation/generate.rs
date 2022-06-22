@@ -5290,7 +5290,7 @@ fn gen_intersection_type<'a>(node: &'a TsIntersectionType, context: &mut Context
 fn gen_lit_type<'a>(node: &'a TsLitType, context: &mut Context<'a>) -> PrintItems {
   match &node.lit {
     // need to do this in order to support negative numbers
-    TsLit::Number(_) => node.text_fast(context.program).to_string().into(),
+    TsLit::Number(_) | TsLit::BigInt(_) => node.text_fast(context.program).to_string().into(),
     _ => gen_node(node.lit.into(), context),
   }
 }

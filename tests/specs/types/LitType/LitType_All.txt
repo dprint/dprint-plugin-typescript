@@ -7,3 +7,9 @@ type v = 100;
 type t = -1;
 type u = 1;
 type v = 100;
+
+== should format bigint literal type ==
+type Test = -1n | 1n;
+
+[expect]
+type Test = -1n | 1n;
