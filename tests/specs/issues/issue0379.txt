@@ -1,0 +1,72 @@
+~~ indentWidth: 4, lineWidth: 80, memberExpression.linePerExpression: true, binaryExpression.linePerExpression: true, binaryExpression.operatorPosition: sameLine ~~
+== should prioritize break after the assignment operator  ==
+const camelcasedName = defaultName.split('-').map((x) => x.charAt(0).toUpperCase() + x.substring(1)).join('');
+const namespacedName = 'Foo' + defaultName.split('-').map((x) => x.charAt(0).toUpperCase() + x.substring(1)).join('');
+const namespacedName2 =
+    "Foo" +
+    defaultName
+        .split("-")
+        .map((x) => x.charAt(0).toUpperCase() + x.substring(1))
+        .join("");
+
+const myObject = {
+    long_concatenated_value: "Hello" + "World" + "this" + "is" + "a" + "long" + "string",
+    long_concatenated_value_two: "This" + "expression" + "exceeds" + "the" + "line" + "width" + "on" + "its" + "own"
+};
+
+const linebreak_test_1 = "Hello" + "World" + "this" + "is" + "a" + "long" + "string";
+const linebreak_test_2 = "This" + "expression" + "exceeds" + "the" + "line" + "width" + "on" + "its" + "own";
+
+[expect]
+const camelcasedName = defaultName
+    .split("-")
+    .map((x) => x.charAt(0).toUpperCase() + x.substring(1))
+    .join("");
+const namespacedName =
+    "Foo" +
+    defaultName
+        .split("-")
+        .map((x) => x.charAt(0).toUpperCase() + x.substring(1))
+        .join("");
+const namespacedName2 =
+    "Foo" +
+    defaultName
+        .split("-")
+        .map((x) => x.charAt(0).toUpperCase() + x.substring(1))
+        .join("");
+
+const myObject = {
+    long_concatenated_value:
+        "Hello" + "World" + "this" + "is" + "a" + "long" + "string",
+    long_concatenated_value_two:
+        "This" +
+        "expression" +
+        "exceeds" +
+        "the" +
+        "line" +
+        "width" +
+        "on" +
+        "its" +
+        "own",
+};
+
+const linebreak_test_1 =
+    "Hello" + "World" + "this" + "is" + "a" + "long" + "string";
+const linebreak_test_2 =
+    "This" +
+    "expression" +
+    "exceeds" +
+    "the" +
+    "line" +
+    "width" +
+    "on" +
+    "its" +
+    "own";
+
+== should prioritize break after the assignment operator ==
+const linebreak_test_1 =
+    "Hello World this" +
+           "is a long string to column sixty-five.";
+[expect]
+const linebreak_test_1 =
+    "Hello World this" + "is a long string to column sixty-five.";

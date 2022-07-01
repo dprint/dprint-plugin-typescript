@@ -53,6 +53,7 @@ const t = this.context.currentGroup &&
         !== test;
 
 [expect]
-const t = this.context.currentGroup
+const t =
+    this.context.currentGroup
     && this.context.currentGroup.name
         !== test;

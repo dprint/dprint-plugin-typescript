@@ -8444,7 +8444,29 @@ fn gen_assignment_like_with_token<'a>(expr: Node<'a>, op: &str, op_token: Option
     } else {
       conditions::indent_if_start_of_line(assignment).into()
     };
-    let assignment = if use_new_line_group { new_line_group(assignment) } else { assignment };
+
+    let assignment = if use_new_line_group {
+      let mut items = PrintItems::new();
+
+      let start_assignment_ln = LineNumber::new("startAssignment");
+      let end_assignment_ln = LineNumber::new("endAssignment");
+
+      items.push_condition(if_true_or(
+        "isMultipleLines",
+        Rc::new(move |context| condition_helpers::is_multiple_lines(context, start_assignment_ln, end_assignment_ln)),
+        Signal::NewLine.into(),
+        Signal::PossibleNewLine.into(),
+      ));
+
+      items.push_info(start_assignment_ln);
+      items.extend(new_line_group(assignment));
+      items.push_info(end_assignment_ln);
+
+      items
+    } else {
+      assignment
+    };
+
     items.extend(assignment);
     items
   }
@@ -8464,7 +8486,7 @@ fn gen_assignment_like_with_token<'a>(expr: Node<'a>, op: &str, op_token: Option
   return items;
 
   fn get_use_new_line_group(expr: &Node) -> bool {
-    matches!(expr, Node::MemberExpr(_))
+    matches!(expr, Node::MemberExpr(_)) || matches!(expr, Node::MetaPropExpr(_)) || matches!(expr, Node::BinExpr(_))
   }
 }
 

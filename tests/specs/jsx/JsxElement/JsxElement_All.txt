@@ -283,8 +283,8 @@ const t = (
     </div>
 );
 // this has the && right at the line width max so the newline will happen before
-const testing = someConditionLongEnoughTestTest
-    && (
+const testing =
+    someConditionLongEnoughTestTest && (
         <td className="some-class-name">
             {someValue}
         </td>

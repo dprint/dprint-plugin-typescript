@@ -11,7 +11,8 @@ const t = import
 .other;
 
 [expect]
-const t = import
-    .meta
-    .test
-    .other;
+const t =
+    import
+        .meta
+        .test
+        .other;

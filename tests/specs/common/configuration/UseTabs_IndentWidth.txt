@@ -3,6 +3,7 @@
 const test = testingThisOutt + testtt + testingThisOut + testingthi + outt;
 
 [expect]
-const test = testingThisOutt + testtt
+const test =
+	testingThisOutt + testtt
 	+ testingThisOut + testingthi
 	+ outt;
