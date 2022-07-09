@@ -1,4 +1,4 @@
-== should print comments in template literals substitutions ==
+== should print comments in template literals substitutions (skip-format-twice) ==
 
 `a${/* 1 */""/* 2 */}b`;
 `a${
@@ -14,8 +14,8 @@
 
 [expect]
 `a${/* 1 */ "" /* 2 */}b`;
-`a${/* 3 */ ""}/* 4 */
-b`;
+`a${/* 3 */ ""/* 4 */
+}b`;
 `a${// 5
-""}// 6
-b`;
+""// 6
+}b`;

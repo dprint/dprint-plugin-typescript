@@ -2647,14 +2647,19 @@ fn gen_tpl_element<'a>(node: &'a TplElement, context: &mut Context<'a>) -> Print
 
 fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.push_str("`");
-  items.push_signal(Signal::StartIgnoringIndent);
+  let mut is_head = true;
   for node in get_nodes(quasis, exprs) {
-    if node.kind() == NodeKind::TplElement {
-      items.extend(gen_node(node, context));
+    if let Node::TplElement(node_tpl) = node {
+      items.extend(gen_node_with_inner_gen(node, context, |node_items, _| {
+        let mut items = PrintItems::new();
+        items.push_str(if is_head { "`" } else { "}" });
+        items.push_signal(Signal::StartIgnoringIndent);
+        items.extend(node_items);
+        items.push_str(if node_tpl.tail() { "`" } else { "${" });
+        items.push_signal(Signal::FinishIgnoringIndent);
+        items
+      }));
     } else {
-      items.push_str("${");
-      items.push_signal(Signal::FinishIgnoringIndent);
       let keep_on_one_line = get_keep_on_one_line(node);
       let possible_surround_newlines = get_possible_surround_newlines(node);
       let generated_expr = gen_node(node, context);
@@ -2665,12 +2670,9 @@ fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context
       } else {
         generated_expr
       });
-      items.push_str("}");
-      items.push_signal(Signal::StartIgnoringIndent);
     }
+    is_head = false;
   }
-  items.push_str("`");
-  items.push_signal(Signal::FinishIgnoringIndent);
   return items;
 
   fn get_nodes<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>) -> Vec<Node<'a>> {
