@@ -83,6 +83,11 @@ type T = U extends true // A
 type T = U extends true /* A */
     /* B */ ? /* C */ false /* D */
     /* E */ : /* F */ true;
+type T = U extends true
+    /* test */
+    ? false
+    /* test */
+  : true;
 
 
 [expect]
@@ -99,3 +104,8 @@ type T = U extends true // A
 type T = U extends true /* A */
     /* B */ ? /* C */ false /* D */
     /* E */ : /* F */ true;
+type T = U extends true
+    /* test */
+    ? false
+    /* test */
+    : true;

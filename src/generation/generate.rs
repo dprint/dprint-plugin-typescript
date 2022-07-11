@@ -2647,30 +2647,46 @@ fn gen_tpl_element<'a>(node: &'a TplElement, context: &mut Context<'a>) -> Print
 
 fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.push_str("`");
-  items.push_signal(Signal::StartIgnoringIndent);
+  let mut is_head = true;
   for node in get_nodes(quasis, exprs) {
-    if node.kind() == NodeKind::TplElement {
-      items.extend(gen_node(node, context));
+    if let Node::TplElement(node_tpl) = node {
+      items.extend(gen_node_with_inner_gen(node, context, |node_items, _| {
+        let mut items = PrintItems::new();
+        items.push_str(if is_head { "`" } else { "}" });
+        items.push_signal(Signal::StartIgnoringIndent);
+        items.extend(node_items);
+        items.push_str(if node_tpl.tail() { "`" } else { "${" });
+        items.push_signal(Signal::FinishIgnoringIndent);
+        items
+      }));
     } else {
-      items.push_str("${");
-      items.push_signal(Signal::FinishIgnoringIndent);
-      let keep_on_one_line = get_keep_on_one_line(node);
-      let possible_surround_newlines = get_possible_surround_newlines(node);
+      let leading_comment_items = gen_leading_comments_on_previous_lines(&node, context);
+      let trailing_comment_items = gen_trailing_comments_as_statements(&node, context);
       let generated_expr = gen_node(node, context);
-      items.extend(if keep_on_one_line {
-        with_no_new_lines(generated_expr)
-      } else if possible_surround_newlines {
-        ir_helpers::surround_with_newlines_indented_if_multi_line(new_line_group(generated_expr), context.config.indent_width)
+      if !leading_comment_items.is_empty() || !trailing_comment_items.is_empty() {
+        items.push_signal(Signal::StartIndent);
+        if !leading_comment_items.is_empty() {
+          items.extend(surround_with_new_lines(leading_comment_items));
+        }
+        items.extend(generated_expr);
+        if !trailing_comment_items.is_empty() {
+          items.extend(trailing_comment_items);
+        }
+        items.push_signal(Signal::FinishIndent);
       } else {
-        generated_expr
-      });
-      items.push_str("}");
-      items.push_signal(Signal::StartIgnoringIndent);
+        let keep_on_one_line = get_keep_on_one_line(node);
+        let possible_surround_newlines = get_possible_surround_newlines(node);
+        items.extend(if keep_on_one_line {
+          with_no_new_lines(generated_expr)
+        } else if possible_surround_newlines {
+          ir_helpers::surround_with_newlines_indented_if_multi_line(new_line_group(generated_expr), context.config.indent_width)
+        } else {
+          generated_expr
+        });
+      }
     }
+    is_head = false;
   }
-  items.push_str("`");
-  items.push_signal(Signal::FinishIgnoringIndent);
   return items;
 
   fn get_nodes<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>) -> Vec<Node<'a>> {
@@ -5864,6 +5880,7 @@ fn get_trailing_comments_as_statements<'a>(node: &dyn SourceRanged, context: &mu
 fn gen_comments_as_statements<'a>(comments: impl Iterator<Item = &'a Comment>, last_node: Option<&dyn SourceRanged>, context: &mut Context<'a>) -> PrintItems {
   let mut last_node = last_node.map(|l| l.range());
   let mut items = PrintItems::new();
+  let mut was_last_block_comment = false;
   for comment in comments {
     if !context.has_handled_comment(comment) {
       items.extend(gen_comment_based_on_last_node(
@@ -5873,7 +5890,11 @@ fn gen_comments_as_statements<'a>(comments: impl Iterator<Item = &'a Comment>, l
         context,
       ));
       last_node = Some(comment.range());
+      was_last_block_comment = comment.kind == CommentKind::Block;
     }
+  }
+  if was_last_block_comment {
+    items.push_signal(Signal::ExpectNewLine);
   }
   items
 }
@@ -7905,11 +7926,19 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
       // generate the remaining trailing comments inside because some of them are generated already
       // by parsing the header trailing comments
       items.extend(gen_leading_comments(body_node, context));
-      items.extend(gen_statements(
-        body_node.get_inner_range(context),
-        body_node.stmts.iter().map(|x| x.into()).collect(),
-        context,
-      ));
+      let inner_range = body_node.get_inner_range(context);
+      if body_node.stmts.is_empty() {
+        let trailing_comments_same_line = get_trailing_comments_on_same_line(&inner_range.start(), context);
+        items.extend(gen_comments_same_line(trailing_comments_same_line, context));
+        // treat the remaining unhandled comments as statements
+        items.extend(gen_comments_as_statements(
+          inner_range.start().trailing_comments_fast(context.program),
+          None,
+          context,
+        ));
+      } else {
+        items.extend(gen_statements(inner_range, body_node.stmts.iter().map(|x| x.into()).collect(), context));
+      }
       items
     }));
   } else {
