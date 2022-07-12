@@ -11,12 +11,21 @@ const t = tag<T, U> `testing`;
 [expect]
 const t = tag<T, U>`testing`;
 
-== should move the template literal to the next line when exceeding the width ==
+== should not move the template literal to the next line when exceeding the width ==
+const t = testingtestingtesting`testing this out`;
+
+[expect]
+const t =
+    testingtestingtesting`testing this out`;
+
+== should move the template literal type arguments to the next line when exceeding the width ==
 const t = tag<Testing, Other>`testing this out`;
 
 [expect]
-const t = tag<Testing, Other>
-    `testing this out`;
+const t = tag<
+    Testing,
+    Other
+>`testing this out`;
 
 == should not newline if the tagged template tag is below the indent width ==
 tag `ttttttttttttttttttttttttttttttttttt`;
