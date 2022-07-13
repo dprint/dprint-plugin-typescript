@@ -2620,11 +2620,9 @@ fn gen_tagged_tpl<'a>(node: &'a TaggedTpl, context: &mut Context<'a>) -> PrintIt
 
   let generated_between_comments = gen_comments_between_lines_indented(node.tag.end(), context);
   if generated_between_comments.is_empty() {
-    items.push_condition(conditions::if_above_width_or(
-      context.config.indent_width,
-      if use_space { Signal::SpaceOrNewLine } else { Signal::PossibleNewLine }.into(),
-      if use_space { Signal::SpaceIfNotTrailing.into() } else { PrintItems::new() },
-    ));
+    if use_space {
+      items.push_signal(Signal::SpaceIfNotTrailing);
+    }
   } else {
     items.extend(generated_between_comments);
   }
