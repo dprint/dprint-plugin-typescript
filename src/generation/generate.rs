@@ -2724,6 +2724,7 @@ fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context
   fn get_keep_on_one_line(node: Node) -> bool {
     match node {
       Node::Ident(_) | Node::ThisExpr(_) | Node::SuperPropExpr(_) | Node::MetaPropExpr(_) | Node::Str(_) | Node::PrivateName(_) => true,
+      Node::OptChainExpr(expr) => get_keep_on_one_line(expr.base.as_node()),
       Node::MemberExpr(expr) => keep_member_expr_on_one_line(expr),
       Node::CallExpr(expr) => keep_call_expr_on_one_line(expr.into()),
       Node::OptCall(expr) => keep_call_expr_on_one_line(expr.into()),
