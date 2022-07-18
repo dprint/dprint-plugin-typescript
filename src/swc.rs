@@ -52,6 +52,8 @@ pub fn ensure_no_specific_syntax_errors(parsed_source: &ParsedSource) -> Result<
     .filter(|e| {
       matches!(
         e.kind,
+        // unexpected eof
+        SyntaxError::Eof |
         // expected identifier
         SyntaxError::TS1003 |
           // expected semi-colon
@@ -103,6 +105,21 @@ mod tests {
       "./test.ts",
       "test;\nas#;",
       concat!("Line 2, column 3: Expected ';', '}' or <eof>\n", "\n", "  as#;\n", "    ~"),
+    );
+  }
+
+  #[test]
+  fn should_error_on_unary_expression_dot() {
+    // issue #391
+    run_fatal_diagnostic_test(
+      "./test.ts",
+      "+value.",
+      concat!(
+        "Line 1, column 8: Unexpected eof\n\n",
+        "  +value.\n",
+        // this excess whitespace is a bug, but not a big deal
+        "         "
+      ),
     );
   }
 
