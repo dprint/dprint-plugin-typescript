@@ -137,3 +137,129 @@ const x = <T,>(value: T): T => value;
 
 [expect]
 const x = <T>(value: T): T => value;
+
+== curried functions ==
+const someFunc = a => b => c => {
+    return a + b + c;
+};
+const someFunc = a => b => c => d => e => {
+    return a + b + c;
+};
+const someFunc = a => b => c => d => e => f => g => h => {
+    return a + b + c;
+};
+const someFunc = (a, b, c, d: string) => (e: string, f: number, g: string, h: number, i: string) => {
+    return a + b + c;
+};
+
+[expect]
+const someFunc = a => b => c => {
+    return a + b + c;
+};
+const someFunc =
+    a => b => c => d => e => {
+        return a + b + c;
+    };
+const someFunc =
+    a =>
+    b =>
+    c =>
+    d =>
+    e =>
+    f =>
+    g =>
+    h => {
+        return a + b + c;
+    };
+const someFunc =
+    (a, b, c, d: string) =>
+    (
+        e: string,
+        f: number,
+        g: string,
+        h: number,
+        i: string,
+    ) => {
+        return a + b + c;
+    };
+
+== curried functions with comments ==
+const someFunc =
+    // 1
+    a => // 2
+    // 3
+    /* 4 */ b => // 5
+    // 6
+    // 7
+    /* 8 */ c => { // 9
+        return a + b + c;
+    };
+
+[expect]
+const someFunc =
+    // 1
+    a => // 2
+    // 3
+    /* 4 */ b => // 5
+    // 6
+    // 7
+    /* 8 */ c => { // 9
+        return a + b + c;
+    };
+
+== curried functions with comment at before ==
+const someFunc =
+    // a
+    (a: string ,  b  : number) =>
+    (  c: string , d: number, e: testingtestingtesting  ) => {
+        return a + b + c;
+    };
+const otherFunc =
+    // a
+    a => b => {
+        return a + b;
+    };
+
+[expect]
+const someFunc =
+    // a
+    (a: string, b: number) =>
+    (
+        c: string,
+        d: number,
+        e: testingtestingtesting,
+    ) => {
+        return a + b + c;
+    };
+const otherFunc =
+    // a
+    a => b => {
+        return a + b;
+    };
+
+== curried functions with comments between ==
+const someFunc =
+    // a
+    a =>
+    // b
+    b =>
+    // c
+
+
+    // It's ok to have spaces between comments
+    c => {
+        return a + b + c;
+    };
+
+[expect]
+const someFunc =
+    // a
+    a =>
+    // b
+    b =>
+    // c
+
+    // It's ok to have spaces between comments
+    c => {
+        return a + b + c;
+    };

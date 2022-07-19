@@ -76,7 +76,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
   // do not get the comments for modules as this will be handled in gen_statements
   if !matches!(node_kind, NodeKind::Module | NodeKind::Script) {
     // get the leading comments
-    if get_first_child_owns_leading_comments_on_same_line(&node, context) {
+    if does_first_child_own_leading_comments_on_same_line(&node, context) {
       // Some block comments should belong to the first child rather than the
       // parent node because their first child may end up on the next line.
       let leading_comments = node_start.leading_comments_fast(context.program);
@@ -344,7 +344,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
   }
 
   #[inline]
-  fn get_first_child_owns_leading_comments_on_same_line(node: &Node, context: &mut Context) -> bool {
+  fn does_first_child_own_leading_comments_on_same_line(node: &Node, context: &mut Context) -> bool {
     match node {
       Node::TsUnionType(_) | Node::TsIntersectionType(_) => {
         let node_start_line = node.start_line_fast(context.program);
@@ -1479,54 +1479,86 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> Pr
   };
 
   fn gen_inner<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> PrintItems {
-    let header_start_lsil = LineStartIndentLevel::new("arrowFunctionExpressionHeaderStart");
-    let header_items = {
-      let mut items = PrintItems::new();
-      let should_use_parens = get_should_use_parens(node, context);
+    if let Some(node) = get_curried_arrow_expr(node) {
+      // handle arrow functions that are curried differently
+      gen_curried_arrow(node, context)
+    } else {
+      gen_inner_arrow(node, context)
+    }
+  }
 
-      items.push_info(header_start_lsil);
-      if node.is_async() {
-        items.push_str("async ");
-      }
-      if let Some(type_params) = node.type_params {
-        items.extend(gen_node(type_params.into(), context));
+  fn gen_curried_arrow<'a>(node: CurriedArrowExpr<'a>, context: &mut Context<'a>) -> PrintItems {
+    let mut last_header_start_lsil = None;
+    let mut force_use_new_lines = false;
+    let last_arrow = node.last_arrow();
+    let mut lines = Vec::new();
+    for item in node.signatures.into_iter() {
+      let range = item.range(context);
+      let comment_items = gen_leading_comments_on_previous_lines(&range, context);
+      if !comment_items.is_empty() {
+        force_use_new_lines = true;
+        lines.push(comment_items);
       }
 
-      if should_use_parens {
-        // need to check if there are parens because gen_parameters_or_arguments depends on the parens existing
-        if has_parens(node, context) {
-          items.extend(gen_parameters_or_arguments(
-            GenParametersOrArgumentsOptions {
-              node: node.into(),
-              range: node.get_parameters_range(context),
-              nodes: node.params.iter().map(|node| node.into()).collect(),
-              custom_close_paren: |context| {
-                Some(gen_close_paren_with_type(
-                  GenCloseParenWithTypeOptions {
-                    start_lsil: header_start_lsil,
-                    type_node: node.return_type.map(|x| x.into()),
-                    type_node_separator: None,
-                    param_count: node.params.len(),
-                  },
-                  context,
-                ))
-              },
-              is_parameters: true,
-            },
-            context,
-          ));
-        } else {
-          // todo: this should probably use more of the same logic as in gen_parameters_or_arguments
-          // there will only be one param in this case
-          items.extend(surround_with_parens(gen_node(node.params.first().unwrap().into(), context)));
+      let (header_start_lsil, signature_items) = gen_arrow_signature(&item, context);
+      last_header_start_lsil = Some(header_start_lsil);
+      let mut items = signature_items;
+      items.extend(gen_trailing_comments(&range, context));
+
+      lines.push(items);
+    }
+
+    let mut items = PrintItems::new();
+    if force_use_new_lines {
+      for (i, line) in lines.into_iter().enumerate() {
+        if i > 0 {
+          items.push_signal(Signal::NewLine);
         }
-      } else {
-        items.extend(gen_node(node.params.first().unwrap().into(), context));
+        items.extend(line);
       }
+    } else {
+      let start_ln = LineNumber::new("startCurry");
+      let end_ln = LineNumber::new("endCurry");
+      items.push_info(start_ln);
 
-      items.push_str(" =>");
-      items
-    };
+      items.extend(actions::if_column_number_changes(move |context| {
+        context.clear_info(end_ln);
+      }));
+      let lines = lines.into_iter().map(|l| l.into_rc_path()).collect::<Vec<_>>();
+      items.push_condition(if_true_or(
+        "multipleLinesCurrying",
+        Rc::new(move |context| condition_helpers::is_multiple_lines(context, start_ln, end_ln)),
+        {
+          let mut items = PrintItems::new();
+          for (i, line) in lines.clone().into_iter().enumerate() {
+            if i > 0 {
+              items.push_signal(Signal::NewLine);
+            }
+            items.push_optional_path(line);
+          }
+          items
+        },
+        {
+          let mut items = PrintItems::new();
+          for (i, line) in lines.into_iter().enumerate() {
+            if i > 0 {
+              items.push_signal(Signal::SpaceOrNewLine);
+            }
+            items.push_optional_path(line);
+          }
+          items
+        },
+      ));
+      items.push_info(end_ln);
+    }
+
+    let mut items = ir_helpers::new_line_group(items);
+    items.extend(gen_arrow_body(last_arrow, last_header_start_lsil.unwrap(), context));
+    items
+  }
+
+  fn gen_inner_arrow<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> PrintItems {
+    let (header_start_lsil, header_items) = gen_arrow_signature(&ArrowSignature::new(node), context);
 
     let is_arrow_in_test_call_expr = node
       .parent()
@@ -1541,6 +1573,13 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> Pr
       header_items
     };
 
+    items.extend(gen_arrow_body(node, header_start_lsil, context));
+
+    items
+  }
+
+  fn gen_arrow_body<'a>(node: &'a ArrowExpr, header_start_lsil: LineStartIndentLevel, context: &mut Context<'a>) -> PrintItems {
+    let mut items = PrintItems::new();
     let generated_body = gen_node(node.body.into(), context);
     let generated_body = if use_new_line_group_for_arrow_body(node, context) {
       new_line_group(generated_body)
@@ -1592,8 +1631,56 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> Pr
       items.push_condition(conditions::indent_if_start_of_line(generated_body.into()));
       items.push_info(end_body_ln);
     }
-
     items
+  }
+
+  fn gen_arrow_signature<'a>(node: &ArrowSignature<'a>, context: &mut Context<'a>) -> (LineStartIndentLevel, PrintItems) {
+    let header_start_lsil = LineStartIndentLevel::new("arrowFunctionExpressionHeaderStart");
+    let mut items = PrintItems::new();
+    let should_use_parens = get_should_use_parens(node, context);
+
+    items.push_info(header_start_lsil);
+    if node.is_async() {
+      items.push_str("async ");
+    }
+    if let Some(type_params) = node.type_params() {
+      items.extend(gen_node(type_params.into(), context));
+    }
+
+    if should_use_parens {
+      // need to check if there are parens because gen_parameters_or_arguments depends on the parens existing
+      if has_parens(node, context) {
+        items.extend(gen_parameters_or_arguments(
+          GenParametersOrArgumentsOptions {
+            node: node.inner.into(),
+            range: node.inner.get_parameters_range(context),
+            nodes: node.params().iter().map(|node| node.into()).collect(),
+            custom_close_paren: |context| {
+              Some(gen_close_paren_with_type(
+                GenCloseParenWithTypeOptions {
+                  start_lsil: header_start_lsil,
+                  type_node: node.return_type().map(|x| x.into()),
+                  type_node_separator: None,
+                  param_count: node.params().len(),
+                },
+                context,
+              ))
+            },
+            is_parameters: true,
+          },
+          context,
+        ));
+      } else {
+        // todo: this should probably use more of the same logic as in gen_parameters_or_arguments
+        // there will only be one param in this case
+        items.extend(surround_with_parens(gen_node(node.params().first().unwrap().into(), context)));
+      }
+    } else {
+      items.extend(gen_node(node.params().first().unwrap().into(), context));
+    }
+
+    items.push_str(" =>");
+    (header_start_lsil, items)
   }
 
   fn should_not_newline_after_arrow(body: &BlockStmtOrExpr, context: &Context) -> bool {
@@ -1607,8 +1694,8 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> Pr
     }
   }
 
-  fn get_should_use_parens<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> bool {
-    let requires_parens = node.params.len() != 1 || node.return_type.is_some() || is_first_param_not_identifier_or_has_type_annotation(&node.params);
+  fn get_should_use_parens<'a>(node: &ArrowSignature<'a>, context: &Context<'a>) -> bool {
+    let requires_parens = node.params().len() != 1 || node.return_type().is_some() || is_first_param_not_identifier_or_has_type_annotation(node.params());
 
     return if requires_parens {
       true
@@ -1628,11 +1715,11 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> Pr
     }
   }
 
-  fn has_parens<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> bool {
-    if node.params.len() != 1 {
+  fn has_parens<'a>(node: &ArrowSignature<'a>, context: &Context<'a>) -> bool {
+    if node.params().len() != 1 {
       true
     } else {
-      for node_or_token in node.children_with_tokens_fast(context.program) {
+      for node_or_token in node.inner.children_with_tokens_fast(context.program) {
         match node_or_token {
           NodeOrToken::Node(_) => return false, // first param, so no parens
           NodeOrToken::Token(TokenAndSpan { token: Token::LParen, .. }) => return true,
@@ -7820,72 +7907,69 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
   );
   let newline_condition_ref = newline_condition.create_reference();
   let force_braces = get_force_braces(&opts.body_node);
-  let mut open_brace_condition = Condition::new(
+  let mut open_brace_condition = if_true(
     "openBrace",
-    ConditionProperties {
-      condition: {
-        let has_open_brace_token = open_brace_token.is_some();
-        Rc::new(move |condition_context| {
-          // never use braces for a single semi-colon on the end (ex. `for(;;);`)
-          if is_body_empty_stmt {
-            return Some(false);
-          }
+    {
+      let has_open_brace_token = open_brace_token.is_some();
+      Rc::new(move |condition_context| {
+        // never use braces for a single semi-colon on the end (ex. `for(;;);`)
+        if is_body_empty_stmt {
+          return Some(false);
+        }
 
-          match use_braces {
-            UseBraces::WhenNotSingleLine => {
-              if force_braces {
-                Some(true)
-              } else {
-                let is_multiple_lines = condition_helpers::is_multiple_lines(condition_context, start_header_ln.unwrap_or(start_lc.line), end_ln)?;
-                Some(is_multiple_lines)
-              }
+        match use_braces {
+          UseBraces::WhenNotSingleLine => {
+            if force_braces {
+              Some(true)
+            } else {
+              let is_multiple_lines = condition_helpers::is_multiple_lines(condition_context, start_header_ln.unwrap_or(start_lc.line), end_ln)?;
+              Some(is_multiple_lines)
             }
-            UseBraces::Maintain => Some(force_braces || has_open_brace_token),
-            UseBraces::Always => Some(true),
-            UseBraces::PreferNone => {
-              if force_braces || body_should_be_multi_line {
-                return Some(true);
-              }
-              if let Some(start_header_ln) = start_header_ln {
-                if let Some(end_header_ln) = end_header_ln {
-                  let is_header_multiple_lines = condition_helpers::is_multiple_lines(condition_context, start_header_ln, end_header_ln)?;
-                  if is_header_multiple_lines {
-                    return Some(true);
-                  }
-                }
-              }
-              let is_statements_multiple_lines = condition_helpers::is_multiple_lines(condition_context, start_statements_lc.line, end_statements_lc.line)?;
-              if is_statements_multiple_lines {
-                return Some(true);
-              }
-
-              if let Some(requires_braces_condition) = &requires_braces_condition {
-                let requires_braces = condition_context.resolved_condition(requires_braces_condition)?;
-                if requires_braces {
+          }
+          UseBraces::Maintain => Some(force_braces || has_open_brace_token),
+          UseBraces::Always => Some(true),
+          UseBraces::PreferNone => {
+            if force_braces || body_should_be_multi_line {
+              return Some(true);
+            }
+            if let Some(start_header_ln) = start_header_ln {
+              if let Some(end_header_ln) = end_header_ln {
+                let is_header_multiple_lines = condition_helpers::is_multiple_lines(condition_context, start_header_ln, end_header_ln)?;
+                if is_header_multiple_lines {
                   return Some(true);
                 }
               }
-
-              Some(false)
             }
+            let is_statements_multiple_lines = condition_helpers::is_multiple_lines(condition_context, start_statements_lc.line, end_statements_lc.line)?;
+            if is_statements_multiple_lines {
+              return Some(true);
+            }
+
+            if let Some(requires_braces_condition) = &requires_braces_condition {
+              let requires_braces = condition_context.resolved_condition(requires_braces_condition)?;
+              if requires_braces {
+                return Some(true);
+              }
+            }
+
+            Some(false)
           }
-        })
-      },
-      true_path: {
-        let mut items = PrintItems::new();
-        items.extend(gen_brace_separator(
-          GenBraceSeparatorOptions {
-            brace_position: opts.brace_position,
-            open_brace_token,
-            start_header_lsil,
-          },
-          context,
-        ));
-        items.push_str("{");
-        items.push_condition(inner_brace_space_condition);
-        Some(items)
-      },
-      false_path: None,
+        }
+      })
+    },
+    {
+      let mut items = PrintItems::new();
+      items.extend(gen_brace_separator(
+        GenBraceSeparatorOptions {
+          brace_position: opts.brace_position,
+          open_brace_token,
+          start_header_lsil,
+        },
+        context,
+      ));
+      items.push_str("{");
+      items.push_condition(inner_brace_space_condition);
+      items
     },
   );
   let open_brace_condition_reevaluation = open_brace_condition.create_reevaluation();
@@ -8469,23 +8553,21 @@ fn jsx_space_separator(previous_node: &Node, current_node: &Node, context: &Cont
       context.clear_info(end_line);
     }));
 
-    let mut condition = Condition::new(
+    let mut condition = if_true_or(
       "jsxSpaceOrNewLineIsMultipleLines",
-      ConditionProperties {
-        condition: Rc::new(move |context| {
-          let start_line = context.resolved_line_number(start_line)?;
-          let end_line = context.resolved_line_number(end_line)?;
-          Some(start_line < end_line)
-        }),
-        true_path: {
-          let mut items = PrintItems::new();
-          items.push_signal(Signal::PossibleNewLine);
-          items.push_string(get_jsx_space_text(1, context));
-          items.push_signal(Signal::NewLine);
-          Some(items)
-        },
-        false_path: Some(Signal::SpaceOrNewLine.into()),
+      Rc::new(move |context| {
+        let start_line = context.resolved_line_number(start_line)?;
+        let end_line = context.resolved_line_number(end_line)?;
+        Some(start_line < end_line)
+      }),
+      {
+        let mut items = PrintItems::new();
+        items.push_signal(Signal::PossibleNewLine);
+        items.push_string(get_jsx_space_text(1, context));
+        items.push_signal(Signal::NewLine);
+        items
       },
+      Signal::SpaceOrNewLine.into(),
     );
     let condition_reevaluation = condition.create_reevaluation();
 

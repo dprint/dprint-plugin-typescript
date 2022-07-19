@@ -270,3 +270,13 @@ let g =
     test >= test;
 let h =
     test <= test;
+
+== should format with comment before ==
+const test =
+    // testing
+    a   + b + c;
+
+[expect]
+const test =
+    // testing
+    a + b + c;
