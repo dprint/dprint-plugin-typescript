@@ -1695,7 +1695,7 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> Pr
   }
 
   fn get_should_use_parens<'a>(node: &ArrowSignature<'a>, context: &Context<'a>) -> bool {
-    let requires_parens = node.params().len() != 1 || node.return_type().is_some() || is_first_param_not_identifier_or_has_type_annotation(&node.params());
+    let requires_parens = node.params().len() != 1 || node.return_type().is_some() || is_first_param_not_identifier_or_has_type_annotation(node.params());
 
     return if requires_parens {
       true
