@@ -56,14 +56,20 @@ pub fn ensure_no_specific_syntax_errors(parsed_source: &ParsedSource) -> Result<
         SyntaxError::Eof |
         // expected identifier
         SyntaxError::TS1003 |
-          // expected semi-colon
-          SyntaxError::TS1005 |
-          // expected expression
-          SyntaxError::TS1109 |
-          // expected token
-          SyntaxError::Expected(_, _) |
-          // unexpected token
-          SyntaxError::Unexpected { .. }
+        SyntaxError::ExpectedIdent |
+        // expected semi-colon
+        SyntaxError::TS1005 |
+        SyntaxError::ExpectedSemi |
+        // expected expression
+        SyntaxError::TS1109 |
+        // expected token
+        SyntaxError::Expected(_, _) |
+        // various expected
+        SyntaxError::ExpectedDigit { .. } |
+        SyntaxError::ExpectedSemiForExprStmt { .. } |
+        SyntaxError::ExpectedUnicodeEscape |
+        // unexpected token
+        SyntaxError::Unexpected { .. }
       )
     })
     .collect::<Vec<_>>();
@@ -120,6 +126,16 @@ mod tests {
         // this excess whitespace is a bug, but not a big deal
         "         "
       ),
+    );
+  }
+
+  #[test]
+  fn should_error_on_unary_expression_dot_semicolon() {
+    // issue #391
+    run_fatal_diagnostic_test(
+      "./test.ts",
+      "+value.;",
+      concat!("Line 1, column 8: Expected ident\n\n", "  +value.;\n", "         ~"),
     );
   }
 
