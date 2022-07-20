@@ -10,9 +10,8 @@ testingtesting()
     .this = 523452346236 + 234345234652465246;
 
 [expect]
-testingtesting()
-    .this = 523452346236
-        + 234345234652465246;
+testingtesting().this =
+  523452346236 + 234345234652465246;
 
 == should format if the right side goes over the line width ==
 testing.this = testingthisouttttttttttttt;

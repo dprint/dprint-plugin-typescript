@@ -25,6 +25,7 @@ enum Test {
 enum Test {
     memberThatIsLong =
         52364363463463,
-    member2 = "some" + "test"
+    member2 =
+        "some" + "test"
         + "withLotsOfThese",
 }

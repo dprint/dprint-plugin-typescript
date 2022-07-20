@@ -8,9 +8,10 @@ let workerId: number;
 function spawnGateway(shardId: number, options: Partial<any>) {
   gateway = createGatewayManager({
     handleDiscordPayload: async function handleDiscordPayload(_: any, data: any, shardId: any) {
-      const id = (data.t && ["GUILD_CREATE", "GUILD_DELETE", "GUILD_UPDATE"].includes(data.t)
-        ? (data.d as any)?.id
-        : (data.d as any)?.guild_id) ?? "000000000000000000";
+      const id =
+        (data.t && ["GUILD_CREATE", "GUILD_DELETE", "GUILD_UPDATE"].includes(data.t)
+          ? (data.d as any)?.id
+          : (data.d as any)?.guild_id) ?? "000000000000000000";
 
       // IF FINAL SHARD BECAME READY TRIGGER NEXT WORKER
       if (data.t === "READY") {
@@ -29,9 +30,10 @@ let workerId: number;
 function spawnGateway(shardId: number, options: Partial<any>) {
   gateway = createGatewayManager({
     handleDiscordPayload: async function handleDiscordPayload(_: any, data: any, shardId: any) {
-      const id = (data.t && ["GUILD_CREATE", "GUILD_DELETE", "GUILD_UPDATE"].includes(data.t)
-        ? (data.d as any)?.id
-        : (data.d as any)?.guild_id) ?? "000000000000000000";
+      const id =
+        (data.t && ["GUILD_CREATE", "GUILD_DELETE", "GUILD_UPDATE"].includes(data.t)
+          ? (data.d as any)?.id
+          : (data.d as any)?.guild_id) ?? "000000000000000000";
 
       // IF FINAL SHARD BECAME READY TRIGGER NEXT WORKER
       if (data.t === "READY") {
