@@ -3365,6 +3365,15 @@ fn is_jsx_paren_expr_handled_node(node: &Node, context: &Context) -> bool {
 
 fn gen_jsx_element<'a>(node: &'a JSXElement, context: &mut Context<'a>) -> PrintItems {
   let items = if let Some(closing) = node.closing {
+    // pre element bodies should be formatted as-is
+    if node.opening.name.text_fast(context.program) == "pre" {
+      let mut items = gen_node(node.opening.into(), context);
+      let in_between_range = SourceRange::new(node.opening.end(), closing.start());
+      items.extend(ir_helpers::gen_from_raw_string_trim_line_ends(in_between_range.text_fast(context.program)));
+      items.extend(gen_node(closing.into(), context));
+      return items;
+    }
+
     let result = gen_jsx_with_opening_and_closing(
       GenJsxWithOpeningAndClosingOptions {
         opening_element: node.opening.into(),

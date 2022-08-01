@@ -42,3 +42,31 @@ const t = <>
     Here is some text that will exceed the line
     width, but will be wrapped because of it.
 </>;
+
+== should maintain text for pre element ==
+const t = <pre>
+    &lt;p&gt;
+        &lt;span&gt;This is some text.&lt;/span&gt;
+    &lt;/p&gt;
+</pre>;
+
+[expect]
+const t = <pre>
+    &lt;p&gt;
+        &lt;span&gt;This is some text.&lt;/span&gt;
+    &lt;/p&gt;
+</pre>;
+
+== should maintain pre element text when has nested element as well ==
+const t = <pre>
+  <code className="language-html">
+    &lt;p&gt; &lt;span&gt;This is some text.&lt;/span&gt; &lt;/p&gt;
+            </code>
+</pre>;
+
+[expect]
+const t = <pre>
+  <code className="language-html">
+    &lt;p&gt; &lt;span&gt;This is some text.&lt;/span&gt; &lt;/p&gt;
+            </code>
+</pre>;
