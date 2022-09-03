@@ -6,7 +6,7 @@ use deno_ast::SourceRanged;
 use deno_ast::SourceRangedForSpanned;
 
 /** Gets if the node contains a line comment or multi-line block comment */
-pub fn contains_line_or_multiline_comment(node: &Node, program: &Program) -> bool {
+pub fn contains_line_or_multiline_comment(node: Node, program: &Program) -> bool {
   let tokens = node.tokens_fast(program);
   let comments = program.comment_container();
   for (i, token) in tokens.iter().enumerate() {

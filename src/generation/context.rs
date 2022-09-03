@@ -68,8 +68,8 @@ impl<'a> Context<'a> {
     matches!(self.media_type, MediaType::Tsx | MediaType::Jsx | MediaType::JavaScript)
   }
 
-  pub fn parent(&self) -> &Node<'a> {
-    self.parent_stack.peek().unwrap()
+  pub fn parent(&self) -> Node<'a> {
+    *self.parent_stack.peek().unwrap()
   }
 
   pub fn has_handled_comment(&self, comment: &Comment) -> bool {

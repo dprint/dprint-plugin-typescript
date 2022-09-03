@@ -69,11 +69,11 @@ pub fn get_leading_comment_on_different_line<'a>(
   None
 }
 
-pub fn has_surrounding_comments(node: &Node, program: &Program) -> bool {
+pub fn has_surrounding_comments(node: Node, program: &Program) -> bool {
   !node.leading_comments_fast(program).is_empty() || !node.trailing_comments_fast(program).is_empty()
 }
 
-pub fn has_surrounding_different_line_comments(node: &Node, program: &Program) -> bool {
+pub fn has_surrounding_different_line_comments(node: Node, program: &Program) -> bool {
   let leading_comments = node.leading_comments_fast(program);
   if !leading_comments.is_empty() {
     let start_line = node.start_line_fast(program);
@@ -96,7 +96,7 @@ pub fn has_surrounding_different_line_comments(node: &Node, program: &Program) -
   false
 }
 
-pub fn nodes_have_only_spaces_between(previous_node: &Node, next_node: &Node, program: &Program) -> bool {
+pub fn nodes_have_only_spaces_between(previous_node: Node, next_node: Node, program: &Program) -> bool {
   if let Node::JSXText(previous_node) = previous_node {
     let previous_node_text = previous_node.text_fast(program);
     crate::utils::has_no_new_lines_in_trailing_whitespace(previous_node_text) && previous_node_text.ends_with(' ')
@@ -110,16 +110,16 @@ pub fn nodes_have_only_spaces_between(previous_node: &Node, next_node: &Node, pr
   }
 }
 
-pub fn get_siblings_between<'a>(node_a: &Node<'a>, node_b: &Node<'a>) -> Vec<Node<'a>> {
+pub fn get_siblings_between<'a>(node_a: Node<'a>, node_b: Node<'a>) -> Vec<Node<'a>> {
   let mut parent_children = node_a.parent().unwrap().children();
   parent_children.drain(node_a.child_index() + 1..node_b.child_index()).collect()
 }
 
-pub fn has_jsx_space_expr_text(node: &Node) -> bool {
+pub fn has_jsx_space_expr_text(node: Node) -> bool {
   get_jsx_space_expr_space_count(node) > 0
 }
 
-pub fn get_jsx_space_expr_space_count(node: &Node) -> usize {
+pub fn get_jsx_space_expr_space_count(node: Node) -> usize {
   // A "JSX space expression" is a JSXExprContainer with
   // a string literal containing only spaces.
   // * {" "}
@@ -143,10 +143,10 @@ pub fn get_jsx_space_expr_space_count(node: &Node) -> usize {
   }
 }
 
-pub fn count_spaces_between_jsx_children(previous_node: &Node, next_node: &Node, program: &Program) -> usize {
+pub fn count_spaces_between_jsx_children(previous_node: Node, next_node: Node, program: &Program) -> usize {
   let all_siblings_between = get_siblings_between(previous_node, next_node);
   let siblings_between = all_siblings_between
-    .iter()
+    .into_iter()
     // ignore empty JSXText
     .filter(|n| !n.text_fast(program).trim().is_empty())
     .collect::<Vec<_>>();
@@ -194,7 +194,7 @@ pub fn is_test_library_call_expr(node: &CallExpr, program: &Program) -> bool {
       }
       // allow something like `Deno.test("desc", (t) => {})`
       if let Some(param) = arrow_expr.params.get(0) {
-        if has_surrounding_comments(&param.into(), program) {
+        if has_surrounding_comments(param.into(), program) {
           return false;
         }
       }

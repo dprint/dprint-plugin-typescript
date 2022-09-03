@@ -6,8 +6,6 @@
 #![deny(clippy::disallowed_methods)]
 #![deny(clippy::disallowed_types)]
 
-extern crate dprint_core;
-
 pub mod configuration;
 mod format_text;
 mod generation;

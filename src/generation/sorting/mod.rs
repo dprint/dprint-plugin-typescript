@@ -10,9 +10,7 @@ use crate::configuration::*;
 
 // a little rough, but good enough for our purposes
 
-pub fn get_node_sorter_from_order<'a>(
-  order: SortOrder,
-) -> Option<Box<dyn Fn((usize, Option<&Node<'a>>), (usize, Option<&Node<'a>>), &Program<'a>) -> Ordering>> {
+pub fn get_node_sorter_from_order<'a>(order: SortOrder) -> Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), &Program<'a>) -> Ordering>> {
   // todo: how to reduce code duplication here?
   match order {
     SortOrder::Maintain => None,
@@ -50,8 +48,8 @@ pub fn get_node_sorter_from_order<'a>(
 }
 
 fn cmp_optional_nodes<'a>(
-  a: Option<&Node<'a>>,
-  b: Option<&Node<'a>>,
+  a: Option<Node<'a>>,
+  b: Option<Node<'a>>,
   program: &Program<'a>,
   cmp_func: impl Fn(&dyn SourceRanged, &dyn SourceRanged, &Program<'a>) -> Ordering,
 ) -> Ordering {
@@ -69,8 +67,8 @@ fn cmp_optional_nodes<'a>(
 }
 
 fn cmp_nodes<'a>(
-  a: &Node<'a>,
-  b: &Node<'a>,
+  a: Node<'a>,
+  b: Node<'a>,
   program: &Program<'a>,
   cmp_func: impl Fn(&dyn SourceRanged, &dyn SourceRanged, &Program<'a>) -> Ordering,
 ) -> Ordering {
@@ -95,7 +93,7 @@ fn cmp_nodes<'a>(
   }
 }
 
-fn get_comparison_nodes(node: &Node) -> Vec<SourceRange> {
+fn get_comparison_nodes(node: Node) -> Vec<SourceRange> {
   match node {
     Node::ImportNamedSpecifier(node) => {
       if let Some(imported) = &node.imported {
@@ -149,6 +147,6 @@ fn cmp_text_case_insensitive(a: &str, b: &str) -> Ordering {
   }
 }
 
-fn is_import_or_export_declaration<'a>(node: &Option<&Node<'a>>) -> bool {
+fn is_import_or_export_declaration(node: &Option<Node>) -> bool {
   matches!(node, Some(Node::ImportDecl(_) | Node::NamedExport(_) | Node::ExportAll(_)))
 }
