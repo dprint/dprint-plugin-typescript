@@ -1,0 +1,16 @@
+~~ arrowFunction.useParentheses: preferNone ~~
+== should not remove parens for jsdoc type in arrow expr param ==
+process.on("unhandledRejection", (/** @type {any}*/ err) => {
+    if (err) {
+        console.error(err.stack || err.message);
+    }
+    process.exit(1);
+});
+
+[expect]
+process.on("unhandledRejection", (/** @type {any}*/ err) => {
+    if (err) {
+        console.error(err.stack || err.message);
+    }
+    process.exit(1);
+});
