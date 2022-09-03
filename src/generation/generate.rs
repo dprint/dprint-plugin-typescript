@@ -1649,7 +1649,7 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> Pr
 
     if should_use_parens {
       // need to check if there are parens because gen_parameters_or_arguments depends on the parens existing
-      if has_parens(node, context) {
+      if has_parens(node, context.program) {
         items.extend(gen_parameters_or_arguments(
           GenParametersOrArgumentsOptions {
             node: node.inner.into(),
@@ -1695,31 +1695,29 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> Pr
   }
 
   fn get_should_use_parens<'a>(node: &ArrowSignature<'a>, context: &Context<'a>) -> bool {
-    let requires_parens = node.params().len() != 1 || node.return_type().is_some() || is_first_param_not_identifier_or_has_type_annotation(node.params());
-
-    return if requires_parens {
-      true
-    } else {
-      match context.config.arrow_function_use_parentheses {
-        UseParentheses::Force => true,
-        UseParentheses::PreferNone => false,
-        UseParentheses::Maintain => has_parens(node, context),
+    return match context.config.arrow_function_use_parentheses {
+      UseParentheses::Force => true,
+      UseParentheses::PreferNone => {
+        node.params().len() != 1 || node.return_type().is_some() || is_first_param_not_identifier_or_has_type_annotation(node.params(), node, context.program)
       }
+      UseParentheses::Maintain => has_parens(node, context.program),
     };
 
-    fn is_first_param_not_identifier_or_has_type_annotation(params: &[Pat]) -> bool {
+    fn is_first_param_not_identifier_or_has_type_annotation<'a>(params: &[Pat], arrow: &'a ArrowSignature, program: &Program<'a>) -> bool {
       match params.get(0) {
-        Some(Pat::Ident(node)) => node.type_ann.is_some() || node.id.optional(),
+        Some(Pat::Ident(node)) => {
+          node.type_ann.is_some() || node.id.optional() || node_helpers::has_surrounding_comments(&(*node).into(), program) && has_parens(arrow, program)
+        }
         _ => true,
       }
     }
   }
 
-  fn has_parens<'a>(node: &ArrowSignature<'a>, context: &Context<'a>) -> bool {
+  fn has_parens<'a>(node: &'a ArrowSignature, program: &Program<'a>) -> bool {
     if node.params().len() != 1 {
       true
     } else {
-      for node_or_token in node.inner.children_with_tokens_fast(context.program) {
+      for node_or_token in node.inner.children_with_tokens_fast(program) {
         match node_or_token {
           NodeOrToken::Node(_) => return false, // first param, so no parens
           NodeOrToken::Token(TokenAndSpan { token: Token::LParen, .. }) => return true,
