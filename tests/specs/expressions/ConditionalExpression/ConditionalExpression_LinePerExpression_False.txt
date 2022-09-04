@@ -28,3 +28,13 @@ const t = value < 0 ? true
     : value === 1 ? "1"
     : value === 2 ? "2"
     : false;
+
+== should support putting expressions on any line ==
+const t = value < 0
+    ? true : value === 1
+    ? "1" : value === 2 ? "2" : false;
+
+[expect]
+const t = value < 0
+    ? true : value === 1
+    ? "1" : value === 2 ? "2" : false;
