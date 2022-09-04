@@ -4750,7 +4750,17 @@ fn gen_switch_stmt<'a>(node: &'a SwitchStmt, context: &mut Context<'a>) -> Print
             return false;
           }
         }
-        node_helpers::has_separating_blank_line(&previous, &next, context.program)
+
+        // Switch cases have custom rules for where the comments end up (based on their indentation),
+        // so for here just check that there is no blank line between either the previous comment
+        // or previous node
+        let leading_comment = next.leading_comments_fast(context.program).last().map(|r| r.range());
+        let previous_end_line = if let Some(leading_comment) = leading_comment {
+          leading_comment.end_line_fast(context.program)
+        } else {
+          previous.end_line_fast(context.program)
+        };
+        previous_end_line + 1 < next.start_line_fast(context.program)
       },
       separator: Separator::none(),
     },
@@ -4803,9 +4813,8 @@ fn gen_switch_case<'a>(node: &'a SwitchCase, context: &mut Context<'a>) -> Print
   return items;
 
   fn get_block_stmt_body(node: &SwitchCase) -> Option<SourceRange> {
-    let first_cons = node.cons.get(0);
-    if let Some(Stmt::Block(block_stmt)) = first_cons {
-      if node.cons.len() == 1 {
+    if node.cons.len() == 1 {
+      if let Some(Stmt::Block(block_stmt)) = node.cons.get(0) {
         return Some(block_stmt.range());
       }
     }
@@ -7844,12 +7853,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
   let end_statements_lc = LineAndColumn::new("endStatements");
   let header_trailing_comments = get_header_trailing_comments(opts.body_node, context);
   let body_should_be_multi_line = get_body_should_be_multi_line(opts.body_node, &header_trailing_comments, context);
-  let should_use_new_line = get_should_use_new_line(
-    opts.body_node,
-    body_should_be_multi_line,
-    &opts.single_body_position,
-    context,
-  );
+  let should_use_new_line = get_should_use_new_line(opts.body_node, body_should_be_multi_line, &opts.single_body_position, context);
   let open_brace_token = get_open_brace_token(opts.body_node, context);
   let use_braces = opts.use_braces;
   let is_body_empty_stmt = opts.body_node.kind() == NodeKind::EmptyStmt;
@@ -8074,7 +8078,9 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
     }
     if let Some(single_body_position) = single_body_position {
       return match single_body_position {
-        SingleBodyPosition::Maintain => get_body_stmt_start_line(body_node, context) > body_node.previous_token_fast(context.program).start_line_fast(context.program),
+        SingleBodyPosition::Maintain => {
+          get_body_stmt_start_line(body_node, context) > body_node.previous_token_fast(context.program).start_line_fast(context.program)
+        }
         SingleBodyPosition::NextLine => true,
         SingleBodyPosition::SameLine => {
           if let Node::BlockStmt(block_stmt) = body_node {
