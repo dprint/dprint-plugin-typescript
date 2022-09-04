@@ -2151,45 +2151,59 @@ fn gen_class_expr<'a>(node: &'a ClassExpr, context: &mut Context<'a>) -> PrintIt
 }
 
 fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> PrintItems {
-  let operator_token = context.token_finder.get_first_operator_after(&node.test, "?").unwrap();
-  let force_new_lines = !context.config.conditional_expression_prefer_single_line
-    && (node_helpers::get_use_new_lines_for_nodes(&node.test, &node.cons, context.program)
-      || node_helpers::get_use_new_lines_for_nodes(&node.cons, &node.alt, context.program));
-  let operator_position = get_operator_position(node, operator_token, context);
+  let question_token = context.token_finder.get_first_operator_after(&node.test, "?").unwrap();
+  let colon_token = context.token_finder.get_first_operator_after(&node.cons, ":").unwrap();
+  let line_per_expression = context.config.conditional_expression_line_per_expression;
+  let has_newline_test_cons = node_helpers::get_use_new_lines_for_nodes(&node.test, &node.cons, context.program);
+  let has_newline_const_alt = node_helpers::get_use_new_lines_for_nodes(&node.cons, &node.alt, context.program);
+  let mut force_test_cons_newline = !context.config.conditional_expression_prefer_single_line && has_newline_test_cons;
+  let mut force_cons_alt_newline = !context.config.conditional_expression_prefer_single_line && has_newline_const_alt;
+  if line_per_expression && (force_test_cons_newline || force_cons_alt_newline) {
+    // for line per expression, if one is true then both should be true
+    force_test_cons_newline = true;
+    force_cons_alt_newline = true;
+  }
+
+  let operator_position = get_operator_position(node, question_token, context);
   let top_most_data = get_top_most_data(node, context);
   let before_alternate_ln = LineNumber::new("beforeAlternate");
   let end_ln = LineNumber::new("endConditionalExpression");
+  let question_comment_items = gen_token_comments(question_token, context, top_most_data.il);
+  let colon_comment_items = gen_token_comments(colon_token, context, top_most_data.il);
   let mut items = PrintItems::new();
 
   if top_most_data.is_top_most {
-    items.push_info(top_most_data.top_most_ln);
-    items.push_info(top_most_data.top_most_il);
+    items.push_info(top_most_data.ln);
+    items.push_info(top_most_data.il);
   }
 
-  items.extend(ir_helpers::new_line_group(with_queued_indent(gen_node_with_inner_gen(
-    node.test.into(),
-    context,
-    {
-      move |mut items, _| {
-        if operator_position == OperatorPosition::SameLine {
-          items.push_str(" ?");
-        }
-        items
-      }
-    },
-  ))));
+  let top_most_il = top_most_data.il;
+
+  items.extend(ir_helpers::new_line_group(with_queued_indent({
+    let mut items = gen_node(node.test.into(), context);
+    if operator_position == OperatorPosition::SameLine {
+      items.push_str(" ?");
+    }
+    items.extend(question_comment_items.trailing_line);
+    items
+  })));
+
+  items.extend(question_comment_items.previous_lines);
 
   items.push_anchor(LineNumberAnchor::new(end_ln));
   items.push_anchor(LineNumberAnchor::new(before_alternate_ln));
 
-  let multi_line_reevaluation = if force_new_lines {
+  let multi_line_reevaluation = if force_test_cons_newline {
     items.push_signal(Signal::NewLine);
     None
-  } else {
-    let mut condition = conditions::new_line_if_multiple_lines_space_or_new_line_otherwise(top_most_data.top_most_ln, Some(before_alternate_ln));
+  } else if line_per_expression {
+    let mut condition = conditions::new_line_if_multiple_lines_space_or_new_line_otherwise(top_most_data.ln, Some(before_alternate_ln));
     let reevaluation = condition.create_reevaluation();
     items.push_condition(condition);
     Some(reevaluation)
+  } else {
+    items.push_signal(Signal::SpaceOrNewLine);
+    None
   };
 
   let cons_and_alt_items = {
@@ -2197,7 +2211,7 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
 
     // add any preceeding comments of the question token
     items.extend({
-      let operator_token_leading_comments = get_leading_comments_on_previous_lines(&operator_token.range(), context);
+      let operator_token_leading_comments = get_leading_comments_on_previous_lines(&question_token.range(), context);
       let mut items = gen_comment_collection(operator_token_leading_comments.into_iter(), None, None, context);
       if !items.is_empty() {
         items.push_signal(Signal::NewLine);
@@ -2205,40 +2219,43 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
       items
     });
 
-    if operator_position == OperatorPosition::NextLine {
-      items.push_str("? ");
-    }
-    items.extend(ir_helpers::new_line_group(gen_node_with_inner_gen(node.cons.into(), context, {
-      move |mut items, _| {
-        if operator_position == OperatorPosition::SameLine {
-          items.push_str(" :");
-          items
-        } else {
-          conditions::indent_if_start_of_line(items).into()
-        }
+    items.push_condition({
+      let mut items = PrintItems::new();
+      items.extend(question_comment_items.leading_line);
+      if operator_position == OperatorPosition::NextLine {
+        items.push_str("? ");
       }
-    })));
+      items.extend(gen_node(node.cons.into(), context));
+      if operator_position == OperatorPosition::SameLine {
+        items.push_str(" :");
+      }
+      items.extend(colon_comment_items.trailing_line);
+      indent_if_sol_and_same_indent_as_top_most(ir_helpers::new_line_group(items), top_most_il)
+    });
 
-    if force_new_lines {
+    items.extend(colon_comment_items.previous_lines);
+
+    if force_cons_alt_newline {
       items.push_signal(Signal::NewLine);
-    } else {
+    } else if line_per_expression {
       items.push_condition(conditions::new_line_if_multiple_lines_space_or_new_line_otherwise(
-        top_most_data.top_most_ln,
+        top_most_data.ln,
         Some(before_alternate_ln),
       ));
+    } else {
+      items.push_signal(Signal::SpaceOrNewLine);
     }
 
-    if operator_position == OperatorPosition::NextLine {
-      items.push_str(": ");
-    }
-    items.push_info(before_alternate_ln);
-    items.extend(ir_helpers::new_line_group(gen_node_with_inner_gen(node.alt.into(), context, |items, _| {
+    items.push_condition({
+      let mut items = PrintItems::new();
+      items.extend(colon_comment_items.leading_line);
       if operator_position == OperatorPosition::NextLine {
-        conditions::indent_if_start_of_line(items).into()
-      } else {
-        items
+        items.push_str(": ");
       }
-    })));
+      items.push_info(before_alternate_ln);
+      items.extend(gen_node(node.alt.into(), context));
+      indent_if_sol_and_same_indent_as_top_most(ir_helpers::new_line_group(items), top_most_il)
+    });
     items.push_info(end_ln);
 
     if let Some(reevaluation) = multi_line_reevaluation {
@@ -2251,9 +2268,69 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
   if top_most_data.is_top_most {
     items.push_condition(conditions::indent_if_start_of_line(cons_and_alt_items));
   } else {
-    let cons_and_alt_items = cons_and_alt_items.into_rc_path();
-    let top_most_il = top_most_data.top_most_il;
-    items.push_condition(if_true_or(
+    items.push_condition(indent_if_sol_and_same_indent_as_top_most(cons_and_alt_items, top_most_data.il));
+  }
+
+  return items;
+
+  struct TokenComments {
+    previous_lines: PrintItems,
+    leading_line: PrintItems,
+    trailing_line: PrintItems,
+  }
+
+  fn gen_token_comments(token: &TokenAndSpan, context: &mut Context, top_most_il: IndentLevel) -> TokenComments {
+    let token_line = token.end_line_fast(context.program);
+    let previous_token = token.previous_token_fast(context.program).unwrap();
+    let next_token = token.next_token_fast(context.program).unwrap();
+    let previous_token_line = previous_token.end_line_fast(context.program);
+    let next_token_line = next_token.start_line_fast(context.program);
+    if token_line > previous_token_line {
+      TokenComments {
+        previous_lines: {
+          let leading_comments = token.leading_comments_fast(context.program).filter(|c| {
+            let comment_line = c.start_line_fast(context.program);
+            comment_line > previous_token_line && comment_line < next_token_line
+          });
+          let trailing_comments = token
+            .trailing_comments_fast(context.program)
+            .filter(|c| c.start_line_fast(context.program) < next_token_line);
+          let items = gen_comments_as_statements(leading_comments.chain(trailing_comments), None, context);
+          if items.is_empty() {
+            items
+          } else {
+            let mut new_items = PrintItems::new();
+            new_items.push_signal(Signal::NewLine);
+            new_items.push_condition(indent_if_sol_and_same_indent_as_top_most(items, top_most_il));
+            new_items
+          }
+        },
+        leading_line: if token_line < next_token_line {
+          gen_leading_comments_same_line(&token.range(), context)
+        } else {
+          PrintItems::new()
+        },
+        trailing_line: PrintItems::new(),
+      }
+    } else if token_line < next_token_line {
+      TokenComments {
+        previous_lines: PrintItems::new(),
+        leading_line: PrintItems::new(),
+        trailing_line: gen_trailing_comments_same_line(&token.range(), context),
+      }
+    } else {
+      // do nothing
+      TokenComments {
+        previous_lines: PrintItems::new(),
+        leading_line: PrintItems::new(),
+        trailing_line: PrintItems::new(),
+      }
+    }
+  }
+
+  fn indent_if_sol_and_same_indent_as_top_most(items: PrintItems, top_most_il: IndentLevel) -> Condition {
+    let items = items.into_rc_path();
+    if_true_or(
       "indentIfSameIndentationAsTopMostAndStartOfLine",
       Rc::new(move |context| {
         if context.writer_info.is_start_of_line() {
@@ -2263,16 +2340,14 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
           Some(false)
         }
       }),
-      with_indent(cons_and_alt_items.into()),
-      cons_and_alt_items.into(),
-    ));
+      with_indent(items.into()),
+      items.into(),
+    )
   }
 
-  return items;
-
   struct TopMostData {
-    top_most_ln: LineNumber,
-    top_most_il: IndentLevel,
+    ln: LineNumber,
+    il: IndentLevel,
     is_top_most: bool,
   }
 
@@ -2298,8 +2373,8 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
 
     return TopMostData {
       is_top_most,
-      top_most_ln,
-      top_most_il,
+      ln: top_most_ln,
+      il: top_most_il,
     };
 
     fn get_or_set_top_most_ln(top_most_expr_start: SourcePos, is_top_most: bool, context: &mut Context) -> (LineNumber, IndentLevel) {
@@ -5947,7 +6022,7 @@ fn get_trailing_comments_on_same_line<'a>(node: &dyn SourceRanged, context: &mut
   } else {
     let node_start_line = node.start_line_fast(context.program);
     trailing_comments
-      .take_while(|c| c.kind == CommentKind::Block || c.start_line_fast(context.program) == node_start_line)
+      .take_while(|c| c.start_line_fast(context.program) == node_start_line)
       .collect::<Vec<_>>()
   }
 }

@@ -1,0 +1,40 @@
+~~ conditionalExpression.linePerExpression: false, lineWidth: 40 ~~
+== should move only alt over ==
+const t = value < 0 ? true : testing > 0;
+
+[expect]
+const t = value < 0 ? true
+    : testing > 0;
+
+== should move when cons over ==
+const t = value < 0 ? asdftestingtestingg : test > 0;
+const t = value < 0 ? asdftestingtestingg : testinging > 0;
+
+[expect]
+const t = value < 0
+    ? asdftestingtestingg : test > 0;
+const t = value < 0
+    ? asdftestingtestingg
+    : testinging > 0;
+
+== should maintain match like formatting ==
+const t = value < 0 ? true
+    : value === 1 ? "1"
+    : value === 2 ? "2"
+    : false;
+
+[expect]
+const t = value < 0 ? true
+    : value === 1 ? "1"
+    : value === 2 ? "2"
+    : false;
+
+== should support putting expressions on any line ==
+const t = value < 0
+    ? true : value === 1
+    ? "1" : value === 2 ? "2" : false;
+
+[expect]
+const t = value < 0
+    ? true : value === 1
+    ? "1" : value === 2 ? "2" : false;
