@@ -2221,22 +2221,19 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
       items
     });
 
-    items.extend(question_comment_items.leading_line);
-    if operator_position == OperatorPosition::NextLine {
-      items.push_str("? ");
-    }
-    items.extend(ir_helpers::new_line_group({
-      let mut items = gen_node(node.cons.into(), context);
+    items.push_condition({
+      let mut items = PrintItems::new();
+      items.extend(question_comment_items.leading_line);
+      if operator_position == OperatorPosition::NextLine {
+        items.push_str("? ");
+      }
+      items.extend(gen_node(node.cons.into(), context));
       if operator_position == OperatorPosition::SameLine {
         items.push_str(" :");
       }
       items.extend(colon_comment_items.trailing_line);
-      if operator_position == OperatorPosition::SameLine {
-        items
-      } else {
-        conditions::indent_if_start_of_line(items).into()
-      }
-    }));
+      indent_if_sol_and_same_indent_as_top_most(ir_helpers::new_line_group(items), top_most_il)
+    });
 
     items.extend(colon_comment_items.previous_lines);
 
@@ -2251,18 +2248,16 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
       items.push_signal(Signal::SpaceOrNewLine);
     }
 
-    items.extend(colon_comment_items.leading_line);
-    if operator_position == OperatorPosition::NextLine {
-      items.push_str(": ");
-    }
-    items.push_info(before_alternate_ln);
-    items.extend(ir_helpers::new_line_group(gen_node_with_inner_gen(node.alt.into(), context, |items, _| {
+    items.push_condition({
+      let mut items = PrintItems::new();
+      items.extend(colon_comment_items.leading_line);
       if operator_position == OperatorPosition::NextLine {
-        conditions::indent_if_start_of_line(items).into()
-      } else {
-        indent_if_same_indent_as_top_most(items, top_most_il).into()
+        items.push_str(": ");
       }
-    })));
+      items.push_info(before_alternate_ln);
+      items.extend(gen_node(node.alt.into(), context));
+      indent_if_sol_and_same_indent_as_top_most(ir_helpers::new_line_group(items), top_most_il)
+    });
     items.push_info(end_ln);
 
     if let Some(reevaluation) = multi_line_reevaluation {
@@ -2275,7 +2270,7 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
   if top_most_data.is_top_most {
     items.push_condition(conditions::indent_if_start_of_line(cons_and_alt_items));
   } else {
-    items.push_condition(indent_if_same_indent_as_top_most(cons_and_alt_items, top_most_data.il));
+    items.push_condition(indent_if_sol_and_same_indent_as_top_most(cons_and_alt_items, top_most_data.il));
   }
 
   return items;
@@ -2308,7 +2303,7 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
           } else {
             let mut new_items = PrintItems::new();
             new_items.push_signal(Signal::NewLine);
-            new_items.push_condition(indent_if_same_indent_as_top_most(items, top_most_il));
+            new_items.push_condition(indent_if_sol_and_same_indent_as_top_most(items, top_most_il));
             new_items
           }
         },
@@ -2335,7 +2330,7 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
     }
   }
 
-  fn indent_if_same_indent_as_top_most(items: PrintItems, top_most_il: IndentLevel) -> Condition {
+  fn indent_if_sol_and_same_indent_as_top_most(items: PrintItems, top_most_il: IndentLevel) -> Condition {
     let items = items.into_rc_path();
     if_true_or(
       "indentIfSameIndentationAsTopMostAndStartOfLine",

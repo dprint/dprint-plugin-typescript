@@ -20,3 +20,35 @@ function base64FormatEncode(value) {
         value === 63 ? 0x2F /*/*/ : /* 1 */
         fail("Invalid value");
 }
+
+== should maintain for this as well ==
+function getApparentType(type: Type): Type {
+    const t = !(type.flags & TypeFlags.Instantiable) ? type : getBaseConstraintOfType(type) || unknownType;
+    return getObjectFlags(t) & ObjectFlags.Mapped ? getApparentTypeOfMappedType(t as MappedType) :
+        t.flags & TypeFlags.Intersection ? getApparentTypeOfIntersectionType(t as IntersectionType) :
+        t.flags & TypeFlags.StringLike ? globalStringType :
+        t.flags & TypeFlags.NumberLike ? globalNumberType :
+        t.flags & TypeFlags.BigIntLike ? getGlobalBigIntType() :
+        t.flags & TypeFlags.BooleanLike ? globalBooleanType :
+        t.flags & TypeFlags.ESSymbolLike ? getGlobalESSymbolType() :
+        t.flags & TypeFlags.NonPrimitive ? emptyObjectType :
+        t.flags & TypeFlags.Index ? keyofConstraintType :
+        t.flags & TypeFlags.Unknown && !strictNullChecks ? emptyObjectType :
+        t;
+}
+
+[expect]
+function getApparentType(type: Type): Type {
+    const t = !(type.flags & TypeFlags.Instantiable) ? type : getBaseConstraintOfType(type) || unknownType;
+    return getObjectFlags(t) & ObjectFlags.Mapped ? getApparentTypeOfMappedType(t as MappedType) :
+        t.flags & TypeFlags.Intersection ? getApparentTypeOfIntersectionType(t as IntersectionType) :
+        t.flags & TypeFlags.StringLike ? globalStringType :
+        t.flags & TypeFlags.NumberLike ? globalNumberType :
+        t.flags & TypeFlags.BigIntLike ? getGlobalBigIntType() :
+        t.flags & TypeFlags.BooleanLike ? globalBooleanType :
+        t.flags & TypeFlags.ESSymbolLike ? getGlobalESSymbolType() :
+        t.flags & TypeFlags.NonPrimitive ? emptyObjectType :
+        t.flags & TypeFlags.Index ? keyofConstraintType :
+        t.flags & TypeFlags.Unknown && !strictNullChecks ? emptyObjectType :
+        t;
+}
