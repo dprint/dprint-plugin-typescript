@@ -4833,13 +4833,14 @@ fn gen_switch_case<'a>(node: &'a SwitchCase, context: &mut Context<'a>) -> Print
         _ => false,
       };
       let mut is_equal_indent = block_stmt_body.is_some();
-      let mut last_node = node_range;
+      let mut last_range = node_range;
+      let last_node_column = node_range.start_column_fast(context.program);
 
       for comment in trailing_comments {
-        is_equal_indent = is_equal_indent || comment.start_column_fast(context.program) <= node_range.start_column_fast(context.program);
+        is_equal_indent = is_equal_indent || comment.start_column_fast(context.program) <= last_node_column;
         let generated_comment = gen_comment_based_on_last_node(
           comment,
-          &Some(last_node),
+          &Some(last_range),
           GenCommentBasedOnLastNodeOptions { separate_with_newlines: true },
           context,
         );
@@ -4849,7 +4850,7 @@ fn gen_switch_case<'a>(node: &'a SwitchCase, context: &mut Context<'a>) -> Print
         } else {
           ir_helpers::with_indent(generated_comment)
         });
-        last_node = comment.range();
+        last_range = comment.range();
       }
     }
     items
