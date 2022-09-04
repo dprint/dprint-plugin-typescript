@@ -4836,7 +4836,7 @@ fn gen_switch_case<'a>(node: &'a SwitchCase, context: &mut Context<'a>) -> Print
       let mut last_node = node_range;
 
       for comment in trailing_comments {
-        is_equal_indent = is_equal_indent || comment.start_column_fast(context.program) <= last_node.start_column_fast(context.program);
+        is_equal_indent = is_equal_indent || comment.start_column_fast(context.program) <= node_range.start_column_fast(context.program);
         let generated_comment = gen_comment_based_on_last_node(
           comment,
           &Some(last_node),
