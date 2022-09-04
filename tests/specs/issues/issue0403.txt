@@ -1,0 +1,22 @@
+~~ conditionalExpression.linePerExpression: false, conditionalExpression.operatorPosition: sameLine ~~
+== should maintain formatting ==
+function base64FormatEncode(value) {
+    return value < 0 ? fail("Invalid value") :
+        value < 26 ? 0x41 /*A*/ + value :
+        value < 52 ? 0x61 /*a*/ + value - 26 : // 1
+        value < 62 ? 0x30 /*0*/ + value - 52 : /* 1 */
+        value === 62 ? 0x2B /*+*/ : /* 1 */
+        value === 63 ? 0x2F /*/*/ : /* 1 */
+        fail("Invalid value");
+}
+
+[expect]
+function base64FormatEncode(value) {
+    return value < 0 ? fail("Invalid value") :
+        value < 26 ? 0x41 /*A*/ + value :
+        value < 52 ? 0x61 /*a*/ + value - 26 : // 1
+        value < 62 ? 0x30 /*0*/ + value - 52 : /* 1 */
+        value === 62 ? 0x2B /*+*/ : /* 1 */
+        value === 63 ? 0x2F /*/*/ : /* 1 */
+        fail("Invalid value");
+}

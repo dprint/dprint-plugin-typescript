@@ -460,6 +460,14 @@ impl ConfigurationBuilder {
   ///
   /// * `true` - Formats with each part on a new line.
   /// * `false` (default) - Maintains the line breaks as written by the programmer.
+  pub fn conditional_expression_line_per_expression(&mut self, value: bool) -> &mut Self {
+    self.insert("conditionalExpression.linePerExpression", value.into())
+  }
+
+  /// Whether to force a line per expression when spanning multiple lines.
+  ///
+  /// * `true` - Formats with each part on a new line.
+  /// * `false` (default) - Maintains the line breaks as written by the programmer.
   pub fn member_expression_line_per_expression(&mut self, value: bool) -> &mut Self {
     self.insert("memberExpression.linePerExpression", value.into())
   }
@@ -1032,6 +1040,7 @@ mod tests {
       /* situational */
       .arrow_function_use_parentheses(UseParentheses::Maintain)
       .binary_expression_line_per_expression(false)
+      .conditional_expression_line_per_expression(true)
       .member_expression_line_per_expression(false)
       .type_literal_separator_kind(SemiColonOrComma::Comma)
       .type_literal_separator_kind_single_line(SemiColonOrComma::Comma)
@@ -1198,7 +1207,7 @@ mod tests {
       .while_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 169);
+    assert_eq!(inner_config.len(), 170);
     let diagnostics = resolve_config(inner_config, &resolve_global_config(ConfigKeyMap::new(), &Default::default()).config).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

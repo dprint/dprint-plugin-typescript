@@ -281,6 +281,8 @@ pub struct Configuration {
   pub arrow_function_use_parentheses: UseParentheses,
   #[serde(rename = "binaryExpression.linePerExpression")]
   pub binary_expression_line_per_expression: bool,
+  #[serde(rename = "conditionalExpression.linePerExpression")]
+  pub conditional_expression_line_per_expression: bool,
   #[serde(rename = "jsx.quoteStyle")]
   pub jsx_quote_style: JsxQuoteStyle,
   #[serde(rename = "jsx.multiLineParens")]
