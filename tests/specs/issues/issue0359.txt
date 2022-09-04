@@ -1,0 +1,54 @@
+~~ singleBodyPosition: maintain, useBraces: maintain ~~
+== should not add newline for single line body and multi line condition ==
+if (someFunction({
+    xyz: 1234
+})) return;
+
+for (let x = 0; someFunction({
+    xyz: 1234
+}); x++) return;
+
+for (const x in someFunction({
+    xyz: 1234
+})) return;
+
+for (const x of someFunction({
+    xyz: 1234
+})) return;
+
+while (someFunction({
+    xyz: 1234
+})) return;
+
+[expect]
+if (
+    someFunction({
+        xyz: 1234,
+    })
+) return;
+
+for (
+    let x = 0;
+    someFunction({
+        xyz: 1234,
+    });
+    x++
+) return;
+
+for (
+    const x in someFunction({
+        xyz: 1234,
+    })
+) return;
+
+for (
+    const x of someFunction({
+        xyz: 1234,
+    })
+) return;
+
+while (
+    someFunction({
+        xyz: 1234,
+    })
+) return;
