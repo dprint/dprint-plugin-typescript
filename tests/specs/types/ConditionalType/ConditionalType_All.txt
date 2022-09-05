@@ -109,3 +109,13 @@ type T = U extends true
     ? false
     /* test */
     : true;
+
+== should handle comments ==
+type T = /* 0 */ U extends true /* 1 */
+    /* 2 */ ? /* 3 */ asdfasdf /* 4 */
+    /* 5 */ : /* 6 */ asdfasdfasdf /* 7 */; /* 8 */
+
+[expect]
+type T = /* 0 */ U extends true /* 1 */
+    /* 2 */ ? /* 3 */ asdfasdf /* 4 */
+    /* 5 */ : /* 6 */ asdfasdfasdf /* 7 */; /* 8 */

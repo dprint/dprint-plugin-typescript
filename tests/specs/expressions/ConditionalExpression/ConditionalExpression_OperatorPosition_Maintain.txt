@@ -1,10 +1,11 @@
-~~ conditionalExpression.operatorPosition: maintain, conditionalExpression.preferSingleLine: false ~~
+~~ conditionalExpression.operatorPosition: maintain, conditionalExpression.preferSingleLine: false, lineWidth: 40 ~~
 == should format ==
 test? 1: 2;
 test
     ? 1: 2;
 test ? 1
 : 2;
+test? testingthis: testingthismoretesttest;
 
 [expect]
 test ? 1 : 2;
@@ -14,3 +15,6 @@ test
 test ?
     1 :
     2;
+test
+    ? testingthis
+    : testingthismoretesttest;

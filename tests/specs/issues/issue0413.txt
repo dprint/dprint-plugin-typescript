@@ -1,0 +1,17 @@
+~~ operatorPosition: maintain ~~
+== should format maintaining the operator position ==
+export function getIterator(iterable: I): Iterator<
+    I extends ReadonlyESMap<infer K, infer V> ? [K, V] :
+    I extends ReadonlySet<infer T> ? T :
+    I extends readonly (infer T)[] ? T :
+    I extends undefined ? undefined :
+    never>;
+
+[expect]
+export function getIterator(iterable: I): Iterator<
+    I extends ReadonlyESMap<infer K, infer V> ? [K, V] :
+        I extends ReadonlySet<infer T> ? T :
+        I extends readonly (infer T)[] ? T :
+        I extends undefined ? undefined :
+        never
+>;

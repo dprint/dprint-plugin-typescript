@@ -2168,8 +2168,8 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
   let top_most_data = get_top_most_data(node, context);
   let before_alternate_ln = LineNumber::new("beforeAlternate");
   let end_ln = LineNumber::new("endConditionalExpression");
-  let question_comment_items = gen_token_comments(question_token, context, top_most_data.il);
-  let colon_comment_items = gen_token_comments(colon_token, context, top_most_data.il);
+  let question_comment_items = gen_cond_token_comments(question_token, context, top_most_data.il);
+  let colon_comment_items = gen_cond_token_comments(colon_token, context, top_most_data.il);
   let mut items = PrintItems::new();
 
   if top_most_data.is_top_most {
@@ -2273,78 +2273,6 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
 
   return items;
 
-  struct TokenComments {
-    previous_lines: PrintItems,
-    leading_line: PrintItems,
-    trailing_line: PrintItems,
-  }
-
-  fn gen_token_comments(token: &TokenAndSpan, context: &mut Context, top_most_il: IndentLevel) -> TokenComments {
-    let token_line = token.end_line_fast(context.program);
-    let previous_token = token.previous_token_fast(context.program).unwrap();
-    let next_token = token.next_token_fast(context.program).unwrap();
-    let previous_token_line = previous_token.end_line_fast(context.program);
-    let next_token_line = next_token.start_line_fast(context.program);
-    if token_line > previous_token_line {
-      TokenComments {
-        previous_lines: {
-          let leading_comments = token.leading_comments_fast(context.program).filter(|c| {
-            let comment_line = c.start_line_fast(context.program);
-            comment_line > previous_token_line && comment_line < next_token_line
-          });
-          let trailing_comments = token
-            .trailing_comments_fast(context.program)
-            .filter(|c| c.start_line_fast(context.program) < next_token_line);
-          let items = gen_comments_as_statements(leading_comments.chain(trailing_comments), None, context);
-          if items.is_empty() {
-            items
-          } else {
-            let mut new_items = PrintItems::new();
-            new_items.push_signal(Signal::NewLine);
-            new_items.push_condition(indent_if_sol_and_same_indent_as_top_most(items, top_most_il));
-            new_items
-          }
-        },
-        leading_line: if token_line < next_token_line {
-          gen_leading_comments_same_line(&token.range(), context)
-        } else {
-          PrintItems::new()
-        },
-        trailing_line: PrintItems::new(),
-      }
-    } else if token_line < next_token_line {
-      TokenComments {
-        previous_lines: PrintItems::new(),
-        leading_line: PrintItems::new(),
-        trailing_line: gen_trailing_comments_same_line(&token.range(), context),
-      }
-    } else {
-      // do nothing
-      TokenComments {
-        previous_lines: PrintItems::new(),
-        leading_line: PrintItems::new(),
-        trailing_line: PrintItems::new(),
-      }
-    }
-  }
-
-  fn indent_if_sol_and_same_indent_as_top_most(items: PrintItems, top_most_il: IndentLevel) -> Condition {
-    let items = items.into_rc_path();
-    if_true_or(
-      "indentIfSameIndentationAsTopMostAndStartOfLine",
-      Rc::new(move |context| {
-        if context.writer_info.is_start_of_line() {
-          let top_most_il = context.resolved_indent_level(top_most_il)?;
-          Some(context.writer_info.indent_level == top_most_il)
-        } else {
-          Some(false)
-        }
-      }),
-      with_indent(items.into()),
-      items.into(),
-    )
-  }
-
   struct TopMostData {
     ln: LineNumber,
     il: IndentLevel,
@@ -2369,7 +2297,7 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
     }
 
     let is_top_most = top_most_node.range() == node.range();
-    let (top_most_ln, top_most_il) = get_or_set_top_most_ln(top_most_node.start(), is_top_most, context);
+    let (top_most_ln, top_most_il) = get_or_set_top_most(top_most_node.start(), is_top_most, context);
 
     return TopMostData {
       is_top_most,
@@ -2377,7 +2305,7 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
       il: top_most_il,
     };
 
-    fn get_or_set_top_most_ln(top_most_expr_start: SourcePos, is_top_most: bool, context: &mut Context) -> (LineNumber, IndentLevel) {
+    fn get_or_set_top_most(top_most_expr_start: SourcePos, is_top_most: bool, context: &mut Context) -> (LineNumber, IndentLevel) {
       if is_top_most {
         let ln = LineNumber::new("conditionalExprStart");
         let il = IndentLevel::new("conditionalExprStart");
@@ -2393,19 +2321,97 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
     }
   }
 
-  fn get_operator_position(node: &CondExpr, operator_token: &TokenAndSpan, context: &mut Context) -> OperatorPosition {
+  fn get_operator_position(node: &CondExpr, question_token: &TokenAndSpan, context: &mut Context) -> OperatorPosition {
     match context.config.conditional_expression_operator_position {
       OperatorPosition::NextLine => OperatorPosition::NextLine,
       OperatorPosition::SameLine => OperatorPosition::SameLine,
       OperatorPosition::Maintain => {
-        if node.test.end_line_fast(context.program) == operator_token.start_line_fast(context.program) {
-          OperatorPosition::SameLine
+        if node.test.end_line_fast(context.program) == question_token.start_line_fast(context.program) {
+          if node.start_line_fast(context.program) == node.end_line_fast(context.program) {
+            // prefer the dprint default when going from one to multiple lines
+            OperatorPosition::NextLine
+          } else {
+            OperatorPosition::SameLine
+          }
         } else {
           OperatorPosition::NextLine
         }
       }
     }
   }
+}
+
+struct ConditionalTokenComments {
+  previous_lines: PrintItems,
+  leading_line: PrintItems,
+  trailing_line: PrintItems,
+}
+
+/// Generates the comments used for tokens in conditional expressions and types.
+fn gen_cond_token_comments(token: &TokenAndSpan, context: &mut Context, top_most_il: IndentLevel) -> ConditionalTokenComments {
+  let token_line = token.end_line_fast(context.program);
+  let previous_token = token.previous_token_fast(context.program).unwrap();
+  let next_token = token.next_token_fast(context.program).unwrap();
+  let previous_token_line = previous_token.end_line_fast(context.program);
+  let next_token_line = next_token.start_line_fast(context.program);
+  if token_line > previous_token_line {
+    ConditionalTokenComments {
+      previous_lines: {
+        let leading_comments = token.leading_comments_fast(context.program).filter(|c| {
+          let comment_line = c.start_line_fast(context.program);
+          comment_line > previous_token_line && comment_line < next_token_line
+        });
+        let trailing_comments = token
+          .trailing_comments_fast(context.program)
+          .filter(|c| c.start_line_fast(context.program) < next_token_line);
+        let items = gen_comments_as_statements(leading_comments.chain(trailing_comments), None, context);
+        if items.is_empty() {
+          items
+        } else {
+          let mut new_items = PrintItems::new();
+          new_items.push_signal(Signal::NewLine);
+          new_items.push_condition(indent_if_sol_and_same_indent_as_top_most(items, top_most_il));
+          new_items
+        }
+      },
+      leading_line: if token_line == next_token_line {
+        gen_leading_comments_same_line(&token.range(), context)
+      } else {
+        PrintItems::new()
+      },
+      trailing_line: PrintItems::new(),
+    }
+  } else if token_line < next_token_line {
+    ConditionalTokenComments {
+      previous_lines: PrintItems::new(),
+      leading_line: PrintItems::new(),
+      trailing_line: gen_trailing_comments_same_line(&token.range(), context),
+    }
+  } else {
+    // do nothing
+    ConditionalTokenComments {
+      previous_lines: PrintItems::new(),
+      leading_line: PrintItems::new(),
+      trailing_line: PrintItems::new(),
+    }
+  }
+}
+
+fn indent_if_sol_and_same_indent_as_top_most(items: PrintItems, indent_level: IndentLevel) -> Condition {
+  let items = items.into_rc_path();
+  if_true_or(
+    "indentIfSameIndentationLevelAndStartOfLine",
+    Rc::new(move |context| {
+      if context.writer_info.is_start_of_line() {
+        let top_most_il = context.resolved_indent_level(indent_level)?;
+        Some(context.writer_info.indent_level == top_most_il)
+      } else {
+        Some(false)
+      }
+    }),
+    with_indent(items.into()),
+    items.into(),
+  )
 }
 
 fn gen_expr_or_spread<'a>(node: &'a ExprOrSpread, context: &mut Context<'a>) -> PrintItems {
@@ -5156,6 +5162,11 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
   let is_parent_conditional_type = node.parent().kind() == NodeKind::TsConditionalType;
   let mut items = PrintItems::new();
   let before_false_ln = LineNumber::new("beforeFalse");
+  let question_token = context.token_finder.get_first_operator_after(&node.extends_type, "?").unwrap();
+  let colon_token = context.token_finder.get_first_operator_after(&node.true_type, ":").unwrap();
+  let operator_position = get_operator_position(node, colon_token, context);
+  let question_comment_items = gen_cond_token_comments(question_token, context, top_most_data.il);
+  let colon_comment_items = gen_cond_token_comments(colon_token, context, top_most_data.il);
 
   // main area
   items.extend(ir_helpers::new_line_group(gen_node(node.check_type.into(), context)));
@@ -5163,31 +5174,37 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
   items.push_signal(Signal::SpaceOrNewLine);
 
   if top_most_data.is_top_most {
-    items.push_info(top_most_data.top_most_ln);
+    items.push_info(top_most_data.ln);
+    items.push_info(top_most_data.il);
   }
 
-  items.push_condition(conditions::indent_if_start_of_line(ir_helpers::new_line_group(gen_node(
-    node.extends_type.into(),
-    context,
-  ))));
-
-  // add any preceeding comments of the question token
-  let question_token_start = context.token_finder.get_next_token_pos_after(&node.extends_type);
-  items.extend({
-    let comment_items = gen_leading_comments_on_previous_lines(&question_token_start, context);
-    if comment_items.is_empty() {
-      Signal::SpaceOrNewLine.into()
-    } else {
-      surround_with_new_lines(with_indent(comment_items))
+  items.push_condition(conditions::indent_if_start_of_line(ir_helpers::new_line_group({
+    let mut items = gen_node(node.extends_type.into(), context);
+    if operator_position == OperatorPosition::SameLine {
+      items.push_str(" ?");
     }
-  });
+    items.extend(question_comment_items.trailing_line);
+    items
+  })));
+
+  if question_comment_items.previous_lines.is_empty() {
+    items.push_signal(Signal::SpaceOrNewLine);
+  } else {
+    items.extend(question_comment_items.previous_lines);
+  }
 
   items.push_condition({
     let inner_items = {
       let mut items = PrintItems::new();
-      items.extend(gen_leading_comments_same_line(&question_token_start, context));
-      items.push_str("? ");
+      items.extend(question_comment_items.leading_line);
+      if operator_position == OperatorPosition::NextLine {
+        items.push_str("? ");
+      }
       items.extend(ir_helpers::new_line_group(gen_node(node.true_type.into(), context)));
+      if operator_position == OperatorPosition::SameLine {
+        items.push_str(" :");
+      }
+      items.extend(colon_comment_items.trailing_line);
       items
     }
     .into_rc_path();
@@ -5199,20 +5216,21 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
     )
   });
 
+  items.extend(colon_comment_items.previous_lines);
+
   // false type
   if use_new_lines {
     items.push_signal(Signal::NewLine);
   } else {
     items.push_condition(conditions::new_line_if_multiple_lines_space_or_new_line_otherwise(
-      top_most_data.top_most_ln,
+      top_most_data.ln,
       Some(before_false_ln),
     ));
   }
 
   // add any preceeding comments of the colon token
-  let colon_token_start = context.token_finder.get_next_token_pos_after(&node.true_type);
   {
-    let comment_items = gen_leading_comments_on_previous_lines(&colon_token_start, context);
+    let comment_items = gen_leading_comments_on_previous_lines(&colon_token.range(), context);
     if !comment_items.is_empty() {
       items.extend(with_indent(comment_items));
     }
@@ -5221,8 +5239,10 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
   let false_type_generated = {
     let mut items = PrintItems::new();
     items.push_info(before_false_ln);
-    items.extend(gen_leading_comments_same_line(&colon_token_start, context));
-    items.push_str(": ");
+    items.extend(colon_comment_items.leading_line);
+    if operator_position == OperatorPosition::NextLine {
+      items.push_str(": ");
+    }
     items.extend(ir_helpers::new_line_group(gen_node(node.false_type.into(), context)));
     items
   };
@@ -5236,7 +5256,8 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
   return items;
 
   struct TopMostData {
-    top_most_ln: LineNumber,
+    ln: LineNumber,
+    il: IndentLevel,
     is_top_most: bool,
   }
 
@@ -5259,17 +5280,41 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
     }
 
     let is_top_most = top_most_node.range() == node.range();
-    let top_most_ln = get_or_set_top_most_ln(top_most_node.start(), is_top_most, context);
+    let (ln, il) = get_or_set_top_most_ln(top_most_node.start(), is_top_most, context);
 
-    return TopMostData { is_top_most, top_most_ln };
+    return TopMostData { is_top_most, ln, il };
 
-    fn get_or_set_top_most_ln(top_most_expr_start: SourcePos, is_top_most: bool, context: &mut Context) -> LineNumber {
+    fn get_or_set_top_most_ln(top_most_expr_start: SourcePos, is_top_most: bool, context: &mut Context) -> (LineNumber, IndentLevel) {
       if is_top_most {
         let ln = LineNumber::new("conditionalTypeStart");
+        let il = IndentLevel::new("conditionalTypeStart");
         context.store_ln_for_node(&top_most_expr_start, ln);
-        ln
+        context.store_il_for_node(&top_most_expr_start, il);
+        (ln, il)
       } else {
-        context.get_ln_for_node(&top_most_expr_start).unwrap()
+        (
+          context.get_ln_for_node(&top_most_expr_start).unwrap(),
+          context.get_il_for_node(&top_most_expr_start).unwrap(),
+        )
+      }
+    }
+  }
+
+  fn get_operator_position(node: &TsConditionalType, colon_token: &TokenAndSpan, context: &mut Context) -> OperatorPosition {
+    match context.config.conditional_type_operator_position {
+      OperatorPosition::NextLine => OperatorPosition::NextLine,
+      OperatorPosition::SameLine => OperatorPosition::SameLine,
+      OperatorPosition::Maintain => {
+        if node.true_type.end_line_fast(context.program) == colon_token.start_line_fast(context.program) {
+          if node.start_line_fast(context.program) == node.end_line_fast(context.program) {
+            // prefer the dprint default when going from one to multiple lines
+            OperatorPosition::NextLine
+          } else {
+            OperatorPosition::SameLine
+          }
+        } else {
+          OperatorPosition::NextLine
+        }
       }
     }
   }
@@ -6010,7 +6055,7 @@ fn get_leading_comments_on_same_line<'a>(node: &dyn SourceRanged, context: &mut 
   } else {
     let node_start_line = node.start_line_fast(context.program);
     leading_comments
-      .filter(|c| c.kind == CommentKind::Block || c.start_line_fast(context.program) == node_start_line)
+      .filter(|c| c.start_line_fast(context.program) == node_start_line)
       .collect::<Vec<_>>()
   }
 }
