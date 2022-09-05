@@ -1091,6 +1091,9 @@
     "conditionalExpression.operatorPosition": {
       "$ref": "#/definitions/operatorPosition"
     },
+    "conditionalType.operatorPosition": {
+      "$ref": "#/definitions/operatorPosition"
+    },
     "arguments.preferHanging": {
       "$ref": "#/definitions/preferHanging"
     },

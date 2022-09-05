@@ -96,7 +96,7 @@ pub enum NextControlFlowPosition {
 generate_str_to_from![NextControlFlowPosition, [Maintain, "maintain"], [SameLine, "sameLine"], [NextLine, "nextLine"]];
 
 /// Where to place the operator for expressions that span multiple lines.
-#[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum OperatorPosition {
   /// Maintains the operator being on the next line or the same line.
@@ -414,6 +414,8 @@ pub struct Configuration {
   pub binary_expression_operator_position: OperatorPosition,
   #[serde(rename = "conditionalExpression.operatorPosition")]
   pub conditional_expression_operator_position: OperatorPosition,
+  #[serde(rename = "conditionalType.operatorPosition")]
+  pub conditional_type_operator_position: OperatorPosition,
   /* single body position */
   #[serde(rename = "ifStatement.singleBodyPosition")]
   pub if_statement_single_body_position: SingleBodyPosition,
