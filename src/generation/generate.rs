@@ -8034,7 +8034,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
             if force_braces {
               Some(true)
             } else {
-              let is_multiple_lines = condition_helpers::is_multiple_lines(condition_context, start_header_ln.unwrap_or(start_lc.line), end_ln)?;
+              let is_multiple_lines = condition_helpers::is_multiple_lines(condition_context, end_header_ln.unwrap_or(start_lc.line), end_ln)?;
               Some(is_multiple_lines)
             }
           }
