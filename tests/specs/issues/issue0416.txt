@@ -1,0 +1,24 @@
+~~ indentWidth: 4, useBraces: whenNotSingleLine, singleBodyPosition: maintain ~~
+== should not add braces ==
+if (someFunction({
+    xyz: 1234
+})) return;
+if (someFunction({
+    xyz: 1234
+})) {
+    return;
+}
+
+[expect]
+if (
+    someFunction({
+        xyz: 1234,
+    })
+) return;
+if (
+    someFunction({
+        xyz: 1234,
+    })
+) {
+    return;
+}
