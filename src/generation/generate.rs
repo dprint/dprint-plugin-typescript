@@ -3141,6 +3141,10 @@ fn gen_index_signature<'a>(node: &'a TsIndexSignature, context: &mut Context<'a>
   ));
   items.extend(gen_type_ann_with_colon_if_exists(&node.type_ann, context));
 
+  if node.parent().is::<Class>() && context.config.semi_colons.is_true() {
+    items.push_str(";");
+  }
+
   items
 }
 

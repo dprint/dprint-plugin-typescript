@@ -1,0 +1,9 @@
+== should keep semi-colon (only) ==
+declare class Foo {
+    [key: string]: any;
+}
+
+[expect]
+declare class Foo {
+    [key: string]: any;
+}
