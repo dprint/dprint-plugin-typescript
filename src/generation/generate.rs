@@ -733,7 +733,7 @@ fn gen_computed_prop_name<'a>(node: &'a ComputedPropName, context: &mut Context<
 
 fn gen_identifier<'a>(node: &'a Ident, _: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.push_str(node.sym() as &str);
+  items.push_string(node.sym().to_string());
 
   if node.optional() && !node.parent().is::<ClassProp>() && !node.parent().is::<ClassMethod>() {
     items.push_str("?");
@@ -3684,7 +3684,7 @@ fn gen_jsx_text<'a>(node: &'a JSXText, context: &mut Context<'a>) -> PrintItems 
         was_last_space_or_newline = true;
       }
       if !word.is_empty() {
-        items.push_str(word);
+        items.push_string(word.to_string());
         was_last_space_or_newline = false;
       }
     }
@@ -3746,9 +3746,9 @@ fn gen_reg_exp_literal(node: &Regex, _: &mut Context) -> PrintItems {
   // the exp and flags should not be nodes so just ignore that (swc issue #511)
   let mut items = PrintItems::new();
   items.push_str("/");
-  items.push_str(node.exp() as &str);
+  items.push_string(node.exp().to_string());
   items.push_str("/");
-  items.push_str(node.flags() as &str);
+  items.push_string(node.flags().to_string());
   items
 }
 
@@ -3915,7 +3915,7 @@ fn gen_script<'a>(node: &'a Script, context: &mut Context<'a>) -> PrintItems {
 
 struct ProgramInfo<'a> {
   range: SourceRange,
-  shebang: &'a Option<deno_ast::swc::atoms::JsWord>,
+  shebang: &'a Option<deno_ast::swc::atoms::Atom>,
   statements: Vec<Node<'a>>,
 }
 
@@ -7539,7 +7539,7 @@ fn get_paren_range<'a>(inner_range: &SourceRange, context: &mut Context<'a>) -> 
 }
 
 struct GenExtendsOrImplementsOptions<'a> {
-  text: &'a str,
+  text: &'static str,
   type_items: Vec<Node<'a>>,
   start_header_lsil: LineStartIndentLevel,
   prefer_hanging: bool,
@@ -7676,7 +7676,7 @@ fn gen_for_member_like_expr_item<'a>(item: &MemberLikeExprItem<'a>, context: &mu
       if !is_first {
         items.push_str(".");
       }
-      items.push_str(token.text_fast(context.program));
+      items.push_string(token.text_fast(context.program).to_string());
       items
     }
     MemberLikeExprItem::CallExpr(node) => {
@@ -8691,12 +8691,12 @@ fn get_quote_char(context: &Context) -> String {
 }
 
 #[inline]
-fn gen_assignment<'a>(expr: Node<'a>, op: &str, context: &mut Context<'a>) -> PrintItems {
+fn gen_assignment<'a>(expr: Node<'a>, op: &'static str, context: &mut Context<'a>) -> PrintItems {
   gen_assignment_op_to(expr, op, op, context)
 }
 
 #[inline]
-fn gen_assignment_op_to<'a>(expr: Node<'a>, _op: &str, op_to: &str, context: &mut Context<'a>) -> PrintItems {
+fn gen_assignment_op_to<'a>(expr: Node<'a>, _op: &'static str, op_to: &'static str, context: &mut Context<'a>) -> PrintItems {
   let op_token = context.token_finder.get_previous_token(&expr);
   #[cfg(debug_assertions)]
   assert_has_op(_op, op_token, context);
@@ -8704,7 +8704,7 @@ fn gen_assignment_op_to<'a>(expr: Node<'a>, _op: &str, op_to: &str, context: &mu
   gen_assignment_like_with_token(expr, op_to, op_token, context)
 }
 
-fn gen_assignment_like_with_token<'a>(expr: Node<'a>, op: &str, op_token: Option<&TokenAndSpan>, context: &mut Context<'a>) -> PrintItems {
+fn gen_assignment_like_with_token<'a>(expr: Node<'a>, op: &'static str, op_token: Option<&TokenAndSpan>, context: &mut Context<'a>) -> PrintItems {
   let use_new_line_group = get_use_new_line_group(expr);
   let mut items = PrintItems::new();
 
