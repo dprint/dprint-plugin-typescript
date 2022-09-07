@@ -1,4 +1,4 @@
-== should keep semi-colon (only) ==
+== should keep semi-colon ==
 declare class Foo {
     [key: string]: any;
 }
