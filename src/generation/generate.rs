@@ -7662,7 +7662,13 @@ fn gen_for_member_like_expr_item<'a>(item: &MemberLikeExprItem<'a>, context: &mu
     MemberLikeExprItem::Node(node) => {
       let is_optional = item.is_optional();
       gen_node_with_inner_gen(*node, context, |node_items, _| {
+        // Changing `2 .toString()` to `2.toString()` is a syntax error because `2.` is a numeric
+        // literal, so we surround it in parenthesis `(2).toString()`
+        let is_first_and_number = is_first && node.kind() == NodeKind::Number && !node.text_fast(context.program).contains('.');
         let mut items = PrintItems::new();
+        if is_first_and_number {
+          items.push_str("(");
+        }
         if !is_first {
           if is_optional {
             items.push_str("?.");
@@ -7671,6 +7677,9 @@ fn gen_for_member_like_expr_item<'a>(item: &MemberLikeExprItem<'a>, context: &mu
           }
         }
         items.extend(node_items);
+        if is_first_and_number {
+          items.push_str(")");
+        }
         items
       })
     }
