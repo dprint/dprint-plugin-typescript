@@ -3452,19 +3452,19 @@ fn gen_jsx_element<'a>(node: &'a JSXElement, context: &mut Context<'a>) -> Print
       let in_between_range = SourceRange::new(node.opening.end(), closing.start());
       items.extend(ir_helpers::gen_from_raw_string_trim_line_ends(in_between_range.text_fast(context.program)));
       items.extend(gen_node(closing.into(), context));
-      return items;
+      items
+    } else {
+      let result = gen_jsx_with_opening_and_closing(
+        GenJsxWithOpeningAndClosingOptions {
+          opening_element: node.opening.into(),
+          closing_element: closing.into(),
+          children: node.children.iter().map(|x| x.into()).collect(),
+        },
+        context,
+      );
+      context.store_info_range_for_node(node, (result.start_ln, result.end_ln));
+      result.items
     }
-
-    let result = gen_jsx_with_opening_and_closing(
-      GenJsxWithOpeningAndClosingOptions {
-        opening_element: node.opening.into(),
-        closing_element: closing.into(),
-        children: node.children.iter().map(|x| x.into()).collect(),
-      },
-      context,
-    );
-    context.store_info_range_for_node(node, (result.start_ln, result.end_ln));
-    result.items
   } else {
     let start_ln = LineNumber::new("jsxElementStart");
     let end_ln = LineNumber::new("jsxElementEnd");
