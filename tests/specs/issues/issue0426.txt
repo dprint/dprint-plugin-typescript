@@ -1,0 +1,5 @@
+== should emit type arguments in typeof expressions ==
+function getCtor(): typeof MyClass<Foo>;
+
+[expect]
+function getCtor(): typeof MyClass<Foo>;

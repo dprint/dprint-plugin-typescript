@@ -5852,6 +5852,9 @@ fn gen_type_query<'a>(node: &'a TsTypeQuery, context: &mut Context<'a>) -> Print
   items.push_str("typeof");
   items.push_signal(Signal::SpaceIfNotTrailing);
   items.extend(gen_node(node.expr_name.into(), context));
+  if let Some(type_args) = node.type_args {
+    items.extend(gen_node(type_args.into(), context));
+  }
   items
 }
 
