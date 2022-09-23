@@ -2164,7 +2164,7 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
     force_cons_alt_newline = true;
   }
 
-  let operator_position = get_operator_position(node, question_token, context);
+  let (question_position, colon_position) = get_operator_position(node, question_token, colon_token, context);
   let top_most_data = get_top_most_data(node, context);
   let before_alternate_ln = LineNumber::new("beforeAlternate");
   let end_ln = LineNumber::new("endConditionalExpression");
@@ -2181,7 +2181,7 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
 
   items.extend(ir_helpers::new_line_group(with_queued_indent({
     let mut items = gen_node(node.test.into(), context);
-    if operator_position == OperatorPosition::SameLine {
+    if question_position == OperatorPosition::SameLine {
       items.push_str(" ?");
     }
     items.extend(question_comment_items.trailing_line);
@@ -2222,11 +2222,11 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
     items.push_condition({
       let mut items = PrintItems::new();
       items.extend(question_comment_items.leading_line);
-      if operator_position == OperatorPosition::NextLine {
+      if question_position == OperatorPosition::NextLine {
         items.push_str("? ");
       }
       items.extend(gen_node(node.cons.into(), context));
-      if operator_position == OperatorPosition::SameLine {
+      if colon_position == OperatorPosition::SameLine {
         items.push_str(" :");
       }
       items.extend(colon_comment_items.trailing_line);
@@ -2249,7 +2249,7 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
     items.push_condition({
       let mut items = PrintItems::new();
       items.extend(colon_comment_items.leading_line);
-      if operator_position == OperatorPosition::NextLine {
+      if colon_position == OperatorPosition::NextLine {
         items.push_str(": ");
       }
       items.push_info(before_alternate_ln);
@@ -2321,22 +2321,32 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
     }
   }
 
-  fn get_operator_position(node: &CondExpr, question_token: &TokenAndSpan, context: &mut Context) -> OperatorPosition {
-    match context.config.conditional_expression_operator_position {
-      OperatorPosition::NextLine => OperatorPosition::NextLine,
-      OperatorPosition::SameLine => OperatorPosition::SameLine,
-      OperatorPosition::Maintain => {
-        if node.test.end_line_fast(context.program) == question_token.start_line_fast(context.program) {
-          if node.start_line_fast(context.program) == node.end_line_fast(context.program) {
-            // prefer the dprint default when going from one to multiple lines
-            OperatorPosition::NextLine
-          } else {
-            OperatorPosition::SameLine
-          }
-        } else {
+  fn get_operator_position(
+    node: &CondExpr,
+    question_token: &TokenAndSpan,
+    colon_token: &TokenAndSpan,
+    context: &mut Context,
+  ) -> (OperatorPosition, OperatorPosition) {
+    fn get_maintain_position(node: &CondExpr, expr: Expr, token: &TokenAndSpan, context: &mut Context) -> OperatorPosition {
+      if expr.end_line_fast(context.program) == token.start_line_fast(context.program) {
+        if node.start_line_fast(context.program) == node.end_line_fast(context.program) {
+          // prefer the dprint default when going from one to multiple lines
           OperatorPosition::NextLine
+        } else {
+          OperatorPosition::SameLine
         }
+      } else {
+        OperatorPosition::NextLine
       }
+    }
+
+    match context.config.conditional_expression_operator_position {
+      OperatorPosition::NextLine => (OperatorPosition::NextLine, OperatorPosition::NextLine),
+      OperatorPosition::SameLine => (OperatorPosition::SameLine, OperatorPosition::SameLine),
+      OperatorPosition::Maintain => (
+        get_maintain_position(node, node.test, question_token, context),
+        get_maintain_position(node, node.cons, colon_token, context),
+      ),
     }
   }
 }
@@ -5168,7 +5178,7 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
   let before_false_ln = LineNumber::new("beforeFalse");
   let question_token = context.token_finder.get_first_operator_after(&node.extends_type, "?").unwrap();
   let colon_token = context.token_finder.get_first_operator_after(&node.true_type, ":").unwrap();
-  let operator_position = get_operator_position(node, colon_token, context);
+  let (question_position, colon_position) = get_operator_position(node, question_token, colon_token, context);
   let question_comment_items = gen_cond_token_comments(question_token, context, top_most_data.il);
   let colon_comment_items = gen_cond_token_comments(colon_token, context, top_most_data.il);
 
@@ -5184,7 +5194,7 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
 
   items.push_condition(conditions::indent_if_start_of_line(ir_helpers::new_line_group({
     let mut items = gen_node(node.extends_type.into(), context);
-    if operator_position == OperatorPosition::SameLine {
+    if question_position == OperatorPosition::SameLine {
       items.push_str(" ?");
     }
     items.extend(question_comment_items.trailing_line);
@@ -5201,11 +5211,11 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
     let inner_items = {
       let mut items = PrintItems::new();
       items.extend(question_comment_items.leading_line);
-      if operator_position == OperatorPosition::NextLine {
+      if question_position == OperatorPosition::NextLine {
         items.push_str("? ");
       }
       items.extend(ir_helpers::new_line_group(gen_node(node.true_type.into(), context)));
-      if operator_position == OperatorPosition::SameLine {
+      if colon_position == OperatorPosition::SameLine {
         items.push_str(" :");
       }
       items.extend(colon_comment_items.trailing_line);
@@ -5244,7 +5254,7 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
     let mut items = PrintItems::new();
     items.push_info(before_false_ln);
     items.extend(colon_comment_items.leading_line);
-    if operator_position == OperatorPosition::NextLine {
+    if colon_position == OperatorPosition::NextLine {
       items.push_str(": ");
     }
     items.extend(ir_helpers::new_line_group(gen_node(node.false_type.into(), context)));
@@ -5304,22 +5314,32 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
     }
   }
 
-  fn get_operator_position(node: &TsConditionalType, colon_token: &TokenAndSpan, context: &mut Context) -> OperatorPosition {
-    match context.config.conditional_type_operator_position {
-      OperatorPosition::NextLine => OperatorPosition::NextLine,
-      OperatorPosition::SameLine => OperatorPosition::SameLine,
-      OperatorPosition::Maintain => {
-        if node.true_type.end_line_fast(context.program) == colon_token.start_line_fast(context.program) {
-          if node.start_line_fast(context.program) == node.end_line_fast(context.program) {
-            // prefer the dprint default when going from one to multiple lines
-            OperatorPosition::NextLine
-          } else {
-            OperatorPosition::SameLine
-          }
-        } else {
+  fn get_operator_position(
+    node: &TsConditionalType,
+    question_token: &TokenAndSpan,
+    colon_token: &TokenAndSpan,
+    context: &mut Context,
+  ) -> (OperatorPosition, OperatorPosition) {
+    fn get_maintain_position(node: &TsConditionalType, ts_type: TsType, token: &TokenAndSpan, context: &mut Context) -> OperatorPosition {
+      if ts_type.end_line_fast(context.program) == token.start_line_fast(context.program) {
+        if node.start_line_fast(context.program) == node.end_line_fast(context.program) {
+          // prefer the dprint default when going from one to multiple lines
           OperatorPosition::NextLine
+        } else {
+          OperatorPosition::SameLine
         }
+      } else {
+        OperatorPosition::NextLine
       }
+    }
+
+    match context.config.conditional_type_operator_position {
+      OperatorPosition::NextLine => (OperatorPosition::NextLine, OperatorPosition::NextLine),
+      OperatorPosition::SameLine => (OperatorPosition::SameLine, OperatorPosition::SameLine),
+      OperatorPosition::Maintain => (
+        get_maintain_position(node, node.extends_type, question_token, context),
+        get_maintain_position(node, node.true_type, colon_token, context),
+      ),
     }
   }
 }
