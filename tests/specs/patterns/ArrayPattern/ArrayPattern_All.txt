@@ -17,9 +17,17 @@ function t([a, b]: [string, number]) {
 
 == should allow empty elements ==
 [a, , b] = 0;
+const [a, , ,] = something;
+const [a,] = something;
+const [a, , ,test,] = something;
+const [a, , ,test] = something;
 
 [expect]
 [a, , b] = 0;
+const [a] = something;
+const [a] = something;
+const [a, , , test] = something;
+const [a, , , test] = something;
 
 == should format as multi-line when exceeding the line width ==
 function t(

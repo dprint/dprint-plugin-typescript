@@ -6527,7 +6527,10 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
     nodes.into_iter().map(|n| NodeOrSeparator::Node(n.unwrap())).collect::<Vec<_>>()
   };
 
-  let trailing_commas = if allow_trailing_commas(&nodes) {
+  let trailing_commas = if matches!(nodes.last(), Some(NodeOrSeparator::Separator(_))) {
+    // maintain the trailing comma in order to maintain the length (ex. [,,,].length === 3)
+    TrailingCommas::Always
+  } else if allow_trailing_commas(&nodes) {
     opts.trailing_commas
   } else {
     TrailingCommas::Never
