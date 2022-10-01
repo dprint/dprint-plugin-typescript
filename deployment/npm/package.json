@@ -1,7 +1,7 @@
 {
   "name": "@dprint/typescript",
   "version": "0.0.0",
-  "description": "Wasm buffer for dprint-plugin-typescript.",
+  "description": "Wasm module for dprint-plugin-typescript.",
   "main": "./index.js",
   "types": "./index.d.ts",
   "repository": {

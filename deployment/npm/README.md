@@ -8,9 +8,11 @@ Use this with [@dprint/formatter](https://github.com/dprint/js-formatter) or jus
 
 ```ts
 import { createFromBuffer } from "@dprint/formatter";
-import { getBuffer } from "@dprint/typescript";
+import { getPath } from "@dprint/typescript";
+import * as fs from "fs";
 
-const formatter = createFromBuffer(getBuffer());
+const buffer = fs.readFileSync(getPath());
+const formatter = createFromBuffer(buffer);
 
 console.log(formatter.formatText("test.ts", "const   t    =    5;"));
 ```

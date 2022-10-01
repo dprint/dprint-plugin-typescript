@@ -1,5 +1,5 @@
 /target
 **/*.rs.bk
 sourcemap
-deployment/npm/buffer.generated.js
+deployment/npm/plugin.wasm
 deployment/npm/node_modules
