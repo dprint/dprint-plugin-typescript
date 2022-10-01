@@ -2,7 +2,7 @@
 
 npm distribution of [dprint-plugin-typescript](https://github.com/dprint/dprint-plugin-typescript).
 
-Use this with [@dprint/formatter](https://github.com/dprint/js-formatter) or just use @dprint/formatter and download the [dprint-plugin-typescript WASM file](https://github.com/dprint/dprint-plugin-typescript/releases).
+Use this with [@dprint/formatter](https://github.com/dprint/js-formatter) or just use @dprint/formatter and download the [dprint-plugin-typescript Wasm file](https://github.com/dprint/dprint-plugin-typescript/releases).
 
 ## Example
 

@@ -1,2 +1,2 @@
-/** Gets an absolute path to the WASM module. */
+/** Gets an absolute path to the Wasm module. */
 export function getPath(): string;
