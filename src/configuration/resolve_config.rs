@@ -162,6 +162,12 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
       next_control_flow_position,
       &mut diagnostics,
     ),
+    do_while_statement_next_control_flow_position: get_value(
+      &mut config,
+      "doWhileStatement.nextControlFlowPosition",
+      next_control_flow_position,
+      &mut diagnostics,
+    ),
     /* operator position */
     binary_expression_operator_position: get_value(&mut config, "binaryExpression.operatorPosition", operator_position, &mut diagnostics),
     conditional_expression_operator_position: get_value(&mut config, "conditionalExpression.operatorPosition", operator_position, &mut diagnostics),

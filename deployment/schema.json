@@ -1049,6 +1049,9 @@
     "tryStatement.nextControlFlowPosition": {
       "$ref": "#/definitions/nextControlFlowPosition"
     },
+    "doWhileStatement.nextControlFlowPosition": {
+      "$ref": "#/definitions/nextControlFlowPosition"
+    },
     "arguments.trailingCommas": {
       "$ref": "#/definitions/trailingCommas"
     },
