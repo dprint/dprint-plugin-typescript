@@ -4287,7 +4287,15 @@ fn gen_do_while_stmt<'a>(node: &'a DoWhileStmt, context: &mut Context<'a>) -> Pr
     context,
   ));
   items.extend(gen_node(node.body.into(), context));
-  items.push_str(" while");
+  items.extend(gen_control_flow_separator(
+    context.config.do_while_statement_next_control_flow_position,
+    &node.body.range(),
+    "while",
+    None,
+    None,
+    context,
+  ));
+  items.push_str("while");
   if context.config.do_while_statement_space_after_while_keyword {
     items.push_str(" ");
   }
@@ -4738,7 +4746,7 @@ fn gen_if_stmt<'a>(node: &'a IfStmt, context: &mut Context<'a>) -> PrintItems {
       context.config.if_statement_next_control_flow_position,
       &cons_range,
       "else",
-      if_stmt_start_ln,
+      Some(if_stmt_start_ln),
       Some(result.close_brace_condition_ref),
       context,
     ));
@@ -4995,7 +5003,7 @@ fn gen_try_stmt<'a>(node: &'a TryStmt, context: &mut Context<'a>) -> PrintItems 
       next_control_flow_position,
       &last_block_range,
       "catch",
-      last_block_start_ln,
+      Some(last_block_start_ln),
       None,
       context,
     ));
@@ -5011,7 +5019,7 @@ fn gen_try_stmt<'a>(node: &'a TryStmt, context: &mut Context<'a>) -> PrintItems 
       next_control_flow_position,
       &last_block_range,
       "finally",
-      last_block_start_ln,
+      Some(last_block_start_ln),
       None,
       context,
     ));
@@ -7892,7 +7900,7 @@ fn gen_control_flow_separator(
   next_control_flow_position: NextControlFlowPosition,
   previous_node_block: &SourceRange,
   token_text: &str,
-  previous_start_ln: LineNumber,
+  previous_start_ln: Option<LineNumber>,
   previous_close_brace_condition_ref: Option<ConditionReference>,
   context: &mut Context,
 ) -> PrintItems {
@@ -7903,8 +7911,10 @@ fn gen_control_flow_separator(
         "newLineOrSpace",
         Rc::new(move |condition_context| {
           // newline if on the same line as the previous
-          if condition_helpers::is_on_same_line(condition_context, previous_start_ln)? {
-            return Some(true);
+          if let Some(previous_start_ln) = previous_start_ln {
+            if condition_helpers::is_on_same_line(condition_context, previous_start_ln)? {
+              return Some(true);
+            }
           }
 
           // newline if the previous did not have a close brace

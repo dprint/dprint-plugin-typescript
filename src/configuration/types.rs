@@ -409,6 +409,8 @@ pub struct Configuration {
   pub if_statement_next_control_flow_position: NextControlFlowPosition,
   #[serde(rename = "tryStatement.nextControlFlowPosition")]
   pub try_statement_next_control_flow_position: NextControlFlowPosition,
+  #[serde(rename = "doWhileStatement.nextControlFlowPosition")]
+  pub do_while_statement_next_control_flow_position: NextControlFlowPosition,
   /* operator position */
   #[serde(rename = "binaryExpression.operatorPosition")]
   pub binary_expression_operator_position: OperatorPosition,

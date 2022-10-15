@@ -749,6 +749,10 @@ impl ConfigurationBuilder {
     self.insert("tryStatement.nextControlFlowPosition", value.to_string().into())
   }
 
+  pub fn do_while_statement_next_control_flow_position(&mut self, value: NextControlFlowPosition) -> &mut Self {
+    self.insert("doWhileStatement.nextControlFlowPosition", value.to_string().into())
+  }
+
   /* operator position */
 
   pub fn binary_expression_operator_position(&mut self, value: OperatorPosition) -> &mut Self {
@@ -1112,6 +1116,7 @@ mod tests {
       /* next control flow position */
       .if_statement_next_control_flow_position(NextControlFlowPosition::SameLine)
       .try_statement_next_control_flow_position(NextControlFlowPosition::SameLine)
+      .do_while_statement_next_control_flow_position(NextControlFlowPosition::SameLine)
       /* operator position */
       .binary_expression_operator_position(OperatorPosition::SameLine)
       .conditional_expression_operator_position(OperatorPosition::SameLine)
@@ -1214,7 +1219,7 @@ mod tests {
       .while_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 171);
+    assert_eq!(inner_config.len(), 172);
     let diagnostics = resolve_config(inner_config, &resolve_global_config(ConfigKeyMap::new(), &Default::default()).config).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }
