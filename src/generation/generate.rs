@@ -3581,7 +3581,7 @@ fn gen_jsx_namespaced_name<'a>(node: &'a JSXNamespacedName, context: &mut Contex
 }
 
 fn gen_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Context<'a>) -> PrintItems {
-  let space_before_self_closing_tag_slash = context.config.jsx_element_space_before_self_closing_tag_slash;
+  let space_before_self_closing_tag_slash = context.config.jsx_space_before_self_closing_tag_slash;
   let force_use_new_lines = get_force_is_multi_line(node, context);
   let prefer_newline_before_close_bracket = get_should_prefer_newline_before_close_bracket(node, context);
   let start_lsil = LineStartIndentLevel::new("openingElementStart");

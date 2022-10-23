@@ -633,7 +633,7 @@
         "description": "Ex. `import {SomeExport, OtherExport} from \"my-module\";`"
       }]
     },
-    "jsxElement.spaceBeforeSelfClosingTagSlash": {
+    "jsx.spaceBeforeSelfClosingTagSlash": {
       "description": "Whether to add a space before a JSX element's slash when self closing.",
       "type": "boolean",
       "default": true,
@@ -916,8 +916,8 @@
     "importDeclaration.spaceSurroundingNamedImports": {
       "$ref": "#/definitions/importDeclaration.spaceSurroundingNamedImports"
     },
-    "jsxElement.spaceBeforeSelfClosingTagSlash": {
-      "$ref": "#/definitions/jsxElement.spaceBeforeSelfClosingTagSlash"
+    "jsx.spaceBeforeSelfClosingTagSlash": {
+      "$ref": "#/definitions/jsx.spaceBeforeSelfClosingTagSlash"
     },
     "jsxExpressionContainer.spaceSurroundingExpression": {
       "$ref": "#/definitions/jsxExpressionContainer.spaceSurroundingExpression"

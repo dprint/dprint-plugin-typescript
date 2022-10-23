@@ -357,8 +357,8 @@ impl ConfigurationBuilder {
   ///
   /// * `true` (default) - Ex. `<Test />`
   /// * `false` - Ex. `<Test/>`
-  pub fn jsx_element_space_before_self_closing_tag_slash(&mut self, value: bool) -> &mut Self {
-    self.insert("jsxElement.spaceBeforeSelfClosingTagSlash", value.into())
+  pub fn jsx_space_before_self_closing_tag_slash(&mut self, value: bool) -> &mut Self {
+    self.insert("jsx.spaceBeforeSelfClosingTagSlash", value.into())
   }
 
   /// Whether to add a space surrounding the properties of an object expression.
@@ -1202,7 +1202,7 @@ mod tests {
       .if_statement_space_after_if_keyword(true)
       .import_declaration_space_surrounding_named_imports(true)
       .jsx_expression_container_space_surrounding_expression(true)
-      .jsx_element_space_before_self_closing_tag_slash(true)
+      .jsx_space_before_self_closing_tag_slash(true)
       .method_space_before_parentheses(true)
       .object_expression_space_surrounding_properties(false)
       .object_pattern_space_surrounding_properties(false)
