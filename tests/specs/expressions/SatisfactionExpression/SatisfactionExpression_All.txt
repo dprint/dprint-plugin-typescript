@@ -1,0 +1,26 @@
+~~ lineWidth: 40 ~~
+== should format ==
+Testing   satisfies    Test;
+
+[expect]
+Testing satisfies Test;
+
+== should format when multiple lines ==
+something satisfies string | number | other | other;
+
+[expect]
+something satisfies
+    | string
+    | number
+    | other
+    | other;
+
+== should indent the expression when initial expression is hanging and the expression is multi-line ==
+testingtesting()
+    .find(p => p.testing) satisfies string | undefined;
+
+[expect]
+testingtesting()
+    .find(p => p.testing) satisfies
+        | string
+        | undefined;
