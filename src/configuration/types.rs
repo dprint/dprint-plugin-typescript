@@ -109,10 +109,10 @@ pub enum OperatorPosition {
 
 generate_str_to_from![OperatorPosition, [Maintain, "maintain"], [SameLine, "sameLine"], [NextLine, "nextLine"]];
 
-/// Where to place the expression of a statement that could possibly be on one line (ex. `if (true) console.log(5);`).
+/// Where to place a node that could be on the same line or next line.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum SingleBodyPosition {
+pub enum SameOrNextLinePosition {
   /// Maintains the position of the expression.
   Maintain,
   /// Forces the whole statement to be on one line.
@@ -121,7 +121,7 @@ pub enum SingleBodyPosition {
   NextLine,
 }
 
-generate_str_to_from![SingleBodyPosition, [Maintain, "maintain"], [SameLine, "sameLine"], [NextLine, "nextLine"]];
+generate_str_to_from![SameOrNextLinePosition, [Maintain, "maintain"], [SameLine, "sameLine"], [NextLine, "nextLine"]];
 
 /// If braces should be used or not in certain scenarios.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
@@ -289,6 +289,8 @@ pub struct Configuration {
   pub jsx_multi_line_parens: JsxMultiLineParens,
   #[serde(rename = "jsx.forceNewLinesSurroundingContent")]
   pub jsx_force_new_lines_surrounding_content: bool,
+  #[serde(rename = "jsx.bracketPosition")]
+  pub jsx_bracket_position: SameOrNextLinePosition,
   #[serde(rename = "memberExpression.linePerExpression")]
   pub member_expression_line_per_expression: bool,
   #[serde(rename = "typeLiteral.separatorKind.singleLine")]
@@ -420,15 +422,15 @@ pub struct Configuration {
   pub conditional_type_operator_position: OperatorPosition,
   /* single body position */
   #[serde(rename = "ifStatement.singleBodyPosition")]
-  pub if_statement_single_body_position: SingleBodyPosition,
+  pub if_statement_single_body_position: SameOrNextLinePosition,
   #[serde(rename = "forStatement.singleBodyPosition")]
-  pub for_statement_single_body_position: SingleBodyPosition,
+  pub for_statement_single_body_position: SameOrNextLinePosition,
   #[serde(rename = "forInStatement.singleBodyPosition")]
-  pub for_in_statement_single_body_position: SingleBodyPosition,
+  pub for_in_statement_single_body_position: SameOrNextLinePosition,
   #[serde(rename = "forOfStatement.singleBodyPosition")]
-  pub for_of_statement_single_body_position: SingleBodyPosition,
+  pub for_of_statement_single_body_position: SameOrNextLinePosition,
   #[serde(rename = "whileStatement.singleBodyPosition")]
-  pub while_statement_single_body_position: SingleBodyPosition,
+  pub while_statement_single_body_position: SameOrNextLinePosition,
   /* trailing commas */
   #[serde(rename = "arguments.trailingCommas")]
   pub arguments_trailing_commas: TrailingCommas,

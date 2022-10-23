@@ -694,7 +694,7 @@ fn gen_catch_clause<'a>(node: &'a CatchClause, context: &mut Context<'a>) -> Pri
 
   let try_stmt = node.parent();
   let single_body_position = if try_stmt.finalizer.is_some() {
-    Some(SingleBodyPosition::NextLine)
+    Some(SameOrNextLinePosition::NextLine)
   } else {
     None
   };
@@ -3583,6 +3583,7 @@ fn gen_jsx_namespaced_name<'a>(node: &'a JSXNamespacedName, context: &mut Contex
 fn gen_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Context<'a>) -> PrintItems {
   let space_before_self_closing_tag_slash = context.config.jsx_element_space_before_self_closing_tag_slash;
   let force_use_new_lines = get_force_is_multi_line(node, context);
+  let prefer_newline_before_close_bracket = get_should_prefer_newline_before_close_bracket(node, context);
   let start_lsil = LineStartIndentLevel::new("openingElementStart");
   let mut items = PrintItems::new();
 
@@ -3601,6 +3602,8 @@ fn gen_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Contex
       items.push_str(" ");
     }
   } else if !node.attrs.is_empty() {
+    let mut multi_line_options = ir_helpers::MultiLineOptions::surround_newlines_indented();
+    multi_line_options.newline_at_end = prefer_newline_before_close_bracket;
     items.extend(gen_separated_values(
       GenSeparatedValuesParams {
         nodes: node.attrs.iter().map(|p| NodeOrSeparator::Node(p.into())).collect(),
@@ -3611,7 +3614,7 @@ fn gen_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Contex
         single_line_space_at_start: true,
         single_line_space_at_end,
         custom_single_line_separator: None,
-        multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(),
+        multi_line_options,
         force_possible_newline_at_start: false,
         node_sorter: None,
       },
@@ -3633,12 +3636,12 @@ fn gen_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Contex
   }
 
   if node.self_closing() {
-    if node.attrs.is_empty() && space_before_self_closing_tag_slash {
+    if (node.attrs.is_empty() || !prefer_newline_before_close_bracket) && space_before_self_closing_tag_slash {
       items.push_str(""); // force current line indentation
       items.extend(space_if_not_start_line());
     }
     items.push_str("/");
-  } else if context.config.jsx_attributes_prefer_hanging {
+  } else if context.config.jsx_attributes_prefer_hanging && prefer_newline_before_close_bracket {
     items.push_condition(conditions::new_line_if_hanging(start_lsil, None));
   }
   items.push_str(">");
@@ -3652,6 +3655,20 @@ fn gen_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Contex
       node_helpers::get_use_new_lines_for_nodes(&node.name, first_attrib, context.program)
     } else {
       false
+    }
+  }
+
+  fn get_should_prefer_newline_before_close_bracket(node: &JSXOpeningElement, context: &mut Context) -> bool {
+    match context.config.jsx_bracket_position {
+      SameOrNextLinePosition::Maintain => {
+        if let Some(last_attr) = node.attrs.last() {
+          last_attr.end_line_fast(context.program) < node.end_line_fast(context.program)
+        } else {
+          false
+        }
+      }
+      SameOrNextLinePosition::NextLine => true,
+      SameOrNextLinePosition::SameLine => false,
     }
   }
 
@@ -4986,7 +5003,7 @@ fn gen_try_stmt<'a>(node: &'a TryStmt, context: &mut Context<'a>) -> PrintItems 
         body_node: node.block.into(),
         use_braces: UseBraces::Always, // braces required
         brace_position: context.config.try_statement_brace_position,
-        single_body_position: Some(SingleBodyPosition::NextLine),
+        single_body_position: Some(SameOrNextLinePosition::NextLine),
         requires_braces_condition_ref: None,
         start_header_info: None,
         end_header_info: None,
@@ -5030,7 +5047,7 @@ fn gen_try_stmt<'a>(node: &'a TryStmt, context: &mut Context<'a>) -> PrintItems 
           body_node: finalizer.into(),
           use_braces: UseBraces::Always, // braces required
           brace_position,
-          single_body_position: Some(SingleBodyPosition::NextLine),
+          single_body_position: Some(SameOrNextLinePosition::NextLine),
           requires_braces_condition_ref: None,
           start_header_info: None,
           end_header_info: None,
@@ -7949,7 +7966,7 @@ struct GenHeaderWithConditionalBraceBodyOptions<'a> {
   generated_header: PrintItems,
   use_braces: UseBraces,
   brace_position: BracePosition,
-  single_body_position: Option<SingleBodyPosition>,
+  single_body_position: Option<SameOrNextLinePosition>,
   requires_braces_condition_ref: Option<ConditionReference>,
 }
 
@@ -7998,7 +8015,7 @@ struct GenConditionalBraceBodyOptions<'a> {
   body_node: Node<'a>,
   use_braces: UseBraces,
   brace_position: BracePosition,
-  single_body_position: Option<SingleBodyPosition>,
+  single_body_position: Option<SameOrNextLinePosition>,
   requires_braces_condition_ref: Option<ConditionReference>,
   start_header_info: Option<(LineNumber, LineStartIndentLevel)>,
   end_header_info: Option<LineNumber>,
@@ -8240,7 +8257,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
   fn get_should_use_new_line<'a>(
     body_node: Node,
     body_should_be_multi_line: bool,
-    single_body_position: &Option<SingleBodyPosition>,
+    single_body_position: &Option<SameOrNextLinePosition>,
     context: &mut Context<'a>,
   ) -> bool {
     if body_should_be_multi_line {
@@ -8248,11 +8265,11 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
     }
     if let Some(single_body_position) = single_body_position {
       return match single_body_position {
-        SingleBodyPosition::Maintain => {
+        SameOrNextLinePosition::Maintain => {
           get_body_stmt_start_line(body_node, context) > body_node.previous_token_fast(context.program).start_line_fast(context.program)
         }
-        SingleBodyPosition::NextLine => true,
-        SingleBodyPosition::SameLine => {
+        SameOrNextLinePosition::NextLine => true,
+        SameOrNextLinePosition::SameLine => {
           if let Node::BlockStmt(block_stmt) = body_node {
             if block_stmt.stmts.len() != 1 {
               return true;

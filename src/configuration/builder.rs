@@ -128,6 +128,14 @@ impl ConfigurationBuilder {
     self.insert("jsx.forceNewLinesSurroundingContent", value.into())
   }
 
+  /// If the end angle bracket of a jsx open element or self closing element
+  /// should be on the same or next line when the attributes span multiple lines.
+  ///
+  /// Default: `nextLine`
+  pub fn jsx_bracket_position(&mut self, value: SameOrNextLinePosition) -> &mut Self {
+    self.insert("jsx.bracketPosition", value.to_string().into())
+  }
+
   /// Whether statements should end in a semi-colon.
   ///
   /// Default: `SemiColons::Prefer`
@@ -173,7 +181,7 @@ impl ConfigurationBuilder {
   /// Where to place the expression of a statement that could possibly be on one line (ex. `if (true) console.log(5);`).
   ///
   /// Default: SingleBodyPosition::Maintain
-  pub fn single_body_position(&mut self, value: SingleBodyPosition) -> &mut Self {
+  pub fn single_body_position(&mut self, value: SameOrNextLinePosition) -> &mut Self {
     self.insert("singleBodyPosition", value.to_string().into())
   }
 
@@ -769,23 +777,23 @@ impl ConfigurationBuilder {
 
   /* single body position */
 
-  pub fn if_statement_single_body_position(&mut self, value: SingleBodyPosition) -> &mut Self {
+  pub fn if_statement_single_body_position(&mut self, value: SameOrNextLinePosition) -> &mut Self {
     self.insert("ifStatement.singleBodyPosition", value.to_string().into())
   }
 
-  pub fn for_statement_single_body_position(&mut self, value: SingleBodyPosition) -> &mut Self {
+  pub fn for_statement_single_body_position(&mut self, value: SameOrNextLinePosition) -> &mut Self {
     self.insert("forStatement.singleBodyPosition", value.to_string().into())
   }
 
-  pub fn for_in_statement_single_body_position(&mut self, value: SingleBodyPosition) -> &mut Self {
+  pub fn for_in_statement_single_body_position(&mut self, value: SameOrNextLinePosition) -> &mut Self {
     self.insert("forInStatement.singleBodyPosition", value.to_string().into())
   }
 
-  pub fn for_of_statement_single_body_position(&mut self, value: SingleBodyPosition) -> &mut Self {
+  pub fn for_of_statement_single_body_position(&mut self, value: SameOrNextLinePosition) -> &mut Self {
     self.insert("forOfStatement.singleBodyPosition", value.to_string().into())
   }
 
-  pub fn while_statement_single_body_position(&mut self, value: SingleBodyPosition) -> &mut Self {
+  pub fn while_statement_single_body_position(&mut self, value: SameOrNextLinePosition) -> &mut Self {
     self.insert("whileStatement.singleBodyPosition", value.to_string().into())
   }
 
@@ -1038,11 +1046,12 @@ mod tests {
       .jsx_quote_style(JsxQuoteStyle::PreferSingle)
       .jsx_multi_line_parens(JsxMultiLineParens::Never)
       .jsx_force_new_lines_surrounding_content(true)
+      .jsx_bracket_position(SameOrNextLinePosition::Maintain)
       .semi_colons(SemiColons::Prefer)
       .brace_position(BracePosition::NextLine)
       .next_control_flow_position(NextControlFlowPosition::SameLine)
       .operator_position(OperatorPosition::SameLine)
-      .single_body_position(SingleBodyPosition::SameLine)
+      .single_body_position(SameOrNextLinePosition::SameLine)
       .trailing_commas(TrailingCommas::Never)
       .use_braces(UseBraces::WhenNotSingleLine)
       .quote_props(QuoteProps::AsNeeded)
@@ -1122,11 +1131,11 @@ mod tests {
       .conditional_expression_operator_position(OperatorPosition::SameLine)
       .conditional_type_operator_position(OperatorPosition::SameLine)
       /* single body position */
-      .if_statement_single_body_position(SingleBodyPosition::SameLine)
-      .for_statement_single_body_position(SingleBodyPosition::SameLine)
-      .for_in_statement_single_body_position(SingleBodyPosition::SameLine)
-      .for_of_statement_single_body_position(SingleBodyPosition::SameLine)
-      .while_statement_single_body_position(SingleBodyPosition::SameLine)
+      .if_statement_single_body_position(SameOrNextLinePosition::SameLine)
+      .for_statement_single_body_position(SameOrNextLinePosition::SameLine)
+      .for_in_statement_single_body_position(SameOrNextLinePosition::SameLine)
+      .for_of_statement_single_body_position(SameOrNextLinePosition::SameLine)
+      .while_statement_single_body_position(SameOrNextLinePosition::SameLine)
       /* trailing commas */
       .arguments_trailing_commas(TrailingCommas::Never)
       .parameters_trailing_commas(TrailingCommas::Never)
@@ -1219,7 +1228,7 @@ mod tests {
       .while_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 172);
+    assert_eq!(inner_config.len(), 173);
     let diagnostics = resolve_config(inner_config, &resolve_global_config(ConfigKeyMap::new(), &Default::default()).config).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

@@ -36,7 +36,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
   let brace_position = get_value(&mut config, "bracePosition", BracePosition::SameLineUnlessHanging, &mut diagnostics);
   let next_control_flow_position = get_value(&mut config, "nextControlFlowPosition", NextControlFlowPosition::SameLine, &mut diagnostics);
   let operator_position = get_value(&mut config, "operatorPosition", OperatorPosition::NextLine, &mut diagnostics);
-  let single_body_position = get_value(&mut config, "singleBodyPosition", SingleBodyPosition::Maintain, &mut diagnostics);
+  let single_body_position = get_value(&mut config, "singleBodyPosition", SameOrNextLinePosition::Maintain, &mut diagnostics);
   let trailing_commas = get_value(&mut config, "trailingCommas", TrailingCommas::OnlyMultiLine, &mut diagnostics);
   let use_braces = get_value(&mut config, "useBraces", UseBraces::WhenNotSingleLine, &mut diagnostics);
   let prefer_hanging = get_value(&mut config, "preferHanging", false, &mut diagnostics);
@@ -83,6 +83,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     jsx_quote_style: get_value(&mut config, "jsx.quoteStyle", quote_style.to_jsx_quote_style(), &mut diagnostics),
     jsx_multi_line_parens: get_value(&mut config, "jsx.multiLineParens", JsxMultiLineParens::Prefer, &mut diagnostics),
     jsx_force_new_lines_surrounding_content: get_value(&mut config, "jsx.forceNewLinesSurroundingContent", false, &mut diagnostics),
+    jsx_bracket_position: get_value(&mut config, "jsx.bracketPosition", SameOrNextLinePosition::NextLine, &mut diagnostics),
     member_expression_line_per_expression: get_value(&mut config, "memberExpression.linePerExpression", false, &mut diagnostics),
     type_literal_separator_kind_single_line: get_value(
       &mut config,
