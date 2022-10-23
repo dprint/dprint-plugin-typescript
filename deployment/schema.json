@@ -99,6 +99,21 @@
         "description": ""
       }]
     },
+    "jsx.bracketPosition": {
+      "description": "If the end angle bracket of a jsx open element or self closing element should be on the same or next line when the attributes span multiple lines.",
+      "type": "string",
+      "default": "nextLine",
+      "oneOf": [{
+        "const": "maintain",
+        "description": "Maintains the position of the end angle bracket."
+      }, {
+        "const": "sameLine",
+        "description": "Forces the end angle bracket to be on the same line."
+      }, {
+        "const": "nextLine",
+        "description": "Forces the end angle bracket to be on the next line."
+      }]
+    },
     "newLineKind": {
       "description": "The kind of newline to use.",
       "type": "string",
