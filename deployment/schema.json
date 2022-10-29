@@ -793,6 +793,18 @@
     "binaryExpression.linePerExpression": {
       "$ref": "#/definitions/binaryExpression.linePerExpression"
     },
+    "jsx.bracketPosition": {
+      "$ref": "#/definitions/jsx.bracketPosition"
+    },
+    "jsxOpeningElement.bracketPosition": {
+      "$ref": "#/definitions/jsx.bracketPosition"
+    },
+    "jsxSelfClosingElement.bracketPosition": {
+      "$ref": "#/definitions/jsx.bracketPosition"
+    },
+    "jsx.forceNewLinesSurroundingContent": {
+      "$ref": "#/definitions/jsx.forceNewLinesSurroundingContent"
+    },
     "jsx.quoteStyle": {
       "$ref": "#/definitions/jsx.quoteStyle"
     },
