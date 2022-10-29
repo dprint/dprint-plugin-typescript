@@ -186,7 +186,7 @@
     "nextControlFlowPosition": {
       "description": "Where to place the next control flow within a control flow statement.",
       "type": "string",
-      "default": "nextLine",
+      "default": "sameLine",
       "oneOf": [{
         "const": "maintain",
         "description": "Maintains the next control flow being on the next line or the same line."
