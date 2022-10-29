@@ -3611,13 +3611,9 @@ fn gen_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Contex
     items.extend(gen_node(type_args.into(), context));
   }
 
-  let single_line_space_at_end = node.self_closing() && space_before_self_closing_tag_slash;
   if node.attrs.len() == 1 && node.type_args.is_none() && is_jsx_attr_with_string(&node.attrs[0]) {
     items.push_str(" ");
     items.extend(gen_node(node.attrs[0].into(), context));
-    if single_line_space_at_end {
-      items.push_str(" ");
-    }
   } else if !node.attrs.is_empty() {
     let mut multi_line_options = ir_helpers::MultiLineOptions::surround_newlines_indented();
     multi_line_options.newline_at_end = prefer_newline_before_close_bracket;
@@ -3629,7 +3625,7 @@ fn gen_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Contex
         allow_blank_lines: false,
         separator: Separator::none(),
         single_line_space_at_start: true,
-        single_line_space_at_end,
+        single_line_space_at_end: false,
         custom_single_line_separator: None,
         multi_line_options,
         force_possible_newline_at_start: false,
@@ -3653,7 +3649,7 @@ fn gen_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Contex
   }
 
   if node.self_closing() {
-    if (node.attrs.is_empty() || !prefer_newline_before_close_bracket) && space_before_self_closing_tag_slash {
+    if space_before_self_closing_tag_slash {
       items.push_str(""); // force current line indentation
       items.extend(space_if_not_start_line());
     }
