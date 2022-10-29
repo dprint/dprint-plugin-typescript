@@ -34,5 +34,5 @@ serde_json = { version = "1.0", optional = true }
 
 [dev-dependencies]
 debug-here = "0.2"
-dprint-development = "0.9.1"
+dprint-development = "0.9.2"
 serde_json = { version = "1.0" }

@@ -7050,6 +7050,7 @@ where
           Signal::NewLine.into(),
         ));
       } else {
+        let last_comma_token = nodes.last().and_then(|n| context.token_finder.get_next_token_if_comma(n));
         items.extend(gen_separated_values(
           GenSeparatedValuesParams {
             nodes: nodes.into_iter().map(NodeOrSeparator::Node).collect(),
@@ -7066,6 +7067,10 @@ where
           },
           context,
         ));
+        // the comma may disappear, so generate any trailing comments on the same line
+        if let Some(last_comma_token) = last_comma_token {
+          items.extend(gen_trailing_comments_same_line(&last_comma_token.range(), context));
+        }
       }
 
       items
