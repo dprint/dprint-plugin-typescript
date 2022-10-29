@@ -3598,7 +3598,7 @@ fn gen_jsx_namespaced_name<'a>(node: &'a JSXNamespacedName, context: &mut Contex
 }
 
 fn gen_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Context<'a>) -> PrintItems {
-  let space_before_self_closing_tag_slash = context.config.jsx_space_before_self_closing_tag_slash;
+  let space_before_self_closing_tag_slash = context.config.jsx_self_closing_element_space_before_slash;
   let force_use_new_lines = get_force_is_multi_line(node, context);
   let prefer_newline_before_close_bracket = get_should_prefer_newline_before_close_bracket(node, context);
   let start_lsil = LineStartIndentLevel::new("openingElementStart");
@@ -3672,7 +3672,11 @@ fn gen_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Contex
   }
 
   fn get_should_prefer_newline_before_close_bracket(node: &JSXOpeningElement, context: &mut Context) -> bool {
-    match context.config.jsx_bracket_position {
+    let bracket_pos_config = match node.self_closing() {
+      true => context.config.jsx_self_closing_element_bracket_position,
+      false => context.config.jsx_opening_element_bracket_position,
+    };
+    match bracket_pos_config {
       SameOrNextLinePosition::Maintain => {
         if let Some(last_attr) = node.attrs.last() {
           last_attr.end_line_fast(context.program) < node.end_line_fast(context.program)

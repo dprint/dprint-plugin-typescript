@@ -1,5 +1,5 @@
 -- file.tsx --
-~~  lineWidth: 50, jsx.bracketPosition: maintain ~~
+~~  lineWidth: 50, jsxOpeningElement.bracketPosition: maintain ~~
 == should maintain the bracket position when there's attributes ==
 const t = (
     <Test
@@ -26,11 +26,6 @@ const w = (
         other={10}
     />
 );
-const x = (
-    <Test
-        prop={5}
-        other={10} />
-);
 
 [expect]
 const t = (
@@ -56,11 +51,6 @@ const w = (
         prop={5}
         other={10}
     />
-);
-const x = (
-    <Test
-        prop={5}
-        other={10} />
 );
 
 == should maintain for single line ==

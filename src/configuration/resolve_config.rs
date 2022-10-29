@@ -36,7 +36,13 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
   handle_renamed_config_property(
     &mut config,
     "jsxElement.spaceBeforeSelfClosingTagSlash",
+    "jsxSelfClosingElement.spaceBeforeSlash",
+    &mut diagnostics,
+  );
+  handle_renamed_config_property(
+    &mut config,
     "jsx.spaceBeforeSelfClosingTagSlash",
+    "jsxSelfClosingElement.spaceBeforeSlash",
     &mut diagnostics,
   );
 
@@ -55,6 +61,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
   let quote_style = get_value(&mut config, "quoteStyle", QuoteStyle::AlwaysDouble, &mut diagnostics);
   let quote_props = get_value(&mut config, "quoteProps", QuoteProps::Preserve, &mut diagnostics);
   let space_around = get_value(&mut config, "spaceAround", false, &mut diagnostics);
+  let jsx_bracket_position = get_value(&mut config, "jsx.bracketPosition", SameOrNextLinePosition::NextLine, &mut diagnostics);
 
   let resolved_config = Configuration {
     line_width: get_value(
@@ -91,7 +98,8 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     jsx_quote_style: get_value(&mut config, "jsx.quoteStyle", quote_style.to_jsx_quote_style(), &mut diagnostics),
     jsx_multi_line_parens: get_value(&mut config, "jsx.multiLineParens", JsxMultiLineParens::Prefer, &mut diagnostics),
     jsx_force_new_lines_surrounding_content: get_value(&mut config, "jsx.forceNewLinesSurroundingContent", false, &mut diagnostics),
-    jsx_bracket_position: get_value(&mut config, "jsx.bracketPosition", SameOrNextLinePosition::NextLine, &mut diagnostics),
+    jsx_opening_element_bracket_position: get_value(&mut config, "jsxOpeningElement.bracketPosition", jsx_bracket_position, &mut diagnostics),
+    jsx_self_closing_element_bracket_position: get_value(&mut config, "jsxSelfClosingElement.bracketPosition", jsx_bracket_position, &mut diagnostics),
     member_expression_line_per_expression: get_value(&mut config, "memberExpression.linePerExpression", false, &mut diagnostics),
     type_literal_separator_kind_single_line: get_value(
       &mut config,
@@ -268,7 +276,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     if_statement_space_after_if_keyword: get_value(&mut config, "ifStatement.spaceAfterIfKeyword", true, &mut diagnostics),
     import_declaration_space_surrounding_named_imports: get_value(&mut config, "importDeclaration.spaceSurroundingNamedImports", true, &mut diagnostics),
     jsx_expression_container_space_surrounding_expression: get_value(&mut config, "jsxExpressionContainer.spaceSurroundingExpression", false, &mut diagnostics),
-    jsx_space_before_self_closing_tag_slash: get_value(&mut config, "jsx.spaceBeforeSelfClosingTagSlash", true, &mut diagnostics),
+    jsx_self_closing_element_space_before_slash: get_value(&mut config, "jsxSelfClosingElement.spaceBeforeSlash", true, &mut diagnostics),
     method_space_before_parentheses: get_value(&mut config, "method.spaceBeforeParentheses", false, &mut diagnostics),
     object_expression_space_surrounding_properties: get_value(
       &mut config,

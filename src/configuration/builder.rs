@@ -128,12 +128,28 @@ impl ConfigurationBuilder {
     self.insert("jsx.forceNewLinesSurroundingContent", value.into())
   }
 
-  /// If the end angle bracket of a jsx open element or self closing element
+  /// If the end angle bracket of a jsx opening element or self closing element
   /// should be on the same or next line when the attributes span multiple lines.
   ///
   /// Default: `nextLine`
   pub fn jsx_bracket_position(&mut self, value: SameOrNextLinePosition) -> &mut Self {
     self.insert("jsx.bracketPosition", value.to_string().into())
+  }
+
+  /// If the end angle bracket of a jsx opening element should be on the same
+  /// or next line when the attributes span multiple lines.
+  ///
+  /// Default: `nextLine`
+  pub fn jsx_opening_element_bracket_position(&mut self, value: SameOrNextLinePosition) -> &mut Self {
+    self.insert("jsxOpeningElement.bracketPosition", value.to_string().into())
+  }
+
+  /// If the end angle bracket of a jsx self closing element should be on the same
+  /// or next line when the attributes span multiple lines.
+  ///
+  /// Default: `nextLine`
+  pub fn jsx_self_closing_element_bracket_position(&mut self, value: SameOrNextLinePosition) -> &mut Self {
+    self.insert("jsxSelfClosingElement.bracketPosition", value.to_string().into())
   }
 
   /// Whether statements should end in a semi-colon.
@@ -357,8 +373,8 @@ impl ConfigurationBuilder {
   ///
   /// * `true` (default) - Ex. `<Test />`
   /// * `false` - Ex. `<Test/>`
-  pub fn jsx_space_before_self_closing_tag_slash(&mut self, value: bool) -> &mut Self {
-    self.insert("jsx.spaceBeforeSelfClosingTagSlash", value.into())
+  pub fn jsx_self_closing_element_space_before_slash(&mut self, value: bool) -> &mut Self {
+    self.insert("jsxSelfClosingElement.spaceBeforeSlash", value.into())
   }
 
   /// Whether to add a space surrounding the properties of an object expression.
@@ -1047,6 +1063,8 @@ mod tests {
       .jsx_multi_line_parens(JsxMultiLineParens::Never)
       .jsx_force_new_lines_surrounding_content(true)
       .jsx_bracket_position(SameOrNextLinePosition::Maintain)
+      .jsx_opening_element_bracket_position(SameOrNextLinePosition::Maintain)
+      .jsx_self_closing_element_bracket_position(SameOrNextLinePosition::Maintain)
       .semi_colons(SemiColons::Prefer)
       .brace_position(BracePosition::NextLine)
       .next_control_flow_position(NextControlFlowPosition::SameLine)
@@ -1202,7 +1220,7 @@ mod tests {
       .if_statement_space_after_if_keyword(true)
       .import_declaration_space_surrounding_named_imports(true)
       .jsx_expression_container_space_surrounding_expression(true)
-      .jsx_space_before_self_closing_tag_slash(true)
+      .jsx_self_closing_element_space_before_slash(true)
       .method_space_before_parentheses(true)
       .object_expression_space_surrounding_properties(false)
       .object_pattern_space_surrounding_properties(false)
@@ -1228,7 +1246,7 @@ mod tests {
       .while_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 173);
+    assert_eq!(inner_config.len(), 175);
     let diagnostics = resolve_config(inner_config, &resolve_global_config(ConfigKeyMap::new(), &Default::default()).config).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

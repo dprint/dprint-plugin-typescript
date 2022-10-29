@@ -1,23 +1,11 @@
 -- file.tsx --
-~~  lineWidth: 50, jsx.bracketPosition: sameLine ~~
+~~  lineWidth: 50, jsxSelfClosingElement.bracketPosition: sameLine ~~
 == should move the bracket position to the same line ==
 const t = (
     <Test
     prop={5}
     other={10}>
         Test
-    </Test>
-);
-const u = (
-    <Test
-        prop={5}
-        other={10}
-    >
-    </Test>
-);
-const v = (
-    <Test
-    >
     </Test>
 );
 const w = (
@@ -31,18 +19,9 @@ const w = (
 const t = (
     <Test
         prop={5}
-        other={10}>
+        other={10}
+    >
         Test
-    </Test>
-);
-const u = (
-    <Test
-        prop={5}
-        other={10}>
-    </Test>
-);
-const v = (
-    <Test>
     </Test>
 );
 const w = (
@@ -53,8 +32,6 @@ const w = (
 
 == should maintain for single line ==
 const t = <MyComponent someProp={value} />;
-const u = <MyComponent></MyComponent>;
 
 [expect]
 const t = <MyComponent someProp={value} />;
-const u = <MyComponent></MyComponent>;

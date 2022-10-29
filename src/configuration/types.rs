@@ -289,8 +289,10 @@ pub struct Configuration {
   pub jsx_multi_line_parens: JsxMultiLineParens,
   #[serde(rename = "jsx.forceNewLinesSurroundingContent")]
   pub jsx_force_new_lines_surrounding_content: bool,
-  #[serde(rename = "jsx.bracketPosition")]
-  pub jsx_bracket_position: SameOrNextLinePosition,
+  #[serde(rename = "jsxOpeningElement.bracketPosition")]
+  pub jsx_opening_element_bracket_position: SameOrNextLinePosition,
+  #[serde(rename = "jsxSelfClosingElement.bracketPosition")]
+  pub jsx_self_closing_element_bracket_position: SameOrNextLinePosition,
   #[serde(rename = "memberExpression.linePerExpression")]
   pub member_expression_line_per_expression: bool,
   #[serde(rename = "typeLiteral.separatorKind.singleLine")]
@@ -559,8 +561,8 @@ pub struct Configuration {
   pub import_declaration_space_surrounding_named_imports: bool,
   #[serde(rename = "jsxExpressionContainer.spaceSurroundingExpression")]
   pub jsx_expression_container_space_surrounding_expression: bool,
-  #[serde(rename = "jsx.spaceBeforeSelfClosingTagSlash")]
-  pub jsx_space_before_self_closing_tag_slash: bool,
+  #[serde(rename = "jsxSelfClosingElement.spaceBeforeSlash")]
+  pub jsx_self_closing_element_space_before_slash: bool,
   #[serde(rename = "method.spaceBeforeParentheses")]
   pub method_space_before_parentheses: bool,
   #[serde(rename = "objectExpression.spaceSurroundingProperties")]
