@@ -1,0 +1,34 @@
+~~ lineWidth: 80, conditionalExpression.useNestedIndentation: true ~~
+== should handle nested indentation on a basic ternary / conditional expression ==
+const value = is_prod
+? do1()
+:  is_laptop
+? do2()
+: do3();
+
+[expect]
+const value = is_prod
+    ? do1()
+    : is_laptop
+        ? do2()
+        : do3();
+
+== should handle nested indentation with extends and mapped types ==
+export type R<S> = S extends Record<string, T<any, any>> ? { [K in keyof S]: ReturnType<S[K][1]> } : S extends T<infer _T, any>
+? _T extends Array<infer I>
+? I
+: _T : S extends SZ<infer _T, any> ? _T : S extends DZ<infer _T>
+? _T : never;
+
+[expect]
+export type R<S> = S extends Record<string, T<any, any>>
+    ? { [K in keyof S]: ReturnType<S[K][1]> }
+    : S extends T<infer _T, any>
+        ? _T extends Array<infer I>
+            ? I
+            : _T
+        : S extends SZ<infer _T, any>
+            ? _T
+            : S extends DZ<infer _T>
+                ? _T
+                : never;

@@ -405,6 +405,9 @@ pub struct Configuration {
   pub variable_statement_prefer_hanging: bool,
   #[serde(rename = "whileStatement.preferHanging")]
   pub while_statement_prefer_hanging: bool,
+  /* situational indentation */
+  #[serde(rename = "conditionalExpression.useNestedIndentation")]
+  pub conditional_expression_use_nested_indentation: bool,
   /* member spacing */
   #[serde(rename = "enumDeclaration.memberSpacing")]
   pub enum_declaration_member_spacing: MemberSpacing,

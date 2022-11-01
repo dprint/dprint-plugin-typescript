@@ -2180,6 +2180,9 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
     force_test_cons_newline = true;
     force_cons_alt_newline = true;
   }
+  let is_parent_conditional_expr = node.parent().kind() == NodeKind::CondExpr;
+  let is_nested_conditional = is_parent_conditional_expr || node.cons.kind() == NodeKind::CondExpr || node.alt.kind() == NodeKind::CondExpr;
+  let use_new_lines_for_nested_conditional = context.config.conditional_expression_use_nested_indentation && is_nested_conditional;
 
   let (question_position, colon_position) = get_operator_position(node, question_token, colon_token, context);
   let top_most_data = get_top_most_data(node, context);
@@ -2210,7 +2213,7 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
   items.push_anchor(LineNumberAnchor::new(end_ln));
   items.push_anchor(LineNumberAnchor::new(before_alternate_ln));
 
-  let multi_line_reevaluation = if force_test_cons_newline {
+  let multi_line_reevaluation = if force_test_cons_newline || use_new_lines_for_nested_conditional {
     items.push_signal(Signal::NewLine);
     None
   } else if line_per_expression {
@@ -2252,7 +2255,7 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
 
     items.extend(colon_comment_items.previous_lines);
 
-    if force_cons_alt_newline {
+    if force_cons_alt_newline || use_new_lines_for_nested_conditional {
       items.push_signal(Signal::NewLine);
     } else if line_per_expression {
       items.push_condition(conditions::new_line_if_multiple_lines_space_or_new_line_otherwise(
@@ -2282,7 +2285,7 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
     items
   };
 
-  if top_most_data.is_top_most {
+  if use_new_lines_for_nested_conditional {
     items.push_condition(conditions::indent_if_start_of_line(cons_and_alt_items));
   } else {
     items.push_condition(indent_if_sol_and_same_indent_as_top_most(cons_and_alt_items, top_most_data.il));
@@ -5212,10 +5215,13 @@ fn gen_array_type<'a>(node: &'a TsArrayType, context: &mut Context<'a>) -> Print
 }
 
 fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'a>) -> PrintItems {
-  let use_new_lines =
-    !context.config.conditional_type_prefer_single_line && node_helpers::get_use_new_lines_for_nodes(&node.true_type, &node.false_type, context.program);
   let top_most_data = get_top_most_data(node, context);
   let is_parent_conditional_type = node.parent().kind() == NodeKind::TsConditionalType;
+  let is_nested_conditional =
+    is_parent_conditional_type || node.true_type.kind() == NodeKind::TsConditionalType || node.false_type.kind() == NodeKind::TsConditionalType;
+  let use_new_lines_for_nested_conditional = context.config.conditional_expression_use_nested_indentation && is_nested_conditional;
+  let force_new_lines_for_false_type =
+    !context.config.conditional_type_prefer_single_line && node_helpers::get_use_new_lines_for_nodes(&node.true_type, &node.false_type, context.program);
   let mut items = PrintItems::new();
   let before_false_ln = LineNumber::new("beforeFalse");
   let question_token = context.token_finder.get_first_operator_after(&node.extends_type, "?").unwrap();
@@ -5243,7 +5249,9 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
     items
   })));
 
-  if question_comment_items.previous_lines.is_empty() {
+  if use_new_lines_for_nested_conditional {
+    items.push_signal(Signal::NewLine);
+  } else if question_comment_items.previous_lines.is_empty() {
     items.push_signal(Signal::SpaceOrNewLine);
   } else {
     items.extend(question_comment_items.previous_lines);
@@ -5275,7 +5283,7 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
   items.extend(colon_comment_items.previous_lines);
 
   // false type
-  if use_new_lines {
+  if force_new_lines_for_false_type || use_new_lines_for_nested_conditional {
     items.push_signal(Signal::NewLine);
   } else {
     items.push_condition(conditions::new_line_if_multiple_lines_space_or_new_line_otherwise(
@@ -5303,7 +5311,11 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
     items
   };
 
-  if is_parent_conditional_type {
+  // Unless `use_nested_indentation` is enabled, we keep the indentation the same. e.g.:
+  // type A<T> = T extends string ? 'string'
+  //     : T extends number ? 'number'
+  //     : T extends boolean ? 'boolean';
+  if !use_new_lines_for_nested_conditional && is_parent_conditional_type {
     items.extend(false_type_generated);
   } else {
     items.push_condition(conditions::indent_if_start_of_line(false_type_generated));
