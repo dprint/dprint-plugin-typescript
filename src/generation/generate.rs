@@ -5219,7 +5219,7 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
   let is_parent_conditional_type = node.parent().kind() == NodeKind::TsConditionalType;
   let is_nested_conditional =
     is_parent_conditional_type || node.true_type.kind() == NodeKind::TsConditionalType || node.false_type.kind() == NodeKind::TsConditionalType;
-  let use_new_lines_for_nested_conditional = context.config.conditional_expression_use_nested_indentation && is_nested_conditional;
+  let use_new_lines_for_nested_conditional = context.config.conditional_type_use_nested_indentation && is_nested_conditional;
   let force_new_lines_for_false_type =
     !context.config.conditional_type_prefer_single_line && node_helpers::get_use_new_lines_for_nodes(&node.true_type, &node.false_type, context.program);
   let mut items = PrintItems::new();

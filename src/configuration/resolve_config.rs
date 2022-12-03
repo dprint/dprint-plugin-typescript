@@ -171,6 +171,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     while_statement_prefer_hanging: get_value(&mut config, "whileStatement.preferHanging", prefer_hanging, &mut diagnostics),
     /* situational indentation */
     conditional_expression_use_nested_indentation: get_value(&mut config, "conditionalExpression.useNestedIndentation", false, &mut diagnostics),
+    conditional_type_use_nested_indentation: get_value(&mut config, "conditionalType.useNestedIndentation", false, &mut diagnostics),
     /* member spacing */
     enum_declaration_member_spacing: get_value(&mut config, "enumDeclaration.memberSpacing", MemberSpacing::Maintain, &mut diagnostics),
     /* next control flow position */

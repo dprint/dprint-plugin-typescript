@@ -748,8 +748,13 @@ impl ConfigurationBuilder {
   }
 
   /* situational indentation */
+
   pub fn conditional_expression_use_nested_indentation(&mut self, value: bool) -> &mut Self {
     self.insert("conditionalExpression.useNestedIndentation", value.into())
+  }
+
+  pub fn conditional_type_use_nested_indentation(&mut self, value: bool) -> &mut Self {
+    self.insert("conditionalType.useNestedIndentation", value.into())
   }
 
   /* force single line */
@@ -1145,6 +1150,7 @@ mod tests {
       .while_statement_prefer_hanging(true)
       /* situational indentation */
       .conditional_expression_use_nested_indentation(false)
+      .conditional_type_use_nested_indentation(false)
       /* member spacing */
       .enum_declaration_member_spacing(MemberSpacing::Maintain)
       /* next control flow position */
@@ -1253,7 +1259,7 @@ mod tests {
       .while_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 176);
+    assert_eq!(inner_config.len(), 177);
     let diagnostics = resolve_config(inner_config, &resolve_global_config(ConfigKeyMap::new(), &Default::default()).config).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

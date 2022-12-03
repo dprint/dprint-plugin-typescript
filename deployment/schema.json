@@ -805,6 +805,18 @@
         "description": "Don't use nested indentation."
       }]
     },
+    "conditionalType.useNestedIndentation": {
+      "description": "Whether to use nested indentation within conditional types.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Uses nested indentation in the true and false expressions."
+      }, {
+        "const": false,
+        "description": "Don't use nested indentation."
+      }]
+    },
     "jsx.bracketPosition": {
       "$ref": "#/definitions/jsx.bracketPosition"
     },

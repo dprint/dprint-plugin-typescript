@@ -408,6 +408,8 @@ pub struct Configuration {
   /* situational indentation */
   #[serde(rename = "conditionalExpression.useNestedIndentation")]
   pub conditional_expression_use_nested_indentation: bool,
+  #[serde(rename = "conditionalType.useNestedIndentation")]
+  pub conditional_type_use_nested_indentation: bool,
   /* member spacing */
   #[serde(rename = "enumDeclaration.memberSpacing")]
   pub enum_declaration_member_spacing: MemberSpacing,
