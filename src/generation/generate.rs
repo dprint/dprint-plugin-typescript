@@ -2180,9 +2180,9 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
     force_test_cons_newline = true;
     force_cons_alt_newline = true;
   }
-  let is_parent_conditional_expr = node.parent().kind() == NodeKind::CondExpr;
-  let is_nested_conditional = is_parent_conditional_expr || node.cons.kind() == NodeKind::CondExpr || node.alt.kind() == NodeKind::CondExpr;
-  let use_new_lines_for_nested_conditional = context.config.conditional_expression_use_nested_indentation && is_nested_conditional;
+  let use_new_lines_for_nested_conditional = context.config.conditional_expression_use_nested_indentation && {
+    node.parent().kind() == NodeKind::CondExpr || node.cons.kind() == NodeKind::CondExpr || node.alt.kind() == NodeKind::CondExpr
+  };
 
   let (question_position, colon_position) = get_operator_position(node, question_token, colon_token, context);
   let top_most_data = get_top_most_data(node, context);
@@ -2285,7 +2285,7 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
     items
   };
 
-  if use_new_lines_for_nested_conditional {
+  if top_most_data.is_top_most || use_new_lines_for_nested_conditional {
     items.push_condition(conditions::indent_if_start_of_line(cons_and_alt_items));
   } else {
     items.push_condition(indent_if_sol_and_same_indent_as_top_most(cons_and_alt_items, top_most_data.il));
@@ -5217,9 +5217,9 @@ fn gen_array_type<'a>(node: &'a TsArrayType, context: &mut Context<'a>) -> Print
 fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'a>) -> PrintItems {
   let top_most_data = get_top_most_data(node, context);
   let is_parent_conditional_type = node.parent().kind() == NodeKind::TsConditionalType;
-  let is_nested_conditional =
-    is_parent_conditional_type || node.true_type.kind() == NodeKind::TsConditionalType || node.false_type.kind() == NodeKind::TsConditionalType;
-  let use_new_lines_for_nested_conditional = context.config.conditional_type_use_nested_indentation && is_nested_conditional;
+  let use_new_lines_for_nested_conditional = context.config.conditional_type_use_nested_indentation && {
+    is_parent_conditional_type || node.true_type.kind() == NodeKind::TsConditionalType || node.false_type.kind() == NodeKind::TsConditionalType
+  };
   let force_new_lines_for_false_type =
     !context.config.conditional_type_prefer_single_line && node_helpers::get_use_new_lines_for_nodes(&node.true_type, &node.false_type, context.program);
   let mut items = PrintItems::new();
