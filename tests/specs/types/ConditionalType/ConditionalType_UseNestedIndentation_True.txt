@@ -18,3 +18,9 @@ export type R<S> = S extends Record<string, T<any, any>>
             : S extends DZ<infer _T>
                 ? _T
                 : never;
+
+== should keep on single line if fits on a single line ==
+type Test = A extends B ? C extends D ? c : d : e;
+
+[expect]
+type Test = A extends B ? C extends D ? c : d : e;
