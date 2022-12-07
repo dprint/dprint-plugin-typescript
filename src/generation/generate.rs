@@ -3902,7 +3902,10 @@ fn gen_string_literal<'a>(node: &'a Str, context: &mut Context<'a>) -> PrintItem
 
   fn get_string_value(node: &Str, context: &mut Context) -> String {
     let raw_string_text = node.text_fast(context.program);
-    let string_value = raw_string_text.chars().skip(1).take(raw_string_text.chars().count() - 2).collect::<String>();
+    if raw_string_text.len() <= 2 {
+      return String::new();
+    }
+    let string_value = &raw_string_text[1..raw_string_text.len() - 1];
     let is_double_quote = raw_string_text.starts_with('"');
 
     return match is_double_quote {
