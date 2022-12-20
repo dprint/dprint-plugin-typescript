@@ -15,6 +15,25 @@
       "environment": [],
       "externalConsole": false,
       "preLaunchTask": "cargo test build"
+    },
+    {
+      "name": "Debug Tests (macOS)",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": [
+          "test",
+          "--no-run",
+          "--test=test",
+          "--package=dprint-plugin-typescript"
+        ],
+        "filter": {
+          "name": "test",
+          "kind": "test"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
     }
   ]
 }
