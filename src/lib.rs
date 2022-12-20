@@ -1,4 +1,5 @@
 #![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::bool_to_int_with_if)]
 #![allow(clippy::comparison_chain)]
 #![allow(clippy::if_same_then_else)]
 #![allow(clippy::vec_init_then_push)]
