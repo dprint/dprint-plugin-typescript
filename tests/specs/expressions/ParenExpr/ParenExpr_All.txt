@@ -31,12 +31,16 @@ const a = (1);
 const b = ((((1))));
 const c = (1 + 1) + 1;
 const d = 1 + (1 + 1);
+// except here it should because of the type assertion
+const e = /** @type {number} */ (((1)));
 
 [expect]
 const a = 1;
 const b = 1;
 const c = (1 + 1) + 1;
 const d = 1 + (1 + 1);
+// except here it should because of the type assertion
+const e = /** @type {number} */ (1);
 
 == should ignore paren exprs within paren exprs ==
 (((test)));
