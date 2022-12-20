@@ -2728,6 +2728,14 @@ fn should_skip_paren_expr(node: &ParenExpr, context: &Context) -> bool {
     }
   }
 
+  if let Node::VarDeclarator(var_decl) = parent {
+    if let Some(init) = var_decl.init {
+      if init.range().contains(&node.range()) {
+        return true;
+      }
+    }
+  }
+
   // skip over an expr or spread if not a spread
   if let Some(expr_or_spread) = parent.to::<ExprOrSpread>() {
     // these should only appear in these nodes
