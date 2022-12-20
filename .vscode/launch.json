@@ -6,15 +6,22 @@
   "configurations": [
     {
       "name": "Debug Tests",
-      "type": "cppvsdbg",
+      "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/target/debug/test-f8914282c3a53115.exe",
+      "cargo": {
+        "args": [
+          "test",
+          "--no-run",
+          "--test=test",
+          "--package=dprint-plugin-typescript"
+        ],
+        "filter": {
+          "name": "test",
+          "kind": "test"
+        }
+      },
       "args": [],
-      "stopAtEntry": false,
-      "cwd": "${workspaceFolder}",
-      "environment": [],
-      "externalConsole": false,
-      "preLaunchTask": "cargo test build"
+      "cwd": "${workspaceFolder}"
     }
   ]
 }
