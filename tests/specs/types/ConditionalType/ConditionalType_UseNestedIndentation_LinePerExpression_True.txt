@@ -1,4 +1,4 @@
-~~ lineWidth: 80, conditionalType.useNestedIndentation: true ~~
+~~ lineWidth: 80, conditionalType.useNestedIndentation: true, conditionalType.linePerExpression: true ~~
 == should handle nested indentation with extends and mapped types ==
 export type R<S> = S extends Record<string, T<any, any>> ? { [K in keyof S]: ReturnType<S[K][1]> } : S extends T<infer _T, any>
 ? _T extends Array<infer I>
@@ -13,7 +13,8 @@ export type R<S> = S extends Record<string, T<any, any>>
         ? _T extends Array<infer I>
             ? I
             : _T
-        : S extends SZ<infer _T, any> ? _T
+        : S extends SZ<infer _T, any>
+            ? _T
             : S extends DZ<infer _T>
                 ? _T
                 : never;

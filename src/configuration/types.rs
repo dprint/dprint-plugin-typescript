@@ -283,6 +283,8 @@ pub struct Configuration {
   pub binary_expression_line_per_expression: bool,
   #[serde(rename = "conditionalExpression.linePerExpression")]
   pub conditional_expression_line_per_expression: bool,
+  #[serde(rename = "conditionalType.linePerExpression")]
+  pub conditional_type_line_per_expression: bool,
   #[serde(rename = "jsx.quoteStyle")]
   pub jsx_quote_style: JsxQuoteStyle,
   #[serde(rename = "jsx.multiLineParens")]
