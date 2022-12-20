@@ -2257,7 +2257,7 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
 
     items.extend(colon_comment_items.previous_lines);
 
-    if force_cons_alt_newline  {
+    if force_cons_alt_newline {
       items.push_signal(Signal::NewLine);
     } else if line_per_expression {
       items.push_condition(conditions::new_line_if_multiple_lines_space_or_new_line_otherwise(
