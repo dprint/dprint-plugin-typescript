@@ -6357,34 +6357,35 @@ fn gen_comment(comment: &Comment, context: &mut Context) -> Option<PrintItems> {
 
   return Some(match comment.kind {
     CommentKind::Block => {
-      if is_js_doc(&comment.text) {
-        gen_js_doc(comment, context)
+      if has_leading_astrisk_each_line(&comment.text) {
+        gen_js_doc_or_multiline_block(comment, context)
       } else {
+        // Single-line comment block
         ir_helpers::gen_js_like_comment_block(&comment.text)
       }
     }
     CommentKind::Line => ir_helpers::gen_js_like_comment_line(&comment.text, context.config.comment_line_force_space_after_slashes),
   });
 
-  fn is_js_doc(text: &str) -> bool {
-    // be strict about what a js doc is for now
-    if text.starts_with('*') && text.contains('\n') {
-      for line in text.trim().split('\n').skip(1) {
-        let first_non_whitespace = line.trim_start().chars().next();
-        if !matches!(first_non_whitespace, Some('*')) {
-          return false;
-        }
-      }
-
-      true
-    } else {
-      false
+  fn has_leading_astrisk_each_line(text: &str) -> bool {
+    if !text.contains('\n') {
+      return false;
     }
+
+    for line in text.trim().split('\n') {
+      let first_non_whitespace = line.trim_start().chars().next();
+      if !matches!(first_non_whitespace, Some('*')) {
+        return false;
+      }
+    }
+
+    true
   }
 }
 
-fn gen_js_doc(comment: &Comment, _context: &mut Context) -> PrintItems {
-  return lines_to_print_items(build_lines(comment));
+fn gen_js_doc_or_multiline_block(comment: &Comment, _context: &mut Context) -> PrintItems {
+  let is_js_doc = comment.text.starts_with('*');
+  return lines_to_print_items(is_js_doc, build_lines(comment));
 
   fn build_lines(comment: &Comment) -> Vec<&str> {
     let mut lines: Vec<&str> = Vec::new();
@@ -6411,7 +6412,7 @@ fn gen_js_doc(comment: &Comment, _context: &mut Context) -> PrintItems {
     0
   }
 
-  fn lines_to_print_items(lines: Vec<&str>) -> PrintItems {
+  fn lines_to_print_items(is_js_doc: bool, lines: Vec<&str>) -> PrintItems {
     let mut items = PrintItems::new();
 
     items.push_str("/*");
@@ -6421,8 +6422,12 @@ fn gen_js_doc(comment: &Comment, _context: &mut Context) -> PrintItems {
         items.push_signal(Signal::NewLine);
       }
       let mut text = String::new();
-      // leading asterisk
-      text.push_str(if i == 0 { "*" } else { " *" });
+      // leading asterisk on the first line for jsdoc only
+      if is_js_doc && i == 0 {
+        text.push_str("*");
+      } else if i > 0 {
+        text.push_str(" *");
+      }
 
       // line start space
       let is_space_or_asterisk = matches!(line.chars().next(), Some('*' | ' '));

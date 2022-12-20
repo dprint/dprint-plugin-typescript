@@ -73,6 +73,20 @@ class Test {
 class Test {
 }
 
+== should handle changing indentation of block comments ==
+      /*
+             * A
+        * B
+             */
+const t;
+
+[expect]
+/*
+ * A
+ * B
+ */
+const t;
+
 == should format comments in arguments ==
 call(/* test */5);
 
