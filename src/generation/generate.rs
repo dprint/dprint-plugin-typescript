@@ -4925,7 +4925,7 @@ fn gen_switch_case<'a>(node: &'a SwitchCase, context: &mut Context<'a>) -> Print
     items.push_str("default:");
   }
 
-  items.extend(gen_first_line_trailing_comments(&node.range(), node.cons.get(0).map(|x| x.range()), context));
+  items.extend(gen_trailing_comments_same_line(&colon_token.range(), context));
   let generated_trailing_comments = gen_trailing_comments_for_case(node, &block_stmt_body, context);
   if !node.cons.is_empty() {
     if let Some(block_stmt_body) = block_stmt_body {
@@ -6449,33 +6449,6 @@ fn gen_js_doc(comment: &Comment, _context: &mut Context) -> PrintItems {
   }
 }
 
-fn gen_first_line_trailing_comments<'a>(node: &dyn SourceRanged, first_member: Option<SourceRange>, context: &mut Context<'a>) -> PrintItems {
-  let mut items = PrintItems::new();
-  let node_start_line = node.start_line_fast(context.program);
-
-  for comment in get_comments(node, &first_member, context) {
-    if comment.start_line_fast(context.program) == node_start_line {
-      if let Some(generated_comment) = gen_comment(comment, context) {
-        if comment.kind == CommentKind::Line {
-          items.push_str(" ");
-        }
-        items.extend(generated_comment);
-      }
-    }
-  }
-
-  return items;
-
-  fn get_comments<'a>(node: &dyn SourceRanged, first_member: &Option<SourceRange>, context: &mut Context<'a>) -> Vec<&'a Comment> {
-    let mut comments = Vec::new();
-    if let Some(first_member) = first_member {
-      comments.extend(first_member.leading_comments_fast(context.program));
-    }
-    comments.extend(node.trailing_comments_fast(context.program));
-    comments
-  }
-}
-
 fn gen_trailing_comments<'a>(node: &dyn SourceRanged, context: &mut Context<'a>) -> PrintItems {
   let trailing_comments = node.trailing_comments_fast(context.program);
   gen_comments_as_trailing(node, trailing_comments, context)
@@ -7370,7 +7343,7 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
               let leading_comments = separator_token.leading_comments_fast(context.program);
               items.extend(gen_comment_collection(leading_comments, None, Some(&separator_token.range()), context));
               items.extend(generated_separator);
-              items.extend(gen_first_line_trailing_comments(&separator_token.range(), None, context));
+              items.extend(gen_trailing_comments_same_line(&separator_token.range(), context));
               items
             }
           }
