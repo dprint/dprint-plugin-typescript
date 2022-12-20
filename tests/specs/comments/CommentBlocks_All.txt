@@ -73,7 +73,7 @@ class Test {
 class Test {
 }
 
-== should handle changing indentation of block comments (only) ==
+== should handle changing indentation of block comments ==
       /*
              * A
         * B

@@ -6367,7 +6367,7 @@ fn gen_comment(comment: &Comment, context: &mut Context) -> Option<PrintItems> {
   fn is_js_doc_or_multiline_block(text: &str) -> bool {
     // be strict about what a js doc is for now
     if text.contains('\n') {
-      for line in text.trim().split('\n').skip(1) {
+      for line in text.trim().split('\n') {
         let first_non_whitespace = line.trim_start().chars().next();
         if !matches!(first_non_whitespace, Some('*')) {
           return false;
