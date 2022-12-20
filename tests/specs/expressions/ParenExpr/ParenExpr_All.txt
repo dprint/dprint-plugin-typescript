@@ -26,7 +26,7 @@ const test = (
 [expect]
 (x.test as unknown) = 6;
 
-== should not keep paren expr on right hand side of assignment (only) ==
+== should not keep paren expr on right hand side of assignment ==
 const a = (1);
 const b = ((((1))));
 const c = (1 + 1) + 1;
