@@ -6354,7 +6354,7 @@ fn gen_comment(comment: &Comment, context: &mut Context) -> Option<PrintItems> {
 
   return Some(match comment.kind {
     CommentKind::Block => {
-      if is_js_doc_or_multiline_block(&comment.text) {
+      if has_leading_astrisk_each_line(&comment.text) {
         gen_js_doc_or_multiline_block(comment, context)
       } else {
         // Single-line comment block
@@ -6364,20 +6364,19 @@ fn gen_comment(comment: &Comment, context: &mut Context) -> Option<PrintItems> {
     CommentKind::Line => ir_helpers::gen_js_like_comment_line(&comment.text, context.config.comment_line_force_space_after_slashes),
   });
 
-  fn is_js_doc_or_multiline_block(text: &str) -> bool {
-    // be strict about what a js doc is for now
-    if text.contains('\n') {
-      for line in text.trim().split('\n') {
-        let first_non_whitespace = line.trim_start().chars().next();
-        if !matches!(first_non_whitespace, Some('*')) {
-          return false;
-        }
-      }
-
-      true
-    } else {
-      false
+  fn has_leading_astrisk_each_line(text: &str) -> bool {
+    if !text.contains('\n') {
+      return false;
     }
+
+    for line in text.trim().split('\n') {
+      let first_non_whitespace = line.trim_start().chars().next();
+      if !matches!(first_non_whitespace, Some('*')) {
+        return false;
+      }
+    }
+
+    true
   }
 }
 
