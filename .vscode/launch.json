@@ -6,18 +6,6 @@
   "configurations": [
     {
       "name": "Debug Tests",
-      "type": "cppvsdbg",
-      "request": "launch",
-      "program": "${workspaceFolder}/target/debug/test-f8914282c3a53115.exe",
-      "args": [],
-      "stopAtEntry": false,
-      "cwd": "${workspaceFolder}",
-      "environment": [],
-      "externalConsole": false,
-      "preLaunchTask": "cargo test build"
-    },
-    {
-      "name": "Debug Tests (macOS)",
       "type": "lldb",
       "request": "launch",
       "cargo": {
