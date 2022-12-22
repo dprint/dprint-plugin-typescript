@@ -2722,9 +2722,23 @@ fn should_skip_paren_expr(node: &ParenExpr, context: &Context) -> bool {
     return true;
   }
 
+  // skip explicitly parsing this as a paren expr as that will be handled
+  // in the JSX element/fragment and it might collapse back to not having a paren expr
+  if matches!(node.expr.kind(), NodeKind::JSXElement | NodeKind::JSXFragment) {
+    return is_jsx_paren_expr_handled_node(node.expr.into(), context);
+  }
+
   if let Node::AssignExpr(assign_expr) = parent {
     if assign_expr.right.range().contains(&node.range()) {
       return true;
+    }
+  }
+
+  if let Node::VarDeclarator(var_decl) = parent {
+    if let Some(init) = var_decl.init {
+      if init.range().contains(&node.range()) {
+        return true;
+      }
     }
   }
 
@@ -2747,9 +2761,7 @@ fn should_skip_paren_expr(node: &ParenExpr, context: &Context) -> bool {
     }
   }
 
-  // skip explicitly parsing this as a paren expr as that will be handled
-  // in the JSX element/fragment and it might collapse back to not having a paren expr
-  is_jsx_paren_expr_handled_node(node.expr.into(), context)
+  false
 }
 
 fn gen_sequence_expr<'a>(node: &'a SeqExpr, context: &mut Context<'a>) -> PrintItems {
