@@ -39,7 +39,7 @@ fn parse_inner_no_diagnostic_check(file_path: &Path, text_info: SourceTextInfo) 
     maybe_syntax: None,
     media_type: file_path.into(),
     scope_analysis: false,
-    text_info: text_info.clone(),
+    text_info,
   })
   .map_err(|diagnostic| anyhow!("{:#}", &diagnostic))
 }

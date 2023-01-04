@@ -6436,7 +6436,7 @@ fn gen_js_doc_or_multiline_block(comment: &Comment, _context: &mut Context) -> P
       let mut text = String::new();
       // leading asterisk on the first line for jsdoc only
       if is_js_doc && i == 0 {
-        text.push_str("*");
+        text.push('*');
       } else if i > 0 {
         text.push_str(" *");
       }
