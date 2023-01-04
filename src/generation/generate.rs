@@ -202,7 +202,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       Node::Tpl(node) => gen_tpl(node, context),
       Node::TplElement(node) => gen_tpl_element(node, context),
       Node::TsAsExpr(node) => gen_as_expr(node, context),
-      Node::TsSatisfactionExpr(node) => gen_satisfaction_expr(node, context),
+      Node::TsSatisfiesExpr(node) => gen_satisfies_expr(node, context),
       Node::TsConstAssertion(node) => gen_const_assertion(node, context),
       Node::TsExprWithTypeArgs(node) => gen_expr_with_type_args(node, context),
       Node::TsNonNullExpr(node) => gen_non_null_expr(node, context),
@@ -1761,7 +1761,7 @@ fn gen_as_expr_like<'a>(node: AsExprLike<'a>, context: &mut Context<'a>) -> Prin
   items
 }
 
-fn gen_satisfaction_expr<'a>(node: &'a TsSatisfactionExpr<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_satisfies_expr<'a>(node: &'a TsSatisfiesExpr<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = gen_node(node.expr.into(), context);
   items.push_str(" satisfies");
   items.push_signal(Signal::SpaceIfNotTrailing);
