@@ -2735,9 +2735,11 @@ fn should_skip_paren_expr(node: &ParenExpr, context: &Context) -> bool {
   }
 
   if let Node::VarDeclarator(var_decl) = parent {
-    if let Some(init) = var_decl.init {
-      if init.range().contains(&node.range()) {
-        return true;
+    if node.expr.kind() != NodeKind::AssignExpr {
+      if let Some(init) = var_decl.init {
+        if init.range().contains(&node.range()) {
+          return true;
+        }
       }
     }
   }

@@ -26,7 +26,7 @@ tracing = ["dprint-core/tracing"]
 
 [dependencies]
 anyhow = "1.0.64"
-deno_ast = { version = "0.23.1", features = ["view"] }
+deno_ast = { version = "0.23.2", features = ["view"] }
 dprint-core = { version = "0.60.0", features = ["formatting"] }
 rustc-hash = "1.1.0"
 serde = { version = "1.0.144", features = ["derive"] }
