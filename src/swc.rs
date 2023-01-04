@@ -2,7 +2,6 @@ use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Result;
 use deno_ast::swc::parser::error::SyntaxError;
-use deno_ast::Diagnostic;
 use deno_ast::ParsedSource;
 use deno_ast::SourceTextInfo;
 use std::path::Path;
@@ -42,7 +41,7 @@ fn parse_inner_no_diagnostic_check(file_path: &Path, text_info: SourceTextInfo) 
     scope_analysis: false,
     text_info: text_info.clone(),
   })
-  .map_err(|diagnostic| anyhow!("{}", format_diagnostic(&diagnostic, &text_info)))
+  .map_err(|diagnostic| anyhow!("{:#}", &diagnostic))
 }
 
 pub fn ensure_no_specific_syntax_errors(parsed_source: &ParsedSource) -> Result<()> {
@@ -78,11 +77,11 @@ pub fn ensure_no_specific_syntax_errors(parsed_source: &ParsedSource) -> Result<
     Ok(())
   } else {
     let mut final_message = String::new();
-    for error in diagnostics {
+    for diagnostic in diagnostics {
       if !final_message.is_empty() {
         final_message.push_str("\n\n");
       }
-      final_message.push_str(&format_diagnostic(error, parsed_source.text_info()));
+      final_message.push_str(&format!("{}", diagnostic));
     }
     bail!("{}", final_message)
   }
@@ -92,15 +91,10 @@ fn get_lowercase_extension(file_path: &Path) -> Option<String> {
   file_path.extension().and_then(|e| e.to_str()).map(|f| f.to_lowercase())
 }
 
-fn format_diagnostic(error: &Diagnostic, text_info: &SourceTextInfo) -> String {
-  let file_text = text_info.text_str();
-  let range = error.range.as_byte_range(text_info.range().start);
-  dprint_core::formatting::utils::string_utils::format_diagnostic(Some((range.start, range.end)), &error.message(), file_text)
-}
-
 #[cfg(test)]
 mod tests {
   use crate::configuration::ConfigurationBuilder;
+  use pretty_assertions::assert_eq;
 
   use super::*;
   use std::path::PathBuf;
@@ -110,7 +104,7 @@ mod tests {
     run_fatal_diagnostic_test(
       "./test.ts",
       "test;\nas#;",
-      concat!("Line 2, column 3: Expected ';', '}' or <eof>\n", "\n", "  as#;\n", "    ~"),
+      concat!("Expected ';', '}' or <eof> at ./test.ts:2:3\n", "\n", "  as#;\n", "    ~"),
     );
   }
 
@@ -121,7 +115,7 @@ mod tests {
       "./test.ts",
       "+value.",
       concat!(
-        "Line 1, column 8: Unexpected eof\n\n",
+        "Unexpected eof at ./test.ts:1:8\n\n",
         "  +value.\n",
         // this excess whitespace is a bug, but not a big deal
         "         "
@@ -135,7 +129,7 @@ mod tests {
     run_fatal_diagnostic_test(
       "./test.ts",
       "+value.;",
-      concat!("Line 1, column 8: Expected ident\n\n", "  +value.;\n", "         ~"),
+      concat!("Expected ident at ./test.ts:1:8\n\n", "  +value.;\n", "         ~"),
     );
   }
 
@@ -145,13 +139,13 @@ mod tests {
       "./test.ts",
       concat!(
         "test;\n",
-        r#"console.log("x", `duration ${d} not in range - ${min} ≥ ${d} && ${max} ≥ ${d}`),;"#,
+        r#"console.log('x', `duration ${d} not in range - ${min} ≥ ${d} && ${max} ≥ ${d}`),;"#,
       ),
       concat!(
-        "Line 2, column 81: Expression expected\n",
+        "Expression expected at ./test.ts:2:81\n",
         "\n",
-        "   && ${max} ≥ ${d}`),;\n",
-        "                      ~"
+        "  console.log('x', `duration ${d} not in range - ${min} ≥ ${d} && ${max} ≥ ${d}`),;\n",
+        "                                                                                  ~",
       ),
     );
   }
@@ -166,7 +160,7 @@ mod tests {
     run_non_fatal_diagnostic_test(
       "./test.ts",
       "const Methods {\nf: (x, y) => x + y,\n};",
-      concat!("Line 1, column 15: Expected a semicolon\n", "\n", "  const Methods {\n", "                ~"),
+      concat!("Expected a semicolon at ./test.ts:1:15\n", "\n", "  const Methods {\n", "                ~"),
     );
   }
 
@@ -176,7 +170,7 @@ mod tests {
       "./test.ts",
       "let a = 0, let b = 1;",
       concat!(
-        "Line 1, column 16: Expected a semicolon\n",
+        "Expected a semicolon at ./test.ts:1:16\n",
         "\n",
         "  let a = 0, let b = 1;\n",
         "                 ~"
@@ -189,7 +183,7 @@ mod tests {
     run_non_fatal_diagnostic_test(
       "./test.ts",
       "type T =\n  | unknown\n  { } & unknown;",
-      concat!("Line 3, column 7: Expression expected\n\n", "    { } & unknown;\n", "        ~"),
+      concat!("Expression expected at ./test.ts:3:7\n\n", "    { } & unknown;\n", "        ~"),
     );
   }
 
@@ -201,13 +195,13 @@ mod tests {
     run_non_fatal_diagnostic_test(
       "./test.ts",
       "class Test {",
-      concat!("Line 1, column 12: Expected '}', got '<eof>'\n\n", "  class Test {\n", "             ~"),
+      concat!("Expected '}', got '<eof>' at ./test.ts:1:12\n\n", "  class Test {\n", "             ~"),
     );
   }
 
   fn run_non_fatal_diagnostic_test(file_path: &str, text: &str, expected: &str) {
     let file_path = PathBuf::from(file_path);
-    assert_eq!(parse_swc_ast(&file_path, text).err().unwrap().to_string(), expected);
+    assert_eq!(format!("{}", parse_swc_ast(&file_path, text).err().unwrap()), expected);
 
     // this error should also be surfaced in `format_parsed_source` if someone provides
     // a source file that had a non-fatal diagnostic
