@@ -115,10 +115,10 @@ mod tests {
       "./test.ts",
       "+value.",
       concat!(
+        // comment to keep this multi-line
         "Unexpected eof at ./test.ts:1:8\n\n",
         "  +value.\n",
-        // this excess whitespace is a bug, but not a big deal
-        "         "
+        "         ~"
       ),
     );
   }
