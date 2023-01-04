@@ -148,10 +148,7 @@ mod tests {
         r#"console.log("x", `duration ${d} not in range - ${min} ≥ ${d} && ${max} ≥ ${d}`),;"#,
       ),
       concat!(
-        // quite the diagnostic!
-        "Line 2, column 81: Unexpected token `;`. Expected this, import, async, function, [ for array literal, ",
-        "{ for object literal, @ for decorator, function, class, null, true, false, number, bigint, string, ",
-        "regexp, ` for template literal, (, or an identifier\n",
+        "Line 2, column 81: Expression expected\n",
         "\n",
         "   && ${max} ≥ ${d}`),;\n",
         "                      ~"
