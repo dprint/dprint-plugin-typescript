@@ -247,6 +247,20 @@ pub enum SemiColonOrComma {
 
 generate_str_to_from![SemiColonOrComma, [SemiColon, "semiColon"], [Comma, "comma"]];
 
+/// Whether to use semi-colons, commas or new lines.
+#[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SemiColonOrCommaOrNewLine {
+  /// Use semi colons (default).
+  SemiColon,
+  /// Use commas.
+  Comma,
+  /// Use new lines.
+  NewLine,
+}
+
+generate_str_to_from![SemiColonOrCommaOrNewLine, [SemiColon, "semiColon"], [Comma, "comma"], [NewLine, "newLine"]];
+
 /// The kind of sort ordering to use.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -298,7 +312,7 @@ pub struct Configuration {
   #[serde(rename = "typeLiteral.separatorKind.singleLine")]
   pub type_literal_separator_kind_single_line: SemiColonOrComma,
   #[serde(rename = "typeLiteral.separatorKind.multiLine")]
-  pub type_literal_separator_kind_multi_line: SemiColonOrComma,
+  pub type_literal_separator_kind_multi_line: SemiColonOrCommaOrNewLine,
   /* sorting */
   #[serde(rename = "module.sortImportDeclarations")]
   pub module_sort_import_declarations: SortOrder,

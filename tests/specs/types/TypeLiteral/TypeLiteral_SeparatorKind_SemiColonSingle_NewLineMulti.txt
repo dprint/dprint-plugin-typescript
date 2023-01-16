@@ -1,0 +1,38 @@
+~~ typeLiteral.separatorKind.singleLine: semiColon, typeLiteral.separatorKind.multiLine: newLine, lineWidth: 40 ~~
+== should use commas when single line ==
+type Test = { p: string, u: number };
+
+[expect]
+type Test = { p: string; u: number };
+
+== should use newlines when multi-line ==
+type Test = {
+    p: string, u: number };
+
+[expect]
+type Test = {
+    p: string
+    u: number
+};
+
+== should use newlines going from single line to multi ==
+type Test = { p: string; u: number; test: other };
+
+[expect]
+type Test = {
+    p: string
+    u: number
+    test: other
+};
+
+== should handle comments after semi-colons ==
+type Test = {
+    p: string; // testing
+    u: number; // testing
+    };
+
+[expect]
+type Test = {
+    p: string // testing
+    u: number // testing
+};

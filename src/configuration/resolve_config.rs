@@ -63,6 +63,14 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
   let space_around = get_value(&mut config, "spaceAround", false, &mut diagnostics);
   let jsx_bracket_position = get_value(&mut config, "jsx.bracketPosition", SameOrNextLinePosition::NextLine, &mut diagnostics);
 
+  let type_literal_separator_kind_multi_line = match get_nullable_value(&mut config, "typeLiteral.separatorKind.multiLine", &mut diagnostics) {
+    Some(value) => value,
+    None => match type_literal_separator_kind {
+      SemiColonOrComma::SemiColon => SemiColonOrCommaOrNewLine::SemiColon,
+      SemiColonOrComma::Comma => SemiColonOrCommaOrNewLine::Comma
+    }
+  };
+
   let resolved_config = Configuration {
     line_width: get_value(
       &mut config,
@@ -110,7 +118,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     type_literal_separator_kind_multi_line: get_value(
       &mut config,
       "typeLiteral.separatorKind.multiLine",
-      type_literal_separator_kind,
+      type_literal_separator_kind_multi_line,
       &mut diagnostics,
     ),
     /* sorting */

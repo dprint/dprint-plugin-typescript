@@ -509,7 +509,7 @@ impl ConfigurationBuilder {
   }
 
   /// The kind of separator to use in type literals when multi-line.
-  pub fn type_literal_separator_kind_multi_line(&mut self, value: SemiColonOrComma) -> &mut Self {
+  pub fn type_literal_separator_kind_multi_line(&mut self, value: SemiColonOrCommaOrNewLine) -> &mut Self {
     self.insert("typeLiteral.separatorKind.multiLine", value.to_string().into())
   }
 
@@ -1081,7 +1081,7 @@ mod tests {
       .member_expression_line_per_expression(false)
       .type_literal_separator_kind(SemiColonOrComma::Comma)
       .type_literal_separator_kind_single_line(SemiColonOrComma::Comma)
-      .type_literal_separator_kind_multi_line(SemiColonOrComma::Comma)
+      .type_literal_separator_kind_multi_line(SemiColonOrCommaOrNewLine::Comma)
       /* sorting */
       .module_sort_import_declarations(SortOrder::Maintain)
       .module_sort_export_declarations(SortOrder::Maintain)
