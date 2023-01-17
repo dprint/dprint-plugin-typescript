@@ -1456,11 +1456,16 @@ fn gen_named_import_or_export_specifiers<'a>(opts: GenNamedImportOrExportSpecifi
 /* expressions */
 
 fn gen_array_expr<'a>(node: &'a ArrayLit, context: &mut Context<'a>) -> PrintItems {
+  let prefer_hanging = match context.config.array_expression_prefer_hanging {
+    PreferHanging::Never => false,
+    PreferHanging::OnlySingleItem => node.elems.len() == 1,
+    PreferHanging::Always => true,
+  };
   gen_array_like_nodes(
     GenArrayLikeNodesOptions {
       node: node.into(),
       nodes: node.elems.iter().map(|&x| x.map(|elem| elem.into())).collect(),
-      prefer_hanging: context.config.array_expression_prefer_hanging,
+      prefer_hanging,
       prefer_single_line: context.config.array_expression_prefer_single_line,
       trailing_commas: context.config.array_expression_trailing_commas,
       space_around: context.config.array_expression_space_around,
@@ -5772,11 +5777,16 @@ fn gen_tpl_lit_type<'a>(node: &'a TsTplLitType, context: &mut Context<'a>) -> Pr
 }
 
 fn gen_tuple_type<'a>(node: &'a TsTupleType, context: &mut Context<'a>) -> PrintItems {
+  let prefer_hanging = match context.config.tuple_type_prefer_hanging {
+    PreferHanging::Never => false,
+    PreferHanging::OnlySingleItem => node.elem_types.len() == 1,
+    PreferHanging::Always => true,
+  };
   gen_array_like_nodes(
     GenArrayLikeNodesOptions {
       node: node.into(),
       nodes: node.elem_types.iter().map(|&x| Some(x.into())).collect(),
-      prefer_hanging: context.config.tuple_type_prefer_hanging,
+      prefer_hanging,
       prefer_single_line: context.config.tuple_type_prefer_single_line,
       trailing_commas: context.config.tuple_type_trailing_commas,
       space_around: context.config.tuple_type_space_around,
@@ -5834,12 +5844,20 @@ fn gen_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -
   let params = node.params();
   let force_use_new_lines = get_use_new_lines(&node, &params, context);
   let mut items = PrintItems::new();
+  let prefer_hanging_config = context.config.type_parameters_prefer_hanging;
+  let is_only_single_item_and_no_comments =
+    only_single_item_and_no_comments(&params, node.tokens_fast(context.program).last(), context);
+  let prefer_hanging = match prefer_hanging_config {
+    PreferHanging::Never => false,
+    PreferHanging::OnlySingleItem => is_only_single_item_and_no_comments,
+    PreferHanging::Always => true,
+  };
 
   items.push_str("<");
   items.extend(gen_separated_values(
     GenSeparatedValuesParams {
       nodes: params.into_iter().map(NodeOrSeparator::Node).collect(),
-      prefer_hanging: context.config.type_parameters_prefer_hanging,
+      prefer_hanging,
       force_use_new_lines,
       allow_blank_lines: false,
       separator: get_trailing_commas(&node, context).into(),
@@ -6999,18 +7017,30 @@ where
   F: FnOnce(&mut Context<'a>) -> Option<PrintItems>,
 {
   let is_parameters = opts.is_parameters;
-  let prefer_single_line = is_parameters && context.config.parameters_prefer_single_line || !is_parameters && context.config.arguments_prefer_single_line;
+
+  let prefer_hanging_config = if is_parameters {
+    context.config.parameters_prefer_hanging
+  } else {
+    context.config.arguments_prefer_hanging
+  };
+  let is_only_single_item_and_no_comments =
+    only_single_item_and_no_comments(&opts.nodes, opts.node.tokens_fast(context.program).last(), context);
+  let prefer_hanging = match prefer_hanging_config {
+    PreferHanging::Never => false,
+    PreferHanging::OnlySingleItem => is_only_single_item_and_no_comments,
+    PreferHanging::Always => true,
+  };
+
+  let is_single_item_hanging = prefer_hanging_config == PreferHanging::OnlySingleItem && is_only_single_item_and_no_comments;
+  let prefer_single_line = is_single_item_hanging || (
+    is_parameters && context.config.parameters_prefer_single_line || !is_parameters && context.config.arguments_prefer_single_line
+  );
   let force_use_new_lines = get_use_new_lines_for_nodes_with_preceeding_token("(", &opts.nodes, prefer_single_line, context);
   let range = opts.range;
   let custom_close_paren = opts.custom_close_paren;
   let first_member_range = opts.nodes.iter().map(|n| n.range()).next();
   let nodes = opts.nodes;
   let nodes_length = nodes.len();
-  let prefer_hanging = if is_parameters {
-    context.config.parameters_prefer_hanging
-  } else {
-    context.config.arguments_prefer_hanging
-  };
   let space_around = if nodes_length > 0 && is_parameters {
     context.config.parameters_space_around
   } else if nodes_length > 0 {
@@ -7200,7 +7230,7 @@ fn gen_close_paren_with_type<'a>(opts: GenCloseParenWithTypeOptions<'a>, context
     fn get_use_new_line_group(param_count: usize, type_node: Node, context: &mut Context) -> bool {
       if param_count == 0 {
         false
-      } else if context.config.parameters_prefer_hanging && param_count > 1 {
+      } else if context.config.parameters_prefer_hanging == PreferHanging::Always && param_count > 1 {
         // This was done to prevent the second argument becoming hanging, which doesn't
         // look good especially when the return type then becomes multi-line.
         match type_node {
@@ -9345,4 +9375,36 @@ fn get_tokens_from_children_with_tokens<'a>(node: Node<'a>, program: &Program<'a
       _ => None,
     })
     .collect::<Vec<_>>()
+}
+
+/* Comments are sometimes confusingly stored as leading comments on the final token.
+For example:
+```javascript
+foo.bar(
+  'hey',
+  // I'm a leading comment on the ')' instead of a trailing comment on the arguments list!
+);
+```
+*/
+fn only_single_item_and_no_comments(
+  nodes: &[Node],
+  last_token: Option<&TokenAndSpan>,
+  context: &mut Context
+) -> bool {
+  if nodes.len() != 1 {
+    return false;
+  }
+  // Check for leading or trailing comments on the only child node
+  let child = nodes[0];
+  let child_leading_comments = child.leading_comments_fast(context.program);
+  let child_trailing_comments = child.trailing_comments_fast(context.program);
+  if !child_leading_comments.is_empty() || !child_trailing_comments.is_empty() {
+    return false;
+  }
+  // Check for a final trailing comment (which is considered a leading comment on the close token)
+  return if let Some(last_token) = last_token {
+    last_token.leading_comments_fast(context.program).is_empty()
+  } else {
+    false
+  }
 }

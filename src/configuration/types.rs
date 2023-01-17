@@ -3,6 +3,25 @@ use dprint_core::generate_str_to_from;
 use serde::Deserialize;
 use serde::Serialize;
 
+#[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PreferHanging {
+  /// Always prefer multi-line indentation
+  Never,
+  /// Prefer hanging indentation for sequences with only a single item, but if there are multiple
+  /// items then use multi-line indentation
+  OnlySingleItem,
+  /// Always prefer hanging indentation
+  Always,
+}
+
+generate_str_to_from![PreferHanging,
+  // Existing options (from upstream)
+  [Never, "false"], [Always, "true"],
+  // Modified options (from canva fork)
+  [Never, "never"], [OnlySingleItem, "onlySingleItem"], [Always, "always"]
+];
+
 /// Semi colon possibilities.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -358,9 +377,9 @@ pub struct Configuration {
   pub while_statement_brace_position: BracePosition,
   /* prefer hanging */
   #[serde(rename = "arguments.preferHanging")]
-  pub arguments_prefer_hanging: bool,
+  pub arguments_prefer_hanging: PreferHanging,
   #[serde(rename = "arrayExpression.preferHanging")]
-  pub array_expression_prefer_hanging: bool,
+  pub array_expression_prefer_hanging: PreferHanging,
   #[serde(rename = "arrayPattern.preferHanging")]
   pub array_pattern_prefer_hanging: bool,
   #[serde(rename = "doWhileStatement.preferHanging")]
@@ -388,17 +407,17 @@ pub struct Configuration {
   #[serde(rename = "objectPattern.preferHanging")]
   pub object_pattern_prefer_hanging: bool,
   #[serde(rename = "parameters.preferHanging")]
-  pub parameters_prefer_hanging: bool,
+  pub parameters_prefer_hanging: PreferHanging,
   #[serde(rename = "sequenceExpression.preferHanging")]
   pub sequence_expression_prefer_hanging: bool,
   #[serde(rename = "switchStatement.preferHanging")]
   pub switch_statement_prefer_hanging: bool,
   #[serde(rename = "tupleType.preferHanging")]
-  pub tuple_type_prefer_hanging: bool,
+  pub tuple_type_prefer_hanging: PreferHanging,
   #[serde(rename = "typeLiteral.preferHanging")]
   pub type_literal_prefer_hanging: bool,
   #[serde(rename = "typeParameters.preferHanging")]
-  pub type_parameters_prefer_hanging: bool,
+  pub type_parameters_prefer_hanging: PreferHanging,
   #[serde(rename = "unionAndIntersectionType.preferHanging")]
   pub union_and_intersection_type_prefer_hanging: bool,
   #[serde(rename = "variableStatement.preferHanging")]
