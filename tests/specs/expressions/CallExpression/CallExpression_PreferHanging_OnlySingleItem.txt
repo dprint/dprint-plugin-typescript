@@ -1,0 +1,91 @@
+~~ arguments.preferHanging: onlySingleItem, multiLine.forceMultipleMultiLineSiblingsToUseMultiLines: true, lineWidth: 40 ~~
+== should use hanging indentation for a single item ==
+call(new Foo({ test: "a", bar: "b", baz: "c" }));
+
+[expect]
+call(new Foo({
+    test: "a",
+    bar: "b",
+    baz: "c",
+}));
+
+== should use multi-line indentation if there are multiple items ==
+call(new Foo({ test: "a", }), new Bar(), baz);
+
+[expect]
+call(
+    new Foo({ test: "a" }),
+    new Bar(),
+    baz,
+);
+
+== should use multi-line indentation if there is a leading comment, even for a single item ==
+fetchMock.mockResponses(
+    // getVideoFileUrl
+    [
+        "Forbidden",
+        { status: 403 },
+    ],
+);
+
+[expect]
+fetchMock.mockResponses(
+    // getVideoFileUrl
+    [
+        "Forbidden",
+        { status: 403 },
+    ],
+);
+
+== should use multi-line indentation if there is a trailing comment, even for a single item ==
+fetchMock.mockResponses(
+    [
+        "Forbidden",
+        { status: 403 },
+    ],
+    // getVideoFileUrl
+);
+
+fetchMock.mockResponses(
+    [
+        "Forbidden",
+        { status: 403 },
+    ], // getVideoFileUrl
+);
+
+[expect]
+fetchMock.mockResponses(
+    [
+        "Forbidden",
+        { status: 403 },
+    ],
+    // getVideoFileUrl
+);
+
+fetchMock.mockResponses(
+    [
+        "Forbidden",
+        { status: 403 },
+    ], // getVideoFileUrl
+);
+
+== should use hanging indentation if the first argument is an arrow function, and the second argument is not ==
+setTimeout(() => {
+someBody;
+}, 500);
+
+[expect]
+setTimeout(() => {
+    someBody;
+}, 500);
+
+== should use multi-line indentation if there are multiple arrow function arguments ==
+reaction(() => { console.log("a"); }, () => b);
+
+[expect]
+reaction(
+    () => {
+        console.log("a");
+    },
+    () => b,
+);
