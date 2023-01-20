@@ -114,6 +114,12 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
       type_literal_separator_kind,
       &mut diagnostics,
     ),
+    multi_line_force_multiple_multi_line_siblings_to_use_multi_lines: get_value(
+      &mut config,
+       "multiLine.forceMultipleMultiLineSiblingsToUseMultiLines",
+      false,
+      &mut diagnostics,
+    ),
     /* sorting */
     module_sort_import_declarations: get_value(&mut config, "module.sortImportDeclarations", SortOrder::CaseInsensitive, &mut diagnostics),
     module_sort_export_declarations: get_value(&mut config, "module.sortExportDeclarations", SortOrder::CaseInsensitive, &mut diagnostics),

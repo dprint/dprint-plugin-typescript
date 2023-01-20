@@ -51,9 +51,9 @@ fn gen_node<'a>(node: Node<'a>, context: &mut Context<'a>) -> PrintItems {
 
 fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_gen: impl FnOnce(PrintItems, &mut Context<'a>) -> PrintItems) -> PrintItems {
   let node_kind = node.kind();
-  // println!("Node kind: {:?}", node_kind);
-  // println!("Text: {:?}", node.text());
-  // println!("Range: {:?}", node.range());
+  println!("Node kind: {:?}", node_kind);
+  println!("Text: {:?}", node.text());
+  println!("Range: {:?}", node.range());
 
   // store info
   let past_current_node = std::mem::replace(&mut context.current_node, node);
@@ -2775,7 +2775,10 @@ fn gen_sequence_expr<'a>(node: &'a SeqExpr, context: &mut Context<'a>) -> PrintI
   gen_separated_values(
     GenSeparatedValuesParams {
       nodes: node.exprs.iter().map(|x| NodeOrSeparator::Node(x.into())).collect(),
-      prefer_hanging: context.config.sequence_expression_prefer_hanging,
+      prefer_hanging: match context.config.sequence_expression_prefer_hanging {
+        true => PreferHanging::Always,
+        false => PreferHanging::Never,
+      },
       force_use_new_lines: false,
       allow_blank_lines: false,
       separator: TrailingCommas::Never.into(),
@@ -3639,7 +3642,10 @@ fn gen_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Contex
     items.extend(gen_separated_values(
       GenSeparatedValuesParams {
         nodes: node.attrs.iter().map(|p| NodeOrSeparator::Node(p.into())).collect(),
-        prefer_hanging: context.config.jsx_attributes_prefer_hanging,
+        prefer_hanging: match context.config.jsx_attributes_prefer_hanging {
+        true => PreferHanging::Always,
+        false => PreferHanging::Never,
+      },
         force_use_new_lines,
         allow_blank_lines: false,
         separator: Separator::none(),
@@ -5120,7 +5126,10 @@ fn gen_var_decl<'a>(node: &'a VarDecl, context: &mut Context<'a>) -> PrintItems 
     items.extend(gen_separated_values(
       GenSeparatedValuesParams {
         nodes: node.decls.iter().map(|&p| NodeOrSeparator::Node(p.into())).collect(),
-        prefer_hanging: context.config.variable_statement_prefer_hanging,
+        prefer_hanging: match context.config.variable_statement_prefer_hanging {
+        true => PreferHanging::Always,
+        false => PreferHanging::Never,
+      },
         force_use_new_lines,
         allow_blank_lines: false,
         separator: TrailingCommas::Never.into(),
@@ -5844,14 +5853,9 @@ fn gen_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -
   let params = node.params();
   let force_use_new_lines = get_use_new_lines(&node, &params, context);
   let mut items = PrintItems::new();
-  let prefer_hanging_config = context.config.type_parameters_prefer_hanging;
+  let prefer_hanging = context.config.type_parameters_prefer_hanging;
   let is_only_single_item_and_no_comments =
     only_single_item_and_no_comments(&params, node.tokens_fast(context.program).last(), context);
-  let prefer_hanging = match prefer_hanging_config {
-    PreferHanging::Never => false,
-    PreferHanging::OnlySingleItem => is_only_single_item_and_no_comments,
-    PreferHanging::Always => true,
-  };
 
   items.push_str("<");
   items.extend(gen_separated_values(
@@ -6601,7 +6605,7 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
       gen_separated_values(
         GenSeparatedValuesParams {
           nodes,
-          prefer_hanging,
+          prefer_hanging: if prefer_hanging {PreferHanging::Always} else {PreferHanging::Never},
           force_use_new_lines,
           allow_blank_lines: true,
           separator: trailing_commas.into(),
@@ -7079,7 +7083,7 @@ where
         items.extend(gen_separated_values(
           GenSeparatedValuesParams {
             nodes: nodes.into_iter().map(NodeOrSeparator::Node).collect(),
-            prefer_hanging,
+            prefer_hanging: if prefer_hanging {PreferHanging::Always} else {PreferHanging::Never},
             force_use_new_lines,
             allow_blank_lines: false,
             separator: trailing_commas.into(),
@@ -7289,7 +7293,7 @@ impl From<TrailingCommas> for Separator {
 
 struct GenSeparatedValuesParams<'a> {
   nodes: Vec<NodeOrSeparator<'a>>,
-  prefer_hanging: bool,
+  prefer_hanging: PreferHanging,
   force_use_new_lines: bool,
   allow_blank_lines: bool,
   separator: Separator,
@@ -7357,13 +7361,14 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
       let sorted_indexes = node_sorter.map(|sorter| get_sorted_indexes(nodes.iter().map(|d| d.as_node()), sorter, context));
 
       for (i, value) in nodes.into_iter().enumerate() {
+        let has_siblings = nodes_count > 1;
         let node_index = match &sorted_indexes {
           Some(old_to_new_index) => *old_to_new_index.get(i).unwrap(),
           None => i,
         };
         let (allow_inline_multi_line, allow_inline_single_line) = if let NodeOrSeparator::Node(value) = value {
           let is_last_value = node_index + 1 == nodes_count; // allow the last node to be single line
-          (allows_inline_multi_line(value, context, nodes_count > 1), is_last_value)
+          (allows_inline_multi_line(value, context, has_siblings), is_last_value)
         } else {
           (false, false)
         };
@@ -7398,13 +7403,20 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
           }
         };
 
-        let use_new_line_group = match value {
-          // Prefer going inline multi-line for certain expressions in arguments
-          // when initially single line.
+        // If we prefer hanging for a single item only, we omit the new_line_group to allow the single item to break up.
+        // E.g. with prefer_hanging true:
+        // |··functionCall(new Breakable(he, he));
+        // might break to
+        // |··functionCall(new······| <-- line break width
+        // |····Breakable(he, he));·| 
+        let use_new_line_group = if opts.prefer_hanging == PreferHanging::OnlySingleItem && !has_siblings
+        {
+          match value {
+          // Prefer going inline multi-line for certain expressions in arguments when initially single line.
           // Example: call({\n}) instead of call(\n  {\n  }\n)
           NodeOrSeparator::Node(Node::ExprOrSpread(expr_or_spread)) => !matches!(expr_or_spread.expr, Expr::Object(_) | Expr::Array(_)),
           _ => true,
-        };
+        }} else { false };
 
         generated_nodes.push(ir_helpers::GeneratedValue {
           items: if use_new_line_group { ir_helpers::new_line_group(items) } else { items },
@@ -7420,7 +7432,7 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
       }
     },
     ir_helpers::GenSeparatedValuesOptions {
-      prefer_hanging: opts.prefer_hanging,
+      prefer_hanging: opts.prefer_hanging != PreferHanging::Always,
       force_use_new_lines: opts.force_use_new_lines,
       allow_blank_lines: opts.allow_blank_lines,
       single_line_space_at_start: opts.single_line_space_at_start,
@@ -7668,7 +7680,7 @@ fn gen_extends_or_implements<'a>(opts: GenExtendsOrImplementsOptions<'a>, contex
     items.extend(gen_separated_values(
       GenSeparatedValuesParams {
         nodes: opts.type_items.into_iter().map(NodeOrSeparator::Node).collect(),
-        prefer_hanging: opts.prefer_hanging,
+        prefer_hanging: if opts.prefer_hanging {PreferHanging::Always} else {PreferHanging::Never},
         force_use_new_lines: false,
         allow_blank_lines: false,
         separator: TrailingCommas::Never.into(),
@@ -7722,7 +7734,7 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
         gen_separated_values(
           GenSeparatedValuesParams {
             nodes: opts.members.into_iter().map(NodeOrSeparator::Node).collect(),
-            prefer_hanging: opts.prefer_hanging,
+            prefer_hanging: if opts.prefer_hanging {PreferHanging::Always} else {PreferHanging::Never},
             force_use_new_lines: force_multi_line,
             allow_blank_lines: opts.allow_blank_lines,
             separator: opts.separator,
@@ -7928,7 +7940,7 @@ fn gen_decorators<'a>(decorators: &[&'a Decorator<'a>], is_inline: bool, context
   let separated_values_result = gen_separated_values_with_result(
     GenSeparatedValuesParams {
       nodes: decorators.iter().map(|&p| NodeOrSeparator::Node(p.into())).collect(),
-      prefer_hanging: false, // would need to think about the design because prefer_hanging causes a hanging indent
+      prefer_hanging: PreferHanging::Never, // would need to think about the design because prefer_hanging causes a hanging indent
       force_use_new_lines,
       allow_blank_lines: false,
       separator: Separator::none(),
@@ -9150,6 +9162,8 @@ fn allows_inline_multi_line(node: Node, context: &Context, has_siblings: bool) -
           _ => allows_inline_multi_line(as_expr.type_ann.into(), context, has_siblings),
         }
     }
+    // Only allow inline multline for functions / arrow expressions if none of the
+    // siblings are also functions or arrow expressions.
     Node::FnExpr(_)
     | Node::ArrowExpr(_)
     | Node::ObjectLit(_)
