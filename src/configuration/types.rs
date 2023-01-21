@@ -523,6 +523,11 @@ pub struct Configuration {
   pub import_declaration_force_single_line: bool,
   #[serde(rename = "exportDeclaration.forceSingleLine")]
   pub export_declaration_force_single_line: bool,
+  /* prefer multi line specifiers */
+  #[serde(rename = "exportDeclaration.forceMultiLineSpecifiers")]
+  pub export_declaration_force_multi_line_specifiers: bool,
+  #[serde(rename = "importDeclaration.forceMultiLineSpecifiers")]
+  pub import_declaration_force_multi_line_specifiers: bool,
 
   /* use space separator */
   #[serde(rename = "binaryExpression.spaceSurroundingBitwiseAndArithmeticOperator")]

@@ -757,6 +757,16 @@ impl ConfigurationBuilder {
     self.insert("importDeclaration.forceSingleLine", value.into())
   }
 
+   /* force multi line specifiers */
+
+  pub fn export_declaration_force_multi_line_specifiers(&mut self, value: bool) -> &mut Self {
+    self.insert("exportDeclaration.forceMultiLineSpecifiers", value.into())
+  }
+
+  pub fn import_declaration_force_multi_line_specifiers(&mut self, value: bool) -> &mut Self {
+    self.insert("importDeclaration.forceMultiLineSpecifiers", value.into())
+  }
+
   /* member spacing */
 
   pub fn enum_declaration_member_spacing(&mut self, value: MemberSpacing) -> &mut Self {
@@ -1201,6 +1211,9 @@ mod tests {
       /* force single line */
       .export_declaration_force_single_line(true)
       .import_declaration_force_single_line(true)
+      /* force multi line specifiers */
+      .export_declaration_force_multi_line_specifiers(true)
+      .import_declaration_force_multi_line_specifiers(true)
       /* space settings */
       .binary_expression_space_surrounding_bitwise_and_arithmetic_operator(true)
       .comment_line_force_space_after_slashes(false)
@@ -1246,7 +1259,7 @@ mod tests {
       .while_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 175);
+    assert_eq!(inner_config.len(), 177);
     let diagnostics = resolve_config(inner_config, &resolve_global_config(ConfigKeyMap::new(), &Default::default()).config).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

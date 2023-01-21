@@ -264,6 +264,18 @@
         "description": ""
       }]
     },
+    "forceMultiLineSpecifiers": {
+      "description": "If code import/export specifiers be forced to be on multiple lines.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": ""
+      }, {
+        "const": false,
+        "description": ""
+      }]
+    },
     "sortOrder": {
       "description": "The kind of sort ordering to use.",
       "type": "string",
@@ -1273,6 +1285,12 @@
     },
     "importDeclaration.forceSingleLine": {
       "$ref": "#/definitions/forceSingleLine"
+    },
+    "exportDeclaration.forceMultiLineSpecifiers": {
+      "$ref": "#/definitions/forceMultiLineSpecifiers"
+    },
+    "importDeclaration.forceMultiLineSpecifiers": {
+      "$ref": "#/definitions/forceMultiLineSpecifiers"
     }
   }
 }
