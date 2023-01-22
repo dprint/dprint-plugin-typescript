@@ -265,7 +265,7 @@
       }]
     },
     "forceMultiLineSpecifiers": {
-      "description": "If code import/export specifiers be forced to be on multiple lines.",
+      "description": "If code import/export specifiers should be forced to be on multiple lines.",
       "type": "boolean",
       "default": false,
       "oneOf": [{
