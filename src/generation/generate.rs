@@ -7683,7 +7683,8 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
   let child_tokens = get_tokens_from_children_with_tokens(opts.node, context.program);
   let open_brace_token = child_tokens.iter().find(|t| t.token == Token::LBrace);
   let close_brace_token = child_tokens.iter().rev().find(|t| t.token == Token::RBrace);
-  let force_multi_line = opts.force_multi_line || !opts.force_single_line && get_use_new_lines_for_nodes_with_preceeding_token("{", &opts.members, opts.prefer_single_line, context);
+  let force_multi_line =
+    opts.force_multi_line || !opts.force_single_line && get_use_new_lines_for_nodes_with_preceeding_token("{", &opts.members, opts.prefer_single_line, context);
 
   let first_member_range = opts.members.get(0).map(|x| x.range());
   let obj_range = if let (Some(open_brace_token), Some(close_brace_token)) = (open_brace_token, close_brace_token) {

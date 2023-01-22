@@ -757,7 +757,7 @@ impl ConfigurationBuilder {
     self.insert("importDeclaration.forceSingleLine", value.into())
   }
 
-   /* force multi line specifiers */
+  /* force multi line specifiers */
 
   pub fn export_declaration_force_multi_line_specifiers(&mut self, value: bool) -> &mut Self {
     self.insert("exportDeclaration.forceMultiLineSpecifiers", value.into())
