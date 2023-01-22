@@ -988,7 +988,7 @@ fn gen_export_named_decl<'a>(node: &'a NamedExport, context: &mut Context<'a>) -
   let should_single_line = force_single_line
     || (default_export.is_none()
       && namespace_export.is_none()
-      && named_exports.len() <= 1
+      && (named_exports.len() <= 1 && !context.config.export_declaration_force_multi_line_specifiers)
       && node.start_line_fast(context.program) == node.end_line_fast(context.program));
 
   // generate
@@ -1174,7 +1174,7 @@ fn gen_import_decl<'a>(node: &'a ImportDecl, context: &mut Context<'a>) -> Print
   let should_single_line = force_single_line
     || (default_import.is_none()
       && namespace_import.is_none()
-      && named_imports.len() <= 1
+      && (named_imports.len() <= 1 && !context.config.import_declaration_force_multi_line_specifiers)
       && node.start_line_fast(context.program) == node.end_line_fast(context.program));
   let has_named_imports = !named_imports.is_empty() || {
     let from_keyword = context.token_finder.get_previous_token_if_from_keyword(node.src);

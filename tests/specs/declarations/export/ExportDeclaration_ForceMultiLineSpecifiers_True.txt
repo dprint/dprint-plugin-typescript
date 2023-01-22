@@ -77,5 +77,5 @@ export { a } from "./test.ts";
 
 [expect]
 export {
-  a,
+    a,
 } from "./test.ts";
