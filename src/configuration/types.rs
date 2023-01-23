@@ -318,8 +318,6 @@ pub struct Configuration {
   pub type_literal_separator_kind_single_line: SemiColonOrComma,
   #[serde(rename = "typeLiteral.separatorKind.multiLine")]
   pub type_literal_separator_kind_multi_line: SemiColonOrComma,
-  #[serde(rename = "multiLine.forceMultipleMultiLineSiblingsToUseMultiLines")]
-  pub multi_line_force_multiple_multi_line_siblings_to_use_multi_lines: bool,
   /* sorting */
   #[serde(rename = "module.sortImportDeclarations")]
   pub module_sort_import_declarations: SortOrder,
@@ -377,19 +375,12 @@ pub struct Configuration {
   pub try_statement_brace_position: BracePosition,
   #[serde(rename = "whileStatement.bracePosition")]
   pub while_statement_brace_position: BracePosition,
-  /* prefer hanging (with onlySingleItem option) */
+  /* prefer hanging */
   #[serde(rename = "arguments.preferHanging")]
   pub arguments_prefer_hanging: PreferHanging,
   #[serde(rename = "arrayExpression.preferHanging")]
   pub array_expression_prefer_hanging: PreferHanging,
-  #[serde(rename = "parameters.preferHanging")]
-  pub parameters_prefer_hanging: PreferHanging,
-  #[serde(rename = "tupleType.preferHanging")]
-  pub tuple_type_prefer_hanging: PreferHanging,
-  #[serde(rename = "typeParameters.preferHanging")]
-  pub type_parameters_prefer_hanging: PreferHanging,
   #[serde(rename = "arrayPattern.preferHanging")]
-  /* prefer hanging */
   pub array_pattern_prefer_hanging: bool,
   #[serde(rename = "doWhileStatement.preferHanging")]
   pub do_while_statement_prefer_hanging: bool,
@@ -415,12 +406,18 @@ pub struct Configuration {
   pub object_expression_prefer_hanging: bool,
   #[serde(rename = "objectPattern.preferHanging")]
   pub object_pattern_prefer_hanging: bool,
+  #[serde(rename = "parameters.preferHanging")]
+  pub parameters_prefer_hanging: PreferHanging,
   #[serde(rename = "sequenceExpression.preferHanging")]
   pub sequence_expression_prefer_hanging: bool,
   #[serde(rename = "switchStatement.preferHanging")]
   pub switch_statement_prefer_hanging: bool,
+  #[serde(rename = "tupleType.preferHanging")]
+  pub tuple_type_prefer_hanging: PreferHanging,
   #[serde(rename = "typeLiteral.preferHanging")]
   pub type_literal_prefer_hanging: bool,
+  #[serde(rename = "typeParameters.preferHanging")]
+  pub type_parameters_prefer_hanging: PreferHanging,
   #[serde(rename = "unionAndIntersectionType.preferHanging")]
   pub union_and_intersection_type_prefer_hanging: bool,
   #[serde(rename = "variableStatement.preferHanging")]
