@@ -10,9 +10,11 @@ call(new Foo({
 }));
 
 == should use hanging indentation for nested single items, even over the line width ==
+call(big_long_single_argument_cannot_be_broken_so_gets_multilined);
 call(sub_call_1(subcall_2(subcall_3("we're past column 40"))));
 
 [expect]
+call(big_long_single_argument_cannot_be_broken_so_gets_multilined);
 call(sub_call_1(subcall_2(subcall_3("we're past column 40"))));
 
 == should use multi-line indentation if there are multiple items ==
