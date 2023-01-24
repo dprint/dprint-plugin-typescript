@@ -9,8 +9,15 @@ call(new Foo({
     baz: "c",
 }));
 
+== should use hanging indentation for nested single items, even over the line width ==
+call(sub_call_1(subcall_2(subcall_3("we're past column 40"))));
+
+[expect]
+call(sub_call_1(subcall_2(subcall_3("we're past column 40"))));
+
 == should use multi-line indentation if there are multiple items ==
 call(new Foo({ test: "a", }), new Bar(), baz);
+call(sub_call_we_want_to_hang(multi_line_me_bro, yeah_cmon));
 
 [expect]
 call(
@@ -18,3 +25,7 @@ call(
     new Bar(),
     baz,
 );
+call(sub_call_we_want_to_hang(
+    multi_line_me_bro,
+    yeah_cmon,
+));
