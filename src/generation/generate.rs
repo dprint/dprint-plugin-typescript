@@ -7025,14 +7025,14 @@ where
     PreferHanging::OnlySingleItem => is_only_single_item_and_no_comments,
     PreferHanging::Always => true,
   };
-  let multi_line_options = if prefer_hanging_config == PreferHanging::OnlySingleItem && nodes.len() == 1 {
+  let prefer_single_item_hanging = prefer_hanging_config == PreferHanging::OnlySingleItem && is_only_single_item_and_no_comments;
+  let multi_line_options = if prefer_single_item_hanging {
     MultiLineOptions::maintain_line_breaks()
   } else {
     MultiLineOptions::surround_newlines_indented()
   };
 
-  let is_single_item_hanging = prefer_hanging_config == PreferHanging::OnlySingleItem && is_only_single_item_and_no_comments;
-  let prefer_single_line = is_single_item_hanging || (
+  let prefer_single_line = prefer_single_item_hanging || (
     is_parameters && context.config.parameters_prefer_single_line || !is_parameters && context.config.arguments_prefer_single_line
   );
   let force_use_new_lines = get_use_new_lines_for_nodes_with_preceeding_token("(", &nodes, prefer_single_line, context);
