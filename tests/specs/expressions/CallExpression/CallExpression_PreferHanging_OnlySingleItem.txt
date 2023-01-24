@@ -31,3 +31,53 @@ call(sub_call_we_want_to_hang(
     multi_line_me_bro,
     yeah_cmon,
 ));
+
+== should use multi-line indentation if there is a leading comment, even for a single item ==
+fetchMock.mockResponses(
+    // getVideoFileUrl
+    [
+        "Forbidden",
+        { status: 403 },
+    ],
+);
+
+[expect]
+fetchMock.mockResponses(
+    // getVideoFileUrl
+    [
+        "Forbidden",
+        { status: 403 },
+    ],
+);
+
+== should use multi-line indentation if there is a trailing comment, even for a single item ==
+fetchMock.mockResponses(
+    [
+        "Forbidden",
+        { status: 403 },
+    ],
+    // getVideoFileUrl
+);
+
+fetchMock.mockResponses(
+    [
+        "Forbidden",
+        { status: 403 },
+    ], // getVideoFileUrl
+);
+
+[expect]
+fetchMock.mockResponses(
+    [
+        "Forbidden",
+        { status: 403 },
+    ],
+    // getVideoFileUrl
+);
+
+fetchMock.mockResponses(
+    [
+        "Forbidden",
+        { status: 403 },
+    ], // getVideoFileUrl
+);
