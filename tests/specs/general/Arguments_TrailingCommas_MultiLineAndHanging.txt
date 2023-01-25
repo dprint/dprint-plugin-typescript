@@ -1,0 +1,30 @@
+~~ lineWidth: 40, arguments.trailingCommas: multiLineAndHanging, arguments.preferHanging: onlySingleItem ~~
+== should print a trailing comma after the hanging lambda expression ==
+const a = foo(() => new Array(make, this, multi, line, with_lots, of, values));
+
+[expect]
+const a = foo(() =>
+    new Array(
+        make,
+        this,
+        multi,
+        line,
+        with_lots,
+        of,
+        values,
+    ),
+);
+
+== should not print a trailing comma before the closing bracket ==
+a.b(
+    [
+      "asdf",
+      { foo: 403 },
+    ],
+);
+
+[expect]
+a.b([
+    "asdf",
+    { foo: 403 },
+]);
