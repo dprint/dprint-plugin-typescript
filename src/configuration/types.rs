@@ -58,9 +58,13 @@ pub enum TrailingCommas {
   Always,
   /// Trailing commas should only be used in multi-line scenarios.
   OnlyMultiLine,
+  /// Trailing commas should be used in multi-line and hanging indentation scenarios, but not
+  /// on single lines. Only used for parameters and arguments currently.
+  MultiLineAndHanging,
 }
 
-generate_str_to_from![TrailingCommas, [Always, "always"], [Never, "never"], [OnlyMultiLine, "onlyMultiLine"]];
+generate_str_to_from![TrailingCommas, [Always, "always"], [Never, "never"], [OnlyMultiLine, "onlyMultiLine"], [MultiLineAndHanging, "multiLineAndHanging"]
+];
 
 /// Where to place the opening brace.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]

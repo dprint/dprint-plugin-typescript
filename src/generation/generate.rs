@@ -1792,7 +1792,7 @@ fn gen_assignment_expr<'a>(node: &'a AssignExpr, context: &mut Context<'a>) -> P
           || node_helpers::get_use_new_lines_for_nodes(&flattened_items[0].expr, &flattened_items.last().unwrap().expr, context.program);
         let indent_width = context.config.indent_width;
         return ir_helpers::gen_separated_values(
-          |_| {
+          |_, _| {
             let mut generated_nodes = Vec::new();
             for item in flattened_items.into_iter() {
               let lines_span = Some(ir_helpers::LinesSpan {
@@ -1893,7 +1893,7 @@ fn gen_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintIte
 
   items.extend(
     ir_helpers::gen_separated_values(
-      |_| {
+      |_,_| {
         let mut generated_nodes = Vec::new();
         let mut bin_expr_items_iter = flattened_binary_expr.into_iter().peekable();
         while let Some(bin_expr_item) = bin_expr_items_iter.next() {
@@ -4573,7 +4573,7 @@ fn gen_for_stmt<'a>(node: &'a ForStmt, context: &mut Context<'a>) -> PrintItems 
   items.extend(gen_node_in_parens(
     |context| {
       ir_helpers::gen_separated_values(
-        move |_| {
+        move |_,_| {
           let mut generated_nodes = Vec::new();
           generated_nodes.push(ir_helpers::GeneratedValue::from_items(generated_init));
           if let Some(generated_test) = generated_test {
@@ -5998,8 +5998,8 @@ fn gen_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, context
     ir_helpers::MultiLineOptions::same_line_start_hanging_indent()
   };
   let gen_result = ir_helpers::gen_separated_values(
-    |is_multi_line_or_hanging_ref| {
-      let is_multi_line_or_hanging = is_multi_line_or_hanging_ref.create_resolver();
+    |is_multi_line_ref, _| {
+      let is_multi_line = is_multi_line_ref.create_resolver();
       let types_count = node.types.len();
       let mut generated_nodes = Vec::new();
       for (i, type_node) in node.types.iter().enumerate() {
@@ -6016,7 +6016,7 @@ fn gen_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, context
           items.extend(gen_leading_comments(&separator_token.range(), context));
         }
         if i == 0 && !is_parent_union_or_intersection {
-          items.push_condition(if_true("separatorIfMultiLine", is_multi_line_or_hanging.clone(), separator.into()));
+          items.push_condition(if_true("separatorIfMultiLine", is_multi_line.clone(), separator.into()));
         } else if i > 0 {
           items.push_str(separator);
         }
@@ -6954,7 +6954,7 @@ where
       } else if opts.separator.is_none() {
         gen_node(node, context)
       } else {
-        let generated_separator = get_generated_separator(&opts.separator, i == children_len - 1, &condition_resolvers::true_resolver());
+        let generated_separator = get_generated_separator(&opts.separator, i == children_len - 1, &condition_resolvers::true_resolver(), &condition_resolvers::false_resolver());
         gen_node_with_separator(node, generated_separator, context)
       });
       items.push_info(end_ln);
@@ -7349,8 +7349,9 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
   }
 
   ir_helpers::gen_separated_values(
-    |is_multi_line_or_hanging_ref| {
-      let is_multi_line_or_hanging = is_multi_line_or_hanging_ref.create_resolver();
+    |is_multi_line_ref, is_hanging_ref| {
+      let is_multi_line = is_multi_line_ref.create_resolver();
+      let is_hanging = is_hanging_ref.create_resolver();
       let mut generated_nodes = Vec::new();
       let nodes_count = nodes.len();
       let sorted_indexes = node_sorter.map(|sorter| get_sorted_indexes(nodes.iter().map(|d| d.as_node()), sorter, context));
@@ -7382,7 +7383,7 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
             panic!("Unsupported scenario.")
           }
         } else {
-          let generated_separator = get_generated_separator(&separator, node_index == nodes_count - 1, &is_multi_line_or_hanging);
+          let generated_separator = get_generated_separator(&separator, node_index == nodes_count - 1, &is_multi_line, &is_hanging);
           match value {
             NodeOrSeparator::Node(value) => gen_node_with_separator(value, generated_separator, context),
             NodeOrSeparator::Separator(separator_token) => {
@@ -9022,7 +9023,7 @@ fn gen_surrounded_by_tokens<'a>(
             let indent_width = context.config.indent_width;
             items.extend(
               ir_helpers::gen_separated_values(
-                |_| {
+                |_, _| {
                   let mut generated_comments = Vec::new();
                   for c in comments {
                     let start_line = c.start_line_fast(context.program);
@@ -9292,38 +9293,44 @@ fn has_any_node_comment_on_different_line(nodes: &[impl SourceRanged], context: 
 
 /* config helpers */
 
-fn get_generated_separator(separator: &Separator, is_trailing: bool, is_multi_line: &ConditionResolver) -> PrintItems {
+fn get_generated_separator(separator: &Separator, is_trailing: bool, is_multi_line: &ConditionResolver, is_hanging: &ConditionResolver) -> PrintItems {
   debug_assert!(!separator.is_none());
   // performance optimization
   return if separator.single_line == separator.multi_line {
-    get_items(&separator.single_line, is_trailing, is_multi_line)
+    get_items(&separator.single_line, is_trailing, is_multi_line, is_hanging)
   } else {
     if_true_or(
       "is_multi_line",
       is_multi_line.clone(),
-      get_items(&separator.multi_line, is_trailing, is_multi_line),
-      get_items(&separator.single_line, is_trailing, is_multi_line),
+      get_items(&separator.multi_line, is_trailing, is_multi_line, is_hanging),
+      get_items(&separator.single_line, is_trailing, is_multi_line, is_hanging),
     )
     .into()
   };
 
-  fn get_items(value: &Option<SeparatorValue>, is_trailing: bool, is_multi_line: &ConditionResolver) -> PrintItems {
+  fn get_items(value: &Option<SeparatorValue>, is_trailing: bool, is_multi_line: &ConditionResolver, is_hanging: &ConditionResolver) -> PrintItems {
     match value {
-      Some(SeparatorValue::Comma(trailing_comma)) => get_generated_trailing_comma(*trailing_comma, is_trailing, is_multi_line),
+      Some(SeparatorValue::Comma(trailing_comma)) => get_generated_trailing_comma(*trailing_comma, is_trailing, is_multi_line, is_hanging),
       Some(SeparatorValue::SemiColon(semi_colons)) => get_generated_semi_colon(*semi_colons, is_trailing, is_multi_line),
       None => PrintItems::new(),
     }
   }
 }
 
-fn get_generated_trailing_comma(option: TrailingCommas, is_trailing: bool, is_multi_line: &ConditionResolver) -> PrintItems {
+fn get_generated_trailing_comma(option: TrailingCommas, is_trailing: bool, is_multi_line: &ConditionResolver, is_hanging: &ConditionResolver) -> PrintItems {
   if !is_trailing {
     return ",".into();
   }
 
+  let is_multi_line_cloned = is_multi_line.clone();
+  let is_hanging_cloned = is_hanging.clone();
+
   match option {
     TrailingCommas::Always => ",".into(),
     TrailingCommas::OnlyMultiLine => if_true("trailingCommaIfMultiLine", is_multi_line.clone(), ",".into()).into(),
+    TrailingCommas::MultiLineAndHanging => if_true("trailingCommaIfMultiLineAndHanging", 
+      Rc::new(move |context|
+        Some(is_multi_line_cloned(context).unwrap_or(false) || is_hanging_cloned(context).unwrap_or(false))), ",".into()).into(),
     TrailingCommas::Never => PrintItems::new(),
   }
 }
