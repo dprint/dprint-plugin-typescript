@@ -1,4 +1,4 @@
-~~ exportDeclaration.forceMultiLineSpecifiers: true, lineWidth: 40 ~~
+~~ exportDeclaration.forceMultiLine: true, lineWidth: 40 ~~
 == should always add a new line between exports ==
 export { testing, a, b, c, d, e } from "./test.ts";
 export { testing, a, b, c, d, e // test

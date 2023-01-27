@@ -253,8 +253,8 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     import_declaration_force_single_line: get_value(&mut config, "importDeclaration.forceSingleLine", false, &mut diagnostics),
     export_declaration_force_single_line: get_value(&mut config, "exportDeclaration.forceSingleLine", false, &mut diagnostics),
     /* force multi line specifiers */
-    import_declaration_force_multi_line_specifiers: get_value(&mut config, "importDeclaration.forceMultiLineSpecifiers", false, &mut diagnostics),
-    export_declaration_force_multi_line_specifiers: get_value(&mut config, "exportDeclaration.forceMultiLineSpecifiers", false, &mut diagnostics),
+    import_declaration_force_multi_line: get_value(&mut config, "importDeclaration.forceMultiLine", false, &mut diagnostics),
+    export_declaration_force_multi_line: get_value(&mut config, "exportDeclaration.forceMultiLine", false, &mut diagnostics),
     /* space settings */
     binary_expression_space_surrounding_bitwise_and_arithmetic_operator: get_value(
       &mut config,

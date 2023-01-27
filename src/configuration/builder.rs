@@ -759,12 +759,12 @@ impl ConfigurationBuilder {
 
   /* force multi line specifiers */
 
-  pub fn export_declaration_force_multi_line_specifiers(&mut self, value: bool) -> &mut Self {
-    self.insert("exportDeclaration.forceMultiLineSpecifiers", value.into())
+  pub fn export_declaration_force_multi_line(&mut self, value: bool) -> &mut Self {
+    self.insert("exportDeclaration.forceMultiLine", value.into())
   }
 
-  pub fn import_declaration_force_multi_line_specifiers(&mut self, value: bool) -> &mut Self {
-    self.insert("importDeclaration.forceMultiLineSpecifiers", value.into())
+  pub fn import_declaration_force_multi_line(&mut self, value: bool) -> &mut Self {
+    self.insert("importDeclaration.forceMultiLine", value.into())
   }
 
   /* member spacing */
@@ -1212,8 +1212,8 @@ mod tests {
       .export_declaration_force_single_line(true)
       .import_declaration_force_single_line(true)
       /* force multi line specifiers */
-      .export_declaration_force_multi_line_specifiers(true)
-      .import_declaration_force_multi_line_specifiers(true)
+      .export_declaration_force_multi_line(true)
+      .import_declaration_force_multi_line(true)
       /* space settings */
       .binary_expression_space_surrounding_bitwise_and_arithmetic_operator(true)
       .comment_line_force_space_after_slashes(false)

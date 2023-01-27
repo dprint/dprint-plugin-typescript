@@ -1286,10 +1286,10 @@
     "importDeclaration.forceSingleLine": {
       "$ref": "#/definitions/forceSingleLine"
     },
-    "exportDeclaration.forceMultiLineSpecifiers": {
+    "exportDeclaration.forceMultiLine": {
       "$ref": "#/definitions/forceMultiLineSpecifiers"
     },
-    "importDeclaration.forceMultiLineSpecifiers": {
+    "importDeclaration.forceMultiLine": {
       "$ref": "#/definitions/forceMultiLineSpecifiers"
     }
   }
