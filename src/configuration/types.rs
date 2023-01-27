@@ -82,7 +82,7 @@ pub enum MemberSpacing {
 generate_str_to_from![MemberSpacing, [Maintain, "maintain"], [BlankLine, "blankLine"], [NewLine, "newLine"]];
 
 /// Where to place the next control flow within a control flow statement.
-#[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum NextControlFlowPosition {
   /// Maintains the next control flow being on the next line or the same line.
