@@ -992,7 +992,7 @@ fn gen_export_named_decl<'a>(node: &'a NamedExport, context: &mut Context<'a>) -
   let should_single_line = force_single_line
     || (default_export.is_none()
       && namespace_export.is_none()
-      && named_exports.len() <= 1
+      && (named_exports.len() <= 1 && !context.config.export_declaration_force_multi_line)
       && node.start_line_fast(context.program) == node.end_line_fast(context.program));
 
   // generate
@@ -1011,6 +1011,7 @@ fn gen_export_named_decl<'a>(node: &'a NamedExport, context: &mut Context<'a>) -
         parent: node.into(),
         specifiers: named_exports.into_iter().map(|x| x.into()).collect(),
         force_single_line,
+        force_multi_line_specifiers: context.config.export_declaration_force_multi_line,
       },
       context,
     ));
@@ -1177,7 +1178,7 @@ fn gen_import_decl<'a>(node: &'a ImportDecl, context: &mut Context<'a>) -> Print
   let should_single_line = force_single_line
     || (default_import.is_none()
       && namespace_import.is_none()
-      && named_imports.len() <= 1
+      && (named_imports.len() <= 1 && !context.config.import_declaration_force_multi_line)
       && node.start_line_fast(context.program) == node.end_line_fast(context.program));
   let has_named_imports = !named_imports.is_empty() || {
     let from_keyword = context.token_finder.get_previous_token_if_from_keyword(node.src);
@@ -1211,6 +1212,7 @@ fn gen_import_decl<'a>(node: &'a ImportDecl, context: &mut Context<'a>) -> Print
         parent: node.into(),
         specifiers: named_imports.into_iter().map(|x| x.into()).collect(),
         force_single_line,
+        force_multi_line_specifiers: context.config.import_declaration_force_multi_line,
       },
       context,
     ));
@@ -1395,6 +1397,7 @@ struct GenNamedImportOrExportSpecifierOptions<'a> {
   parent: Node<'a>,
   specifiers: Vec<Node<'a>>,
   force_single_line: bool,
+  force_multi_line_specifiers: bool,
 }
 
 fn gen_named_import_or_export_specifiers<'a>(opts: GenNamedImportOrExportSpecifierOptions<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -1406,6 +1409,7 @@ fn gen_named_import_or_export_specifiers<'a>(opts: GenNamedImportOrExportSpecifi
       prefer_hanging: get_prefer_hanging(opts.parent, context),
       prefer_single_line: get_prefer_single_line(opts.parent, context),
       force_single_line: opts.force_single_line,
+      force_multi_line: opts.force_multi_line_specifiers,
       surround_single_line_with_spaces: get_use_space(opts.parent, context),
       allow_blank_lines: false,
       node_sorter: get_node_sorter(opts.parent, context),
@@ -2630,6 +2634,7 @@ fn gen_object_lit<'a>(node: &'a ObjectLit, context: &mut Context<'a>) -> PrintIt
       prefer_hanging: context.config.object_expression_prefer_hanging,
       prefer_single_line: context.config.object_expression_prefer_single_line,
       force_single_line: false,
+      force_multi_line: false,
       surround_single_line_with_spaces: context.config.object_expression_space_surrounding_properties,
       allow_blank_lines: true,
       node_sorter: None,
@@ -3359,6 +3364,7 @@ fn gen_type_lit<'a>(node: &'a TsTypeLit, context: &mut Context<'a>) -> PrintItem
       prefer_hanging: context.config.type_literal_prefer_hanging,
       prefer_single_line: context.config.type_literal_prefer_single_line,
       force_single_line: false,
+      force_multi_line: false,
       surround_single_line_with_spaces: context.config.type_literal_space_surrounding_properties,
       allow_blank_lines: true,
       node_sorter: None,
@@ -4073,6 +4079,7 @@ fn gen_object_pat<'a>(node: &'a ObjectPat, context: &mut Context<'a>) -> PrintIt
       prefer_hanging: context.config.object_pattern_prefer_hanging,
       prefer_single_line: context.config.object_pattern_prefer_single_line,
       force_single_line: false,
+      force_multi_line: false,
       surround_single_line_with_spaces: context.config.object_pattern_space_surrounding_properties,
       allow_blank_lines: true,
       node_sorter: None,
@@ -7675,6 +7682,7 @@ struct GenObjectLikeNodeOptions<'a> {
   prefer_hanging: bool,
   prefer_single_line: bool,
   force_single_line: bool,
+  force_multi_line: bool,
   surround_single_line_with_spaces: bool,
   allow_blank_lines: bool,
   node_sorter: Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), &Program<'a>) -> std::cmp::Ordering>>,
@@ -7686,7 +7694,8 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
   let child_tokens = get_tokens_from_children_with_tokens(opts.node, context.program);
   let open_brace_token = child_tokens.iter().find(|t| t.token == Token::LBrace);
   let close_brace_token = child_tokens.iter().rev().find(|t| t.token == Token::RBrace);
-  let force_multi_line = !opts.force_single_line && get_use_new_lines_for_nodes_with_preceeding_token("{", &opts.members, opts.prefer_single_line, context);
+  let force_multi_line =
+    opts.force_multi_line || !opts.force_single_line && get_use_new_lines_for_nodes_with_preceeding_token("{", &opts.members, opts.prefer_single_line, context);
 
   let first_member_range = opts.members.get(0).map(|x| x.range());
   let obj_range = if let (Some(open_brace_token), Some(close_brace_token)) = (open_brace_token, close_brace_token) {
