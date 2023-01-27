@@ -4329,27 +4329,34 @@ fn gen_do_while_stmt<'a>(node: &'a DoWhileStmt, context: &mut Context<'a>) -> Pr
   // the braces are technically optional on do while statements
   let mut items = PrintItems::new();
   items.push_str("do");
+  let open_brace_token = if let Stmt::Block(_) = node.body {
+    context.token_finder.get_first_open_brace_token_within(node)
+  } else {
+    None
+  };
   items.extend(gen_brace_separator(
     GenBraceSeparatorOptions {
       brace_position: context.config.do_while_statement_brace_position,
-      open_brace_token: if let Stmt::Block(_) = node.body {
-        context.token_finder.get_first_open_brace_token_within(node)
-      } else {
-        None
-      },
+      open_brace_token,
       start_header_lsil: None,
     },
     context,
   ));
   items.extend(gen_node(node.body.into(), context));
-  items.extend(gen_control_flow_separator(
-    context.config.do_while_statement_next_control_flow_position,
-    &node.body.range(),
-    "while",
-    None,
-    None,
-    context,
-  ));
+  if open_brace_token.is_some() {
+    items.extend(gen_control_flow_separator(
+      context.config.do_while_statement_next_control_flow_position,
+      &node.body.range(),
+      "while",
+      None,
+      None,
+      context,
+    ));
+  } else {
+    // if the body is not a block, then we just always
+    // put this on the next line for simplicity for now
+    items.push_signal(Signal::NewLine);
+  }
   items.push_str("while");
   if context.config.do_while_statement_space_after_while_keyword {
     items.push_str(" ");
