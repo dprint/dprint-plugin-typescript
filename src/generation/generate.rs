@@ -1,6 +1,7 @@
 use deno_ast::swc::common::comments::Comment;
 use deno_ast::swc::common::comments::CommentKind;
 use deno_ast::swc::parser::lexer::util::CharExt;
+use deno_ast::swc::parser::token::BinOpToken;
 use deno_ast::swc::parser::token::Token;
 use deno_ast::swc::parser::token::TokenAndSpan;
 use deno_ast::view::*;
@@ -645,7 +646,10 @@ fn gen_class_prop_common<'a>(node: GenClassPropCommon<'a>, context: &mut Context
   let should_semi = context.config.semi_colons.is_true()
     || matches!(
       node.original.next_token_fast(context.program),
-      Some(TokenAndSpan { token: Token::LBracket, .. })
+      Some(TokenAndSpan {
+        token: Token::LBracket | Token::BinOp(BinOpToken::Mul),
+        ..
+      })
     );
   if should_semi {
     items.push_str(";");
