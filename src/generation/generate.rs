@@ -7033,6 +7033,9 @@ where
         items.push_info(start_lsil);
         items.push_signal(Signal::PossibleNewLine);
         items.push_condition(conditions::indent_if_start_of_line(generated_node));
+        if context.config.arguments_single_lambda_should_have_trailing_comma {
+          items.push_str(",");
+        }
         items.push_condition(if_true(
           "isDifferentLineAndStartLineIndentation",
           Rc::new(move |context| {
