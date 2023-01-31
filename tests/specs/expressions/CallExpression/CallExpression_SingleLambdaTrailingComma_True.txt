@@ -1,0 +1,8 @@
+~~ lineWidth: 40, arguments.singleLambdaTrailingComma: false ~~
+== a single lambda argument should NOT have a trailing comma (only) ==
+funkyFunctionCall(() => "a lambda that line breaks, hangs, and has NO comma");
+
+[expect]
+funkyFunctionCall(() =>
+    "a lambda that line breaks, hangs, and has NO comma"
+);
