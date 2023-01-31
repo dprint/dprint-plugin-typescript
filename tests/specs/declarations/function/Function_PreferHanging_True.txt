@@ -1,4 +1,4 @@
-~~ parameters.preferHanging: true, lineWidth: 40 ~~
+~~ parameters.preferHanging: always, lineWidth: 40 ~~
 == should format params with a hanging indent ==
 function test(here, are, some, parens, thatGoLong) {
 }

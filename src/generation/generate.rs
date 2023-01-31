@@ -1464,11 +1464,16 @@ fn gen_named_import_or_export_specifiers<'a>(opts: GenNamedImportOrExportSpecifi
 /* expressions */
 
 fn gen_array_expr<'a>(node: &'a ArrayLit, context: &mut Context<'a>) -> PrintItems {
+  let prefer_hanging = match context.config.array_expression_prefer_hanging {
+    PreferHanging::Never => false,
+    PreferHanging::OnlySingleItem => node.elems.len() == 1,
+    PreferHanging::Always => true,
+  };
   gen_array_like_nodes(
     GenArrayLikeNodesOptions {
       node: node.into(),
       nodes: node.elems.iter().map(|&x| x.map(|elem| elem.into())).collect(),
-      prefer_hanging: context.config.array_expression_prefer_hanging,
+      prefer_hanging,
       prefer_single_line: context.config.array_expression_prefer_single_line,
       trailing_commas: context.config.array_expression_trailing_commas,
       space_around: context.config.array_expression_space_around,
@@ -5789,11 +5794,16 @@ fn gen_tpl_lit_type<'a>(node: &'a TsTplLitType, context: &mut Context<'a>) -> Pr
 }
 
 fn gen_tuple_type<'a>(node: &'a TsTupleType, context: &mut Context<'a>) -> PrintItems {
+  let prefer_hanging = match context.config.tuple_type_prefer_hanging {
+    PreferHanging::Never => false,
+    PreferHanging::OnlySingleItem => node.elem_types.len() == 1,
+    PreferHanging::Always => true,
+  };
   gen_array_like_nodes(
     GenArrayLikeNodesOptions {
       node: node.into(),
       nodes: node.elem_types.iter().map(|&x| Some(x.into())).collect(),
-      prefer_hanging: context.config.tuple_type_prefer_hanging,
+      prefer_hanging,
       prefer_single_line: context.config.tuple_type_prefer_single_line,
       trailing_commas: context.config.tuple_type_trailing_commas,
       space_around: context.config.tuple_type_space_around,
@@ -5851,12 +5861,18 @@ fn gen_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -
   let params = node.params();
   let force_use_new_lines = get_use_new_lines(&node, &params, context);
   let mut items = PrintItems::new();
+  let prefer_hanging_config = context.config.type_parameters_prefer_hanging;
+  let prefer_hanging = match prefer_hanging_config {
+    PreferHanging::Never => false,
+    PreferHanging::OnlySingleItem => params.len() == 1,
+    PreferHanging::Always => true,
+  };
 
   items.push_str("<");
   items.extend(gen_separated_values(
     GenSeparatedValuesParams {
       nodes: params.into_iter().map(NodeOrSeparator::Node).collect(),
-      prefer_hanging: context.config.type_parameters_prefer_hanging,
+      prefer_hanging,
       force_use_new_lines,
       allow_blank_lines: false,
       separator: get_trailing_commas(&node, context).into(),
@@ -7015,19 +7031,26 @@ fn gen_parameters_or_arguments<'a, F>(opts: GenParametersOrArgumentsOptions<'a, 
 where
   F: FnOnce(&mut Context<'a>) -> Option<PrintItems>,
 {
-  let is_parameters = opts.is_parameters;
-  let prefer_single_line = is_parameters && context.config.parameters_prefer_single_line || !is_parameters && context.config.arguments_prefer_single_line;
-  let force_use_new_lines = get_use_new_lines_for_nodes_with_preceeding_token("(", &opts.nodes, prefer_single_line, context);
-  let range = opts.range;
-  let custom_close_paren = opts.custom_close_paren;
-  let first_member_range = opts.nodes.iter().map(|n| n.range()).next();
   let nodes = opts.nodes;
-  let nodes_length = nodes.len();
-  let prefer_hanging = if is_parameters {
+  let is_parameters = opts.is_parameters;
+  let prefer_hanging_config = if is_parameters {
     context.config.parameters_prefer_hanging
   } else {
     context.config.arguments_prefer_hanging
   };
+  let prefer_hanging = match prefer_hanging_config {
+    PreferHanging::Never => false,
+    PreferHanging::OnlySingleItem => only_single_item_and_no_comments(&nodes, context.program),
+    PreferHanging::Always => true,
+  };
+  let prefer_single_item_hanging = prefer_hanging_config == PreferHanging::OnlySingleItem && prefer_hanging;
+  let prefer_single_line = prefer_single_item_hanging
+    || (is_parameters && context.config.parameters_prefer_single_line || !is_parameters && context.config.arguments_prefer_single_line);
+  let force_use_new_lines = get_use_new_lines_for_nodes_with_preceeding_token("(", &nodes, prefer_single_line, context);
+  let range = opts.range;
+  let custom_close_paren = opts.custom_close_paren;
+  let first_member_range = nodes.iter().map(|n| n.range()).next();
+  let nodes_length = nodes.len();
   let space_around = if nodes_length > 0 && is_parameters {
     context.config.parameters_space_around
   } else if nodes_length > 0 {
@@ -7073,7 +7096,11 @@ where
             single_line_space_at_start: space_around,
             single_line_space_at_end: space_around,
             custom_single_line_separator: None,
-            multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(),
+            multi_line_options: if prefer_single_item_hanging {
+              MultiLineOptions::maintain_line_breaks()
+            } else {
+              MultiLineOptions::surround_newlines_indented()
+            },
             force_possible_newline_at_start: is_parameters,
             node_sorter: None,
           },
@@ -7133,6 +7160,22 @@ where
         // arrow functions will not be a Param
         param.kind() == NodeKind::RestPat
       }
+    }
+  }
+
+  fn only_single_item_and_no_comments(nodes: &[Node], program: &Program) -> bool {
+    if nodes.len() != 1 {
+      return false;
+    }
+    // check for leading or trailing comments on the only child node
+    let child = nodes[0];
+    if !child.leading_comments_fast(program).is_empty() || !child.trailing_comments_fast(program).is_empty() {
+      return false;
+    }
+    // search after the trailing comma if it exists
+    match child.next_token_fast(program) {
+      Some(TokenAndSpan { token: Token::Comma, span, .. }) => span.trailing_comments_fast(program).is_empty(),
+      _ => true,
     }
   }
 }
@@ -7217,7 +7260,7 @@ fn gen_close_paren_with_type<'a>(opts: GenCloseParenWithTypeOptions<'a>, context
     fn get_use_new_line_group(param_count: usize, type_node: Node, context: &mut Context) -> bool {
       if param_count == 0 {
         false
-      } else if context.config.parameters_prefer_hanging && param_count > 1 {
+      } else if context.config.parameters_prefer_hanging == PreferHanging::Always && param_count > 1 {
         // This was done to prevent the second argument becoming hanging, which doesn't
         // look good especially when the return type then becomes multi-line.
         match type_node {

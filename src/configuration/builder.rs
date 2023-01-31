@@ -651,12 +651,12 @@ impl ConfigurationBuilder {
 
   /* prefer hanging */
 
-  pub fn arguments_prefer_hanging(&mut self, value: bool) -> &mut Self {
-    self.insert("arguments.preferHanging", value.into())
+  pub fn arguments_prefer_hanging(&mut self, value: PreferHanging) -> &mut Self {
+    self.insert("arguments.preferHanging", value.to_string().into())
   }
 
-  pub fn array_expression_prefer_hanging(&mut self, value: bool) -> &mut Self {
-    self.insert("arrayExpression.preferHanging", value.into())
+  pub fn array_expression_prefer_hanging(&mut self, value: PreferHanging) -> &mut Self {
+    self.insert("arrayExpression.preferHanging", value.to_string().into())
   }
 
   pub fn array_pattern_prefer_hanging(&mut self, value: bool) -> &mut Self {
@@ -711,8 +711,8 @@ impl ConfigurationBuilder {
     self.insert("objectPattern.preferHanging", value.into())
   }
 
-  pub fn parameters_prefer_hanging(&mut self, value: bool) -> &mut Self {
-    self.insert("parameters.preferHanging", value.into())
+  pub fn parameters_prefer_hanging(&mut self, value: PreferHanging) -> &mut Self {
+    self.insert("parameters.preferHanging", value.to_string().into())
   }
 
   pub fn sequence_expression_prefer_hanging(&mut self, value: bool) -> &mut Self {
@@ -723,16 +723,16 @@ impl ConfigurationBuilder {
     self.insert("switchStatement.preferHanging", value.into())
   }
 
-  pub fn tuple_type_prefer_hanging(&mut self, value: bool) -> &mut Self {
-    self.insert("tupleType.preferHanging", value.into())
+  pub fn tuple_type_prefer_hanging(&mut self, value: PreferHanging) -> &mut Self {
+    self.insert("tupleType.preferHanging", value.to_string().into())
   }
 
   pub fn type_literal_prefer_hanging(&mut self, value: bool) -> &mut Self {
     self.insert("typeLiteral.preferHanging", value.into())
   }
 
-  pub fn type_parameters_prefer_hanging(&mut self, value: bool) -> &mut Self {
-    self.insert("typeParameters.preferHanging", value.into())
+  pub fn type_parameters_prefer_hanging(&mut self, value: PreferHanging) -> &mut Self {
+    self.insert("typeParameters.preferHanging", value.to_string().into())
   }
 
   pub fn union_and_intersection_type_prefer_hanging(&mut self, value: bool) -> &mut Self {
@@ -1124,8 +1124,8 @@ mod tests {
       .try_statement_brace_position(BracePosition::NextLine)
       .while_statement_brace_position(BracePosition::NextLine)
       /* prefer hanging */
-      .arguments_prefer_hanging(true)
-      .array_expression_prefer_hanging(true)
+      .arguments_prefer_hanging(PreferHanging::OnlySingleItem)
+      .array_expression_prefer_hanging(PreferHanging::OnlySingleItem)
       .array_pattern_prefer_hanging(true)
       .do_while_statement_prefer_hanging(true)
       .export_declaration_prefer_hanging(true)
@@ -1139,12 +1139,12 @@ mod tests {
       .jsx_attributes_prefer_hanging(true)
       .object_expression_prefer_hanging(true)
       .object_pattern_prefer_hanging(true)
-      .parameters_prefer_hanging(true)
+      .parameters_prefer_hanging(PreferHanging::OnlySingleItem)
       .sequence_expression_prefer_hanging(true)
       .switch_statement_prefer_hanging(true)
-      .tuple_type_prefer_hanging(true)
+      .tuple_type_prefer_hanging(PreferHanging::OnlySingleItem)
       .type_literal_prefer_hanging(true)
-      .type_parameters_prefer_hanging(true)
+      .type_parameters_prefer_hanging(PreferHanging::OnlySingleItem)
       .union_and_intersection_type_prefer_hanging(true)
       .variable_statement_prefer_hanging(true)
       .while_statement_prefer_hanging(true)
