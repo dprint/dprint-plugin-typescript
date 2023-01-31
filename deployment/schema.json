@@ -240,6 +240,21 @@
         "description": ""
       }]
     },
+    "preferHangingGranular": {
+      "description": "Set to prefer hanging indentation when exceeding the line width instead of making code split up on multiple lines.",
+      "type": "string",
+      "default": "never",
+      "oneOf": [{
+        "const": "always",
+        "description": "Always prefers hanging regardless of the number of elements."
+      }, {
+        "const": "onlySingleItem",
+        "description": "Only prefers hanging if there is a single item."
+      }, {
+        "const": "never",
+        "description": "Never prefers hanging."
+      }]
+    },
     "preferSingleLine": {
       "description": "If code should revert back from being on multiple lines to being on a single line when able.",
       "type": "boolean",
@@ -1125,10 +1140,10 @@
       "$ref": "#/definitions/operatorPosition"
     },
     "arguments.preferHanging": {
-      "$ref": "#/definitions/preferHanging"
+      "$ref": "#/definitions/preferHangingGranular"
     },
     "arrayExpression.preferHanging": {
-      "$ref": "#/definitions/preferHanging"
+      "$ref": "#/definitions/preferHangingGranular"
     },
     "arrayPattern.preferHanging": {
       "$ref": "#/definitions/preferHanging"
@@ -1170,7 +1185,7 @@
       "$ref": "#/definitions/preferHanging"
     },
     "parameters.preferHanging": {
-      "$ref": "#/definitions/preferHanging"
+      "$ref": "#/definitions/preferHangingGranular"
     },
     "sequenceExpression.preferHanging": {
       "$ref": "#/definitions/preferHanging"
@@ -1179,13 +1194,13 @@
       "$ref": "#/definitions/preferHanging"
     },
     "tupleType.preferHanging": {
-      "$ref": "#/definitions/preferHanging"
+      "$ref": "#/definitions/preferHangingGranular"
     },
     "typeLiteral.preferHanging": {
       "$ref": "#/definitions/preferHanging"
     },
     "typeParameters.preferHanging": {
-      "$ref": "#/definitions/preferHanging"
+      "$ref": "#/definitions/preferHangingGranular"
     },
     "unionAndIntersectionType.preferHanging": {
       "$ref": "#/definitions/preferHanging"
