@@ -15,12 +15,7 @@ pub enum PreferHanging {
   Always,
 }
 
-generate_str_to_from![PreferHanging,
-  // Existing options (from upstream)
-  [Never, "false"], [Always, "true"],
-  // Modified options (from canva fork)
-  [Never, "never"], [OnlySingleItem, "onlySingleItem"], [Always, "always"]
-];
+generate_str_to_from![PreferHanging, [Never, "never"], [OnlySingleItem, "onlySingleItem"], [Always, "always"]];
 
 /// Semi colon possibilities.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
