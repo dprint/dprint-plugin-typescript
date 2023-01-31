@@ -15,6 +15,7 @@ use dprint_core::formatting::condition_resolvers;
 use dprint_core::formatting::conditions::*;
 use dprint_core::formatting::ir_helpers::*;
 use dprint_core::formatting::*;
+use std::fmt::Debug;
 use std::rc::Rc;
 
 use super::sorting::*;
@@ -136,6 +137,9 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
   };
 
   fn gen_node_inner<'a>(node: Node<'a>, context: &mut Context<'a>) -> PrintItems {
+    println!("Node kind: {:?}", node.kind());
+    println!("Text: {:?}", node.text());
+    
     match node {
       /* class */
       Node::ClassMethod(node) => gen_class_method(node, context),
@@ -7048,6 +7052,7 @@ where
     false
   };
   let trailing_commas = get_trailing_commas(opts.node, &nodes, is_parameters, context);
+  println!("Text: {:?}\ntrailing_commas: {}\n", opts.node.text(), trailing_commas.to_string());
 
   return gen_surrounded_by_tokens(
     |context| {
@@ -7062,6 +7067,7 @@ where
         items.push_info(start_lsil);
         items.push_signal(Signal::PossibleNewLine);
         items.push_condition(conditions::indent_if_start_of_line(generated_node));
+        // items.push_string(",".into());
         items.push_condition(if_true(
           "isDifferentLineAndStartLineIndentation",
           Rc::new(move |context| {
@@ -7384,6 +7390,8 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
           }
         } else {
           let generated_separator = get_generated_separator(&separator, node_index == nodes_count - 1, &is_multi_line, &is_hanging);
+          // println!("Text: {:?}\nSeparator: {}\n", value.as_node().unwrap().text(), generated_separator.get_as_text());
+          
           match value {
             NodeOrSeparator::Node(value) => gen_node_with_separator(value, generated_separator, context),
             NodeOrSeparator::Separator(separator_token) => {
@@ -9329,8 +9337,12 @@ fn get_generated_trailing_comma(option: TrailingCommas, is_trailing: bool, is_mu
     TrailingCommas::Always => ",".into(),
     TrailingCommas::OnlyMultiLine => if_true("trailingCommaIfMultiLine", is_multi_line.clone(), ",".into()).into(),
     TrailingCommas::MultiLineAndHanging => if_true("trailingCommaIfMultiLineAndHanging", 
-      Rc::new(move |context|
-        Some(is_multi_line_cloned(context).unwrap_or(false) || is_hanging_cloned(context).unwrap_or(false))), ",".into()).into(),
+      Rc::new(move |context| {
+        let is_multi_line = is_multi_line_cloned(context).unwrap_or(false);
+        let is_hanging = is_hanging_cloned(context).unwrap_or(false);
+        // is_hanging is true sometimes
+        Some(is_multi_line && is_hanging)
+      }), ",".into()).into(),
     TrailingCommas::Never => PrintItems::new(),
   }
 }
