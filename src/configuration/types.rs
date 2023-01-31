@@ -277,6 +277,8 @@ pub struct Configuration {
   pub quote_props: QuoteProps,
   pub semi_colons: SemiColons,
   /* situational */
+  #[serde(rename = "arguments.singleLambdaTrailingComma")]
+  pub arguments_single_lambda_should_have_trailing_comma: bool,
   #[serde(rename = "arrowFunction.useParentheses")]
   pub arrow_function_use_parentheses: UseParentheses,
   #[serde(rename = "binaryExpression.linePerExpression")]

@@ -92,6 +92,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     quote_props,
     semi_colons,
     /* situational */
+    arguments_single_lambda_should_have_trailing_comma: get_value(&mut config, "arguments.singleLambdaTrailingComma", false, &mut diagnostics),
     arrow_function_use_parentheses: get_value(&mut config, "arrowFunction.useParentheses", UseParentheses::Maintain, &mut diagnostics),
     binary_expression_line_per_expression: get_value(&mut config, "binaryExpression.linePerExpression", false, &mut diagnostics),
     conditional_expression_line_per_expression: get_value(&mut config, "conditionalExpression.linePerExpression", true, &mut diagnostics),
