@@ -1,4 +1,4 @@
-~~ lineWidth: 120, arguments.preferHanging: true ~~
+~~ lineWidth: 120, arguments.preferHanging: always ~~
 == should format ==
 namespace test.something {
     function test() {

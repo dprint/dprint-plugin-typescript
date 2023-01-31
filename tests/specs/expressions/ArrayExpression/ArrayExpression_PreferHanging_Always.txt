@@ -1,4 +1,4 @@
-~~ lineWidth: 40, arrayExpression.preferHanging: true ~~
+~~ lineWidth: 40, arrayExpression.preferHanging: always ~~
 == should format ==
 const t = [   5   , 6   ];
 
