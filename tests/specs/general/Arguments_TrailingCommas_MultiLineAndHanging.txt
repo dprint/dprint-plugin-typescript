@@ -1,4 +1,4 @@
-~~ lineWidth: 40, arguments.trailingCommas: multiLineAndHanging, arguments.preferHanging: onlySingleItem ~~
+~~ lineWidth: 40, arguments.trailingCommas: onlyMultiLine, arguments.preferHanging: onlySingleItem ~~
 == should print a trailing comma after the hanging lambda expression ==
 const a = foo(() => new Array(make, this, multi, line, with_lots, of, values));
 
@@ -28,3 +28,36 @@ a.b([
     "asdf",
     { foo: 403 },
 ]);
+
+== trying to trigger hanging mode for single values in separated values i.e. argument list (only) ==
+funkyFunction(() => hahahahahahahahahahahahahahahahahahahahah);
+funkyFunction(new Class(hahahahahahahahahahahahahahahahahahahahah));
+funkyFunction({ hahahahahahahahahahahahahahahahahahahahah });
+funkyFunction(hahahahahahahahahahahaha, hahahahahahahahahahaha);
+funkyFunction(funkyfunkyfunkyfunkysubcall());
+funkyFunction(function subFunkyFunctionLong() { return "hey" });
+funkyFunction(hahahahahaha + overTheLineBreak);
+funkyFunction(() => hahaha, () => alksjalksdj);
+
+[expect]
+funkyFunction(() => 
+    hahahahahahahahahahahahahahahahahahahahah,
+);
+funkyFunction(new Class(hahahahahahahahahahahahahahahahahahahahah));
+funkyFunction({
+    hahahahahahahahahahahahahahahahahahahahah,
+});
+funkyFunction(
+    hahahahahahahahahahahaha,
+    hahahahahahahahahahaha,
+);
+funkyFunction(funkyfunkyfunkyfunkysubcall());
+funkyFunction(function subFunkyFunctionLong() {
+    return "hey";
+});
+funkyFunction(hahahahahaha
+    + overTheLineBreak);
+funkyFunction(
+    () => hahaha,
+    () => alksjalksdj,
+);
