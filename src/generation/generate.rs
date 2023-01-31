@@ -7016,7 +7016,6 @@ where
 {
   let nodes = opts.nodes;
   let is_parameters = opts.is_parameters;
-
   let prefer_hanging_config = if is_parameters {
     context.config.parameters_prefer_hanging
   } else {
