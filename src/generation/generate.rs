@@ -7017,24 +7017,19 @@ where
   let nodes = opts.nodes;
   let is_parameters = opts.is_parameters;
 
-  let is_only_single_item_and_no_comments =
-    only_single_item_and_no_comments(&nodes, opts.node.tokens_fast(context.program).last(), context);
-  let prefer_hanging_config = if is_parameters { context.config.parameters_prefer_hanging } else { context.config.arguments_prefer_hanging };
+  let prefer_hanging_config = if is_parameters {
+    context.config.parameters_prefer_hanging
+  } else {
+    context.config.arguments_prefer_hanging
+  };
   let prefer_hanging = match prefer_hanging_config {
     PreferHanging::Never => false,
-    PreferHanging::OnlySingleItem => is_only_single_item_and_no_comments,
+    PreferHanging::OnlySingleItem => only_single_item_and_no_comments(&nodes, context.program),
     PreferHanging::Always => true,
   };
-  let prefer_single_item_hanging = prefer_hanging_config == PreferHanging::OnlySingleItem && is_only_single_item_and_no_comments;
-  let multi_line_options = if prefer_single_item_hanging {
-    MultiLineOptions::maintain_line_breaks()
-  } else {
-    MultiLineOptions::surround_newlines_indented()
-  };
-
-  let prefer_single_line = prefer_single_item_hanging || (
-    is_parameters && context.config.parameters_prefer_single_line || !is_parameters && context.config.arguments_prefer_single_line
-  );
+  let prefer_single_item_hanging = prefer_hanging_config == PreferHanging::OnlySingleItem && prefer_hanging;
+  let prefer_single_line = prefer_single_item_hanging
+    || (is_parameters && context.config.parameters_prefer_single_line || !is_parameters && context.config.arguments_prefer_single_line);
   let force_use_new_lines = get_use_new_lines_for_nodes_with_preceeding_token("(", &nodes, prefer_single_line, context);
   let range = opts.range;
   let custom_close_paren = opts.custom_close_paren;
@@ -7085,7 +7080,11 @@ where
             single_line_space_at_start: space_around,
             single_line_space_at_end: space_around,
             custom_single_line_separator: None,
-            multi_line_options,
+            multi_line_options: if prefer_single_item_hanging {
+              MultiLineOptions::maintain_line_breaks()
+            } else {
+              MultiLineOptions::surround_newlines_indented()
+            },
             force_possible_newline_at_start: is_parameters,
             node_sorter: None,
           },
@@ -7145,6 +7144,22 @@ where
         // arrow functions will not be a Param
         param.kind() == NodeKind::RestPat
       }
+    }
+  }
+
+  fn only_single_item_and_no_comments(nodes: &[Node], program: &Program) -> bool {
+    if nodes.len() != 1 {
+      return false;
+    }
+    // check for leading or trailing comments on the only child node
+    let child = nodes[0];
+    if !child.leading_comments_fast(program).is_empty() || !child.trailing_comments_fast(program).is_empty() {
+      return false;
+    }
+    // search after the trailing comma if it exists
+    match child.next_token_fast(program) {
+      Some(TokenAndSpan { token: Token::Comma, span, .. }) => span.trailing_comments_fast(program).is_empty(),
+      _ => true,
     }
   }
 }
@@ -9374,36 +9389,4 @@ fn get_tokens_from_children_with_tokens<'a>(node: Node<'a>, program: &Program<'a
       _ => None,
     })
     .collect::<Vec<_>>()
-}
-
-/* Comments are sometimes confusingly stored as leading comments on the final token.
-For example:
-```javascript
-foo.bar(
-  'hey',
-  // I'm a leading comment on the ')' instead of a trailing comment on the arguments list!
-);
-```
-*/
-fn only_single_item_and_no_comments(
-  nodes: &[Node],
-  last_token: Option<&TokenAndSpan>,
-  context: &mut Context
-) -> bool {
-  if nodes.len() != 1 {
-    return false;
-  }
-  // Check for leading or trailing comments on the only child node
-  let child = nodes[0];
-  let child_leading_comments = child.leading_comments_fast(context.program);
-  let child_trailing_comments = child.trailing_comments_fast(context.program);
-  if !child_leading_comments.is_empty() || !child_trailing_comments.is_empty() {
-    return false;
-  }
-  // Check for a final trailing comment (which is considered a leading comment on the close token)
-  return if let Some(last_token) = last_token {
-    last_token.leading_comments_fast(context.program).is_empty()
-  } else {
-    false
-  }
 }
