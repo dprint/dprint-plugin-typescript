@@ -1,8 +1,12 @@
 == should not replace escaped character with actual character ==
 const t = "\t"  ;
+const u = "";
+const v = "1";
 
 [expect]
 const t = "\t";
+const u = "";
+const v = "1";
 
 == should not replace actual character with escaped character ==
 const t = "	";

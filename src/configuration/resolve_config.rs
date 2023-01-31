@@ -54,6 +54,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
   let trailing_commas = get_value(&mut config, "trailingCommas", TrailingCommas::OnlyMultiLine, &mut diagnostics);
   let use_braces = get_value(&mut config, "useBraces", UseBraces::WhenNotSingleLine, &mut diagnostics);
   let prefer_hanging = get_value(&mut config, "preferHanging", false, &mut diagnostics);
+  let prefer_hanging_granular = if prefer_hanging { PreferHanging::Always } else { PreferHanging::Never };
   let prefer_single_line_nullable = get_nullable_value(&mut config, "preferSingleLine", &mut diagnostics);
   let prefer_single_line = prefer_single_line_nullable.unwrap_or(false);
   let space_surrounding_properties = get_value(&mut config, "spaceSurroundingProperties", true, &mut diagnostics);
@@ -146,8 +147,8 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     try_statement_brace_position: get_value(&mut config, "tryStatement.bracePosition", brace_position, &mut diagnostics),
     while_statement_brace_position: get_value(&mut config, "whileStatement.bracePosition", brace_position, &mut diagnostics),
     /* prefer hanging */
-    arguments_prefer_hanging: get_value(&mut config, "arguments.preferHanging", prefer_hanging, &mut diagnostics),
-    array_expression_prefer_hanging: get_value(&mut config, "arrayExpression.preferHanging", prefer_hanging, &mut diagnostics),
+    arguments_prefer_hanging: get_value(&mut config, "arguments.preferHanging", prefer_hanging_granular, &mut diagnostics),
+    array_expression_prefer_hanging: get_value(&mut config, "arrayExpression.preferHanging", prefer_hanging_granular, &mut diagnostics),
     array_pattern_prefer_hanging: get_value(&mut config, "arrayPattern.preferHanging", prefer_hanging, &mut diagnostics),
     do_while_statement_prefer_hanging: get_value(&mut config, "doWhileStatement.preferHanging", prefer_hanging, &mut diagnostics),
     export_declaration_prefer_hanging: get_value(&mut config, "exportDeclaration.preferHanging", prefer_hanging, &mut diagnostics),
@@ -161,12 +162,12 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     jsx_attributes_prefer_hanging: get_value(&mut config, "jsxAttributes.preferHanging", prefer_hanging, &mut diagnostics),
     object_expression_prefer_hanging: get_value(&mut config, "objectExpression.preferHanging", prefer_hanging, &mut diagnostics),
     object_pattern_prefer_hanging: get_value(&mut config, "objectPattern.preferHanging", prefer_hanging, &mut diagnostics),
-    parameters_prefer_hanging: get_value(&mut config, "parameters.preferHanging", prefer_hanging, &mut diagnostics),
+    parameters_prefer_hanging: get_value(&mut config, "parameters.preferHanging", prefer_hanging_granular, &mut diagnostics),
     sequence_expression_prefer_hanging: get_value(&mut config, "sequenceExpression.preferHanging", prefer_hanging, &mut diagnostics),
     switch_statement_prefer_hanging: get_value(&mut config, "switchStatement.preferHanging", prefer_hanging, &mut diagnostics),
-    tuple_type_prefer_hanging: get_value(&mut config, "tupleType.preferHanging", prefer_hanging, &mut diagnostics),
+    tuple_type_prefer_hanging: get_value(&mut config, "tupleType.preferHanging", prefer_hanging_granular, &mut diagnostics),
     type_literal_prefer_hanging: get_value(&mut config, "typeLiteral.preferHanging", prefer_hanging, &mut diagnostics),
-    type_parameters_prefer_hanging: get_value(&mut config, "typeParameters.preferHanging", prefer_hanging, &mut diagnostics),
+    type_parameters_prefer_hanging: get_value(&mut config, "typeParameters.preferHanging", prefer_hanging_granular, &mut diagnostics),
     union_and_intersection_type_prefer_hanging: get_value(&mut config, "unionAndIntersectionType.preferHanging", prefer_hanging, &mut diagnostics),
     variable_statement_prefer_hanging: get_value(&mut config, "variableStatement.preferHanging", prefer_hanging, &mut diagnostics),
     while_statement_prefer_hanging: get_value(&mut config, "whileStatement.preferHanging", prefer_hanging, &mut diagnostics),
@@ -256,6 +257,9 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     /* force single line */
     import_declaration_force_single_line: get_value(&mut config, "importDeclaration.forceSingleLine", false, &mut diagnostics),
     export_declaration_force_single_line: get_value(&mut config, "exportDeclaration.forceSingleLine", false, &mut diagnostics),
+    /* force multi line specifiers */
+    import_declaration_force_multi_line: get_value(&mut config, "importDeclaration.forceMultiLine", false, &mut diagnostics),
+    export_declaration_force_multi_line: get_value(&mut config, "exportDeclaration.forceMultiLine", false, &mut diagnostics),
     /* space settings */
     binary_expression_space_surrounding_bitwise_and_arithmetic_operator: get_value(
       &mut config,

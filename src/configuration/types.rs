@@ -3,6 +3,20 @@ use dprint_core::generate_str_to_from;
 use serde::Deserialize;
 use serde::Serialize;
 
+#[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PreferHanging {
+  /// Always prefer multi-line indentation
+  Never,
+  /// Prefer hanging indentation for sequences with only a single item, but if there are multiple
+  /// items then use multi-line indentation
+  OnlySingleItem,
+  /// Always prefer hanging indentation
+  Always,
+}
+
+generate_str_to_from![PreferHanging, [Never, "never"], [OnlySingleItem, "onlySingleItem"], [Always, "always"]];
+
 /// Semi colon possibilities.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -82,7 +96,7 @@ pub enum MemberSpacing {
 generate_str_to_from![MemberSpacing, [Maintain, "maintain"], [BlankLine, "blankLine"], [NewLine, "newLine"]];
 
 /// Where to place the next control flow within a control flow statement.
-#[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum NextControlFlowPosition {
   /// Maintains the next control flow being on the next line or the same line.
@@ -360,9 +374,9 @@ pub struct Configuration {
   pub while_statement_brace_position: BracePosition,
   /* prefer hanging */
   #[serde(rename = "arguments.preferHanging")]
-  pub arguments_prefer_hanging: bool,
+  pub arguments_prefer_hanging: PreferHanging,
   #[serde(rename = "arrayExpression.preferHanging")]
-  pub array_expression_prefer_hanging: bool,
+  pub array_expression_prefer_hanging: PreferHanging,
   #[serde(rename = "arrayPattern.preferHanging")]
   pub array_pattern_prefer_hanging: bool,
   #[serde(rename = "doWhileStatement.preferHanging")]
@@ -390,17 +404,17 @@ pub struct Configuration {
   #[serde(rename = "objectPattern.preferHanging")]
   pub object_pattern_prefer_hanging: bool,
   #[serde(rename = "parameters.preferHanging")]
-  pub parameters_prefer_hanging: bool,
+  pub parameters_prefer_hanging: PreferHanging,
   #[serde(rename = "sequenceExpression.preferHanging")]
   pub sequence_expression_prefer_hanging: bool,
   #[serde(rename = "switchStatement.preferHanging")]
   pub switch_statement_prefer_hanging: bool,
   #[serde(rename = "tupleType.preferHanging")]
-  pub tuple_type_prefer_hanging: bool,
+  pub tuple_type_prefer_hanging: PreferHanging,
   #[serde(rename = "typeLiteral.preferHanging")]
   pub type_literal_prefer_hanging: bool,
   #[serde(rename = "typeParameters.preferHanging")]
-  pub type_parameters_prefer_hanging: bool,
+  pub type_parameters_prefer_hanging: PreferHanging,
   #[serde(rename = "unionAndIntersectionType.preferHanging")]
   pub union_and_intersection_type_prefer_hanging: bool,
   #[serde(rename = "variableStatement.preferHanging")]
@@ -530,6 +544,11 @@ pub struct Configuration {
   pub import_declaration_force_single_line: bool,
   #[serde(rename = "exportDeclaration.forceSingleLine")]
   pub export_declaration_force_single_line: bool,
+  /* force multi line specifiers */
+  #[serde(rename = "exportDeclaration.forceMultiLine")]
+  pub export_declaration_force_multi_line: bool,
+  #[serde(rename = "importDeclaration.forceMultiLine")]
+  pub import_declaration_force_multi_line: bool,
 
   /* use space separator */
   #[serde(rename = "binaryExpression.spaceSurroundingBitwiseAndArithmeticOperator")]

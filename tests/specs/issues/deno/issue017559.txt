@@ -1,0 +1,29 @@
+~~ deno: true, semiColons: asi, lineWidth: 40 ~~
+== should keep semicolon on prop with generator next ==
+class Test {
+  prop1 = 1;
+  prop2 = 2;
+
+  *test() {
+  }
+}
+
+[expect]
+class Test {
+  prop1 = 1
+  prop2 = 2;
+
+  *test() {
+  }
+}
+
+== should put while on next line when removing the semi-colon ==
+do action(); while (condition)
+do action()
+while (condition)
+
+[expect]
+do action()
+while (condition)
+do action()
+while (condition)

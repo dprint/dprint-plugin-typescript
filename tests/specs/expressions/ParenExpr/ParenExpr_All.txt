@@ -26,6 +26,26 @@ const test = (
 [expect]
 (x.test as unknown) = 6;
 
+== should not keep paren expr on right hand side of assignment ==
+const a = (1);
+const b = ((((1))));
+const c = (1 + 1) + 1;
+const d = 1 + (1 + 1);
+// except here it should because of the type assertion
+const e = /** @type {number} */ (((1)));
+// keep this too as some people like it for clarity
+const a = (b = 5);
+
+[expect]
+const a = 1;
+const b = 1;
+const c = (1 + 1) + 1;
+const d = 1 + (1 + 1);
+// except here it should because of the type assertion
+const e = /** @type {number} */ (1);
+// keep this too as some people like it for clarity
+const a = (b = 5);
+
 == should ignore paren exprs within paren exprs ==
 (((test)));
 (

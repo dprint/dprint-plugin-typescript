@@ -1,4 +1,4 @@
-~~ lineWidth: 40, tupleType.preferHanging: true ~~
+~~ lineWidth: 40, tupleType.preferHanging: always ~~
 == should format ==
 type T = [   string   , number   ];
 
