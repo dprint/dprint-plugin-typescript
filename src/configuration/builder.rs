@@ -484,8 +484,8 @@ impl ConfigurationBuilder {
 
   /// Whether to force a line per expression when spanning multiple lines.
   ///
-  /// * `true` - Formats with each part on a new line.
-  /// * `false` (default) - Maintains the line breaks as written by the programmer.
+  /// * `true` (default) - Formats with each part on a new line.
+  /// * `false` - Maintains the line breaks as written by the programmer.
   pub fn conditional_expression_line_per_expression(&mut self, value: bool) -> &mut Self {
     self.insert("conditionalExpression.linePerExpression", value.into())
   }

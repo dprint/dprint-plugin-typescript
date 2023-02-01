@@ -820,6 +820,18 @@
         "description": "Maintains the line breaks as written by the programmer."
       }]
     },
+    "conditionalType.linePerExpression": {
+      "description": "Whether to force a line per expression when spanning multiple lines.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": "Formats with each part on a new line."
+      }, {
+        "const": false,
+        "description": "Uses the default behaviour."
+      }]
+    },
     "conditionalExpression.useNestedIndentation": {
       "description": "Whether to use nested indentation within conditional expressions.",
       "type": "boolean",
