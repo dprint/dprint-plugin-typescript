@@ -2,6 +2,7 @@ use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Result;
 use deno_ast::swc::parser::error::SyntaxError;
+use deno_ast::swc::parser::Syntax;
 use deno_ast::ParsedSource;
 use deno_ast::SourceTextInfo;
 use std::path::Path;
@@ -33,11 +34,17 @@ fn parse_inner(file_path: &Path, text_info: SourceTextInfo) -> Result<ParsedSour
 }
 
 fn parse_inner_no_diagnostic_check(file_path: &Path, text_info: SourceTextInfo) -> Result<ParsedSource> {
+  let media_type: deno_ast::MediaType = file_path.into();
+  let mut syntax = deno_ast::get_syntax(media_type);
+  if let Syntax::Es(es) = &mut syntax {
+    // support decorators in js
+    es.decorators = true;
+  }
   deno_ast::parse_program(deno_ast::ParseParams {
     specifier: file_path.to_string_lossy().to_string(),
     capture_tokens: true,
-    maybe_syntax: None,
-    media_type: file_path.into(),
+    maybe_syntax: Some(syntax),
+    media_type,
     scope_analysis: false,
     text_info,
   })
