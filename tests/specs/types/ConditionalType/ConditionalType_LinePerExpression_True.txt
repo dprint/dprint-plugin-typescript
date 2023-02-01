@@ -1,17 +1,17 @@
 ~~ lineWidth: 80, conditionalType.linePerExpression: true ~~
 == should use a line per expression when multiLine ==
 type Test = A extends B
-  ? C extends D
-  ? c
-  : testingTesting
-  : testingTestingTestingTesting;
+    ? C extends D
+    ? c
+    : testingTesting
+    : testingTestingTestingTesting;
 
 [expect]
 type Test = A extends B
-  ? C extends D
-  ? c
-  : testingTesting
-  : testingTestingTestingTesting;
+    ? C extends D
+    ? c
+    : testingTesting
+    : testingTestingTestingTesting;
 
 == should keep on single line if fits on a single line ==
 type Test = A extends B ? C extends D ? c : d : e;
