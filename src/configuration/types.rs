@@ -419,6 +419,15 @@ pub struct Configuration {
   pub variable_statement_prefer_hanging: bool,
   #[serde(rename = "whileStatement.preferHanging")]
   pub while_statement_prefer_hanging: bool,
+  /* indent times */
+  #[serde(rename = "hanging.indentTimes")]
+  pub hanging_indent_times: u8,
+  #[serde(rename = "multiLine.indentTimes")]
+  pub multi_line_indent_times: u8,
+  #[serde(rename = "objectLike.indentTimes")]
+  pub object_like_indent_times: u8,
+  #[serde(rename = "arrayLike.indentTimes")]
+  pub array_like_indent_times: u8,
   /* member spacing */
   #[serde(rename = "enumDeclaration.memberSpacing")]
   pub enum_declaration_member_spacing: MemberSpacing,
