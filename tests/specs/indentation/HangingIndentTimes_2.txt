@@ -1,0 +1,89 @@
+~~ lineWidth: 20, hangingIndentTimes: 2, preferHanging: true ~~
+== should indent a hanging parameter list twice (only) ==
+foo(one, two, three, four, five);
+
+[expect]
+foo(one, two, three,
+        four, five);
+
+== should indent a hanging array expression twice (only) ==
+const t = [other, otherTest, other];
+
+[expect]
+const t = [other,
+        otherTest,
+        other];
+
+== should indent a hanging binary expression twice (only) ==
+const x = 123 + 456 - foo - bar + baz;
+
+[expect]
+const x = 123 + 456
+        - foo - bar
+        + baz;
+
+== should indent a hanging for statement header twice (only) ==
+for (let i = 0; i < 5; i++) {
+    x;
+}
+
+[expect]
+for (let i = 0;
+        i < 5; i++)
+{
+    x;
+}
+
+== should indent a hanging arrow function body twice (only) ==
+const a = () => somethingLong;
+
+[expect]
+const a = () =>
+        somethingLong;
+
+== should indent a multi-line conditional twice (only) ==
+const a = test
+? something
+: somethingElse;
+
+[expect]
+const a = test
+        ? something
+        : somethingElse;
+
+== should indent a multi-line multi-level conditional twice at every level (only) ==
+const a = a
+? b
+  ? c
+  : d
+: c;
+
+[expect]
+const a = a
+        ? b
+                ? c
+                : d
+        : c;
+
+== should indent a hanging arrow expression twice inside a parameter list  (only) ==
+foo(x => somethingOrRather);
+
+[expect]
+foo(x =>
+        somethingOrRather
+);
+
+== should indent a hanging extends / implements clause twice (only) ==
+class SomeClass extends B { }
+
+[expect]
+class SomeClass
+        extends B
+{}
+
+== should indent an assignment expression twice (only) ==
+const a = someReallyLongExpression;
+
+[expect]
+const a =
+        someReallyLongExpression;
