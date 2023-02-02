@@ -12,7 +12,6 @@ use deno_ast::SourcePos;
 use deno_ast::SourceRange;
 use deno_ast::SourceRanged;
 use deno_ast::SourceRangedForSpanned;
-use dprint_core::formatting::condition_helpers::is_hanging;
 use dprint_core::formatting::condition_resolvers;
 use dprint_core::formatting::conditions::*;
 use dprint_core::formatting::ir_helpers::*;
@@ -1771,7 +1770,7 @@ fn gen_as_expr_like<'a>(node: AsExprLike<'a>, context: &mut Context<'a>) -> Prin
     items.push_str(" satisfies");
   }
   items.push_signal(Signal::SpaceIfNotTrailing);
-  items.push_condition(conditions::with_indent_if_start_of_line_indented(gen_node(node.type_ann, context)));
+  items.push_condition(conditions::with_indent_if_start_of_line_indented(gen_node(node.type_ann, context), 1));
   items
 }
 
@@ -1779,7 +1778,7 @@ fn gen_satisfies_expr<'a>(node: &'a TsSatisfiesExpr<'a>, context: &mut Context<'
   let mut items = gen_node(node.expr.into(), context);
   items.push_str(" satisfies");
   items.push_signal(Signal::SpaceIfNotTrailing);
-  items.push_condition(conditions::with_indent_if_start_of_line_indented(gen_node(node.type_ann.into(), context)));
+  items.push_condition(conditions::with_indent_if_start_of_line_indented(gen_node(node.type_ann.into(), context), 1));
   items
 }
 
@@ -1813,7 +1812,7 @@ fn gen_assignment_expr<'a>(node: &'a AssignExpr, context: &mut Context<'a>) -> P
                 items.push_str(" =");
                 items.extend(gen_trailing_comments(&op.range(), context));
               } else {
-                items = indent_if_start_of_line(items).into();
+                items = indent_if_start_of_line(items, 1).into();
               }
 
               generated_nodes.push(ir_helpers::GeneratedValue {
@@ -1834,7 +1833,7 @@ fn gen_assignment_expr<'a>(node: &'a AssignExpr, context: &mut Context<'a>) -> P
             single_line_space_at_end: false,
             single_line_separator: Signal::SpaceOrNewLine.into(),
             indent_width,
-            multi_line_options: ir_helpers::MultiLineOptions::same_line_start_hanging_indent(),
+            multi_line_options: ir_helpers::MultiLineOptions::same_line_start_hanging_indent(1),
             force_possible_newline_at_start: false,
           },
         )
@@ -2155,7 +2154,7 @@ fn gen_call_expr_like<'a>(node: CallExprLike<'a>, context: &mut Context<'a>) -> 
       is_parameters: false,
     },
     context,
-  )));
+  ), 1));
 
   items
 }
@@ -2672,7 +2671,7 @@ fn gen_paren_expr<'a>(node: &'a ParenExpr, context: &mut Context<'a>) -> PrintIt
       single_line_space_around: false,
     },
     context,
-  ))
+  ), context.config.hanging_indent_times)
   .into();
 
   return if get_use_new_line_group(node, context) {
@@ -2850,7 +2849,7 @@ fn gen_tagged_tpl<'a>(node: &'a TaggedTpl, context: &mut Context<'a>) -> PrintIt
     items.extend(generated_between_comments);
   }
 
-  items.push_condition(conditions::indent_if_start_of_line(gen_node(node.tpl.into(), context)));
+  items.push_condition(conditions::indent_if_start_of_line(gen_node(node.tpl.into(), context), 1));
   items
 }
 
@@ -3086,7 +3085,7 @@ fn gen_import_named_specifier<'a>(node: &'a ImportNamedSpecifier, context: &mut 
       items.push_str("as ");
       items.extend(gen_node(node.local.into(), context));
       items
-    }));
+    }, context.config.hanging_indent_times));
   } else {
     items.extend(gen_node(node.local.into(), context));
   }
@@ -3420,16 +3419,17 @@ fn gen_jsx_closing_fragment<'a>(_: &'a JSXClosingFragment, _: &mut Context<'a>) 
 }
 
 fn handle_jsx_surrounding_parens(inner_items: PrintItems, context: &mut Context<'_>) -> PrintItems {
+  let indent_width = context.config.indent_width;
   if !is_jsx_paren_expr_handled_node(context.current_node, context) {
     if should_jsx_surround_newlines(context.current_node, context) {
-      return surround_with_newlines_indented_if_multi_line(inner_items, context.config.indent_width);
+      return surround_with_newlines_indented_if_multi_line(inner_items, indent_width, 1);
     } else {
       return inner_items;
     }
   }
 
   if context.parent().is::<JSXExprContainer>() && context.config.jsx_multi_line_parens != JsxMultiLineParens::Always {
-    return surround_with_newlines_indented_if_multi_line(inner_items, context.config.indent_width);
+    return surround_with_newlines_indented_if_multi_line(inner_items, indent_width, 1);
   }
 
   let start_ln = LineNumber::new("conditionalParenStart");
@@ -4744,7 +4744,7 @@ fn gen_for_of_stmt<'a>(node: &'a ForOfStmt, context: &mut Context<'a>) -> PrintI
         items.push_str("of ");
         items.extend(gen_node(node.right.into(), context));
         items
-      }));
+      }, 1));
       items
     },
     GenNodeInParensOptions {
@@ -5763,7 +5763,7 @@ fn gen_parenthesized_type<'a>(node: &'a TsParenthesizedType, context: &mut Conte
       single_line_space_around: false,
     },
     context,
-  ))
+  ), 1)
   .into();
 
   return if use_new_line_group(node) {
@@ -5886,7 +5886,7 @@ fn gen_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -
       single_line_space_at_start: false,
       single_line_space_at_end: false,
       custom_single_line_separator: None,
-      multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(context.config.hanging_indent_times),
+      multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(context.config.multi_line_indent_times, context.config.hanging_indent_times),
       force_possible_newline_at_start: false,
       node_sorter: None,
     },
@@ -7762,7 +7762,6 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
   } else {
     None
   };
-  let hanging_indent_times = context.config.hanging_indent_times;
 
   items.extend(gen_surrounded_by_tokens(
     |context| {
