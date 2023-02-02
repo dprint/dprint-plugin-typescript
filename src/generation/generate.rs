@@ -4616,7 +4616,7 @@ fn gen_for_stmt<'a>(node: &'a ForStmt, context: &mut Context<'a>) -> PrintItems 
           single_line_space_at_end: false,
           single_line_separator: separator_after_semi_colons.into(),
           indent_width: context.config.indent_width,
-          multi_line_options: ir_helpers::MultiLineOptions::same_line_no_indent(0),
+          multi_line_options: ir_helpers::MultiLineOptions::same_line_no_indent(context.config.hanging_indent_times),
           force_possible_newline_at_start: false,
         },
       )
