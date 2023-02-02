@@ -1877,11 +1877,12 @@ fn gen_binary_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> PrintIte
   let allow_no_indent = get_allow_no_indent(node);
   let use_space_surrounding_operator = get_use_space_surrounding_operator(&node.op(), context);
   let is_parent_bin_expr = node.parent().kind() == NodeKind::BinExpr;
+  let hanging_indent_times = context.config.hanging_indent_times;
   let multi_line_options = {
     let mut options = if line_per_expression {
-      ir_helpers::MultiLineOptions::same_line_no_indent()
+      ir_helpers::MultiLineOptions::same_line_no_indent(hanging_indent_times)
     } else {
-      ir_helpers::MultiLineOptions::maintain_line_breaks()
+      ir_helpers::MultiLineOptions::maintain_line_breaks(hanging_indent_times)
     };
     options.with_hanging_indent = if is_parent_bin_expr {
       BoolOrCondition::Bool(false) // let the parent handle the indent
@@ -4615,7 +4616,7 @@ fn gen_for_stmt<'a>(node: &'a ForStmt, context: &mut Context<'a>) -> PrintItems 
           single_line_space_at_end: false,
           single_line_separator: separator_after_semi_colons.into(),
           indent_width: context.config.indent_width,
-          multi_line_options: ir_helpers::MultiLineOptions::same_line_no_indent(),
+          multi_line_options: ir_helpers::MultiLineOptions::same_line_no_indent(0),
           force_possible_newline_at_start: false,
         },
       )
@@ -7110,7 +7111,7 @@ where
             single_line_space_at_end: space_around,
             custom_single_line_separator: None,
             multi_line_options: if prefer_single_item_hanging {
-              MultiLineOptions::maintain_line_breaks()
+              MultiLineOptions::maintain_line_breaks(0)
             } else {
               MultiLineOptions::surround_newlines_indented(multi_line_indent_times, hanging_indent_times)
             },
@@ -7984,7 +7985,7 @@ fn gen_decorators<'a>(decorators: &[&'a Decorator<'a>], is_inline: bool, context
       single_line_space_at_start: false,
       single_line_space_at_end: is_inline,
       custom_single_line_separator: None,
-      multi_line_options: ir_helpers::MultiLineOptions::same_line_no_indent(),
+      multi_line_options: ir_helpers::MultiLineOptions::same_line_no_indent(0),
       force_possible_newline_at_start: false,
       node_sorter: None,
     },
