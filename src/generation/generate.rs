@@ -12,6 +12,7 @@ use deno_ast::SourcePos;
 use deno_ast::SourceRange;
 use deno_ast::SourceRanged;
 use deno_ast::SourceRangedForSpanned;
+use dprint_core::formatting::condition_helpers::is_hanging;
 use dprint_core::formatting::condition_resolvers;
 use dprint_core::formatting::conditions::*;
 use dprint_core::formatting::ir_helpers::*;
@@ -853,7 +854,7 @@ fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'
         items
       }));
       items
-    }));
+    }, context.config.hanging_indent_times));
   }
   items.extend(gen_extends_or_implements(
     GenExtendsOrImplementsOptions {
@@ -1640,7 +1641,7 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr, context: &mut Context<'a>) -> Pr
         ));
       }
 
-      items.push_condition(conditions::indent_if_start_of_line(generated_body.into()));
+      items.push_condition(conditions::indent_if_start_of_line(generated_body.into(), context.config.hanging_indent_times));
       items.push_info(end_body_ln);
     }
     items
@@ -2184,6 +2185,7 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
   let question_token = context.token_finder.get_first_operator_after(&node.test, "?").unwrap();
   let colon_token = context.token_finder.get_first_operator_after(&node.cons, ":").unwrap();
   let line_per_expression = context.config.conditional_expression_line_per_expression;
+  let hanging_indent_times = context.config.hanging_indent_times;
   let has_newline_test_cons = node_helpers::get_use_new_lines_for_nodes(&node.test, &node.cons, context.program);
   let has_newline_const_alt = node_helpers::get_use_new_lines_for_nodes(&node.cons, &node.alt, context.program);
   let mut force_test_cons_newline = !context.config.conditional_expression_prefer_single_line && has_newline_test_cons;
@@ -2209,14 +2211,14 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
 
   let top_most_il = top_most_data.il;
 
-  items.extend(ir_helpers::new_line_group(with_queued_indent({
+  items.extend(ir_helpers::new_line_group(with_queued_indent_times({
     let mut items = gen_node(node.test.into(), context);
     if question_position == OperatorPosition::SameLine {
       items.push_str(" ?");
     }
     items.extend(question_comment_items.trailing_line);
     items
-  })));
+  }, hanging_indent_times)));
 
   items.extend(question_comment_items.previous_lines);
 
@@ -2260,7 +2262,7 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
         items.push_str(" :");
       }
       items.extend(colon_comment_items.trailing_line);
-      indent_if_sol_and_same_indent_as_top_most(ir_helpers::new_line_group(items), top_most_il)
+      indent_times_if_sol_and_same_indent_as_top_most(ir_helpers::new_line_group(items), top_most_il, hanging_indent_times)
     });
 
     items.extend(colon_comment_items.previous_lines);
@@ -2284,7 +2286,7 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
       }
       items.push_info(before_alternate_ln);
       items.extend(gen_node(node.alt.into(), context));
-      indent_if_sol_and_same_indent_as_top_most(ir_helpers::new_line_group(items), top_most_il)
+      indent_times_if_sol_and_same_indent_as_top_most(ir_helpers::new_line_group(items), top_most_il, hanging_indent_times)
     });
     items.push_info(end_ln);
 
@@ -2296,9 +2298,9 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
   };
 
   if top_most_data.is_top_most {
-    items.push_condition(conditions::indent_if_start_of_line(cons_and_alt_items));
+    items.push_condition(conditions::indent_if_start_of_line(cons_and_alt_items, hanging_indent_times));
   } else {
-    items.push_condition(indent_if_sol_and_same_indent_as_top_most(cons_and_alt_items, top_most_data.il));
+    items.push_condition(indent_times_if_sol_and_same_indent_as_top_most(cons_and_alt_items, top_most_data.il, hanging_indent_times));
   }
 
   return items;
@@ -2389,6 +2391,7 @@ struct ConditionalTokenComments {
 
 /// Generates the comments used for tokens in conditional expressions and types.
 fn gen_cond_token_comments(token: &TokenAndSpan, context: &mut Context, top_most_il: IndentLevel) -> ConditionalTokenComments {
+  let hanging_indent_times = context.config.hanging_indent_times;
   let token_line = token.end_line_fast(context.program);
   let previous_token = token.previous_token_fast(context.program).unwrap();
   let next_token = token.next_token_fast(context.program).unwrap();
@@ -2410,7 +2413,7 @@ fn gen_cond_token_comments(token: &TokenAndSpan, context: &mut Context, top_most
         } else {
           let mut new_items = PrintItems::new();
           new_items.push_signal(Signal::NewLine);
-          new_items.push_condition(indent_if_sol_and_same_indent_as_top_most(items, top_most_il));
+          new_items.push_condition(indent_times_if_sol_and_same_indent_as_top_most(items, top_most_il, hanging_indent_times));
           new_items
         }
       },
@@ -2437,7 +2440,8 @@ fn gen_cond_token_comments(token: &TokenAndSpan, context: &mut Context, top_most
   }
 }
 
-fn indent_if_sol_and_same_indent_as_top_most(items: PrintItems, indent_level: IndentLevel) -> Condition {
+// TODO: add indent_times here
+fn indent_times_if_sol_and_same_indent_as_top_most(items: PrintItems, indent_level: IndentLevel, indent_times: u8) -> Condition {
   let items = items.into_rc_path();
   if_true_or(
     "indentIfSameIndentationLevelAndStartOfLine",
@@ -2449,7 +2453,7 @@ fn indent_if_sol_and_same_indent_as_top_most(items: PrintItems, indent_level: In
         Some(false)
       }
     }),
-    with_indent(items.into()),
+    with_indent_times(items.into(), indent_times),
     items.into(),
   )
 }
@@ -2791,7 +2795,7 @@ fn gen_sequence_expr<'a>(node: &'a SeqExpr, context: &mut Context<'a>) -> PrintI
       single_line_space_at_start: false,
       single_line_space_at_end: false,
       custom_single_line_separator: None,
-      multi_line_options: ir_helpers::MultiLineOptions::same_line_start_hanging_indent(),
+      multi_line_options: ir_helpers::MultiLineOptions::same_line_start_hanging_indent(context.config.hanging_indent_times),
       force_possible_newline_at_start: false,
       node_sorter: None,
     },
@@ -2896,7 +2900,7 @@ fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context
         items.extend(if keep_on_one_line {
           with_no_new_lines(generated_expr)
         } else if possible_surround_newlines {
-          ir_helpers::surround_with_newlines_indented_if_multi_line(new_line_group(generated_expr), context.config.indent_width)
+          ir_helpers::surround_with_newlines_indented_if_multi_line(new_line_group(generated_expr), context.config.indent_width, context.config.hanging_indent_times)
         } else {
           generated_expr
         });
@@ -3052,7 +3056,7 @@ fn gen_export_named_specifier<'a>(node: &'a ExportNamedSpecifier, context: &mut 
       items.push_str("as ");
       items.extend(gen_node(exported.into(), context));
       items
-    }));
+    }, context.config.hanging_indent_times));
   }
 
   items
@@ -3627,6 +3631,8 @@ fn gen_jsx_namespaced_name<'a>(node: &'a JSXNamespacedName, context: &mut Contex
 }
 
 fn gen_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Context<'a>) -> PrintItems {
+  let indent_times = context.config.multi_line_indent_times;
+  let hanging_indent_times = context.config.hanging_indent_times;
   let space_before_self_closing_tag_slash = context.config.jsx_self_closing_element_space_before_slash;
   let force_use_new_lines = get_force_is_multi_line(node, context);
   let prefer_newline_before_close_bracket = get_should_prefer_newline_before_close_bracket(node, context);
@@ -3644,7 +3650,7 @@ fn gen_jsx_opening_element<'a>(node: &'a JSXOpeningElement, context: &mut Contex
     items.push_str(" ");
     items.extend(gen_node(node.attrs[0].into(), context));
   } else if !node.attrs.is_empty() {
-    let mut multi_line_options = ir_helpers::MultiLineOptions::surround_newlines_indented();
+    let mut multi_line_options = ir_helpers::MultiLineOptions::surround_newlines_indented(indent_times, hanging_indent_times);
     multi_line_options.newline_at_end = prefer_newline_before_close_bracket;
     items.extend(gen_separated_values(
       GenSeparatedValuesParams {
@@ -4680,7 +4686,7 @@ fn gen_for_in_stmt<'a>(node: &'a ForInStmt, context: &mut Context<'a>) -> PrintI
         items.push_str("in ");
         items.extend(gen_node(node.right.into(), context));
         items
-      }));
+      }, context.config.hanging_indent_times));
       items
     },
     GenNodeInParensOptions {
@@ -5144,7 +5150,7 @@ fn gen_var_decl<'a>(node: &'a VarDecl, context: &mut Context<'a>) -> PrintItems 
         single_line_space_at_start: false,
         single_line_space_at_end: false,
         custom_single_line_separator: None,
-        multi_line_options: ir_helpers::MultiLineOptions::same_line_start_hanging_indent(),
+        multi_line_options: ir_helpers::MultiLineOptions::same_line_start_hanging_indent(context.config.hanging_indent_times),
         force_possible_newline_at_start: false,
         node_sorter: None,
       },
@@ -5251,6 +5257,7 @@ fn gen_array_type<'a>(node: &'a TsArrayType, context: &mut Context<'a>) -> Print
 }
 
 fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'a>) -> PrintItems {
+  let hanging_indent_times = context.config.hanging_indent_times;
   let use_new_lines =
     !context.config.conditional_type_prefer_single_line && node_helpers::get_use_new_lines_for_nodes(&node.true_type, &node.false_type, context.program);
   let top_most_data = get_top_most_data(node, context);
@@ -5280,7 +5287,7 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
     }
     items.extend(question_comment_items.trailing_line);
     items
-  })));
+  }), hanging_indent_times));
 
   if question_comment_items.previous_lines.is_empty() {
     items.push_signal(Signal::SpaceOrNewLine);
@@ -5345,7 +5352,7 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
   if is_parent_conditional_type {
     items.extend(false_type_generated);
   } else {
-    items.push_condition(conditions::indent_if_start_of_line(false_type_generated));
+    items.push_condition(conditions::indent_if_start_of_line(false_type_generated, hanging_indent_times));
   }
 
   return items;
@@ -5709,7 +5716,7 @@ fn gen_mapped_type<'a>(node: &'a TsMappedType, context: &mut Context<'a>) -> Pri
       if force_use_new_lines {
         surround_with_new_lines(with_indent(inner_items))
       } else {
-        ir_helpers::surround_with_newlines_indented_if_multi_line(inner_items, context.config.indent_width)
+        ir_helpers::surround_with_newlines_indented_if_multi_line(inner_items, context.config.indent_width, context.config.hanging_indent_times)
       }
     },
     |_| None,
@@ -5847,7 +5854,7 @@ fn gen_type_param<'a>(node: &'a TsTypeParam, context: &mut Context<'a>) -> Print
       items.push_signal(Signal::SpaceIfNotTrailing);
       items.extend(gen_node(constraint.into(), context));
       items
-    }));
+    }, context.config.hanging_indent_times));
   }
 
   if let Some(default) = &node.default {
@@ -5879,7 +5886,7 @@ fn gen_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -
       single_line_space_at_start: false,
       single_line_space_at_end: false,
       custom_single_line_separator: None,
-      multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(),
+      multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(context.config.hanging_indent_times),
       force_possible_newline_at_start: false,
       node_sorter: None,
     },
@@ -6001,18 +6008,20 @@ fn gen_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, context
   let mut items = PrintItems::new();
   let force_use_new_lines = get_use_new_lines_for_nodes(node.types, context.config.union_and_intersection_type_prefer_single_line, context);
   let separator = if node.is_union { "|" } else { "&" };
+  let multi_line_indent_times = context.config.multi_line_indent_times;
+  let hanging_indent_times = context.config.hanging_indent_times;
 
   let indent_width = context.config.indent_width;
   let prefer_hanging = context.config.union_and_intersection_type_prefer_hanging;
   let is_parent_union_or_intersection = matches!(node.node.parent().unwrap().kind(), NodeKind::TsUnionType | NodeKind::TsIntersectionType);
   let multi_line_options = if !is_parent_union_or_intersection {
     if use_surround_newlines(node.node, context) {
-      ir_helpers::MultiLineOptions::surround_newlines_indented()
+      ir_helpers::MultiLineOptions::surround_newlines_indented(multi_line_indent_times, hanging_indent_times)
     } else {
-      ir_helpers::MultiLineOptions::new_line_start()
+      ir_helpers::MultiLineOptions::new_line_start(hanging_indent_times)
     }
   } else {
-    ir_helpers::MultiLineOptions::same_line_start_hanging_indent()
+    ir_helpers::MultiLineOptions::same_line_start_hanging_indent(hanging_indent_times)
   };
   let gen_result = ir_helpers::gen_separated_values(
     |is_multi_line_or_hanging_ref| {
@@ -6610,6 +6619,8 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
   let force_use_new_lines = get_force_use_new_lines(&node, &nodes, opts.prefer_single_line, context);
   let mut items = PrintItems::new();
   let first_member = nodes.get(0).map(|x| x.range());
+  let multi_line_indent_times = context.config.multi_line_indent_times;
+  let hanging_indent_times = context.config.hanging_indent_times;
 
   items.extend(gen_surrounded_by_tokens(
     |context| {
@@ -6623,7 +6634,7 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
           single_line_space_at_start: space_around,
           single_line_space_at_end: space_around,
           custom_single_line_separator: None,
-          multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(),
+          multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(multi_line_indent_times, hanging_indent_times),
           force_possible_newline_at_start: false,
           node_sorter: None,
         },
@@ -7033,6 +7044,8 @@ where
 {
   let nodes = opts.nodes;
   let is_parameters = opts.is_parameters;
+  let multi_line_indent_times = context.config.multi_line_indent_times;
+  let hanging_indent_times = context.config.hanging_indent_times;
   let prefer_hanging_config = if is_parameters {
     context.config.parameters_prefer_hanging
   } else {
@@ -7072,7 +7085,7 @@ where
         items.push_info(start_ln);
         items.push_info(start_lsil);
         items.push_signal(Signal::PossibleNewLine);
-        items.push_condition(conditions::indent_if_start_of_line(generated_node));
+        items.push_condition(conditions::indent_if_start_of_line(generated_node, hanging_indent_times));
         items.push_condition(if_true(
           "isDifferentLineAndStartLineIndentation",
           Rc::new(move |context| {
@@ -7099,7 +7112,7 @@ where
             multi_line_options: if prefer_single_item_hanging {
               MultiLineOptions::maintain_line_breaks()
             } else {
-              MultiLineOptions::surround_newlines_indented()
+              MultiLineOptions::surround_newlines_indented(multi_line_indent_times, hanging_indent_times)
             },
             force_possible_newline_at_start: is_parameters,
             node_sorter: None,
@@ -7619,16 +7632,17 @@ fn gen_node_in_parens<'a>(gen_node: impl FnOnce(&mut Context<'a>) -> PrintItems,
   let inner_range = opts.inner_range;
   let paren_range = get_paren_range(&inner_range, context);
   let force_use_new_lines = get_force_use_new_lines(inner_range, &paren_range, context);
+  let hanging_indent_times = context.config.hanging_indent_times;
 
   return gen_surrounded_by_tokens(
     |context| {
       let generated_node = gen_node(context);
       if force_use_new_lines {
-        surround_with_new_lines(with_indent(generated_node))
+        surround_with_new_lines(with_indent_times(generated_node, hanging_indent_times))
       } else if opts.prefer_hanging {
         generated_node
       } else {
-        ir_helpers::surround_with_newlines_indented_if_multi_line(generated_node, context.config.indent_width)
+        ir_helpers::surround_with_newlines_indented_if_multi_line(generated_node, context.config.indent_width, hanging_indent_times)
       }
     },
     |_| None,
@@ -7679,6 +7693,7 @@ struct GenExtendsOrImplementsOptions<'a> {
 
 fn gen_extends_or_implements<'a>(opts: GenExtendsOrImplementsOptions<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
+  let hanging_indent_times = context.config.hanging_indent_times;
 
   if opts.type_items.is_empty() {
     return items;
@@ -7705,14 +7720,14 @@ fn gen_extends_or_implements<'a>(opts: GenExtendsOrImplementsOptions<'a>, contex
         single_line_space_at_start: true,
         single_line_space_at_end: false,
         custom_single_line_separator: None,
-        multi_line_options: ir_helpers::MultiLineOptions::new_line_start(),
+        multi_line_options: ir_helpers::MultiLineOptions::new_line_start(hanging_indent_times),
         force_possible_newline_at_start: false,
         node_sorter: None,
       },
       context,
     ));
     items
-  })));
+  }), hanging_indent_times));
 
   items
 }
@@ -7732,6 +7747,8 @@ struct GenObjectLikeNodeOptions<'a> {
 
 fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
+  let multi_line_indent_times = context.config.object_like_indent_times;
+  let hanging_indent_times = context.config.hanging_indent_times;
 
   let child_tokens = get_tokens_from_children_with_tokens(opts.node, context.program);
   let open_brace_token = child_tokens.iter().find(|t| t.token == Token::LBrace);
@@ -7745,6 +7762,7 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
   } else {
     None
   };
+  let hanging_indent_times = context.config.hanging_indent_times;
 
   items.extend(gen_surrounded_by_tokens(
     |context| {
@@ -7761,7 +7779,7 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
             single_line_space_at_start: opts.surround_single_line_with_spaces,
             single_line_space_at_end: opts.surround_single_line_with_spaces,
             custom_single_line_separator: None,
-            multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(),
+            multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(multi_line_indent_times, hanging_indent_times),
             force_possible_newline_at_start: false,
             node_sorter: opts.node_sorter,
           },
@@ -7882,9 +7900,9 @@ fn gen_for_flattened_member_like_expr<'a>(node: FlattenedMemberLikeExpr<'a>, con
 
     let generated_item = gen_for_member_like_expr_item(item, context, i, total_items_len);
     if item.is_computed() {
-      items.push_condition(indent_if_start_of_line_or_start_of_line_indented(generated_item));
+      items.push_condition(indent_if_start_of_line_or_start_of_line_indented(generated_item, 1));
     } else {
-      items.push_condition(conditions::indent_if_start_of_line(generated_item));
+      items.push_condition(conditions::indent_if_start_of_line(generated_item, 1));
     }
   }
 
@@ -7914,7 +7932,7 @@ fn gen_computed_prop_like<'a>(
       if force_use_new_lines {
         surround_with_new_lines(with_indent(gen_inner(context)))
       } else {
-        ir_helpers::surround_with_newlines_indented_if_multi_line(gen_inner(context), context.config.indent_width)
+        ir_helpers::surround_with_newlines_indented_if_multi_line(gen_inner(context), context.config.indent_width, context.config.hanging_indent_times)
       }
     },
     |_| None,
@@ -8884,7 +8902,7 @@ fn gen_assignment_like_with_token<'a>(expr: Node<'a>, op: &'static str, op_token
     let assignment = if had_op_trailing_comments {
       assignment
     } else {
-      conditions::indent_if_start_of_line(assignment).into()
+      conditions::indent_if_start_of_line(assignment, context.config.hanging_indent_times).into()
     };
     let assignment = if use_new_line_group { new_line_group(assignment) } else { assignment };
     items.extend(assignment);
@@ -9053,6 +9071,8 @@ fn gen_surrounded_by_tokens<'a>(
         if comments.clone().any(|c| !context.has_handled_comment(c)) {
           if is_single_line {
             let indent_width = context.config.indent_width;
+            let multi_line_indent_times = context.config.multi_line_indent_times;
+            let hanging_indent_times = context.config.hanging_indent_times;
             items.extend(
               ir_helpers::gen_separated_values(
                 |_| {
@@ -9079,7 +9099,7 @@ fn gen_surrounded_by_tokens<'a>(
                   single_line_space_at_end: opts.single_line_space_around,
                   single_line_separator: Signal::SpaceOrNewLine.into(),
                   indent_width,
-                  multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(),
+                  multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(multi_line_indent_times, hanging_indent_times),
                   force_possible_newline_at_start: false,
                 },
               )
