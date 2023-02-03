@@ -1,12 +1,12 @@
 ~~ lineWidth: 20, hangingIndentTimes: 2, preferHanging: true ~~
-== should indent a hanging parameter list twice (only) ==
+== should indent a hanging parameter list twice ==
 foo(one, two, three, four, five);
 
 [expect]
 foo(one, two, three,
         four, five);
 
-== should indent a hanging array expression twice (only) ==
+== should indent a hanging array expression twice ==
 const t = [other, otherTest, other];
 
 [expect]
@@ -14,7 +14,7 @@ const t = [other,
         otherTest,
         other];
 
-== should indent a hanging binary expression twice (only) ==
+== should indent a hanging binary expression twice ==
 const x = 123 + 456 - foo - bar + baz;
 
 [expect]
@@ -22,7 +22,7 @@ const x = 123 + 456
         - foo - bar
         + baz;
 
-== should indent a hanging for statement header twice (only) ==
+== should indent a hanging for statement header twice ==
 for (let i = 0; i < 5; i++) {
     x;
 }
@@ -34,14 +34,14 @@ for (let i = 0;
     x;
 }
 
-== should indent a hanging arrow function body twice (only) ==
+== should indent a hanging arrow function body twice ==
 const a = () => somethingLong;
 
 [expect]
 const a = () =>
         somethingLong;
 
-== should indent a multi-line conditional twice (only) ==
+== should indent a multi-line conditional twice ==
 const a = test
 ? something
 : somethingElse;
@@ -51,7 +51,7 @@ const a = test
         ? something
         : somethingElse;
 
-== should indent a multi-line multi-level conditional twice at every level (only) ==
+== should indent a multi-line multi-level conditional twice at every level ==
 const a = a
 ? b
   ? c
@@ -65,7 +65,7 @@ const a = a
                 : d
         : c;
 
-== should indent a hanging arrow expression twice inside a parameter list  (only) ==
+== should indent a hanging arrow expression twice inside a parameter list  ==
 foo(x => somethingOrRather);
 
 [expect]
@@ -73,7 +73,7 @@ foo(x =>
         somethingOrRather
 );
 
-== should indent a hanging extends / implements clause twice (only) ==
+== should indent a hanging extends / implements clause twice ==
 class SomeClass extends B { }
 
 [expect]
@@ -81,7 +81,7 @@ class SomeClass
         extends B
 {}
 
-== should indent an assignment expression twice (only) ==
+== should indent an assignment expression twice ==
 const a = someReallyLongExpression;
 
 [expect]
