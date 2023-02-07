@@ -1,0 +1,33 @@
+#!/bin/sh
+export DPRINT_PLUGIN_TYPESCRIPT_SOURCE_PATH=$HOME/work/dprint-plugin-typescript/
+# Assumes you have set the DPRINT_PLUGIN_TYPESCRIPT_SOURCE_PATH variable to declare where this repo is located.
+# This allows us to call the dprint binary from anywhere.
+if test ! -d $DPRINT_PLUGIN_TYPESCRIPT_SOURCE_PATH;
+    then echo "The project folder for dprint-plugin-typescript could not be found. Please set the DPRINT_PLUGIN_TYPESCRIPT_SOURCE_PATH variable inside \"dprint-plugin-typescript/development/dprint\" and try again."
+    exit -1
+fi
+# Assumes you have the wasm32-unknown-unknown target installed
+if test -z "$(rustup target list | grep -- "wasm32-unknown-unknown (installed)")";
+    then echo The "wasm32-unknown-unknown" target could not be found via "rustup". Please run "rustup install wasm32-unknown-unknown".
+    exit -1
+fi
+# Assumes you have dprint cloned under the dprint-plugin-typescript folder
+if test ! -d $DPRINT_PLUGIN_TYPESCRIPT_SOURCE_PATH/dprint;
+    then echo dprint not found. Please run "git clone git@github.com:dprint/dprint.git" from the dprint-plugin-typescript folder.
+    exit -1
+fi
+
+# Build dprint-plugin-typescript and dprint
+cd $DPRINT_PLUGIN_TYPESCRIPT_SOURCE_PATH
+cargo build --target wasm32-unknown-unknown --release --features "wasm"
+
+# Our local dprint binary
+export DPRINT=$DPRINT_PLUGIN_TYPESCRIPT_SOURCE_PATH/dprint/target/debug/dprint
+# A config that loads our the typescript plugin built from this repo's source.
+# You can add your other configuration options by opening this file and changing
+# the "extends" field to your custom dprint.json file.
+export DPRINT_CONFIG=$DPRINT_PLUGIN_TYPESCRIPT_SOURCE_PATH/development/dprint.json
+
+# Run our local dprint.
+cd -;
+$DPRINT --config=$DPRINT_CONFIG $@
