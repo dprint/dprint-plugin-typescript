@@ -7064,6 +7064,11 @@ where
     |context| {
       let mut items = PrintItems::new();
 
+      // Always break up single argument lambdas with expression bodies in hanging mode. E.g.
+      // E.g. This example would always be hanging like so:
+      // line width         |
+      // funcCall(() => an   
+      //   + expression);
       if !force_use_new_lines && nodes.len() == 1 && is_arrow_function_with_expr_body(nodes[0]) {
         let start_ln = LineNumber::new("startArrow");
         let start_lsil = LineStartIndentLevel::new("startArrow");
@@ -7096,11 +7101,7 @@ where
             single_line_space_at_start: space_around,
             single_line_space_at_end: space_around,
             custom_single_line_separator: None,
-            multi_line_options: if prefer_single_item_hanging {
-              MultiLineOptions::maintain_line_breaks()
-            } else {
-              MultiLineOptions::surround_newlines_indented()
-            },
+            multi_line_options: MultiLineOptions::surround_newlines_indented(),
             force_possible_newline_at_start: is_parameters,
             node_sorter: None,
           },
@@ -7428,16 +7429,17 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
           }
         };
 
+        
         let use_new_line_group = match value {
-          // Prefer going inline multi-line for certain expressions in arguments
+          // Prefer hanging mode for certain expressions in arguments
           // when initially single line.
           // Example: call({\n}) instead of call(\n  {\n  }\n)
           NodeOrSeparator::Node(Node::ExprOrSpread(expr_or_spread)) => !matches!(expr_or_spread.expr, Expr::Object(_) | Expr::Array(_)),
           _ => true,
         };
-
+        let argument_with_potential_new_line_group = if use_new_line_group { new_line_group_if(items, &is_multi_line_or_hanging.clone()) } else { items };
         generated_nodes.push(ir_helpers::GeneratedValue {
-          items: if use_new_line_group { ir_helpers::new_line_group(items) } else { items },
+          items: argument_with_potential_new_line_group.into(),
           lines_span,
           allow_inline_multi_line,
           allow_inline_single_line,
@@ -9324,6 +9326,18 @@ fn has_any_node_comment_on_different_line(nodes: &[impl SourceRanged], context: 
 }
 
 /* config helpers */
+
+pub fn new_line_group_if(item: PrintItems, resolver: &ConditionResolver) -> PrintItems {
+  if item.is_empty() {
+    return item;
+  }
+
+  let mut items = PrintItems::new();
+  items.push_condition(if_true("StartNewLineGroupIfTrue", resolver.clone(), Signal::StartNewLineGroup.into()));
+  items.extend(item);
+  items.push_condition(if_true("FinishNewLineGroupIfTrue", resolver.clone(), Signal::FinishNewLineGroup.into()));
+  items
+}
 
 fn get_generated_separator(separator: &Separator, is_trailing: bool, is_multi_line: &ConditionResolver) -> PrintItems {
   debug_assert!(!separator.is_none());
