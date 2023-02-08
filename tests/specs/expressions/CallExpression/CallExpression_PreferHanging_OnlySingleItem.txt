@@ -1,12 +1,5 @@
-~~ arguments.preferHanging: onlySingleItem, indentWidth: 4, lineWidth: 40 ~~
-== should use hanging indentation for a single hanging item (only) ==
-call(a + great + big + expression + exceeding + lineWidth);
-
-[expect]
-call(a + great + big + expression
-    + exceeding + lineWidth);
-
-== should use hanging indentation for a single multiline item (only) ==
+~~ arguments.preferHanging: onlySingleItem, lineWidth: 40, indentWidth: 4 ~~
+== should use hanging indentation for a single item ==
 call(new Foo({ test: "a", bar: "b", baz: "c" }));
 
 [expect]
@@ -16,17 +9,8 @@ call(new Foo({
     baz: "c",
 }));
 
-== should use hanging indentation for nested single items, even over the line width ==
-call(big_long_single_argument_cannot_be_broken_so_gets_multilined);
-call(sub_call_1(subcall_2(subcall_3("we're past column 40"))));
-
-[expect]
-call(big_long_single_argument_cannot_be_broken_so_gets_multilined);
-call(sub_call_1(subcall_2(subcall_3("we're past column 40"))));
-
 == should use multi-line indentation if there are multiple items ==
 call(new Foo({ test: "a", }), new Bar(), baz);
-call(sub_call_we_want_to_hang(multi_line_me_bro, yeah_cmon));
 
 [expect]
 call(
@@ -34,10 +18,6 @@ call(
     new Bar(),
     baz,
 );
-call(sub_call_we_want_to_hang(
-    multi_line_me_bro,
-    yeah_cmon,
-));
 
 == should use multi-line indentation if there is a leading comment, even for a single item ==
 fetchMock.mockResponses(

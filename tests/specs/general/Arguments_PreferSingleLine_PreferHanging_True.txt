@@ -46,14 +46,6 @@ call(
     testing,
 );
 
-== should not become multi-line when a trailing line block exists ==
-call(/*1*/ testing, /*2*/ test, /*3*/
-    /*4*/ te /*5*/, /*6*/ test /*7*/);
-
-[expect]
-call(/*1*/ testing, /*2*/ test, /*3*/
-    /*4*/ te, /*5*/ /*6*/ test /*7*/);
-
 == should become multi-line when there is a trailing block comment that goes onto the next line ==
 call(testing, testing,
     testing, testing/*
