@@ -1,0 +1,92 @@
+~~ lineWidth: 40, memberExpression.linePerExpression: methods, preferSingleLine: true ~~
+== should retain non-methods expressions on the same line when exceeding the width ==
+testing.this.out.for.when.it.passes.the.lineWidth.someMore;
+
+[expect]
+testing.this.out.for.when.it.passes.the
+    .lineWidth.someMore;
+
+== should break method expressions onto new lines when exceeding the width ==
+testing.this.out.for.when().it.passes.the.lineWidth().a.b;
+
+variableA.variableB.methodCallA().map(x => x.y.z).a.b.c.map((a, c) => foo).build();
+
+[expect]
+testing.this.out.for
+    .when()
+    .it.passes.the.lineWidth().a.b;
+
+variableA.variableB
+    .methodCallA()
+    .map(x => x.y.z)
+    .a.b.c.map((a, c) => foo)
+    .build();
+
+== should not break the first call expression onto a new line if it can fit on the first line ==
+a.methodCallA().map(x => x.y.z).a.b.c.map((a, c) => foo).build();
+Object.values(a).map((x, y) => {
+    const a = b + c;
+});
+
+[expect]
+a.methodCallA()
+    .map(x => x.y.z)
+    .a.b.c.map((a, c) => foo)
+    .build();
+Object.values(a).map((x, y) => {
+    const a = b + c;
+});
+
+== should not insert newlines if there is only one call expression that spans multiple lines ==
+const d = searchParams.filter(e => {
+    const a = b + c;
+});
+const d = searchParams.filter(e => {
+    const a = b + c;
+}).map(x => x);
+
+[expect]
+const d = searchParams.filter(e => {
+    const a = b + c;
+});
+const d = searchParams
+    .filter(e => {
+        const a = b + c;
+    })
+    .map(x => x);
+
+== should not consider the very first node as part of the method chain, even if it is a call expression ==
+const a = fetch(someUrl).then(r => {
+    const a = b + c;
+});
+
+[expect]
+const a = fetch(someUrl).then(r => {
+    const a = b + c;
+});
+
+== should maintain single line when below the width ==
+testing.this.out;
+
+[expect]
+testing.this.out;
+
+== should maintain single line when below the width, with methods ==
+this.someMethod().call().test();
+
+[expect]
+this.someMethod().call().test();
+
+== should be single line when below the width even when on multiple lines ==
+testing
+    .this.out;
+testing.this
+    .out;
+testing.this()
+    .out()
+    .test();
+
+[expect]
+testing.this.out;
+testing.this.out;
+testing.this().out().test();
