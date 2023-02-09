@@ -18,6 +18,7 @@ use dprint_core::formatting::ir_helpers::*;
 use dprint_core::formatting::*;
 use std::rc::Rc;
 
+use rustc_hash::FxHashSet;
 use super::sorting::*;
 use super::swc::get_flattened_bin_expr;
 use super::swc::*;
@@ -7854,6 +7855,14 @@ fn gen_for_flattened_member_like_expr<'a>(node: FlattenedMemberLikeExpr<'a>, con
     items.push_info(member_expr_start_ln);
   }
 
+  let mut trailing_non_call_exprs = FxHashSet::default();
+  for (i, item) in node.nodes.iter().enumerate().rev() {
+    if matches!(item, MemberLikeExprItem::CallExpr(_)) {
+      break
+    };
+    trailing_non_call_exprs.insert(i);
+  }
+
   items.extend(gen_for_member_like_expr_item(&node.nodes[0], context, 0, total_items_len));
 
   for (i, item) in node.nodes.iter().enumerate().skip(1) {
@@ -7862,9 +7871,52 @@ fn gen_for_flattened_member_like_expr<'a>(node: FlattenedMemberLikeExpr<'a>, con
     if item.is_optional() || !item.is_computed() {
       if force_use_new_line {
         items.push_signal(Signal::NewLine);
+      } else if context.config.member_expression_line_per_expression == MemberExprLinePerExpression::Methods {
+        // When the "method" mode for `linePerExpression` is enabled, the following rules are applied
+        // if the entire expression exceeds the line width:
+        // - the first call expression will have a preceding newline (if above indent width)
+        // - every call expression will have a trailing newline, except if any trailing non-call
+        //   expressions fit neatly onto the last line
+        // - in all other cases, break with PossibleNewLine on any member expression.
+
+        // Handle the first call expression
+        let is_call_expr = matches!(item, MemberLikeExprItem::CallExpr(_));
+        // Only consider the previous node being a call expression if we're on the 3rd node onwards,
+        // because we don't consider the very first node as part of the chaining. For example, for:
+        // const a = fetch(someUrl).then(x => ...)
+        // the `fetch(someUrl)` is considered an anchor and is not part of the trailing method chain.
+        let prev_is_call_expr = i > 1 && node.nodes.get(i - 1).map_or(false, |n| matches!(n, MemberLikeExprItem::CallExpr(_)));
+        let is_trailing_non_call_expr = trailing_non_call_exprs.contains(&i);
+
+        items.push_condition(if_true_or(
+          "linePerExpressionMethodsFirstCallExpression",
+          Rc::new(move |context| Some(is_call_expr
+              && condition_helpers::is_multiple_lines(context, member_expr_start_ln, member_expr_last_item_start_ln)?
+              && condition_helpers::is_on_same_line(context, member_expr_start_ln)?
+          )),
+          if_above_width(context.config.indent_width, Signal::NewLine.into()).into(),
+          // Handle trailing newlines after call expressions. Look at the previous node instead as
+          // we are generating before the current node at the moment.
+          if_true_or(
+            "linePerExpressionMethods",
+            Rc::new(move |context| {
+              let is_multiple_lines = condition_helpers::is_multiple_lines(context, member_expr_start_ln, member_expr_last_item_start_ln);
+              Some(is_multiple_lines? && prev_is_call_expr && !is_trailing_non_call_expr)
+            }),
+            Signal::NewLine.into(),
+            {
+              let mut newline_items = PrintItems::new();
+              newline_items.push_signal(Signal::StartNewLineGroup);
+              newline_items.push_signal(Signal::PossibleNewLine);
+              newline_items.push_signal(Signal::FinishNewLineGroup);
+              newline_items
+            },
+          ).into(),
+        ));
       } else if context.config.member_expression_line_per_expression == MemberExprLinePerExpression::None {
         items.push_condition(conditions::if_above_width(context.config.indent_width, Signal::PossibleNewLine.into()));
-      } else {
+      }
+       else {
         items.push_condition(if_true_or(
           "isMultipleLines",
           Rc::new(move |context| condition_helpers::is_multiple_lines(context, member_expr_start_ln, member_expr_last_item_start_ln)),
