@@ -14,12 +14,6 @@ call(sub_call_1(subcall_2(subcall_3("we're past column 40"))));
 call(
     big_long_single_argument_cannot_be_broken_so_gets_multilined,
 );
-call(
-    sub_call_1(
-        subcall_2(
-            subcall_3(
-                "we're past column 40",
-            ),
-        ),
-    ),
-);
+call(sub_call_1(subcall_2(subcall_3(
+    "we're past column 40",
+))));

@@ -117,8 +117,6 @@ const u = test.map((a, b) => <testing a={b} b={test} />);
 const t = test.map((a, b) =>
     <testing a={b} b={test}>
         {a[1]}
-    </testing>
-);
+    </testing>);
 const u = test.map((a, b) =>
-    <testing a={b} b={test} />
-);
+    <testing a={b} b={test} />);
