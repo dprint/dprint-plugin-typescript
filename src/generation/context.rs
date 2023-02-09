@@ -170,7 +170,7 @@ impl<'a> Context<'a> {
   pub fn assert_text(&self, range: SourceRange, expected_text: &str) {
     let actual_text = range.text_fast(self.program);
     if actual_text != expected_text {
-      panic!("Debug Panic Expected text `{}`, but found `{}`", expected_text, actual_text)
+      panic!("Debug Panic Expected text `{expected_text}`, but found `{actual_text}`")
     }
   }
 }

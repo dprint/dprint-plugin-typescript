@@ -5830,6 +5830,9 @@ fn gen_type_ann<'a>(node: &'a TsTypeAnn, context: &mut Context<'a>) -> PrintItem
 fn gen_type_param<'a>(node: &'a TsTypeParam, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
+  if node.is_const() {
+    items.push_str("const ");
+  }
   if node.is_in() {
     items.push_str("in ");
   }
@@ -8856,7 +8859,7 @@ fn gen_assignment_like_with_token<'a>(expr: Node<'a>, op: &'static str, op_token
   if op == ":" {
     items.push_str(op)
   } else {
-    items.push_string(format!(" {}", op))
+    items.push_string(format!(" {op}"))
   }
 
   let op_end = op_token
@@ -9131,11 +9134,11 @@ fn gen_surrounded_by_tokens<'a>(
 }
 
 #[cfg(debug_assertions)]
-fn assert_has_op<'a>(op: &str, op_token: Option<&TokenAndSpan>, context: &mut Context<'a>) {
+fn assert_has_op(op: &str, op_token: Option<&TokenAndSpan>, context: &mut Context) {
   if let Some(op_token) = op_token {
     context.assert_text(SourceRange::new(op_token.start(), op_token.end()), op);
   } else {
-    panic!("Debug panic! Expected to have op token: {}", op);
+    panic!("Debug panic! Expected to have op token: {op}");
   }
 }
 
