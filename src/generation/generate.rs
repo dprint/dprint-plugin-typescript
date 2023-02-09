@@ -8859,7 +8859,7 @@ fn gen_assignment_like_with_token<'a>(expr: Node<'a>, op: &'static str, op_token
   if op == ":" {
     items.push_str(op)
   } else {
-    items.push_string(format!(" {}", op))
+    items.push_string(format!(" {op}"))
   }
 
   let op_end = op_token
