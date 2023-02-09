@@ -7064,52 +7064,30 @@ where
     |context| {
       let mut items = PrintItems::new();
 
-      if !force_use_new_lines && nodes.len() == 1 && is_arrow_function_with_expr_body(nodes[0]) {
-        let start_ln = LineNumber::new("startArrow");
-        let start_lsil = LineStartIndentLevel::new("startArrow");
-        let generated_node = gen_node(nodes.into_iter().next().unwrap(), context);
-
-        items.push_info(start_ln);
-        items.push_info(start_lsil);
-        items.push_signal(Signal::PossibleNewLine);
-        items.push_condition(conditions::indent_if_start_of_line(generated_node));
-        items.push_condition(if_true(
-          "isDifferentLineAndStartLineIndentation",
-          Rc::new(move |context| {
-            let start_ln = context.resolved_line_number(start_ln)?;
-            let start_lsil = context.resolved_line_start_indent_level(start_lsil)?;
-            let is_different_line = start_ln != context.writer_info.line_number;
-            let is_different_start_line_indentation = start_lsil != context.writer_info.line_start_indent_level;
-            Some(is_different_line && is_different_start_line_indentation)
-          }),
-          Signal::NewLine.into(),
-        ));
-      } else {
-        let last_comma_token = nodes.last().and_then(|n| context.token_finder.get_next_token_if_comma(n));
-        items.extend(gen_separated_values(
-          GenSeparatedValuesParams {
-            nodes: nodes.into_iter().map(NodeOrSeparator::Node).collect(),
-            prefer_hanging,
-            force_use_new_lines,
-            allow_blank_lines: false,
-            separator: trailing_commas.into(),
-            single_line_space_at_start: space_around,
-            single_line_space_at_end: space_around,
-            custom_single_line_separator: None,
-            multi_line_options: if prefer_single_item_hanging {
-              MultiLineOptions::maintain_line_breaks()
-            } else {
-              MultiLineOptions::surround_newlines_indented()
-            },
-            force_possible_newline_at_start: is_parameters,
-            node_sorter: None,
+      let last_comma_token = nodes.last().and_then(|n| context.token_finder.get_next_token_if_comma(n));
+      items.extend(gen_separated_values(
+        GenSeparatedValuesParams {
+          nodes: nodes.into_iter().map(NodeOrSeparator::Node).collect(),
+          prefer_hanging,
+          force_use_new_lines,
+          allow_blank_lines: false,
+          separator: trailing_commas.into(),
+          single_line_space_at_start: space_around,
+          single_line_space_at_end: space_around,
+          custom_single_line_separator: None,
+          multi_line_options: if prefer_single_item_hanging {
+            MultiLineOptions::maintain_line_breaks()
+          } else {
+            MultiLineOptions::surround_newlines_indented()
           },
-          context,
-        ));
-        // the comma may disappear, so generate any trailing comments on the same line
-        if let Some(last_comma_token) = last_comma_token {
-          items.extend(gen_trailing_comments_same_line(&last_comma_token.range(), context));
-        }
+          force_possible_newline_at_start: is_parameters,
+          node_sorter: None,
+        },
+        context,
+      ));
+      // the comma may disappear, so generate any trailing comments on the same line
+      if let Some(last_comma_token) = last_comma_token {
+        items.extend(gen_trailing_comments_same_line(&last_comma_token.range(), context));
       }
 
       items
@@ -7429,10 +7407,19 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
         };
 
         let use_new_line_group = match value {
-          // Prefer going inline multi-line for certain expressions in arguments
-          // when initially single line.
-          // Example: call({\n}) instead of call(\n  {\n  }\n)
-          NodeOrSeparator::Node(Node::ExprOrSpread(expr_or_spread)) => !matches!(expr_or_spread.expr, Expr::Object(_) | Expr::Array(_)),
+          // Prefer hanging mode for certain expressions in arguments when initially single line.
+          NodeOrSeparator::Node(Node::ExprOrSpread(expr_or_spread)) => !matches!(expr_or_spread.expr,
+            // call({\n...\n}) instead of call(\n{...}\n)
+            | Expr::Object(_)
+            // call([\n...\n]) instead of call(\n[...]\n)
+            | Expr::Array(_)
+            // call(call(\n...\n)) instead of call(\ncall(...)\n)
+            | Expr::Call(_)
+            // call(() =>\n...\n) instead of call(\n() => ...\n)
+            | Expr::Arrow(_)
+            // call(new\nthing(...)) or call(new thing(\n...\n)) instead of call(\nnew thing(...)\n)
+            | Expr::New(_))
+            ,
           _ => true,
         };
 
