@@ -9134,11 +9134,11 @@ fn gen_surrounded_by_tokens<'a>(
 }
 
 #[cfg(debug_assertions)]
-fn assert_has_op<'a>(op: &str, op_token: Option<&TokenAndSpan>, context: &mut Context<'a>) {
+fn assert_has_op(op: &str, op_token: Option<&TokenAndSpan>, context: &mut Context) {
   if let Some(op_token) = op_token {
     context.assert_text(SourceRange::new(op_token.start(), op_token.end()), op);
   } else {
-    panic!("Debug panic! Expected to have op token: {}", op);
+    panic!("Debug panic! Expected to have op token: {op}");
   }
 }
 

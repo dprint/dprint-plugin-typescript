@@ -6,6 +6,7 @@
 #![allow(clippy::type_complexity)]
 #![deny(clippy::disallowed_methods)]
 #![deny(clippy::disallowed_types)]
+#![deny(clippy::needless_lifetimes)] // todo: enable this in the future
 
 pub mod configuration;
 mod format_text;

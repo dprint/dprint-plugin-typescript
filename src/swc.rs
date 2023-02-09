@@ -88,7 +88,7 @@ pub fn ensure_no_specific_syntax_errors(parsed_source: &ParsedSource) -> Result<
       if !final_message.is_empty() {
         final_message.push_str("\n\n");
       }
-      final_message.push_str(&format!("{}", diagnostic));
+      final_message.push_str(&format!("{diagnostic}"));
     }
     bail!("{}", final_message)
   }
