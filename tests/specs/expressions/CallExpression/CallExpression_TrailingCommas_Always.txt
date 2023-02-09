@@ -1,0 +1,17 @@
+~~ lineWidth: 40, arguments.trailingCommas: always ~~
+== a call expression in multi-line mode should have trailing commas after each argument ==
+functionCall(() => "a lambda", "a string", "over line break");
+
+[expect]
+functionCall(
+    () => "a lambda",
+    "a string",
+    "over line break",
+);
+
+== a call expression in hanging mode should have a trailing comma after its argument ==
+functionCall(() => "a long overflowing lambda");
+
+[expect]
+functionCall(() =>
+    "a long overflowing lambda",);
