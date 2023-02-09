@@ -9,6 +9,16 @@ functionCall(
     "over line break",
 );
 
+== a call expression in multi-line mode should have trailing commas after each argument, even for a single argument ==
+functionCall(
+    () => "a lambda",
+);
+
+[expect]
+functionCall(
+    () => "a lambda",
+);
+
 == a call expression in hanging mode should not have a trailing comma after its argument ==
 functionCall(() => "a long overflowing lambda");
 
