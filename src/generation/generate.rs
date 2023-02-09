@@ -5830,6 +5830,9 @@ fn gen_type_ann<'a>(node: &'a TsTypeAnn, context: &mut Context<'a>) -> PrintItem
 fn gen_type_param<'a>(node: &'a TsTypeParam, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
+  if node.is_const() {
+    items.push_str("const ");
+  }
   if node.is_in() {
     items.push_str("in ");
   }

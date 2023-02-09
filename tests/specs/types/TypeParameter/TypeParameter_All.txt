@@ -1,11 +1,12 @@
 ~~ lineWidth: 40 ~~
 == should put type parameters on multiple lines when they extend beyond the line width ==
-class Test<T, TestingThisOut extends number> {
+class Test<T, const U, TestingThisOut extends number> {
 }
 
 [expect]
 class Test<
     T,
+    const U,
     TestingThisOut extends number,
 > {
 }
