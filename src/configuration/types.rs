@@ -17,6 +17,19 @@ pub enum PreferHanging {
 
 generate_str_to_from![PreferHanging, [Never, "never"], [OnlySingleItem, "onlySingleItem"], [Always, "always"]];
 
+#[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum MemberExprLinePerExpression {
+  /// Maintains the line breaks as written by the programmer.
+  None,
+  /// Maintains line breaks as written by the programmer, but forces a new line for method calls.
+  Methods,
+  /// Formats with each part on a new line.
+  All,
+}
+
+generate_str_to_from![MemberExprLinePerExpression, [None, "none"], [Methods, "methods"], [All, "all"]];
+
 /// Semi colon possibilities.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -308,7 +321,7 @@ pub struct Configuration {
   #[serde(rename = "jsxSelfClosingElement.bracketPosition")]
   pub jsx_self_closing_element_bracket_position: SameOrNextLinePosition,
   #[serde(rename = "memberExpression.linePerExpression")]
-  pub member_expression_line_per_expression: bool,
+  pub member_expression_line_per_expression: MemberExprLinePerExpression,
   #[serde(rename = "typeLiteral.separatorKind.singleLine")]
   pub type_literal_separator_kind_single_line: SemiColonOrComma,
   #[serde(rename = "typeLiteral.separatorKind.multiLine")]

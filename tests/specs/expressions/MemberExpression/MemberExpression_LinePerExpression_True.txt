@@ -1,4 +1,4 @@
-~~ lineWidth: 40, memberExpression.linePerExpression: true ~~
+~~ lineWidth: 40, memberExpression.linePerExpression: all ~~
 == should go full multi-line when exceeding the width ==
 testing.this.out.for.when.it.passes.thelineWidth.someMore;
 

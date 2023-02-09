@@ -7862,7 +7862,7 @@ fn gen_for_flattened_member_like_expr<'a>(node: FlattenedMemberLikeExpr<'a>, con
     if item.is_optional() || !item.is_computed() {
       if force_use_new_line {
         items.push_signal(Signal::NewLine);
-      } else if !context.config.member_expression_line_per_expression {
+      } else if context.config.member_expression_line_per_expression == MemberExprLinePerExpression::None {
         items.push_condition(conditions::if_above_width(context.config.indent_width, Signal::PossibleNewLine.into()));
       } else {
         items.push_condition(if_true_or(

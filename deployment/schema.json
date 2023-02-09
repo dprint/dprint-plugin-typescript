@@ -359,13 +359,16 @@
     },
     "memberExpression.linePerExpression": {
       "description": "Whether to force a line per expression when spanning multiple lines.",
-      "type": "boolean",
-      "default": false,
+      "type": "string",
+      "default": "none",
       "oneOf": [{
-        "const": true,
+        "const": "always",
         "description": "Formats with each part on a new line."
       }, {
-        "const": false,
+        "const": "methods",
+        "description": "Formats with each successive (i.e. second onwards) method call on a new line."
+      }, {
+        "const": "none",
         "description": "Maintains the line breaks as written by the programmer."
       }]
     },

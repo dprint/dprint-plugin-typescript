@@ -494,8 +494,8 @@ impl ConfigurationBuilder {
   ///
   /// * `true` - Formats with each part on a new line.
   /// * `false` (default) - Maintains the line breaks as written by the programmer.
-  pub fn member_expression_line_per_expression(&mut self, value: bool) -> &mut Self {
-    self.insert("memberExpression.linePerExpression", value.into())
+  pub fn member_expression_line_per_expression(&mut self, value: MemberExprLinePerExpression) -> &mut Self {
+    self.insert("memberExpression.linePerExpression", value.to_string().into())
   }
 
   /// The kind of separator to use in type literals.
@@ -1088,7 +1088,7 @@ mod tests {
       .arrow_function_use_parentheses(UseParentheses::Maintain)
       .binary_expression_line_per_expression(false)
       .conditional_expression_line_per_expression(true)
-      .member_expression_line_per_expression(false)
+      .member_expression_line_per_expression(MemberExprLinePerExpression::None)
       .type_literal_separator_kind(SemiColonOrComma::Comma)
       .type_literal_separator_kind_single_line(SemiColonOrComma::Comma)
       .type_literal_separator_kind_multi_line(SemiColonOrComma::Comma)
@@ -1261,6 +1261,7 @@ mod tests {
     let inner_config = config.get_inner_config();
     assert_eq!(inner_config.len(), 177);
     let diagnostics = resolve_config(inner_config, &resolve_global_config(ConfigKeyMap::new(), &Default::default()).config).diagnostics;
+    println!("{:?}", diagnostics);
     assert_eq!(diagnostics.len(), 0);
   }
 }
