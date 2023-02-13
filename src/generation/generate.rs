@@ -9149,16 +9149,6 @@ fn surround_with_parens(items: PrintItems) -> PrintItems {
 
 /* is/has functions */
 
-fn is_arrow_function_with_expr_body(node: Node) -> bool {
-  match node {
-    Node::ExprOrSpread(expr_or_spread) => match expr_or_spread.expr {
-      Expr::Arrow(arrow) => matches!(&arrow.body, BlockStmtOrExpr::Expr(_)),
-      _ => false,
-    },
-    _ => false,
-  }
-}
-
 fn allows_inline_multi_line(node: Node, context: &Context, has_siblings: bool) -> bool {
   return match node {
     Node::Param(param) => allows_inline_multi_line(param.pat.into(), context, has_siblings),
