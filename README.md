@@ -137,7 +137,7 @@ Here's how to get debugging the first two use cases (on VSCode):
 
 ```
 // tests/specs/debug.txt
-~~ lineWidth: 40, arguments.preferHanging: true ~~
+~~ lineWidth: 40 ~~
 == investigate the node types generated from source code (only) ==
 let a = b + c;
 
@@ -154,12 +154,30 @@ And now you can step to your heart's delight!
 
 #### Seeing what output code is printed from IR (and which AST nodes it came from)
 
-tldr:
-- use `items.push_info(LineNumber::new("START"))` 
+1. In the generation logic for your node, place code like this:
+
+```rust
+items.push_info(LineNumber::new("EASY TO SPOT MESSAGE"));
+```
+
+2. Add the `(trace) (only)` suffix to your test.
+3. Then run:
+
+```sh
+cargo test --features tracing -- --nocapture
+```
+
+You should see an output file like:
+
+```
+Trace output ready! Please open your browser to: file:///var/folders/some_gibberish_blablabla/dprint-core-trace.html
+```
+
+Open that file and step through the generation to locate your `EASY TO SPOT MESSAGE`. Since the IR is heaps long, you can also use the 'Inspect element' tool and then search the contents of the HTML for `EASY TO SPOT MESSAGE` instead.
 
 ### Building Wasm file
 
-You may wish to try out the plugin by building from source:
+You may wish to try out the plugin on some real code by building from source:
 
 1. Run `cargo build --target wasm32-unknown-unknown --release --features "wasm"`
 1. Reference the file at `./target/wasm32-unknown-unknown/release/dprint_plugin_typescript.wasm` in a dprint configuration file.
