@@ -94,7 +94,35 @@ cargo test -- --nocapture
 
 2. Make sure your test files end in a final blank line, otherwise you'll get an error during testing with a diff that appears identical.
 
-### Debugging
+### Debugging: spec files
+
+If you want to test the plugin's behaviour on a particular snippet of source code and a particular config, you can create any `.txt` file under the `tests/specs/` folder tree. For example, to test the `arguments.preferHanging` config, add a test to a new file `tests/specs/debug.txt`. We give it the `(only)` suffix so that no other tests run (remember to remove this later!).
+
+```
+// tests/specs/debug.txt
+~~ lineWidth: 40, arguments.preferHanging: true ~~
+== my test source code snippet ==
+bake(['flour', 'butter', 'sugar', 'drinking chocolate'], '200ºC', '10m');
+
+[expect]
+bake(['flour', 'butter', 'sugar',
+    'drinking chocolate'], '200ºC', '10m');
+
+```
+
+Then, run tests like so:
+
+```sh
+cargo test
+```
+
+If you're using `println` or creating output inside the source code, you'll need to run tests like this to see the output on the command line [(because reasons)](https://github.com/rust-lang/cargo/issues/296):
+
+```sh
+cargo test -- --nocapture
+```
+
+### Debugging: live step
 
 Live-step debugging is especially useful for a couple use cases:
 1. Seeing what AST nodes are generated from source code
