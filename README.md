@@ -12,7 +12,32 @@ See the GitHub [releases](https://github.com/dprint/dprint-plugin-typescript/rel
 
 ## Development
 
-The tests are in the `./tests/specs` folder. To run the tests, run `cargo test`.
+### Setup
+
+To modify this plugin:
+
+1. Install [rustup](https://rustup.rs/). Use `rustup` to install rust on your system.
+2. Install the `wasm32-unknown-unknown` target with:
+
+```sh
+rustup target add wasm32-unknown-unknown
+```
+
+3. Clone this repo. If you intend to also modify `dprint-core`, then:
+    1. [Clone dprint](https://github.com/dprint/dprint) under the top-level of this repository.
+    2. Inside the `Cargo.toml` of `dprint-plugin-typescript` make the following change:
+```diff
+- dprint-core = { version = "0.60.0", features = ["formatting"] }
++ dprint-core = { path = "./dprint/crates/core", features = ["formatting"] }
+```
+4. Assuming you're using Visual Studio Code, install the ['rust-analyzer' extension.](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+
+You're ready to test and build! After making some changes, you will probably be running one of the following commands.
+
+```sh
+# Build the plugin as a .wasm file that can be loaded into dprint via a dprint.json config
+cargo build --target wasm32-unknown-unknown
+```
 
 ### Concepts
 
