@@ -22,7 +22,11 @@ A general function that is both in dprint core and the typescript plugin. It's u
 
 #### Inline vs not-inline
 
+todo
+
 #### Singleline vs hanging vs multiline
+
+todo
 
 ### Tips
 
