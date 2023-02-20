@@ -16,17 +16,73 @@ The tests are in the `./tests/specs` folder. To run the tests, run `cargo test`.
 
 ### Concepts
 
-#### `gen_separated_values`
+#### Formatting modes
 
-A general function that is both in dprint core and the typescript plugin. It's used for everything from arrays, arguments, type parameters, objects, etc. The general vibe is to use `multiline_options` to control its behaviour from more specific callees like `gen_parameters_or_arguments`.
+Formatting is ultimately just a game of taking source code and printing it with the best combinations of whitespace (spaces, tabs, newlines, indentations) and separators (commas, semicolons, pipes, etc.). How do we decide what sort of combinations are allowed? What happens if we try one combination but it's not good enough (e.g. it exceeds the line width)?
 
-#### Inline vs not-inline
+In dprint, we specify all the possible whitespace combinations on a per-node basis. Some nodes are always printed on the same line.
 
-todo
+```typescript
+const myArray = [1,2,3];
+```
 
-#### Singleline vs hanging vs multiline
+In the above example:
+- `const myArray = [1,2,3];` is a `VarDecl`. It can be on the same line or multiple lines.
+- `myArray` is an `Ident`. It is always on the same line and can't be broken up.
+- `[1,2,3]` is an `ArrayLit`. It can be on the same line or multiple lines.
 
-todo
+What's more, there are multiple ways to format some nodes on multiple lines.
+
+```typescript
+// VarDecl is in inline mode
+const myArray = [1,2,3];
+
+// VarDecl is in hanging mode
+const myArray =
+    [1,2,3];
+
+// ArrayLit is in hanging mode
+const myArray = [1,2,
+    3];
+
+// ArrayLit is in multiline mode
+const myArray = [
+    1,
+    2,
+    3,
+];
+```
+
+There are three different modes above:
+1. A node is **inline** or **single-line** if the whole expression is printed on the same line. Otherwise, it's spread over **multiple lines**; this is not (always) the same thing as being multi-line, since it could be hanging instead.
+2. A node is **hanging** or **wrapping** if it can be broken up by breaking up one of its subnodes. For example, the `ArrayLit` node is a subnode of the `VarDecl` node.
+3. A node is **multi-line** if it is broken up over multiple lines in a conservative manner. A node formatted in multi-line typically takes up more lines than if it were inline or hanging.
+
+#### Separated values
+
+Sometimes we handle multiple types of AST nodes in a similar way. In Typescript, a parsed node is a **separated values node** if it is:
+- an object or object destructure
+- an object type, or interface type with a body `{ ... }`
+- an array or array destructure
+- arguments (in a function call) or parameters (in a function definition)
+
+We format these nodes similarly because they all
+- containg a list of values
+- are separated by non-whitespace (either a comma or semicolon)
+- make sense to format in singleline, hanging and multiline modes
+
+`gen_separated_values` is a general function that handles separated values. It is both in `dprint-plugin-typescript` but also in `dprint-core`. It's used for everything from arrays, arguments, type parameters, objects, etc. The general vibe is to use options like `multiline_options` to control its behaviour from more specific callees like `gen_parameters_or_arguments` or `gen_object_lit`.
+
+```typescript
+// object 
+type Opts = { type: 'warning' | 'error'; source: string }; // object type
+function log(messages: string[], opts: Opts) // parameters
+{
+    //...
+}
+log("an error message", {type: "error", source: "README.md"}); // arguments containing an object
+```
+
 
 ### Tips
 
