@@ -32,86 +32,20 @@ rustup target add wasm32-unknown-unknown
 ```
 4. Assuming you're using Visual Studio Code, install the ['rust-analyzer' extension.](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
 
-You're ready to test and build! After making some changes, you will probably be running one of the following commands.
+You're ready to test and build! After making some changes, you will probably be running one of the following commands (read on to learn more about them).
 
 ```sh
 # Build the plugin as a .wasm file that can be loaded into dprint via a dprint.json config
 cargo build --target wasm32-unknown-unknown
+# Run tests, allowing output from println
+cargo test -- --nocapture
+# Run a trace test, allowing output from println
+cargo test --features tracing -- --nocapture
 ```
-
-### Concepts
-
-#### Formatting modes
-
-Formatting is ultimately just a game of taking source code and printing it with the best combinations of whitespace (spaces, tabs, newlines, indentations) and separators (commas, semicolons, pipes, etc.). How do we decide what sort of combinations are allowed? What happens if we try one combination but it's not good enough (e.g. it exceeds the line width)?
-
-In dprint, we specify all the possible whitespace combinations on a per-node basis. Some nodes are always printed on the same line.
-
-```typescript
-const myArray = [1,2,3];
-```
-
-In the above example:
-- `const myArray = [1,2,3];` is a `VarDecl`. It can be on the same line or multiple lines.
-- `myArray` is an `Ident`. It is always on the same line and can't be broken up.
-- `[1,2,3]` is an `ArrayLit`. It can be on the same line or multiple lines.
-
-What's more, there are multiple ways to format some nodes on multiple lines.
-
-```typescript
-// VarDecl is in inline mode
-const myArray = [1,2,3];
-
-// VarDecl is in hanging mode
-const myArray =
-    [1,2,3];
-
-// ArrayLit is in hanging mode
-const myArray = [1,2,
-    3];
-
-// ArrayLit is in multiline mode
-const myArray = [
-    1,
-    2,
-    3,
-];
-```
-
-There are three different modes above:
-1. A node is **inline** or **single-line** if the whole expression is printed on the same line. Otherwise, it's spread over **multiple lines**; this is not (always) the same thing as being multi-line, since it could be hanging instead.
-2. A node is **hanging** or **wrapping** if it can be broken up by breaking up one of its subnodes. For example, the `ArrayLit` node is a subnode of the `VarDecl` node.
-3. A node is **multi-line** if it is broken up over multiple lines in a conservative manner. A node formatted in multi-line typically takes up more lines than if it were inline or hanging.
-
-#### Separated values
-
-Sometimes we handle multiple types of AST nodes in a similar way. In Typescript, a parsed node is a **separated values node** if it is:
-- an object or object destructure
-- an object type, or interface type with a body `{ ... }`
-- an array or array destructure
-- arguments (in a function call) or parameters (in a function definition)
-
-We format these nodes similarly because they all
-- containg a list of values
-- are separated by non-whitespace (either a comma or semicolon)
-- make sense to format in singleline, hanging and multiline modes
-
-`gen_separated_values` is a general function that handles separated values. It is both in `dprint-plugin-typescript` but also in `dprint-core`. It's used for everything from arrays, arguments, type parameters, objects, etc. The general vibe is to use options like `multiline_options` to control its behaviour from more specific callees like `gen_parameters_or_arguments` or `gen_object_lit`.
-
-```typescript
-// object 
-type Opts = { type: 'warning' | 'error'; source: string }; // object type
-function log(messages: string[], opts: Opts) // parameters
-{
-    //...
-}
-log("an error message", {type: "error", source: "README.md"}); // arguments containing an object
-```
-
 
 ### Tips
 
-1. To use `println` together with `cargo test`, you need to invoke tests in this strange way [ (for reasons) ](https://github.com/rust-lang/cargo/issues/296):
+1. To use `println` together with `cargo test`, you need to invoke tests in this strange way [(for reasons)](https://github.com/rust-lang/cargo/issues/296):
 
 ```sh
 cargo test -- --nocapture
@@ -200,9 +134,78 @@ Trace output ready! Please open your browser to: file:///var/folders/some_gibber
 
 Open that file and step through the generation to locate your `EASY TO SPOT MESSAGE`. Since the IR is heaps long, you can also use the 'Inspect element' tool and then search the contents of the HTML for `EASY TO SPOT MESSAGE` instead.
 
-### Building Wasm file
+### Testing the plugin against real source code files
 
 You may wish to try out the plugin on some real code by building from source:
 
 1. Run `cargo build --target wasm32-unknown-unknown --release --features "wasm"`
 1. Reference the file at `./target/wasm32-unknown-unknown/release/dprint_plugin_typescript.wasm` in a dprint configuration file.
+
+### Concepts
+
+#### Formatting modes
+
+Formatting is ultimately just a game of taking source code and printing it with the best combinations of whitespace (spaces, tabs, newlines, indentations) and separators (commas, semicolons, pipes, etc.). How do we decide what sort of combinations are allowed? What happens if we try one combination but it's not good enough (e.g. it exceeds the line width)?
+
+In dprint, we specify all the possible whitespace combinations on a per-node basis. Some nodes are always printed on the same line.
+
+```typescript
+const myArray = [1,2,3];
+```
+
+In the above example:
+- `const myArray = [1,2,3];` is a `VarDecl`. It can be on the same line or multiple lines.
+- `myArray` is an `Ident`. It is always on the same line and can't be broken up.
+- `[1,2,3]` is an `ArrayLit`. It can be on the same line or multiple lines.
+
+What's more, there are multiple ways to format some nodes on multiple lines.
+
+```typescript
+// VarDecl is in inline mode
+const myArray = [1,2,3];
+
+// VarDecl is in hanging mode
+const myArray =
+    [1,2,3];
+
+// ArrayLit is in hanging mode
+const myArray = [1,2,
+    3];
+
+// ArrayLit is in multiline mode
+const myArray = [
+    1,
+    2,
+    3,
+];
+```
+
+There are three different modes above:
+1. A node is **inline** or **single-line** if the whole expression is printed on the same line. Otherwise, it's spread over **multiple lines**; this is not (always) the same thing as being multi-line, since it could be hanging instead.
+2. A node is **hanging** or **wrapping** if it can be broken up by breaking up one of its subnodes. For example, the `ArrayLit` node is a subnode of the `VarDecl` node.
+3. A node is **multi-line** if it is broken up over multiple lines in a conservative manner. A node formatted in multi-line typically takes up more lines than if it were inline or hanging.
+
+#### Separated values
+
+Sometimes we handle multiple types of AST nodes in a similar way. In Typescript, a parsed node is a **separated values node** if it is:
+- an object or object destructure
+- an object type, or interface type with a body `{ ... }`
+- an array or array destructure
+- arguments (in a function call) or parameters (in a function definition)
+
+We format these nodes similarly because they all
+- containg a list of values
+- are separated by non-whitespace (either a comma or semicolon)
+- make sense to format in singleline, hanging and multiline modes
+
+`gen_separated_values` is a general function that handles separated values. It is both in `dprint-plugin-typescript` but also in `dprint-core`. It's used for everything from arrays, arguments, type parameters, objects, etc. The general vibe is to use options like `multiline_options` to control its behaviour from more specific callees like `gen_parameters_or_arguments` or `gen_object_lit`.
+
+```typescript
+// object 
+type Opts = { type: 'warning' | 'error'; source: string }; // object type
+function log(messages: string[], opts: Opts) // parameters
+{
+    //...
+}
+log("an error message", {type: "error", source: "README.md"}); // arguments containing an object
+```
