@@ -2191,8 +2191,7 @@ fn gen_conditional_expr<'a>(node: &'a CondExpr, context: &mut Context<'a>) -> Pr
   };
   let mut force_test_cons_newline =
     has_newline_test_cons && (!context.config.conditional_expression_prefer_single_line || use_new_lines_for_nested_conditional);
-  let mut force_cons_alt_newline =
-    has_newline_cons_alt && (!context.config.conditional_expression_prefer_single_line || use_new_lines_for_nested_conditional);
+  let mut force_cons_alt_newline = has_newline_cons_alt && (!context.config.conditional_expression_prefer_single_line || use_new_lines_for_nested_conditional);
   if line_per_expression && (force_test_cons_newline || force_cons_alt_newline) {
     // for line per expression, if one is true then both should be true
     force_test_cons_newline = true;
@@ -5324,13 +5323,16 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
     }
     .into_rc_path();
 
-    Condition::new("isStartOfLineAndTopLevelOrNestedConditionalIndentElseQueue", ConditionProperties {
-      condition: Rc::new(move |context| {
-        Some(context.writer_info.is_start_of_line() && (!is_parent_conditional_type || use_new_lines_for_nested_conditional))
-      }),
-      true_path: Some(with_indent(inner_items.into())),
-      false_path: Some(with_queued_indent(inner_items.into())),
-    })
+    Condition::new(
+      "isStartOfLineAndTopLevelOrNestedConditionalIndentElseQueue",
+      ConditionProperties {
+        condition: Rc::new(move |context| {
+          Some(context.writer_info.is_start_of_line() && (!is_parent_conditional_type || use_new_lines_for_nested_conditional))
+        }),
+        true_path: Some(with_indent(inner_items.into())),
+        false_path: Some(with_queued_indent(inner_items.into())),
+      },
+    )
   });
 
   items.extend(colon_comment_items.previous_lines);
