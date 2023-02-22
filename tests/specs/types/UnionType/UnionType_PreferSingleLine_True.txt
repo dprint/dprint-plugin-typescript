@@ -20,3 +20,31 @@ export type T =
 
 [expect]
 export type T = string | test | other;
+
+== should be multi line when over the line width ==
+export type T = string | test | other1 | other2 | other3;
+
+[expect]
+export type T =
+    | string
+    | test
+    | other1
+    | other2
+    | other3;
+
+== should be single line if the final type has a trailing comment (only) ==
+export type T = string|number // TODO
+
+[expect]
+export type T = string | number; // TODO
+
+== should be multi line if any type apart from the final type has a trailing comment ==
+export type T = string|number // TODO
+  | foo | bar
+
+[expect]
+export type T =
+    | string
+    | number // TODO
+    | foo
+    | bar;
