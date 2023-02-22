@@ -32,7 +32,7 @@ export type T =
     | other2
     | other3;
 
-== should be single line if the final type has a trailing comment (only) ==
+== should be single line if the final type has a trailing comment ==
 export type T = string | number // TODO
 function f(
     arg: "1" | "2", // todo
