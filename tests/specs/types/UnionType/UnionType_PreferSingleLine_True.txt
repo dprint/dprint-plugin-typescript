@@ -33,10 +33,18 @@ export type T =
     | other3;
 
 == should be single line if the final type has a trailing comment (only) ==
-export type T = string|number // TODO
+export type T = string | number // TODO
+function f(
+    arg: "1" | "2", // todo
+    otherArg: string,
+) {}
 
 [expect]
 export type T = string | number; // TODO
+function f(
+    arg: "1" | "2", // todo
+    otherArg: string,
+) {}
 
 == should be multi line if any type apart from the final type has a trailing comment ==
 export type T = string|number // TODO
