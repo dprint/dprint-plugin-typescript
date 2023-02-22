@@ -5323,12 +5323,14 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
       items
     }
     .into_rc_path();
-    if_true_or(
-      "isStartOfLineIndentElseQueue",
-      condition_resolvers::is_start_of_line(),
-      with_indent(inner_items.into()),
-      with_queued_indent(inner_items.into()),
-    )
+
+    Condition::new("isStartOfLineAndTopLevelOrNestedConditionalIndentElseQueue", ConditionProperties {
+      condition: Rc::new(move |context| {
+        Some(context.writer_info.is_start_of_line() && (!is_parent_conditional_type || use_new_lines_for_nested_conditional))
+      }),
+      true_path: Some(with_indent(inner_items.into())),
+      false_path: Some(with_queued_indent(inner_items.into())),
+    })
   });
 
   items.extend(colon_comment_items.previous_lines);
