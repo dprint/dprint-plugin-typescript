@@ -9299,7 +9299,7 @@ fn has_any_node_comment_on_different_line(nodes: &[impl SourceRanged], context: 
     };
 
     // the final node is allowed to have a trailing line comment as it'll be on the same line
-    if comment_kind.is_some() && !(i == nodes.len() - 1 && comment_kind == Some(CommentKind::Line)){
+    if comment_kind.is_some() && (nodes.len() == 1 || !(i == nodes.len() - 1 && comment_kind == Some(CommentKind::Line))) {
       return true;
     }
   }
