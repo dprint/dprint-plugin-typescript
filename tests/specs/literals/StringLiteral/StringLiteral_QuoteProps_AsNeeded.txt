@@ -41,7 +41,7 @@ const objectLiteral = {
     "1foo": true,
     "💩": true,
     "a💩": true,
-    "c\d": true,
+    cd: true,
     "1": true,
     "1foo"() {},
     get "2foo"() {},

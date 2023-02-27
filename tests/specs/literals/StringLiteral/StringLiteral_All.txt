@@ -13,3 +13,13 @@ const t = "	";
 
 [expect]
 const t = "	";
+
+== should remove unnecessary escapes ==
+const t = "\t";
+const u = "\abcd";
+const v = ' \'\"\`\a\b\c\d\e\f\g\h\i\j\k\l\m\n\o\p\q\r\s\t\v\w\y\z ';
+
+[expect]
+const t = "\t";
+const u = "abcd";
+const v = " '\"`a\bcde\fghijklm\nopq\rs\t\vwyz ";
