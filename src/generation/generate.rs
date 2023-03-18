@@ -144,6 +144,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       Node::Constructor(node) => gen_constructor(node, context),
       Node::Decorator(node) => gen_decorator(node, context),
       Node::TsParamProp(node) => gen_parameter_prop(node, context),
+      Node::AutoAccessor(node) => gen_auto_accessor(node, context),
       Node::PrivateMethod(node) => gen_private_method(node, context),
       Node::PrivateName(node) => gen_private_name(node, context),
       Node::PrivateProp(node) => gen_private_prop(node, context),
@@ -456,6 +457,29 @@ fn gen_class_method<'a>(node: &'a ClassMethod, context: &mut Context<'a>) -> Pri
   )
 }
 
+fn gen_auto_accessor<'a>(node: &'a AutoAccessor, context: &mut Context<'a>) -> PrintItems {
+  gen_class_prop_common(
+    GenClassPropCommon {
+      original: node.into(),
+      key: node.key.into(),
+      value: &node.value,
+      type_ann: &node.type_ann,
+      is_static: node.is_static(),
+      decorators: &node.decorators,
+      computed: false,
+      is_auto_accessor: true,
+      is_declare: false,
+      accessibility: node.accessibility(),
+      is_abstract: false,
+      is_optional: false,
+      is_override: false,
+      readonly: false,
+      definite: false,
+    },
+    context,
+  )
+}
+
 fn gen_private_method<'a>(node: &'a PrivateMethod, context: &mut Context<'a>) -> PrintItems {
   gen_class_or_object_method(
     ClassOrObjectMethod {
@@ -490,6 +514,7 @@ fn gen_class_prop<'a>(node: &'a ClassProp, context: &mut Context<'a>) -> PrintIt
       is_static: node.is_static(),
       decorators: &node.decorators,
       computed: matches!(node.key, PropName::Computed(_)),
+      is_auto_accessor: false,
       is_declare: node.declare(),
       accessibility: node.accessibility(),
       is_abstract: node.is_abstract(),
@@ -566,6 +591,7 @@ fn gen_private_prop<'a>(node: &'a PrivateProp, context: &mut Context<'a>) -> Pri
       is_static: node.is_static(),
       decorators: &node.decorators,
       computed: false,
+      is_auto_accessor: false,
       is_declare: false,
       accessibility: node.accessibility(),
       is_abstract: false,
@@ -588,6 +614,7 @@ struct GenClassPropCommon<'a> {
   pub computed: bool,
   pub is_declare: bool,
   pub accessibility: Option<Accessibility>,
+  pub is_auto_accessor: bool,
   pub is_abstract: bool,
   pub is_optional: bool,
   pub is_override: bool,
@@ -606,6 +633,9 @@ fn gen_class_prop_common<'a>(node: GenClassPropCommon<'a>, context: &mut Context
   }
   if node.is_static {
     items.push_str("static ");
+  }
+  if node.is_auto_accessor {
+    items.push_str("accessor ");
   }
   if node.is_abstract {
     items.push_str("abstract ");
@@ -4390,7 +4420,11 @@ fn gen_do_while_stmt<'a>(node: &'a DoWhileStmt, context: &mut Context<'a>) -> Pr
 
 fn gen_export_all<'a>(node: &'a ExportAll, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.push_str("export * from ");
+  if node.type_only() {
+    items.push_str("export type * from ");
+  } else {
+    items.push_str("export * from ");
+  }
   items.extend(gen_node(node.src.into(), context));
 
   if let Some(asserts) = node.asserts {
@@ -4723,7 +4757,7 @@ fn gen_for_of_stmt<'a>(node: &'a ForOfStmt, context: &mut Context<'a>) -> PrintI
   if context.config.for_of_statement_space_after_for_keyword {
     items.push_str(" ");
   }
-  if node.await_token().is_some() {
+  if node.is_await() {
     // todo: generate comments around await token range
     items.push_str("await ");
   }

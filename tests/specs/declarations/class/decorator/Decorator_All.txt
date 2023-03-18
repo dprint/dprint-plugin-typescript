@@ -102,3 +102,21 @@ export class Test {
     ) {
     }
 }
+
+== decorators before the export keyword ==
+    @dec
+export class T {
+}
+
+[expect]
+@dec
+export class T {
+}
+
+== decorators after the export keyword ==
+export @dec class T {
+}
+
+[expect]
+export @dec class T {
+}
