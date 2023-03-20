@@ -194,7 +194,9 @@ dependencies = [
 
 [[package]]
 name = "deno_ast"
-version = "0.24.0"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b08341e0ed5b816e24b6582054b37707c8686de5598fa3004dc555131c993308"
 dependencies = [
  "dprint-swc-ext",
  "serde",
