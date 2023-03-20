@@ -34,7 +34,7 @@ fn parse_inner(file_path: &Path, text_info: SourceTextInfo) -> Result<ParsedSour
 }
 
 fn parse_inner_no_diagnostic_check(file_path: &Path, text_info: SourceTextInfo) -> Result<ParsedSource> {
-  let media_type: deno_ast::MediaType = file_path.into();
+  let media_type = deno_ast::MediaType::from_path(file_path);
   let mut syntax = deno_ast::get_syntax(media_type);
   if let Syntax::Es(es) = &mut syntax {
     // support decorators in js
