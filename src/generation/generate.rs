@@ -2742,9 +2742,9 @@ fn should_skip_paren_expr(node: &ParenExpr, context: &Context) -> bool {
     }
   }
 
-  // keep for `(val as number)++`
+  // keep for `(val as number)++` or `(<number>val)++`
   let parent = node.parent();
-  if parent.kind() == NodeKind::UpdateExpr && node.expr.kind() == NodeKind::TsAsExpr {
+  if parent.kind() == NodeKind::UpdateExpr && matches!(node.expr.kind(), NodeKind::TsAsExpr | NodeKind::TsTypeAssertion) {
     return false;
   }
 

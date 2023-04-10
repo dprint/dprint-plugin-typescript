@@ -223,3 +223,11 @@ test = (/* 1 */ other /* 2 */);
 
 [expect]
 test = /* 1 */ other /* 2 */;
+
+== should keep for update expr with assertion ==
+(<number>thing)--;
+(thing as number)--;
+
+[expect]
+(<number> thing)--;
+(thing as number)--;
