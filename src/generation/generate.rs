@@ -8435,7 +8435,9 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
 
   fn get_force_braces(body_node: Node) -> bool {
     if let Node::BlockStmt(body_node) = body_node {
-      body_node.stmts.is_empty() || body_node.stmts.iter().all(|s| s.kind() == NodeKind::EmptyStmt)
+      body_node.stmts.is_empty()
+        || body_node.stmts.iter().all(|s| s.kind() == NodeKind::EmptyStmt)
+        || (body_node.stmts.len() == 1 && matches!(body_node.stmts[0], Stmt::Decl(_)))
     } else {
       false
     }
