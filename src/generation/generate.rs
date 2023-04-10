@@ -6468,6 +6468,7 @@ fn gen_comment(comment: &Comment, context: &mut Context) -> Option<PrintItems> {
 }
 
 fn gen_js_doc_or_multiline_block(comment: &Comment, _context: &mut Context) -> PrintItems {
+  debug_assert_eq!(comment.kind, CommentKind::Block);
   let is_js_doc = comment.text.starts_with('*');
   return lines_to_print_items(is_js_doc, build_lines(comment));
 
@@ -6475,9 +6476,15 @@ fn gen_js_doc_or_multiline_block(comment: &Comment, _context: &mut Context) -> P
     let mut lines: Vec<&str> = Vec::new();
 
     for line in utils::split_lines(&comment.text) {
-      let line = line[get_line_start_index(line)..].trim_end();
-      if !line.is_empty() || !lines.last().map(|l| l.is_empty()).unwrap_or(false) {
-        lines.push(line);
+      let text = if line.line_index == 0 && !line.text.starts_with('*') {
+        line.text
+      } else {
+        &line.text[get_line_start_index(line.text)..]
+      };
+      let text = if line.is_last && !text.trim().is_empty() { text } else { text.trim_end() };
+
+      if !text.is_empty() || !lines.last().map(|l| l.is_empty()).unwrap_or(false) {
+        lines.push(text);
       }
     }
 
@@ -6528,7 +6535,7 @@ fn gen_js_doc_or_multiline_block(comment: &Comment, _context: &mut Context) -> P
 
     items.push_str(if lines.len() > 1 && lines.last().map(|l| l.is_empty()).unwrap_or(false) {
       "/"
-    } else if lines.len() > 1 && lines.last().map(|l| l.ends_with('*')).unwrap_or(false) {
+    } else if lines.len() > 1 && lines.last().map(|l| l.ends_with('*') || l.ends_with(' ')).unwrap_or(false) {
       "*/"
     } else {
       " */"
