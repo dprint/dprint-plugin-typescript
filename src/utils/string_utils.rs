@@ -80,21 +80,52 @@ pub fn is_not_empty_and_only_spaces(text: &str) -> bool {
   true
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct SplitLinesItem<'a> {
+  pub text: &'a str,
+  pub line_index: usize,
+  pub is_last: bool,
+}
+
 pub struct SplitLinesIterator<'a> {
+  text: &'a str,
   inner: std::str::Split<'a, char>,
+  line_index: usize,
+  byte_index: usize,
 }
 
 impl<'a> Iterator for SplitLinesIterator<'a> {
-  type Item = &'a str;
+  type Item = SplitLinesItem<'a>;
 
   fn next(&mut self) -> Option<Self::Item> {
+    let line_index = self.line_index;
     let line = self.inner.next();
-    line.map(|line| line.strip_suffix('\r').unwrap_or(line))
+    match line {
+      Some(line) => {
+        if self.line_index == 0 {
+          self.byte_index += line.len();
+        } else {
+          self.byte_index += 1 + line.len();
+        }
+        self.line_index += 1;
+        Some(SplitLinesItem {
+          is_last: self.byte_index == self.text.len(),
+          line_index,
+          text: line.strip_suffix('\r').unwrap_or(line),
+        })
+      }
+      None => None,
+    }
   }
 }
 
 pub fn split_lines(text: &str) -> SplitLinesIterator<'_> {
-  SplitLinesIterator { inner: text.split('\n') }
+  SplitLinesIterator {
+    inner: text.split('\n'),
+    line_index: 0,
+    text,
+    byte_index: 0,
+  }
 }
 
 #[cfg(test)]
@@ -105,13 +136,57 @@ mod test {
   fn split_lines_empty_last_line() {
     let text = "a\r\nb\nc\r\n";
     let lines = split_lines(text).collect::<Vec<_>>();
-    assert_eq!(lines, vec!["a", "b", "c", ""]); // includes last line
+    assert_eq!(
+      lines,
+      vec![
+        SplitLinesItem {
+          text: "a",
+          is_last: false,
+          line_index: 0,
+        },
+        SplitLinesItem {
+          text: "b",
+          is_last: false,
+          line_index: 1,
+        },
+        SplitLinesItem {
+          text: "c",
+          is_last: false,
+          line_index: 2
+        },
+        // includes last line
+        SplitLinesItem {
+          text: "",
+          is_last: true,
+          line_index: 3,
+        }
+      ]
+    );
   }
 
   #[test]
   fn split_lines_non_empty_last_line() {
     let text = "a \n   b\nc";
     let lines = split_lines(text).collect::<Vec<_>>();
-    assert_eq!(lines, vec!["a ", "   b", "c"]);
+    assert_eq!(
+      lines,
+      vec![
+        SplitLinesItem {
+          text: "a ",
+          line_index: 0,
+          is_last: false,
+        },
+        SplitLinesItem {
+          text: "   b",
+          line_index: 1,
+          is_last: false,
+        },
+        SplitLinesItem {
+          text: "c",
+          line_index: 2,
+          is_last: true,
+        }
+      ]
+    );
   }
 }
