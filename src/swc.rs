@@ -157,6 +157,25 @@ mod tests {
     );
   }
 
+  #[test]
+  fn it_should_error_closing_paren_missing() {
+    // issue 498
+    run_fatal_diagnostic_test(
+      "./test.ts",
+      r#"const foo = <T extends {}>() => {
+    if (bar() {
+        console.log(1);
+    }
+};"#,
+      concat!(
+        "An arrow function is not allowed here at ./test.ts:1:27\n",
+        "\n",
+        "  const foo = <T extends {}>() => {\n",
+        "                            ~~"
+      ),
+    );
+  }
+
   fn run_fatal_diagnostic_test(file_path: &str, text: &str, expected: &str) {
     let file_path = PathBuf::from(file_path);
     assert_eq!(parse_swc_ast(&file_path, text).err().unwrap().to_string(), expected);

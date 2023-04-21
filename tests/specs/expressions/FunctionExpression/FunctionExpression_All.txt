@@ -69,3 +69,9 @@ const t = function(testing, this) {};
 
 [expect]
 const t = function(testing, this) {};
+
+== should format with const type params ==
+const t = function<const T extends 5>() {};
+
+[expect]
+const t = function<const T extends 5>() {};
