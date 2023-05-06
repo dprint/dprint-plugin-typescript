@@ -9371,11 +9371,11 @@ fn has_any_node_comment_on_different_line(nodes: &[impl SourceRanged], context: 
 
 fn is_node_definitely_above_line_width<'a>(range: SourceRange, context: &Context<'a>) -> bool {
   let text = range.text_fast(context.program);
-  let mut count = 0;
   let max_width = context.config.line_width as usize * 2;
   if text.len() < max_width {
     return false;
   }
+  let mut count = 0;
   for c in text.chars() {
     if !c.is_whitespace() {
       count += 1;
