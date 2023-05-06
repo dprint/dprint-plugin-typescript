@@ -5208,7 +5208,7 @@ fn gen_var_decl<'a>(node: &'a VarDecl, context: &mut Context<'a>) -> PrintItems 
       true
     } else {
       // probably minified code
-      node.decls.len() > 2 && is_node_definitely_above_line_width(node.range(), context)
+      node.decls.len() >= 2 && is_node_definitely_above_line_width(node.range(), context)
     }
   }
 }
@@ -9387,6 +9387,8 @@ fn is_node_definitely_above_line_width<'a>(range: SourceRange, context: &Context
       if count > max_width {
         return true;
       }
+    } else if c == '\n' {
+      return false;
     }
   }
   false
