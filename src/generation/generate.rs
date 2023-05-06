@@ -5332,7 +5332,8 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
       let mut items = PrintItems::new();
       items.extend(question_comment_items.leading_line);
       if question_position == OperatorPosition::NextLine {
-        items.push_str("? ");
+        items.push_str("?");
+        items.push_signal(Signal::SpaceIfNotTrailing);
       }
       items.extend(ir_helpers::new_line_group(gen_node(node.true_type.into(), context)));
       if colon_position == OperatorPosition::SameLine {
@@ -5375,7 +5376,8 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
     items.push_info(before_false_ln);
     items.extend(colon_comment_items.leading_line);
     if colon_position == OperatorPosition::NextLine {
-      items.push_str(": ");
+      items.push_str(":");
+      items.push_signal(Signal::SpaceIfNotTrailing);
     }
     items.extend(ir_helpers::new_line_group(gen_node(node.false_type.into(), context)));
     items
