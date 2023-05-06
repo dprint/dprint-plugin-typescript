@@ -2815,7 +2815,7 @@ fn gen_sequence_expr<'a>(node: &'a SeqExpr, context: &mut Context<'a>) -> PrintI
     GenSeparatedValuesParams {
       nodes: node.exprs.iter().map(|x| NodeOrSeparator::Node(x.into())).collect(),
       prefer_hanging: context.config.sequence_expression_prefer_hanging,
-      force_use_new_lines: false,
+      force_use_new_lines: is_node_definitely_above_line_width(node.range(), context),
       allow_blank_lines: false,
       separator: TrailingCommas::Never.into(),
       single_line_space_at_start: false,
@@ -5153,7 +5153,7 @@ fn gen_try_stmt<'a>(node: &'a TryStmt, context: &mut Context<'a>) -> PrintItems 
 
 fn gen_var_decl<'a>(node: &'a VarDecl, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  let force_use_new_lines = get_use_new_lines(&node.decls, context);
+  let force_use_new_lines = get_use_new_lines(node, context);
   if node.declare() {
     items.push_str("declare ");
   }
@@ -5203,8 +5203,13 @@ fn gen_var_decl<'a>(node: &'a VarDecl, context: &mut Context<'a>) -> PrintItems 
       }
   }
 
-  fn get_use_new_lines<'a>(decls: &[&'a VarDeclarator], context: &mut Context) -> bool {
-    get_use_new_lines_for_nodes(decls, context.config.variable_statement_prefer_single_line, context)
+  fn get_use_new_lines<'a>(node: &VarDecl, context: &mut Context) -> bool {
+    if get_use_new_lines_for_nodes(&node.decls, context.config.variable_statement_prefer_single_line, context) {
+      true
+    } else {
+      // probably minified code
+      node.decls.len() > 2 && is_node_definitely_above_line_width(node.range(), context)
+    }
   }
 }
 
