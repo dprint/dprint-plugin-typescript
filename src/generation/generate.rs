@@ -2669,7 +2669,7 @@ fn gen_object_lit<'a>(node: &'a ObjectLit, context: &mut Context<'a>) -> PrintIt
       prefer_hanging: context.config.object_expression_prefer_hanging,
       prefer_single_line: context.config.object_expression_prefer_single_line,
       force_single_line: false,
-      force_multi_line: false,
+      force_multi_line: is_node_definitely_above_line_width(node.range(), context),
       surround_single_line_with_spaces: context.config.object_expression_space_surrounding_properties,
       allow_blank_lines: true,
       node_sorter: None,
@@ -4114,7 +4114,7 @@ fn gen_object_pat<'a>(node: &'a ObjectPat, context: &mut Context<'a>) -> PrintIt
       prefer_hanging: context.config.object_pattern_prefer_hanging,
       prefer_single_line: context.config.object_pattern_prefer_single_line,
       force_single_line: false,
-      force_multi_line: false,
+      force_multi_line: is_node_definitely_above_line_width(node.range(), context),
       surround_single_line_with_spaces: context.config.object_pattern_space_surrounding_properties,
       allow_blank_lines: true,
       node_sorter: None,
@@ -9367,6 +9367,24 @@ fn has_any_node_comment_on_different_line(nodes: &[impl SourceRanged], context: 
 
     false
   }
+}
+
+fn is_node_definitely_above_line_width<'a>(range: SourceRange, context: &Context<'a>) -> bool {
+  let text = range.text_fast(context.program);
+  let max_width = context.config.line_width as usize * 2;
+  if text.len() < max_width {
+    return false;
+  }
+  let mut count = 0;
+  for c in text.chars() {
+    if !c.is_whitespace() {
+      count += 1;
+      if count > max_width {
+        return true;
+      }
+    }
+  }
+  false
 }
 
 /* config helpers */
