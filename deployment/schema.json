@@ -345,18 +345,6 @@
         "description": "Maintains the line breaks as written by the programmer."
       }]
     },
-    "conditionalExpression.linePerExpression": {
-      "description": "Whether to force a line per expression when spanning multiple lines.",
-      "type": "boolean",
-      "default": true,
-      "oneOf": [{
-        "const": true,
-        "description": "Formats with each part on a new line."
-      }, {
-        "const": false,
-        "description": "Maintains the line breaks as written by the programmer."
-      }]
-    },
     "memberExpression.linePerExpression": {
       "description": "Whether to force a line per expression when spanning multiple lines.",
       "type": "boolean",
@@ -819,6 +807,54 @@
     },
     "binaryExpression.linePerExpression": {
       "$ref": "#/definitions/binaryExpression.linePerExpression"
+    },
+    "conditionalExpression.linePerExpression": {
+      "description": "Whether to force a line per expression when spanning multiple lines.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Formats with each part on a new line."
+      }, {
+        "const": false,
+        "description": "Maintains the line breaks as written by the programmer."
+      }]
+    },
+    "conditionalType.linePerExpression": {
+      "description": "Whether to force a line per expression when spanning multiple lines.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": "Formats with each part on a new line."
+      }, {
+        "const": false,
+        "description": "Uses the default behaviour."
+      }]
+    },
+    "conditionalExpression.useNestedIndentation": {
+      "description": "Whether to use nested indentation within conditional expressions.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Uses nested indentation in the true and false expressions."
+      }, {
+        "const": false,
+        "description": "Don't use nested indentation."
+      }]
+    },
+    "conditionalType.useNestedIndentation": {
+      "description": "Whether to use nested indentation within conditional types.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Uses nested indentation in the true and false expressions."
+      }, {
+        "const": false,
+        "description": "Don't use nested indentation."
+      }]
     },
     "jsx.bracketPosition": {
       "$ref": "#/definitions/jsx.bracketPosition"

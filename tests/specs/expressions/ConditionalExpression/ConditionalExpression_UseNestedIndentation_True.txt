@@ -1,0 +1,38 @@
+~~ lineWidth: 50, conditionalExpression.useNestedIndentation: true ~~
+== should handle nested indentation on a basic ternary / conditional expression ==
+const value = is_prod
+? do1()
+:  is_laptop
+? do2()
+: do3();
+
+[expect]
+const value = is_prod
+    ? do1()
+    : is_laptop
+        ? do2()
+        : do3();
+
+== should keep on single line if fits on a single line ==
+const value = a ? b ? c : d : e;
+
+[expect]
+const value = a ? b ? c : d : e;
+
+== should go multi-line when exceeding the line width ==
+const value = testing ? this ? out : testing : exceedsWidth;
+
+[expect]
+const value = testing
+    ? this ? out : testing
+    : exceedsWidth;
+
+== should both go multi-line when exceeding the line width twice ==
+const value = testing ? this ? out : testingTestingTestingTestingTesting : exceedsWidth;
+
+[expect]
+const value = testing
+    ? this
+        ? out
+        : testingTestingTestingTestingTesting
+    : exceedsWidth;
