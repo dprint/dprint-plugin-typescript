@@ -3391,7 +3391,7 @@ fn gen_type_lit<'a>(node: &'a TsTypeLit, context: &mut Context<'a>) -> PrintItem
           context.config.type_literal_separator_kind_single_line,
           context,
         )),
-        multi_line: Some(semi_colon_or_comma_to_separator_value(
+        multi_line: Some(semi_colon_or_comma_or_new_line_to_separator_value(
           context.config.type_literal_separator_kind_multi_line,
           context,
         )),
@@ -3411,6 +3411,14 @@ fn gen_type_lit<'a>(node: &'a TsTypeLit, context: &mut Context<'a>) -> PrintItem
     match value {
       SemiColonOrComma::Comma => SeparatorValue::Comma(context.config.type_literal_trailing_commas),
       SemiColonOrComma::SemiColon => SeparatorValue::SemiColon(context.config.semi_colons),
+    }
+  }
+
+  fn semi_colon_or_comma_or_new_line_to_separator_value(value: SemiColonOrCommaOrNewLine, context: &mut Context) -> SeparatorValue {
+    match value {
+      SemiColonOrCommaOrNewLine::Comma => SeparatorValue::Comma(context.config.type_literal_trailing_commas),
+      SemiColonOrCommaOrNewLine::SemiColon => SeparatorValue::SemiColon(context.config.semi_colons),
+      SemiColonOrCommaOrNewLine::NewLine => SeparatorValue::NewLine()
     }
   }
 }
@@ -7330,6 +7338,7 @@ fn gen_close_paren_with_type<'a>(opts: GenCloseParenWithTypeOptions<'a>, context
 enum SeparatorValue {
   SemiColon(SemiColons),
   Comma(TrailingCommas),
+  NewLine()
 }
 
 struct Separator {
@@ -9417,6 +9426,7 @@ fn get_generated_separator(separator: &Separator, is_trailing: bool, is_multi_li
     match value {
       Some(SeparatorValue::Comma(trailing_comma)) => get_generated_trailing_comma(*trailing_comma, is_trailing, is_multi_line),
       Some(SeparatorValue::SemiColon(semi_colons)) => get_generated_semi_colon(*semi_colons, is_trailing, is_multi_line),
+      Some(SeparatorValue::NewLine()) => get_generated_new_line(is_trailing, is_multi_line),
       None => PrintItems::new(),
     }
   }
@@ -9451,6 +9461,14 @@ fn get_generated_semi_colon(option: SemiColons, is_trailing: bool, is_multi_line
         if_false("semiColonIfSingleLine", is_multi_line.clone(), ";".into()).into()
       }
     }
+  }
+}
+
+fn get_generated_new_line(is_trailing: bool, is_multi_line: &ConditionResolver) -> PrintItems {
+  if is_trailing {
+    PrintItems::new()
+  } else {
+    if_false("newLineIfMultiLine", is_multi_line.clone(), ";".into()).into()
   }
 }
 
