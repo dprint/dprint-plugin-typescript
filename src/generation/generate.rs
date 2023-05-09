@@ -3859,6 +3859,8 @@ fn gen_reg_exp_literal(node: &Regex, _: &mut Context) -> PrintItems {
   items
 }
 
+const VALID_STRING_ESCAPES: &[char; 9] = &['\\', 'n', 'r', 'v', 't', 'b', 'f', 'u', 'x'];
+
 fn gen_string_literal<'a>(node: &'a Str, context: &mut Context<'a>) -> PrintItems {
   return gen_from_raw_string(&get_string_literal_text(
     get_string_value(node, context),
@@ -3967,15 +3969,16 @@ fn gen_string_literal<'a>(node: &'a Str, context: &mut Context<'a>) -> PrintItem
     let string_value = &raw_string_text[1..raw_string_text.len() - 1];
     let is_double_quote = raw_string_text.starts_with('"');
 
-    return match is_double_quote {
-      true => remove_needless_quote_backslashes(string_value.replace("\\\"", "\"")),
-      false => remove_needless_quote_backslashes(string_value.replace("\\'", "'")),
-    };
+    return remove_needless_backslashes(match is_double_quote {
+      true => string_value.replace("\\\"", "\""),
+      false => string_value.replace("\\'", "'"),
+    });
 
-    fn remove_needless_quote_backslashes(text: String) -> String {
+    fn remove_needless_backslashes(text: String) -> String {
       // People may write string literals that look like the following:
       // * "test \' test"
       // * 'test \" test'
+      // * 'test \a test'
       // ...if so, remove these backslashes
       let mut new_string = String::with_capacity(text.len());
       let mut was_last_backslash = false;
@@ -3983,8 +3986,10 @@ fn gen_string_literal<'a>(node: &'a Str, context: &mut Context<'a>) -> PrintItem
         if c == '\\' && !was_last_backslash {
           was_last_backslash = true;
         } else {
-          if was_last_backslash && c != '\'' && c != '"' {
-            new_string.push('\\');
+          if was_last_backslash {
+            if (c != '\'' && c != '"' && VALID_STRING_ESCAPES.contains(&c)) || c == '\n' {
+              new_string.push('\\');
+            }
           }
           new_string.push(c);
           was_last_backslash = false;
