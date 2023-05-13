@@ -1,0 +1,23 @@
+== should put node exports first ==
+export { a } from "./test";
+export { b } from "npm:test";
+export { c } from "test";
+export { d } from "node:test";
+export { e } from "node:test";
+
+[expect]
+export { d } from "node:test";
+export { e } from "node:test";
+export { b } from "npm:test";
+export { c } from "test";
+export { a } from "./test";
+
+== should sort node exports by suffix ==
+export { a } from "node:bbb";
+export { b } from "node:aaa";
+export { c } from "node:ccc";
+
+[expect]
+export { b } from "node:aaa";
+export { a } from "node:bbb";
+export { c } from "node:ccc";

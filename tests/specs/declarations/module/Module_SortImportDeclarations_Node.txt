@@ -1,0 +1,23 @@
+== should put node imports first ==
+import a from "./test";
+import b from "npm:test";
+import c from "test";
+import d from "node:test";
+import e from "node:test";
+
+[expect]
+import d from "node:test";
+import e from "node:test";
+import b from "npm:test";
+import c from "test";
+import a from "./test";
+
+== should sort node imports by suffix ==
+import a from "node:bbb";
+import b from "node:aaa";
+import c from "node:ccc";
+
+[expect]
+import b from "node:aaa";
+import a from "node:bbb";
+import c from "node:ccc";
