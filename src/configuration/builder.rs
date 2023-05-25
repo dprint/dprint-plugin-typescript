@@ -474,6 +474,13 @@ impl ConfigurationBuilder {
     self.insert("arrowFunction.useParentheses", value.to_string().into())
   }
 
+  /// Disable inserting new line before function call in arrow function body.
+  ///
+  /// Default: `false`
+  pub fn arrow_function_no_new_line_before_fn_call(&mut self, value: bool) -> &mut Self {
+    self.insert("arrowFunction.noNewLineBeforeFnCall", value.into())
+  }
+
   /// Whether to force a line per expression when spanning multiple lines.
   ///
   /// * `true` - Formats with each part on a new line.
@@ -1086,6 +1093,7 @@ mod tests {
       .prefer_hanging(false)
       /* situational */
       .arrow_function_use_parentheses(UseParentheses::Maintain)
+      .arrow_function_no_new_line_before_fn_call(false)
       .binary_expression_line_per_expression(false)
       .conditional_expression_line_per_expression(true)
       .member_expression_line_per_expression(false)
@@ -1259,7 +1267,7 @@ mod tests {
       .while_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 177);
+    assert_eq!(inner_config.len(), 178);
     let diagnostics = resolve_config(inner_config, &resolve_global_config(ConfigKeyMap::new(), &Default::default()).config).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

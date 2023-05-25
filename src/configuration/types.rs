@@ -293,6 +293,8 @@ pub struct Configuration {
   /* situational */
   #[serde(rename = "arrowFunction.useParentheses")]
   pub arrow_function_use_parentheses: UseParentheses,
+  #[serde(rename = "arrowFunction.noNewLineBeforeFnCall")]
+  pub arrow_function_no_new_line_before_fn_call: bool,
   #[serde(rename = "binaryExpression.linePerExpression")]
   pub binary_expression_line_per_expression: bool,
   #[serde(rename = "conditionalExpression.linePerExpression")]

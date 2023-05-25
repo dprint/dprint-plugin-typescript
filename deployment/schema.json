@@ -333,6 +333,18 @@
         "description": "Prefers not using parentheses when possible."
       }]
     },
+    "arrowFunction.noNewLineBeforeFnCall": {
+      "description": "Disable inserting new line before function call in arrow function body.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": ""
+      }, {
+        "const": false,
+        "description": ""
+      }]
+    },
     "binaryExpression.linePerExpression": {
       "description": "Whether to force a line per expression when spanning multiple lines.",
       "type": "boolean",
