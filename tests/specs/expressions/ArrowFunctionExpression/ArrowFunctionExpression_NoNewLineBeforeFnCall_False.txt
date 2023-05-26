@@ -1,5 +1,5 @@
 ~~ arrowFunction.noNewLineBeforeFnCall: false ~~
-== should insert new line after arrow when option is false ==
+== should insert new line after arrow but before fn call when option is false ==
 [].map((it) => test({
     foo: 1,
     bar: 2
@@ -12,3 +12,14 @@
         bar: 2,
     })
 );
+
+== should insert new line after arrow but before tagged template when option is false ==
+const getStyles = () => css`
+    display: flex;
+`;
+
+[expect]
+const getStyles = () =>
+    css`
+    display: flex;
+`;
