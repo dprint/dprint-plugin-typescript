@@ -1,5 +1,5 @@
 ~~ arrowFunction.noNewLineBeforeFnCall: false ~~
-== should not insert new line after arrow when option is true ==
+== should insert new line after arrow when option is false ==
 [].map((it) => test({
     foo: 1,
     bar: 2
