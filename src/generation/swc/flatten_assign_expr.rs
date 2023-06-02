@@ -7,7 +7,7 @@ pub struct AssignExprItem<'a> {
   pub expr: Node<'a>,
 }
 
-pub fn get_flattened_assign_expr<'a>(node: &'a AssignExpr, context: &mut Context<'a>) -> Vec<AssignExprItem<'a>> {
+pub fn get_flattened_assign_expr<'a, 'b>(node: &'b AssignExpr<'a>, context: &mut Context<'a>) -> Vec<AssignExprItem<'a>> {
   assert_eq!(node.op(), AssignOp::Assign);
   let mut items = Vec::new();
   let mut current_node = Some(node);

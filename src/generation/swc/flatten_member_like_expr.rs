@@ -68,14 +68,14 @@ pub struct MemberLikeExprItemCallExpr<'a> {
 
 /// Takes a member expression and flattens it out.
 /// This is done to prevent a stack overflow when someone has many chained member expressions.
-pub fn flatten_member_like_expr<'a>(node: Node<'a>, program: &Program<'a>) -> FlattenedMemberLikeExpr<'a> {
+pub fn flatten_member_like_expr<'a>(node: Node<'a>, program: Program<'a>) -> FlattenedMemberLikeExpr<'a> {
   let mut nodes = Vec::new();
   push_descendant_nodes(node, &mut nodes, program);
 
   FlattenedMemberLikeExpr { node, nodes }
 }
 
-fn push_descendant_nodes<'a>(node: Node<'a>, nodes: &mut Vec<MemberLikeExprItem<'a>>, program: &Program<'a>) {
+fn push_descendant_nodes<'a>(node: Node<'a>, nodes: &mut Vec<MemberLikeExprItem<'a>>, program: Program<'a>) {
   match node {
     Node::MemberExpr(member_expr) => {
       push_descendant_nodes(member_expr.obj.into(), nodes, program);
@@ -130,7 +130,7 @@ fn push_descendant_nodes<'a>(node: Node<'a>, nodes: &mut Vec<MemberLikeExprItem<
   }
 }
 
-fn push_descendant_nodes_for_call_expr<'a>(call_expr: CallOrOptCallExpr<'a>, nodes: &mut Vec<MemberLikeExprItem<'a>>, program: &Program<'a>) {
+fn push_descendant_nodes_for_call_expr<'a>(call_expr: CallOrOptCallExpr<'a>, nodes: &mut Vec<MemberLikeExprItem<'a>>, program: Program<'a>) {
   push_descendant_nodes(call_expr.callee().into(), nodes, program);
   let new_call_expr_callee = nodes.pop().unwrap();
   nodes.push(MemberLikeExprItem::CallExpr(Box::new(MemberLikeExprItemCallExpr {

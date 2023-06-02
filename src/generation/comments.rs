@@ -8,13 +8,13 @@ use deno_ast::SourceRangedForSpanned;
 use deno_ast::SourceTextInfoProvider;
 
 pub struct CommentTracker<'a> {
-  program: &'a Program<'a>,
+  program: Program<'a>,
   tokens: &'a [TokenAndSpan],
   token_index: usize,
 }
 
 impl<'a> CommentTracker<'a> {
-  pub fn new(program: &'a Program<'a>, tokens: &'a [TokenAndSpan]) -> CommentTracker<'a> {
+  pub fn new(program: Program<'a>, tokens: &'a [TokenAndSpan]) -> CommentTracker<'a> {
     CommentTracker {
       program,
       tokens,
