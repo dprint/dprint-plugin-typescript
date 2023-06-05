@@ -1873,7 +1873,7 @@ fn gen_assignment_expr<'a>(node: &AssignExpr<'a>, context: &mut Context<'a>) -> 
             prefer_hanging: false,
             force_use_new_lines,
             allow_blank_lines: false,
-            indent_width: indent_width,
+            indent_width,
             single_line_options: ir_helpers::SingleLineOptions::separated_same_line(Signal::SpaceOrNewLine.into()),
             multi_line_options: ir_helpers::MultiLineOptions::same_line_start_hanging_indent(),
             force_possible_newline_at_start: false,
@@ -2049,13 +2049,13 @@ fn gen_binary_expr<'a>(node: &BinExpr<'a>, context: &mut Context<'a>) -> PrintIt
         prefer_hanging: false,
         force_use_new_lines,
         allow_blank_lines: false,
-        indent_width: indent_width,
+        indent_width,
         single_line_options: ir_helpers::SingleLineOptions::separated_same_line(if use_space_surrounding_operator {
           Signal::SpaceOrNewLine.into()
         } else {
           PrintItems::new()
         }),
-        multi_line_options: multi_line_options,
+        multi_line_options,
         force_possible_newline_at_start: false,
       },
     )
@@ -6126,9 +6126,9 @@ fn gen_union_or_intersection_type<'a, 'b>(node: UnionOrIntersectionType<'a, 'b>,
       prefer_hanging,
       force_use_new_lines,
       allow_blank_lines: false,
-      indent_width: indent_width,
+      indent_width,
       single_line_options: ir_helpers::SingleLineOptions::separated_same_line(Signal::SpaceOrNewLine.into()),
-      multi_line_options: multi_line_options,
+      multi_line_options,
       force_possible_newline_at_start: false,
     },
   );
@@ -7523,7 +7523,7 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
       prefer_hanging: opts.prefer_hanging,
       force_use_new_lines: opts.force_use_new_lines,
       allow_blank_lines: opts.allow_blank_lines,
-      indent_width: indent_width,
+      indent_width,
       single_line_options: opts.single_line_options,
       multi_line_options: opts.multi_line_options,
       force_possible_newline_at_start: opts.force_possible_newline_at_start,
@@ -7624,10 +7624,10 @@ fn gen_type_ann_with_colon_if_exists<'a>(type_ann: Option<&TsTypeAnn<'a>>, conte
     if context.config.type_annotation_space_before_colon {
       items.push_str(" ");
     }
-    let colon_token = context.token_finder.get_first_colon_token_within(&*type_ann);
+    let colon_token = context.token_finder.get_first_colon_token_within(type_ann);
     #[cfg(debug_assertions)]
     assert_has_op(":", colon_token, context);
-    items.extend(gen_type_ann_with_colon((&*type_ann).into(), colon_token, context));
+    items.extend(gen_type_ann_with_colon(type_ann.into(), colon_token, context));
   }
   items
 }
@@ -9147,7 +9147,7 @@ fn gen_surrounded_by_tokens<'a>(
                   prefer_hanging: false,
                   force_use_new_lines: !is_single_line,
                   allow_blank_lines: true,
-                  indent_width: indent_width,
+                  indent_width,
                   single_line_options: SingleLineOptions {
                     space_at_start: opts.single_line_space_around,
                     space_at_end: opts.single_line_space_around,

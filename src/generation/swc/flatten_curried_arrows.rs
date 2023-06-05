@@ -9,7 +9,7 @@ pub struct CurriedArrowExpr<'a> {
   pub signatures: Vec<ArrowSignature<'a>>,
 }
 
-impl<'a, 'b> CurriedArrowExpr<'a> {
+impl<'a> CurriedArrowExpr<'a> {
   pub fn last_arrow(&self) -> &'a ArrowExpr<'a> {
     self.signatures.last().unwrap().inner
   }
