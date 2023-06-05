@@ -1,0 +1,37 @@
+~~ indentWidth: 2 ~~
+== should not have trailing space ==
+type Type<T = any> = T extends never ? never
+    :
+        & { ephemeral?: T }
+        & (
+            | Object_Type
+            | Union_Type
+            | Intersection_Type
+            | Enum_Member_Type
+            | Generic_Type
+            | Primitive
+            | Enum_Type
+            | Array_Type
+            | Tuple_Type
+            | Any_Type
+            | Custom_Type
+        )
+    ;
+
+[expect]
+type Type<T = any> = T extends never ? never
+  :
+    & { ephemeral?: T }
+    & (
+      | Object_Type
+      | Union_Type
+      | Intersection_Type
+      | Enum_Member_Type
+      | Generic_Type
+      | Primitive
+      | Enum_Type
+      | Array_Type
+      | Tuple_Type
+      | Any_Type
+      | Custom_Type
+    );

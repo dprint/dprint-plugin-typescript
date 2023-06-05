@@ -34,7 +34,7 @@ fn parse_inner(file_path: &Path, text_info: SourceTextInfo) -> Result<ParsedSour
 }
 
 fn parse_inner_no_diagnostic_check(file_path: &Path, text_info: SourceTextInfo) -> Result<ParsedSource> {
-  let media_type: deno_ast::MediaType = file_path.into();
+  let media_type = deno_ast::MediaType::from_path(file_path);
   let mut syntax = deno_ast::get_syntax(media_type);
   if let Syntax::Es(es) = &mut syntax {
     // support decorators in js
@@ -153,6 +153,25 @@ mod tests {
         "\n",
         "  console.log('x', `duration ${d} not in range - ${min} ≥ ${d} && ${max} ≥ ${d}`),;\n",
         "                                                                                  ~",
+      ),
+    );
+  }
+
+  #[test]
+  fn it_should_error_closing_paren_missing() {
+    // issue 498
+    run_fatal_diagnostic_test(
+      "./test.ts",
+      r#"const foo = <T extends {}>() => {
+    if (bar() {
+        console.log(1);
+    }
+};"#,
+      concat!(
+        "An arrow function is not allowed here at ./test.ts:1:27\n",
+        "\n",
+        "  const foo = <T extends {}>() => {\n",
+        "                            ~~"
       ),
     );
   }

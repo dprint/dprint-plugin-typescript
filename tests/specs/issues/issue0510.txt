@@ -1,0 +1,11 @@
+== should not remove braces in an if/while statement when the body contains a declaration ==
+if (true) { const _err = 5; }
+while (true) { const _err = 5; }
+if (true) { class Test {} }
+while (true) { class Test {} }
+
+[expect]
+if (true) { const _err = 5; }
+while (true) { const _err = 5; }
+if (true) { class Test {} }
+while (true) { class Test {} }

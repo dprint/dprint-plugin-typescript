@@ -144,6 +144,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       Node::Constructor(node) => gen_constructor(node, context),
       Node::Decorator(node) => gen_decorator(node, context),
       Node::TsParamProp(node) => gen_parameter_prop(node, context),
+      Node::AutoAccessor(node) => gen_auto_accessor(node, context),
       Node::PrivateMethod(node) => gen_private_method(node, context),
       Node::PrivateName(node) => gen_private_name(node, context),
       Node::PrivateProp(node) => gen_private_prop(node, context),
@@ -456,6 +457,29 @@ fn gen_class_method<'a>(node: &'a ClassMethod, context: &mut Context<'a>) -> Pri
   )
 }
 
+fn gen_auto_accessor<'a>(node: &'a AutoAccessor, context: &mut Context<'a>) -> PrintItems {
+  gen_class_prop_common(
+    GenClassPropCommon {
+      original: node.into(),
+      key: node.key.into(),
+      value: &node.value,
+      type_ann: &node.type_ann,
+      is_static: node.is_static(),
+      decorators: &node.decorators,
+      computed: false,
+      is_auto_accessor: true,
+      is_declare: false,
+      accessibility: node.accessibility(),
+      is_abstract: false,
+      is_optional: false,
+      is_override: false,
+      readonly: false,
+      definite: false,
+    },
+    context,
+  )
+}
+
 fn gen_private_method<'a>(node: &'a PrivateMethod, context: &mut Context<'a>) -> PrintItems {
   gen_class_or_object_method(
     ClassOrObjectMethod {
@@ -490,6 +514,7 @@ fn gen_class_prop<'a>(node: &'a ClassProp, context: &mut Context<'a>) -> PrintIt
       is_static: node.is_static(),
       decorators: &node.decorators,
       computed: matches!(node.key, PropName::Computed(_)),
+      is_auto_accessor: false,
       is_declare: node.declare(),
       accessibility: node.accessibility(),
       is_abstract: node.is_abstract(),
@@ -566,6 +591,7 @@ fn gen_private_prop<'a>(node: &'a PrivateProp, context: &mut Context<'a>) -> Pri
       is_static: node.is_static(),
       decorators: &node.decorators,
       computed: false,
+      is_auto_accessor: false,
       is_declare: false,
       accessibility: node.accessibility(),
       is_abstract: false,
@@ -588,6 +614,7 @@ struct GenClassPropCommon<'a> {
   pub computed: bool,
   pub is_declare: bool,
   pub accessibility: Option<Accessibility>,
+  pub is_auto_accessor: bool,
   pub is_abstract: bool,
   pub is_optional: bool,
   pub is_override: bool,
@@ -606,6 +633,9 @@ fn gen_class_prop_common<'a>(node: GenClassPropCommon<'a>, context: &mut Context
   }
   if node.is_static {
     items.push_str("static ");
+  }
+  if node.is_auto_accessor {
+    items.push_str("accessor ");
   }
   if node.is_abstract {
     items.push_str("abstract ");
@@ -2635,7 +2665,7 @@ fn gen_object_lit<'a>(node: &'a ObjectLit, context: &mut Context<'a>) -> PrintIt
       prefer_hanging: context.config.object_expression_prefer_hanging,
       prefer_single_line: context.config.object_expression_prefer_single_line,
       force_single_line: false,
-      force_multi_line: false,
+      force_multi_line: is_node_definitely_above_line_width(node.range(), context),
       surround_single_line_with_spaces: context.config.object_expression_space_surrounding_properties,
       allow_blank_lines: true,
       node_sorter: None,
@@ -2708,9 +2738,9 @@ fn should_skip_paren_expr(node: &ParenExpr, context: &Context) -> bool {
     }
   }
 
-  // keep for `(val as number)++`
+  // keep for `(val as number)++` or `(<number>val)++`
   let parent = node.parent();
-  if parent.kind() == NodeKind::UpdateExpr && node.expr.kind() == NodeKind::TsAsExpr {
+  if parent.kind() == NodeKind::UpdateExpr && matches!(node.expr.kind(), NodeKind::TsAsExpr | NodeKind::TsTypeAssertion) {
     return false;
   }
 
@@ -2781,7 +2811,7 @@ fn gen_sequence_expr<'a>(node: &'a SeqExpr, context: &mut Context<'a>) -> PrintI
     GenSeparatedValuesParams {
       nodes: node.exprs.iter().map(|x| NodeOrSeparator::Node(x.into())).collect(),
       prefer_hanging: context.config.sequence_expression_prefer_hanging,
-      force_use_new_lines: false,
+      force_use_new_lines: is_node_definitely_above_line_width(node.range(), context),
       allow_blank_lines: false,
       separator: TrailingCommas::Never.into(),
       single_line_options: ir_helpers::SingleLineOptions::same_line_maybe_space_separated(),
@@ -4076,7 +4106,7 @@ fn gen_object_pat<'a>(node: &'a ObjectPat, context: &mut Context<'a>) -> PrintIt
       prefer_hanging: context.config.object_pattern_prefer_hanging,
       prefer_single_line: context.config.object_pattern_prefer_single_line,
       force_single_line: false,
-      force_multi_line: false,
+      force_multi_line: is_node_definitely_above_line_width(node.range(), context),
       surround_single_line_with_spaces: context.config.object_pattern_space_surrounding_properties,
       allow_blank_lines: true,
       node_sorter: None,
@@ -4382,7 +4412,11 @@ fn gen_do_while_stmt<'a>(node: &'a DoWhileStmt, context: &mut Context<'a>) -> Pr
 
 fn gen_export_all<'a>(node: &'a ExportAll, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.push_str("export * from ");
+  if node.type_only() {
+    items.push_str("export type * from ");
+  } else {
+    items.push_str("export * from ");
+  }
   items.extend(gen_node(node.src.into(), context));
 
   if let Some(asserts) = node.asserts {
@@ -4713,7 +4747,7 @@ fn gen_for_of_stmt<'a>(node: &'a ForOfStmt, context: &mut Context<'a>) -> PrintI
   if context.config.for_of_statement_space_after_for_keyword {
     items.push_str(" ");
   }
-  if node.await_token().is_some() {
+  if node.is_await() {
     // todo: generate comments around await token range
     items.push_str("await ");
   }
@@ -5109,7 +5143,7 @@ fn gen_try_stmt<'a>(node: &'a TryStmt, context: &mut Context<'a>) -> PrintItems 
 
 fn gen_var_decl<'a>(node: &'a VarDecl, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  let force_use_new_lines = get_use_new_lines(&node.decls, context);
+  let force_use_new_lines = get_use_new_lines(node, context);
   if node.declare() {
     items.push_str("declare ");
   }
@@ -5157,8 +5191,13 @@ fn gen_var_decl<'a>(node: &'a VarDecl, context: &mut Context<'a>) -> PrintItems 
       }
   }
 
-  fn get_use_new_lines<'a>(decls: &[&'a VarDeclarator], context: &mut Context) -> bool {
-    get_use_new_lines_for_nodes(decls, context.config.variable_statement_prefer_single_line, context)
+  fn get_use_new_lines<'a>(node: &VarDecl, context: &mut Context) -> bool {
+    if get_use_new_lines_for_nodes(&node.decls, context.config.variable_statement_prefer_single_line, context) {
+      true
+    } else {
+      // probably minified code
+      node.decls.len() >= 2 && is_node_definitely_above_line_width(node.range(), context)
+    }
   }
 }
 
@@ -5281,7 +5320,8 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
       let mut items = PrintItems::new();
       items.extend(question_comment_items.leading_line);
       if question_position == OperatorPosition::NextLine {
-        items.push_str("? ");
+        items.push_str("?");
+        items.push_signal(Signal::SpaceIfNotTrailing);
       }
       items.extend(ir_helpers::new_line_group(gen_node(node.true_type.into(), context)));
       if colon_position == OperatorPosition::SameLine {
@@ -5324,7 +5364,8 @@ fn gen_conditional_type<'a>(node: &'a TsConditionalType, context: &mut Context<'
     items.push_info(before_false_ln);
     items.extend(colon_comment_items.leading_line);
     if colon_position == OperatorPosition::NextLine {
-      items.push_str(": ");
+      items.push_str(":");
+      items.push_signal(Signal::SpaceIfNotTrailing);
     }
     items.extend(ir_helpers::new_line_group(gen_node(node.false_type.into(), context)));
     items
@@ -6418,6 +6459,7 @@ fn gen_comment(comment: &Comment, context: &mut Context) -> Option<PrintItems> {
 }
 
 fn gen_js_doc_or_multiline_block(comment: &Comment, _context: &mut Context) -> PrintItems {
+  debug_assert_eq!(comment.kind, CommentKind::Block);
   let is_js_doc = comment.text.starts_with('*');
   return lines_to_print_items(is_js_doc, build_lines(comment));
 
@@ -6425,9 +6467,15 @@ fn gen_js_doc_or_multiline_block(comment: &Comment, _context: &mut Context) -> P
     let mut lines: Vec<&str> = Vec::new();
 
     for line in utils::split_lines(&comment.text) {
-      let line = line[get_line_start_index(line)..].trim_end();
-      if !line.is_empty() || !lines.last().map(|l| l.is_empty()).unwrap_or(false) {
-        lines.push(line);
+      let text = if line.line_index == 0 && !line.text.starts_with('*') {
+        line.text
+      } else {
+        &line.text[get_line_start_index(line.text)..]
+      };
+      let text = if line.is_last && !text.trim().is_empty() { text } else { text.trim_end() };
+
+      if !text.is_empty() || !lines.last().map(|l| l.is_empty()).unwrap_or(false) {
+        lines.push(text);
       }
     }
 
@@ -6478,7 +6526,7 @@ fn gen_js_doc_or_multiline_block(comment: &Comment, _context: &mut Context) -> P
 
     items.push_str(if lines.len() > 1 && lines.last().map(|l| l.is_empty()).unwrap_or(false) {
       "/"
-    } else if lines.len() > 1 && lines.last().map(|l| l.ends_with('*')).unwrap_or(false) {
+    } else if lines.len() > 1 && lines.last().map(|l| l.ends_with('*') || l.ends_with(' ')).unwrap_or(false) {
       "*/"
     } else {
       " */"
@@ -8387,7 +8435,9 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
 
   fn get_force_braces(body_node: Node) -> bool {
     if let Node::BlockStmt(body_node) = body_node {
-      body_node.stmts.is_empty() || body_node.stmts.iter().all(|s| s.kind() == NodeKind::EmptyStmt)
+      body_node.stmts.is_empty()
+        || body_node.stmts.iter().all(|s| s.kind() == NodeKind::EmptyStmt)
+        || (body_node.stmts.len() == 1 && matches!(body_node.stmts[0], Stmt::Decl(_)))
     } else {
       false
     }
@@ -9312,6 +9362,26 @@ fn has_any_node_comment_on_different_line(nodes: &[impl SourceRanged], context: 
 
     false
   }
+}
+
+fn is_node_definitely_above_line_width<'a>(range: SourceRange, context: &Context<'a>) -> bool {
+  let text = range.text_fast(context.program);
+  let max_width = context.config.line_width as usize * 2;
+  if text.len() < max_width {
+    return false;
+  }
+  let mut count = 0;
+  for c in text.chars() {
+    if !c.is_whitespace() {
+      count += 1;
+      if count > max_width {
+        return true;
+      }
+    } else if c == '\n' {
+      return false;
+    }
+  }
+  false
 }
 
 /* config helpers */
