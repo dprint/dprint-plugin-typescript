@@ -19,7 +19,7 @@ pub struct BinExprOp<'a> {
   pub op: BinaryOp,
 }
 
-pub fn get_flattened_bin_expr<'a>(node: &'a BinExpr, context: &mut Context<'a>) -> Vec<BinExprItem<'a>> {
+pub fn get_flattened_bin_expr<'a, 'b>(node: &'b BinExpr<'a>, context: &mut Context<'a>) -> Vec<BinExprItem<'a>> {
   let mut items = Vec::new();
   let operator_token = BinExprOp {
     token: context.token_finder.get_first_operator_after(&node.left, node.op().as_str()).unwrap(),

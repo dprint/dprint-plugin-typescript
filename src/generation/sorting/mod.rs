@@ -10,7 +10,7 @@ use crate::configuration::*;
 
 // a little rough, but good enough for our purposes
 
-pub fn get_node_sorter_from_order<'a>(order: SortOrder) -> Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), &Program<'a>) -> Ordering>> {
+pub fn get_node_sorter_from_order<'a>(order: SortOrder) -> Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), Program<'a>) -> Ordering>> {
   // todo: how to reduce code duplication here?
   match order {
     SortOrder::Maintain => None,
@@ -50,8 +50,8 @@ pub fn get_node_sorter_from_order<'a>(order: SortOrder) -> Option<Box<dyn Fn((us
 fn cmp_optional_nodes<'a>(
   a: Option<Node<'a>>,
   b: Option<Node<'a>>,
-  program: &Program<'a>,
-  cmp_func: impl Fn(&dyn SourceRanged, &dyn SourceRanged, &Program<'a>) -> Ordering,
+  program: Program<'a>,
+  cmp_func: impl Fn(&SourceRange, &SourceRange, Program<'a>) -> Ordering,
 ) -> Ordering {
   if let Some(a) = a {
     if let Some(b) = b {
@@ -66,12 +66,7 @@ fn cmp_optional_nodes<'a>(
   }
 }
 
-fn cmp_nodes<'a>(
-  a: Node<'a>,
-  b: Node<'a>,
-  program: &Program<'a>,
-  cmp_func: impl Fn(&dyn SourceRanged, &dyn SourceRanged, &Program<'a>) -> Ordering,
-) -> Ordering {
+fn cmp_nodes<'a>(a: Node<'a>, b: Node<'a>, program: Program<'a>, cmp_func: impl Fn(&SourceRange, &SourceRange, Program<'a>) -> Ordering) -> Ordering {
   let a_nodes = get_comparison_nodes(a);
   let b_nodes = get_comparison_nodes(b);
 

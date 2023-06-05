@@ -50,7 +50,7 @@ impl<'a> ArrowSignature<'a> {
   }
 }
 
-pub fn get_curried_arrow_expr<'a>(mut arrow_func: &'a ArrowExpr) -> Option<CurriedArrowExpr<'a>> {
+pub fn get_curried_arrow_expr<'a>(mut arrow_func: &'a ArrowExpr<'a>) -> Option<CurriedArrowExpr<'a>> {
   let mut signatures = Vec::new();
 
   while let BlockStmtOrExpr::Expr(Expr::Arrow(inner)) = arrow_func.body {

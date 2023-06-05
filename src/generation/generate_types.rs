@@ -149,28 +149,28 @@ fn get_inner_range_for_object_like(range: &SourceRange) -> SourceRange {
 }
 
 pub trait NodeExtensions<'a> {
-  fn get_type_parameters(&self) -> &Option<&'a TsTypeParamDecl>;
+  fn get_type_parameters(&self) -> Option<&'a TsTypeParamDecl<'a>>;
 }
 
 impl<'a> NodeExtensions<'a> for Node<'a> {
-  fn get_type_parameters(&self) -> &Option<&'a TsTypeParamDecl> {
+  fn get_type_parameters(&self) -> Option<&'a TsTypeParamDecl<'a>> {
     match self {
-      Node::ClassDecl(node) => &node.class.type_params,
-      Node::Class(node) => &node.type_params,
-      Node::TsInterfaceDecl(node) => &node.type_params,
-      Node::ClassExpr(node) => &node.class.type_params,
-      Node::FnDecl(node) => &node.function.type_params,
-      Node::Function(node) => &node.type_params,
-      Node::ClassMethod(node) => &node.function.type_params,
-      Node::TsTypeAliasDecl(node) => &node.type_params,
-      Node::ArrowExpr(node) => &node.type_params,
-      Node::TsCallSignatureDecl(node) => &node.type_params,
-      Node::TsConstructSignatureDecl(node) => &node.type_params,
-      Node::TsMethodSignature(node) => &node.type_params,
-      Node::MethodProp(node) => &node.function.type_params,
-      Node::TsConstructorType(node) => &node.type_params,
-      Node::TsFnType(node) => &node.type_params,
-      _ => &None,
+      Node::ClassDecl(node) => node.class.type_params,
+      Node::Class(node) => node.type_params,
+      Node::TsInterfaceDecl(node) => node.type_params,
+      Node::ClassExpr(node) => node.class.type_params,
+      Node::FnDecl(node) => node.function.type_params,
+      Node::Function(node) => node.type_params,
+      Node::ClassMethod(node) => node.function.type_params,
+      Node::TsTypeAliasDecl(node) => node.type_params,
+      Node::ArrowExpr(node) => node.type_params,
+      Node::TsCallSignatureDecl(node) => node.type_params,
+      Node::TsConstructSignatureDecl(node) => node.type_params,
+      Node::TsMethodSignature(node) => node.type_params,
+      Node::MethodProp(node) => node.function.type_params,
+      Node::TsConstructorType(node) => node.type_params,
+      Node::TsFnType(node) => node.type_params,
+      _ => None,
     }
   }
 }
