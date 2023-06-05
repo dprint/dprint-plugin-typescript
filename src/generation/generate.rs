@@ -172,6 +172,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       Node::TsModuleDecl(node) => gen_module_decl(node, context),
       Node::TsNamespaceDecl(node) => gen_namespace_decl(node, context),
       Node::TsTypeAliasDecl(node) => gen_type_alias(node, context),
+      Node::UsingDecl(node) => gen_using_decl(node, context),
       /* expressions */
       Node::ArrayLit(node) => gen_array_expr(node, context),
       Node::ArrowExpr(node) => gen_arrow_func_expr(node, context),
@@ -1413,6 +1414,19 @@ fn gen_type_alias<'a>(node: &TsTypeAliasDecl<'a>, context: &mut Context<'a>) -> 
   }
 
   items.extend(gen_assignment(node.type_ann.into(), "=", context));
+
+  if context.config.semi_colons.is_true() {
+    items.push_str(";");
+  }
+
+  items
+}
+
+fn gen_using_decl<'a>(node: &UsingDecl<'a>, context: &mut Context<'a>) -> PrintItems {
+  let mut items = PrintItems::new();
+  items.push_str("using ");
+
+  items.extend(gen_var_declarators(node.into(), &node.decls, context));
 
   if context.config.semi_colons.is_true() {
     items.push_str(";");
@@ -5142,7 +5156,6 @@ fn gen_try_stmt<'a>(node: &TryStmt<'a>, context: &mut Context<'a>) -> PrintItems
 
 fn gen_var_decl<'a>(node: &VarDecl<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  let force_use_new_lines = get_use_new_lines(node, context);
   if node.declare() {
     items.push_str("declare ");
   }
@@ -5152,26 +5165,7 @@ fn gen_var_decl<'a>(node: &VarDecl<'a>, context: &mut Context<'a>) -> PrintItems
     VarDeclKind::Var => "var ",
   });
 
-  let decls_len = node.decls.len();
-  if decls_len == 1 {
-    // be lightweight by default
-    items.extend(gen_node(node.decls[0].into(), context));
-  } else if decls_len > 1 {
-    items.extend(gen_separated_values(
-      GenSeparatedValuesParams {
-        nodes: node.decls.iter().map(|&p| NodeOrSeparator::Node(p.into())).collect(),
-        prefer_hanging: context.config.variable_statement_prefer_hanging,
-        force_use_new_lines,
-        allow_blank_lines: false,
-        separator: TrailingCommas::Never.into(),
-        single_line_options: ir_helpers::SingleLineOptions::same_line_maybe_space_separated(),
-        multi_line_options: ir_helpers::MultiLineOptions::same_line_start_hanging_indent(),
-        force_possible_newline_at_start: false,
-        node_sorter: None,
-      },
-      context,
-    ));
-  }
+  items.extend(gen_var_declarators(node.into(), &node.decls, context));
 
   if requires_semi_colon(node, context) {
     items.push_str(";");
@@ -5189,14 +5183,40 @@ fn gen_var_decl<'a>(node: &VarDecl<'a>, context: &mut Context<'a>) -> PrintItems
         _ => use_semi_colons,
       }
   }
+}
 
-  fn get_use_new_lines<'a>(node: &VarDecl, context: &mut Context) -> bool {
-    if get_use_new_lines_for_nodes(&node.decls, context.config.variable_statement_prefer_single_line, context) {
+fn gen_var_declarators<'a>(parent: Node<'a>, decls: &[&'a VarDeclarator<'a>], context: &mut Context<'a>) -> PrintItems {
+  fn get_use_new_lines<'a>(parent: Node<'a>, decls: &[&'a VarDeclarator<'a>], context: &mut Context<'a>) -> bool {
+    if get_use_new_lines_for_nodes(decls, context.config.variable_statement_prefer_single_line, context) {
       true
     } else {
       // probably minified code
-      node.decls.len() >= 2 && is_node_definitely_above_line_width(node.range(), context)
+      decls.len() >= 2 && is_node_definitely_above_line_width(parent.range(), context)
     }
+  }
+
+  let decls_len = decls.len();
+  if decls_len == 1 {
+    // be lightweight by default
+    gen_node(decls[0].into(), context)
+  } else if decls_len > 1 {
+    let force_use_new_lines = get_use_new_lines(parent, decls, context);
+    gen_separated_values(
+      GenSeparatedValuesParams {
+        nodes: decls.iter().map(|&p| NodeOrSeparator::Node(p.into())).collect(),
+        prefer_hanging: context.config.variable_statement_prefer_hanging,
+        force_use_new_lines,
+        allow_blank_lines: false,
+        separator: TrailingCommas::Never.into(),
+        single_line_options: ir_helpers::SingleLineOptions::same_line_maybe_space_separated(),
+        multi_line_options: ir_helpers::MultiLineOptions::same_line_start_hanging_indent(),
+        force_possible_newline_at_start: false,
+        node_sorter: None,
+      },
+      context,
+    )
+  } else {
+    PrintItems::new()
   }
 }
 
@@ -5212,16 +5232,25 @@ fn gen_var_declarator<'a>(node: &VarDeclarator<'a>, context: &mut Context<'a>) -
   // Indent the first variable declarator when there are multiple.
   // Not ideal, but doing this here because of the abstraction used in
   // `gen_var_decl`. In the future this should probably be moved away.
-  let var_dec = node.parent();
-  if var_dec.decls.len() > 1 && var_dec.decls[0].range() == node.range() {
-    let items = items.into_rc_path();
-    if_true_or(
-      "indentIfNotStartOfLine",
-      condition_resolvers::is_not_start_of_line(),
-      with_indent(items.into()),
-      items.into(),
-    )
-    .into()
+
+  let parent_decls = match node.parent() {
+    Node::VarDecl(parent) => Some(&parent.decls),
+    Node::UsingDecl(parent) => Some(&parent.decls),
+    _ => None,
+  };
+  if let Some(var_decls) = parent_decls {
+    if var_decls.len() > 1 && var_decls[0].range() == node.range() {
+      let items = items.into_rc_path();
+      if_true_or(
+        "indentIfNotStartOfLine",
+        condition_resolvers::is_not_start_of_line(),
+        with_indent(items.into()),
+        items.into(),
+      )
+      .into()
+    } else {
+      items
+    }
   } else {
     items
   }
