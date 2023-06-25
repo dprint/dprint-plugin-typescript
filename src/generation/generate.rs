@@ -1762,9 +1762,19 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
     fn is_first_param_not_identifier_or_has_type_annotation<'a>(params: &[Pat<'a>], arrow: &ArrowSignature<'a>, program: Program<'a>) -> bool {
       match params.get(0) {
         Some(Pat::Ident(node)) => {
-          node.type_ann.is_some() || node.id.optional() || node_helpers::has_surrounding_comments((*node).into(), program) && has_parens(arrow, program)
+          node.type_ann.is_some() || node.id.optional() || param_has_surrounding_comments((*node).into(), program) && has_parens(arrow, program)
         }
         _ => true,
+      }
+    }
+
+    fn param_has_surrounding_comments<'a>(param: Node<'a>, program: Program<'a>) -> bool {
+      if node_helpers::has_surrounding_comments(param, program) {
+        true
+      } else if let Some(comma_token) = param.next_token_fast(program).filter(|t| t.token == Token::Comma) {
+        !comma_token.trailing_comments_fast(program).is_empty()
+      } else {
+        false
       }
     }
   }

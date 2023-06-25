@@ -1,0 +1,20 @@
+~~ arrowFunction.useParentheses: preferNone ~~
+== should maintain parens around params in arrow function with single param and trailing comment ==
+client
+    .send(lookup)
+    .then((
+        resp, // $ExpectType Batch<Lookup>
+    ) => console.log(resp))
+    .catch((
+        err, // $ExpectType any
+    ) => console.error(err));
+
+[expect]
+client
+    .send(lookup)
+    .then((
+        resp, // $ExpectType Batch<Lookup>
+    ) => console.log(resp))
+    .catch((
+        err, // $ExpectType any
+    ) => console.error(err));
