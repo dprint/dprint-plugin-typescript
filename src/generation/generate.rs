@@ -4921,7 +4921,9 @@ fn gen_labeled_stmt<'a>(node: &LabeledStmt<'a>, context: &mut Context<'a>) -> Pr
   items.push_str(":");
 
   // not bothering to make this configurable, because who uses labeled statements?
-  if node.body.kind() == NodeKind::BlockStmt {
+  // edit: ok, maybe I will make this configurable in the future
+  let is_inner_stmt_same_line = node.start_line_fast(context.program) == node.body.start_line_fast(context.program);
+  if is_inner_stmt_same_line {
     items.push_str(" ");
   } else {
     items.push_signal(Signal::NewLine);
