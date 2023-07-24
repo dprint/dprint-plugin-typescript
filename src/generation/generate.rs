@@ -2767,7 +2767,11 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     return false;
   }
 
-  if matches!(node.expr.kind(), NodeKind::ArrayLit) {
+  if matches!(node.expr.kind(), NodeKind::ArrayLit) || matches!(node.expr.kind(), NodeKind::Ident) {
+    return true;
+  }
+
+  if parent.kind() == NodeKind::MemberExpr && node.expr.kind() == NodeKind::MemberExpr {
     return true;
   }
 

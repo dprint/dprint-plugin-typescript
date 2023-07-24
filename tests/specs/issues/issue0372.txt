@@ -11,9 +11,7 @@ if (
 [expect]
 if (
   (a &&
-    ((
-      test
-    ) ||
+    (test ||
       aatestingThisOutTestteststestTestingatesttestatesttesttesttesttestestaa))
 ) {
 }
