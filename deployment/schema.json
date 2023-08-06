@@ -65,11 +65,14 @@
       "type": "string",
       "default": "preserve",
       "oneOf": [{
-        "const": "preserve",
-        "description": "Preserve quotes around property names."
-      }, {
         "const": "asNeeded",
         "description": "Remove unnecessary quotes around property names."
+      }, {
+        "const": "consistent",
+        "description": "Same as 'asNeeded', but if one property requires quotes then quote them all."
+      }, {
+        "const": "preserve",
+        "description": "Preserve quotes around property names."
       }]
     },
     "jsx.multiLineParens": {

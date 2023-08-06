@@ -1,9 +1,10 @@
 {
   "exec": {
-    "associations": "**/*.rs",
-    "rustfmt": "rustfmt"
+    "commands": [{
+      "command": "rustfmt",
+      "exts": ["rs"]
+    }]
   },
-  "includes": ["**/*.{ts,tsx,js,jsx,cjs,mjs,json,md,toml,rs}"],
   "excludes": [
     "**/node_modules",
     "**/*-lock.json",
@@ -15,6 +16,6 @@
     "https://plugins.dprint.dev/json-0.16.0.wasm",
     "https://plugins.dprint.dev/markdown-0.14.3.wasm",
     "https://plugins.dprint.dev/toml-0.5.4.wasm",
-    "https://plugins.dprint.dev/exec-0.3.2.json@8efbbb3fcfbdf84142c3c438fbdeaf1637152a020032127c837b2b14e23261c3"
+    "https://plugins.dprint.dev/exec-0.4.3.json@42343548b8022c99b1d750be6b894fe6b6c7ee25f72ae9f9082226dd2e515072"
   ]
 }

@@ -1,4 +1,5 @@
 use deno_ast::swc::common::comments::CommentKind;
+use deno_ast::swc::parser::lexer::util::CharExt;
 use deno_ast::view::Node;
 use deno_ast::view::Program;
 use deno_ast::RootNode;
@@ -24,4 +25,16 @@ pub fn contains_line_or_multiline_comment<'a>(node: Node<'a>, program: Program<'
     }
   }
   false
+}
+
+pub fn is_text_valid_identifier(string_value: &str) -> bool {
+  if string_value.is_empty() {
+    return false;
+  }
+  for (i, c) in string_value.chars().enumerate() {
+    if (i == 0 && !c.is_ident_start()) || !c.is_ident_part() {
+      return false;
+    }
+  }
+  true
 }

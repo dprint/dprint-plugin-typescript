@@ -2,11 +2,13 @@ pub struct Stack<T> {
   items: Vec<T>,
 }
 
-impl<T> Stack<T> {
-  pub fn new() -> Stack<T> {
-    Stack { items: Vec::new() }
+impl<T> Default for Stack<T> {
+  fn default() -> Self {
+    Self { items: Default::default() }
   }
+}
 
+impl<T> Stack<T> {
   pub fn pop(&mut self) -> T {
     let result = self.items.pop();
     result.expect("Tried to pop, but the stack was empty. This indicates a bug where an item is being popped, but not pushed to the stack.")
