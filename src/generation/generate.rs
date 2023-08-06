@@ -2619,7 +2619,7 @@ fn gen_getter_prop<'a>(node: &GetterProp<'a>, context: &mut Context<'a>) -> Prin
 
 fn gen_key_value_prop<'a>(node: &KeyValueProp<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(gen_node(node.key.into(), context));
+  items.extend(gen_quotable_prop(node.key.into(), context));
   items.extend(gen_assignment(node.value.into(), ":", context));
   items
 }
@@ -3955,31 +3955,10 @@ fn gen_reg_exp_literal(node: &Regex, _: &mut Context) -> PrintItems {
 
 fn gen_string_literal<'a>(node: &Str<'a>, context: &mut Context<'a>) -> PrintItems {
   let string_value = string_literal::get_value(node, context);
-  if context.config.quote_props == QuoteProps::AsNeeded && is_property_name(node) && is_text_valid_identifier(&string_value) {
-    return gen_from_raw_string(&string_value);
-  }
-
   if node.parent().is::<JSXAttr>() {
-    return string_literal::gen_jsx_text(&string_value, context);
+    string_literal::gen_jsx_text(&string_value, context)
   } else {
-    return string_literal::gen_non_jsx_text(&string_value, context);
-  }
-
-  // todo(THIS PR): remove this function as it's not necessary
-  fn is_property_name(node: &Str) -> bool {
-    let key = match node.parent() {
-      Node::KeyValueProp(parent) => parent.key.as_node(),
-      Node::GetterProp(parent) => parent.key.as_node(),
-      Node::SetterProp(parent) => parent.key.as_node(),
-      Node::MethodProp(parent) => parent.key.as_node(),
-      // Do not match class properties (Node::ClassProp)
-      // With `--strictPropertyInitialization`, TS treats properties with quoted names differently than unquoted ones.
-      // See https://github.com/microsoft/TypeScript/pull/20075
-      Node::ClassMethod(parent) => parent.key.as_node(),
-      _ => return false,
-    };
-
-    key.range() == node.range() && matches!(key, Node::Str(_))
+    string_literal::gen_non_jsx_text(&string_value, context)
   }
 }
 
@@ -4224,7 +4203,7 @@ fn gen_object_pat<'a>(node: &ObjectPat<'a>, context: &mut Context<'a>) -> PrintI
 /* properties */
 
 fn gen_method_prop<'a>(node: &MethodProp<'a>, context: &mut Context<'a>) -> PrintItems {
-  return gen_class_or_object_method(
+  gen_class_or_object_method(
     ClassOrObjectMethod {
       node: node.into(),
       parameters_range: node.get_parameters_range(context),
@@ -4244,7 +4223,7 @@ fn gen_method_prop<'a>(node: &MethodProp<'a>, context: &mut Context<'a>) -> Prin
       body: node.function.body.map(|x| x.into()),
     },
     context,
-  );
+  )
 }
 
 struct ClassOrObjectMethod<'a> {
@@ -4317,7 +4296,7 @@ fn gen_class_or_object_method<'a>(node: ClassOrObjectMethod<'a>, context: &mut C
   if node.is_generator {
     items.push_str("*");
   }
-  items.extend(gen_node(node.key, context));
+  items.extend(gen_quotable_prop(node.key, context));
   if node.is_optional {
     items.push_str("?");
   }

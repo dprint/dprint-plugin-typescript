@@ -41,7 +41,7 @@ const objectLiteral = {
     "1foo": true,
     "💩": true,
     "a💩": true,
-    "c\d": true,
+    cd: true,
     "1": true,
     "1foo"() {},
     get "2foo"() {},
@@ -148,3 +148,19 @@ type Type = {
     set foo3(v: string);
     foo4: "literal";
 };
+
+== should keep quotes around class properties due to --strictPropertyInitialization ==
+// With `--strictPropertyInitialization`, TS treats properties with quoted names
+// differently than unquoted ones.
+// See https://github.com/microsoft/TypeScript/pull/20075
+class Test {
+    "prop" = true;
+}
+
+[expect]
+// With `--strictPropertyInitialization`, TS treats properties with quoted names
+// differently than unquoted ones.
+// See https://github.com/microsoft/TypeScript/pull/20075
+class Test {
+    "prop" = true;
+}
