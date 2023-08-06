@@ -26,8 +26,8 @@ pub struct Context<'a> {
   pub token_finder: TokenFinder<'a>,
   pub current_node: Node<'a>,
   pub parent_stack: Stack<Node<'a>>,
-  /// Stores whether the parent requires all properties are consistent.
-  pub consistent_props_stack: Stack<bool>,
+  /// Stores whether the parent requires all properties have consistent quoting.
+  pub consistent_quote_props_stack: Stack<bool>,
   handled_comments: FxHashSet<SourcePos>,
   stored_ln_ranges: FxHashMap<(SourcePos, SourcePos), (LineNumber, LineNumber)>,
   stored_lsil: FxHashMap<(SourcePos, SourcePos), LineStartIndentLevel>,
@@ -52,7 +52,7 @@ impl<'a> Context<'a> {
       token_finder: TokenFinder::new(program),
       current_node,
       parent_stack: Default::default(),
-      consistent_props_stack: Default::default(),
+      consistent_quote_props_stack: Default::default(),
       handled_comments: FxHashSet::default(),
       stored_ln_ranges: FxHashMap::default(),
       stored_lsil: FxHashMap::default(),

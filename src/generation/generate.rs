@@ -894,6 +894,11 @@ fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'
     },
     context,
   ));
+  if context.config.quote_props == QuoteProps::Consistent {
+    context
+      .consistent_quote_props_stack
+      .push(use_consistent_quotes_for_members(node.members.iter().copied()));
+  }
   items.extend(gen_membered_body(
     GenMemberedBodyOptions {
       node: node.member_node,
@@ -905,6 +910,10 @@ fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'
     },
     context,
   ));
+
+  if context.config.quote_props == QuoteProps::Consistent {
+    context.consistent_quote_props_stack.pop();
+  }
 
   if node.is_class_expr {
     let items = items.into_rc_path();
@@ -2679,6 +2688,12 @@ fn gen_non_null_expr<'a>(node: &TsNonNullExpr<'a>, context: &mut Context<'a>) ->
 }
 
 fn gen_object_lit<'a>(node: &ObjectLit<'a>, context: &mut Context<'a>) -> PrintItems {
+  if context.config.quote_props == QuoteProps::Consistent {
+    context
+      .consistent_quote_props_stack
+      .push(use_consistent_quotes_for_members(node.props.iter().map(|p| p.into())));
+  }
+
   let items = gen_object_like_node(
     GenObjectLikeNodeOptions {
       node: node.into(),
@@ -2694,6 +2709,10 @@ fn gen_object_lit<'a>(node: &ObjectLit<'a>, context: &mut Context<'a>) -> PrintI
     },
     context,
   );
+
+  if context.config.quote_props == QuoteProps::Consistent {
+    context.consistent_quote_props_stack.pop();
+  }
 
   if should_add_parens_around_expr(node.into(), context) {
     surround_with_parens(items)
@@ -3378,7 +3397,7 @@ fn gen_quotable_prop<'a>(node: Node<'a>, context: &mut Context<'a>) -> PrintItem
       Node::Str(str_lit) if is_text_valid_identifier(&str_lit.value()) => gen_from_raw_string(&str_lit.value()),
       _ => gen_node(node, context),
     },
-    QuoteProps::Consistent => match context.consistent_props_stack.peek() {
+    QuoteProps::Consistent => match context.consistent_quote_props_stack.peek() {
       Some(true) => match node {
         // add quotes
         Node::Ident(ident) => string_literal::gen_non_jsx_text(&ident.sym(), context),
@@ -3411,7 +3430,7 @@ fn gen_interface_body<'a>(node: &TsInterfaceBody<'a>, context: &mut Context<'a>)
 
   if context.config.quote_props == QuoteProps::Consistent {
     context
-      .consistent_props_stack
+      .consistent_quote_props_stack
       .push(use_consistent_quotes_for_members(node.body.iter().map(|n| n.into())));
   }
 
@@ -3428,7 +3447,7 @@ fn gen_interface_body<'a>(node: &TsInterfaceBody<'a>, context: &mut Context<'a>)
   );
 
   if context.config.quote_props == QuoteProps::Consistent {
-    context.consistent_props_stack.pop();
+    context.consistent_quote_props_stack.pop();
   }
 
   return items;
@@ -3447,20 +3466,35 @@ fn use_consistent_quotes_for_members<'a>(mut members: impl Iterator<Item = Node<
   fn check_expr(expr: Expr) -> bool {
     match expr {
       Expr::Ident(ident) => !is_text_valid_identifier(&ident.sym()),
-      Expr::Lit(Lit::Str(text)) => !is_text_valid_identifier(&text.value()),
+      Expr::Lit(Lit::Str(str)) => !is_text_valid_identifier(&str.value()),
+      _ => false,
+    }
+  }
+
+  fn check_prop_name(name: PropName) -> bool {
+    match name {
+      PropName::Ident(ident) => !is_text_valid_identifier(&ident.sym()),
+      PropName::Str(str) => !is_text_valid_identifier(&str.value()),
       _ => false,
     }
   }
 
   members.any(|m| match m {
     // class members
-    // todo...
+    // Do not match class properties (Node::ClassProp)
+    // With `--strictPropertyInitialization`, TS treats properties
+    // with quoted names differently than unquoted ones.
+    // See https://github.com/microsoft/TypeScript/pull/20075
+    Node::ClassMethod(method) => check_prop_name(method.key),
     // interface members
     Node::TsPropertySignature(signature) => check_expr(signature.key),
     Node::TsGetterSignature(signature) => check_expr(signature.key),
     Node::TsSetterSignature(signature) => check_expr(signature.key),
     // object members
-    // todo...
+    Node::KeyValueProp(prop) => check_prop_name(prop.key),
+    Node::GetterProp(prop) => check_prop_name(prop.key),
+    Node::SetterProp(prop) => check_prop_name(prop.key),
+    Node::MethodProp(prop) => check_prop_name(prop.key),
     _ => false,
   })
 }
@@ -3468,7 +3502,7 @@ fn use_consistent_quotes_for_members<'a>(mut members: impl Iterator<Item = Node<
 fn gen_type_lit<'a>(node: &TsTypeLit<'a>, context: &mut Context<'a>) -> PrintItems {
   if context.config.quote_props == QuoteProps::Consistent {
     context
-      .consistent_props_stack
+      .consistent_quote_props_stack
       .push(use_consistent_quotes_for_members(node.members.iter().map(|n| n.into())));
   }
 
@@ -3498,7 +3532,7 @@ fn gen_type_lit<'a>(node: &TsTypeLit<'a>, context: &mut Context<'a>) -> PrintIte
   );
 
   if context.config.quote_props == QuoteProps::Consistent {
-    context.consistent_props_stack.pop();
+    context.consistent_quote_props_stack.pop();
   }
 
   return items;
