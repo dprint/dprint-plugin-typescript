@@ -4543,7 +4543,7 @@ fn gen_namespace_export<'a>(node: &TsNamespaceExportDecl<'a>, context: &mut Cont
 }
 
 fn gen_expr_stmt<'a>(stmt: &ExprStmt<'a>, context: &mut Context<'a>) -> PrintItems {
-  if context.config.semi_colons.is_true() {
+  if context.config.semi_colons.is_true() || stmt.parent().is::<DoWhileStmt>() {
     return gen_inner(stmt, context);
   } else {
     return gen_for_prefix_semi_colon_insertion(stmt, context);
