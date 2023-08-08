@@ -1,6 +1,5 @@
 use deno_ast::swc::common::comments::Comment;
 use deno_ast::swc::common::comments::CommentKind;
-use deno_ast::swc::parser::lexer::util::CharExt;
 use deno_ast::swc::parser::token::BinOpToken;
 use deno_ast::swc::parser::token::Token;
 use deno_ast::swc::parser::token::TokenAndSpan;
@@ -895,16 +894,23 @@ fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'
     },
     context,
   ));
-  items.extend(gen_membered_body(
-    GenMemberedBodyOptions {
-      node: node.member_node,
-      members: node.members,
-      start_header_lsil: Some(start_header_lsil),
-      brace_position: node.brace_position,
-      should_use_blank_line: move |previous, next, context| node_helpers::has_separating_blank_line(&previous, &next, context.program),
-      separator: Separator::none(),
+
+  items.extend(context.with_maybe_consistent_props(
+    node.members,
+    |members| use_consistent_quotes_for_members(members.iter().copied()),
+    |context, members| {
+      gen_membered_body(
+        GenMemberedBodyOptions {
+          node: node.member_node,
+          members,
+          start_header_lsil: Some(start_header_lsil),
+          brace_position: node.brace_position,
+          should_use_blank_line: move |previous, next, context| node_helpers::has_separating_blank_line(&previous, &next, context.program),
+          separator: Separator::none(),
+        },
+        context,
+      )
     },
-    context,
   ));
 
   if node.is_class_expr {
@@ -2620,7 +2626,7 @@ fn gen_getter_prop<'a>(node: &GetterProp<'a>, context: &mut Context<'a>) -> Prin
 
 fn gen_key_value_prop<'a>(node: &KeyValueProp<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(gen_node(node.key.into(), context));
+  items.extend(gen_quotable_prop(node.key.into(), context));
   items.extend(gen_assignment(node.value.into(), ":", context));
   items
 }
@@ -2680,20 +2686,26 @@ fn gen_non_null_expr<'a>(node: &TsNonNullExpr<'a>, context: &mut Context<'a>) ->
 }
 
 fn gen_object_lit<'a>(node: &ObjectLit<'a>, context: &mut Context<'a>) -> PrintItems {
-  let items = gen_object_like_node(
-    GenObjectLikeNodeOptions {
-      node: node.into(),
-      members: node.props.iter().map(|x| x.into()).collect(),
-      separator: context.config.object_expression_trailing_commas.into(),
-      prefer_hanging: context.config.object_expression_prefer_hanging,
-      prefer_single_line: context.config.object_expression_prefer_single_line,
-      force_single_line: false,
-      force_multi_line: is_node_definitely_above_line_width(node.range(), context),
-      surround_single_line_with_spaces: context.config.object_expression_space_surrounding_properties,
-      allow_blank_lines: true,
-      node_sorter: None,
+  let items = context.with_maybe_consistent_props(
+    node,
+    |node| use_consistent_quotes_for_members(node.props.iter().map(|p| p.into())),
+    |context, node| {
+      gen_object_like_node(
+        GenObjectLikeNodeOptions {
+          node: node.into(),
+          members: node.props.iter().map(|x| x.into()).collect(),
+          separator: context.config.object_expression_trailing_commas.into(),
+          prefer_hanging: context.config.object_expression_prefer_hanging,
+          prefer_single_line: context.config.object_expression_prefer_single_line,
+          force_single_line: false,
+          force_multi_line: is_node_definitely_above_line_width(node.range(), context),
+          surround_single_line_with_spaces: context.config.object_expression_space_surrounding_properties,
+          allow_blank_lines: true,
+          node_sorter: None,
+        },
+        context,
+      )
     },
-    context,
   );
 
   if should_add_parens_around_expr(node.into(), context) {
@@ -3309,7 +3321,7 @@ fn gen_method_signature_like<'a>(node: MethodSignatureLike<'a>, context: &mut Co
       context,
     )
   } else {
-    gen_node(node.key, context)
+    gen_quotable_prop(node.key, context)
   });
 
   if node.optional {
@@ -3362,7 +3374,7 @@ fn gen_property_signature<'a>(node: &TsPropertySignature<'a>, context: &mut Cont
       context,
     )
   } else {
-    gen_node(node.key.into(), context)
+    gen_quotable_prop(node.key.into(), context)
   });
 
   if node.optional() {
@@ -3377,19 +3389,51 @@ fn gen_property_signature<'a>(node: &TsPropertySignature<'a>, context: &mut Cont
   items
 }
 
+fn gen_quotable_prop<'a>(node: Node<'a>, context: &mut Context<'a>) -> PrintItems {
+  match context.config.quote_props {
+    QuoteProps::AsNeeded => match node {
+      Node::Str(str_lit) if is_text_valid_identifier(str_lit.value()) => gen_from_raw_string(str_lit.value()),
+      _ => gen_node(node, context),
+    },
+    QuoteProps::Consistent => match context.use_consistent_quote_props() {
+      Some(true) => match node {
+        // add quotes
+        Node::Ident(ident) => string_literal::gen_non_jsx_text(ident.sym(), context),
+        _ => gen_node(node, context),
+      },
+      Some(false) => match node {
+        // remove quotes
+        Node::Str(str_lit) => gen_from_raw_string(str_lit.value()),
+        _ => gen_node(node, context),
+      },
+      None => {
+        debug_assert!(false, "should always have a value");
+        gen_node(node, context)
+      }
+    },
+    QuoteProps::Preserve => gen_node(node, context),
+  }
+}
+
 fn gen_interface_body<'a>(node: &TsInterfaceBody<'a>, context: &mut Context<'a>) -> PrintItems {
   let start_header_lsil = get_parent_lsil(node, context);
 
-  return gen_membered_body(
-    GenMemberedBodyOptions {
-      node: node.into(),
-      members: node.body.iter().map(|x| x.into()).collect(),
-      start_header_lsil,
-      brace_position: context.config.interface_declaration_brace_position,
-      should_use_blank_line: move |previous, next, context| node_helpers::has_separating_blank_line(&previous, &next, context.program),
-      separator: context.config.semi_colons.into(),
+  return context.with_maybe_consistent_props(
+    node,
+    |node| use_consistent_quotes_for_members(node.body.iter().map(|n| n.into())),
+    |context, node| {
+      gen_membered_body(
+        GenMemberedBodyOptions {
+          node: node.into(),
+          members: node.body.iter().map(|x| x.into()).collect(),
+          start_header_lsil,
+          brace_position: context.config.interface_declaration_brace_position,
+          should_use_blank_line: move |previous, next, context| node_helpers::has_separating_blank_line(&previous, &next, context.program),
+          separator: context.config.semi_colons.into(),
+        },
+        context,
+      )
     },
-    context,
   );
 
   fn get_parent_lsil(node: &TsInterfaceBody, context: &mut Context) -> Option<LineStartIndentLevel> {
@@ -3402,30 +3446,73 @@ fn gen_interface_body<'a>(node: &TsInterfaceBody<'a>, context: &mut Context<'a>)
   }
 }
 
+fn use_consistent_quotes_for_members<'a>(mut members: impl Iterator<Item = Node<'a>>) -> bool {
+  fn check_expr(expr: Expr) -> bool {
+    match expr {
+      Expr::Ident(ident) => !is_text_valid_identifier(ident.sym()),
+      Expr::Lit(Lit::Str(str)) => !is_text_valid_identifier(str.value()),
+      _ => false,
+    }
+  }
+
+  fn check_prop_name(name: PropName) -> bool {
+    match name {
+      PropName::Ident(ident) => !is_text_valid_identifier(ident.sym()),
+      PropName::Str(str) => !is_text_valid_identifier(str.value()),
+      _ => false,
+    }
+  }
+
+  members.any(|m| match m {
+    // class members
+    // Do not match class properties (Node::ClassProp)
+    // With `--strictPropertyInitialization`, TS treats properties
+    // with quoted names differently than unquoted ones.
+    // See https://github.com/microsoft/TypeScript/pull/20075
+    Node::ClassMethod(method) => check_prop_name(method.key),
+    // interface members
+    Node::TsPropertySignature(signature) => check_expr(signature.key),
+    Node::TsGetterSignature(signature) => check_expr(signature.key),
+    Node::TsSetterSignature(signature) => check_expr(signature.key),
+    // object members
+    Node::KeyValueProp(prop) => check_prop_name(prop.key),
+    Node::GetterProp(prop) => check_prop_name(prop.key),
+    Node::SetterProp(prop) => check_prop_name(prop.key),
+    Node::MethodProp(prop) => check_prop_name(prop.key),
+    _ => false,
+  })
+}
+
 fn gen_type_lit<'a>(node: &TsTypeLit<'a>, context: &mut Context<'a>) -> PrintItems {
-  return gen_object_like_node(
-    GenObjectLikeNodeOptions {
-      node: node.into(),
-      members: node.members.iter().map(|m| m.into()).collect(),
-      separator: Separator {
-        single_line: Some(semi_colon_or_comma_to_separator_value(
-          context.config.type_literal_separator_kind_single_line,
-          context,
-        )),
-        multi_line: Some(semi_colon_or_comma_to_separator_value(
-          context.config.type_literal_separator_kind_multi_line,
-          context,
-        )),
-      },
-      prefer_hanging: context.config.type_literal_prefer_hanging,
-      prefer_single_line: context.config.type_literal_prefer_single_line,
-      force_single_line: false,
-      force_multi_line: false,
-      surround_single_line_with_spaces: context.config.type_literal_space_surrounding_properties,
-      allow_blank_lines: true,
-      node_sorter: None,
+  return context.with_maybe_consistent_props(
+    node,
+    |node| use_consistent_quotes_for_members(node.members.iter().map(|n| n.into())),
+    |context, node| {
+      gen_object_like_node(
+        GenObjectLikeNodeOptions {
+          node: node.into(),
+          members: node.members.iter().map(|m| m.into()).collect(),
+          separator: Separator {
+            single_line: Some(semi_colon_or_comma_to_separator_value(
+              context.config.type_literal_separator_kind_single_line,
+              context,
+            )),
+            multi_line: Some(semi_colon_or_comma_to_separator_value(
+              context.config.type_literal_separator_kind_multi_line,
+              context,
+            )),
+          },
+          prefer_hanging: context.config.type_literal_prefer_hanging,
+          prefer_single_line: context.config.type_literal_prefer_single_line,
+          force_single_line: false,
+          force_multi_line: false,
+          surround_single_line_with_spaces: context.config.type_literal_space_surrounding_properties,
+          allow_blank_lines: true,
+          node_sorter: None,
+        },
+        context,
+      )
     },
-    context,
   );
 
   fn semi_colon_or_comma_to_separator_value(value: SemiColonOrComma, context: &mut Context) -> SeparatorValue {
@@ -3879,106 +3966,37 @@ fn gen_reg_exp_literal(node: &Regex, _: &mut Context) -> PrintItems {
 }
 
 fn gen_string_literal<'a>(node: &Str<'a>, context: &mut Context<'a>) -> PrintItems {
-  return gen_from_raw_string(&get_string_literal_text(
-    get_string_value(node, context),
-    node.parent().is::<JSXAttr>(),
-    context.config.quote_props == QuoteProps::AsNeeded && is_property_name(node),
-    context,
-  ));
+  let string_value = string_literal::get_value(node, context);
+  if node.parent().is::<JSXAttr>() {
+    string_literal::gen_jsx_text(&string_value, context)
+  } else {
+    string_literal::gen_non_jsx_text(&string_value, context)
+  }
+}
 
-  fn is_property_name(node: &Str) -> bool {
-    let key = match node.parent() {
-      Node::KeyValueProp(parent) => parent.key.as_node(),
-      Node::GetterProp(parent) => parent.key.as_node(),
-      Node::SetterProp(parent) => parent.key.as_node(),
-      Node::MethodProp(parent) => parent.key.as_node(),
-      // Do not match class properties (Node::ClassProp)
-      // With `--strictPropertyInitialization`, TS treats properties with quoted names differently than unquoted ones.
-      // See https://github.com/microsoft/TypeScript/pull/20075
-      Node::ClassMethod(parent) => parent.key.as_node(),
-      Node::TsPropertySignature(parent) => parent.key.as_node(),
-      Node::TsGetterSignature(parent) => parent.key.as_node(),
-      Node::TsSetterSignature(parent) => parent.key.as_node(),
-      Node::TsMethodSignature(parent) => parent.key.as_node(),
-      _ => return false,
-    };
+mod string_literal {
+  use super::*;
 
-    key.range() == node.range() && matches!(key, Node::Str(_))
+  pub fn gen_non_jsx_text(string_value: &str, context: &mut Context) -> PrintItems {
+    gen_from_raw_string(&match context.config.quote_style {
+      QuoteStyle::AlwaysDouble => format_with_double(string_value),
+      QuoteStyle::AlwaysSingle => format_with_single(string_value),
+      QuoteStyle::PreferDouble => handle_prefer_double(string_value),
+      QuoteStyle::PreferSingle => handle_prefer_single(string_value),
+    })
   }
 
-  fn get_string_literal_text(string_value: String, is_jsx_attribute: bool, should_remove_quotes_if_identifier: bool, context: &mut Context) -> String {
-    if should_remove_quotes_if_identifier && is_valid_identifier(&string_value) {
-      return string_value;
-    }
-    return if is_jsx_attribute {
-      // JSX attributes cannot contain escaped quotes so regardless of
-      // configuration, allow changing the quote style to single or
-      // double depending on if it contains the opposite quote
-      match context.config.jsx_quote_style {
-        JsxQuoteStyle::PreferDouble => handle_prefer_double(string_value),
-        JsxQuoteStyle::PreferSingle => handle_prefer_single(string_value),
-      }
-    } else {
-      match context.config.quote_style {
-        QuoteStyle::AlwaysDouble => format_with_double(string_value),
-        QuoteStyle::AlwaysSingle => format_with_single(string_value),
-        QuoteStyle::PreferDouble => handle_prefer_double(string_value),
-        QuoteStyle::PreferSingle => handle_prefer_single(string_value),
-      }
-    };
-
-    fn is_valid_identifier(string_value: &str) -> bool {
-      if string_value.is_empty() {
-        return false;
-      }
-      for (i, c) in string_value.chars().enumerate() {
-        if (i == 0 && !c.is_ident_start()) || !c.is_ident_part() {
-          return false;
-        }
-      }
-      true
-    }
-
-    fn handle_prefer_double(string_value: String) -> String {
-      if double_to_single(&string_value) <= 0 {
-        format_with_double(string_value)
-      } else {
-        format_with_single(string_value)
-      }
-    }
-
-    fn handle_prefer_single(string_value: String) -> String {
-      if double_to_single(&string_value) >= 0 {
-        format_with_single(string_value)
-      } else {
-        format_with_double(string_value)
-      }
-    }
-
-    fn format_with_double(string_value: String) -> String {
-      format!("\"{}\"", string_value.replace('"', "\\\""))
-    }
-
-    fn format_with_single(string_value: String) -> String {
-      format!("'{}'", string_value.replace('\'', "\\'"))
-    }
-
-    fn double_to_single(string_value: &str) -> i32 {
-      let mut double_count = 0;
-      let mut single_count = 0;
-      for c in string_value.chars() {
-        match c {
-          '"' => double_count += 1,
-          '\'' => single_count += 1,
-          _ => {}
-        }
-      }
-
-      double_count - single_count
-    }
+  pub fn gen_jsx_text(string_value: &str, context: &mut Context) -> PrintItems {
+    // JSX attributes cannot contain escaped quotes so regardless of
+    // configuration, allow changing the quote style to single or
+    // double depending on if it contains the opposite quote
+    gen_from_raw_string(&match context.config.jsx_quote_style {
+      JsxQuoteStyle::PreferDouble => handle_prefer_double(string_value),
+      JsxQuoteStyle::PreferSingle => handle_prefer_single(string_value),
+    })
   }
 
-  fn get_string_value(node: &Str, context: &mut Context) -> String {
+  pub fn get_value(node: &Str, context: &mut Context) -> String {
     let raw_string_text = node.text_fast(context.program);
     if raw_string_text.len() <= 2 {
       return String::new();
@@ -4015,6 +4033,44 @@ fn gen_string_literal<'a>(node: &Str<'a>, context: &mut Context<'a>) -> PrintIte
       }
       new_string
     }
+  }
+
+  fn handle_prefer_double(string_value: &str) -> String {
+    if double_to_single(string_value) <= 0 {
+      format_with_double(string_value)
+    } else {
+      format_with_single(string_value)
+    }
+  }
+
+  fn handle_prefer_single(string_value: &str) -> String {
+    if double_to_single(string_value) >= 0 {
+      format_with_single(string_value)
+    } else {
+      format_with_double(string_value)
+    }
+  }
+
+  fn format_with_double(string_value: &str) -> String {
+    format!("\"{}\"", string_value.replace('"', "\\\""))
+  }
+
+  fn format_with_single(string_value: &str) -> String {
+    format!("'{}'", string_value.replace('\'', "\\'"))
+  }
+
+  fn double_to_single(string_value: &str) -> i32 {
+    let mut double_count = 0;
+    let mut single_count = 0;
+    for c in string_value.chars() {
+      match c {
+        '"' => double_count += 1,
+        '\'' => single_count += 1,
+        _ => {}
+      }
+    }
+
+    double_count - single_count
   }
 }
 
@@ -4159,7 +4215,7 @@ fn gen_object_pat<'a>(node: &ObjectPat<'a>, context: &mut Context<'a>) -> PrintI
 /* properties */
 
 fn gen_method_prop<'a>(node: &MethodProp<'a>, context: &mut Context<'a>) -> PrintItems {
-  return gen_class_or_object_method(
+  gen_class_or_object_method(
     ClassOrObjectMethod {
       node: node.into(),
       parameters_range: node.get_parameters_range(context),
@@ -4179,7 +4235,7 @@ fn gen_method_prop<'a>(node: &MethodProp<'a>, context: &mut Context<'a>) -> Prin
       body: node.function.body.map(|x| x.into()),
     },
     context,
-  );
+  )
 }
 
 struct ClassOrObjectMethod<'a> {
@@ -4252,7 +4308,7 @@ fn gen_class_or_object_method<'a>(node: ClassOrObjectMethod<'a>, context: &mut C
   if node.is_generator {
     items.push_str("*");
   }
-  items.extend(gen_node(node.key, context));
+  items.extend(gen_quotable_prop(node.key, context));
   if node.is_optional {
     items.push_str("?");
   }

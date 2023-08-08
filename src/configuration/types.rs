@@ -225,13 +225,15 @@ generate_str_to_from![JsxQuoteStyle, [PreferDouble, "preferDouble"], [PreferSing
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum QuoteProps {
-  /// Preserve quotes around property names.
-  Preserve,
   /// Remove unnecessary quotes around property names.
   AsNeeded,
+  /// Same as `AsNeeded`, but if one property requires quotes then quote them all.
+  Consistent,
+  /// Preserve quotes around property names.
+  Preserve,
 }
 
-generate_str_to_from![QuoteProps, [Preserve, "preserve"], [AsNeeded, "asNeeded"]];
+generate_str_to_from![QuoteProps, [AsNeeded, "asNeeded"], [Consistent, "consistent"], [Preserve, "preserve"]];
 
 /// Whether to surround a JSX element or fragment with parentheses
 /// when it's the top JSX node and it spans multiple lines.
