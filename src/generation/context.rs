@@ -173,12 +173,12 @@ impl<'a> Context<'a> {
   ) -> TReturn {
     if self.config.quote_props == QuoteProps::Consistent {
       self.consistent_quote_props_stack.push((use_consistent_quotes)(&state));
+      let result = action(self, state);
+      self.consistent_quote_props_stack.pop();
+      result
+    } else {
+      action(self, state)
     }
-    let is_consistent = self.consistent_quote_props_stack.peek().copied().unwrap_or(true);
-    self.consistent_quote_props_stack.push(is_consistent);
-    let result = action(self, state);
-    self.consistent_quote_props_stack.pop();
-    result
   }
 
   // do any assertions for how the state of this context should be at the end of the file
