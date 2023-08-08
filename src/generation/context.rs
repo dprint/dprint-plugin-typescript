@@ -27,7 +27,7 @@ pub struct Context<'a> {
   pub current_node: Node<'a>,
   pub parent_stack: Stack<Node<'a>>,
   /// Stores whether the parent requires all properties have consistent quoting.
-  pub consistent_quote_props_stack: Stack<bool>,
+  consistent_quote_props_stack: Stack<bool>,
   handled_comments: FxHashSet<SourcePos>,
   stored_ln_ranges: FxHashMap<(SourcePos, SourcePos), (LineNumber, LineNumber)>,
   stored_lsil: FxHashMap<(SourcePos, SourcePos), LineStartIndentLevel>,
@@ -159,6 +159,26 @@ impl<'a> Context<'a> {
     } else {
       None
     }
+  }
+
+  pub fn use_consistent_quote_props(&self) -> Option<bool> {
+    self.consistent_quote_props_stack.peek().copied()
+  }
+
+  pub fn with_maybe_consistent_props<TState, TReturn>(
+    &mut self,
+    state: TState,
+    use_consistent_quotes: impl FnOnce(&TState) -> bool,
+    action: impl FnOnce(&mut Self, TState) -> TReturn,
+  ) -> TReturn {
+    if self.config.quote_props == QuoteProps::Consistent {
+      self.consistent_quote_props_stack.push((use_consistent_quotes)(&state));
+    }
+    let is_consistent = self.consistent_quote_props_stack.peek().copied().unwrap_or(true);
+    self.consistent_quote_props_stack.push(is_consistent);
+    let result = action(self, state);
+    self.consistent_quote_props_stack.pop();
+    result
   }
 
   // do any assertions for how the state of this context should be at the end of the file

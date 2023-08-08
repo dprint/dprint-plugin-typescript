@@ -77,7 +77,7 @@ type Type = {
     "other": number;
 };
 
-== should remove quotes when unnecessary ==
+== should remove quotes when none need them ==
 const objectLiteral = {
     "foo": true,
     "$": true,
@@ -89,6 +89,7 @@ const objectLiteral = {
     '_1': true,
     'é': true,
     "foo"() {},
+    "c\d": true,
     get "foo2"() {},
     set "foo2"(v) {},
     async "foo3"() {},
@@ -129,6 +130,7 @@ const objectLiteral = {
     _1: true,
     é: true,
     foo() {},
+    cd: true,
     get foo2() {},
     set foo2(v) {},
     async foo3() {},

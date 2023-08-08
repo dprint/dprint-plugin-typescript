@@ -894,26 +894,24 @@ fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'
     },
     context,
   ));
-  if context.config.quote_props == QuoteProps::Consistent {
-    context
-      .consistent_quote_props_stack
-      .push(use_consistent_quotes_for_members(node.members.iter().copied()));
-  }
-  items.extend(gen_membered_body(
-    GenMemberedBodyOptions {
-      node: node.member_node,
-      members: node.members,
-      start_header_lsil: Some(start_header_lsil),
-      brace_position: node.brace_position,
-      should_use_blank_line: move |previous, next, context| node_helpers::has_separating_blank_line(&previous, &next, context.program),
-      separator: Separator::none(),
-    },
-    context,
-  ));
 
-  if context.config.quote_props == QuoteProps::Consistent {
-    context.consistent_quote_props_stack.pop();
-  }
+  items.extend(context.with_maybe_consistent_props(
+    node.members,
+    |members| use_consistent_quotes_for_members(members.iter().copied()),
+    |context, members| {
+      gen_membered_body(
+        GenMemberedBodyOptions {
+          node: node.member_node,
+          members,
+          start_header_lsil: Some(start_header_lsil),
+          brace_position: node.brace_position,
+          should_use_blank_line: move |previous, next, context| node_helpers::has_separating_blank_line(&previous, &next, context.program),
+          separator: Separator::none(),
+        },
+        context,
+      )
+    },
+  ));
 
   if node.is_class_expr {
     let items = items.into_rc_path();
@@ -2688,31 +2686,27 @@ fn gen_non_null_expr<'a>(node: &TsNonNullExpr<'a>, context: &mut Context<'a>) ->
 }
 
 fn gen_object_lit<'a>(node: &ObjectLit<'a>, context: &mut Context<'a>) -> PrintItems {
-  if context.config.quote_props == QuoteProps::Consistent {
-    context
-      .consistent_quote_props_stack
-      .push(use_consistent_quotes_for_members(node.props.iter().map(|p| p.into())));
-  }
-
-  let items = gen_object_like_node(
-    GenObjectLikeNodeOptions {
-      node: node.into(),
-      members: node.props.iter().map(|x| x.into()).collect(),
-      separator: context.config.object_expression_trailing_commas.into(),
-      prefer_hanging: context.config.object_expression_prefer_hanging,
-      prefer_single_line: context.config.object_expression_prefer_single_line,
-      force_single_line: false,
-      force_multi_line: is_node_definitely_above_line_width(node.range(), context),
-      surround_single_line_with_spaces: context.config.object_expression_space_surrounding_properties,
-      allow_blank_lines: true,
-      node_sorter: None,
+  let items = context.with_maybe_consistent_props(
+    node,
+    |node| use_consistent_quotes_for_members(node.props.iter().map(|p| p.into())),
+    |context, node| {
+      gen_object_like_node(
+        GenObjectLikeNodeOptions {
+          node: node.into(),
+          members: node.props.iter().map(|x| x.into()).collect(),
+          separator: context.config.object_expression_trailing_commas.into(),
+          prefer_hanging: context.config.object_expression_prefer_hanging,
+          prefer_single_line: context.config.object_expression_prefer_single_line,
+          force_single_line: false,
+          force_multi_line: is_node_definitely_above_line_width(node.range(), context),
+          surround_single_line_with_spaces: context.config.object_expression_space_surrounding_properties,
+          allow_blank_lines: true,
+          node_sorter: None,
+        },
+        context,
+      )
     },
-    context,
   );
-
-  if context.config.quote_props == QuoteProps::Consistent {
-    context.consistent_quote_props_stack.pop();
-  }
 
   if should_add_parens_around_expr(node.into(), context) {
     surround_with_parens(items)
@@ -3394,26 +3388,18 @@ fn gen_property_signature<'a>(node: &TsPropertySignature<'a>, context: &mut Cont
 fn gen_quotable_prop<'a>(node: Node<'a>, context: &mut Context<'a>) -> PrintItems {
   match context.config.quote_props {
     QuoteProps::AsNeeded => match node {
-      Node::Str(str_lit) if is_text_valid_identifier(&str_lit.value()) => gen_from_raw_string(&str_lit.value()),
+      Node::Str(str_lit) if is_text_valid_identifier(str_lit.value()) => gen_from_raw_string(str_lit.value()),
       _ => gen_node(node, context),
     },
-    QuoteProps::Consistent => match context.consistent_quote_props_stack.peek() {
+    QuoteProps::Consistent => match context.use_consistent_quote_props() {
       Some(true) => match node {
         // add quotes
-        Node::Ident(ident) => string_literal::gen_non_jsx_text(&ident.sym(), context),
+        Node::Ident(ident) => string_literal::gen_non_jsx_text(ident.sym(), context),
         _ => gen_node(node, context),
       },
       Some(false) => match node {
         // remove quotes
-        Node::Str(str_lit) => {
-          let text = string_literal::get_value(str_lit, context);
-          if is_text_valid_identifier(&text) {
-            gen_from_raw_string(&text)
-          } else {
-            debug_assert!(false, "should be a valid identifier");
-            gen_node(node, context)
-          }
-        }
+        Node::Str(str_lit) => gen_from_raw_string(str_lit.value()),
         _ => gen_node(node, context),
       },
       None => {
@@ -3428,29 +3414,23 @@ fn gen_quotable_prop<'a>(node: Node<'a>, context: &mut Context<'a>) -> PrintItem
 fn gen_interface_body<'a>(node: &TsInterfaceBody<'a>, context: &mut Context<'a>) -> PrintItems {
   let start_header_lsil = get_parent_lsil(node, context);
 
-  if context.config.quote_props == QuoteProps::Consistent {
-    context
-      .consistent_quote_props_stack
-      .push(use_consistent_quotes_for_members(node.body.iter().map(|n| n.into())));
-  }
-
-  let items = gen_membered_body(
-    GenMemberedBodyOptions {
-      node: node.into(),
-      members: node.body.iter().map(|x| x.into()).collect(),
-      start_header_lsil,
-      brace_position: context.config.interface_declaration_brace_position,
-      should_use_blank_line: move |previous, next, context| node_helpers::has_separating_blank_line(&previous, &next, context.program),
-      separator: context.config.semi_colons.into(),
+  return context.with_maybe_consistent_props(
+    node,
+    |node| use_consistent_quotes_for_members(node.body.iter().map(|n| n.into())),
+    |context, node| {
+      gen_membered_body(
+        GenMemberedBodyOptions {
+          node: node.into(),
+          members: node.body.iter().map(|x| x.into()).collect(),
+          start_header_lsil,
+          brace_position: context.config.interface_declaration_brace_position,
+          should_use_blank_line: move |previous, next, context| node_helpers::has_separating_blank_line(&previous, &next, context.program),
+          separator: context.config.semi_colons.into(),
+        },
+        context,
+      )
     },
-    context,
   );
-
-  if context.config.quote_props == QuoteProps::Consistent {
-    context.consistent_quote_props_stack.pop();
-  }
-
-  return items;
 
   fn get_parent_lsil(node: &TsInterfaceBody, context: &mut Context) -> Option<LineStartIndentLevel> {
     for ancestor in node.ancestors() {
@@ -3465,16 +3445,16 @@ fn gen_interface_body<'a>(node: &TsInterfaceBody<'a>, context: &mut Context<'a>)
 fn use_consistent_quotes_for_members<'a>(mut members: impl Iterator<Item = Node<'a>>) -> bool {
   fn check_expr(expr: Expr) -> bool {
     match expr {
-      Expr::Ident(ident) => !is_text_valid_identifier(&ident.sym()),
-      Expr::Lit(Lit::Str(str)) => !is_text_valid_identifier(&str.value()),
+      Expr::Ident(ident) => !is_text_valid_identifier(ident.sym()),
+      Expr::Lit(Lit::Str(str)) => !is_text_valid_identifier(str.value()),
       _ => false,
     }
   }
 
   fn check_prop_name(name: PropName) -> bool {
     match name {
-      PropName::Ident(ident) => !is_text_valid_identifier(&ident.sym()),
-      PropName::Str(str) => !is_text_valid_identifier(&str.value()),
+      PropName::Ident(ident) => !is_text_valid_identifier(ident.sym()),
+      PropName::Str(str) => !is_text_valid_identifier(str.value()),
       _ => false,
     }
   }
@@ -3500,42 +3480,36 @@ fn use_consistent_quotes_for_members<'a>(mut members: impl Iterator<Item = Node<
 }
 
 fn gen_type_lit<'a>(node: &TsTypeLit<'a>, context: &mut Context<'a>) -> PrintItems {
-  if context.config.quote_props == QuoteProps::Consistent {
-    context
-      .consistent_quote_props_stack
-      .push(use_consistent_quotes_for_members(node.members.iter().map(|n| n.into())));
-  }
-
-  let items = gen_object_like_node(
-    GenObjectLikeNodeOptions {
-      node: node.into(),
-      members: node.members.iter().map(|m| m.into()).collect(),
-      separator: Separator {
-        single_line: Some(semi_colon_or_comma_to_separator_value(
-          context.config.type_literal_separator_kind_single_line,
-          context,
-        )),
-        multi_line: Some(semi_colon_or_comma_to_separator_value(
-          context.config.type_literal_separator_kind_multi_line,
-          context,
-        )),
-      },
-      prefer_hanging: context.config.type_literal_prefer_hanging,
-      prefer_single_line: context.config.type_literal_prefer_single_line,
-      force_single_line: false,
-      force_multi_line: false,
-      surround_single_line_with_spaces: context.config.type_literal_space_surrounding_properties,
-      allow_blank_lines: true,
-      node_sorter: None,
+  return context.with_maybe_consistent_props(
+    node,
+    |node| use_consistent_quotes_for_members(node.members.iter().map(|n| n.into())),
+    |context, node| {
+      gen_object_like_node(
+        GenObjectLikeNodeOptions {
+          node: node.into(),
+          members: node.members.iter().map(|m| m.into()).collect(),
+          separator: Separator {
+            single_line: Some(semi_colon_or_comma_to_separator_value(
+              context.config.type_literal_separator_kind_single_line,
+              context,
+            )),
+            multi_line: Some(semi_colon_or_comma_to_separator_value(
+              context.config.type_literal_separator_kind_multi_line,
+              context,
+            )),
+          },
+          prefer_hanging: context.config.type_literal_prefer_hanging,
+          prefer_single_line: context.config.type_literal_prefer_single_line,
+          force_single_line: false,
+          force_multi_line: false,
+          surround_single_line_with_spaces: context.config.type_literal_space_surrounding_properties,
+          allow_blank_lines: true,
+          node_sorter: None,
+        },
+        context,
+      )
     },
-    context,
   );
-
-  if context.config.quote_props == QuoteProps::Consistent {
-    context.consistent_quote_props_stack.pop();
-  }
-
-  return items;
 
   fn semi_colon_or_comma_to_separator_value(value: SemiColonOrComma, context: &mut Context) -> SeparatorValue {
     match value {
@@ -4058,7 +4032,7 @@ mod string_literal {
   }
 
   fn handle_prefer_double(string_value: &str) -> String {
-    if double_to_single(&string_value) <= 0 {
+    if double_to_single(string_value) <= 0 {
       format_with_double(string_value)
     } else {
       format_with_single(string_value)
@@ -4066,7 +4040,7 @@ mod string_literal {
   }
 
   fn handle_prefer_single(string_value: &str) -> String {
-    if double_to_single(&string_value) >= 0 {
+    if double_to_single(string_value) >= 0 {
       format_with_single(string_value)
     } else {
       format_with_double(string_value)
