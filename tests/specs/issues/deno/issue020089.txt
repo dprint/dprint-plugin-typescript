@@ -1,0 +1,7 @@
+~~ semiColons: asi ~~
+== should not add semi-colon at start ==
+do ++x; while (x<10)
+
+[expect]
+do ++x
+while (x < 10)
