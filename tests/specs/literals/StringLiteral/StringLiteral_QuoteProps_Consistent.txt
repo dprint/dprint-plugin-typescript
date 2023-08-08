@@ -158,3 +158,19 @@ type Type = {
     set foo3(v: string);
     foo4: "literal";
 };
+
+== should not remove in this scenario ==
+const x = {
+    "/src/shared/tsconfig-base.json": JSON.stringify({
+        include: ["./typings-base/"],
+    }),
+    "/src/shared/index.ts": `export const a: Unrestricted = 1;`,
+}
+
+[expect]
+const x = {
+    "/src/shared/tsconfig-base.json": JSON.stringify({
+        include: ["./typings-base/"],
+    }),
+    "/src/shared/index.ts": `export const a: Unrestricted = 1;`,
+};

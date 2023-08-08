@@ -174,10 +174,10 @@ impl<'a> Context<'a> {
     if self.config.quote_props == QuoteProps::Consistent {
       self.consistent_quote_props_stack.push((use_consistent_quotes)(&state));
     }
-    let is_consistent = self.consistent_quote_props_stack.peek().copied().unwrap_or(true);
-    self.consistent_quote_props_stack.push(is_consistent);
     let result = action(self, state);
-    self.consistent_quote_props_stack.pop();
+    if self.config.quote_props == QuoteProps::Consistent {
+      self.consistent_quote_props_stack.pop();
+    }
     result
   }
 
