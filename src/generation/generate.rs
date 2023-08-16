@@ -1430,6 +1430,9 @@ fn gen_type_alias<'a>(node: &TsTypeAliasDecl<'a>, context: &mut Context<'a>) -> 
 
 fn gen_using_decl<'a>(node: &UsingDecl<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
+  if node.is_await() {
+    items.push_str("await ");
+  }
   items.push_str("using ");
 
   items.extend(gen_var_declarators(node.into(), &node.decls, context));

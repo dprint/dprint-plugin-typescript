@@ -55,7 +55,8 @@ fn test_specs() {
     {
       let global_config = global_config.clone();
       move |file_name, file_text, spec_config| {
-        let config_result = resolve_config(parse_config_key_map(spec_config), &global_config);
+        let spec_config: ConfigKeyMap = serde_json::from_value(spec_config.clone().into()).unwrap();
+        let config_result = resolve_config(spec_config, &global_config);
         ensure_no_diagnostics(&config_result.diagnostics);
 
         format_text(file_name, file_text, &config_result.config)
