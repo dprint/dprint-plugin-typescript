@@ -2,9 +2,11 @@
 == should not newline for optional chaining in member property in template literal ==
 const value1 = `${aaaaaaaaaa.bbbbbbbbbbb} ${cccccccccccccc.ddddddddddddd} ${eeeeeeeee.ffffffffff}`
 const value2 = `${aaaaaaaaaa?.bbbbbbbbbbb} ${cccccccccccccc?.ddddddddddddd} ${eeeeeeeee?.ffffffffff()}`
+const value3 = eeeeeeeee?.ffffffffff();
 
 [expect]
 const value1 =
   `${aaaaaaaaaa.bbbbbbbbbbb} ${cccccccccccccc.ddddddddddddd} ${eeeeeeeee.ffffffffff}`;
 const value2 =
   `${aaaaaaaaaa?.bbbbbbbbbbb} ${cccccccccccccc?.ddddddddddddd} ${eeeeeeeee?.ffffffffff()}`;
+const value3 = eeeeeeeee?.ffffffffff();

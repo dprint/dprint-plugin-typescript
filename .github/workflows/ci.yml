@@ -53,6 +53,12 @@ jobs:
     - name: Test release
       if: matrix.config.kind == 'test_release'
       run: cargo test --release
+    - name: Integration test (Wasm)
+      if: matrix.config.kind == 'test_release'
+      run: |
+        echo '{ "plugins": ["./target/wasm32-unknown-unknown/release/dprint_plugin_typescript.wasm"] }' >> dprint.test.json
+        dprint fmt --config dprint.test.json
+        rm dprint.test.json
 
     - name: Get tag version
       if: matrix.config.kind == 'test_release' && startsWith(github.ref, 'refs/tags/')

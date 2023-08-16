@@ -45,11 +45,13 @@ impl<'a> MemberLikeExprItem<'a> {
   }
 
   pub fn is_optional(&self) -> bool {
-    if let Some(top_node) = self.get_top_node() {
-      top_node.parent().unwrap().parent().unwrap().kind() == NodeKind::OptChainExpr
-    } else {
-      false
-    }
+    let Some(top_node) = self.get_top_node() else {
+      return false;
+    };
+    let Node::OptChainExpr(expr) = top_node.parent().unwrap().parent().unwrap() else {
+      return false;
+    };
+    expr.optional()
   }
 
   fn get_top_node(&self) -> Option<Node<'a>> {

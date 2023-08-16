@@ -40,3 +40,9 @@ using testing = testtttttttt
         && testtttttttt,
     other = testtttttttt
         && testttttttttttt;
+
+== async ==
+await using a = 5, b = 6;
+
+[expect]
+await using a = 5, b = 6;

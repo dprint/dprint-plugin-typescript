@@ -199,6 +199,12 @@ if (
 ) {
 }
 
+== swc issue where it didn't tokenize << correctly here ==
+const test = a << 1;
+
+[expect]
+const test = a << 1;
+
 == should format bitshift inline ==
 if (
     tttttttttttt >> ttttttttttt
