@@ -4984,10 +4984,13 @@ fn gen_labeled_stmt<'a>(node: &LabeledStmt<'a>, context: &mut Context<'a>) -> Pr
   items.push_str(":");
 
   // not bothering to make this configurable, because who uses labeled statements?
-  if node.body.kind() == NodeKind::BlockStmt {
-    items.push_str(" ");
-  } else {
-    items.push_signal(Signal::NewLine);
+  match node.body.kind() {
+    NodeKind::BlockStmt | NodeKind::DoWhileStmt | NodeKind::ForStmt | NodeKind::ForInStmt | NodeKind::ForOfStmt | NodeKind::WhileStmt => {
+      items.push_str(" ");
+    }
+    _ => {
+      items.push_signal(Signal::NewLine);
+    }
   }
 
   items.extend(gen_node(node.body.into(), context));

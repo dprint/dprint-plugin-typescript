@@ -14,3 +14,58 @@ label  :{
 label: {
     console.log(5);
 }
+
+== should format a for loop on the same line ==
+label:
+for (;;) {
+    // body
+}
+
+[expect]
+label: for (;;) {
+    // body
+}
+
+== should format a for-in loop on the same line ==
+label:
+for (const foo in bar) {
+    // body
+}
+
+[expect]
+label: for (const foo in bar) {
+    // body
+}
+
+== should format a for-of loop on the same line ==
+label:
+for (const foo of bar) {
+    // body
+}
+
+[expect]
+label: for (const foo of bar) {
+    // body
+}
+
+== should format a while loop on the same line ==
+label:
+while (true) {
+    // body
+}
+
+[expect]
+label: while (true) {
+    // body
+}
+
+== should format a do-while loop on the same line ==
+label:
+do {
+    break    label;
+} while (true);
+
+[expect]
+label: do {
+    break label;
+} while (true);
