@@ -25,10 +25,13 @@ label  :
 label: {
     console.log(5);
 }
-
-== should format a for loop on the same line ==
 label:
-for (;;) {
+{
+    console.log(5);
+}
+
+== for loop ==
+label: for (;;) {
     // body
 }
 
@@ -37,9 +40,8 @@ label: for (;;) {
     // body
 }
 
-== should format a for-in loop on the same line ==
-label:
-for (const foo in bar) {
+== for in loop ==
+label: for (const foo in bar) {
     // body
 }
 
@@ -48,9 +50,8 @@ label: for (const foo in bar) {
     // body
 }
 
-== should format a for-of loop on the same line ==
-label:
-for (const foo of bar) {
+== for of loop ==
+label: for (const foo of bar) {
     // body
 }
 
@@ -59,9 +60,8 @@ label: for (const foo of bar) {
     // body
 }
 
-== should format a while loop on the same line ==
-label:
-while (true) {
+== while loop ==
+label: while (true) {
     // body
 }
 
@@ -70,9 +70,8 @@ label: while (true) {
     // body
 }
 
-== should format a do-while loop on the same line ==
-label:
-do {
+== do while loop ==
+label: do {
     break    label;
 } while (true);
 
@@ -80,7 +79,3 @@ do {
 label: do {
     break label;
 } while (true);
-label:
-{
-    console.log(5);
-}
