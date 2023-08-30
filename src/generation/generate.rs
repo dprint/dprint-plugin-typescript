@@ -1063,9 +1063,8 @@ fn gen_export_named_decl<'a>(node: &NamedExport<'a>, context: &mut Context<'a>) 
     items.extend(gen_node(src.into(), context));
   }
 
-  if let Some(asserts) = node.asserts {
-    items.push_str(" assert ");
-    items.extend(gen_node(asserts.into(), context));
+  if let Some(with_clause) = node.with {
+    items.extend(gen_with_clause(with_clause, context));
   }
 
   if context.config.semi_colons.is_true() {
@@ -1261,9 +1260,8 @@ fn gen_import_decl<'a>(node: &ImportDecl<'a>, context: &mut Context<'a>) -> Prin
 
   items.extend(gen_node(node.src.into(), context));
 
-  if let Some(asserts) = node.asserts {
-    items.push_str(" assert ");
-    items.extend(gen_node(asserts.into(), context));
+  if let Some(with_clause) = node.with {
+    items.extend(gen_with_clause(with_clause, context));
   }
 
   if context.config.semi_colons.is_true() {
@@ -4505,15 +4503,22 @@ fn gen_export_all<'a>(node: &ExportAll<'a>, context: &mut Context<'a>) -> PrintI
   }
   items.extend(gen_node(node.src.into(), context));
 
-  if let Some(asserts) = node.asserts {
-    items.push_str(" assert ");
-    items.extend(gen_node(asserts.into(), context));
+  if let Some(with_clause) = node.with {
+    items.extend(gen_with_clause(with_clause, context));
   }
 
   if context.config.semi_colons.is_true() {
     items.push_str(";");
   }
 
+  items
+}
+
+fn gen_with_clause<'a>(node: &ObjectLit<'a>, context: &mut Context<'a>) -> PrintItems {
+  let mut items = PrintItems::new();
+  let previous_token_text = node.previous_token_fast(context.program).text_fast(context.program);
+  items.push_str(if previous_token_text == "assert" { " assert " } else { " with " });
+  items.extend(gen_node(node.into(), context));
   items
 }
 
@@ -4984,13 +4989,12 @@ fn gen_labeled_stmt<'a>(node: &LabeledStmt<'a>, context: &mut Context<'a>) -> Pr
   items.push_str(":");
 
   // not bothering to make this configurable, because who uses labeled statements?
-  match node.body.kind() {
-    NodeKind::BlockStmt | NodeKind::DoWhileStmt | NodeKind::ForStmt | NodeKind::ForInStmt | NodeKind::ForOfStmt | NodeKind::WhileStmt => {
-      items.push_str(" ");
-    }
-    _ => {
-      items.push_signal(Signal::NewLine);
-    }
+  // edit: ok, maybe I will make this configurable in the future
+  let is_inner_stmt_same_line = node.start_line_fast(context.program) == node.body.start_line_fast(context.program);
+  if is_inner_stmt_same_line {
+    items.push_str(" ");
+  } else {
+    items.push_signal(Signal::NewLine);
   }
 
   items.extend(gen_node(node.body.into(), context));

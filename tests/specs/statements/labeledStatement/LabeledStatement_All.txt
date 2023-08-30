@@ -1,12 +1,23 @@
-== should format ==
+== should format when on same line ==
 label  : console.log(5);
+
+[expect]
+label: console.log(5);
+
+== should format when on next line ==
+label  :
+console.log(5);
 
 [expect]
 label:
 console.log(5);
 
-== should format a block on the same line ==
+== should maintain blocks too ==
 label  :{
+    console.log(5);
+}
+label  :
+{
     console.log(5);
 }
 
@@ -69,3 +80,7 @@ do {
 label: do {
     break label;
 } while (true);
+label:
+{
+    console.log(5);
+}
