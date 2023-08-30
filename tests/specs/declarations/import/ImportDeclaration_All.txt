@@ -156,3 +156,13 @@ import test from "a" assert { type: "json" };
 import asdf from "testing.json" assert {
     type: "json",
 };
+
+== should support import attributes ==
+import test from "a" with {type: "json"};
+import asdf from "testing.json" with {type:"json"};
+
+[expect]
+import test from "a" with { type: "json" };
+import asdf from "testing.json" with {
+    type: "json",
+};
