@@ -1,0 +1,40 @@
+~~ lineWidth: 1000, indentWidth: 4, operatorPosition: sameLine ~~
+== should format same as the below ==
+// these should both format the same, regardless of whether there is an
+// optional chain or not at symbol.declarations?.map
+function getSymbolParentOrFail() {
+    return `Declarations: ${
+        symbol.declarations?.map(d => {
+            return true;
+        }).join(", ")
+    }.`;
+}
+
+[expect]
+// these should both format the same, regardless of whether there is an
+// optional chain or not at symbol.declarations?.map
+function getSymbolParentOrFail() {
+    return `Declarations: ${
+        symbol.declarations?.map(d => {
+            return true;
+        }).join(", ")
+    }.`;
+}
+
+== should format this the same as the above ==
+function getSymbolParentOrFail() {
+    return `Declarations: ${
+        symbol.declarations.map(d => {
+            return true;
+        }).join(", ")
+    }.`;
+}
+
+[expect]
+function getSymbolParentOrFail() {
+    return `Declarations: ${
+        symbol.declarations.map(d => {
+            return true;
+        }).join(", ")
+    }.`;
+}
