@@ -3017,6 +3017,7 @@ fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context
 
   fn get_possible_surround_newlines(node: Node) -> bool {
     match node {
+      Node::OptChainExpr(expr) => get_possible_surround_newlines(expr.base.as_node()),
       Node::CondExpr(_) => true,
       Node::BinExpr(_) => true,
       Node::MemberExpr(expr) => !keep_member_expr_on_one_line(expr),
