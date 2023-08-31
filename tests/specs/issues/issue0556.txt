@@ -1,5 +1,5 @@
 ~~ lineWidth: 1000, indentWidth: 4, operatorPosition: sameLine ~~
-== should maintain ==
+== should format same as the below ==
 // these should both format the same, regardless of whether there is an
 // optional chain or not at symbol.declarations?.map
 function getSymbolParentOrFail() {
