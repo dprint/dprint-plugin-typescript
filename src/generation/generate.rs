@@ -3052,6 +3052,11 @@ fn gen_unary_expr<'a>(node: &UnaryExpr<'a>, context: &mut Context<'a>) -> PrintI
   let mut items = PrintItems::new();
   items.push_str(get_operator_text(node.op()));
   items.extend(gen_node(node.arg.into(), context));
+
+  if get_should_use_parens(node) {
+    items = surround_with_parens(items);
+  }
+
   return items;
 
   fn get_operator_text<'a>(op: UnaryOp) -> &'a str {
@@ -3064,6 +3069,13 @@ fn gen_unary_expr<'a>(node: &UnaryExpr<'a>, context: &mut Context<'a>) -> PrintI
       UnaryOp::Minus => "-",
       UnaryOp::Tilde => "~",
     }
+  }
+
+  fn get_should_use_parens(node: &UnaryExpr) -> bool {
+    if let Node::BinExpr(parent) = node.parent() {
+      return matches!(parent.op(), BinaryOp::In | BinaryOp::InstanceOf);
+    }
+    false
   }
 }
 
