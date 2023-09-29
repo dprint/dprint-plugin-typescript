@@ -3992,22 +3992,22 @@ mod string_literal {
   use super::*;
 
   pub fn gen_non_jsx_text(string_value: &str, context: &mut Context) -> PrintItems {
-    gen_from_raw_string(&match context.config.quote_style {
+    match context.config.quote_style {
       QuoteStyle::AlwaysDouble => format_with_double(string_value),
       QuoteStyle::AlwaysSingle => format_with_single(string_value),
       QuoteStyle::PreferDouble => handle_prefer_double(string_value),
       QuoteStyle::PreferSingle => handle_prefer_single(string_value),
-    })
+    }
   }
 
   pub fn gen_jsx_text(string_value: &str, context: &mut Context) -> PrintItems {
     // JSX attributes cannot contain escaped quotes so regardless of
     // configuration, allow changing the quote style to single or
     // double depending on if it contains the opposite quote
-    gen_from_raw_string(&match context.config.jsx_quote_style {
+    match context.config.jsx_quote_style {
       JsxQuoteStyle::PreferDouble => handle_prefer_double(string_value),
       JsxQuoteStyle::PreferSingle => handle_prefer_single(string_value),
-    })
+    }
   }
 
   pub fn get_value(node: &Str, context: &mut Context) -> String {
@@ -4049,7 +4049,7 @@ mod string_literal {
     }
   }
 
-  fn handle_prefer_double(string_value: &str) -> String {
+  fn handle_prefer_double(string_value: &str) -> PrintItems {
     if double_to_single(string_value) <= 0 {
       format_with_double(string_value)
     } else {
@@ -4057,7 +4057,7 @@ mod string_literal {
     }
   }
 
-  fn handle_prefer_single(string_value: &str) -> String {
+  fn handle_prefer_single(string_value: &str) -> PrintItems {
     if double_to_single(string_value) >= 0 {
       format_with_single(string_value)
     } else {
@@ -4065,12 +4065,20 @@ mod string_literal {
     }
   }
 
-  fn format_with_double(string_value: &str) -> String {
-    format!("\"{}\"", string_value.replace('"', "\\\""))
+  fn format_with_double(string_value: &str) -> PrintItems {
+    let mut items = PrintItems::new();
+    items.push_str("\"");
+    items.extend(gen_from_raw_string(&string_value.replace('"', "\\\"")));
+    items.push_str("\"");
+    items
   }
 
-  fn format_with_single(string_value: &str) -> String {
-    format!("'{}'", string_value.replace('\'', "\\'"))
+  fn format_with_single(string_value: &str) -> PrintItems {
+    let mut items = PrintItems::new();
+    items.push_str("'");
+    items.extend(gen_from_raw_string(&string_value.replace('\'', "\\'")));
+    items.push_str("'");
+    items
   }
 
   fn double_to_single(string_value: &str) -> i32 {
