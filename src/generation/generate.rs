@@ -3648,8 +3648,11 @@ fn is_jsx_paren_expr_handled_node<'a>(node: Node<'a>, context: &Context<'a>) -> 
     return true;
   }
 
-  // do not allow in expr statement, argument, attributes, or jsx exprs
-  !matches!(parent.kind(), NodeKind::ExprStmt | NodeKind::ExprOrSpread | NodeKind::JSXExprContainer)
+  // do not allow in expr statement, argument, attributes, jsx exprs, or member exprs
+  !matches!(
+    parent.kind(),
+    NodeKind::ExprStmt | NodeKind::ExprOrSpread | NodeKind::JSXExprContainer | NodeKind::MemberExpr
+  )
 }
 
 fn gen_jsx_element<'a>(node: &JSXElement<'a>, context: &mut Context<'a>) -> PrintItems {

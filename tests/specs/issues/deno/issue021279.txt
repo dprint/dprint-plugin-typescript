@@ -1,0 +1,7 @@
+== should not cause syntax error ==
+const $$children = (<>{children}</>).toString();
+const { getLayer } = await uno.generate($$children, { minify: true })
+
+[expect]
+const $$children = (<>{children}</>).toString();
+const { getLayer } = await uno.generate($$children, { minify: true });
