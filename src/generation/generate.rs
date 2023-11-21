@@ -1751,6 +1751,7 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
       BlockStmtOrExpr::BlockStmt(_) => true,
       BlockStmtOrExpr::Expr(expr) => match expr {
         Expr::Paren(_) | Expr::Array(_) => true,
+        Expr::Call(_) | Expr::TaggedTpl(_) => context.config.arrow_function_no_new_line_before_fn_call,
         Expr::Tpl(tpl) => tpl.quasis[0].raw().starts_with(|c: char| c == '\n' || c == '\r'),
         _ => is_jsx_paren_expr_handled_node(expr.into(), context),
       },

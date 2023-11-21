@@ -1,0 +1,22 @@
+~~ arrowFunction.noNewLineBeforeFnCall: true ~~
+== should not insert new line after arrow but before fn call when option is true ==
+[].map((it) => test({
+    foo: 1,
+    bar: 2
+}));
+
+[expect]
+[].map((it) => test({
+    foo: 1,
+    bar: 2,
+}));
+
+== should not insert new line after arrow but before tagged template when option is true ==
+const getStyles = () => css`
+    display: flex;
+`;
+
+[expect]
+const getStyles = () => css`
+    display: flex;
+`;
