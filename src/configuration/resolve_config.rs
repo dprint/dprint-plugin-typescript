@@ -11,8 +11,8 @@ use dprint_core::configuration::*;
 /// use dprint_core::configuration::resolve_global_config;
 /// use dprint_plugin_typescript::configuration::resolve_config;
 ///
-/// let config_map = ConfigKeyMap::new(); // get a collection of key value pairs from somewhere
-/// let global_config_result = resolve_global_config(config_map, &Default::default());
+/// let mut config_map = ConfigKeyMap::new(); // get a collection of key value pairs from somewhere
+/// let global_config_result = resolve_global_config(&mut config_map);
 ///
 /// // check global_config_result.diagnostics here...
 ///
@@ -361,7 +361,7 @@ mod tests {
     global_config.insert(String::from("indentWidth"), ConfigKeyValue::from_i32(8));
     global_config.insert(String::from("newLineKind"), ConfigKeyValue::from_str("crlf"));
     global_config.insert(String::from("useTabs"), ConfigKeyValue::from_bool(true));
-    let global_config = resolve_global_config(global_config, &Default::default()).config;
+    let global_config = resolve_global_config(&mut global_config).config;
     let mut config_builder = ConfigurationBuilder::new();
     let config = config_builder.global_config(global_config).build();
     assert_eq!(config.line_width, 80);
@@ -374,7 +374,7 @@ mod tests {
   fn handle_deno_config() {
     let mut config = ConfigKeyMap::new();
     config.insert(String::from("deno"), ConfigKeyValue::from_bool(true));
-    let global_config = resolve_global_config(ConfigKeyMap::new(), &Default::default()).config;
+    let global_config = GlobalConfiguration::default();
     let result = resolve_config(config, &global_config);
     let expected_config = ConfigurationBuilder::new().deno().build();
     // todo: test that both objects equal each other
@@ -388,7 +388,7 @@ mod tests {
     let mut config = ConfigKeyMap::new();
     config.insert(String::from("deno"), ConfigKeyValue::from_bool(true));
     config.insert(String::from("indentWidth"), ConfigKeyValue::from_i32(8));
-    let global_config = resolve_global_config(ConfigKeyMap::new(), &Default::default()).config;
+    let global_config = GlobalConfiguration::default();
     let result = resolve_config(config, &global_config);
     let expected_config = ConfigurationBuilder::new().deno().build();
     assert_eq!(result.config.indent_width, 8);

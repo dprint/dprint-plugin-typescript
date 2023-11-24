@@ -2,9 +2,11 @@ use dprint_core::configuration::ConfigKeyMap;
 use dprint_core::configuration::GlobalConfiguration;
 use dprint_core::configuration::ResolveConfigurationResult;
 use dprint_core::generate_plugin_code;
+use dprint_core::plugins::FileMatchingInfo;
 use dprint_core::plugins::FormatResult;
 use dprint_core::plugins::PluginInfo;
 use dprint_core::plugins::SyncPluginHandler;
+use dprint_core::plugins::SyncPluginInfo;
 use std::path::Path;
 
 use super::configuration::resolve_config;
@@ -17,26 +19,30 @@ impl SyncPluginHandler<Configuration> for TypeScriptPluginHandler {
     resolve_config(config, global_config)
   }
 
-  fn plugin_info(&mut self) -> PluginInfo {
+  fn plugin_info(&mut self) -> SyncPluginInfo {
     let version = env!("CARGO_PKG_VERSION").to_string();
-    PluginInfo {
-      name: env!("CARGO_PKG_NAME").to_string(),
-      version: version.clone(),
-      config_key: "typescript".to_string(),
-      file_extensions: vec![
-        String::from("ts"),
-        String::from("tsx"),
-        String::from("js"),
-        String::from("jsx"),
-        String::from("mjs"),
-        String::from("cjs"),
-        String::from("mts"),
-        String::from("cts"),
-      ],
-      file_names: vec![],
-      help_url: "https://dprint.dev/plugins/typescript".to_string(),
-      config_schema_url: format!("https://plugins.dprint.dev/dprint/dprint-plugin-typescript/{}/schema.json", version),
-      update_url: Some("https://plugins.dprint.dev/dprint/dprint-plugin-typescript/latest.json".to_string()),
+    SyncPluginInfo {
+      info: PluginInfo {
+        name: env!("CARGO_PKG_NAME").to_string(),
+        version: version.clone(),
+        config_key: "typescript".to_string(),
+        help_url: "https://dprint.dev/plugins/typescript".to_string(),
+        config_schema_url: format!("https://plugins.dprint.dev/dprint/dprint-plugin-typescript/{}/schema.json", version),
+        update_url: Some("https://plugins.dprint.dev/dprint/dprint-plugin-typescript/latest.json".to_string()),
+      },
+      file_matching: FileMatchingInfo {
+        file_extensions: vec![
+          String::from("ts"),
+          String::from("tsx"),
+          String::from("js"),
+          String::from("jsx"),
+          String::from("mjs"),
+          String::from("cjs"),
+          String::from("mts"),
+          String::from("cts"),
+        ],
+        file_names: vec![],
+      },
     }
   }
 
