@@ -474,6 +474,7 @@ fn gen_auto_accessor<'a>(node: &AutoAccessor<'a>, context: &mut Context<'a>) -> 
       is_optional: false,
       is_override: false,
       readonly: false,
+      // todo: https://github.com/swc-project/swc/issues/8344
       definite: node.type_ann.is_some() && node.key.next_token_fast(context.program).is_some_and(|t| t.token == Token::Bang),
     },
     context,
