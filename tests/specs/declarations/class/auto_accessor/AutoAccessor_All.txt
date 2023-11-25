@@ -6,6 +6,7 @@ class Person {
     public static accessor    test2 : string;
     private accessor    test3 : string;
     accessor    #test = 2;
+    accessor    here!: string;
 
     constructor(name: string) {
         this.name = name;
@@ -19,6 +20,7 @@ class Person {
     public static accessor test2: string;
     private accessor test3: string;
     accessor #test = 2;
+    accessor here!: string;
 
     constructor(name: string) {
         this.name = name;
