@@ -6063,10 +6063,17 @@ fn gen_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -
       if type_params.start() == node.start() {
         // Use trailing commas for function expressions in a JSX file
         // if the absence of one would lead to a parsing ambiguity.
-        let is_jsx_fn_expr = context.is_jsx() && (node.parent().kind() == NodeKind::ArrowExpr || node.parent().parent().unwrap().kind() == NodeKind::FnExpr);
+        let parent = node.parent();
+        let is_ambiguous_jsx_fn_expr = context.is_jsx()
+          && (parent.kind() == NodeKind::ArrowExpr || parent.parent().unwrap().kind() == NodeKind::FnExpr)
+          // not ambiguous in a default export
+          && !matches!(
+            parent.parent().and_then(|p| p.parent()).map(|p| p.kind()),
+            Some(NodeKind::ExportDefaultExpr | NodeKind::ExportDefaultDecl)
+          );
         // Prevent "This syntax is reserved in files with the .mts or .cts extension." diagnostic.
-        let is_cts_mts_arrow_fn = matches!(context.media_type, MediaType::Cts | MediaType::Mts) && node.parent().kind() == NodeKind::ArrowExpr;
-        if is_jsx_fn_expr || is_cts_mts_arrow_fn {
+        let is_cts_mts_arrow_fn = matches!(context.media_type, MediaType::Cts | MediaType::Mts) && parent.kind() == NodeKind::ArrowExpr;
+        if is_ambiguous_jsx_fn_expr || is_cts_mts_arrow_fn {
           let children = type_params.children();
           // It is not ambiguous if there are multiple type parameters.
           if children.len() == 1 && children[0].kind() == NodeKind::TsTypeParam {
