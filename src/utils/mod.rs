@@ -5,7 +5,6 @@ mod stack;
 mod string_utils;
 mod vec_map;
 
-pub use char_iterator::*;
 pub use file_text_has_ignore_comment::*;
 pub use is_prefix_semi_colon_insertion_char::*;
 pub use stack::*;

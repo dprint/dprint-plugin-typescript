@@ -472,7 +472,12 @@ fn gen_auto_accessor<'a>(node: &AutoAccessor<'a>, context: &mut Context<'a>) -> 
       accessibility: node.accessibility(),
       is_abstract: false,
       is_optional: false,
-      is_override: false,
+      // todo: https://github.com/swc-project/swc/issues/8344
+      is_override: node
+        .tokens_fast(context.program)
+        .iter()
+        .take_while(|t| t.start() < node.key.start())
+        .any(|t| t.span.text_fast(context.program) == "override"),
       readonly: false,
       // todo: https://github.com/swc-project/swc/issues/8344
       definite: node.type_ann.is_some() && node.key.next_token_fast(context.program).is_some_and(|t| t.token == Token::Bang),
@@ -635,9 +640,6 @@ fn gen_class_prop_common<'a, 'b>(node: GenClassPropCommon<'a, 'b>, context: &mut
   if node.is_static {
     items.push_str("static ");
   }
-  if node.is_auto_accessor {
-    items.push_str("accessor ");
-  }
   if node.is_abstract {
     items.push_str("abstract ");
   }
@@ -646,6 +648,9 @@ fn gen_class_prop_common<'a, 'b>(node: GenClassPropCommon<'a, 'b>, context: &mut
   }
   if node.readonly {
     items.push_str("readonly ");
+  }
+  if node.is_auto_accessor {
+    items.push_str("accessor ");
   }
   items.extend(if node.computed {
     let inner_key_node = match node.key {
