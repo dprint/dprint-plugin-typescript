@@ -75,7 +75,9 @@ pub fn ensure_no_specific_syntax_errors(parsed_source: &ParsedSource) -> Result<
         SyntaxError::ExpectedSemiForExprStmt { .. } |
         SyntaxError::ExpectedUnicodeEscape |
         // unexpected token
-        SyntaxError::Unexpected { .. }
+        SyntaxError::Unexpected { .. } |
+        // Merge conflict marker
+        SyntaxError::TS1185
       )
     })
     .collect::<Vec<_>>();
