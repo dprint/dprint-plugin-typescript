@@ -227,6 +227,35 @@ mod tests {
     );
   }
 
+  #[test]
+  fn it_should_error_for_merge_conflict_marker() {
+    run_non_fatal_diagnostic_test(
+      "./test.ts",
+      r#"class Test {
+<<<<<<< HEAD
+    v = 1;
+=======
+    v = 2;
+>>>>>>> Branch-a
+}
+"#,
+      r#"Merge conflict marker encountered. at ./test.ts:2:1
+
+  <<<<<<< HEAD
+  ~~~~~~~
+
+Merge conflict marker encountered. at ./test.ts:4:1
+
+  =======
+  ~~~~~~~
+
+Merge conflict marker encountered. at ./test.ts:6:1
+
+  >>>>>>> Branch-a
+  ~~~~~~~"#,
+    );
+  }
+
   fn run_non_fatal_diagnostic_test(file_path: &str, text: &str, expected: &str) {
     let file_path = PathBuf::from(file_path);
     assert_eq!(format!("{}", parse_swc_ast(&file_path, text).err().unwrap()), expected);
