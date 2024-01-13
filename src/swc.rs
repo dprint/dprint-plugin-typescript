@@ -75,7 +75,9 @@ pub fn ensure_no_specific_syntax_errors(parsed_source: &ParsedSource) -> Result<
         SyntaxError::ExpectedSemiForExprStmt { .. } |
         SyntaxError::ExpectedUnicodeEscape |
         // unexpected token
-        SyntaxError::Unexpected { .. }
+        SyntaxError::Unexpected { .. } |
+        // Merge conflict marker
+        SyntaxError::TS1185
       )
     })
     .collect::<Vec<_>>();
@@ -222,6 +224,35 @@ mod tests {
       "./test.ts",
       "class Test {",
       concat!("Expected '}', got '<eof>' at ./test.ts:1:12\n\n", "  class Test {\n", "             ~"),
+    );
+  }
+
+  #[test]
+  fn it_should_error_for_merge_conflict_marker() {
+    run_non_fatal_diagnostic_test(
+      "./test.ts",
+      r#"class Test {
+<<<<<<< HEAD
+    v = 1;
+=======
+    v = 2;
+>>>>>>> Branch-a
+}
+"#,
+      r#"Merge conflict marker encountered. at ./test.ts:2:1
+
+  <<<<<<< HEAD
+  ~~~~~~~
+
+Merge conflict marker encountered. at ./test.ts:4:1
+
+  =======
+  ~~~~~~~
+
+Merge conflict marker encountered. at ./test.ts:6:1
+
+  >>>>>>> Branch-a
+  ~~~~~~~"#,
     );
   }
 
