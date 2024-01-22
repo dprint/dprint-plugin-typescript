@@ -137,9 +137,9 @@ dependencies = [
 
 [[package]]
 name = "deno_ast"
-version = "1.0.0"
+version = "0.32.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d19e5fe5dfe61c87726fdf404babc2369adfec28d5a83adee7ef06f6ce0ec68"
+checksum = "d83d58de6f05f4eb41ec518c19067e3e40cd0edd3d366ad95c601bc6e71bdf49"
 dependencies = [
  "deno_media_type",
  "dprint-swc-ext",
