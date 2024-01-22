@@ -7259,6 +7259,9 @@ where
         items.push_info(start_ln);
         items.push_info(start_lsil);
         items.push_signal(Signal::PossibleNewLine);
+        if space_around {
+          items.push_signal(Signal::SpaceIfNotTrailing);
+        }
         items.push_condition(conditions::indent_if_start_of_line(generated_node));
         items.push_condition(if_true(
           "isDifferentLineAndStartLineIndentation",
@@ -7271,6 +7274,9 @@ where
           }),
           Signal::NewLine.into(),
         ));
+        if space_around {
+          items.push_signal(Signal::SpaceIfNotTrailing);
+        }
       } else {
         let last_comma_token = nodes.last().and_then(|n| context.token_finder.get_next_token_if_comma(n));
         items.extend(gen_separated_values(
