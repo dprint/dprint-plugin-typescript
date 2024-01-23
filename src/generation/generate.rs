@@ -728,7 +728,13 @@ fn gen_catch_clause<'a>(node: &CatchClause<'a>, context: &mut Context<'a>) -> Pr
 
   if let Some(param) = &node.param {
     items.push_str(" (");
+    if context.config.catch_clause_space_around {
+      items.push_str(" ");
+    }
     items.extend(gen_node(param.into(), context));
+    if context.config.catch_clause_space_around {
+      items.push_str(" ");
+    }
     items.push_str(")");
   }
   items.push_info(end_header_ln);

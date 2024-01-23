@@ -318,6 +318,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     switch_statement_space_around: get_value(&mut config, "switchStatement.spaceAround", space_around, &mut diagnostics),
     tuple_type_space_around: get_value(&mut config, "tupleType.spaceAround", space_around, &mut diagnostics),
     while_statement_space_around: get_value(&mut config, "whileStatement.spaceAround", space_around, &mut diagnostics),
+    catch_clause_space_around: get_value(&mut config, "catchClause.spaceAround", space_around, &mut diagnostics),
   };
 
   diagnostics.extend(get_unknown_property_diagnostics(config));
