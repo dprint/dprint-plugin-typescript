@@ -35,3 +35,17 @@ testing() === true;
 [expect]
 testing();
 testing() === true;
+
+== should not add spaces when indented ==
+function test() {
+    then( () =>
+        abcdefghijklmnop()
+     );
+}
+
+[expect]
+function test() {
+    then( () =>
+        abcdefghijklmnop()
+    );
+}
