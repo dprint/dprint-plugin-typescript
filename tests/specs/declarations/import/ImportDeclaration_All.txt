@@ -166,3 +166,13 @@ import test from "a" with { type: "json" };
 import asdf from "testing.json" with {
     type: "json",
 };
+
+== source phase imports ==
+import source    a from "a";
+import   defer b from "b";
+import    defer { c } from "c";
+
+[expect]
+import source a from "a";
+import defer b from "b";
+import defer { c } from "c";

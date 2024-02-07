@@ -180,7 +180,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       Node::BinExpr(node) => gen_binary_expr(node, context),
       Node::CallExpr(node) => gen_call_or_opt_expr(node.into(), context),
       Node::OptCall(node) => gen_call_or_opt_expr(node.into(), context),
-      Node::Import(_) => "import".into(),
+      Node::Import(node) => gen_import_callee(node, context),
       Node::ClassExpr(node) => gen_class_expr(node, context),
       Node::CondExpr(node) => gen_conditional_expr(node, context),
       Node::ExprOrSpread(node) => gen_expr_or_spread(node, context),
@@ -472,15 +472,9 @@ fn gen_auto_accessor<'a>(node: &AutoAccessor<'a>, context: &mut Context<'a>) -> 
       accessibility: node.accessibility(),
       is_abstract: false,
       is_optional: false,
-      // todo: https://github.com/swc-project/swc/issues/8344
-      is_override: node
-        .tokens_fast(context.program)
-        .iter()
-        .take_while(|t| t.start() < node.key.start())
-        .any(|t| t.span.text_fast(context.program) == "override"),
+      is_override: node.is_override(),
       readonly: false,
-      // todo: https://github.com/swc-project/swc/issues/8344
-      definite: node.type_ann.is_some() && node.key.next_token_fast(context.program).is_some_and(|t| t.token == Token::Bang),
+      definite: node.definite(),
     },
     context,
   )
@@ -1236,6 +1230,18 @@ fn gen_import_decl<'a>(node: &ImportDecl<'a>, context: &mut Context<'a>) -> Prin
   items.push_str("import ");
   if node.type_only() {
     items.push_str("type ");
+  }
+
+  match node.phase() {
+    ImportPhase::Evaluation => {
+      // ignore
+    }
+    ImportPhase::Source => {
+      items.push_str("source ");
+    }
+    ImportPhase::Defer => {
+      items.push_str("defer ");
+    }
   }
 
   if let Some(default_import) = default_import {
@@ -2219,6 +2225,25 @@ fn gen_call_expr_like<'a>(node: CallExprLike<'a>, context: &mut Context<'a>) -> 
     context,
   )));
 
+  items
+}
+
+fn gen_import_callee<'a>(node: &Import<'a>, _context: &mut Context<'a>) -> PrintItems {
+  let mut items = PrintItems::new();
+  items.push_str("import");
+  // for now, just be simple and force this on one line
+  eprintln!("NODE: {:?}", node.phase());
+  match node.phase() {
+    ImportPhase::Evaluation => {
+      // nothing to do
+    }
+    ImportPhase::Source => {
+      items.push_str(".source");
+    }
+    ImportPhase::Defer => {
+      items.push_str(".defer");
+    }
+  }
   items
 }
 
