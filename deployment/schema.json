@@ -868,6 +868,9 @@
     "arrayPattern.spaceAround": {
       "$ref": "#/definitions/spaceAround"
     },
+    "catchClause.spaceAround": {
+      "$ref": "#/definitions/spaceAround"
+    },
     "doWhileStatement.spaceAround": {
       "$ref": "#/definitions/spaceAround"
     },
@@ -893,9 +896,6 @@
       "$ref": "#/definitions/spaceAround"
     },
     "whileStatement.spaceAround": {
-      "$ref": "#/definitions/spaceAround"
-    },
-    "catchStatement.spaceAround": {
       "$ref": "#/definitions/spaceAround"
     },
     "spaceSurroundingProperties": {

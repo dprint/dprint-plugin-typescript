@@ -309,6 +309,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     arguments_space_around: get_value(&mut config, "arguments.spaceAround", space_around, &mut diagnostics),
     array_expression_space_around: get_value(&mut config, "arrayExpression.spaceAround", space_around, &mut diagnostics),
     array_pattern_space_around: get_value(&mut config, "arrayPattern.spaceAround", space_around, &mut diagnostics),
+    catch_clause_space_around: get_value(&mut config, "catchClause.spaceAround", space_around, &mut diagnostics),
     do_while_statement_space_around: get_value(&mut config, "doWhileStatement.spaceAround", space_around, &mut diagnostics),
     for_in_statement_space_around: get_value(&mut config, "forInStatement.spaceAround", space_around, &mut diagnostics),
     for_of_statement_space_around: get_value(&mut config, "forOfStatement.spaceAround", space_around, &mut diagnostics),
@@ -318,7 +319,6 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     switch_statement_space_around: get_value(&mut config, "switchStatement.spaceAround", space_around, &mut diagnostics),
     tuple_type_space_around: get_value(&mut config, "tupleType.spaceAround", space_around, &mut diagnostics),
     while_statement_space_around: get_value(&mut config, "whileStatement.spaceAround", space_around, &mut diagnostics),
-    catch_clause_space_around: get_value(&mut config, "catchClause.spaceAround", space_around, &mut diagnostics),
   };
 
   diagnostics.extend(get_unknown_property_diagnostics(config));

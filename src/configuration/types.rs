@@ -610,6 +610,8 @@ pub struct Configuration {
   pub array_expression_space_around: bool,
   #[serde(rename = "arrayPattern.spaceAround")]
   pub array_pattern_space_around: bool,
+  #[serde(rename = "catchClause.spaceAround")]
+  pub catch_clause_space_around: bool,
   #[serde(rename = "doWhileStatement.spaceAround")]
   pub do_while_statement_space_around: bool,
   #[serde(rename = "forInStatement.spaceAround")]
@@ -628,6 +630,4 @@ pub struct Configuration {
   pub tuple_type_space_around: bool,
   #[serde(rename = "whileStatement.spaceAround")]
   pub while_statement_space_around: bool,
-  #[serde(rename = "catchClause.spaceAround")]
-  pub catch_clause_space_around: bool,
 }
