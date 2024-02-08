@@ -53,7 +53,7 @@ fn parse_inner_no_diagnostic_check(file_path: &Path, text_info: SourceTextInfo) 
 }
 
 fn path_to_specifier(path: &Path) -> Result<ModuleSpecifier> {
-  if let Ok(specifier) = ModuleSpecifier::from_file_path(path) {
+  if let Some(specifier) = from_file_path(path) {
     Ok(specifier)
   } else if let Some(file_name) = path.file_name() {
     match ModuleSpecifier::parse(&format!("file:///{}", file_name.to_string_lossy())) {
@@ -63,6 +63,42 @@ fn path_to_specifier(path: &Path) -> Result<ModuleSpecifier> {
   } else {
     bail!("could not convert path to specifier: '{}'", path.display())
   }
+}
+
+fn from_file_path(path: &Path) -> Option<ModuleSpecifier> {
+  #[cfg(target_arch = "wasm32")]
+  {
+    from_file_path_wasm(path)
+  }
+  #[cfg(not(target_arch = "wasm32"))]
+  {
+    ModuleSpecifier::from_file_path(path).ok()
+  }
+}
+
+#[allow(unused)]
+#[cfg(any(target_arch = "wasm32", test))]
+fn from_file_path_wasm(path: &Path) -> Option<ModuleSpecifier> {
+  // being lazy because this doesn't need to be exactly correct
+  let mut parts = Vec::new();
+  for component in path.components() {
+    match component {
+      std::path::Component::Prefix(prefix) => {
+        let prefix = prefix.as_os_str().to_string_lossy();
+        parts.push(percent_encoding::utf8_percent_encode(&prefix.to_string(), percent_encoding::CONTROLS).to_string());
+      }
+      std::path::Component::RootDir => {
+        // ignore
+      }
+      std::path::Component::CurDir | std::path::Component::ParentDir => {
+        return None;
+      }
+      std::path::Component::Normal(part) => {
+        parts.push(percent_encoding::percent_encode(part.as_encoded_bytes(), percent_encoding::CONTROLS).to_string());
+      }
+    }
+  }
+  ModuleSpecifier::parse(&format!("file:///{}", parts.join("/"))).ok()
 }
 
 pub fn ensure_no_specific_syntax_errors(parsed_source: &ParsedSource) -> Result<()> {
@@ -121,6 +157,17 @@ mod tests {
 
   use super::*;
   use std::path::PathBuf;
+
+  #[test]
+  fn test_from_file_path_wasm() {
+    fn run_test(path: &str, expected: Option<&str>) {
+      let actual = from_file_path_wasm(&PathBuf::from(path));
+      assert_eq!(actual.as_ref().map(|d| d.as_str()), expected);
+    }
+
+    run_test("C:\\Users\\user\\file.ts", Some("file:///C:/Users/user/file.ts"));
+    run_test("/file/other.ts", Some("file:///file/other.ts"));
+  }
 
   #[test]
   fn should_error_on_syntax_diagnostic() {

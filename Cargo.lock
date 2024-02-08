@@ -225,6 +225,7 @@ dependencies = [
  "deno_ast",
  "dprint-core",
  "dprint-development",
+ "percent-encoding",
  "pretty_assertions",
  "rustc-hash",
  "serde",
