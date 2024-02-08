@@ -2745,11 +2745,11 @@ fn gen_object_lit<'a>(node: &ObjectLit<'a>, context: &mut Context<'a>) -> PrintI
   );
 
   if should_add_parens_around_expr(node.into(), context) {
-    if context.config.paren_expression_space_around {
-      surround_with_parens(surround_with_spaces(items))
+    surround_with_parens(if context.config.paren_expression_space_around {
+      surround_with_spaces(items)
     } else {
-      surround_with_parens(items)
-    }
+      items
+    })
   } else {
     items
   }
