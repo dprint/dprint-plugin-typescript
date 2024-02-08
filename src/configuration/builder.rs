@@ -1008,6 +1008,10 @@ impl ConfigurationBuilder {
     self.insert("arrayPattern.spaceAround", value.into())
   }
 
+  pub fn catch_clause_space_around(&mut self, value: bool) -> &mut Self {
+    self.insert("catchClause.spaceAround", value.into())
+  }
+
   pub fn do_while_statement_space_around(&mut self, value: bool) -> &mut Self {
     self.insert("doWhileStatement.spaceAround", value.into())
   }
@@ -1252,6 +1256,7 @@ mod tests {
       .arguments_space_around(true)
       .array_expression_space_around(true)
       .array_pattern_space_around(true)
+      .catch_clause_space_around(true)
       .do_while_statement_space_around(true)
       .for_in_statement_space_around(true)
       .for_of_statement_space_around(true)
@@ -1264,7 +1269,7 @@ mod tests {
       .while_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 178);
+    assert_eq!(inner_config.len(), 179);
     let diagnostics = resolve_config(inner_config, &Default::default()).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

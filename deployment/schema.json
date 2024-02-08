@@ -868,6 +868,9 @@
     "arrayPattern.spaceAround": {
       "$ref": "#/definitions/spaceAround"
     },
+    "catchClause.spaceAround": {
+      "$ref": "#/definitions/spaceAround"
+    },
     "doWhileStatement.spaceAround": {
       "$ref": "#/definitions/spaceAround"
     },
