@@ -886,6 +886,9 @@
     "parameters.spaceAround": {
       "$ref": "#/definitions/spaceAround"
     },
+    "parenExpression.spaceAround": {
+      "$ref": "#/definitions/spaceAround"
+    },
     "switchStatement.spaceAround": {
       "$ref": "#/definitions/spaceAround"
     },
@@ -893,9 +896,6 @@
       "$ref": "#/definitions/spaceAround"
     },
     "whileStatement.spaceAround": {
-      "$ref": "#/definitions/spaceAround"
-    },
-    "parenExpression.spaceAround": {
       "$ref": "#/definitions/spaceAround"
     },
     "spaceSurroundingProperties": {

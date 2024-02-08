@@ -1032,6 +1032,10 @@ impl ConfigurationBuilder {
     self.insert("parameters.spaceAround", value.into())
   }
 
+  pub fn paren_expression_space_around(&mut self, value: bool) -> &mut Self {
+    self.insert("parenExpression.spaceAround", value.into())
+  }
+
   pub fn switch_statement_space_around(&mut self, value: bool) -> &mut Self {
     self.insert("switchStatement.spaceAround", value.into())
   }
@@ -1254,12 +1258,13 @@ mod tests {
       .for_statement_space_around(true)
       .if_statement_space_around(true)
       .parameters_space_around(true)
+      .paren_expression_space_around(true)
       .switch_statement_space_around(true)
       .tuple_type_space_around(true)
       .while_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 177);
+    assert_eq!(inner_config.len(), 178);
     let diagnostics = resolve_config(inner_config, &Default::default()).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }
