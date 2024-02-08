@@ -7273,7 +7273,7 @@ where
             Some(is_different_line && is_different_start_line_indentation)
           }),
           Signal::NewLine.into(),
-          if space_around { Signal::SpaceIfNotTrailing.into() } else { "".into() },
+          if space_around { Signal::SpaceIfNotTrailing.into() } else { PrintItems::new() },
         ));
       } else {
         let last_comma_token = nodes.last().and_then(|n| context.token_finder.get_next_token_if_comma(n));
