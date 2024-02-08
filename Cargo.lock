@@ -143,12 +143,15 @@ dependencies = [
 
 [[package]]
 name = "deno_ast"
-version = "0.32.1"
+version = "0.33.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9fdafff817ae3ad89672d54cd8daebc86dc352065ccc18691605043e6b845d00"
 dependencies = [
  "deno_media_type",
  "deno_terminal",
  "dprint-swc-ext",
  "once_cell",
+ "percent-encoding",
  "serde",
  "swc_atoms",
  "swc_common",
@@ -173,9 +176,9 @@ dependencies = [
 
 [[package]]
 name = "deno_terminal"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b847702ef57565e1417fad2291f65a3c8a5ecf2ba38d64e56f02828e7546d891"
+checksum = "7e6337d4e7f375f8b986409a76fbeecfa4bd8a1343e63355729ae4befa058eaf"
 dependencies = [
  "once_cell",
  "termcolor",
@@ -230,9 +233,9 @@ dependencies = [
 
 [[package]]
 name = "dprint-swc-ext"
-version = "0.14.0"
+version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "95ae607ac7b0028697d48372202eac96f6535a012538a2859488e47a263a5a37"
+checksum = "ebaedd46a16dd179b260a9fcb56be5780814afcb20f615eedde6acf971c9628e"
 dependencies = [
  "bumpalo",
  "num-bigint",
@@ -710,9 +713,9 @@ dependencies = [
 
 [[package]]
 name = "swc_common"
-version = "0.33.16"
+version = "0.33.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a15b8a5ec7b3c87b5c602dec00caf3dbb07fe2daaaa1d144d0c00a612e0890c"
+checksum = "095c158fe55b36faeebb4274692643a6d7cdc5b7902e1d5968ddbe52b7de1d1c"
 dependencies = [
  "ast_node",
  "better_scoped_tls",
@@ -735,9 +738,9 @@ dependencies = [
 
 [[package]]
 name = "swc_ecma_ast"
-version = "0.112.0"
+version = "0.112.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f90ae61d067206a5ff0c3a63d7d279346fa6562c08e251e32a07654f5b9fab1"
+checksum = "852a48a24a2533de88298c6b25355bc68fdee31ac21cb4fb8939b7001715353c"
 dependencies = [
  "bitflags",
  "is-macro",
@@ -753,9 +756,9 @@ dependencies = [
 
 [[package]]
 name = "swc_ecma_parser"
-version = "0.143.1"
+version = "0.143.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e799a2fffe9f74c7a10f03e77bdcbce2e2325596345718728285296a1c24337f"
+checksum = "90ff55811ed5de14b05e9a2979bae2bce3c807582f559b4325948463265307d9"
 dependencies = [
  "either",
  "new_debug_unreachable",

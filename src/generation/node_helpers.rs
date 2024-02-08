@@ -193,7 +193,7 @@ pub fn is_test_library_call_expr<'a>(node: &CallExpr<'a>, program: Program<'a>) 
         return false;
       }
       // allow something like `Deno.test("desc", (t) => {})`
-      if let Some(param) = arrow_expr.params.get(0) {
+      if let Some(param) = arrow_expr.params.first() {
         if has_surrounding_comments(param.into(), program) {
           return false;
         }
