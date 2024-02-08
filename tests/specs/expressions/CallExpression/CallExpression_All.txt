@@ -23,3 +23,13 @@ callExpr?.();
 
 [expect]
 callExpr?.();
+
+== source phase import ==
+const x = await import  .source("<specifier>");
+// not yet supported in swc
+// const y = await import.defer("<specifier>");
+
+[expect]
+const x = await import.source("<specifier>");
+// not yet supported in swc
+// const y = await import.defer("<specifier>");
