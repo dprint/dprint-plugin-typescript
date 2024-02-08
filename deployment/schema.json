@@ -889,6 +889,9 @@
     "parameters.spaceAround": {
       "$ref": "#/definitions/spaceAround"
     },
+    "parenExpression.spaceAround": {
+      "$ref": "#/definitions/spaceAround"
+    },
     "switchStatement.spaceAround": {
       "$ref": "#/definitions/spaceAround"
     },

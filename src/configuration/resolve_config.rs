@@ -316,6 +316,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     for_statement_space_around: get_value(&mut config, "forStatement.spaceAround", space_around, &mut diagnostics),
     if_statement_space_around: get_value(&mut config, "ifStatement.spaceAround", space_around, &mut diagnostics),
     parameters_space_around: get_value(&mut config, "parameters.spaceAround", space_around, &mut diagnostics),
+    paren_expression_space_around: get_value(&mut config, "parenExpression.spaceAround", space_around, &mut diagnostics),
     switch_statement_space_around: get_value(&mut config, "switchStatement.spaceAround", space_around, &mut diagnostics),
     tuple_type_space_around: get_value(&mut config, "tupleType.spaceAround", space_around, &mut diagnostics),
     while_statement_space_around: get_value(&mut config, "whileStatement.spaceAround", space_around, &mut diagnostics),

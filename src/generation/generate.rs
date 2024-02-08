@@ -180,7 +180,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       Node::BinExpr(node) => gen_binary_expr(node, context),
       Node::CallExpr(node) => gen_call_or_opt_expr(node.into(), context),
       Node::OptCall(node) => gen_call_or_opt_expr(node.into(), context),
-      Node::Import(_) => "import".into(),
+      Node::Import(node) => gen_import_callee(node, context),
       Node::ClassExpr(node) => gen_class_expr(node, context),
       Node::CondExpr(node) => gen_conditional_expr(node, context),
       Node::ExprOrSpread(node) => gen_expr_or_spread(node, context),
@@ -472,15 +472,9 @@ fn gen_auto_accessor<'a>(node: &AutoAccessor<'a>, context: &mut Context<'a>) -> 
       accessibility: node.accessibility(),
       is_abstract: false,
       is_optional: false,
-      // todo: https://github.com/swc-project/swc/issues/8344
-      is_override: node
-        .tokens_fast(context.program)
-        .iter()
-        .take_while(|t| t.start() < node.key.start())
-        .any(|t| t.span.text_fast(context.program) == "override"),
+      is_override: node.is_override(),
       readonly: false,
-      // todo: https://github.com/swc-project/swc/issues/8344
-      definite: node.type_ann.is_some() && node.key.next_token_fast(context.program).is_some_and(|t| t.token == Token::Bang),
+      definite: node.definite(),
     },
     context,
   )
@@ -1244,6 +1238,18 @@ fn gen_import_decl<'a>(node: &ImportDecl<'a>, context: &mut Context<'a>) -> Prin
     items.push_str("type ");
   }
 
+  match node.phase() {
+    ImportPhase::Evaluation => {
+      // ignore
+    }
+    ImportPhase::Source => {
+      items.push_str("source ");
+    }
+    ImportPhase::Defer => {
+      items.push_str("defer ");
+    }
+  }
+
   if let Some(default_import) = default_import {
     items.extend(gen_node(default_import.into(), context));
     if namespace_import.is_some() || has_named_imports {
@@ -1779,7 +1785,7 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
     };
 
     fn is_first_param_not_identifier_or_has_type_annotation<'a>(params: &[Pat<'a>], arrow: &ArrowSignature<'a>, program: Program<'a>) -> bool {
-      match params.get(0) {
+      match params.first() {
         Some(Pat::Ident(node)) => {
           node.type_ann.is_some() || node.id.optional() || param_has_surrounding_comments((*node).into(), program) && has_parens(arrow, program)
         }
@@ -2228,6 +2234,25 @@ fn gen_call_expr_like<'a>(node: CallExprLike<'a>, context: &mut Context<'a>) -> 
   items
 }
 
+fn gen_import_callee<'a>(node: &Import<'a>, _context: &mut Context<'a>) -> PrintItems {
+  let mut items = PrintItems::new();
+  items.push_str("import");
+  // for now, just be simple and force this on one line
+  eprintln!("NODE: {:?}", node.phase());
+  match node.phase() {
+    ImportPhase::Evaluation => {
+      // nothing to do
+    }
+    ImportPhase::Source => {
+      items.push_str(".source");
+    }
+    ImportPhase::Defer => {
+      items.push_str(".defer");
+    }
+  }
+  items
+}
+
 fn gen_class_expr<'a>(node: &ClassExpr<'a>, context: &mut Context<'a>) -> PrintItems {
   gen_class_decl_or_expr(
     ClassDeclOrExpr {
@@ -2553,7 +2578,11 @@ fn gen_fn_expr<'a>(node: &FnExpr<'a>, context: &mut Context<'a>) -> PrintItems {
   );
 
   if should_add_parens_around_expr(node.into(), context) {
-    surround_with_parens(items)
+    if context.config.paren_expression_space_around {
+      surround_with_parens(surround_with_spaces(items))
+    } else {
+      surround_with_parens(items)
+    }
   } else {
     items
   }
@@ -2722,7 +2751,11 @@ fn gen_object_lit<'a>(node: &ObjectLit<'a>, context: &mut Context<'a>) -> PrintI
   );
 
   if should_add_parens_around_expr(node.into(), context) {
-    surround_with_parens(items)
+    surround_with_parens(if context.config.paren_expression_space_around {
+      surround_with_spaces(items)
+    } else {
+      items
+    })
   } else {
     items
   }
@@ -2739,7 +2772,7 @@ fn gen_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &mut Context<'a>) -> Pri
       inner_range: node.expr.range(),
       prefer_hanging: true,
       allow_open_paren_trailing_comments: true,
-      single_line_space_around: false,
+      single_line_space_around: context.config.paren_expression_space_around,
     },
     context,
   ))
@@ -3275,7 +3308,7 @@ fn gen_index_signature<'a>(node: &TsIndexSignature<'a>, context: &mut Context<'a
     items.push_str("readonly ");
   }
 
-  let param: Node<'a> = node.params.get(0).expect("Expected the index signature to have one parameter.").into();
+  let param: Node<'a> = node.params.first().expect("Expected the index signature to have one parameter.").into();
   items.extend(gen_computed_prop_like(
     |context| gen_node(param, context),
     GenComputedPropLikeOptions {
@@ -5126,7 +5159,7 @@ fn gen_switch_case<'a>(node: &SwitchCase<'a>, context: &mut Context<'a>) -> Prin
         },
         context,
       ));
-      items.extend(gen_node(node.cons.get(0).unwrap().into(), context));
+      items.extend(gen_node(node.cons.first().unwrap().into(), context));
     } else {
       items.push_signal(Signal::NewLine);
       items.extend(ir_helpers::with_indent(gen_statements(
@@ -5143,7 +5176,7 @@ fn gen_switch_case<'a>(node: &SwitchCase<'a>, context: &mut Context<'a>) -> Prin
 
   fn get_block_stmt_body(node: &SwitchCase) -> Option<SourceRange> {
     if node.cons.len() == 1 {
-      if let Some(Stmt::Block(block_stmt)) = node.cons.get(0) {
+      if let Some(Stmt::Block(block_stmt)) = node.cons.first() {
         return Some(block_stmt.range());
       }
     }
@@ -6410,7 +6443,7 @@ fn gen_comments_between_lines_indented(start_between_pos: SourcePos, context: &m
   if !trailing_comments.is_empty() {
     items.extend(with_indent({
       let mut items = PrintItems::new();
-      if let Some(first_comment) = trailing_comments.get(0) {
+      if let Some(first_comment) = trailing_comments.first() {
         if first_comment.kind == CommentKind::Block {
           items.push_signal(Signal::SpaceIfNotTrailing);
         }
@@ -6800,7 +6833,7 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
   let space_around = opts.space_around;
   let force_use_new_lines = get_force_use_new_lines(&node.range(), &nodes, opts.prefer_single_line, context);
   let mut items = PrintItems::new();
-  let first_member = nodes.get(0).map(|x| x.range());
+  let first_member = nodes.first().map(|x| x.range());
 
   items.extend(gen_surrounded_by_tokens(
     |context| {
@@ -7265,8 +7298,11 @@ where
         items.push_info(start_ln);
         items.push_info(start_lsil);
         items.push_signal(Signal::PossibleNewLine);
+        if space_around {
+          items.push_signal(Signal::SpaceIfNotTrailing);
+        }
         items.push_condition(conditions::indent_if_start_of_line(generated_node));
-        items.push_condition(if_true(
+        items.push_condition(if_true_or(
           "isDifferentLineAndStartLineIndentation",
           Rc::new(move |context| {
             let start_ln = context.resolved_line_number(start_ln)?;
@@ -7276,6 +7312,7 @@ where
             Some(is_different_line && is_different_start_line_indentation)
           }),
           Signal::NewLine.into(),
+          if space_around { Signal::SpaceIfNotTrailing.into() } else { PrintItems::new() },
         ));
       } else {
         let last_comma_token = nodes.last().and_then(|n| context.token_finder.get_next_token_if_comma(n));
@@ -7928,7 +7965,7 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
   let force_multi_line =
     opts.force_multi_line || !opts.force_single_line && get_use_new_lines_for_nodes_with_preceeding_token("{", &opts.members, opts.prefer_single_line, context);
 
-  let first_member_range = opts.members.get(0).map(|x| x.range());
+  let first_member_range = opts.members.first().map(|x| x.range());
   let obj_range = if let (Some(open_brace_token), Some(close_brace_token)) = (open_brace_token, close_brace_token) {
     Some(SourceRange::new(open_brace_token.start(), close_brace_token.end()))
   } else {
@@ -8563,7 +8600,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
 
     fn get_body_stmt_start_line(body_node: Node, context: &mut Context) -> usize {
       if let Node::BlockStmt(body_node) = body_node {
-        if let Some(first_stmt) = body_node.stmts.get(0) {
+        if let Some(first_stmt) = body_node.stmts.first() {
           return first_stmt.start_line_fast(context.program);
         }
       }
@@ -8698,7 +8735,7 @@ fn gen_jsx_with_opening_and_closing<'a>(opts: GenJsxWithOpeningAndClosingOptions
 
     if context.config.jsx_element_prefer_single_line {
       false
-    } else if let Some(first_child) = children.get(0) {
+    } else if let Some(first_child) = children.first() {
       if let Node::JSXText(first_child) = first_child {
         if first_child.text_fast(context.program).find('\n').is_some() {
           return true;
@@ -9113,7 +9150,7 @@ struct GenBlockOptions<'a> {
 fn gen_block<'a>(gen_inner: impl FnOnce(Vec<Node<'a>>, &mut Context<'a>) -> PrintItems, opts: GenBlockOptions<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   let before_open_token_ln = LineNumber::new("after_open_token_info");
-  let first_member_range = opts.children.get(0).map(|x| x.range());
+  let first_member_range = opts.children.first().map(|x| x.range());
   let range = opts.range;
   items.push_info(before_open_token_ln);
   items.extend(gen_surrounded_by_tokens(
@@ -9354,6 +9391,14 @@ fn surround_with_parens(items: PrintItems) -> PrintItems {
   new_items.push_str("(");
   new_items.extend(items);
   new_items.push_str(")");
+  new_items
+}
+
+fn surround_with_spaces(items: PrintItems) -> PrintItems {
+  let mut new_items = PrintItems::new();
+  new_items.push_str(" ");
+  new_items.extend(items);
+  new_items.push_str(" ");
   new_items
 }
 

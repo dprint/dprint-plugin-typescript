@@ -624,6 +624,8 @@ pub struct Configuration {
   pub if_statement_space_around: bool,
   #[serde(rename = "parameters.spaceAround")]
   pub parameters_space_around: bool,
+  #[serde(rename = "parenExpression.spaceAround")]
+  pub paren_expression_space_around: bool,
   #[serde(rename = "switchStatement.spaceAround")]
   pub switch_statement_space_around: bool,
   #[serde(rename = "tupleType.spaceAround")]
