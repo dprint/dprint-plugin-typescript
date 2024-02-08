@@ -2572,7 +2572,11 @@ fn gen_fn_expr<'a>(node: &FnExpr<'a>, context: &mut Context<'a>) -> PrintItems {
   );
 
   if should_add_parens_around_expr(node.into(), context) {
-    surround_with_parens(items)
+    if context.config.paren_expression_space_around {
+      surround_with_parens(surround_with_spaces(items))
+    } else {
+      surround_with_parens(items)
+    }
   } else {
     items
   }
@@ -2741,7 +2745,11 @@ fn gen_object_lit<'a>(node: &ObjectLit<'a>, context: &mut Context<'a>) -> PrintI
   );
 
   if should_add_parens_around_expr(node.into(), context) {
-    surround_with_parens(items)
+    surround_with_parens(if context.config.paren_expression_space_around {
+      surround_with_spaces(items)
+    } else {
+      items
+    })
   } else {
     items
   }
@@ -2758,7 +2766,7 @@ fn gen_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &mut Context<'a>) -> Pri
       inner_range: node.expr.range(),
       prefer_hanging: true,
       allow_open_paren_trailing_comments: true,
-      single_line_space_around: false,
+      single_line_space_around: context.config.paren_expression_space_around,
     },
     context,
   ))
@@ -9377,6 +9385,14 @@ fn surround_with_parens(items: PrintItems) -> PrintItems {
   new_items.push_str("(");
   new_items.extend(items);
   new_items.push_str(")");
+  new_items
+}
+
+fn surround_with_spaces(items: PrintItems) -> PrintItems {
+  let mut new_items = PrintItems::new();
+  new_items.push_str(" ");
+  new_items.extend(items);
+  new_items.push_str(" ");
   new_items
 }
 
