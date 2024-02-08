@@ -3,6 +3,7 @@ use anyhow::bail;
 use anyhow::Result;
 use deno_ast::swc::parser::error::SyntaxError;
 use deno_ast::swc::parser::Syntax;
+use deno_ast::ModuleSpecifier;
 use deno_ast::ParsedSource;
 use deno_ast::SourceTextInfo;
 use std::path::Path;
@@ -41,7 +42,7 @@ fn parse_inner_no_diagnostic_check(file_path: &Path, text_info: SourceTextInfo) 
     es.decorators = true;
   }
   deno_ast::parse_program(deno_ast::ParseParams {
-    specifier: file_path.to_string_lossy().to_string(),
+    specifier: path_to_specifier(file_path)?,
     capture_tokens: true,
     maybe_syntax: Some(syntax),
     media_type,
@@ -49,6 +50,55 @@ fn parse_inner_no_diagnostic_check(file_path: &Path, text_info: SourceTextInfo) 
     text_info,
   })
   .map_err(|diagnostic| anyhow!("{:#}", &diagnostic))
+}
+
+fn path_to_specifier(path: &Path) -> Result<ModuleSpecifier> {
+  if let Some(specifier) = from_file_path(path) {
+    Ok(specifier)
+  } else if let Some(file_name) = path.file_name() {
+    match ModuleSpecifier::parse(&format!("file:///{}", file_name.to_string_lossy())) {
+      Ok(specifier) => Ok(specifier),
+      Err(err) => bail!("could not convert path to specifier: '{}', error: {:#}", path.display(), err),
+    }
+  } else {
+    bail!("could not convert path to specifier: '{}'", path.display())
+  }
+}
+
+fn from_file_path(path: &Path) -> Option<ModuleSpecifier> {
+  #[cfg(target_arch = "wasm32")]
+  {
+    from_file_path_wasm(path)
+  }
+  #[cfg(not(target_arch = "wasm32"))]
+  {
+    ModuleSpecifier::from_file_path(path).ok()
+  }
+}
+
+#[allow(unused)]
+#[cfg(any(target_arch = "wasm32", test))]
+fn from_file_path_wasm(path: &Path) -> Option<ModuleSpecifier> {
+  // being lazy because this doesn't need to be exactly correct
+  let mut parts = Vec::new();
+  for component in path.components() {
+    match component {
+      std::path::Component::Prefix(prefix) => {
+        let prefix = prefix.as_os_str().to_string_lossy();
+        parts.push(percent_encoding::utf8_percent_encode(&prefix.to_string(), percent_encoding::CONTROLS).to_string());
+      }
+      std::path::Component::RootDir => {
+        // ignore
+      }
+      std::path::Component::CurDir | std::path::Component::ParentDir => {
+        return None;
+      }
+      std::path::Component::Normal(part) => {
+        parts.push(percent_encoding::percent_encode(part.as_encoded_bytes(), percent_encoding::CONTROLS).to_string());
+      }
+    }
+  }
+  ModuleSpecifier::parse(&format!("file:///{}", parts.join("/"))).ok()
 }
 
 pub fn ensure_no_specific_syntax_errors(parsed_source: &ParsedSource) -> Result<()> {
@@ -109,11 +159,22 @@ mod tests {
   use std::path::PathBuf;
 
   #[test]
+  fn test_from_file_path_wasm() {
+    fn run_test(path: &str, expected: Option<&str>) {
+      let actual = from_file_path_wasm(&PathBuf::from(path));
+      assert_eq!(actual.as_ref().map(|d| d.as_str()), expected);
+    }
+
+    run_test("C:\\Users\\user\\file.ts", Some("file:///C:/Users/user/file.ts"));
+    run_test("/file/other.ts", Some("file:///file/other.ts"));
+  }
+
+  #[test]
   fn should_error_on_syntax_diagnostic() {
     run_fatal_diagnostic_test(
       "./test.ts",
       "test;\nas#;",
-      concat!("Expected ';', '}' or <eof> at ./test.ts:2:3\n", "\n", "  as#;\n", "    ~"),
+      concat!("Expected ';', '}' or <eof> at file:///test.ts:2:3\n", "\n", "  as#;\n", "    ~"),
     );
   }
 
@@ -125,7 +186,7 @@ mod tests {
       "+value.",
       concat!(
         // comment to keep this multi-line
-        "Unexpected eof at ./test.ts:1:8\n\n",
+        "Unexpected eof at file:///test.ts:1:8\n\n",
         "  +value.\n",
         "         ~"
       ),
@@ -138,7 +199,7 @@ mod tests {
     run_fatal_diagnostic_test(
       "./test.ts",
       "+value.;",
-      concat!("Expected ident at ./test.ts:1:8\n\n", "  +value.;\n", "         ~"),
+      concat!("Expected ident at file:///test.ts:1:8\n\n", "  +value.;\n", "         ~"),
     );
   }
 
@@ -151,7 +212,7 @@ mod tests {
         r#"console.log('x', `duration ${d} not in range - ${min} ≥ ${d} && ${max} ≥ ${d}`),;"#,
       ),
       concat!(
-        "Expression expected at ./test.ts:2:81\n",
+        "Expression expected at file:///test.ts:2:81\n",
         "\n",
         "  console.log('x', `duration ${d} not in range - ${min} ≥ ${d} && ${max} ≥ ${d}`),;\n",
         "                                                                                  ~",
@@ -170,7 +231,7 @@ mod tests {
     }
 };"#,
       concat!(
-        "An arrow function is not allowed here at ./test.ts:1:27\n",
+        "An arrow function is not allowed here at file:///test.ts:1:27\n",
         "\n",
         "  const foo = <T extends {}>() => {\n",
         "                            ~~"
@@ -188,7 +249,12 @@ mod tests {
     run_non_fatal_diagnostic_test(
       "./test.ts",
       "const Methods {\nf: (x, y) => x + y,\n};",
-      concat!("Expected a semicolon at ./test.ts:1:15\n", "\n", "  const Methods {\n", "                ~"),
+      concat!(
+        "Expected a semicolon at file:///test.ts:1:15\n",
+        "\n",
+        "  const Methods {\n",
+        "                ~"
+      ),
     );
   }
 
@@ -198,7 +264,7 @@ mod tests {
       "./test.ts",
       "let a = 0, let b = 1;",
       concat!(
-        "Expected a semicolon at ./test.ts:1:16\n",
+        "Expected a semicolon at file:///test.ts:1:16\n",
         "\n",
         "  let a = 0, let b = 1;\n",
         "                 ~"
@@ -211,7 +277,7 @@ mod tests {
     run_non_fatal_diagnostic_test(
       "./test.ts",
       "type T =\n  | unknown\n  { } & unknown;",
-      concat!("Expression expected at ./test.ts:3:7\n\n", "    { } & unknown;\n", "        ~"),
+      concat!("Expression expected at file:///test.ts:3:7\n\n", "    { } & unknown;\n", "        ~"),
     );
   }
 
@@ -223,7 +289,7 @@ mod tests {
     run_non_fatal_diagnostic_test(
       "./test.ts",
       "class Test {",
-      concat!("Expected '}', got '<eof>' at ./test.ts:1:12\n\n", "  class Test {\n", "             ~"),
+      concat!("Expected '}', got '<eof>' at file:///test.ts:1:12\n\n", "  class Test {\n", "             ~"),
     );
   }
 
@@ -239,17 +305,17 @@ mod tests {
 >>>>>>> Branch-a
 }
 "#,
-      r#"Merge conflict marker encountered. at ./test.ts:2:1
+      r#"Merge conflict marker encountered. at file:///test.ts:2:1
 
   <<<<<<< HEAD
   ~~~~~~~
 
-Merge conflict marker encountered. at ./test.ts:4:1
+Merge conflict marker encountered. at file:///test.ts:4:1
 
   =======
   ~~~~~~~
 
-Merge conflict marker encountered. at ./test.ts:6:1
+Merge conflict marker encountered. at file:///test.ts:6:1
 
   >>>>>>> Branch-a
   ~~~~~~~"#,
