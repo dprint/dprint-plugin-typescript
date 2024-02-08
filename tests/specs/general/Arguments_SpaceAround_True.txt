@@ -5,6 +5,8 @@ testing(1, 2, 3);
 testing({a: 5});
 testing({abcdefghijklmnop: true, bcdefg: false});
 testing(123456, 123456, 123456, 123456);
+then(() => ({abcdefghijklmnop: true, bcdefg: false}));
+then(() => done());
 
 [expect]
 testing( true );
@@ -20,6 +22,11 @@ testing(
     123456,
     123456,
 );
+then( () => ({
+    abcdefghijklmnop: true,
+    bcdefg: false,
+}) );
+then( () => done() );
 
 == should not add spaces on empty arguments ==
 testing()
@@ -28,3 +35,17 @@ testing() === true;
 [expect]
 testing();
 testing() === true;
+
+== should not add spaces when indented ==
+function test() {
+    then( () =>
+        abcdefghijklmnop()
+     );
+}
+
+[expect]
+function test() {
+    then( () =>
+        abcdefghijklmnop()
+    );
+}
