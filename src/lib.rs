@@ -7,6 +7,8 @@
 #![allow(clippy::needless_lifetimes)] // todo: enable this in the future
 #![deny(clippy::disallowed_methods)]
 #![deny(clippy::disallowed_types)]
+#![deny(clippy::print_stderr)]
+#![deny(clippy::print_stdout)]
 
 pub mod configuration;
 mod format_text;
