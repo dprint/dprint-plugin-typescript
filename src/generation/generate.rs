@@ -2238,7 +2238,6 @@ fn gen_import_callee<'a>(node: &Import<'a>, _context: &mut Context<'a>) -> Print
   let mut items = PrintItems::new();
   items.push_str("import");
   // for now, just be simple and force this on one line
-  eprintln!("NODE: {:?}", node.phase());
   match node.phase() {
     ImportPhase::Evaluation => {
       // nothing to do
