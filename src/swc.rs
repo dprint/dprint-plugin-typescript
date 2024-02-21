@@ -85,7 +85,7 @@ fn from_file_path_wasm(path: &Path) -> Option<ModuleSpecifier> {
     match component {
       std::path::Component::Prefix(prefix) => {
         let prefix = prefix.as_os_str().to_string_lossy();
-        parts.push(percent_encoding::utf8_percent_encode(&prefix.to_string(), percent_encoding::CONTROLS).to_string());
+        parts.push(percent_encoding::utf8_percent_encode(prefix.as_ref(), percent_encoding::CONTROLS).to_string());
       }
       std::path::Component::RootDir => {
         // ignore

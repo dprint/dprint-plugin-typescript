@@ -335,11 +335,11 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
     // decorators in these cases will have starts before their parent so they need to be handled specially
     if let Node::ExportDecl(decl) = node {
       if let Decl::Class(class_decl) = &decl.decl {
-        items.extend(gen_decorators(&class_decl.class.decorators, false, context));
+        items.extend(gen_decorators(class_decl.class.decorators, false, context));
       }
     } else if let Node::ExportDefaultDecl(decl) = node {
       if let DefaultDecl::Class(class_expr) = &decl.decl {
-        items.extend(gen_decorators(&class_expr.class.decorators, false, context));
+        items.extend(gen_decorators(class_expr.class.decorators, false, context));
       }
     }
 
@@ -386,8 +386,8 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
 
 fn get_has_ignore_comment<'a>(leading_comments: &CommentsIterator<'a>, node: Node<'a>, context: &mut Context<'a>) -> bool {
   let comments = match node.parent() {
-    Some(Node::JSXElement(jsx_element)) => get_comments_for_jsx_children(&jsx_element.children, &node.start(), context),
-    Some(Node::JSXFragment(jsx_fragment)) => get_comments_for_jsx_children(&jsx_fragment.children, &node.start(), context),
+    Some(Node::JSXElement(jsx_element)) => get_comments_for_jsx_children(jsx_element.children, &node.start(), context),
+    Some(Node::JSXFragment(jsx_fragment)) => get_comments_for_jsx_children(jsx_fragment.children, &node.start(), context),
     _ => leading_comments.clone(),
   };
 
@@ -465,7 +465,7 @@ fn gen_auto_accessor<'a>(node: &AutoAccessor<'a>, context: &mut Context<'a>) -> 
       value: node.value,
       type_ann: node.type_ann,
       is_static: node.is_static(),
-      decorators: &node.decorators,
+      decorators: node.decorators,
       computed: false,
       is_auto_accessor: true,
       is_declare: false,
@@ -560,7 +560,7 @@ fn gen_decorator<'a>(node: &Decorator<'a>, context: &mut Context<'a>) -> PrintIt
 
 fn gen_parameter_prop<'a>(node: &TsParamProp<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(gen_decorators(&node.decorators, true, context));
+  items.extend(gen_decorators(node.decorators, true, context));
   if let Some(accessibility) = node.accessibility() {
     items.push_string(format!("{} ", accessibility_to_str(accessibility)));
   }
@@ -1197,7 +1197,7 @@ fn gen_function_decl_or_expr<'a>(node: FunctionDeclOrExprNode<'a>, context: &mut
 
 fn gen_param<'a>(node: &Param<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(gen_decorators(&node.decorators, true, context));
+  items.extend(gen_decorators(node.decorators, true, context));
   items.extend(gen_node(node.pat.into(), context));
   items
 }
@@ -1451,7 +1451,7 @@ fn gen_using_decl<'a>(node: &UsingDecl<'a>, context: &mut Context<'a>) -> PrintI
   }
   items.push_str("using ");
 
-  items.extend(gen_var_declarators(node.into(), &node.decls, context));
+  items.extend(gen_var_declarators(node.into(), node.decls, context));
 
   if context.config.semi_colons.is_true() {
     items.push_str(";");
@@ -2167,7 +2167,7 @@ fn gen_call_or_opt_expr<'a>(node: CallOrOptCallExpr<'a>, context: &mut Context<'
   fn gen_test_library_call_expr<'a>(node: &CallExpr<'a>, context: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
     items.extend(gen_test_library_callee(&node.callee, context));
-    items.extend(gen_test_library_arguments(&node.args, context));
+    items.extend(gen_test_library_arguments(node.args, context));
     return items;
 
     fn gen_test_library_callee<'a, 'b>(callee: &'b Callee<'a>, context: &mut Context<'a>) -> PrintItems {
