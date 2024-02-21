@@ -5313,7 +5313,7 @@ fn gen_var_decl<'a>(node: &VarDecl<'a>, context: &mut Context<'a>) -> PrintItems
     VarDeclKind::Var => "var ",
   });
 
-  items.extend(gen_var_declarators(node.into(), &node.decls, context));
+  items.extend(gen_var_declarators(node.into(), node.decls, context));
 
   if requires_semi_colon(node, context) {
     items.push_str(";");
@@ -6196,7 +6196,7 @@ fn gen_union_type<'a>(node: &TsUnionType<'a>, context: &mut Context<'a>) -> Prin
   gen_union_or_intersection_type(
     UnionOrIntersectionType {
       node: node.into(),
-      types: &node.types,
+      types: node.types,
       is_union: true,
     },
     context,
