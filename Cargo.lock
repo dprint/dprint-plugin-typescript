@@ -37,6 +37,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "allocator-api2"
+version = "0.2.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0942ffc6dcaadf03badf6e6a2d0228460359d5e34b57ccdc720b7382dfbd5ec5"
+
+[[package]]
 name = "anyhow"
 version = "1.0.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -95,6 +101,9 @@ name = "bumpalo"
 version = "3.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f30e7476521f6f8af1a1c4c0b8cc94f0bee37d91763d0ca2665f299b6cd8aec"
+dependencies = [
+ "allocator-api2",
+]
 
 [[package]]
 name = "cc"
@@ -143,9 +152,9 @@ dependencies = [
 
 [[package]]
 name = "deno_ast"
-version = "0.33.2"
+version = "0.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9fdafff817ae3ad89672d54cd8daebc86dc352065ccc18691605043e6b845d00"
+checksum = "84b28da6d573c30a63e4a6b66b91fa32773ed2cf4c0f26aa19b91f6c542b1a57"
 dependencies = [
  "deno_media_type",
  "deno_terminal",
@@ -234,10 +243,11 @@ dependencies = [
 
 [[package]]
 name = "dprint-swc-ext"
-version = "0.14.1"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebaedd46a16dd179b260a9fcb56be5780814afcb20f615eedde6acf971c9628e"
+checksum = "8fcd02c378803dba687471a9f1f1b758c33e53f616333faaddbaeb8840d9b6dd"
 dependencies = [
+ "allocator-api2",
  "bumpalo",
  "num-bigint",
  "rustc-hash",
