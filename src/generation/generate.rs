@@ -335,11 +335,11 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
     // decorators in these cases will have starts before their parent so they need to be handled specially
     if let Node::ExportDecl(decl) = node {
       if let Decl::Class(class_decl) = &decl.decl {
-        items.extend(gen_decorators(&class_decl.class.decorators, false, context));
+        items.extend(gen_decorators(class_decl.class.decorators, false, context));
       }
     } else if let Node::ExportDefaultDecl(decl) = node {
       if let DefaultDecl::Class(class_expr) = &decl.decl {
-        items.extend(gen_decorators(&class_expr.class.decorators, false, context));
+        items.extend(gen_decorators(class_expr.class.decorators, false, context));
       }
     }
 
@@ -386,8 +386,8 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
 
 fn get_has_ignore_comment<'a>(leading_comments: &CommentsIterator<'a>, node: Node<'a>, context: &mut Context<'a>) -> bool {
   let comments = match node.parent() {
-    Some(Node::JSXElement(jsx_element)) => get_comments_for_jsx_children(&jsx_element.children, &node.start(), context),
-    Some(Node::JSXFragment(jsx_fragment)) => get_comments_for_jsx_children(&jsx_fragment.children, &node.start(), context),
+    Some(Node::JSXElement(jsx_element)) => get_comments_for_jsx_children(jsx_element.children, &node.start(), context),
+    Some(Node::JSXFragment(jsx_fragment)) => get_comments_for_jsx_children(jsx_fragment.children, &node.start(), context),
     _ => leading_comments.clone(),
   };
 
@@ -438,7 +438,7 @@ fn gen_class_method<'a>(node: &'a ClassMethod<'a>, context: &mut Context<'a>) ->
     ClassOrObjectMethod {
       node: node.into(),
       parameters_range: node.get_parameters_range(context),
-      decorators: Some(&node.function.decorators),
+      decorators: Some(node.function.decorators),
       accessibility: node.accessibility(),
       is_static: node.is_static(),
       is_async: node.function.is_async(),
@@ -465,7 +465,7 @@ fn gen_auto_accessor<'a>(node: &AutoAccessor<'a>, context: &mut Context<'a>) -> 
       value: node.value,
       type_ann: node.type_ann,
       is_static: node.is_static(),
-      decorators: &node.decorators,
+      decorators: node.decorators,
       computed: false,
       is_auto_accessor: true,
       is_declare: false,
@@ -485,7 +485,7 @@ fn gen_private_method<'a>(node: &PrivateMethod<'a>, context: &mut Context<'a>) -
     ClassOrObjectMethod {
       node: node.into(),
       parameters_range: node.get_parameters_range(context),
-      decorators: Some(&node.function.decorators),
+      decorators: Some(node.function.decorators),
       accessibility: node.accessibility(),
       is_static: node.is_static(),
       is_async: node.function.is_async(),
@@ -512,7 +512,7 @@ fn gen_class_prop<'a>(node: &ClassProp<'a>, context: &mut Context<'a>) -> PrintI
       value: node.value,
       type_ann: node.type_ann,
       is_static: node.is_static(),
-      decorators: &node.decorators,
+      decorators: node.decorators,
       computed: matches!(node.key, PropName::Computed(_)),
       is_auto_accessor: false,
       is_declare: node.declare(),
@@ -560,7 +560,7 @@ fn gen_decorator<'a>(node: &Decorator<'a>, context: &mut Context<'a>) -> PrintIt
 
 fn gen_parameter_prop<'a>(node: &TsParamProp<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(gen_decorators(&node.decorators, true, context));
+  items.extend(gen_decorators(node.decorators, true, context));
   if let Some(accessibility) = node.accessibility() {
     items.push_string(format!("{} ", accessibility_to_str(accessibility)));
   }
@@ -589,7 +589,7 @@ fn gen_private_prop<'a>(node: &PrivateProp<'a>, context: &mut Context<'a>) -> Pr
       value: node.value,
       type_ann: node.type_ann,
       is_static: node.is_static(),
-      decorators: &node.decorators,
+      decorators: node.decorators,
       computed: false,
       is_auto_accessor: false,
       is_declare: false,
@@ -610,7 +610,7 @@ struct GenClassPropCommon<'a, 'b> {
   pub value: Option<Expr<'a>>,
   pub type_ann: Option<&'a TsTypeAnn<'a>>,
   pub is_static: bool,
-  pub decorators: &'b Vec<&'a Decorator<'a>>,
+  pub decorators: &'b [&'a Decorator<'a>],
   pub computed: bool,
   pub is_declare: bool,
   pub accessibility: Option<Accessibility>,
@@ -805,7 +805,7 @@ fn gen_class_decl<'a>(node: &ClassDecl<'a>, context: &mut Context<'a>) -> PrintI
     ClassDeclOrExpr {
       node: node.into(),
       member_node: node.class.into(),
-      decorators: &node.class.decorators,
+      decorators: node.class.decorators,
       is_class_expr: false,
       is_declare: node.declare(),
       is_abstract: node.class.is_abstract(),
@@ -824,7 +824,7 @@ fn gen_class_decl<'a>(node: &ClassDecl<'a>, context: &mut Context<'a>) -> PrintI
 struct ClassDeclOrExpr<'a> {
   node: Node<'a>,
   member_node: Node<'a>,
-  decorators: &'a Vec<&'a Decorator<'a>>,
+  decorators: &'a [&'a Decorator<'a>],
   is_class_expr: bool,
   is_declare: bool,
   is_abstract: bool,
@@ -1023,7 +1023,7 @@ fn gen_export_named_decl<'a>(node: &NamedExport<'a>, context: &mut Context<'a>) 
   let mut namespace_export: Option<&ExportNamespaceSpecifier> = None;
   let mut named_exports: Vec<&ExportNamedSpecifier> = Vec::new();
 
-  for specifier in &node.specifiers {
+  for specifier in node.specifiers {
     match specifier {
       ExportSpecifier::Default(node) => default_export = Some(node),
       ExportSpecifier::Namespace(node) => namespace_export = Some(node),
@@ -1197,7 +1197,7 @@ fn gen_function_decl_or_expr<'a>(node: FunctionDeclOrExprNode<'a>, context: &mut
 
 fn gen_param<'a>(node: &Param<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(gen_decorators(&node.decorators, true, context));
+  items.extend(gen_decorators(node.decorators, true, context));
   items.extend(gen_node(node.pat.into(), context));
   items
 }
@@ -1208,7 +1208,7 @@ fn gen_import_decl<'a>(node: &ImportDecl<'a>, context: &mut Context<'a>) -> Prin
   let mut namespace_import: Option<&ImportStarAsSpecifier> = None;
   let mut named_imports: Vec<&ImportNamedSpecifier> = Vec::new();
 
-  for specifier in &node.specifiers {
+  for specifier in node.specifiers {
     match specifier {
       ImportSpecifier::Default(node) => default_import = Some(node),
       ImportSpecifier::Namespace(node) => namespace_import = Some(node),
@@ -1451,7 +1451,7 @@ fn gen_using_decl<'a>(node: &UsingDecl<'a>, context: &mut Context<'a>) -> PrintI
   }
   items.push_str("using ");
 
-  items.extend(gen_var_declarators(node.into(), &node.decls, context));
+  items.extend(gen_var_declarators(node.into(), node.decls, context));
 
   if context.config.semi_colons.is_true() {
     items.push_str(";");
@@ -2167,7 +2167,7 @@ fn gen_call_or_opt_expr<'a>(node: CallOrOptCallExpr<'a>, context: &mut Context<'
   fn gen_test_library_call_expr<'a>(node: &CallExpr<'a>, context: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
     items.extend(gen_test_library_callee(&node.callee, context));
-    items.extend(gen_test_library_arguments(&node.args, context));
+    items.extend(gen_test_library_arguments(node.args, context));
     return items;
 
     fn gen_test_library_callee<'a, 'b>(callee: &'b Callee<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -2257,7 +2257,7 @@ fn gen_class_expr<'a>(node: &ClassExpr<'a>, context: &mut Context<'a>) -> PrintI
     ClassDeclOrExpr {
       node: node.into(),
       member_node: node.class.into(),
-      decorators: &node.class.decorators,
+      decorators: node.class.decorators,
       is_class_expr: true,
       is_declare: false,
       is_abstract: node.class.is_abstract(),
@@ -4310,7 +4310,7 @@ fn gen_method_prop<'a>(node: &MethodProp<'a>, context: &mut Context<'a>) -> Prin
 struct ClassOrObjectMethod<'a> {
   node: Node<'a>,
   parameters_range: Option<SourceRange>,
-  decorators: Option<&'a Vec<&'a Decorator<'a>>>,
+  decorators: Option<&'a [&'a Decorator<'a>]>,
   accessibility: Option<Accessibility>,
   is_static: bool,
   is_async: bool,
@@ -5313,7 +5313,7 @@ fn gen_var_decl<'a>(node: &VarDecl<'a>, context: &mut Context<'a>) -> PrintItems
     VarDeclKind::Var => "var ",
   });
 
-  items.extend(gen_var_declarators(node.into(), &node.decls, context));
+  items.extend(gen_var_declarators(node.into(), node.decls, context));
 
   if requires_semi_colon(node, context) {
     items.push_str(";");
@@ -5812,7 +5812,7 @@ fn gen_intersection_type<'a>(node: &TsIntersectionType<'a>, context: &mut Contex
   gen_union_or_intersection_type(
     UnionOrIntersectionType {
       node: node.into(),
-      types: &node.types,
+      types: node.types,
       is_union: false,
     },
     context,
@@ -6196,7 +6196,7 @@ fn gen_union_type<'a>(node: &TsUnionType<'a>, context: &mut Context<'a>) -> Prin
   gen_union_or_intersection_type(
     UnionOrIntersectionType {
       node: node.into(),
-      types: &node.types,
+      types: node.types,
       is_union: true,
     },
     context,
@@ -6205,7 +6205,7 @@ fn gen_union_type<'a>(node: &TsUnionType<'a>, context: &mut Context<'a>) -> Prin
 
 struct UnionOrIntersectionType<'a, 'b> {
   pub node: Node<'a>,
-  pub types: &'b Vec<TsType<'a>>,
+  pub types: &'b [TsType<'a>],
   pub is_union: bool,
 }
 

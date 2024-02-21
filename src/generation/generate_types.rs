@@ -405,10 +405,10 @@ impl<'a> CallOrOptCallExpr<'a> {
     }
   }
 
-  pub fn args(&self) -> &Vec<&'a ExprOrSpread<'a>> {
+  pub fn args(&self) -> &[&'a ExprOrSpread<'a>] {
     match self {
-      Self::CallExpr(node) => &node.args,
-      Self::OptCall(node) => &node.args,
+      Self::CallExpr(node) => node.args,
+      Self::OptCall(node) => node.args,
     }
   }
 

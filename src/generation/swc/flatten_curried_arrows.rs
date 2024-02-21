@@ -30,8 +30,8 @@ impl<'a> ArrowSignature<'a> {
     self.inner.is_async()
   }
 
-  pub fn params(&self) -> &Vec<Pat<'a>> {
-    &self.inner.params
+  pub fn params(&self) -> &[Pat<'a>] {
+    self.inner.params
   }
 
   pub fn type_params(&self) -> Option<&'a TsTypeParamDecl<'a>> {
