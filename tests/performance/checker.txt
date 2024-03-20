@@ -1311,7 +1311,7 @@ namespace ts {
                     return !isImmediatelyUsedInInitializerOfBlockScopedVariable(declaration as VariableDeclaration, usage);
                 }
                 else if (isClassDeclaration(declaration)) {
-                    // still might be illegal if the usage is within a computed property name in the class (eg class A { static p = "a"; [A.p]() {} })
+                    // still might be illegal if the usage is within a computed property name in the class (eg class A { static p = "a"; [A.p]() {}})
                     return !findAncestor(usage, n => isComputedPropertyName(n) && n.parent.parent === declaration);
                 }
                 else if (isPropertyDeclaration(declaration)) {
@@ -2676,7 +2676,7 @@ namespace ts {
          * 1. For prototype-property methods like `A.prototype.m = function () ...`, try to resolve names in the scope of `A` too.
          * Note that prototype-property assignment to locations outside the current file (eg globals) doesn't work, so
          * name resolution won't work either.
-         * 2. For property assignments like `{ x: function f () { } }`, try to resolve names in the scope of `f` too.
+         * 2. For property assignments like `{ x: function f () { }}`, try to resolve names in the scope of `f` too.
          */
         function resolveEntityNameFromAssignmentDeclaration(name: Identifier, meaning: SymbolFlags) {
             if (isJSDocTypeReference(name.parent)) {
@@ -2705,7 +2705,7 @@ namespace ts {
             if ((isObjectLiteralMethod(host) || isPropertyAssignment(host)) &&
                 isBinaryExpression(host.parent.parent) &&
                 getAssignmentDeclarationKind(host.parent.parent) === AssignmentDeclarationKind.Prototype) {
-                // X.prototype = { /** @param {K} p */m() { } } <-- look for K on X's declaration
+                // X.prototype = { /** @param {K} p */m() { }} <-- look for K on X's declaration
                 const symbol = getSymbolOfNode(host.parent.parent.left);
                 if (symbol) {
                     return getDeclarationOfJSPrototypeContainer(symbol);
@@ -5868,7 +5868,7 @@ namespace ts {
                     // If the target resolves and resolves to a thing defined in this file, emit as an alias, otherwise emit as a const
                     if (target && length(target.declarations) && some(target.declarations, d => getSourceFileOfNode(d) === getSourceFileOfNode(enclosingDeclaration))) {
                         // In case `target` refers to a namespace member, look at the declaration and serialize the leftmost symbol in it
-                        // eg, `namespace A { export class B {} }; exports = A.B;`
+                        // eg, `namespace A { export class B {}}; exports = A.B;`
                         // Technically, this is all that's required in the case where the assignment is an entity name expression
                         const expr = isExportAssignment ? getExportAssignmentExpression(aliasDecl as ExportAssignment | BinaryExpression) : getPropertyAssignmentAliasLikeExpression(aliasDecl as ShorthandPropertyAssignment | PropertyAssignment | PropertyAccessExpression);
                         const first = isEntityNameExpression(expr) ? getFirstNonModuleExportsIdentifier(expr) : undefined;
@@ -12321,7 +12321,7 @@ namespace ts {
             }
             type[cache] = circularConstraintType;
             // We recursively simplify the object type as it may in turn be an indexed access type. For example, with
-            // '{ [P in T]: { [Q in U]: number } }[T][U]' we want to first simplify the inner indexed access type.
+            // '{ [P in T]: { [Q in U]: number }}[T][U]' we want to first simplify the inner indexed access type.
             const objectType = getSimplifiedType(type.objectType, writing);
             const indexType = getSimplifiedType(type.indexType, writing);
             // T[A | B] -> T[A] | T[B] (reading)

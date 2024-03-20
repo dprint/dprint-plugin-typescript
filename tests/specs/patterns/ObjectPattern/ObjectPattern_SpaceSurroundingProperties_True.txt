@@ -1,0 +1,30 @@
+~~ objectPattern.spaceSurroundingProperties: true ~~
+== should format ==
+const { v: other } = obj;
+
+[expect]
+const { v: other } = obj;
+
+== should format ==
+const { t=5, u=4, v: other } = obj;
+
+[expect]
+const { t = 5, u = 4, v: other } = obj;
+
+== should format ==
+const t = {...obj};
+
+[expect]
+const t = { ...obj };
+
+== should format ==
+const {aa, bb:{cc, dd:{ee, ff}}} = obj;
+
+[expect]
+const { aa, bb: { cc, dd: { ee, ff }}} = obj;
+
+== should format ==
+const {aa, bb:[{cc}]} = obj;
+
+[expect]
+const { aa, bb: [{ cc }]} = obj;
