@@ -7985,9 +7985,9 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
 
   let space_at_start = opts.surround_single_line_with_spaces;
   let space_at_end = if let Some(last) = opts.members.last() {
-    space_at_start && !matches!(last.tokens().last().unwrap().token,  Token::RBrace | Token::RBracket)
+    space_at_start && last.tokens().last().unwrap().token != Token::RBrace
   } else {
-    space_at_start
+    false
   };
 
   items.extend(gen_surrounded_by_tokens(

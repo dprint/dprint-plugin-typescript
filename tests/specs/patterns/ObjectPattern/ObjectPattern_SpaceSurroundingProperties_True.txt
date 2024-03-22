@@ -27,4 +27,10 @@ const { aa, bb: { cc, dd: { ee, ff }}} = obj;
 const {aa, bb:[{cc}]} = obj;
 
 [expect]
-const { aa, bb: [{ cc }]} = obj;
+const { aa, bb: [{ cc }] } = obj;
+
+== should format ==
+const aa = {aa: obj[bb]};
+
+[expect]
+const aa = { aa: obj[bb] };
