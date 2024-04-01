@@ -1,4 +1,4 @@
-~~ importDeclaration.forceMultiLine: true, lineWidth: 40 ~~
+~~ importDeclaration.forceMultiLine: always, lineWidth: 40 ~~
 == should always add a new line between ==
 import { testing, a, b, c, d, e } from "./test.ts";
 import { testing, a, b, c, d, e // test
