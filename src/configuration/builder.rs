@@ -1220,8 +1220,8 @@ mod tests {
       .export_declaration_force_single_line(true)
       .import_declaration_force_single_line(true)
       /* force multi line specifiers */
-      .export_declaration_force_multi_line(ForceMultiLine::Never)
-      .import_declaration_force_multi_line(ForceMultiLine::Never)
+      .export_declaration_force_multi_line(ForceMultiLine::Always)
+      .import_declaration_force_multi_line(ForceMultiLine::Always)
       /* space settings */
       .binary_expression_space_surrounding_bitwise_and_arithmetic_operator(true)
       .comment_line_force_space_after_slashes(false)
