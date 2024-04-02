@@ -1,0 +1,81 @@
+~~ exportDeclaration.forceMultiLine: always, lineWidth: 40 ~~
+== should always add a new line between exports ==
+export { testing, a, b, c, d, e } from "./test.ts";
+export { testing, a, b, c, d, e // test
+} from "./test.ts";
+export { a, b, c, d, e /* this is ok though testing testing */ } from "./test.ts";
+export { a, b, c, d, e /* and
+not ok */ } from "./test.ts";
+
+[expect]
+export {
+    a,
+    b,
+    c,
+    d,
+    e,
+    testing,
+} from "./test.ts";
+export {
+    a,
+    b,
+    c,
+    d,
+    e, // test
+    testing,
+} from "./test.ts";
+export {
+    a,
+    b,
+    c,
+    d,
+    e, /* this is ok though testing testing */
+} from "./test.ts";
+export {
+    a,
+    b,
+    c,
+    d,
+    e, /* and
+not ok */
+} from "./test.ts";
+
+== should not collapse a multi-line one ==
+export {
+
+  a,
+
+  b,
+  c,
+  /* testing */
+  d,
+} from "./test.ts";
+export {
+  a,
+  b,
+  c,
+  d,
+} from "./test.ts";
+
+[expect]
+export {
+    a,
+    b,
+    c,
+    /* testing */
+    d,
+} from "./test.ts";
+export {
+    a,
+    b,
+    c,
+    d,
+} from "./test.ts";
+
+== should make a single export multi-line ==
+export { a } from "./test.ts";
+
+[expect]
+export {
+    a,
+} from "./test.ts";

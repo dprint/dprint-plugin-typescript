@@ -1033,10 +1033,16 @@ fn gen_export_named_decl<'a>(node: &NamedExport<'a>, context: &mut Context<'a>) 
   }
 
   let force_single_line = context.config.export_declaration_force_single_line && !contains_line_or_multiline_comment(node.into(), context.program);
+
+  let force_multi_line = !force_single_line
+    && ((context.config.export_declaration_force_multi_line == ForceMultiLine::Always)
+      || (named_exports.len() > 1 && context.config.export_declaration_force_multi_line == ForceMultiLine::OnlyWhenMultiple));
+
   let should_single_line = force_single_line
     || (default_export.is_none()
       && namespace_export.is_none()
-      && (named_exports.len() <= 1 && !context.config.export_declaration_force_multi_line)
+      && !force_multi_line
+      && (named_exports.len() <= 1 && context.config.export_declaration_force_multi_line == ForceMultiLine::Never)
       && node.start_line_fast(context.program) == node.end_line_fast(context.program));
 
   // generate
@@ -1055,7 +1061,7 @@ fn gen_export_named_decl<'a>(node: &NamedExport<'a>, context: &mut Context<'a>) 
         parent: node.into(),
         specifiers: named_exports.into_iter().map(|x| x.into()).collect(),
         force_single_line,
-        force_multi_line_specifiers: context.config.export_declaration_force_multi_line,
+        force_multi_line_specifiers: force_multi_line,
       },
       context,
     ));
@@ -1218,11 +1224,17 @@ fn gen_import_decl<'a>(node: &ImportDecl<'a>, context: &mut Context<'a>) -> Prin
   }
 
   let force_single_line = context.config.import_declaration_force_single_line && !contains_line_or_multiline_comment(node.into(), context.program);
+
+  let force_multi_line = context.config.import_declaration_force_multi_line == ForceMultiLine::Always
+    || (named_imports.len() > 1 && context.config.import_declaration_force_multi_line == ForceMultiLine::OnlyWhenMultiple);
+
   let should_single_line = force_single_line
     || (default_import.is_none()
       && namespace_import.is_none()
-      && (named_imports.len() <= 1 && !context.config.import_declaration_force_multi_line)
+      && !force_multi_line
+      && (named_imports.len() <= 1 && context.config.import_declaration_force_multi_line == ForceMultiLine::Never)
       && node.start_line_fast(context.program) == node.end_line_fast(context.program));
+
   let has_named_imports = !named_imports.is_empty() || {
     let from_keyword = context.token_finder.get_previous_token_if_from_keyword(node.src);
     if let Some(from_keyword) = from_keyword {
@@ -1267,7 +1279,7 @@ fn gen_import_decl<'a>(node: &ImportDecl<'a>, context: &mut Context<'a>) -> Prin
         parent: node.into(),
         specifiers: named_imports.into_iter().map(|x| x.into()).collect(),
         force_single_line,
-        force_multi_line_specifiers: context.config.import_declaration_force_multi_line,
+        force_multi_line_specifiers: force_multi_line,
       },
       context,
     ));
