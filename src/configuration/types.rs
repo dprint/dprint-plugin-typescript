@@ -66,10 +66,10 @@ pub enum ForceMultiLine {
   /// Always force multiline imports/exports.
   Always,
   /// Mulitline imports/exports should be forced only when importing/exporting multiple items.
-  OnlyWhenMultiple,
+  WhenMultiple,
 }
 
-generate_str_to_from![ForceMultiLine, [Always, "always"], [Never, "never"], [OnlyWhenMultiple, "onlyWhenMultiple"]];
+generate_str_to_from![ForceMultiLine, [Always, "always"], [Never, "never"], [WhenMultiple, "whenMultiple"]];
 
 /// Where to place the opening brace.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]

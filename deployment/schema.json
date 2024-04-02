@@ -293,7 +293,7 @@
         "const": "never",
         "description": ""
       }, {
-        "const": "onlyWhenMultiple",
+        "const": "whenMultiple",
         "description": "Force multiple lines only if importing more than one thing."
       }]
     },
