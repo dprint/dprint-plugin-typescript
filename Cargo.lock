@@ -164,9 +164,9 @@ dependencies = [
 
 [[package]]
 name = "deno_ast"
-version = "0.35.0"
+version = "0.36.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef9a8a04564cb171e1639644acd7c3e4d17f1e35c60f4e21f9da60036b71df2b"
+checksum = "76c06f7b0771250e5531bb9f86975b3ec15130d9fa77222674c5be290317221f"
 dependencies = [
  "deno_media_type",
  "deno_terminal",
@@ -741,9 +741,9 @@ dependencies = [
 
 [[package]]
 name = "swc_common"
-version = "0.33.21"
+version = "0.33.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89598a0dfe7311750e6fad8464cafcec8ee010c649c2e04531b25e32362fdec7"
+checksum = "c85e8b15d0fb87691e27c8f3cf953748db3ccd2a39e165d6d5275a48fb0d29e3"
 dependencies = [
  "ast_node",
  "better_scoped_tls",
@@ -766,9 +766,9 @@ dependencies = [
 
 [[package]]
 name = "swc_ecma_ast"
-version = "0.112.6"
+version = "0.112.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70656acd47c91918635f1e8589963428cb3170975b71d786c79fb7a25605f687"
+checksum = "36226eb87bfd2f5620bde04f149a4b869ab34e78496d60cb0d8eb9da765d0732"
 dependencies = [
  "bitflags",
  "is-macro",
@@ -784,9 +784,9 @@ dependencies = [
 
 [[package]]
 name = "swc_ecma_parser"
-version = "0.143.11"
+version = "0.143.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "192482230498a24c2e7c9c580ba334a80dc43b3899366e54aa548f8d7b0f12cd"
+checksum = "20823cac99a9adbd4c03fb5e126aaccbf92446afedad99252a0e1fc76e2ffc43"
 dependencies = [
  "either",
  "new_debug_unreachable",
