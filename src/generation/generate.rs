@@ -4126,7 +4126,7 @@ mod string_literal {
   }
 
   fn format_with_double(string_value: &str) -> PrintItems {
-    const DOUBLE_QUOTE_SC: &'static StringContainer = sc!("\"");
+    const DOUBLE_QUOTE_SC: &StringContainer = sc!("\"");
     let mut items = PrintItems::new();
     items.push_sc(DOUBLE_QUOTE_SC);
     items.extend(gen_from_raw_string(&string_value.replace('"', "\\\"")));
@@ -4135,7 +4135,7 @@ mod string_literal {
   }
 
   fn format_with_single(string_value: &str) -> PrintItems {
-    const SINGLE_QUOTE_SC: &'static StringContainer = sc!("'");
+    const SINGLE_QUOTE_SC: &StringContainer = sc!("'");
     let mut items = PrintItems::new();
     items.push_sc(SINGLE_QUOTE_SC);
     items.extend(gen_from_raw_string(&string_value.replace('\'', "\\'")));
