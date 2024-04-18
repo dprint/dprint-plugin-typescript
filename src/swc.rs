@@ -124,6 +124,12 @@ pub fn ensure_no_specific_syntax_errors(parsed_source: &ParsedSource) -> Result<
         SyntaxError::ExpectedDigit { .. } |
         SyntaxError::ExpectedSemiForExprStmt { .. } |
         SyntaxError::ExpectedUnicodeEscape |
+        // various unterminated
+        SyntaxError::UnterminatedStrLit |
+        SyntaxError::UnterminatedBlockComment |
+        SyntaxError::UnterminatedJSXContents |
+        SyntaxError::UnterminatedRegExp |
+        SyntaxError::UnterminatedTpl |
         // unexpected token
         SyntaxError::Unexpected { .. } |
         // Merge conflict marker
@@ -290,6 +296,19 @@ mod tests {
       "./test.ts",
       "class Test {",
       concat!("Expected '}', got '<eof>' at file:///test.ts:1:12\n\n", "  class Test {\n", "             ~"),
+    );
+  }
+
+  #[test]
+  fn it_should_error_for_exected_string_literal() {
+    run_non_fatal_diagnostic_test(
+      "./test.ts",
+      "var foo = 'test",
+      concat!(
+        "Unterminated string constant at file:///test.ts:1:11\n\n",
+        "  var foo = 'test\n",
+        "            ~~~~~"
+      ),
     );
   }
 
