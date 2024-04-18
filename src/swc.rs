@@ -106,7 +106,6 @@ pub fn ensure_no_specific_syntax_errors(parsed_source: &ParsedSource) -> Result<
     .diagnostics()
     .iter()
     .filter(|e| {
-      eprintln!("ERROR: {:?}", e.kind);
       matches!(
         e.kind,
         // unexpected eof
