@@ -471,7 +471,7 @@ fn gen_auto_accessor<'a>(node: &AutoAccessor<'a>, context: &mut Context<'a>) -> 
       is_auto_accessor: true,
       is_declare: false,
       accessibility: node.accessibility(),
-      is_abstract: false,
+      is_abstract: node.is_abstract(),
       is_optional: false,
       is_override: node.is_override(),
       readonly: false,
