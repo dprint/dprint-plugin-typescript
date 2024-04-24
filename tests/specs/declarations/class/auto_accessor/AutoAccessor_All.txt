@@ -8,6 +8,7 @@ class Person {
     accessor    #test = 2;
     accessor    here!: string;
     override accessor    test4: string;
+    abstract accessor    abstractAccessor: string;
 
     constructor(name: string) {
         this.name = name;
@@ -23,6 +24,7 @@ class Person {
     accessor #test = 2;
     accessor here!: string;
     override accessor test4: string;
+    abstract accessor abstractAccessor: string;
 
     constructor(name: string) {
         this.name = name;
