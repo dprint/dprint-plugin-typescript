@@ -8294,7 +8294,7 @@ fn gen_control_flow_separator(
 }
 
 struct GenHeaderWithConditionalBraceBodyOptions<'a> {
-  body_node: Node<'a>,
+  body_node: Stmt<'a>,
   generated_header: PrintItems,
   use_braces: UseBraces,
   brace_position: BracePosition,
@@ -8324,8 +8324,12 @@ fn gen_header_with_conditional_brace_body<'a>(
   items.push_info(end_header_ln);
   let result = gen_conditional_brace_body(
     GenConditionalBraceBodyOptions {
-      body_node: opts.body_node,
-      use_braces: opts.use_braces,
+      body_node: opts.body_node.into(),
+      use_braces: if force_use_braces_for_stmt(opts.body_node) {
+        UseBraces::Always
+      } else {
+        opts.use_braces
+      },
       brace_position: opts.brace_position,
       single_body_position: opts.single_body_position,
       requires_braces_condition_ref: opts.requires_braces_condition_ref,
@@ -8340,6 +8344,32 @@ fn gen_header_with_conditional_brace_body<'a>(
     open_brace_condition_ref: result.open_brace_condition_ref,
     close_brace_condition_ref: result.close_brace_condition_ref,
     generated_node: items,
+  }
+}
+
+fn force_use_braces_for_stmt(stmt: Stmt) -> bool {
+  match stmt {
+    Stmt::Block(block) => {
+      if block.stmts.len() != 1 {
+        true
+      } else {
+        force_use_braces_for_stmt(block.stmts[0])
+      }
+    }
+    // force braces for any children where no braces could be ambiguous
+    Stmt::Empty(_)
+    | Stmt::DoWhile(_)
+    | Stmt::For(_)
+    | Stmt::ForIn(_)
+    | Stmt::ForOf(_)
+    | Stmt::Decl(_)
+    | Stmt::If(_) // especially force for this as it may cause a bug
+    | Stmt::Labeled(_)
+    | Stmt::Switch(_)
+    | Stmt::Try(_)
+    | Stmt::While(_)
+    | Stmt::With(_) => true,
+    Stmt::Break(_) | Stmt::Continue(_) | Stmt::Debugger(_) | Stmt::Expr(_) | Stmt::Return(_) | Stmt::Throw(_) => false,
   }
 }
 
