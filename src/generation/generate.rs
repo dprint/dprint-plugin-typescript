@@ -8328,7 +8328,7 @@ fn gen_header_with_conditional_brace_body<'a>(
       use_braces: if force_use_braces_for_stmt(opts.body_node) {
         UseBraces::Always
       } else {
-        context.config.if_statement_use_braces
+        opts.use_braces
       },
       brace_position: opts.brace_position,
       single_body_position: opts.single_body_position,
