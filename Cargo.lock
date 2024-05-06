@@ -191,9 +191,9 @@ checksum = "56254986775e3233ffa9c4d7d3faaf6d36a2c09d30b20687e9f88bc8bafc16c8"
 
 [[package]]
 name = "dprint-core"
-version = "0.66.1"
+version = "0.66.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "317f9cd1da390ab12e1858b3a71c7d6c8e8ad633454cb0b73ce5589964d9c177"
+checksum = "f3ab0dd2bedc109d25f0d21afb09b7d329f6c6fa83b095daf31d2d967e091548"
 dependencies = [
  "anyhow",
  "bumpalo",
@@ -216,9 +216,9 @@ dependencies = [
 
 [[package]]
 name = "dprint-development"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "176d63dadef52a9f22befba316c8a441980c7fa74a3b51ae2880749db099c66a"
+checksum = "12bc835c6195bc3bd68ccc71b86ccb33cc2e9253cfc875bc371acea1ff034268"
 dependencies = [
  "anyhow",
  "console",
@@ -280,10 +280,11 @@ checksum = "5443807d6dff69373d433ab9ef5378ad8df50ca6298caf15de6e52e24aaf54d5"
 
 [[package]]
 name = "file_test_runner"
-version = "0.3.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1113d2a60090d3e004084aa4e2fd3344d66070afa3473164c869c55f7e2b5a4"
+checksum = "cc644d2903f00e5f0e5d34dca805c7a100b09a1d257e07697101d90eb10d3351"
 dependencies = [
+ "anyhow",
  "crossbeam-channel",
  "deno_terminal",
  "parking_lot",
