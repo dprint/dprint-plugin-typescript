@@ -43,7 +43,16 @@ pub fn format_text(file_path: &Path, file_text: &str, config: &Configuration) ->
     Ok(None)
   } else {
     let parsed_source = parse_swc_ast(file_path, file_text)?;
-    inner_format(&parsed_source, config)
+    match inner_format(&parsed_source, config)? {
+      Some(new_text) => Ok(Some(new_text)),
+      None => {
+        if let Some(stripped) = file_text.strip_prefix("\u{FEFF}") {
+          Ok(Some(stripped.to_string()))
+        } else {
+          Ok(None)
+        }
+      }
+    }
   }
 }
 
@@ -87,5 +96,19 @@ fn config_to_print_options(file_text: &str, config: &Configuration) -> PrintOpti
     max_width: config.line_width,
     use_tabs: config.use_tabs,
     new_line_text: resolve_new_line_kind(file_text, config.new_line_kind),
+  }
+}
+
+#[cfg(test)]
+mod test {
+  use super::*;
+
+  #[test]
+  fn strips_bom() {
+    for input_text in ["\u{FEFF}const t = 5;\n", "\u{FEFF}const t =   5;"] {
+      let config = crate::configuration::ConfigurationBuilder::new().build();
+      let result = format_text(&std::path::PathBuf::from("test.ts"), input_text, &config).unwrap().unwrap();
+      assert_eq!(result, "const t = 5;\n");
+    }
   }
 }
