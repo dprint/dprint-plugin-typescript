@@ -229,7 +229,7 @@ dependencies = [
 
 [[package]]
 name = "dprint-plugin-typescript"
-version = "0.91.0"
+version = "0.91.1"
 dependencies = [
  "anyhow",
  "deno_ast",
