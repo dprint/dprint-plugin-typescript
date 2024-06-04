@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::sync::Arc;
 
 use anyhow::Result;
 use deno_ast::ParsedSource;
@@ -33,21 +34,24 @@ use super::swc::parse_swc_ast;
 ///
 /// // now format many files (it is recommended to parallelize this)
 /// let files_to_format = vec![(PathBuf::from("path/to/file.ts"), "const  t  =  5 ;")];
-/// for (file_path, file_text) in files_to_format.iter() {
-///     let result = format_text(file_path, file_text, &config);
+/// for (file_path, file_text) in files_to_format {
+///     let result = format_text(&file_path, file_text.into(), &config);
 ///     // save result here...
 /// }
 /// ```
-pub fn format_text(file_path: &Path, file_text: &str, config: &Configuration) -> Result<Option<String>> {
-  if super::utils::file_text_has_ignore_comment(file_text, &config.ignore_file_comment_text) {
+pub fn format_text(file_path: &Path, file_text: String, config: &Configuration) -> Result<Option<String>> {
+  if super::utils::file_text_has_ignore_comment(&file_text, &config.ignore_file_comment_text) {
     Ok(None)
   } else {
+    let had_bom = file_text.starts_with("\u{FEFF}");
+    let file_text = if had_bom { file_text[3..].to_string() } else { file_text };
+    let file_text: Arc<str> = file_text.into();
     let parsed_source = parse_swc_ast(file_path, file_text)?;
     match inner_format(&parsed_source, config)? {
       Some(new_text) => Ok(Some(new_text)),
       None => {
-        if let Some(stripped) = file_text.strip_prefix("\u{FEFF}") {
-          Ok(Some(stripped.to_string()))
+        if had_bom {
+          Ok(Some(parsed_source.text().to_string()))
         } else {
           Ok(None)
         }
@@ -58,7 +62,7 @@ pub fn format_text(file_path: &Path, file_text: &str, config: &Configuration) ->
 
 /// Formats an already parsed source. This is useful as a performance optimization.
 pub fn format_parsed_source(source: &ParsedSource, config: &Configuration) -> Result<Option<String>> {
-  if super::utils::file_text_has_ignore_comment(source.text_info().text_str(), &config.ignore_file_comment_text) {
+  if super::utils::file_text_has_ignore_comment(source.text(), &config.ignore_file_comment_text) {
     Ok(None)
   } else {
     ensure_no_specific_syntax_errors(source)?;
@@ -74,9 +78,9 @@ fn inner_format(parsed_source: &ParsedSource, config: &Configuration) -> Result<
       // println!("{}", print_items.get_as_text());
       print_items
     },
-    config_to_print_options(parsed_source.text_info().text_str(), config),
+    config_to_print_options(parsed_source.text(), config),
   );
-  if result == parsed_source.text_info().text_str() {
+  if result == parsed_source.text().as_ref() {
     Ok(None)
   } else {
     Ok(Some(result))
@@ -107,7 +111,7 @@ mod test {
   fn strips_bom() {
     for input_text in ["\u{FEFF}const t = 5;\n", "\u{FEFF}const t =   5;"] {
       let config = crate::configuration::ConfigurationBuilder::new().build();
-      let result = format_text(&std::path::PathBuf::from("test.ts"), input_text, &config).unwrap().unwrap();
+      let result = format_text(&std::path::PathBuf::from("test.ts"), input_text.into(), &config).unwrap().unwrap();
       assert_eq!(result, "const t = 5;\n");
     }
   }
