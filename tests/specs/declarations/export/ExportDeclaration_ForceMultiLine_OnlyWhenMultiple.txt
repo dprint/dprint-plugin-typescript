@@ -1,5 +1,5 @@
-~~ exportDeclaration.forceMultiLine: true, lineWidth: 40 ~~
-== should always add a new line between exports ==
+~~ exportDeclaration.forceMultiLine: whenMultiple, lineWidth: 40 ~~
+== should never add a new line between exports ==
 export { testing, a, b, c, d, e } from "./test.ts";
 export { testing, a, b, c, d, e // test
 } from "./test.ts";
@@ -40,42 +40,10 @@ export {
 not ok */
 } from "./test.ts";
 
-== should not collapse a multi-line one ==
-export {
-
-  a,
-
-  b,
-  c,
-  /* testing */
-  d,
-} from "./test.ts";
-export {
-  a,
-  b,
-  c,
-  d,
-} from "./test.ts";
-
-[expect]
-export {
-    a,
-    b,
-    c,
-    /* testing */
-    d,
-} from "./test.ts";
-export {
-    a,
-    b,
-    c,
-    d,
-} from "./test.ts";
-
-== should make a single export multi-line ==
+== should not collapse a single-line one ==
 export { a } from "./test.ts";
+export { b } from "./test.ts";
 
 [expect]
-export {
-    a,
-} from "./test.ts";
+export { a } from "./test.ts";
+export { b } from "./test.ts";

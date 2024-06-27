@@ -5,11 +5,10 @@ use deno_ast::swc::parser::error::SyntaxError;
 use deno_ast::swc::parser::Syntax;
 use deno_ast::ModuleSpecifier;
 use deno_ast::ParsedSource;
-use deno_ast::SourceTextInfo;
 use std::path::Path;
+use std::sync::Arc;
 
-pub fn parse_swc_ast(file_path: &Path, file_text: &str) -> Result<ParsedSource> {
-  let file_text = SourceTextInfo::from_string(file_text.to_string());
+pub fn parse_swc_ast(file_path: &Path, file_text: Arc<str>) -> Result<ParsedSource> {
   match parse_inner(file_path, file_text.clone()) {
     Ok(result) => Ok(result),
     Err(err) => {
@@ -28,13 +27,13 @@ pub fn parse_swc_ast(file_path: &Path, file_text: &str) -> Result<ParsedSource> 
   }
 }
 
-fn parse_inner(file_path: &Path, text_info: SourceTextInfo) -> Result<ParsedSource> {
-  let parsed_source = parse_inner_no_diagnostic_check(file_path, text_info)?;
+fn parse_inner(file_path: &Path, text: Arc<str>) -> Result<ParsedSource> {
+  let parsed_source = parse_inner_no_diagnostic_check(file_path, text)?;
   ensure_no_specific_syntax_errors(&parsed_source)?;
   Ok(parsed_source)
 }
 
-fn parse_inner_no_diagnostic_check(file_path: &Path, text_info: SourceTextInfo) -> Result<ParsedSource> {
+fn parse_inner_no_diagnostic_check(file_path: &Path, text: Arc<str>) -> Result<ParsedSource> {
   let media_type = deno_ast::MediaType::from_path(file_path);
   let mut syntax = deno_ast::get_syntax(media_type);
   if let Syntax::Es(es) = &mut syntax {
@@ -47,7 +46,7 @@ fn parse_inner_no_diagnostic_check(file_path: &Path, text_info: SourceTextInfo) 
     maybe_syntax: Some(syntax),
     media_type,
     scope_analysis: false,
-    text_info,
+    text,
   })
   .map_err(|diagnostic| anyhow!("{:#}", &diagnostic))
 }
@@ -124,6 +123,12 @@ pub fn ensure_no_specific_syntax_errors(parsed_source: &ParsedSource) -> Result<
         SyntaxError::ExpectedDigit { .. } |
         SyntaxError::ExpectedSemiForExprStmt { .. } |
         SyntaxError::ExpectedUnicodeEscape |
+        // various unterminated
+        SyntaxError::UnterminatedStrLit |
+        SyntaxError::UnterminatedBlockComment |
+        SyntaxError::UnterminatedJSXContents |
+        SyntaxError::UnterminatedRegExp |
+        SyntaxError::UnterminatedTpl |
         // unexpected token
         SyntaxError::Unexpected { .. } |
         // Merge conflict marker
@@ -241,7 +246,7 @@ mod tests {
 
   fn run_fatal_diagnostic_test(file_path: &str, text: &str, expected: &str) {
     let file_path = PathBuf::from(file_path);
-    assert_eq!(parse_swc_ast(&file_path, text).err().unwrap().to_string(), expected);
+    assert_eq!(parse_swc_ast(&file_path, text.into()).err().unwrap().to_string(), expected);
   }
 
   #[test]
@@ -294,6 +299,19 @@ mod tests {
   }
 
   #[test]
+  fn it_should_error_for_exected_string_literal() {
+    run_non_fatal_diagnostic_test(
+      "./test.ts",
+      "var foo = 'test",
+      concat!(
+        "Unterminated string constant at file:///test.ts:1:11\n\n",
+        "  var foo = 'test\n",
+        "            ~~~~~"
+      ),
+    );
+  }
+
+  #[test]
   fn it_should_error_for_merge_conflict_marker() {
     run_non_fatal_diagnostic_test(
       "./test.ts",
@@ -324,11 +342,11 @@ Merge conflict marker encountered. at file:///test.ts:6:1
 
   fn run_non_fatal_diagnostic_test(file_path: &str, text: &str, expected: &str) {
     let file_path = PathBuf::from(file_path);
-    assert_eq!(format!("{}", parse_swc_ast(&file_path, text).err().unwrap()), expected);
+    assert_eq!(format!("{}", parse_swc_ast(&file_path, text.into()).err().unwrap()), expected);
 
     // this error should also be surfaced in `format_parsed_source` if someone provides
     // a source file that had a non-fatal diagnostic
-    let parsed_source = parse_inner_no_diagnostic_check(&file_path, SourceTextInfo::from_string(text.to_string())).unwrap();
+    let parsed_source = parse_inner_no_diagnostic_check(&file_path, text.into()).unwrap();
     let config = ConfigurationBuilder::new().build();
     assert_eq!(crate::format_parsed_source(&parsed_source, &config).err().unwrap().to_string(), expected);
   }

@@ -27,7 +27,7 @@ jobs:
       RUST_BACKTRACE: full
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - uses: dsherret/rust-toolchain-file@v1
     - name: Install wasm32 target
       if: matrix.config.kind == 'test_release'

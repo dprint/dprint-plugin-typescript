@@ -471,7 +471,7 @@ fn gen_auto_accessor<'a>(node: &AutoAccessor<'a>, context: &mut Context<'a>) -> 
       is_auto_accessor: true,
       is_declare: false,
       accessibility: node.accessibility(),
-      is_abstract: false,
+      is_abstract: node.is_abstract(),
       is_optional: false,
       is_override: node.is_override(),
       readonly: false,
@@ -1033,10 +1033,16 @@ fn gen_export_named_decl<'a>(node: &NamedExport<'a>, context: &mut Context<'a>) 
   }
 
   let force_single_line = context.config.export_declaration_force_single_line && !contains_line_or_multiline_comment(node.into(), context.program);
+
+  let force_multi_line = !force_single_line
+    && ((context.config.export_declaration_force_multi_line == ForceMultiLine::Always)
+      || (named_exports.len() > 1 && context.config.export_declaration_force_multi_line == ForceMultiLine::WhenMultiple));
+
   let should_single_line = force_single_line
     || (default_export.is_none()
       && namespace_export.is_none()
-      && (named_exports.len() <= 1 && !context.config.export_declaration_force_multi_line)
+      && !force_multi_line
+      && (named_exports.len() <= 1 && context.config.export_declaration_force_multi_line == ForceMultiLine::Never)
       && node.start_line_fast(context.program) == node.end_line_fast(context.program));
 
   // generate
@@ -1055,7 +1061,7 @@ fn gen_export_named_decl<'a>(node: &NamedExport<'a>, context: &mut Context<'a>) 
         parent: node.into(),
         specifiers: named_exports.into_iter().map(|x| x.into()).collect(),
         force_single_line,
-        force_multi_line_specifiers: context.config.export_declaration_force_multi_line,
+        force_multi_line_specifiers: force_multi_line,
       },
       context,
     ));
@@ -1218,11 +1224,17 @@ fn gen_import_decl<'a>(node: &ImportDecl<'a>, context: &mut Context<'a>) -> Prin
   }
 
   let force_single_line = context.config.import_declaration_force_single_line && !contains_line_or_multiline_comment(node.into(), context.program);
+
+  let force_multi_line = context.config.import_declaration_force_multi_line == ForceMultiLine::Always
+    || (named_imports.len() > 1 && context.config.import_declaration_force_multi_line == ForceMultiLine::WhenMultiple);
+
   let should_single_line = force_single_line
     || (default_import.is_none()
       && namespace_import.is_none()
-      && (named_imports.len() <= 1 && !context.config.import_declaration_force_multi_line)
+      && !force_multi_line
+      && (named_imports.len() <= 1 && context.config.import_declaration_force_multi_line == ForceMultiLine::Never)
       && node.start_line_fast(context.program) == node.end_line_fast(context.program));
+
   let has_named_imports = !named_imports.is_empty() || {
     let from_keyword = context.token_finder.get_previous_token_if_from_keyword(node.src);
     if let Some(from_keyword) = from_keyword {
@@ -1267,7 +1279,7 @@ fn gen_import_decl<'a>(node: &ImportDecl<'a>, context: &mut Context<'a>) -> Prin
         parent: node.into(),
         specifiers: named_imports.into_iter().map(|x| x.into()).collect(),
         force_single_line,
-        force_multi_line_specifiers: context.config.import_declaration_force_multi_line,
+        force_multi_line_specifiers: force_multi_line,
       },
       context,
     ));
@@ -4114,7 +4126,7 @@ mod string_literal {
   }
 
   fn format_with_double(string_value: &str) -> PrintItems {
-    const DOUBLE_QUOTE_SC: &'static StringContainer = sc!("\"");
+    const DOUBLE_QUOTE_SC: &StringContainer = sc!("\"");
     let mut items = PrintItems::new();
     items.push_sc(DOUBLE_QUOTE_SC);
     items.extend(gen_from_raw_string(&string_value.replace('"', "\\\"")));
@@ -4123,7 +4135,7 @@ mod string_literal {
   }
 
   fn format_with_single(string_value: &str) -> PrintItems {
-    const SINGLE_QUOTE_SC: &'static StringContainer = sc!("'");
+    const SINGLE_QUOTE_SC: &StringContainer = sc!("'");
     let mut items = PrintItems::new();
     items.push_sc(SINGLE_QUOTE_SC);
     items.extend(gen_from_raw_string(&string_value.replace('\'', "\\'")));
@@ -8289,7 +8301,7 @@ fn gen_control_flow_separator(
 }
 
 struct GenHeaderWithConditionalBraceBodyOptions<'a> {
-  body_node: Node<'a>,
+  body_node: Stmt<'a>,
   generated_header: PrintItems,
   use_braces: UseBraces,
   brace_position: BracePosition,
@@ -8319,8 +8331,12 @@ fn gen_header_with_conditional_brace_body<'a>(
   items.push_info(end_header_ln);
   let result = gen_conditional_brace_body(
     GenConditionalBraceBodyOptions {
-      body_node: opts.body_node,
-      use_braces: opts.use_braces,
+      body_node: opts.body_node.into(),
+      use_braces: if force_use_braces_for_stmt(opts.body_node) {
+        UseBraces::Always
+      } else {
+        opts.use_braces
+      },
       brace_position: opts.brace_position,
       single_body_position: opts.single_body_position,
       requires_braces_condition_ref: opts.requires_braces_condition_ref,
@@ -8335,6 +8351,32 @@ fn gen_header_with_conditional_brace_body<'a>(
     open_brace_condition_ref: result.open_brace_condition_ref,
     close_brace_condition_ref: result.close_brace_condition_ref,
     generated_node: items,
+  }
+}
+
+fn force_use_braces_for_stmt(stmt: Stmt) -> bool {
+  match stmt {
+    Stmt::Block(block) => {
+      if block.stmts.len() != 1 {
+        true
+      } else {
+        force_use_braces_for_stmt(block.stmts[0])
+      }
+    }
+    // force braces for any children where no braces could be ambiguous
+    Stmt::Empty(_)
+    | Stmt::DoWhile(_)
+    | Stmt::For(_)
+    | Stmt::ForIn(_)
+    | Stmt::ForOf(_)
+    | Stmt::Decl(_)
+    | Stmt::If(_) // especially force for this as it may cause a bug
+    | Stmt::Labeled(_)
+    | Stmt::Switch(_)
+    | Stmt::Try(_)
+    | Stmt::While(_)
+    | Stmt::With(_) => true,
+    Stmt::Break(_) | Stmt::Continue(_) | Stmt::Debugger(_) | Stmt::Expr(_) | Stmt::Return(_) | Stmt::Throw(_) => false,
   }
 }
 

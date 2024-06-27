@@ -284,14 +284,17 @@
     },
     "forceMultiLineSpecifiers": {
       "description": "If code import/export specifiers should be forced to be on multiple lines.",
-      "type": "boolean",
-      "default": false,
+      "type": "string",
+      "default": "never",
       "oneOf": [{
-        "const": true,
+        "const": "always",
         "description": ""
       }, {
-        "const": false,
+        "const": "never",
         "description": ""
+      }, {
+        "const": "whenMultiple",
+        "description": "Force multiple lines only if importing more than one thing."
       }]
     },
     "sortOrder": {

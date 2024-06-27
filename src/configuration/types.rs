@@ -57,6 +57,20 @@ pub enum TrailingCommas {
 
 generate_str_to_from![TrailingCommas, [Always, "always"], [Never, "never"], [OnlyMultiLine, "onlyMultiLine"]];
 
+/// Force multilines possibilities.
+#[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ForceMultiLine {
+  /// Multiline imports/exports should not be forced.
+  Never,
+  /// Always force multiline imports/exports.
+  Always,
+  /// Mulitline imports/exports should be forced only when importing/exporting multiple items.
+  WhenMultiple,
+}
+
+generate_str_to_from![ForceMultiLine, [Always, "always"], [Never, "never"], [WhenMultiple, "whenMultiple"]];
+
 /// Where to place the opening brace.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -541,9 +555,9 @@ pub struct Configuration {
   pub export_declaration_force_single_line: bool,
   /* force multi line specifiers */
   #[serde(rename = "exportDeclaration.forceMultiLine")]
-  pub export_declaration_force_multi_line: bool,
+  pub export_declaration_force_multi_line: ForceMultiLine,
   #[serde(rename = "importDeclaration.forceMultiLine")]
-  pub import_declaration_force_multi_line: bool,
+  pub import_declaration_force_multi_line: ForceMultiLine,
 
   /* use space separator */
   #[serde(rename = "binaryExpression.spaceSurroundingBitwiseAndArithmeticOperator")]

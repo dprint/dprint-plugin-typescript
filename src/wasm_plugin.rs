@@ -58,7 +58,7 @@ impl SyncPluginHandler<Configuration> for TypeScriptPluginHandler {
     _format_with_host: impl FnMut(&Path, Vec<u8>, &ConfigKeyMap) -> FormatResult,
   ) -> FormatResult {
     let file_text = String::from_utf8(file_bytes)?;
-    super::format_text(file_path, &file_text, config).map(|maybe_text| maybe_text.map(|t| t.into_bytes()))
+    super::format_text(file_path, file_text, config).map(|maybe_text| maybe_text.map(|t| t.into_bytes()))
   }
 }
 
