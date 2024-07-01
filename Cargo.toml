@@ -32,7 +32,7 @@ harness = false
 [dependencies]
 anyhow = "1.0.64"
 deno_ast = { version = "0.39.0", features = ["view"] }
-dprint-core = { version = "0.66.2", features = ["formatting"] }
+dprint-core = { version = "0.67.0", features = ["formatting"] }
 dprint-core-macros = "0.1.0"
 percent-encoding = "2.3.1"
 rustc-hash = "1.1.0"
