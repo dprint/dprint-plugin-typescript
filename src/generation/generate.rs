@@ -807,7 +807,7 @@ fn gen_class_decl<'a>(node: &ClassDecl<'a>, context: &mut Context<'a>) -> PrintI
       node: node.into(),
       member_node: node.class.into(),
       decorators: node.class.decorators,
-      is_class_expr: false,
+      is_class_decl: true,
       is_declare: node.declare(),
       is_abstract: node.class.is_abstract(),
       ident: Some(node.ident.into()),
@@ -826,7 +826,7 @@ struct ClassDeclOrExpr<'a> {
   node: Node<'a>,
   member_node: Node<'a>,
   decorators: &'a [&'a Decorator<'a>],
-  is_class_expr: bool,
+  is_class_decl: bool,
   is_declare: bool,
   is_abstract: bool,
   ident: Option<Node<'a>>,
@@ -845,7 +845,8 @@ fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'
   // generate decorators
   let parent_kind = node.node.parent().unwrap().kind();
   if parent_kind != NodeKind::ExportDecl && parent_kind != NodeKind::ExportDefaultDecl {
-    items.extend(gen_decorators(node.decorators, node.is_class_expr, context));
+    let is_inline = !node.is_class_decl;
+    items.extend(gen_decorators(node.decorators, is_inline, context));
   }
 
   // generate header and body
@@ -920,7 +921,9 @@ fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'
     },
   ));
 
-  if node.is_class_expr {
+  if node.is_class_decl {
+    items
+  } else {
     let items = items.into_rc_path();
     if_true_or(
       "classExprConditionalIndent",
@@ -935,8 +938,6 @@ fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'
       items.into(),
     )
     .into()
-  } else {
-    items
   }
 }
 
@@ -2266,12 +2267,13 @@ fn gen_import_callee<'a>(node: &Import<'a>, _context: &mut Context<'a>) -> Print
 }
 
 fn gen_class_expr<'a>(node: &ClassExpr<'a>, context: &mut Context<'a>) -> PrintItems {
+  let is_class_decl = node.parent().kind() == NodeKind::ExportDefaultDecl && node.ident.is_some();
   gen_class_decl_or_expr(
     ClassDeclOrExpr {
       node: node.into(),
       member_node: node.class.into(),
       decorators: node.class.decorators,
-      is_class_expr: true,
+      is_class_decl,
       is_declare: false,
       is_abstract: node.class.is_abstract(),
       ident: node.ident.map(|x| x.into()),
@@ -2280,7 +2282,11 @@ fn gen_class_expr<'a>(node: &ClassExpr<'a>, context: &mut Context<'a>) -> PrintI
       super_type_params: node.class.super_type_params.map(|x| x.into()),
       implements: node.class.implements.iter().map(|&x| x.into()).collect(),
       members: node.class.body.iter().map(|x| x.into()).collect(),
-      brace_position: context.config.class_expression_brace_position,
+      brace_position: if is_class_decl {
+        context.config.class_declaration_brace_position
+      } else {
+        context.config.class_expression_brace_position
+      },
     },
     context,
   )
