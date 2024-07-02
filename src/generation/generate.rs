@@ -2581,7 +2581,7 @@ fn gen_fn_expr<'a>(node: &FnExpr<'a>, context: &mut Context<'a>) -> PrintItems {
   let items = gen_function_decl_or_expr(
     FunctionDeclOrExprNode {
       node: node.into(),
-      is_func_decl: false,
+      is_func_decl: node.parent().kind() == NodeKind::ExportDefaultDecl && node.ident.is_some(),
       ident: node.ident,
       declare: false,
       func: node.function,
