@@ -3459,10 +3459,6 @@ fn gen_property_signature<'a>(node: &TsPropertySignature<'a>, context: &mut Cont
   }
   items.extend(gen_type_ann_with_colon_if_exists(node.type_ann, context));
 
-  if let Some(init) = &node.init {
-    items.extend(gen_assignment(init.into(), sc!("="), context));
-  }
-
   items
 }
 
@@ -5753,7 +5749,7 @@ fn gen_getter_signature<'a>(node: &TsGetterSignature<'a>, context: &mut Context<
       node: node.into(),
       method_kind: MethodSignatureLikeKind::Getter,
       computed: node.computed(),
-      optional: node.optional(),
+      optional: false,
       key: node.key.into(),
       parameters_range: node.get_parameters_range(context),
       type_params: None,
@@ -5770,7 +5766,7 @@ fn gen_setter_signature<'a>(node: &TsSetterSignature<'a>, context: &mut Context<
       node: node.into(),
       method_kind: MethodSignatureLikeKind::Setter,
       computed: node.computed(),
-      optional: node.optional(),
+      optional: false,
       key: node.key.into(),
       parameters_range: node.get_parameters_range(context),
       type_params: None,
