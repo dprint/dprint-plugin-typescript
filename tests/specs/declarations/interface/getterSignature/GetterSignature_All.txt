@@ -2,7 +2,7 @@
 == should format ==
 type T = {
     get m1 ( ) : number;
-    get m2  ? (): number  ;
+    get m2  (): number  ;
     get [ m3  ](): string
 };
 
@@ -13,7 +13,7 @@ interface T {
 [expect]
 type T = {
     get m1(): number;
-    get m2?(): number;
+    get m2(): number;
     get [m3](): string;
 };
 
