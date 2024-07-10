@@ -4680,6 +4680,9 @@ fn gen_expr_stmt<'a>(stmt: &ExprStmt<'a>, context: &mut Context<'a>) -> PrintIte
         for item in PrintItemsIterator::new(path) {
           match item {
             PrintItem::String(value) => {
+              if utils::start_with_increment_decrement(&value.text) {
+                return Some(false);
+              }
               if let Some(c) = value.text.chars().next() {
                 return utils::is_prefix_semi_colon_insertion_char(c).into();
               }
