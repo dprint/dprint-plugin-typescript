@@ -46,9 +46,45 @@ fn parse_inner_no_diagnostic_check(file_path: &Path, text: Arc<str>) -> Result<P
     maybe_syntax: Some(syntax),
     media_type,
     scope_analysis: false,
-    text,
+    text: format_array_of_objects(text),
   })
   .map_err(|diagnostic| anyhow!("{:#}", &diagnostic))
+}
+
+fn format_array_of_objects(text: Arc<str>) -> Arc<str> {
+  let re = regex::Regex::new(r"\[\s*\{").unwrap();
+  let formatted_text = re.replace_all(&text, |caps: &regex::Captures| {
+    let matched_text = &caps[0];
+    if matched_text.starts_with("[") && matched_text.ends_with("{") {
+      if !is_inside_string_or_comment(&text, caps.get(0).unwrap().start()) {
+        "[\n{".to_string()
+      } else {
+        matched_text.to_string()
+      }
+    } else {
+      matched_text.to_string()
+    }
+  });
+  Arc::from(formatted_text)
+}
+
+fn is_inside_string_or_comment(text: &str, position: usize) -> bool {
+  let mut in_string = false;
+  let mut in_comment = false;
+  let mut chars = text.chars().enumerate();
+  while let Some((idx, c)) = chars.next() {
+    if idx == position {
+      return in_string || in_comment;
+    }
+    if c == '"' || c == '\'' || c == '`' {
+      in_string = !in_string;
+    } else if c == '/' && chars.next().map_or(false, |(_, next_char)| next_char == '/' || next_char == '*') {
+      in_comment = true;
+    } else if c == '\n' {
+      in_comment = false;
+    }
+  }
+  false
 }
 
 fn path_to_specifier(path: &Path) -> Result<ModuleSpecifier> {

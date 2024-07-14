@@ -1,0 +1,10 @@
+== Array of objects is not formatted nicely ==
+const fpnMembershipTitles = [{ name: "FPN" }, { name: "FPN Class" }, { name: "Type" }, { name: "Description" }];
+
+[expect]
+const fpnMembershipTitles = [
+    { name: "FPN" },
+    { name: "FPN Class" },
+    { name: "Type" },
+    { name: "Description" },
+];
