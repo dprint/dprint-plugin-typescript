@@ -53,7 +53,7 @@ fn parse_inner_no_diagnostic_check(file_path: &Path, text: Arc<str>) -> Result<P
 
 fn format_array_of_objects(text: Arc<str>) -> Arc<str> {
   let re = regex::Regex::new(r"\[\s*\{").unwrap();
-  let formatted_text = re.replace_all(&text, |caps: &regex::Captures| {
+  let formatted_text = re.replace(&text, |caps: &regex::Captures| {
     let matched_text = &caps[0];
     if matched_text.starts_with("[") && matched_text.ends_with("{") {
       if !is_inside_string_or_comment(&text, caps.get(0).unwrap().start()) {

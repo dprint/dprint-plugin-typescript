@@ -27,35 +27,37 @@ export const UsAndItsD = {"kd":"D","definitions":[{"kd":"OperationDefinition","o
 [expect]
 export const AID = {
   "kd": "D",
-  "definitions": [{
-    "kd": "OperationDefinition",
-    "operation": "mutation",
-    "name": { "kd": "Name", "value": "AI" },
-    "variableDefinitions": [{
-      "kd": "VariableDefinition",
-      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
-      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "AIInput" } } },
-    }],
-    "selectionSet": {
-      "kd": "SelectionSet",
-      "selections": [{
-        "kd": "Field",
-        "name": { "kd": "Name", "value": "acceptI" },
-        "arguments": [{
-          "kd": "Argument",
-          "name": { "kd": "Name", "value": "input" },
-          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
-        }],
-        "selectionSet": {
-          "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "organizationArn" } }, {
-            "kd": "Field",
-            "name": { "kd": "Name", "value": "principalArn" },
-          }],
-        },
+  "definitions": [
+    {
+      "kd": "OperationDefinition",
+      "operation": "mutation",
+      "name": { "kd": "Name", "value": "AI" },
+      "variableDefinitions": [{
+        "kd": "VariableDefinition",
+        "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+        "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "AIInput" } } },
       }],
+      "selectionSet": {
+        "kd": "SelectionSet",
+        "selections": [{
+          "kd": "Field",
+          "name": { "kd": "Name", "value": "acceptI" },
+          "arguments": [{
+            "kd": "Argument",
+            "name": { "kd": "Name", "value": "input" },
+            "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+          }],
+          "selectionSet": {
+            "kd": "SelectionSet",
+            "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "organizationArn" } }, {
+              "kd": "Field",
+              "name": { "kd": "Name", "value": "principalArn" },
+            }],
+          },
+        }],
+      },
     },
-  }],
+  ],
 };
 export const AcD = {
   "kd": "D",
