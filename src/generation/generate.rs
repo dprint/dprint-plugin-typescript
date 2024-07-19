@@ -26,8 +26,8 @@ use crate::configuration::*;
 use crate::utils;
 
 pub fn generate(parsed_source: &ParsedSource, config: &Configuration) -> PrintItems {
-  // println!("Leading: {:?}", parsed_source.comments().leading_map());
-  // println!("Trailing: {:?}", parsed_source.comments().trailing_map());
+  // eprintln!("Leading: {:?}", parsed_source.comments().leading_map());
+  // eprintln!("Trailing: {:?}", parsed_source.comments().trailing_map());
 
   parsed_source.with_view(|program| {
     let program_node = program.into();
@@ -52,13 +52,13 @@ fn gen_node<'a>(node: Node<'a>, context: &mut Context<'a>) -> PrintItems {
 
 fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_gen: impl FnOnce(PrintItems, &mut Context<'a>) -> PrintItems) -> PrintItems {
   let node_kind = node.kind();
-  // println!("Node kind: {:?}", node_kind);
-  // println!("Text: {:?}", node.text());
-  // println!("Range: {:?}", node.range());
+  // eprintln!("Node kind: {:?}", node_kind);
+  // eprintln!("Text: {:?}", node.text());
+  // eprintln!("Range: {:?}", node.range());
 
   // store info
   let past_current_node = std::mem::replace(&mut context.current_node, node);
-  let parent_hi = past_current_node.end();
+  let parent_end = past_current_node.end();
   context.parent_stack.push(past_current_node);
 
   // handle decorators (since their starts can come before their parent)
@@ -110,7 +110,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
 
   // Get the trailing comments -- This needs to be done based on the parse
   // stack order because certain nodes like binary expressions are flattened
-  if node_end != parent_hi || matches!(context.parent().kind(), NodeKind::Module | NodeKind::Script) {
+  if node_end != parent_end || matches!(context.parent().kind(), NodeKind::Module | NodeKind::Script) {
     let trailing_comments = context.comments.trailing_comments_with_previous(node_end);
     items.extend(gen_comments_as_trailing(&node_range, trailing_comments, context));
   }

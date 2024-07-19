@@ -34,6 +34,8 @@ anyhow = "1.0.64"
 deno_ast = { version = "0.40.0", features = ["view"] }
 dprint-core = { version = "0.66.2", features = ["formatting"] }
 dprint-core-macros = "0.1.0"
+# temp until https://github.com/swc-project/swc/issues/9290 is fixed
+dprint-swc-ext = "0.17.1"
 percent-encoding = "2.3.1"
 rustc-hash = "1.1.0"
 serde = { version = "1.0.144", features = ["derive"] }
