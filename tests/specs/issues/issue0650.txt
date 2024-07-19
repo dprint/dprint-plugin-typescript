@@ -1,0 +1,52 @@
+~~ lineWidth: 120, indentWidth: 2 ~~
+== should work ==
+function foo(arg: number, /** @deferred */ b) {}
+
+[expect]
+function foo(arg: number, /** @deferred */ b) {}
+
+== interface method ==
+interface A {
+  b(
+    arg1: { new(...args: any[]): T }, // This is a comment
+    arg2,
+  )
+}
+
+[expect]
+interface A {
+  b(
+    arg1: { new(...args: any[]): T }, // This is a comment
+    arg2,
+  );
+}
+
+== long example ==
+function foo(arg: number, /** @deferred */ cb: () => void): void {}
+
+interface Foo {
+  method<T>(
+    arg: { new(...args: any[]): T }, // This is a comment
+    arg2: (instance: T) => HTMLElement | undefined,
+  ): Disposable;
+
+  method2<T>(
+    arg: { new(...args: any[]): T },
+    arg2: (instance: T) => HTMLElement | undefined, // This is a comment
+  ): Disposable;
+}
+
+[expect]
+function foo(arg: number, /** @deferred */ cb: () => void): void {}
+
+interface Foo {
+  method<T>(
+    arg: { new(...args: any[]): T }, // This is a comment
+    arg2: (instance: T) => HTMLElement | undefined,
+  ): Disposable;
+
+  method2<T>(
+    arg: { new(...args: any[]): T },
+    arg2: (instance: T) => HTMLElement | undefined, // This is a comment
+  ): Disposable;
+}

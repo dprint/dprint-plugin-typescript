@@ -236,6 +236,7 @@ dependencies = [
  "dprint-core",
  "dprint-core-macros",
  "dprint-development",
+ "dprint-swc-ext",
  "percent-encoding",
  "pretty_assertions",
  "rustc-hash",
@@ -245,9 +246,9 @@ dependencies = [
 
 [[package]]
 name = "dprint-swc-ext"
-version = "0.17.0"
+version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a0d5b63e52434314e3d767c463b1f68c467c31e61d279bc019227016c44e535"
+checksum = "2b909f9f9b22a6265839887544dce97b0b8e2b2635abf622f45613deb3de63e0"
 dependencies = [
  "allocator-api2",
  "bumpalo",
