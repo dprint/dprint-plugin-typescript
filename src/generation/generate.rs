@@ -154,6 +154,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       /* common */
       Node::ComputedPropName(node) => gen_computed_prop_name(node, context),
       Node::Ident(node) => gen_identifier(node, context),
+      Node::IdentName(node) => gen_ident_name(node, context),
       Node::BindingIdent(node) => gen_binding_identifier(node, context),
       /* declarations */
       Node::ClassDecl(node) => gen_class_decl(node, context),
@@ -575,10 +576,10 @@ fn gen_parameter_prop<'a>(node: &TsParamProp<'a>, context: &mut Context<'a>) -> 
   items
 }
 
-fn gen_private_name<'a>(node: &PrivateName<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_private_name<'a>(node: &PrivateName<'a>, _context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_sc(sc!("#"));
-  items.extend(gen_node(node.id.into(), context));
+  items.push_string(node.name().to_string());
   items
 }
 
@@ -781,6 +782,12 @@ fn gen_identifier<'a>(node: &Ident<'a>, _: &mut Context<'a>) -> PrintItems {
     items.push_sc(sc!("?"));
   }
 
+  items
+}
+
+fn gen_ident_name<'a>(node: &IdentName<'a>, _: &mut Context<'a>) -> PrintItems {
+  let mut items = PrintItems::new();
+  items.push_string(node.sym().to_string());
   items
 }
 
@@ -2843,7 +2850,7 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     return false;
   }
 
-  if matches!(node.expr.kind(), NodeKind::ArrayLit) || matches!(node.expr.kind(), NodeKind::Ident) {
+  if matches!(node.expr.kind(), NodeKind::ArrayLit) || matches!(node.expr, Expr::Ident(_)) {
     return true;
   }
 
@@ -3069,7 +3076,7 @@ fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context
   // handle this on a case by case basis for now
   fn get_keep_on_one_line(node: Node) -> bool {
     match node {
-      Node::Ident(_) | Node::ThisExpr(_) | Node::SuperPropExpr(_) | Node::MetaPropExpr(_) | Node::Str(_) | Node::PrivateName(_) => true,
+      Node::Ident(_) | Node::IdentName(_) | Node::ThisExpr(_) | Node::SuperPropExpr(_) | Node::MetaPropExpr(_) | Node::Str(_) | Node::PrivateName(_) => true,
       Node::OptChainExpr(expr) => get_keep_on_one_line(expr.base.as_node()),
       Node::MemberExpr(expr) => keep_member_expr_on_one_line(expr),
       Node::CallExpr(expr) => keep_call_expr_on_one_line(expr.into()),
@@ -3472,6 +3479,7 @@ fn gen_quotable_prop<'a>(node: Node<'a>, context: &mut Context<'a>) -> PrintItem
       Some(true) => match node {
         // add quotes
         Node::Ident(ident) => string_literal::gen_non_jsx_text(ident.sym(), context),
+        Node::IdentName(ident) => string_literal::gen_non_jsx_text(ident.sym(), context),
         _ => gen_node(node, context),
       },
       Some(false) => match node {
@@ -6144,7 +6152,7 @@ fn gen_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -
             let type_param = children[0];
             let children = type_param.children();
             // We have a possible ambiguity iff this type parameter is just an identifier.
-            if children.len() == 1 && children[0].kind() == NodeKind::Ident {
+            if children.len() == 1 && matches!(children[0].kind(), NodeKind::Ident | NodeKind::IdentName) {
               return TrailingCommas::Always;
             }
           }

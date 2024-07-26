@@ -223,7 +223,7 @@ pub fn is_test_library_call_expr<'a>(node: &CallExpr<'a>, program: Program<'a>) 
     fn get_first_identifier_text_from_expr<'a>(expr: &Expr<'a>) -> Option<&'a str> {
       match expr {
         Expr::Ident(ident) => Some(ident.sym()),
-        Expr::Member(member) if member.prop.kind() == NodeKind::Ident => get_first_identifier_text_from_expr(&member.obj),
+        Expr::Member(member) if matches!(member.prop, MemberProp::Ident(_)) => get_first_identifier_text_from_expr(&member.obj),
         _ => None,
       }
     }
@@ -237,7 +237,7 @@ pub fn is_test_library_call_expr<'a>(node: &CallExpr<'a>, program: Program<'a>) 
       fn from_expr<'a>(expr: &Expr<'a>) -> Option<&'a str> {
         match expr {
           Expr::Ident(ident) => Some(ident.sym()),
-          Expr::Member(member) if (member.obj).kind() == NodeKind::Ident => from_member_prop(&member.prop),
+          Expr::Member(member) if matches!(member.obj, Expr::Ident(_)) => from_member_prop(&member.prop),
           _ => None,
         }
       }
