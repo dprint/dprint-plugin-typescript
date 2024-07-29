@@ -4984,7 +4984,7 @@ fn gen_if_stmt<'a>(node: &IfStmt<'a>, context: &mut Context<'a>) -> PrintItems {
   let cons_range = cons.range();
   let result = gen_header_with_conditional_brace_body(
     GenHeaderWithConditionalBraceBodyOptions {
-      body_node: cons.into(),
+      body_node: cons,
       generated_header: {
         let mut items = PrintItems::new();
         items.push_sc(sc!("if"));
