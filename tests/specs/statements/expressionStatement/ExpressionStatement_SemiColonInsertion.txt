@@ -23,7 +23,7 @@
 [expect]
 ;[1, 2, 3].forEach(bar)
 
-== shouldn't insert semi-colons at the start of lines beginning with a bracket ==
+== shouldn't insert semi-colons at the start of lines beginning with increment ==
 let x =   0
    ++x
 
@@ -31,7 +31,7 @@ let x =   0
 let x = 0
 ++x
 
-== shouldn't insert semi-colons at the start of lines beginning with a bracket ==
+== shouldn't insert semi-colons at the start of lines beginning with decrement ==
 let x =   0
    --x
 
@@ -39,13 +39,13 @@ let x =   0
 let x = 0
 --x
 
-== should insert semi-colons at the start of lines beginning with a bracket ==
+== should insert semi-colons at the start of lines beginning with a single plus operator ==
    +5
 
 [expect]
 ;+5
 
-== should insert semi-colons at the start of lines beginning with a bracket ==
+== should insert semi-colons at the start of lines beginning with with a single subtract operator ==
    -5
 
 [expect]
