@@ -4688,6 +4688,9 @@ fn gen_expr_stmt<'a>(stmt: &ExprStmt<'a>, context: &mut Context<'a>) -> PrintIte
         for item in PrintItemsIterator::new(path) {
           match item {
             PrintItem::String(value) => {
+              if value.text.starts_with("++") || value.text.starts_with("--") {
+                return Some(false); // don't need to add for increment/decrement
+              }
               if let Some(c) = value.text.chars().next() {
                 return utils::is_prefix_semi_colon_insertion_char(c).into();
               }
