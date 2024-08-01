@@ -1474,7 +1474,7 @@ fn gen_using_decl<'a>(node: &UsingDecl<'a>, context: &mut Context<'a>) -> PrintI
 
   items.extend(gen_var_declarators(node.into(), node.decls, context));
 
-  if context.config.semi_colons.is_true() {
+  if requires_semi_colon_for_var_or_using_decl(node.into(), context) {
     items.push_sc(sc!(";"));
   }
 
@@ -5343,22 +5343,22 @@ fn gen_var_decl<'a>(node: &VarDecl<'a>, context: &mut Context<'a>) -> PrintItems
 
   items.extend(gen_var_declarators(node.into(), node.decls, context));
 
-  if requires_semi_colon(node, context) {
+  if requires_semi_colon_for_var_or_using_decl(node.into(), context) {
     items.push_sc(sc!(";"));
   }
 
-  return items;
+  items
+}
 
-  fn requires_semi_colon(node: &VarDecl, context: &mut Context) -> bool {
-    let use_semi_colons = context.config.semi_colons.is_true();
-    use_semi_colons
-      && match node.parent() {
-        Node::ForInStmt(node) => node.start() >= node.body.start(),
-        Node::ForOfStmt(node) => node.start() >= node.body.start(),
-        Node::ForStmt(node) => node.start() >= node.body.start(),
-        _ => use_semi_colons,
-      }
-  }
+fn requires_semi_colon_for_var_or_using_decl(node: Node, context: &mut Context) -> bool {
+  let use_semi_colons = context.config.semi_colons.is_true();
+  use_semi_colons
+    && match node.parent() {
+      Some(Node::ForInStmt(node)) => node.start() >= node.body.start(),
+      Some(Node::ForOfStmt(node)) => node.start() >= node.body.start(),
+      Some(Node::ForStmt(node)) => node.start() >= node.body.start(),
+      _ => use_semi_colons,
+    }
 }
 
 fn gen_var_declarators<'a>(parent: Node<'a>, decls: &[&'a VarDeclarator<'a>], context: &mut Context<'a>) -> PrintItems {

@@ -10,6 +10,11 @@ function test() {
     using f = 2, g = 3, testingTheLimitOut = 4;
 }
 
+for (using test of something) {
+}
+for (using test in something) {
+}
+
 [expect]
 using a!: string;
 using b = 5;
@@ -23,6 +28,11 @@ function test() {
     using f = 2,
         g = 3,
         testingTheLimitOut = 4;
+}
+
+for (using test of something) {
+}
+for (using test in something) {
 }
 
 == should not wrap within a variable declaration ==
