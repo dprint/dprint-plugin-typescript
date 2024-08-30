@@ -244,6 +244,20 @@ mod tests {
     );
   }
 
+  #[test]
+  fn it_should_error_when_var_stmts_sep_by_comma() {
+    run_fatal_diagnostic_test(
+      "./test.ts",
+      "let a = 0, let b = 1;",
+      concat!(
+        "Unexpected token `let`. Expected let is reserved in const, let, class declaration at file:///test.ts:1:12\n",
+        "\n",
+        "  let a = 0, let b = 1;\n",
+        "             ~~~"
+      ),
+    );
+  }
+
   fn run_fatal_diagnostic_test(file_path: &str, text: &str, expected: &str) {
     let file_path = PathBuf::from(file_path);
     assert_eq!(parse_swc_ast(&file_path, text.into()).err().unwrap().to_string(), expected);
@@ -259,20 +273,6 @@ mod tests {
         "\n",
         "  const Methods {\n",
         "                ~"
-      ),
-    );
-  }
-
-  #[test]
-  fn it_should_error_when_var_stmts_sep_by_comma() {
-    run_non_fatal_diagnostic_test(
-      "./test.ts",
-      "let a = 0, let b = 1;",
-      concat!(
-        "Expected a semicolon at file:///test.ts:1:16\n",
-        "\n",
-        "  let a = 0, let b = 1;\n",
-        "                 ~"
       ),
     );
   }
