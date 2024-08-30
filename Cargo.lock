@@ -131,9 +131,9 @@ checksum = "5c297a1c74b71ae29df00c3e22dd9534821d60eb9af5a0192823fa2acea70c2a"
 
 [[package]]
 name = "deno_ast"
-version = "0.41.2"
+version = "0.42.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a8207814a257d99164dbf780a73b9dee17af4db983f4b23ffbf20c7340d52f5"
+checksum = "3b08d11d9e4086b00d3428650e31153cf5896586411763cb88a6423ce5b18791"
 dependencies = [
  "deno_media_type",
  "deno_terminal",
@@ -235,9 +235,9 @@ dependencies = [
 
 [[package]]
 name = "dprint-swc-ext"
-version = "0.18.0"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f385cdad3065151fae39262ad43003099234689856a0dc476e8804c5ba8f475b"
+checksum = "0ba28c12892aadb751c2ba7001d8460faee4748a04b4edc51c7121cc67ee03db"
 dependencies = [
  "allocator-api2",
  "bumpalo",
@@ -770,9 +770,9 @@ dependencies = [
 
 [[package]]
 name = "swc_common"
-version = "0.36.2"
+version = "0.37.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1802b1642488aec58597dc55ea88992c165660d6e44e9838d4d93f7b78ab95f3"
+checksum = "12d0a8eaaf1606c9207077d75828008cb2dfb51b095a766bd2b72ef893576e31"
 dependencies = [
  "ast_node",
  "better_scoped_tls",
@@ -796,9 +796,9 @@ dependencies = [
 
 [[package]]
 name = "swc_ecma_ast"
-version = "0.117.4"
+version = "0.118.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5da2f0310e8cd84b8c803095e75b2cbca872c71fc7f7404d4c9c8117d894960"
+checksum = "a6f866d12e4d519052b92a0a86d1ac7ff17570da1272ca0c89b3d6f802cd79df"
 dependencies = [
  "bitflags",
  "is-macro",
@@ -814,9 +814,9 @@ dependencies = [
 
 [[package]]
 name = "swc_ecma_parser"
-version = "0.148.1"
+version = "0.149.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8204235f635274dba4adc30c47ac896fd126ddfc53b27210676722423cbb2e7"
+checksum = "683dada14722714588b56481399c699378b35b2ba4deb5c4db2fb627a97fb54b"
 dependencies = [
  "either",
  "new_debug_unreachable",
