@@ -2878,6 +2878,12 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     return is_jsx_paren_expr_handled_node(node.expr.into(), context);
   }
 
+  // keep when there is an explicit newline after the paren
+  let node_text = node.text_fast(context.program);
+  if !utils::has_no_new_lines_in_leading_whitespace(&node_text[1..]) {
+    return false;
+  }
+
   if let Node::AssignExpr(assign_expr) = parent {
     if assign_expr.right.range().contains(&node.range()) {
       return true;
