@@ -28,7 +28,7 @@ fn main() {
         let config_result = resolve_config(spec_config, &global_config);
         ensure_no_diagnostics(&config_result.diagnostics);
 
-        format_text(file_name, file_text.into(), &config_result.config)
+        format_text(file_name, None, file_text.into(), &config_result.config)
       })
     },
     Arc::new(move |_file_name, _file_text, _spec_config| {

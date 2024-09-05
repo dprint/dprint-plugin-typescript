@@ -35,18 +35,18 @@ use super::swc::parse_swc_ast;
 /// // now format many files (it is recommended to parallelize this)
 /// let files_to_format = vec![(PathBuf::from("path/to/file.ts"), "const  t  =  5 ;")];
 /// for (file_path, file_text) in files_to_format {
-///     let result = format_text(&file_path, file_text.into(), &config);
+///     let result = format_text(&file_path, None, file_text.into(), &config);
 ///     // save result here...
 /// }
 /// ```
-pub fn format_text(file_path: &Path, file_text: String, config: &Configuration) -> Result<Option<String>> {
+pub fn format_text(file_path: &Path, file_extension: Option<&str>, file_text: String, config: &Configuration) -> Result<Option<String>> {
   if super::utils::file_text_has_ignore_comment(&file_text, &config.ignore_file_comment_text) {
     Ok(None)
   } else {
     let had_bom = file_text.starts_with("\u{FEFF}");
     let file_text = if had_bom { file_text[3..].to_string() } else { file_text };
     let file_text: Arc<str> = file_text.into();
-    let parsed_source = parse_swc_ast(file_path, file_text)?;
+    let parsed_source = parse_swc_ast(file_path, file_extension, file_text)?;
     match inner_format(&parsed_source, config)? {
       Some(new_text) => Ok(Some(new_text)),
       None => {
@@ -89,7 +89,7 @@ fn inner_format(parsed_source: &ParsedSource, config: &Configuration) -> Result<
 
 #[cfg(feature = "tracing")]
 pub fn trace_file(file_path: &Path, file_text: &str, config: &Configuration) -> dprint_core::formatting::TracingResult {
-  let parsed_source = parse_swc_ast(file_path, file_text.into()).unwrap();
+  let parsed_source = parse_swc_ast(file_path, None, file_text.into()).unwrap();
   ensure_no_specific_syntax_errors(&parsed_source).unwrap();
   dprint_core::formatting::trace_printing(|| generate(&parsed_source, config), config_to_print_options(file_text, config))
 }
@@ -111,7 +111,7 @@ mod test {
   fn strips_bom() {
     for input_text in ["\u{FEFF}const t = 5;\n", "\u{FEFF}const t =   5;"] {
       let config = crate::configuration::ConfigurationBuilder::new().build();
-      let result = format_text(&std::path::PathBuf::from("test.ts"), input_text.into(), &config).unwrap().unwrap();
+      let result = format_text(&std::path::PathBuf::from("test.ts"), None, input_text.into(), &config).unwrap().unwrap();
       assert_eq!(result, "const t = 5;\n");
     }
   }

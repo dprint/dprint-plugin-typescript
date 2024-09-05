@@ -8,18 +8,18 @@ use deno_ast::ParsedSource;
 use std::path::Path;
 use std::sync::Arc;
 
-pub fn parse_swc_ast(file_path: &Path, file_text: Arc<str>) -> Result<ParsedSource> {
-  match parse_inner(file_path, file_text.clone()) {
+pub fn parse_swc_ast(file_path: &Path, file_extension: Option<&str>, file_text: Arc<str>) -> Result<ParsedSource> {
+  match parse_inner(file_path, file_extension, file_text.clone()) {
     Ok(result) => Ok(result),
     Err(err) => {
-      let lowercase_ext = get_lowercase_extension(file_path);
+      let lowercase_ext = file_extension.map(|ext| ext.to_string()).or_else(|| get_lowercase_extension(file_path));
       let new_file_path = match lowercase_ext.as_deref() {
         Some("ts") | Some("cts") | Some("mts") => file_path.with_extension("tsx"),
         Some("js") | Some("cjs") | Some("mjs") => file_path.with_extension("jsx"),
         _ => return Err(err),
       };
       // try to parse as jsx
-      match parse_inner(&new_file_path, file_text) {
+      match parse_inner(&new_file_path, None, file_text) {
         Ok(result) => Ok(result),
         Err(_) => Err(err), // return the original error
       }
@@ -27,14 +27,19 @@ pub fn parse_swc_ast(file_path: &Path, file_text: Arc<str>) -> Result<ParsedSour
   }
 }
 
-fn parse_inner(file_path: &Path, text: Arc<str>) -> Result<ParsedSource> {
-  let parsed_source = parse_inner_no_diagnostic_check(file_path, text)?;
+fn parse_inner(file_path: &Path, file_extension: Option<&str>, text: Arc<str>) -> Result<ParsedSource> {
+  let parsed_source = parse_inner_no_diagnostic_check(file_path, file_extension, text)?;
   ensure_no_specific_syntax_errors(&parsed_source)?;
   Ok(parsed_source)
 }
 
-fn parse_inner_no_diagnostic_check(file_path: &Path, text: Arc<str>) -> Result<ParsedSource> {
-  let media_type = deno_ast::MediaType::from_path(file_path);
+fn parse_inner_no_diagnostic_check(file_path: &Path, file_extension: Option<&str>, text: Arc<str>) -> Result<ParsedSource> {
+  let media_type = if let Some(file_extension) = file_extension {
+    deno_ast::MediaType::from_path(&file_path.with_extension(file_extension))
+  } else {
+    deno_ast::MediaType::from_path(file_path)
+  };
+
   let mut syntax = deno_ast::get_syntax(media_type);
   if let Syntax::Es(es) = &mut syntax {
     // support decorators in js
@@ -260,7 +265,7 @@ mod tests {
 
   fn run_fatal_diagnostic_test(file_path: &str, text: &str, expected: &str) {
     let file_path = PathBuf::from(file_path);
-    assert_eq!(parse_swc_ast(&file_path, text.into()).err().unwrap().to_string(), expected);
+    assert_eq!(parse_swc_ast(&file_path, None, text.into()).err().unwrap().to_string(), expected);
   }
 
   #[test]
@@ -284,6 +289,12 @@ mod tests {
       "type T =\n  | unknown\n  { } & unknown;",
       concat!("Expression expected at file:///test.ts:3:7\n\n", "    { } & unknown;\n", "        ~"),
     );
+  }
+
+  #[test]
+  fn file_extension_overwrite() {
+    let file_path = PathBuf::from("./test.js");
+    assert!(parse_swc_ast(&file_path, Some("ts"), "const foo: string = 'bar';".into()).is_ok());
   }
 
   #[test]
@@ -342,11 +353,11 @@ Merge conflict marker encountered. at file:///test.ts:6:1
 
   fn run_non_fatal_diagnostic_test(file_path: &str, text: &str, expected: &str) {
     let file_path = PathBuf::from(file_path);
-    assert_eq!(format!("{}", parse_swc_ast(&file_path, text.into()).err().unwrap()), expected);
+    assert_eq!(format!("{}", parse_swc_ast(&file_path, None, text.into()).err().unwrap()), expected);
 
     // this error should also be surfaced in `format_parsed_source` if someone provides
     // a source file that had a non-fatal diagnostic
-    let parsed_source = parse_inner_no_diagnostic_check(&file_path, text.into()).unwrap();
+    let parsed_source = parse_inner_no_diagnostic_check(&file_path, None, text.into()).unwrap();
     let config = ConfigurationBuilder::new().build();
     assert_eq!(crate::format_parsed_source(&parsed_source, &config).err().unwrap().to_string(), expected);
   }
