@@ -19,7 +19,7 @@ pub fn parse_swc_ast(file_path: &Path, file_extension: Option<&str>, file_text: 
         _ => return Err(err),
       };
       // try to parse as jsx
-      match parse_inner(&new_file_path, lowercase_ext.as_deref(), file_text) {
+      match parse_inner(&new_file_path, None, file_text) {
         Ok(result) => Ok(result),
         Err(_) => Err(err), // return the original error
       }
