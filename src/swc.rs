@@ -8,11 +8,11 @@ use deno_ast::ParsedSource;
 use std::path::Path;
 use std::sync::Arc;
 
-pub fn parse_swc_ast(file_path: &Path, file_extension: Option<String>, file_text: Arc<str>) -> Result<ParsedSource> {
-  match parse_inner(file_path, file_extension.as_deref(), file_text.clone()) {
+pub fn parse_swc_ast(file_path: &Path, file_extension: Option<&str>, file_text: Arc<str>) -> Result<ParsedSource> {
+  match parse_inner(file_path, file_extension, file_text.clone()) {
     Ok(result) => Ok(result),
     Err(err) => {
-      let lowercase_ext = file_extension.or_else(|| get_lowercase_extension(file_path));
+      let lowercase_ext = file_extension.map(|ext| ext.to_string()).or_else(|| get_lowercase_extension(file_path));
       let new_file_path = match lowercase_ext.as_deref() {
         Some("ts") | Some("cts") | Some("mts") => file_path.with_extension("tsx"),
         Some("js") | Some("cjs") | Some("mjs") => file_path.with_extension("jsx"),
@@ -294,7 +294,7 @@ mod tests {
   #[test]
   fn file_extension_overwrite() {
     let file_path = PathBuf::from("./test.js");
-    assert!(parse_swc_ast(&file_path, Some("ts".to_string()), "const foo: string = 'bar';".into()).is_ok());
+    assert!(parse_swc_ast(&file_path, Some("ts"), "const foo: string = 'bar';".into()).is_ok());
   }
 
   #[test]

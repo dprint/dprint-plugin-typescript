@@ -39,7 +39,7 @@ use super::swc::parse_swc_ast;
 ///     // save result here...
 /// }
 /// ```
-pub fn format_text(file_path: &Path, file_extension: Option<String>, file_text: String, config: &Configuration) -> Result<Option<String>> {
+pub fn format_text(file_path: &Path, file_extension: Option<&str>, file_text: String, config: &Configuration) -> Result<Option<String>> {
   if super::utils::file_text_has_ignore_comment(&file_text, &config.ignore_file_comment_text) {
     Ok(None)
   } else {
