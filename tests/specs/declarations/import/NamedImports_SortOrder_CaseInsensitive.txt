@@ -73,20 +73,20 @@ import { // test
     testing,
 } from "asdf";
 
-== should sort with types last ==
+== should not sort type only imports by default to reduce merge conflicts ==
 import {
     type a,
     testing,
     other,
     outttttttttttttttt,
-    type b,
+    type z,
 } from "asdf";
 
 [expect]
 import {
+    type a,
     other,
     outttttttttttttttt,
     testing,
-    type a,
-    type b,
+    type z,
 } from "asdf";
