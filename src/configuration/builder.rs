@@ -69,6 +69,8 @@ impl ConfigurationBuilder {
       .ignore_file_comment_text("deno-fmt-ignore-file")
       .module_sort_import_declarations(SortOrder::Maintain)
       .module_sort_export_declarations(SortOrder::Maintain)
+      .export_declaration_sort_type_only_exports(NamedTypeImportsExportsOrder::Last)
+      .import_declaration_sort_type_only_imports(NamedTypeImportsExportsOrder::Last)
   }
 
   /// The width of a line the printer will try to stay under. Note that the printer may exceed this width in certain cases.
