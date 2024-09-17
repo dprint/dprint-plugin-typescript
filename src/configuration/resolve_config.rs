@@ -119,6 +119,18 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     module_sort_export_declarations: get_value(&mut config, "module.sortExportDeclarations", SortOrder::CaseInsensitive, &mut diagnostics),
     import_declaration_sort_named_imports: get_value(&mut config, "importDeclaration.sortNamedImports", SortOrder::CaseInsensitive, &mut diagnostics),
     export_declaration_sort_named_exports: get_value(&mut config, "exportDeclaration.sortNamedExports", SortOrder::CaseInsensitive, &mut diagnostics),
+    import_declaration_sort_type_only_imports: get_value(
+      &mut config,
+      "importDeclaration.sortTypeOnlyImports",
+      NamedTypeImportsExportsOrder::Last,
+      &mut diagnostics,
+    ),
+    export_declaration_sort_type_only_exports: get_value(
+      &mut config,
+      "exportDeclaration.sortTypeOnlyExports",
+      NamedTypeImportsExportsOrder::Last,
+      &mut diagnostics,
+    ),
     /* ignore comments */
     ignore_node_comment_text: get_value(&mut config, "ignoreNodeCommentText", String::from("dprint-ignore"), &mut diagnostics),
     ignore_file_comment_text: get_value(&mut config, "ignoreFileCommentText", String::from("dprint-ignore-file"), &mut diagnostics),

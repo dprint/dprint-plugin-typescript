@@ -536,11 +536,25 @@ impl ConfigurationBuilder {
     self.insert("importDeclaration.sortNamedImports", value.to_string().into())
   }
 
+  /// Sorts type-only named imports first, last, or none (no sorting).
+  ///
+  /// Default: Last
+  pub fn import_declaration_sort_type_only_imports(&mut self, value: NamedTypeImportsExportsOrder) -> &mut Self {
+    self.insert("importDeclaration.sortTypeOnlyImports", value.to_string().into())
+  }
+
   /// Alphabetically sorts the export declaration's named exports.
   ///
   /// Default: Case insensitive
   pub fn export_declaration_sort_named_exports(&mut self, value: SortOrder) -> &mut Self {
     self.insert("exportDeclaration.sortNamedExports", value.to_string().into())
+  }
+
+  /// Sorts type-only named exports first, last, or none (no sorting).
+  ///
+  /// Default: Last
+  pub fn export_declaration_sort_type_only_exports(&mut self, value: NamedTypeImportsExportsOrder) -> &mut Self {
+    self.insert("exportDeclaration.sortTypeOnlyExports", value.to_string().into())
   }
 
   /* ignore comments */
@@ -1105,6 +1119,8 @@ mod tests {
       .module_sort_export_declarations(SortOrder::Maintain)
       .import_declaration_sort_named_imports(SortOrder::Maintain)
       .export_declaration_sort_named_exports(SortOrder::Maintain)
+      .import_declaration_sort_type_only_imports(NamedTypeImportsExportsOrder::First)
+      .export_declaration_sort_type_only_exports(NamedTypeImportsExportsOrder::None)
       /* ignore comments */
       .ignore_node_comment_text("ignore")
       .ignore_file_comment_text("ignore-file")
@@ -1269,7 +1285,7 @@ mod tests {
       .while_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 179);
+    assert_eq!(inner_config.len(), 181);
     let diagnostics = resolve_config(inner_config, &Default::default()).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

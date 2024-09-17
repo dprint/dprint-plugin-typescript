@@ -72,3 +72,21 @@ export { // test
     outttttttttttttttt,
     testing,
 } from "asdf";
+
+== should sort type imports last by default ==
+export {
+    type a,
+    testing,
+    other,
+    outttttttttttttttt,
+    type z,
+} from "asdf";
+
+[expect]
+export {
+    other,
+    outttttttttttttttt,
+    testing,
+    type a,
+    type z,
+} from "asdf";

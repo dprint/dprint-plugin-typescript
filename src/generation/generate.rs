@@ -1544,8 +1544,14 @@ fn gen_named_import_or_export_specifiers<'a>(opts: GenNamedImportOrExportSpecifi
     context: &Context<'a>,
   ) -> Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), Program<'a>) -> std::cmp::Ordering>> {
     match parent_decl {
-      Node::NamedExport(_) => get_node_sorter_from_order(context.config.export_declaration_sort_named_exports),
-      Node::ImportDecl(_) => get_node_sorter_from_order(context.config.import_declaration_sort_named_imports),
+      Node::NamedExport(_) => get_node_sorter_from_order(
+        context.config.export_declaration_sort_named_exports,
+        context.config.export_declaration_sort_type_only_exports,
+      ),
+      Node::ImportDecl(_) => get_node_sorter_from_order(
+        context.config.import_declaration_sort_named_imports,
+        context.config.import_declaration_sort_type_only_imports,
+      ),
       _ => unreachable!(),
     }
   }
@@ -7104,8 +7110,8 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
     context: &Context<'a>,
   ) -> Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), Program<'a>) -> std::cmp::Ordering>> {
     match group_kind {
-      StmtGroupKind::Imports => get_node_sorter_from_order(context.config.module_sort_import_declarations),
-      StmtGroupKind::Exports => get_node_sorter_from_order(context.config.module_sort_export_declarations),
+      StmtGroupKind::Imports => get_node_sorter_from_order(context.config.module_sort_import_declarations, NamedTypeImportsExportsOrder::None),
+      StmtGroupKind::Exports => get_node_sorter_from_order(context.config.module_sort_export_declarations, NamedTypeImportsExportsOrder::None),
       StmtGroupKind::Other => None,
     }
   }

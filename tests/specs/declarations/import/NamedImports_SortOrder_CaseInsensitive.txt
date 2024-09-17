@@ -72,3 +72,21 @@ import { // test
     outttttttttttttttt,
     testing,
 } from "asdf";
+
+== should sort with types last ==
+import {
+    type a,
+    testing,
+    other,
+    outttttttttttttttt,
+    type b,
+} from "asdf";
+
+[expect]
+import {
+    other,
+    outttttttttttttttt,
+    testing,
+    type a,
+    type b,
+} from "asdf";
