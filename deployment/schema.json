@@ -297,6 +297,21 @@
         "description": "Force multiple lines only if importing more than one thing."
       }]
     },
+    "typeOnlyImportsExportsSortOrder": {
+      "description": "The kind of sort ordering to use for typed imports and exports.",
+      "type": "string",
+      "default": "last",
+      "oneOf": [{
+        "const": "first",
+        "description": "Puts type-only named imports and exports first."
+      }, {
+        "const": "last",
+        "description": "Puts type-only named imports and exports last."
+      }, {
+        "const": "none",
+        "description": "Does not sort based on if a type-only named import or export."
+      }]
+    },
     "sortOrder": {
       "description": "The kind of sort ordering to use.",
       "type": "string",
@@ -1000,8 +1015,14 @@
     "exportDeclaration.sortNamedExports": {
       "$ref": "#/definitions/sortOrder"
     },
+    "exportDeclaration.sortTypeOnlyExports": {
+      "$ref": "#/definitions/typeOnlyImportsExportsSortOrder"
+    },
     "importDeclaration.sortNamedImports": {
       "$ref": "#/definitions/sortOrder"
+    },
+    "importDeclaration.sortTypeOnlyImports": {
+      "$ref": "#/definitions/typeOnlyImportsExportsSortOrder"
     },
     "ignoreNodeCommentText": {
       "description": "The text to use for an ignore comment (ex. `// dprint-ignore`).",

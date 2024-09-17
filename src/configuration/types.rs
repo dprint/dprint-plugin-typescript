@@ -296,6 +296,17 @@ generate_str_to_from![
   [CaseInsensitive, "caseInsensitive"]
 ];
 
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum NamedTypeImportsExportsOrder {
+  First,
+  #[default]
+  Last,
+  None,
+}
+
+generate_str_to_from![NamedTypeImportsExportsOrder, [First, "first"], [Last, "last"], [None, "none"]];
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Configuration {
@@ -336,8 +347,12 @@ pub struct Configuration {
   pub module_sort_export_declarations: SortOrder,
   #[serde(rename = "importDeclaration.sortNamedImports")]
   pub import_declaration_sort_named_imports: SortOrder,
+  #[serde(rename = "importDeclaration.sortTypeOnlyImports")]
+  pub import_declaration_sort_type_only_imports: NamedTypeImportsExportsOrder,
   #[serde(rename = "exportDeclaration.sortNamedExports")]
   pub export_declaration_sort_named_exports: SortOrder,
+  #[serde(rename = "exportDeclaration.sortTypeOnlyExports")]
+  pub export_declaration_sort_type_only_exports: NamedTypeImportsExportsOrder,
   /* ignore comments */
   pub ignore_node_comment_text: String,
   pub ignore_file_comment_text: String,
