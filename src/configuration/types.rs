@@ -300,8 +300,8 @@ generate_str_to_from![
 #[serde(rename_all = "camelCase")]
 pub enum NamedTypeImportsExportsOrder {
   First,
-  #[default]
   Last,
+  #[default]
   None,
 }
 

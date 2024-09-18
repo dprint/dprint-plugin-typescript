@@ -122,13 +122,13 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     import_declaration_sort_type_only_imports: get_value(
       &mut config,
       "importDeclaration.sortTypeOnlyImports",
-      NamedTypeImportsExportsOrder::Last,
+      NamedTypeImportsExportsOrder::None,
       &mut diagnostics,
     ),
     export_declaration_sort_type_only_exports: get_value(
       &mut config,
       "exportDeclaration.sortTypeOnlyExports",
-      NamedTypeImportsExportsOrder::Last,
+      NamedTypeImportsExportsOrder::None,
       &mut diagnostics,
     ),
     /* ignore comments */

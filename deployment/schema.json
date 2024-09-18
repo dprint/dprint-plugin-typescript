@@ -300,7 +300,7 @@
     "typeOnlyImportsExportsSortOrder": {
       "description": "The kind of sort ordering to use for typed imports and exports.",
       "type": "string",
-      "default": "last",
+      "default": "none",
       "oneOf": [{
         "const": "first",
         "description": "Puts type-only named imports and exports first."

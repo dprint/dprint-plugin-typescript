@@ -73,7 +73,7 @@ export { // test
     testing,
 } from "asdf";
 
-== should sort type imports last by default ==
+== should not sort type imports by default in order to reduce merge conflicts ==
 export {
     type a,
     testing,
@@ -84,9 +84,9 @@ export {
 
 [expect]
 export {
+    type a,
     other,
     outttttttttttttttt,
     testing,
-    type a,
     type z,
 } from "asdf";
