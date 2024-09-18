@@ -9177,7 +9177,9 @@ fn gen_assignment_like_with_token<'a>(expr: Node<'a>, op: &'static StringContain
         {
           let mut items = PrintItems::new();
           items.push_signal(Signal::SpaceIfNotTrailing);
-          items.push_signal(Signal::PossibleNewLine);
+          if context.config.variable_statement_prefer_single_line {
+              items.push_signal(Signal::PossibleNewLine);
+          }
           items
         },
         Signal::SpaceIfNotTrailing.into(),
