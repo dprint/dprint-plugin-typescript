@@ -1539,10 +1539,7 @@ fn gen_named_import_or_export_specifiers<'a>(opts: GenNamedImportOrExportSpecifi
     }
   }
 
-  fn get_node_sorter<'a>(
-    parent_decl: Node,
-    context: &Context<'a>,
-  ) -> Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), Program<'a>) -> std::cmp::Ordering>> {
+  fn get_node_sorter<'a>(parent_decl: Node, context: &Context<'a>) -> Option<NodeSorter> {
     match parent_decl {
       Node::NamedExport(_) => get_node_sorter_from_order(
         context.config.export_declaration_sort_named_exports,
@@ -7105,10 +7102,7 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
 
   return items;
 
-  fn get_node_sorter<'a>(
-    group_kind: StmtGroupKind,
-    context: &Context<'a>,
-  ) -> Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), Program<'a>) -> std::cmp::Ordering>> {
+  fn get_node_sorter<'a>(group_kind: StmtGroupKind, context: &Context<'a>) -> Option<NodeSorter> {
     match group_kind {
       StmtGroupKind::Imports => get_node_sorter_from_order(context.config.module_sort_import_declarations, NamedTypeImportsExportsOrder::None),
       StmtGroupKind::Exports => get_node_sorter_from_order(context.config.module_sort_export_declarations, NamedTypeImportsExportsOrder::None),
@@ -7600,7 +7594,7 @@ struct GenSeparatedValuesParams<'a> {
   single_line_options: ir_helpers::SingleLineOptions,
   multi_line_options: ir_helpers::MultiLineOptions,
   force_possible_newline_at_start: bool,
-  node_sorter: Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), Program<'a>) -> std::cmp::Ordering>>,
+  node_sorter: Option<NodeSorter>,
 }
 
 enum NodeOrSeparator<'a> {
@@ -7733,13 +7727,9 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
   )
 }
 
-fn get_sorted_indexes<'a: 'b, 'b>(
-  nodes: impl Iterator<Item = Option<Node<'a>>>,
-  sorter: Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), Program<'a>) -> std::cmp::Ordering>,
-  context: &mut Context<'a>,
-) -> utils::VecMap<usize> {
+fn get_sorted_indexes<'a: 'b, 'b>(nodes: impl Iterator<Item = Option<Node<'a>>>, sorter: NodeSorter, context: &mut Context<'a>) -> utils::VecMap<usize> {
   let mut nodes_with_indexes = nodes.enumerate().collect::<Vec<_>>();
-  nodes_with_indexes.sort_unstable_by(|a, b| sorter((a.0, a.1), (b.0, b.1), context.program));
+  nodes_with_indexes.sort_unstable_by(|a, b| sorter.compare((a.0, a.1), (b.0, b.1), context.program));
   let mut old_to_new_index = utils::VecMap::with_capacity(nodes_with_indexes.len());
 
   for (new_index, old_index) in nodes_with_indexes.into_iter().map(|(index, _)| index).enumerate() {
@@ -7995,7 +7985,7 @@ struct GenObjectLikeNodeOptions<'a> {
   force_multi_line: bool,
   surround_single_line_with_spaces: bool,
   allow_blank_lines: bool,
-  node_sorter: Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), Program<'a>) -> std::cmp::Ordering>>,
+  node_sorter: Option<NodeSorter>,
 }
 
 fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Context<'a>) -> PrintItems {
