@@ -96,7 +96,19 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
   // generate the node
   if has_ignore_comment {
     items.push_force_current_line_indentation();
-    items.extend(inner_gen(ir_helpers::gen_from_raw_string(node.text_fast(context.program)), context));
+    let node_text = if node_kind == NodeKind::JSXText {
+      // keep the leading text, but leave the trailing text to be formatted if on a separate line
+      let node_text = node.text_fast(context.program);
+      let end_trim = node_text.trim_end();
+      if node_text[end_trim.len()..].contains('\n') {
+        end_trim
+      } else {
+        node_text
+      }
+    } else {
+      node.text_fast(context.program)
+    };
+    items.extend(inner_gen(ir_helpers::gen_from_raw_string(node_text), context));
 
     // mark any previous comments as handled
     for comment in context.comments.trailing_comments_with_previous(node_end) {
@@ -430,6 +442,20 @@ fn get_has_ignore_comment<'a>(leading_comments: &CommentsIterator<'a>, node: Nod
 
     iterator
   }
+}
+
+fn is_ignore_jsx_expr_container(node: Node, context: &Context) -> bool {
+  if let Node::JSXExprContainer(expr_container) = node {
+    if let JSXExpr::JSXEmptyExpr(empty_expr) = expr_container.expr {
+      for comment in get_jsx_empty_expr_comments(empty_expr, context) {
+        if ir_helpers::text_has_dprint_ignore(&comment.text, &context.config.ignore_node_comment_text) {
+          return true;
+        }
+      }
+    }
+  }
+
+  false
 }
 
 /* class */
@@ -6830,7 +6856,7 @@ fn get_trailing_comments_same_line<'a>(node: &SourceRange, trailing_comments: Co
   trailing_comments_on_same_line
 }
 
-fn get_jsx_empty_expr_comments<'a>(node: &JSXEmptyExpr, context: &mut Context<'a>) -> CommentsIterator<'a> {
+fn get_jsx_empty_expr_comments<'a>(node: &JSXEmptyExpr, context: &Context<'a>) -> CommentsIterator<'a> {
   node.end().leading_comments_fast(context.program)
 }
 
@@ -7210,12 +7236,16 @@ where
   let mut items = PrintItems::new();
   let children_len = opts.items.len();
 
-  for (i, (node, optional_print_items)) in opts.items.into_iter().enumerate() {
+  let mut member_items = opts.items.into_iter().enumerate().peekable();
+
+  while let Some((i, (node, optional_print_items))) = member_items.next() {
     // class declarations may have empty statements
     let is_empty_stmt = node.is::<EmptyStmt>();
     if !is_empty_stmt {
       if let Some(last_node) = last_node {
-        if should_use_new_line(&opts.should_use_new_line, last_node, node, context) {
+        if is_ignore_jsx_expr_container(last_node, context) && node.kind() == NodeKind::JSXText {
+          // ignore
+        } else if should_use_new_line(&opts.should_use_new_line, last_node, node, context) {
           items.push_signal(Signal::NewLine);
 
           if (opts.should_use_blank_line)(last_node, node, context) {
@@ -7232,11 +7262,12 @@ where
         }
       }
 
+      let next_node = member_items.peek().map(|(_, (n, _))| n);
       let end_ln = LineNumber::new("endMember");
       context.end_statement_or_member_lns.push(end_ln);
       items.extend(if let Some(print_items) = optional_print_items {
         print_items
-      } else if opts.separator.is_none() {
+      } else if opts.separator.is_none() || is_ignore_jsx_expr_container(node, context) && next_node.map(|n| n.kind() == NodeKind::JSXText).unwrap_or(false) {
         gen_node(node, context)
       } else {
         let generated_separator = get_generated_separator(&opts.separator, i == children_len - 1, &condition_resolvers::true_resolver());
@@ -9021,7 +9052,9 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
 }
 
 fn jsx_space_separator<'a>(previous_node: Node<'a>, current_node: Node<'a>, context: &Context<'a>) -> PrintItems {
-  return if node_should_force_newline_if_multi_line(previous_node) || node_should_force_newline_if_multi_line(current_node) {
+  return if is_ignore_jsx_expr_container(previous_node, context) && current_node.kind() == NodeKind::JSXText {
+    PrintItems::new()
+  } else if node_should_force_newline_if_multi_line(previous_node) || node_should_force_newline_if_multi_line(current_node) {
     jsx_force_space_with_newline_if_either_node_multi_line(previous_node, current_node, context)
   } else {
     jsx_space_or_newline_or_expr_space(previous_node, current_node, context)
