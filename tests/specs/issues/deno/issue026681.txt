@@ -1,0 +1,30 @@
+~~ deno: true ~~
+== should be stable at formatting ==
+<>
+  <div>
+    {/* deno-fmt-ignore */}
+    foo
+  </div>
+  <div>
+    {/* deno-fmt-ignore */}    foo
+  </div>
+  <div>{/* deno-fmt-ignore */}    foo    </div>
+</>;
+
+[expect]
+<>
+  <div>
+    {/* deno-fmt-ignore */}
+    foo
+  </div>
+  <div>
+    {/* deno-fmt-ignore */}    foo
+  </div>
+  <div>{/* deno-fmt-ignore */}    foo    </div>
+</>;
+
+== should be stable at formatting single line ==
+<div>{/* deno-fmt-ignore */}    foo    </div>;
+
+[expect]
+<div>{/* deno-fmt-ignore */}    foo    </div>;
