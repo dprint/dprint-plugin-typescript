@@ -18,11 +18,14 @@ use super::*;
 use crate::configuration::*;
 use crate::utils::Stack;
 
+pub type ExternalFormatter = Box<dyn Fn(MediaType, String) -> String>;
+
 pub struct Context<'a> {
   pub media_type: MediaType,
   pub program: Program<'a>,
   pub config: &'a Configuration,
   pub comments: CommentTracker<'a>,
+  pub external_formatter: Option<ExternalFormatter>,
   pub token_finder: TokenFinder<'a>,
   pub current_node: Node<'a>,
   pub parent_stack: Stack<Node<'a>>,
@@ -49,6 +52,7 @@ impl<'a> Context<'a> {
       program,
       config,
       comments: CommentTracker::new(program, tokens),
+      external_formatter: None,
       token_finder: TokenFinder::new(program),
       current_node,
       parent_stack: Default::default(),

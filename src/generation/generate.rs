@@ -3017,6 +3017,17 @@ fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintI
     items.extend(generated_between_comments);
   }
 
+  if let Expr::Ident(ident) = node.tag {
+    if ident.sym() == "css" && node.tpl.quasis.len() == 1 {
+      let mut i = PrintItems::new();
+      let quasi = node.tpl.quasis[0];
+      eprintln!("template {}", quasi.raw());
+      let externally_formatted = "`asdfasdf`".to_string();
+      i.push_string(externally_formatted);
+      items.push_condition(conditions::indent_if_start_of_line(i));
+      return items;
+    }
+  }
   items.push_condition(conditions::indent_if_start_of_line(gen_node(node.tpl.into(), context)));
   items
 }
