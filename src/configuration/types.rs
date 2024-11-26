@@ -317,6 +317,7 @@ pub struct Configuration {
   pub quote_style: QuoteStyle,
   pub quote_props: QuoteProps,
   pub semi_colons: SemiColons,
+  pub file_indent_level: u32,
   /* situational */
   #[serde(rename = "arrowFunction.useParentheses")]
   pub arrow_function_use_parentheses: UseParentheses,
