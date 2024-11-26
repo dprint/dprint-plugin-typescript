@@ -203,6 +203,15 @@ impl ConfigurationBuilder {
     self.insert("singleBodyPosition", value.to_string().into())
   }
 
+  /// Amount of indents to use for the whole file.
+  ///
+  /// This should only be set by tools that need to indent all the code in the file.
+  ///
+  /// Default: `0`
+  pub fn file_indent_level(&mut self, value: u16) -> &mut Self {
+    self.insert("fileIndentLevel", (value as i32).into())
+  }
+
   /// If trailing commas should be used.
   ///
   /// Default: `TrailingCommas::OnlyMultiLine`
@@ -1105,6 +1114,7 @@ mod tests {
       .operator_position(OperatorPosition::SameLine)
       .single_body_position(SameOrNextLinePosition::SameLine)
       .trailing_commas(TrailingCommas::Never)
+      .file_indent_level(1)
       .use_braces(UseBraces::WhenNotSingleLine)
       .quote_props(QuoteProps::AsNeeded)
       .prefer_hanging(false)
@@ -1287,7 +1297,7 @@ mod tests {
       .while_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 181);
+    assert_eq!(inner_config.len(), 182);
     let diagnostics = resolve_config(inner_config, &Default::default()).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

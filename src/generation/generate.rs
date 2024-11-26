@@ -42,7 +42,11 @@ pub fn generate(parsed_source: &ParsedSource, config: &Configuration) -> PrintIt
     #[cfg(debug_assertions)]
     context.assert_end_of_file_state();
 
-    items
+    if config.file_indent_level > 0 {
+      with_indent_times(items, config.file_indent_level)
+    } else {
+      items
+    }
   })
 }
 
