@@ -2996,6 +2996,28 @@ fn gen_spread_element<'a>(node: &SpreadElement<'a>, context: &mut Context<'a>) -
   items
 }
 
+fn maybe_format_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, external_formatter: &ExternalFormatter) -> Option<String> {
+  let Expr::Ident(ident) = node.tag else {
+    return None;
+  };
+
+  // TODO(bartlomieju): support `html` and `sql` template tags
+  let media_type = match ident.sym().as_str() {
+    "css" => MediaType::Css,
+    _ => return None,
+  };
+
+  // TODO(bartlomieju): support formatting when there are multiplie quasis, but first need to figure
+  // out how to put valid "placeholders" for different languages
+  if node.tpl.quasis.len() != 1 {
+    return None;
+  }
+
+  let quasi = node.tpl.quasis[0];
+
+  external_formatter(media_type, quasi.raw().to_string())
+}
+
 fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintItems {
   let use_space = context.config.tagged_template_space_before_literal;
   let mut items = gen_node(node.tag.into(), context);
@@ -3012,17 +3034,15 @@ fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintI
     items.extend(generated_between_comments);
   }
 
-  if let Expr::Ident(ident) = node.tag {
-    if ident.sym() == "css" && node.tpl.quasis.len() == 1 {
+  if let Some(external_formatter) = context.external_formatter.as_ref() {
+    if let Some(formatted_tpl) = maybe_format_tagged_tpl_with_external_formatter(node, external_formatter) {
       let mut i = PrintItems::new();
-      let quasi = node.tpl.quasis[0];
-      eprintln!("template {}", quasi.raw());
-      let externally_formatted = "`asdfasdf`".to_string();
-      i.push_string(externally_formatted);
+      i.push_string(formatted_tpl);
       items.push_condition(conditions::indent_if_start_of_line(i));
       return items;
     }
   }
+
   items.push_condition(conditions::indent_if_start_of_line(gen_node(node.tpl.into(), context)));
   items
 }

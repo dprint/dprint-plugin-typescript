@@ -18,7 +18,7 @@ use super::*;
 use crate::configuration::*;
 use crate::utils::Stack;
 
-pub type ExternalFormatter = Box<dyn Fn(MediaType, String) -> String>;
+pub type ExternalFormatter = Box<dyn Fn(MediaType, String) -> Option<String>>;
 
 pub struct Context<'a> {
   pub media_type: MediaType,

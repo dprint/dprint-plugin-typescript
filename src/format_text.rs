@@ -47,7 +47,6 @@ pub fn format_text(file_path: &Path, file_extension: Option<&str>, file_text: St
     let file_text = if had_bom { file_text[3..].to_string() } else { file_text };
     let file_text: Arc<str> = file_text.into();
     let parsed_source = parse_swc_ast(file_path, file_extension, file_text)?;
-    eprintln!("parsed source {:#?}", parsed_source);
     match inner_format(&parsed_source, config)? {
       Some(new_text) => Ok(Some(new_text)),
       None => {
