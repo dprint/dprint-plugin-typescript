@@ -260,6 +260,7 @@ dependencies = [
  "dprint-development",
  "percent-encoding",
  "pretty_assertions",
+ "regex",
  "rustc-hash",
  "serde",
  "serde_json",
