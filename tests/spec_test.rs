@@ -14,51 +14,34 @@ fn main() {
     ..Default::default()
   };
 
-  let file_text = r#"import css from 'styled-components'
+  run_specs(
+    &PathBuf::from("./tests/specs"),
+    &ParseSpecOptions { default_file_name: "file.ts" },
+    &RunSpecsOptions {
+      fix_failures: false,
+      format_twice: true,
+    },
+    {
+      let global_config = global_config.clone();
+      Arc::new(move |file_name, file_text, spec_config| {
+        let spec_config: ConfigKeyMap = serde_json::from_value(spec_config.clone().into()).unwrap();
+        let config_result = resolve_config(spec_config, &global_config);
+        ensure_no_diagnostics(&config_result.diagnostics);
 
-const Header = css`
-  height: 40px;  padding: 0 15px;
-  display: flex;          align-items: center;
-  border-top-left-radius: 5px;
-  border-top-right-radius: 5px;
-`"#;
-  let r = format_text(
-    &std::path::PathBuf::from("foo.js"),
-    None,
-    file_text.into(),
-    &ConfigurationBuilder::new().build(),
-  );
-  eprintln!("result {:#?}", r);
-  return;
+        format_text(file_name, None, file_text.into(), &config_result.config)
+      })
+    },
+    Arc::new(move |_file_name, _file_text, _spec_config| {
+      #[cfg(feature = "tracing")]
+      {
+        let spec_config: ConfigKeyMap = serde_json::from_value(_spec_config.clone().into()).unwrap();
+        let config_result = resolve_config(spec_config, &global_config);
+        ensure_no_diagnostics(&config_result.diagnostics);
+        return serde_json::to_string(&trace_file(_file_name, _file_text, &config_result.config)).unwrap();
+      }
 
-  // run_specs(
-  //   &PathBuf::from("./tests/specs"),
-  //   &ParseSpecOptions { default_file_name: "file.ts" },
-  //   &RunSpecsOptions {
-  //     fix_failures: false,
-  //     format_twice: true,
-  //   },
-  //   {
-  //     let global_config = global_config.clone();
-  //     Arc::new(move |file_name, file_text, spec_config| {
-  //       let spec_config: ConfigKeyMap = serde_json::from_value(spec_config.clone().into()).unwrap();
-  //       let config_result = resolve_config(spec_config, &global_config);
-  //       ensure_no_diagnostics(&config_result.diagnostics);
-
-  //       format_text(file_name, None, file_text.into(), &config_result.config)
-  //     })
-  //   },
-  //   Arc::new(move |_file_name, _file_text, _spec_config| {
-  //     #[cfg(feature = "tracing")]
-  //     {
-  //       let spec_config: ConfigKeyMap = serde_json::from_value(_spec_config.clone().into()).unwrap();
-  //       let config_result = resolve_config(spec_config, &global_config);
-  //       ensure_no_diagnostics(&config_result.diagnostics);
-  //       return serde_json::to_string(&trace_file(_file_name, _file_text, &config_result.config)).unwrap();
-  //     }
-
-  //     #[cfg(not(feature = "tracing"))]
-  //     panic!("\n====\nPlease run with `cargo test --features tracing` to get trace output\n====\n")
-  //   }),
-  // )
+      #[cfg(not(feature = "tracing"))]
+      panic!("\n====\nPlease run with `cargo test --features tracing` to get trace output\n====\n")
+    }),
+  )
 }
