@@ -18,6 +18,33 @@ use super::*;
 use crate::configuration::*;
 use crate::utils::Stack;
 
+/// A callback that will be called when encountering certain tagged templates.
+///
+/// Currently supports `css`, `html` and `sql` tagged templated.
+///
+/// Examples:
+/// ```
+/// const styles = css`color: red;`;
+///
+/// const markup = html`<html>
+///   <body>
+///     <h1>Hello!<h1>
+///   </body>
+/// </html>`;
+///
+/// const query = sql`
+/// SELECT
+///   *
+/// FROM
+///   users
+/// WHERE
+///   active IS TRUE;
+/// ```
+///
+/// External formatter should return `None` if it doesn't understand given `MediaType`, in such
+/// cases the templates will be left as they are.
+///
+/// Only templates with no interpolation are supported.
 pub type ExternalFormatter = Box<dyn Fn(MediaType, String) -> Option<String>>;
 
 pub struct Context<'a> {
