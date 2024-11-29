@@ -23,7 +23,7 @@ use crate::utils::Stack;
 /// Currently supports `css`, `html` and `sql` tagged templated.
 ///
 /// Examples:
-/// ```
+/// ```ignore
 /// const styles = css`color: red;`;
 ///
 /// const markup = html`<html>
