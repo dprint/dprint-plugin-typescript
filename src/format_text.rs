@@ -206,9 +206,9 @@ border-top-right-radius: 5px;
       &ConfigurationBuilder::new().build(),
       Box::new(external_formatter),
     )
-    .unwrap()
     .unwrap();
 
-    assert_eq!(formatted_text, file_text);
+    // No changes, so returns None - no changes because `html` template tag is currently not understood.
+    assert!(formatted_text.is_none());
   }
 }
