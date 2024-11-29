@@ -25,13 +25,20 @@ use super::*;
 use crate::configuration::*;
 use crate::utils;
 
-pub fn generate(parsed_source: &ParsedSource, config: &Configuration) -> PrintItems {
+pub fn generate(parsed_source: &ParsedSource, config: &Configuration, external_formatter: Option<ExternalFormatter>) -> PrintItems {
   // eprintln!("Leading: {:?}", parsed_source.comments().leading_map());
   // eprintln!("Trailing: {:?}", parsed_source.comments().trailing_map());
 
   parsed_source.with_view(|program| {
     let program_node = program.into();
-    let mut context = Context::new(parsed_source.media_type(), parsed_source.tokens(), program_node, program, config);
+    let mut context = Context::new(
+      parsed_source.media_type(),
+      parsed_source.tokens(),
+      program_node,
+      program,
+      config,
+      external_formatter,
+    );
     let mut items = gen_node(program_node, &mut context);
     items.push_condition(if_true(
       "endOfFileNewLine",
@@ -3042,7 +3049,14 @@ fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintI
   if let Some(external_formatter) = context.external_formatter.as_ref() {
     if let Some(formatted_tpl) = maybe_format_tagged_tpl_with_external_formatter(node, external_formatter) {
       let mut i = PrintItems::new();
-      i.push_string(formatted_tpl);
+      // TODO(bartlomieju): not fully correct, need to handle trailing newlines better
+      i.push_string("`".to_string());
+      for line in formatted_tpl.lines() {
+        i.push_string(line.to_string());
+        i.push_signal(Signal::NewLine);
+      }
+      i.push_string("`".to_string());
+      // i.push_string(formatted_tpl.trim_end().to_string());
       items.push_condition(conditions::indent_if_start_of_line(i));
       return items;
     }
