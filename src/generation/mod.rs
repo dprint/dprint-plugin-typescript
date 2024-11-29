@@ -12,4 +12,5 @@ use context::*;
 use generate_types::*;
 use tokens::*;
 
+pub use context::ExternalFormatter;
 pub use generate::generate;
