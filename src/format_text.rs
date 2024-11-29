@@ -196,5 +196,19 @@ border-top-right-radius: 5px;
 `;
 "#
     );
+
+    let file_text = "const htmlString = html`<body>Hello there!</body>`;\n";
+
+    let formatted_text = format_text_with_external_formatter(
+      &std::path::PathBuf::from("foo.js"),
+      None,
+      file_text.into(),
+      &ConfigurationBuilder::new().build(),
+      Box::new(external_formatter),
+    )
+    .unwrap()
+    .unwrap();
+
+    assert_eq!(formatted_text, file_text);
   }
 }
