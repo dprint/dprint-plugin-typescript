@@ -46,13 +46,20 @@ pub struct Context<'a> {
 }
 
 impl<'a> Context<'a> {
-  pub fn new(media_type: MediaType, tokens: &'a [TokenAndSpan], current_node: Node<'a>, program: Program<'a>, config: &'a Configuration) -> Context<'a> {
+  pub fn new(
+    media_type: MediaType,
+    tokens: &'a [TokenAndSpan],
+    current_node: Node<'a>,
+    program: Program<'a>,
+    config: &'a Configuration,
+    external_formatter: Option<ExternalFormatter>,
+  ) -> Context<'a> {
     Context {
       media_type,
       program,
       config,
       comments: CommentTracker::new(program, tokens),
-      external_formatter: None,
+      external_formatter,
       token_finder: TokenFinder::new(program),
       current_node,
       parent_stack: Default::default(),
