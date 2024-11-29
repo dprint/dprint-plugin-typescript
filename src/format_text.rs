@@ -127,10 +127,6 @@ fn config_to_print_options(file_text: &str, config: &Configuration) -> PrintOpti
 
 #[cfg(test)]
 mod test {
-  use deno_ast::MediaType;
-
-  use crate::configuration::ConfigurationBuilder;
-
   use super::*;
 
   #[test]
@@ -142,73 +138,5 @@ mod test {
         .unwrap();
       assert_eq!(result, "const t = 5;\n");
     }
-  }
-
-  #[test]
-  fn format_with_external_formatter() {
-    let file_text = r#"import css from 'styled-components'
-
-const Header = css`
-height: 40px;  padding: 0 15px;
-display: flex;          align-items: center;
-border-top-left-radius: 5px;
-border-top-right-radius: 5px;
-`"#;
-
-    fn external_formatter(media_type: MediaType, text: String) -> Option<String> {
-      assert_eq!(media_type, MediaType::Css);
-      Some(
-        text
-          .split(';')
-          .filter_map(|val| {
-            let val = val.trim();
-            if val.is_empty() {
-              None
-            } else {
-              Some(format!("{};", val))
-            }
-          })
-          .collect::<Vec<_>>()
-          .join("\n"),
-      )
-    }
-
-    let formatted_text = format_text_with_external_formatter(
-      &std::path::PathBuf::from("foo.js"),
-      None,
-      file_text.into(),
-      &ConfigurationBuilder::new().build(),
-      Box::new(external_formatter),
-    )
-    .unwrap()
-    .unwrap();
-
-    assert_eq!(
-      formatted_text,
-      r#"import css from "styled-components";
-
-const Header = css`height: 40px;
-padding: 0 15px;
-display: flex;
-align-items: center;
-border-top-left-radius: 5px;
-border-top-right-radius: 5px;
-`;
-"#
-    );
-
-    let file_text = "const htmlString = html`<body>Hello there!</body>`;\n";
-
-    let formatted_text = format_text_with_external_formatter(
-      &std::path::PathBuf::from("foo.js"),
-      None,
-      file_text.into(),
-      &ConfigurationBuilder::new().build(),
-      Box::new(external_formatter),
-    )
-    .unwrap();
-
-    // No changes, so returns None - no changes because `html` template tag is currently not understood.
-    assert!(formatted_text.is_none());
   }
 }

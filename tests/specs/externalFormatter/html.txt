@@ -1,0 +1,6 @@
+-- file.js --
+== should not format HTML tagged template ==
+const htmlString = html`<body>Hello there!</body>`;
+
+[expect]
+const htmlString = html`<body>Hello there!</body>`;

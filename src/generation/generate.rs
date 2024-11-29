@@ -3003,7 +3003,7 @@ fn gen_spread_element<'a>(node: &SpreadElement<'a>, context: &mut Context<'a>) -
   items
 }
 
-fn maybe_format_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, external_formatter: &ExternalFormatter) -> Option<String> {
+fn maybe_format_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, external_formatter: &ExternalFormatter) -> Option<PrintItems> {
   let Expr::Ident(ident) = node.tag else {
     return None;
   };
@@ -3022,7 +3022,19 @@ fn maybe_format_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, ext
 
   let quasi = node.tpl.quasis[0];
 
-  external_formatter(media_type, quasi.raw().to_string())
+  let Some(formatted_tpl) = external_formatter(media_type, quasi.raw().to_string()) else {
+    return None;
+  };
+
+  let mut items = PrintItems::new();
+  // TODO(bartlomieju): might not be fully correct, need to better handle trailing newlines?
+  items.push_string("`".to_string());
+  for line in formatted_tpl.lines() {
+    items.push_string(line.to_string());
+    items.push_signal(Signal::NewLine);
+  }
+  items.push_string("`".to_string());
+  Some(items)
 }
 
 fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -3043,16 +3055,7 @@ fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintI
 
   if let Some(external_formatter) = context.external_formatter.as_ref() {
     if let Some(formatted_tpl) = maybe_format_tagged_tpl_with_external_formatter(node, external_formatter) {
-      let mut i = PrintItems::new();
-      // TODO(bartlomieju): not fully correct, need to handle trailing newlines better
-      i.push_string("`".to_string());
-      for line in formatted_tpl.lines() {
-        i.push_string(line.to_string());
-        i.push_signal(Signal::NewLine);
-      }
-      i.push_string("`".to_string());
-      // i.push_string(formatted_tpl.trim_end().to_string());
-      items.push_condition(conditions::indent_if_start_of_line(i));
+      items.push_condition(conditions::indent_if_start_of_line(formatted_tpl));
       return items;
     }
   }
