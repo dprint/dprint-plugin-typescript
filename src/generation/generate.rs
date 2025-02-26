@@ -3034,10 +3034,13 @@ fn maybe_format_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, ext
   let mut items = PrintItems::new();
   // TODO(bartlomieju): might not be fully correct, need to better handle trailing newlines?
   items.push_string("`".to_string());
+  items.push_signal(Signal::NewLine);
+  items.push_signal(Signal::StartIndent);
   for line in formatted_tpl.lines() {
     items.push_string(line.to_string());
     items.push_signal(Signal::NewLine);
   }
+  items.push_signal(Signal::FinishIndent);
   items.push_string("`".to_string());
   Some(items)
 }
