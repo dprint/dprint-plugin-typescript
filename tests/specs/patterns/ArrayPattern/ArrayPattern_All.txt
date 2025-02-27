@@ -24,7 +24,7 @@ const [a, , ,test] = something;
 
 [expect]
 [a, , b] = 0;
-const [a] = something;
+const [a, , ,] = something;
 const [a] = something;
 const [a, , , test] = something;
 const [a, , , test] = something;

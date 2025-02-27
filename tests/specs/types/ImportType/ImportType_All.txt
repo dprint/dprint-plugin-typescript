@@ -1,11 +1,28 @@
+~~ lineWidth: 75 ~~
 == should format ==
 type T = import(  "test"  );
 type U = import("test"  ).Other;
 type V = import("test").Other<  string  >;
 type X = import("test")<number >;
+type Z = import("test", { with: { "resolution-mode": "types" }});
+type Z1 = import("testtestingtestingtestingtestingtesting", { with: { "resolution-mode": "types" }});
+type Z2 = import("test", {
+  with: {
+    "resolution-mode": "types"
+  }
+});
 
 [expect]
 type T = import("test");
 type U = import("test").Other;
 type V = import("test").Other<string>;
 type X = import("test")<number>;
+type Z = import("test", { with: { "resolution-mode": "types" }});
+type Z1 = import("testtestingtestingtestingtestingtesting", {
+    with: { "resolution-mode": "types" },
+});
+type Z2 = import("test", {
+    with: {
+        "resolution-mode": "types",
+    },
+});
