@@ -1,0 +1,21 @@
+-- file.js --
+== should format CSS tagged template with a single quasi ==
+import css from 'styled-components'
+
+const Header = css`
+height: 40px;  padding: 0 15px;
+display: flex;          align-items: center;
+border-top-left-radius: 5px;
+border-top-right-radius: 5px;
+`;
+
+[expect]
+import css from "styled-components";
+
+const Header = css`height: 40px;
+padding: 0 15px;
+display: flex;
+align-items: center;
+border-top-left-radius: 5px;
+border-top-right-radius: 5px;
+`;
