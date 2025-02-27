@@ -13,6 +13,8 @@ function foo() {
     const Tag = css`height: 40px;  padding: 0 15px;`
 }
 
+const Foo = styled.foo`padding: 1px;`;
+
 [expect]
 import css from "styled-components";
 
@@ -31,3 +33,7 @@ function foo() {
         padding: 0 15px;
     `;
 }
+
+const Foo = styled.foo`
+    padding: 1px;
+`;

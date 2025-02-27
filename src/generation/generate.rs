@@ -3008,15 +3008,12 @@ fn gen_spread_element<'a>(node: &SpreadElement<'a>, context: &mut Context<'a>) -
   items
 }
 
+/// Formats the tagged template literal using an external formatter.
+/// Detects the type of embedded language automatically.
 fn maybe_format_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, external_formatter: &ExternalFormatter) -> Option<PrintItems> {
-  let Expr::Ident(ident) = node.tag else {
-    return None;
-  };
-
   // TODO(bartlomieju): support `html` and `sql` template tags
-  let media_type = match ident.sym().as_str() {
-    "css" => MediaType::Css,
-    _ => return None,
+  let Some(media_type) = detect_embedded_language_type(node) else {
+    return None;
   };
 
   // TODO(bartlomieju): support formatting when there are multiplie quasis, but first need to figure
@@ -3032,7 +3029,6 @@ fn maybe_format_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, ext
   };
 
   let mut items = PrintItems::new();
-  // TODO(bartlomieju): might not be fully correct, need to better handle trailing newlines?
   items.push_string("`".to_string());
   items.push_signal(Signal::NewLine);
   items.push_signal(Signal::StartIndent);
@@ -3043,6 +3039,25 @@ fn maybe_format_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, ext
   items.push_signal(Signal::FinishIndent);
   items.push_string("`".to_string());
   Some(items)
+}
+
+/// Detects the type of embedded language in a tagged template literal.
+fn detect_embedded_language_type<'a>(node: &TaggedTpl<'a>) -> Option<MediaType> {
+  if let Expr::Ident(ident) = node.tag {
+    return match ident.sym().as_str() {
+      "css" => Some(MediaType::Css), // css`...`
+      _ => None,
+    };
+  } else if let Expr::Member(member_expr) = node.tag {
+    if let Expr::Ident(ident) = member_expr.obj {
+      return match ident.sym().as_str() {
+        "styled" => Some(MediaType::Css), // styled.foo`...`
+        _ => None,
+      };
+    }
+  }
+
+  return None;
 }
 
 fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintItems {
