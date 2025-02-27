@@ -312,6 +312,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       Node::TsSetterSignature(node) => gen_setter_signature(node, context),
       Node::TsKeywordType(node) => gen_keyword_type(node, context),
       Node::TsImportType(node) => gen_import_type(node, context),
+      Node::TsImportCallOptions(node) => gen_ts_import_call_options(node, context),
       Node::TsIndexedAccessType(node) => gen_indexed_access_type(node, context),
       Node::TsInferType(node) => gen_infer_type(node, context),
       Node::TsInstantiation(node) => gen_ts_instantiation(node, context),
@@ -5833,6 +5834,10 @@ fn gen_import_type<'a>(node: &TsImportType<'a>, context: &mut Context<'a>) -> Pr
   let mut items = PrintItems::new();
   items.push_sc(sc!("import("));
   items.extend(gen_node(node.arg.into(), context));
+  if let Some(attributes) = node.attributes {
+    items.push_sc(sc!(", "));
+    items.extend(gen_node(attributes.into(), context));
+  }
   items.push_sc(sc!(")"));
 
   if let Some(qualifier) = &node.qualifier {
@@ -5844,6 +5849,71 @@ fn gen_import_type<'a>(node: &TsImportType<'a>, context: &mut Context<'a>) -> Pr
     items.extend(gen_node(type_args.into(), context));
   }
   items
+}
+
+fn gen_ts_import_call_options<'a>(node: &TsImportCallOptions<'a>, context: &mut Context<'a>) -> PrintItems {
+  let first_member_tokens = node.tokens_fast(context.program);
+  let with_token = first_member_tokens.iter().find(|t| t.text_fast(context.program) == "with").unwrap();
+  let member_range = SourceRange::new(with_token.start(), node.with.end());
+  let force_multi_line = get_use_new_lines_for_nodes_with_preceeding_token("{", &[member_range], context.config.object_expression_prefer_single_line, context);
+  gen_surrounded_by_tokens(
+    |context| {
+      let mut items = PrintItems::new();
+      let start_ln = LineNumber::new("objectStart");
+      let end_ln = LineNumber::new("objectStart");
+      if force_multi_line {
+        items.push_signal(Signal::NewLine);
+      } else {
+        items.push_info(start_ln);
+        items.push_condition(conditions::new_line_if_multiple_lines_space_or_new_line_otherwise(start_ln, Some(end_ln)));
+      }
+      items.push_condition(indent_if_start_of_line_or_start_of_line_indented({
+        let mut items = PrintItems::new();
+        items.push_sc(sc!("with: "));
+        items.extend(gen_node(node.with.into(), context));
+        match context.config.object_expression_trailing_commas {
+          TrailingCommas::OnlyMultiLine => {
+            if force_multi_line {
+              items.push_sc(sc!(","));
+            } else {
+              items.push_condition(conditions::if_true(
+                "trailingComma",
+                Rc::new(move |context| condition_helpers::is_on_different_line(context, start_ln)),
+                ",".into(),
+              ));
+            }
+          }
+          TrailingCommas::Always => {
+            items.push_sc(sc!(","));
+          }
+          TrailingCommas::Never => {}
+        }
+        items
+      }));
+      if force_multi_line {
+        items.push_signal(Signal::NewLine);
+      } else {
+        items.push_condition(conditions::if_true(
+          "newlineIfMultipleLines",
+          Rc::new(move |context| condition_helpers::is_on_different_line(context, start_ln)),
+          Signal::NewLine.into(),
+        ));
+        items.push_info(end_ln);
+      }
+      items
+    },
+    |_| None,
+    GenSurroundedByTokensOptions {
+      open_token: sc!("{"),
+      close_token: sc!("}"),
+      range: Some(node.range()),
+      first_member: Some(member_range),
+      prefer_single_line_when_empty: false,
+      allow_open_token_trailing_comments: true,
+      single_line_space_around: false,
+    },
+    context,
+  )
 }
 
 fn gen_indexed_access_type<'a>(node: &TsIndexedAccessType<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -7685,13 +7755,13 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
   if node_sorter.is_some() && compute_lines_span {
     panic!("Not implemented scenario. Cannot computed lines span and allow blank lines");
   }
+  let sorted_indexes = node_sorter.map(|sorter| get_sorted_indexes(nodes.iter().map(|d| d.as_node()), sorter, context));
 
   ir_helpers::gen_separated_values(
     |is_multi_line_or_hanging_ref| {
       let is_multi_line_or_hanging = is_multi_line_or_hanging_ref.create_resolver();
       let mut generated_nodes = Vec::new();
       let nodes_count = nodes.len();
-      let sorted_indexes = node_sorter.map(|sorter| get_sorted_indexes(nodes.iter().map(|d| d.as_node()), sorter, context));
 
       for (i, value) in nodes.into_iter().enumerate() {
         let node_index = match &sorted_indexes {

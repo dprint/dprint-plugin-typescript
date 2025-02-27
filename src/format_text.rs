@@ -111,7 +111,9 @@ mod test {
   fn strips_bom() {
     for input_text in ["\u{FEFF}const t = 5;\n", "\u{FEFF}const t =   5;"] {
       let config = crate::configuration::ConfigurationBuilder::new().build();
-      let result = format_text(&std::path::PathBuf::from("test.ts"), None, input_text.into(), &config).unwrap().unwrap();
+      let result = format_text(&std::path::PathBuf::from("test.ts"), None, input_text.into(), &config)
+        .unwrap()
+        .unwrap();
       assert_eq!(result, "const t = 5;\n");
     }
   }
