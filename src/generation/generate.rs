@@ -3046,6 +3046,8 @@ fn detect_embedded_language_type<'a>(node: &TaggedTpl<'a>) -> Option<MediaType> 
   if let Expr::Ident(ident) = node.tag {
     return match ident.sym().as_str() {
       "css" => Some(MediaType::Css), // css`...`
+      "html" => None, // html`...` TODO(kt3k): support html
+      "sql" => None, // sql`...` TODO(kt3k): support sql
       _ => None,
     };
   } else if let Expr::Member(member_expr) = node.tag {
