@@ -25,13 +25,20 @@ use super::*;
 use crate::configuration::*;
 use crate::utils;
 
-pub fn generate(parsed_source: &ParsedSource, config: &Configuration) -> PrintItems {
+pub fn generate(parsed_source: &ParsedSource, config: &Configuration, external_formatter: Option<ExternalFormatter>) -> PrintItems {
   // eprintln!("Leading: {:?}", parsed_source.comments().leading_map());
   // eprintln!("Trailing: {:?}", parsed_source.comments().trailing_map());
 
   parsed_source.with_view(|program| {
     let program_node = program.into();
-    let mut context = Context::new(parsed_source.media_type(), parsed_source.tokens(), program_node, program, config);
+    let mut context = Context::new(
+      parsed_source.media_type(),
+      parsed_source.tokens(),
+      program_node,
+      program,
+      config,
+      external_formatter,
+    );
     let mut items = gen_node(program_node, &mut context);
     items.push_condition(if_true(
       "endOfFileNewLine",
@@ -3001,6 +3008,60 @@ fn gen_spread_element<'a>(node: &SpreadElement<'a>, context: &mut Context<'a>) -
   items
 }
 
+/// Formats the tagged template literal using an external formatter.
+/// Detects the type of embedded language automatically.
+fn maybe_format_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, external_formatter: &ExternalFormatter) -> Option<PrintItems> {
+  // TODO(bartlomieju): support `html` and `sql` template tags
+  let Some(media_type) = detect_embedded_language_type(node) else {
+    return None;
+  };
+
+  // TODO(bartlomieju): support formatting when there are multiplie quasis, but first need to figure
+  // out how to put valid "placeholders" for different languages
+  if node.tpl.quasis.len() != 1 {
+    return None;
+  }
+
+  let quasi = node.tpl.quasis[0];
+
+  let Some(formatted_tpl) = external_formatter(media_type, quasi.raw().to_string()) else {
+    return None;
+  };
+
+  let mut items = PrintItems::new();
+  items.push_string("`".to_string());
+  items.push_signal(Signal::NewLine);
+  items.push_signal(Signal::StartIndent);
+  for line in formatted_tpl.lines() {
+    items.push_string(line.to_string());
+    items.push_signal(Signal::NewLine);
+  }
+  items.push_signal(Signal::FinishIndent);
+  items.push_string("`".to_string());
+  Some(items)
+}
+
+/// Detects the type of embedded language in a tagged template literal.
+fn detect_embedded_language_type<'a>(node: &TaggedTpl<'a>) -> Option<MediaType> {
+  if let Expr::Ident(ident) = node.tag {
+    return match ident.sym().as_str() {
+      "css" => Some(MediaType::Css), // css`...`
+      "html" => None, // html`...` TODO(kt3k): support html
+      "sql" => None, // sql`...` TODO(kt3k): support sql
+      _ => None,
+    };
+  } else if let Expr::Member(member_expr) = node.tag {
+    if let Expr::Ident(ident) = member_expr.obj {
+      return match ident.sym().as_str() {
+        "styled" => Some(MediaType::Css), // styled.foo`...`
+        _ => None,
+      };
+    }
+  }
+
+  return None;
+}
+
 fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintItems {
   let use_space = context.config.tagged_template_space_before_literal;
   let mut items = gen_node(node.tag.into(), context);
@@ -3015,6 +3076,13 @@ fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintI
     }
   } else {
     items.extend(generated_between_comments);
+  }
+
+  if let Some(external_formatter) = context.external_formatter.as_ref() {
+    if let Some(formatted_tpl) = maybe_format_tagged_tpl_with_external_formatter(node, external_formatter) {
+      items.push_condition(conditions::indent_if_start_of_line(formatted_tpl));
+      return items;
+    }
   }
 
   items.push_condition(conditions::indent_if_start_of_line(gen_node(node.tpl.into(), context)));

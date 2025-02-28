@@ -1,0 +1,16 @@
+-- file.js --
+== should not format CSS tagged template with multiple quasis ==
+import css from 'styled-components'
+
+const height = 50;
+const Header = css`
+height: ${height}px;
+`;
+
+[expect]
+import css from "styled-components";
+
+const height = 50;
+const Header = css`
+height: ${height}px;
+`;

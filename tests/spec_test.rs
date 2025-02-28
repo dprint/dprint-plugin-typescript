@@ -1,10 +1,30 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use deno_ast::MediaType;
 use dprint_core::configuration::*;
 use dprint_development::*;
 use dprint_plugin_typescript::configuration::*;
 use dprint_plugin_typescript::*;
+
+fn external_formatter(media_type: MediaType, text: String) -> Option<String> {
+  assert_eq!(media_type, MediaType::Css);
+  // Put each rule on a separate line.
+  Some(
+    text
+      .split(';')
+      .filter_map(|val| {
+        let val = val.trim();
+        if val.is_empty() {
+          None
+        } else {
+          Some(format!("{};", val))
+        }
+      })
+      .collect::<Vec<_>>()
+      .join("\n"),
+  )
+}
 
 fn main() {
   //debug_here!();
@@ -28,7 +48,7 @@ fn main() {
         let config_result = resolve_config(spec_config, &global_config);
         ensure_no_diagnostics(&config_result.diagnostics);
 
-        format_text(file_name, None, file_text.into(), &config_result.config)
+        format_text_with_external_formatter(file_name, None, file_text.into(), &config_result.config, Box::new(external_formatter))
       })
     },
     Arc::new(move |_file_name, _file_text, _spec_config| {
