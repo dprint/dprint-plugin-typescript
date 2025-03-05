@@ -3010,34 +3010,51 @@ fn gen_spread_element<'a>(node: &SpreadElement<'a>, context: &mut Context<'a>) -
 
 /// Formats the tagged template literal using an external formatter.
 /// Detects the type of embedded language automatically.
-fn maybe_format_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, external_formatter: &ExternalFormatter) -> Option<PrintItems> {
+fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> Option<PrintItems> {
+  let Some(external_formatter) = context.external_formatter.as_ref() else {
+    return None;
+  };
+
   // TODO(bartlomieju): support `html` and `sql` template tags
   let Some(media_type) = detect_embedded_language_type(node) else {
     return None;
   };
 
-  // TODO(bartlomieju): support formatting when there are multiplie quasis, but first need to figure
-  // out how to put valid "placeholders" for different languages
-  if node.tpl.quasis.len() != 1 {
-    return None;
+  let expr_len = node.tpl.exprs.len();
+  let mut text = Vec::with_capacity(node.tpl.quasis.len() * 2 - 1);
+  for (i, quasi) in node.tpl.quasis.iter().enumerate() {
+    text.push(quasi.raw().to_string());
+    if i < expr_len {
+      text.push(format!("@dprint-placeholder-{}-id", i));
+    }
   }
 
-  let quasi = node.tpl.quasis[0];
-
-  let Some(formatted_tpl) = external_formatter(media_type, quasi.raw().to_string()) else {
+  let Some(formatted_tpl) = external_formatter(media_type, text.join("")) else {
     return None;
   };
 
   let mut items = PrintItems::new();
-  items.push_string("`".to_string());
+  items.push_sc(sc!("`"));
   items.push_signal(Signal::NewLine);
   items.push_signal(Signal::StartIndent);
   for line in formatted_tpl.lines() {
-    items.push_string(line.to_string());
+    let mut i = 0;
+    let re = regex::Regex::new("@dprint-placeholder-(\\d+)-id").unwrap();
+    re.captures_iter(line).for_each(|cap| {
+      let m = cap.get(0).unwrap();
+      let d = cap.get(1).unwrap().as_str().parse::<usize>().unwrap();
+
+      items.push_string(line[i..m.start()].to_string());
+      items.push_sc(sc!("${"));
+      items.extend(gen_node(node.tpl.exprs[d].into(), context));
+      items.push_sc(sc!("}"));
+      i = m.end();
+    });
+    items.push_string(line[i..].to_string());
     items.push_signal(Signal::NewLine);
   }
   items.push_signal(Signal::FinishIndent);
-  items.push_string("`".to_string());
+  items.push_sc(sc!("`"));
   Some(items)
 }
 
@@ -3078,8 +3095,8 @@ fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintI
     items.extend(generated_between_comments);
   }
 
-  if let Some(external_formatter) = context.external_formatter.as_ref() {
-    if let Some(formatted_tpl) = maybe_format_tagged_tpl_with_external_formatter(node, external_formatter) {
+  if let Some(_external_formatter) = context.external_formatter.as_ref() {
+    if let Some(formatted_tpl) = maybe_gen_tagged_tpl_with_external_formatter(node, context) {
       items.push_condition(conditions::indent_if_start_of_line(formatted_tpl));
       return items;
     }

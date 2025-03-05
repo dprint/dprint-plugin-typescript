@@ -1,6 +1,6 @@
 -- file.js --
 == should format CSS tagged template with a single quasi ==
-import css from 'styled-components'
+import styled, { css } from 'styled-components'
 
 const Header = css`
 height: 40px;  padding: 0 15px;
@@ -13,10 +13,10 @@ function foo() {
     const Tag = css`height: 40px;  padding: 0 15px;`
 }
 
-const Foo = styled.foo`padding: 1px;`;
+const Foo = styled.div`padding: 1px;`;
 
 [expect]
-import css from "styled-components";
+import styled, { css } from "styled-components";
 
 const Header = css`
     height: 40px;
@@ -34,6 +34,6 @@ function foo() {
     `;
 }
 
-const Foo = styled.foo`
+const Foo = styled.div`
     padding: 1px;
 `;
