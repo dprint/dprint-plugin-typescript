@@ -9,22 +9,26 @@ use dprint_plugin_typescript::*;
 
 fn external_formatter(media_type: MediaType, text: String) -> Option<String> {
   assert_eq!(media_type, MediaType::Css);
-  // Put each rule on a separate line.
-  Some(
-    text
-      .split(';')
-      .filter_map(|val| {
-        let val = val.trim();
-        if val.is_empty() {
-          None
-        } else {
-          Some(format!("{};", val))
-        }
-      })
-      .collect::<Vec<_>>()
-      .join("\n"),
-  )
+  let Ok(text) = malva::format_text(&format!("a{{\n{}\n}}", text), malva::Syntax::Css, &malva::config::FormatOptions::default()) else {
+    return None;
+  };
+  let mut buf = vec![];
+  for (i, l) in text.lines().enumerate() {
+    if i == 0 {
+      continue;
+    }
+    if l.starts_with("}") {
+      continue;
+    }
+    let mut chars = l.chars();
+    // drop the first two chars
+    chars.next();
+    chars.next();
+    buf.push(chars.as_str());
+  }
+  Some(buf.join("\n").to_string())
 }
+
 
 fn main() {
   //debug_here!();

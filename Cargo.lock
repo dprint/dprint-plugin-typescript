@@ -271,6 +271,7 @@ dependencies = [
  "dprint-core",
  "dprint-core-macros",
  "dprint-development",
+ "malva",
  "percent-encoding",
  "pretty_assertions",
  "regex",
@@ -374,6 +375,12 @@ dependencies = [
  "equivalent",
  "foldhash",
 ]
+
+[[package]]
+name = "heck"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
 name = "hstr"
@@ -552,6 +559,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -583,6 +599,19 @@ checksum = "07af8b9cdd281b7915f413fa73f29ebd5d55d0d3f0155584dade1ff18cea1b17"
 dependencies = [
  "autocfg",
  "scopeguard",
+]
+
+[[package]]
+name = "malva"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "feb1eed493e88a1e4d4564b6a1e5f5b93a4bc12d2bd7c0365c72b35cf5f19b20"
+dependencies = [
+ "aho-corasick",
+ "itertools",
+ "memchr",
+ "raffia",
+ "tiny_pretty",
 ]
 
 [[package]]
@@ -764,6 +793,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fa76aaf39101c457836aec0ce2316dbdc3ab723cdda1c6bd4e6ad4208acaca7"
 dependencies = [
  "proc-macro2",
+]
+
+[[package]]
+name = "raffia"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c36f58fa7ad2f26bca656054c902becddeac5582df2bb31d4b4d2a148c62cfd5"
+dependencies = [
+ "raffia_macro",
+ "smallvec",
+]
+
+[[package]]
+name = "raffia_macro"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fdb50eb5bf734fa5a770680a61876a6ec77b99c1e0e52d1f18ad6ebfa85759f"
+dependencies = [
+ "heck",
+ "quote",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -1165,6 +1215,12 @@ dependencies = [
  "quote",
  "syn 2.0.89",
 ]
+
+[[package]]
+name = "tiny_pretty"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4b3f46f0549180b9c6f7f76270903f1a06867c43a03998b99dce81aa1760c3b2"
 
 [[package]]
 name = "tinystr"
