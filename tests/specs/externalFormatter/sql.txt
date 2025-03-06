@@ -1,6 +1,11 @@
 -- file.js --
-== should not format SQL tagged template ==
+== should format SQL tagged template ==
 const query = sql`SELECT   *    FROM users;`;
 
 [expect]
-const query = sql`SELECT   *    FROM users;`;
+const query = sql`
+    SELECT
+        *
+    FROM
+        users;
+`;

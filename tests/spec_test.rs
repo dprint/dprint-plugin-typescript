@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use deno_ast::MediaType;
@@ -8,7 +8,15 @@ use dprint_plugin_typescript::configuration::*;
 use dprint_plugin_typescript::*;
 
 fn external_formatter(media_type: MediaType, text: String) -> Option<String> {
-  assert_eq!(media_type, MediaType::Css);
+  match media_type {
+    MediaType::Css => format_embedded_css(&text),
+    MediaType::Html => format_html(&text),
+    MediaType::Sql => format_sql(&text),
+    _ => unreachable!(),
+  }
+}
+fn format_embedded_css(text: &str) -> Option<String> {
+  //dbg!(text);
   let Ok(text) = malva::format_text(&format!("a{{\n{}\n}}", text), malva::Syntax::Css, &malva::config::FormatOptions::default()) else {
     return None;
   };
@@ -29,6 +37,27 @@ fn external_formatter(media_type: MediaType, text: String) -> Option<String> {
   Some(buf.join("\n").to_string())
 }
 
+fn format_html(text: &str) -> Option<String> {
+  use markup_fmt::config;
+  let options = config::FormatOptions {
+    layout: config::LayoutOptions {
+      indent_width: 4,
+      ..Default::default()
+    },
+    ..Default::default()
+  };
+  let Ok(text) = markup_fmt::format_text(text, markup_fmt::Language::Html, &options, |code, _| {
+    Ok::<_, std::convert::Infallible>(code.into())
+  }) else {
+    return None;
+  };
+  Some(text.to_string())
+}
+
+fn format_sql(text: &str) -> Option<String> {
+  let options = dprint_plugin_sql::configuration::ConfigurationBuilder::new().indent_width(4).build();
+  dprint_plugin_sql::format_text(Path::new("_path.sql"), text, &options).ok().flatten()
+}
 
 fn main() {
   //debug_here!();

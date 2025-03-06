@@ -3015,7 +3015,6 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
     return None;
   };
 
-  // TODO(bartlomieju): support `html` and `sql` template tags
   let Some(media_type) = detect_embedded_language_type(node) else {
     return None;
   };
@@ -3062,9 +3061,9 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
 fn detect_embedded_language_type<'a>(node: &TaggedTpl<'a>) -> Option<MediaType> {
   if let Expr::Ident(ident) = node.tag {
     return match ident.sym().as_str() {
-      "css" => Some(MediaType::Css), // css`...`
-      "html" => None, // html`...` TODO(kt3k): support html
-      "sql" => None, // sql`...` TODO(kt3k): support sql
+      "css" => Some(MediaType::Css),   // css`...`
+      "html" => Some(MediaType::Html), // html`...`
+      "sql" => Some(MediaType::Sql),   // sql`...`
       _ => None,
     };
   } else if let Expr::Member(member_expr) = node.tag {
@@ -3095,7 +3094,7 @@ fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintI
     items.extend(generated_between_comments);
   }
 
-  if let Some(_external_formatter) = context.external_formatter.as_ref() {
+  if context.external_formatter.is_some() {
     if let Some(formatted_tpl) = maybe_gen_tagged_tpl_with_external_formatter(node, context) {
       items.push_condition(conditions::indent_if_start_of_line(formatted_tpl));
       return items;
