@@ -9,10 +9,10 @@ height: ${height}px;
 `;
 
 const Footer = styled.div`
-padding-left: ${foo0+foo1+foo2+foo3+foo4+foo5+foo6+foo7+foo8+foo9+foo10+foo11+foo12}px;
-padding-right: ${foo0+foo1+foo2+foo3+foo4+foo5+foo6+foo7+foo8+foo9+foo10+foo11+foo12+foo13}px;
-padding-top: ${(props) => { return props.top+props.top+props.top+props.top+props.top+props.top+props.top }}px;
-margin: ${margin}px;
+padding-left:${foo0+foo1+foo2+foo3+foo4+foo5+foo6+foo7+foo8+foo9+foo10+foo11+foo12}px;
+padding-right:     ${foo0+foo1+foo2+foo3+foo4+foo5+foo6+foo7+foo8+foo9+foo10+foo11+foo12+foo13}px;
+padding-top:     ${(props) => { return props.top+props.top+props.top+props.top+props.top+props.top+props.top }}px;
+margin:                ${margin}px;
 `
 
 [expect]
