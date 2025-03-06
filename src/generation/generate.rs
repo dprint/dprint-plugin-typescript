@@ -3024,7 +3024,7 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
   for (i, quasi) in node.tpl.quasis.iter().enumerate() {
     text.push(quasi.raw().to_string());
     if i < expr_len {
-      text.push(format!("dprint-placeholder-{}-id", i));
+      text.push(format!("dprint_placeholder_{}_id", i));
     }
   }
 
@@ -3038,7 +3038,7 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
   items.push_signal(Signal::StartIndent);
   for line in formatted_tpl.lines() {
     let mut i = 0;
-    let re = regex::Regex::new("dprint-placeholder-(\\d+)-id").unwrap();
+    let re = regex::Regex::new("dprint_placeholder_(\\d+)_id").unwrap();
     re.captures_iter(line).for_each(|cap| {
       let m = cap.get(0).unwrap();
       let d = cap.get(1).unwrap().as_str().parse::<usize>().unwrap();

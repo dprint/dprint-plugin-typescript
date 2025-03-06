@@ -1,11 +1,20 @@
 -- file.js --
 == should format SQL tagged template ==
-const query = sql`SELECT   *    FROM users;`;
+let query = sql`SELECT   *    FROM users;`;
+
+query = sql`SELECT   ${table}.${field}    FROM  ${table};`;
 
 [expect]
-const query = sql`
+let query = sql`
     SELECT
         *
     FROM
         users;
+`;
+
+query = sql`
+    SELECT
+        ${table}.${field}
+    FROM
+        ${table};
 `;

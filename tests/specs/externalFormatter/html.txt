@@ -1,12 +1,20 @@
 -- file.js --
 == should format HTML tagged template ==
-const htmlString = html`<body><header>HEADER</header><main>Hello there!</main><footer>FOOTER</footer></body>`;
+let htmlString = html`<body><header>HEADER</header><main>Hello there!</main><footer>FOOTER</footer></body>`;
+htmlString = html`<body><header>${header}</header><main>${main}</main><footer>${footer}</footer></body>`;
 
 [expect]
-const htmlString = html`
+let htmlString = html`
     <body>
         <header>HEADER</header>
         <main>Hello there!</main>
         <footer>FOOTER</footer>
+    </body>
+`;
+htmlString = html`
+    <body>
+        <header>${header}</header>
+        <main>${main}</main>
+        <footer>${footer}</footer>
     </body>
 `;
