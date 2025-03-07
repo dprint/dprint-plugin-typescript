@@ -16,8 +16,15 @@ fn external_formatter(media_type: MediaType, text: String) -> Option<String> {
   }
 }
 fn format_embedded_css(text: &str) -> Option<String> {
-  //dbg!(text);
-  let Ok(text) = malva::format_text(&format!("a{{\n{}\n}}", text), malva::Syntax::Css, &malva::config::FormatOptions::default()) else {
+  use malva::config;
+  let options = config::FormatOptions {
+    layout: config::LayoutOptions {
+      indent_width: 4,
+      ..Default::default()
+    },
+    ..Default::default()
+  };
+  let Ok(text) = malva::format_text(&format!("a{{\n{}\n}}", text), malva::Syntax::Scss, &options) else {
     return None;
   };
   let mut buf = vec![];
@@ -29,7 +36,9 @@ fn format_embedded_css(text: &str) -> Option<String> {
       continue;
     }
     let mut chars = l.chars();
-    // drop the first two chars
+    // drop the first 4 chars
+    chars.next();
+    chars.next();
     chars.next();
     chars.next();
     buf.push(chars.as_str());

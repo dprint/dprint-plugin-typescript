@@ -3049,7 +3049,10 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
       items.push_sc(sc!("}"));
       i = m.end();
     });
-    items.push_string(line[i..].to_string());
+    let rest = line[i..].to_string();
+    if !rest.is_empty() {
+      items.push_string(rest);
+    }
     items.push_signal(Signal::NewLine);
   }
   items.push_signal(Signal::FinishIndent);
