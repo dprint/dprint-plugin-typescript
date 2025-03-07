@@ -7,19 +7,19 @@ use dprint_development::*;
 use dprint_plugin_typescript::configuration::*;
 use dprint_plugin_typescript::*;
 
-fn external_formatter(media_type: MediaType, text: String) -> Option<String> {
+fn external_formatter(media_type: MediaType, text: String, config: &Configuration) -> Option<String> {
   match media_type {
-    MediaType::Css => format_embedded_css(&text),
-    MediaType::Html => format_html(&text),
-    MediaType::Sql => format_sql(&text),
+    MediaType::Css => format_embedded_css(&text, config),
+    MediaType::Html => format_html(&text, config),
+    MediaType::Sql => format_sql(&text, config),
     _ => unreachable!(),
   }
 }
-fn format_embedded_css(text: &str) -> Option<String> {
+fn format_embedded_css(text: &str, config: &Configuration) -> Option<String> {
   use malva::config;
   let options = config::FormatOptions {
     layout: config::LayoutOptions {
-      indent_width: 4,
+      indent_width: config.indent_width as usize,
       ..Default::default()
     },
     ..Default::default()
@@ -40,21 +40,20 @@ fn format_embedded_css(text: &str) -> Option<String> {
       continue;
     }
     let mut chars = l.chars();
-    // drop the first 4 chars (these are indentations)
-    chars.next();
-    chars.next();
-    chars.next();
-    chars.next();
+    // drop the indentation
+    for _ in 0..config.indent_width {
+      chars.next();
+    }
     buf.push(chars.as_str());
   }
   Some(buf.join("\n").to_string())
 }
 
-fn format_html(text: &str) -> Option<String> {
+fn format_html(text: &str, config: &Configuration) -> Option<String> {
   use markup_fmt::config;
   let options = config::FormatOptions {
     layout: config::LayoutOptions {
-      indent_width: 4,
+      indent_width: config.indent_width as usize,
       ..Default::default()
     },
     ..Default::default()
@@ -67,8 +66,10 @@ fn format_html(text: &str) -> Option<String> {
   Some(text.to_string())
 }
 
-fn format_sql(text: &str) -> Option<String> {
-  let options = dprint_plugin_sql::configuration::ConfigurationBuilder::new().indent_width(4).build();
+fn format_sql(text: &str, config: &Configuration) -> Option<String> {
+  let options = dprint_plugin_sql::configuration::ConfigurationBuilder::new()
+    .indent_width(config.indent_width)
+    .build();
   dprint_plugin_sql::format_text(Path::new("_path.sql"), text, &options).ok().flatten()
 }
 

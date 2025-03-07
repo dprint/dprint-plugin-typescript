@@ -3030,7 +3030,7 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
   }
 
   // Then formats the text with the external formatter.
-  let Some(formatted_tpl) = external_formatter(media_type, text.join("")) else {
+  let Some(formatted_tpl) = external_formatter(media_type, text.join(""), context.config) else {
     return None;
   };
 
@@ -3076,16 +3076,16 @@ fn detect_embedded_language_type<'a>(node: &TaggedTpl<'a>) -> Option<MediaType> 
     Expr::Member(member_expr) => {
       if let Expr::Ident(ident) = member_expr.obj {
         if ident.sym().as_str() == "styled" {
-          return Some(MediaType::Css) // styled.foo`...`
+          return Some(MediaType::Css); // styled.foo`...`
         }
       }
       return None;
-    },
+    }
     Expr::Call(call_expr) => {
       if let Callee::Expr(call_expr) = call_expr.callee {
         if let Expr::Ident(ident) = call_expr {
           if ident.sym().as_str() == "styled" {
-            return Some(MediaType::Css) // styled(Button)`...`
+            return Some(MediaType::Css); // styled(Button)`...`
           }
         }
       }

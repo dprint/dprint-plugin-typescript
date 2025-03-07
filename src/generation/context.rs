@@ -45,7 +45,7 @@ use crate::utils::Stack;
 /// cases the templates will be left as they are.
 ///
 /// Only templates with no interpolation are supported.
-pub type ExternalFormatter = Box<dyn Fn(MediaType, String) -> Option<String>>;
+pub type ExternalFormatter = Box<dyn Fn(MediaType, String, &Configuration) -> Option<String>>;
 
 pub struct Context<'a> {
   pub media_type: MediaType,
