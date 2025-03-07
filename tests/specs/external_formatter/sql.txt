@@ -1,9 +1,5 @@
--- file.js --
-== should format SQL tagged template ==
+== should format sql in sql`...` ==
 let query = sql`SELECT   *    FROM users;`;
-
-query = sql`SELECT   ${table}.${field}    FROM  ${table};`;
-
 [expect]
 let query = sql`
     SELECT
@@ -12,6 +8,9 @@ let query = sql`
         users;
 `;
 
+== should format sql in sql`...` with multiple quasis ==
+query = sql`SELECT   ${table}.${field}    FROM  ${table};`;
+[expect]
 query = sql`
     SELECT
         ${table}.${field}

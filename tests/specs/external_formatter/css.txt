@@ -1,5 +1,4 @@
--- file.js --
-== should format CSS tagged template ==
+== should format css in css`...` ==
 const Header = css`
 height: 40px;  padding:   0    15px    ;
 display: flex;          align-items: center   ;
@@ -7,28 +6,76 @@ border-top-left-radius:
 5px;
 border-top-right-radius:5px;;;
 `;
+[expect]
+const Header = css`
+    height: 40px;
+    padding: 0 15px;
+    display: flex;
+    align-items: center;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+`;
 
+== should format css in css`...` with correct indent ==
 function foo() {
     const Tag = css`height: 40px;  padding: 0 15px;`
 }
+[expect]
+function foo() {
+    const Tag = css`
+        height: 40px;
+        padding: 0 15px;
+    `;
+}
 
+== should format css in styled.tag`...` ==
 styled.div`padding: 1px;`;
+[expect]
+styled.div`
+    padding: 1px;
+`;
 
+== should format full css (not only properties) in css`...` ==
 css`.foo-bar { height: ${height}px; }`;
+[expect]
+css`
+    .foo-bar {
+        height: ${height}px;
+    }
+`;
 
+== should format css with long expressions reasonably ==
 styled.div`
 padding-left:${foo0+foo1+foo2+foo3+foo4+foo5+foo6+foo7+foo8+foo9+foo10+foo11+foo12}px;
 padding-right:     ${foo0+foo1+foo2+foo3+foo4+foo5+foo6+foo7+foo8+foo9+foo10+foo11+foo12+foo13}px;
 padding-top:     ${(props) => { return props.top+props.top+props.top+props.top+props.top+props.top+props.top }}px;
 margin:                ${margin}px;
 `
+[expect]
+styled.div`
+    padding-left: ${foo0 + foo1 + foo2 + foo3 + foo4 + foo5 + foo6 + foo7 + foo8 + foo9 + foo10 + foo11 + foo12}px;
+    padding-right: ${foo0 + foo1 + foo2 + foo3 + foo4 + foo5 + foo6 + foo7 + foo8 + foo9 + foo10 + foo11 + foo12
+        + foo13}px;
+    padding-top: ${(props) => {
+        return props.top + props.top + props.top + props.top + props.top + props.top + props.top;
+    }}px;
+    margin: ${margin}px;
+`;
 
+== should format css with arrow function expressions reasonably, this case was borrowed from https://github.com/prettier/prettier/blob/40a04dd216a61d41945b2302468864ffa38af77f/tests/format/js/template-literals/styled-components-with-expressions.js#L6 ==
 styled.div`
     display: ${props=>props.display};
     border:  ${props=>props.border}px;
     margin: 10px  ${props=>props.border}px ;
 `;
+[expect]
+styled.div`
+    display: ${props => props.display};
+    border: ${props => props.border}px;
+    margin: 10px ${props => props.border}px;
+`;
 
+== should format nested css reasonably, this case was borrowed from https://github.com/prettier/prettier/blob/40a04dd216a61d41945b2302468864ffa38af77f/tests/format/js/template-literals/styled-components-with-expressions.js#L12 ==
 const EqualDivider = styled.div`
 margin: 0.5rem;
 		padding: 1rem;
@@ -42,52 +89,7 @@ margin: 0.5rem;
 		}
 	}
 `;
-
-styled(Button)` color : #222 ; background-color: #ccc ; `
-
 [expect]
-const Header = css`
-    height: 40px;
-    padding: 0 15px;
-    display: flex;
-    align-items: center;
-    border-top-left-radius: 5px;
-    border-top-right-radius: 5px;
-`;
-
-function foo() {
-    const Tag = css`
-        height: 40px;
-        padding: 0 15px;
-    `;
-}
-
-styled.div`
-    padding: 1px;
-`;
-
-css`
-    .foo-bar {
-        height: ${height}px;
-    }
-`;
-
-styled.div`
-    padding-left: ${foo0 + foo1 + foo2 + foo3 + foo4 + foo5 + foo6 + foo7 + foo8 + foo9 + foo10 + foo11 + foo12}px;
-    padding-right: ${foo0 + foo1 + foo2 + foo3 + foo4 + foo5 + foo6 + foo7 + foo8 + foo9 + foo10 + foo11 + foo12
-        + foo13}px;
-    padding-top: ${(props) => {
-        return props.top + props.top + props.top + props.top + props.top + props.top + props.top;
-    }}px;
-    margin: ${margin}px;
-`;
-
-styled.div`
-    display: ${props => props.display};
-    border: ${props => props.border}px;
-    margin: 10px ${props => props.border}px;
-`;
-
 const EqualDivider = styled.div`
     margin: 0.5rem;
     padding: 1rem;
@@ -102,7 +104,17 @@ const EqualDivider = styled.div`
     }
 `;
 
+== should format css in styled(Component)`...` ==
+styled(Button)` color : #222 ; background-color: #ccc ; `;
+[expect]
 styled(Button)`
     color: #222;
     background-color: #ccc;
 `;
+
+== should not format css if ignore directive is present ==
+// dprint-ignore
+styled.div`color:red;`;
+[expect]
+// dprint-ignore
+styled.div`color:red;`;
