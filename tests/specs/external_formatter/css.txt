@@ -43,6 +43,8 @@ margin: 0.5rem;
 	}
 `;
 
+styled(Button)` color : #222 ; background-color: #ccc ; `
+
 [expect]
 const Header = css`
     height: 40px;
@@ -98,4 +100,9 @@ const EqualDivider = styled.div`
             ${props => props.vertical ? "margin-top" : "margin-left"}: 1rem;
         }
     }
+`;
+
+styled(Button)`
+    color: #222;
+    background-color: #ccc;
 `;

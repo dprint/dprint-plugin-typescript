@@ -3064,23 +3064,35 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
 
 /// Detects the type of embedded language in a tagged template literal.
 fn detect_embedded_language_type<'a>(node: &TaggedTpl<'a>) -> Option<MediaType> {
-  if let Expr::Ident(ident) = node.tag {
-    return match ident.sym().as_str() {
-      "css" => Some(MediaType::Css),   // css`...`
-      "html" => Some(MediaType::Html), // html`...`
-      "sql" => Some(MediaType::Sql),   // sql`...`
-      _ => None,
-    };
-  } else if let Expr::Member(member_expr) = node.tag {
-    if let Expr::Ident(ident) = member_expr.obj {
-      return match ident.sym().as_str() {
-        "styled" => Some(MediaType::Css), // styled.foo`...`
+  match node.tag {
+    Expr::Ident(ident) => {
+      match ident.sym().as_str() {
+        "css" => Some(MediaType::Css),   // css`...`
+        "html" => Some(MediaType::Html), // html`...`
+        "sql" => Some(MediaType::Sql),   // sql`...`
         _ => None,
-      };
+      }
     }
+    Expr::Member(member_expr) => {
+      if let Expr::Ident(ident) = member_expr.obj {
+        if ident.sym().as_str() == "styled" {
+          return Some(MediaType::Css) // styled.foo`...`
+        }
+      }
+      return None;
+    },
+    Expr::Call(call_expr) => {
+      if let Callee::Expr(call_expr) = call_expr.callee {
+        if let Expr::Ident(ident) = call_expr {
+          if ident.sym().as_str() == "styled" {
+            return Some(MediaType::Css) // styled(Button)`...`
+          }
+        }
+      }
+      return None;
+    }
+    _ => None,
   }
-
-  return None;
 }
 
 fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintItems {
