@@ -24,19 +24,23 @@ fn format_embedded_css(text: &str) -> Option<String> {
     },
     ..Default::default()
   };
+  // Wraps the text in a css block of `a { ... }`
+  // to make it valid css (scss)
   let Ok(text) = malva::format_text(&format!("a{{\n{}\n}}", text), malva::Syntax::Scss, &options) else {
     return None;
   };
   let mut buf = vec![];
   for (i, l) in text.lines().enumerate() {
+    // skip the first line (a {)
     if i == 0 {
       continue;
     }
+    // skip the last line (})
     if l.starts_with("}") {
       continue;
     }
     let mut chars = l.chars();
-    // drop the first 4 chars
+    // drop the first 4 chars (these are indentations)
     chars.next();
     chars.next();
     chars.next();

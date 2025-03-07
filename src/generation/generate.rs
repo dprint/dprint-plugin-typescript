@@ -3019,8 +3019,9 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
     return None;
   };
 
-  let expr_len = node.tpl.exprs.len();
+  // First creates text with placeholders for the expressions.
   let mut text = Vec::with_capacity(node.tpl.quasis.len() * 2 - 1);
+  let expr_len = node.tpl.exprs.len();
   for (i, quasi) in node.tpl.quasis.iter().enumerate() {
     text.push(quasi.raw().to_string());
     if i < expr_len {
@@ -3028,17 +3029,18 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
     }
   }
 
+  // Then formats the text with the external formatter.
   let Some(formatted_tpl) = external_formatter(media_type, text.join("")) else {
     return None;
   };
 
+  let re = regex::Regex::new("dprint_placeholder_(\\d+)_id").unwrap();
   let mut items = PrintItems::new();
   items.push_sc(sc!("`"));
   items.push_signal(Signal::NewLine);
   items.push_signal(Signal::StartIndent);
   for line in formatted_tpl.lines() {
     let mut i = 0;
-    let re = regex::Regex::new("dprint_placeholder_(\\d+)_id").unwrap();
     re.captures_iter(line).for_each(|cap| {
       let m = cap.get(0).unwrap();
       let d = cap.get(1).unwrap().as_str().parse::<usize>().unwrap();
