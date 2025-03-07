@@ -25,13 +25,20 @@ use super::*;
 use crate::configuration::*;
 use crate::utils;
 
-pub fn generate(parsed_source: &ParsedSource, config: &Configuration) -> PrintItems {
+pub fn generate(parsed_source: &ParsedSource, config: &Configuration, external_formatter: Option<ExternalFormatter>) -> PrintItems {
   // eprintln!("Leading: {:?}", parsed_source.comments().leading_map());
   // eprintln!("Trailing: {:?}", parsed_source.comments().trailing_map());
 
   parsed_source.with_view(|program| {
     let program_node = program.into();
-    let mut context = Context::new(parsed_source.media_type(), parsed_source.tokens(), program_node, program, config);
+    let mut context = Context::new(
+      parsed_source.media_type(),
+      parsed_source.tokens(),
+      program_node,
+      program,
+      config,
+      external_formatter,
+    );
     let mut items = gen_node(program_node, &mut context);
     items.push_condition(if_true(
       "endOfFileNewLine",
@@ -3001,6 +3008,93 @@ fn gen_spread_element<'a>(node: &SpreadElement<'a>, context: &mut Context<'a>) -
   items
 }
 
+/// Formats the tagged template literal using an external formatter.
+/// Detects the type of embedded language automatically.
+fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> Option<PrintItems> {
+  let Some(external_formatter) = context.external_formatter.as_ref() else {
+    return None;
+  };
+
+  let Some(media_type) = detect_embedded_language_type(node) else {
+    return None;
+  };
+
+  // First creates text with placeholders for the expressions.
+  let mut text = Vec::with_capacity(node.tpl.quasis.len() * 2 - 1);
+  let expr_len = node.tpl.exprs.len();
+  for (i, quasi) in node.tpl.quasis.iter().enumerate() {
+    text.push(quasi.raw().to_string());
+    if i < expr_len {
+      text.push(format!("dprint_placeholder_{}_id", i));
+    }
+  }
+
+  // Then formats the text with the external formatter.
+  let Some(formatted_tpl) = external_formatter(media_type, text.join(""), context.config) else {
+    return None;
+  };
+
+  let re = regex::Regex::new("dprint_placeholder_(\\d+)_id").unwrap();
+  let mut items = PrintItems::new();
+  items.push_sc(sc!("`"));
+  items.push_signal(Signal::NewLine);
+  items.push_signal(Signal::StartIndent);
+  for line in formatted_tpl.lines() {
+    let mut i = 0;
+    re.captures_iter(line).for_each(|cap| {
+      let m = cap.get(0).unwrap();
+      let d = cap.get(1).unwrap().as_str().parse::<usize>().unwrap();
+
+      items.push_string(line[i..m.start()].to_string());
+      items.push_sc(sc!("${"));
+      items.extend(gen_node(node.tpl.exprs[d].into(), context));
+      items.push_sc(sc!("}"));
+      i = m.end();
+    });
+    let rest = line[i..].to_string();
+    if !rest.is_empty() {
+      items.push_string(rest);
+    }
+    items.push_signal(Signal::NewLine);
+  }
+  items.push_signal(Signal::FinishIndent);
+  items.push_sc(sc!("`"));
+  Some(items)
+}
+
+/// Detects the type of embedded language in a tagged template literal.
+fn detect_embedded_language_type<'a>(node: &TaggedTpl<'a>) -> Option<MediaType> {
+  match node.tag {
+    Expr::Ident(ident) => {
+      match ident.sym().as_str() {
+        "css" => Some(MediaType::Css),   // css`...`
+        "html" => Some(MediaType::Html), // html`...`
+        "sql" => Some(MediaType::Sql),   // sql`...`
+        _ => None,
+      }
+    }
+    Expr::Member(member_expr) => {
+      if let Expr::Ident(ident) = member_expr.obj {
+        if ident.sym().as_str() == "styled" {
+          return Some(MediaType::Css); // styled.foo`...`
+        }
+      }
+      return None;
+    }
+    Expr::Call(call_expr) => {
+      if let Callee::Expr(call_expr) = call_expr.callee {
+        if let Expr::Ident(ident) = call_expr {
+          if ident.sym().as_str() == "styled" {
+            return Some(MediaType::Css); // styled(Button)`...`
+          }
+        }
+      }
+      return None;
+    }
+    _ => None,
+  }
+}
+
 fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintItems {
   let use_space = context.config.tagged_template_space_before_literal;
   let mut items = gen_node(node.tag.into(), context);
@@ -3015,6 +3109,13 @@ fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintI
     }
   } else {
     items.extend(generated_between_comments);
+  }
+
+  if context.external_formatter.is_some() {
+    if let Some(formatted_tpl) = maybe_gen_tagged_tpl_with_external_formatter(node, context) {
+      items.push_condition(conditions::indent_if_start_of_line(formatted_tpl));
+      return items;
+    }
   }
 
   items.push_condition(conditions::indent_if_start_of_line(gen_node(node.tpl.into(), context)));

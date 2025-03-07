@@ -1,0 +1,21 @@
+== should format html in html`...` ==
+let htmlString = html`<body><header>HEADER</header><main>Hello there!</main><footer>FOOTER</footer></body>`;
+[expect]
+let htmlString = html`
+    <body>
+        <header>HEADER</header>
+        <main>Hello there!</main>
+        <footer>FOOTER</footer>
+    </body>
+`;
+
+== should format html in html`...` with multiple quasis ==
+htmlString = html`<body><header>${header}</header><main>${main}</main><footer>${footer}</footer></body>`;
+[expect]
+htmlString = html`
+    <body>
+        <header>${header}</header>
+        <main>${main}</main>
+        <footer>${footer}</footer>
+    </body>
+`;
