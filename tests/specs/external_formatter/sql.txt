@@ -1,0 +1,19 @@
+== should format sql in sql`...` ==
+let query = sql`SELECT   *    FROM users;`;
+[expect]
+let query = sql`
+    SELECT
+        *
+    FROM
+        users;
+`;
+
+== should format sql in sql`...` with multiple quasis ==
+query = sql`SELECT   ${table}.${field}    FROM  ${table};`;
+[expect]
+query = sql`
+    SELECT
+        ${table}.${field}
+    FROM
+        ${table};
+`;

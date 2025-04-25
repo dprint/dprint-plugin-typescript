@@ -18,11 +18,41 @@ use super::*;
 use crate::configuration::*;
 use crate::utils::Stack;
 
+/// A callback that will be called when encountering certain tagged templates.
+///
+/// Currently supports `css`, `html` and `sql` tagged templated.
+///
+/// Examples:
+/// ```ignore
+/// const styles = css`color: red;`;
+///
+/// const markup = html`<html>
+///   <body>
+///     <h1>Hello!<h1>
+///   </body>
+/// </html>`;
+///
+/// const query = sql`
+/// SELECT
+///   *
+/// FROM
+///   users
+/// WHERE
+///   active IS TRUE;
+/// ```
+///
+/// External formatter should return `None` if it doesn't understand given `MediaType`, in such
+/// cases the templates will be left as they are.
+///
+/// Only templates with no interpolation are supported.
+pub type ExternalFormatter = dyn Fn(MediaType, String, &Configuration) -> Option<String>;
+
 pub struct Context<'a> {
   pub media_type: MediaType,
   pub program: Program<'a>,
   pub config: &'a Configuration,
   pub comments: CommentTracker<'a>,
+  pub external_formatter: Option<&'a ExternalFormatter>,
   pub token_finder: TokenFinder<'a>,
   pub current_node: Node<'a>,
   pub parent_stack: Stack<Node<'a>>,
@@ -43,12 +73,20 @@ pub struct Context<'a> {
 }
 
 impl<'a> Context<'a> {
-  pub fn new(media_type: MediaType, tokens: &'a [TokenAndSpan], current_node: Node<'a>, program: Program<'a>, config: &'a Configuration) -> Context<'a> {
+  pub fn new(
+    media_type: MediaType,
+    tokens: &'a [TokenAndSpan],
+    current_node: Node<'a>,
+    program: Program<'a>,
+    config: &'a Configuration,
+    external_formatter: Option<&'a ExternalFormatter>,
+  ) -> Context<'a> {
     Context {
       media_type,
       program,
       config,
       comments: CommentTracker::new(program, tokens),
+      external_formatter,
       token_finder: TokenFinder::new(program),
       current_node,
       parent_stack: Default::default(),

@@ -18,6 +18,8 @@ mod utils;
 
 pub use format_text::format_parsed_source;
 pub use format_text::format_text;
+pub use format_text::ExternalFormatter;
+pub use format_text::FormatTextOptions;
 
 #[cfg(feature = "tracing")]
 pub use format_text::trace_file;
