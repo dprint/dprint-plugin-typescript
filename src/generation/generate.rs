@@ -25,13 +25,20 @@ use super::*;
 use crate::configuration::*;
 use crate::utils;
 
-pub fn generate(parsed_source: &ParsedSource, config: &Configuration) -> PrintItems {
+pub fn generate(parsed_source: &ParsedSource, config: &Configuration, external_formatter: Option<&ExternalFormatter>) -> PrintItems {
   // eprintln!("Leading: {:?}", parsed_source.comments().leading_map());
   // eprintln!("Trailing: {:?}", parsed_source.comments().trailing_map());
 
   parsed_source.with_view(|program| {
     let program_node = program.into();
-    let mut context = Context::new(parsed_source.media_type(), parsed_source.tokens(), program_node, program, config);
+    let mut context = Context::new(
+      parsed_source.media_type(),
+      parsed_source.tokens(),
+      program_node,
+      program,
+      config,
+      external_formatter,
+    );
     let mut items = gen_node(program_node, &mut context);
     items.push_condition(if_true(
       "endOfFileNewLine",
@@ -3001,6 +3008,97 @@ fn gen_spread_element<'a>(node: &SpreadElement<'a>, context: &mut Context<'a>) -
   items
 }
 
+/// Formats the tagged template literal using an external formatter.
+/// Detects the type of embedded language automatically.
+fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> Option<PrintItems> {
+  let external_formatter = context.external_formatter.as_ref()?;
+  let media_type = detect_embedded_language_type(node)?;
+
+  // First creates text with placeholders for the expressions.
+  let placeholder_text = "dpr1nt_";
+  let text = capacity_builder::StringBuilder::<String>::build(|builder| {
+    let expr_len = node.tpl.exprs.len();
+    for (i, quasi) in node.tpl.quasis.iter().enumerate() {
+      builder.append(quasi.raw().as_str());
+      if i < expr_len {
+        builder.append(placeholder_text);
+        if i < 10 {
+          // increase chance all placeholders have the same length
+          builder.append("0");
+        }
+        builder.append(i); // give each placeholder a unique name so the formatter doesn't remove duplicates
+        builder.append("_d");
+      }
+    }
+  })
+  .unwrap();
+
+  // Then formats the text with the external formatter.
+  let formatted_tpl = external_formatter(media_type, text, context.config)?;
+
+  let mut items = PrintItems::new();
+  items.push_sc(sc!("`"));
+  items.push_signal(Signal::NewLine);
+  items.push_signal(Signal::StartIndent);
+  let mut index = 0;
+  for line in formatted_tpl.lines() {
+    let mut pos = 0;
+    let mut parts = line.split(placeholder_text).enumerate().peekable();
+    while let Some((i, part)) = parts.next() {
+      let end = pos + part.len();
+      if i > 0 {
+        pos += part.find("_d").unwrap() + 2;
+      }
+      let text = &line[pos..end];
+      if !text.is_empty() {
+        items.push_string(text.to_string());
+      }
+      if parts.peek().is_some() {
+        items.push_sc(sc!("${"));
+        items.extend(gen_node(node.tpl.exprs[index].into(), context));
+        items.push_sc(sc!("}"));
+        pos = end + placeholder_text.len();
+        index += 1;
+      }
+    }
+    items.push_signal(Signal::NewLine);
+  }
+  items.push_signal(Signal::FinishIndent);
+  items.push_sc(sc!("`"));
+  Some(items)
+}
+
+/// Detects the type of embedded language in a tagged template literal.
+fn detect_embedded_language_type<'a>(node: &TaggedTpl<'a>) -> Option<MediaType> {
+  match node.tag {
+    Expr::Ident(ident) => {
+      match ident.sym().as_str() {
+        "css" => Some(MediaType::Css),   // css`...`
+        "html" => Some(MediaType::Html), // html`...`
+        "sql" => Some(MediaType::Sql),   // sql`...`
+        _ => None,
+      }
+    }
+    Expr::Member(member_expr) => {
+      if let Expr::Ident(ident) = member_expr.obj {
+        if ident.sym().as_str() == "styled" {
+          return Some(MediaType::Css); // styled.foo`...`
+        }
+      }
+      None
+    }
+    Expr::Call(call_expr) => {
+      if let Callee::Expr(Expr::Ident(ident)) = call_expr.callee {
+        if ident.sym().as_str() == "styled" {
+          return Some(MediaType::Css); // styled(Button)`...`
+        }
+      }
+      None
+    }
+    _ => None,
+  }
+}
+
 fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintItems {
   let use_space = context.config.tagged_template_space_before_literal;
   let mut items = gen_node(node.tag.into(), context);
@@ -3015,6 +3113,11 @@ fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintI
     }
   } else {
     items.extend(generated_between_comments);
+  }
+
+  if let Some(formatted_tpl) = maybe_gen_tagged_tpl_with_external_formatter(node, context) {
+    items.push_condition(conditions::indent_if_start_of_line(formatted_tpl));
+    return items;
   }
 
   items.push_condition(conditions::indent_if_start_of_line(gen_node(node.tpl.into(), context)));

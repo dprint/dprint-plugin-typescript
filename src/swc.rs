@@ -359,6 +359,6 @@ Merge conflict marker encountered. at file:///test.ts:6:1
     // a source file that had a non-fatal diagnostic
     let parsed_source = parse_inner_no_diagnostic_check(&file_path, None, text.into()).unwrap();
     let config = ConfigurationBuilder::new().build();
-    assert_eq!(crate::format_parsed_source(&parsed_source, &config).err().unwrap().to_string(), expected);
+    assert_eq!(crate::format_parsed_source(&parsed_source, &config, None).err().unwrap().to_string(), expected);
   }
 }
