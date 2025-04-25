@@ -96,7 +96,13 @@ fn main() {
         let config_result = resolve_config(spec_config, &global_config);
         ensure_no_diagnostics(&config_result.diagnostics);
 
-        format_text_with_external_formatter(file_name, None, file_text.into(), &config_result.config, Box::new(external_formatter))
+        format_text(FormatTextOptions {
+          path: file_name,
+          extension: None,
+          text: file_text.into(),
+          config: &config_result.config,
+          external_formatter: Some(&external_formatter),
+        })
       })
     },
     Arc::new(move |_file_name, _file_text, _spec_config| {

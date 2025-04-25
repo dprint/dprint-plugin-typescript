@@ -13,6 +13,14 @@ use super::generation::generate;
 pub use super::generation::ExternalFormatter;
 use super::swc::parse_swc_ast;
 
+pub struct FormatTextOptions<'a> {
+  pub path: &'a Path,
+  pub extension: Option<&'a str>,
+  pub text: String,
+  pub config: &'a Configuration,
+  pub external_formatter: Option<&'a ExternalFormatter>,
+}
+
 /// Formats a file.
 ///
 /// Returns the file text or an error when it failed to parse.
@@ -36,31 +44,24 @@ use super::swc::parse_swc_ast;
 /// // now format many files (it is recommended to parallelize this)
 /// let files_to_format = vec![(PathBuf::from("path/to/file.ts"), "const  t  =  5 ;")];
 /// for (file_path, file_text) in files_to_format {
-///     let result = format_text(&file_path, None, file_text.into(), &config);
+///     let result = format_text(FormatTextOptions {
+///         path: &file_path,
+///         extension: None,
+///         text: file_text.into(),
+///         config: &config,
+///         external_formatter: None,
+///     });
 ///     // save result here...
 /// }
 /// ```
-pub fn format_text(file_path: &Path, file_extension: Option<&str>, file_text: String, config: &Configuration) -> Result<Option<String>> {
-  format_text_inner(file_path, file_extension, file_text, config, None)
-}
-
-pub fn format_text_with_external_formatter(
-  file_path: &Path,
-  file_extension: Option<&str>,
-  file_text: String,
-  config: &Configuration,
-  external_formatter: ExternalFormatter,
-) -> Result<Option<String>> {
-  format_text_inner(file_path, file_extension, file_text, config, Some(external_formatter))
-}
-
-fn format_text_inner(
-  file_path: &Path,
-  file_extension: Option<&str>,
-  file_text: String,
-  config: &Configuration,
-  external_formatter: Option<ExternalFormatter>,
-) -> Result<Option<String>> {
+pub fn format_text(options: FormatTextOptions) -> Result<Option<String>> {
+  let FormatTextOptions {
+    path: file_path,
+    extension: file_extension,
+    text: file_text,
+    config,
+    external_formatter,
+  } = options;
   if super::utils::file_text_has_ignore_comment(&file_text, &config.ignore_file_comment_text) {
     Ok(None)
   } else {
@@ -82,17 +83,16 @@ fn format_text_inner(
 }
 
 /// Formats an already parsed source. This is useful as a performance optimization.
-pub fn format_parsed_source(source: &ParsedSource, config: &Configuration) -> Result<Option<String>> {
+pub fn format_parsed_source(source: &ParsedSource, config: &Configuration, external_formatter: Option<&ExternalFormatter>) -> Result<Option<String>> {
   if super::utils::file_text_has_ignore_comment(source.text(), &config.ignore_file_comment_text) {
     Ok(None)
   } else {
     ensure_no_specific_syntax_errors(source)?;
-    // TODO(bartlomieju): support external formatter
-    inner_format(source, config, None)
+    inner_format(source, config, external_formatter)
   }
 }
 
-fn inner_format(parsed_source: &ParsedSource, config: &Configuration, external_formatter: Option<ExternalFormatter>) -> Result<Option<String>> {
+fn inner_format(parsed_source: &ParsedSource, config: &Configuration, external_formatter: Option<&ExternalFormatter>) -> Result<Option<String>> {
   let result = dprint_core::formatting::format(
     || {
       #[allow(clippy::let_and_return)]
@@ -133,9 +133,15 @@ mod test {
   fn strips_bom() {
     for input_text in ["\u{FEFF}const t = 5;\n", "\u{FEFF}const t =   5;"] {
       let config = crate::configuration::ConfigurationBuilder::new().build();
-      let result = format_text(&std::path::PathBuf::from("test.ts"), None, input_text.into(), &config)
-        .unwrap()
-        .unwrap();
+      let result = format_text(FormatTextOptions {
+        path: &std::path::PathBuf::from("test.ts"),
+        extension: None,
+        text: input_text.into(),
+        config: &config,
+        external_formatter: None,
+      })
+      .unwrap()
+      .unwrap();
       assert_eq!(result, "const t = 5;\n");
     }
   }
