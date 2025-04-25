@@ -160,10 +160,11 @@ checksum = "5c297a1c74b71ae29df00c3e22dd9534821d60eb9af5a0192823fa2acea70c2a"
 
 [[package]]
 name = "deno_ast"
-version = "0.46.5"
+version = "0.46.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57fa4986eb7deb465906266ee29faa26566d33f8b6a755ac93d49730164ae5e8"
+checksum = "cef7f606485e5e5fdee9946d5822de9242d8143da9beb1c32cbaf2e8dd1ef025"
 dependencies = [
+ "capacity_builder",
  "deno_error",
  "deno_media_type",
  "deno_terminal 0.2.2",
@@ -171,7 +172,6 @@ dependencies = [
  "once_cell",
  "percent-encoding",
  "serde",
- "string_capacity",
  "swc_atoms",
  "swc_common",
  "swc_ecma_ast",
@@ -1115,15 +1115,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
-name = "string_capacity"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fcd14cb3a5abda6d2626370785f5f788b22e95476f597159faa4a2cc2966961a"
-dependencies = [
- "itoa",
-]
-
-[[package]]
 name = "string_enum"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1162,9 +1153,9 @@ dependencies = [
 
 [[package]]
 name = "swc_common"
-version = "8.1.0"
+version = "8.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d96ac5d021c7c20acb3073940b4ee59b62989a705f855783c4a452e0737a2e6"
+checksum = "4f8c8e4348383e4154f8d384cdad7e48f5d6d3daef78af376ac4e5ddbbf60c88"
 dependencies = [
  "anyhow",
  "ast_node",
@@ -1209,10 +1200,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "swc_ecma_parser"
-version = "11.1.2"
+name = "swc_ecma_lexer"
+version = "11.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa942372098c7c0e7fd8c584a577378d2f659c934429b8252c4e26fae31d7ea7"
+checksum = "a0d9ed10e3efa2230d0b3d0ad63c2e67d9b40c3892f31a865ad14d6fa881e0e9"
 dependencies = [
  "arrayvec",
  "bitflags",
@@ -1229,6 +1220,32 @@ dependencies = [
  "swc_atoms",
  "swc_common",
  "swc_ecma_ast",
+ "tracing",
+ "typed-arena",
+]
+
+[[package]]
+name = "swc_ecma_parser"
+version = "11.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "398f4105e5fa3dedcefc58d068a5b2d8330cd4a36c4ae1ef2da83ed0a3e3c61f"
+dependencies = [
+ "arrayvec",
+ "bitflags",
+ "either",
+ "new_debug_unreachable",
+ "num-bigint",
+ "num-traits",
+ "phf",
+ "rustc-hash 2.1.1",
+ "serde",
+ "smallvec",
+ "smartstring",
+ "stacker",
+ "swc_atoms",
+ "swc_common",
+ "swc_ecma_ast",
+ "swc_ecma_lexer",
  "tracing",
  "typed-arena",
 ]
