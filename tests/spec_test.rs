@@ -15,6 +15,7 @@ fn external_formatter(media_type: MediaType, text: String, config: &Configuratio
     _ => unreachable!(),
   }
 }
+
 fn format_embedded_css(text: &str, config: &Configuration) -> Option<String> {
   use malva::config;
   let options = config::FormatOptions {

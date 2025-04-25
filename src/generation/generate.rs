@@ -3011,49 +3011,55 @@ fn gen_spread_element<'a>(node: &SpreadElement<'a>, context: &mut Context<'a>) -
 /// Formats the tagged template literal using an external formatter.
 /// Detects the type of embedded language automatically.
 fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> Option<PrintItems> {
-  let Some(external_formatter) = context.external_formatter.as_ref() else {
-    return None;
-  };
-
-  let Some(media_type) = detect_embedded_language_type(node) else {
-    return None;
-  };
+  let external_formatter = context.external_formatter.as_ref()?;
+  let media_type = detect_embedded_language_type(node)?;
 
   // First creates text with placeholders for the expressions.
-  let mut text = Vec::with_capacity(node.tpl.quasis.len() * 2 - 1);
-  let expr_len = node.tpl.exprs.len();
-  for (i, quasi) in node.tpl.quasis.iter().enumerate() {
-    text.push(quasi.raw().to_string());
-    if i < expr_len {
-      text.push(format!("dprint_placeholder_{}_id", i));
+  let placeholder_text = "dpr1nt_";
+  let text = capacity_builder::StringBuilder::<String>::build(|builder| {
+    let expr_len = node.tpl.exprs.len();
+    for (i, quasi) in node.tpl.quasis.iter().enumerate() {
+      builder.append(quasi.raw().as_str());
+      if i < expr_len {
+        builder.append(placeholder_text);
+        if i < 10 {
+          // increase chance all placeholders have the same length
+          builder.append("0");
+        }
+        builder.append(i); // give each placeholder a unique name so the formatter doesn't remove duplicates
+        builder.append("_d");
+      }
     }
-  }
+  })
+  .unwrap();
 
   // Then formats the text with the external formatter.
-  let Some(formatted_tpl) = external_formatter(media_type, text.join(""), context.config) else {
-    return None;
-  };
+  let formatted_tpl = external_formatter(media_type, text, context.config)?;
 
-  let re = regex::Regex::new("dprint_placeholder_(\\d+)_id").unwrap();
   let mut items = PrintItems::new();
   items.push_sc(sc!("`"));
   items.push_signal(Signal::NewLine);
   items.push_signal(Signal::StartIndent);
+  let mut index = 0;
   for line in formatted_tpl.lines() {
-    let mut i = 0;
-    re.captures_iter(line).for_each(|cap| {
-      let m = cap.get(0).unwrap();
-      let d = cap.get(1).unwrap().as_str().parse::<usize>().unwrap();
-
-      items.push_string(line[i..m.start()].to_string());
-      items.push_sc(sc!("${"));
-      items.extend(gen_node(node.tpl.exprs[d].into(), context));
-      items.push_sc(sc!("}"));
-      i = m.end();
-    });
-    let rest = line[i..].to_string();
-    if !rest.is_empty() {
-      items.push_string(rest);
+    let mut pos = 0;
+    let mut parts = line.split(placeholder_text).enumerate().peekable();
+    while let Some((i, part)) = parts.next() {
+      let end = pos + part.len();
+      if i > 0 {
+        pos += part.find("_d").unwrap() + 2;
+      }
+      let text = &line[pos..end];
+      if !text.is_empty() {
+        items.push_string(text.to_string());
+      }
+      if parts.peek().is_some() {
+        items.push_sc(sc!("${"));
+        items.extend(gen_node(node.tpl.exprs[index].into(), context));
+        items.push_sc(sc!("}"));
+        pos = end + placeholder_text.len();
+        index += 1;
+      }
     }
     items.push_signal(Signal::NewLine);
   }
@@ -3079,17 +3085,15 @@ fn detect_embedded_language_type<'a>(node: &TaggedTpl<'a>) -> Option<MediaType> 
           return Some(MediaType::Css); // styled.foo`...`
         }
       }
-      return None;
+      None
     }
     Expr::Call(call_expr) => {
-      if let Callee::Expr(call_expr) = call_expr.callee {
-        if let Expr::Ident(ident) = call_expr {
-          if ident.sym().as_str() == "styled" {
-            return Some(MediaType::Css); // styled(Button)`...`
-          }
+      if let Callee::Expr(Expr::Ident(ident)) = call_expr.callee {
+        if ident.sym().as_str() == "styled" {
+          return Some(MediaType::Css); // styled(Button)`...`
         }
       }
-      return None;
+      None
     }
     _ => None,
   }
@@ -3111,11 +3115,9 @@ fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintI
     items.extend(generated_between_comments);
   }
 
-  if context.external_formatter.is_some() {
-    if let Some(formatted_tpl) = maybe_gen_tagged_tpl_with_external_formatter(node, context) {
-      items.push_condition(conditions::indent_if_start_of_line(formatted_tpl));
-      return items;
-    }
+  if let Some(formatted_tpl) = maybe_gen_tagged_tpl_with_external_formatter(node, context) {
+    items.push_condition(conditions::indent_if_start_of_line(formatted_tpl));
+    return items;
   }
 
   items.push_condition(conditions::indent_if_start_of_line(gen_node(node.tpl.into(), context)));

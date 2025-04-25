@@ -62,20 +62,23 @@ styled.div`
     margin: ${margin}px;
 `;
 
-== should format css with arrow function expressions reasonably, this case was borrowed from https://github.com/prettier/prettier/blob/40a04dd216a61d41945b2302468864ffa38af77f/tests/format/js/template-literals/styled-components-with-expressions.js#L6 ==
+== should format css with arrow function expressions reasonably ==
+// this case was borrowed from https://github.com/prettier/prettier/blob/40a04dd216a61d41945b2302468864ffa38af77f/tests/format/js/template-literals/styled-components-with-expressions.js#L6
 styled.div`
     display: ${props=>props.display};
     border:  ${props=>props.border}px;
     margin: 10px  ${props=>props.border}px ;
 `;
 [expect]
+// this case was borrowed from https://github.com/prettier/prettier/blob/40a04dd216a61d41945b2302468864ffa38af77f/tests/format/js/template-literals/styled-components-with-expressions.js#L6
 styled.div`
     display: ${props => props.display};
     border: ${props => props.border}px;
     margin: 10px ${props => props.border}px;
 `;
 
-== should format nested css reasonably, this case was borrowed from https://github.com/prettier/prettier/blob/40a04dd216a61d41945b2302468864ffa38af77f/tests/format/js/template-literals/styled-components-with-expressions.js#L12 ==
+== should format nested css reasonably ==
+// this case was borrowed from https://github.com/prettier/prettier/blob/40a04dd216a61d41945b2302468864ffa38af77f/tests/format/js/template-literals/styled-components-with-expressions.js#L12
 const EqualDivider = styled.div`
 margin: 0.5rem;
 		padding: 1rem;
@@ -90,6 +93,7 @@ margin: 0.5rem;
 	}
 `;
 [expect]
+// this case was borrowed from https://github.com/prettier/prettier/blob/40a04dd216a61d41945b2302468864ffa38af77f/tests/format/js/template-literals/styled-components-with-expressions.js#L12
 const EqualDivider = styled.div`
     margin: 0.5rem;
     padding: 1rem;

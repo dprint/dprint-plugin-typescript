@@ -31,11 +31,11 @@ harness = false
 
 [dependencies]
 anyhow = "1.0.64"
+capacity_builder = "0.5.0"
 deno_ast = { version = "0.46.3", features = ["view"] }
 dprint-core = { version = "0.67.4", features = ["formatting"] }
 dprint-core-macros = "0.1.0"
 percent-encoding = "2.3.1"
-regex = "1.11.1"
 rustc-hash = "2.1.1"
 serde = { version = "1.0.144", features = ["derive"] }
 serde_json = { version = "1.0", optional = true }
