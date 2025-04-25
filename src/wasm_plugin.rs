@@ -60,7 +60,15 @@ impl SyncPluginHandler<Configuration> for TypeScriptPluginHandler {
 
   fn format(&mut self, request: SyncFormatRequest<Configuration>, _format_with_host: impl FnMut(SyncHostFormatRequest) -> FormatResult) -> FormatResult {
     let file_text = String::from_utf8(request.file_bytes)?;
-    super::format_text(request.file_path, None, file_text, request.config).map(|maybe_text| maybe_text.map(|t| t.into_bytes()))
+    super::format_text(super::FormatTextOptions {
+      path: request.file_path,
+      extension: None,
+      text: file_text,
+      config: request.config,
+      // todo: support this in Wasm
+      external_formatter: None,
+    })
+    .map(|maybe_text| maybe_text.map(|t| t.into_bytes()))
   }
 }
 
