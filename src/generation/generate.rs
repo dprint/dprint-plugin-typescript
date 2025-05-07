@@ -3051,7 +3051,7 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
       }
       let text = &line[pos..end];
       if !text.is_empty() {
-        items.push_string(text.to_string());
+        items.extend(gen_from_raw_string(text));
       }
       if parts.peek().is_some() {
         items.push_sc(sc!("${"));
