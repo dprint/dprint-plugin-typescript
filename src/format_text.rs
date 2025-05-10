@@ -93,15 +93,20 @@ pub fn format_parsed_source(source: &ParsedSource, config: &Configuration, exter
 }
 
 fn inner_format(parsed_source: &ParsedSource, config: &Configuration, external_formatter: Option<&ExternalFormatter>) -> Result<Option<String>> {
+  let mut maybe_err: Box<Option<anyhow::Error>> = Box::new(None);
   let result = dprint_core::formatting::format(
-    || {
-      #[allow(clippy::let_and_return)]
-      let print_items = generate(parsed_source, config, external_formatter);
-      // println!("{}", print_items.get_as_text());
-      print_items
+    || match generate(parsed_source, config, external_formatter) {
+      Ok(print_itmes) => print_itmes,
+      Err(e) => {
+        maybe_err.replace(e);
+        PrintItems::default()
+      }
     },
     config_to_print_options(parsed_source.text(), config),
   );
+  if let Some(e) = maybe_err.take() {
+    return Err(e);
+  }
   if result == parsed_source.text().as_ref() {
     Ok(None)
   } else {

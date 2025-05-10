@@ -45,7 +45,12 @@ use crate::utils::Stack;
 /// cases the templates will be left as they are.
 ///
 /// Only templates with no interpolation are supported.
-pub type ExternalFormatter = dyn Fn(MediaType, String, &Configuration) -> Option<String>;
+pub type ExternalFormatter = dyn Fn(MediaType, String, &Configuration) -> anyhow::Result<Option<String>>;
+
+pub(crate) struct GenerateDiagnostic {
+  pub message: String,
+  pub range: SourceRange,
+}
 
 pub struct Context<'a> {
   pub media_type: MediaType,
@@ -70,6 +75,7 @@ pub struct Context<'a> {
   /// Used for ensuring nodes are parsed in order.
   #[cfg(debug_assertions)]
   pub last_generated_node_pos: SourcePos,
+  pub diagnostics: Vec<GenerateDiagnostic>,
 }
 
 impl<'a> Context<'a> {
@@ -102,6 +108,7 @@ impl<'a> Context<'a> {
       expr_stmt_single_line_parent_brace_ref: None,
       #[cfg(debug_assertions)]
       last_generated_node_pos: deno_ast::SourceTextInfoProvider::text_info(&program).range().start.into(),
+      diagnostics: Vec::new(),
     }
   }
 
