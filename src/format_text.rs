@@ -150,4 +150,21 @@ mod test {
       assert_eq!(result, "const t = 5;\n");
     }
   }
+
+  #[test]
+  fn syntax_error_from_external_formatter() {
+    let config = crate::configuration::ConfigurationBuilder::new().build();
+    let result = format_text(FormatTextOptions {
+      path: &std::path::PathBuf::from("test.ts"),
+      extension: None,
+      text: "const content = html`<div>broken html</p>`".into(),
+      config: &config,
+      external_formatter: Some(&|media_type, _text, _config| {
+        assert!(matches!(media_type, deno_ast::MediaType::Html));
+        Err(anyhow::anyhow!("Syntax error from external formatter"))
+      }),
+    });
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().to_string(), "Error formatting tagged template literal at line 0: Syntax error from external formatter");
+  }
 }
