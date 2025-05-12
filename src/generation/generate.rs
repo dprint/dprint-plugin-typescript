@@ -50,7 +50,7 @@ pub fn generate(parsed_source: &ParsedSource, config: &Configuration, external_f
     context.assert_end_of_file_state();
 
     if let Some(diagnostic) = context.diagnostics.pop() {
-      return Err(anyhow::anyhow!("{}: {:?}", diagnostic.message, diagnostic.range));
+      return Err(anyhow::anyhow!(diagnostic.message));
     }
 
     if config.file_indent_level > 0 {
@@ -3042,8 +3042,7 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
     Ok(formatted_tpl) => formatted_tpl?,
     Err(err) => {
       context.diagnostics.push(context::GenerateDiagnostic {
-        message: format!("Error formatting tagged template literal: {}", err),
-        range: node.range(),
+        message: format!("Error formatting tagged template literal at line {}: {}", node.start_line(), err),
       });
       return None;
     }

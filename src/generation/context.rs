@@ -49,7 +49,6 @@ pub type ExternalFormatter = dyn Fn(MediaType, String, &Configuration) -> anyhow
 
 pub(crate) struct GenerateDiagnostic {
   pub message: String,
-  pub range: SourceRange,
 }
 
 pub struct Context<'a> {
