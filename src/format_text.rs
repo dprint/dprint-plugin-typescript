@@ -96,7 +96,7 @@ fn inner_format(parsed_source: &ParsedSource, config: &Configuration, external_f
   let mut maybe_err: Box<Option<anyhow::Error>> = Box::new(None);
   let result = dprint_core::formatting::format(
     || match generate(parsed_source, config, external_formatter) {
-      Ok(print_itmes) => print_itmes,
+      Ok(print_items) => print_items,
       Err(e) => {
         maybe_err.replace(e);
         PrintItems::default()
