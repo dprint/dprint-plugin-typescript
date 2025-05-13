@@ -1,13 +1,14 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use anyhow::Result;
 use deno_ast::MediaType;
 use dprint_core::configuration::*;
 use dprint_development::*;
 use dprint_plugin_typescript::configuration::*;
 use dprint_plugin_typescript::*;
 
-fn external_formatter(media_type: MediaType, text: String, config: &Configuration) -> Option<String> {
+fn external_formatter(media_type: MediaType, text: String, config: &Configuration) -> Result<Option<String>> {
   match media_type {
     MediaType::Css => format_embedded_css(&text, config),
     MediaType::Html => format_html(&text, config),
@@ -16,7 +17,7 @@ fn external_formatter(media_type: MediaType, text: String, config: &Configuratio
   }
 }
 
-fn format_embedded_css(text: &str, config: &Configuration) -> Option<String> {
+fn format_embedded_css(text: &str, config: &Configuration) -> Result<Option<String>> {
   use malva::config;
   let options = config::FormatOptions {
     layout: config::LayoutOptions {
@@ -27,9 +28,7 @@ fn format_embedded_css(text: &str, config: &Configuration) -> Option<String> {
   };
   // Wraps the text in a css block of `a { ... }`
   // to make it valid css (scss)
-  let Ok(text) = malva::format_text(&format!("a{{\n{}\n}}", text), malva::Syntax::Scss, &options) else {
-    return None;
-  };
+  let text = malva::format_text(&format!("a{{\n{}\n}}", text), malva::Syntax::Scss, &options)?;
   let mut buf = vec![];
   for (i, l) in text.lines().enumerate() {
     // skip the first line (a {)
@@ -47,10 +46,10 @@ fn format_embedded_css(text: &str, config: &Configuration) -> Option<String> {
     }
     buf.push(chars.as_str());
   }
-  Some(buf.join("\n").to_string())
+  Ok(Some(buf.join("\n").to_string()))
 }
 
-fn format_html(text: &str, config: &Configuration) -> Option<String> {
+fn format_html(text: &str, config: &Configuration) -> Result<Option<String>> {
   use markup_fmt::config;
   let options = config::FormatOptions {
     layout: config::LayoutOptions {
@@ -59,19 +58,17 @@ fn format_html(text: &str, config: &Configuration) -> Option<String> {
     },
     ..Default::default()
   };
-  let Ok(text) = markup_fmt::format_text(text, markup_fmt::Language::Html, &options, |code, _| {
+  let text = markup_fmt::format_text(text, markup_fmt::Language::Html, &options, |code, _| {
     Ok::<_, std::convert::Infallible>(code.into())
-  }) else {
-    return None;
-  };
-  Some(text.to_string())
+  })?;
+  Ok(Some(text.to_string()))
 }
 
-fn format_sql(text: &str, config: &Configuration) -> Option<String> {
+fn format_sql(text: &str, config: &Configuration) -> Result<Option<String>> {
   let options = dprint_plugin_sql::configuration::ConfigurationBuilder::new()
     .indent_width(config.indent_width)
     .build();
-  dprint_plugin_sql::format_text(Path::new("_path.sql"), text, &options).ok().flatten()
+  dprint_plugin_sql::format_text(Path::new("_path.sql"), text, &options)
 }
 
 fn main() {

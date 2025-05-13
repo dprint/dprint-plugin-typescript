@@ -25,7 +25,7 @@ use super::*;
 use crate::configuration::*;
 use crate::utils;
 
-pub fn generate(parsed_source: &ParsedSource, config: &Configuration, external_formatter: Option<&ExternalFormatter>) -> PrintItems {
+pub fn generate(parsed_source: &ParsedSource, config: &Configuration, external_formatter: Option<&ExternalFormatter>) -> anyhow::Result<PrintItems> {
   // eprintln!("Leading: {:?}", parsed_source.comments().leading_map());
   // eprintln!("Trailing: {:?}", parsed_source.comments().trailing_map());
 
@@ -49,10 +49,14 @@ pub fn generate(parsed_source: &ParsedSource, config: &Configuration, external_f
     #[cfg(debug_assertions)]
     context.assert_end_of_file_state();
 
+    if let Some(diagnostic) = context.diagnostics.pop() {
+      return Err(anyhow::anyhow!(diagnostic.message));
+    }
+
     if config.file_indent_level > 0 {
-      with_indent_times(items, config.file_indent_level)
+      Ok(with_indent_times(items, config.file_indent_level))
     } else {
-      items
+      Ok(items)
     }
   })
 }
@@ -3034,7 +3038,15 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
   .unwrap();
 
   // Then formats the text with the external formatter.
-  let formatted_tpl = external_formatter(media_type, text, context.config)?;
+  let formatted_tpl = match external_formatter(media_type, text, context.config) {
+    Ok(formatted_tpl) => formatted_tpl?,
+    Err(err) => {
+      context.diagnostics.push(context::GenerateDiagnostic {
+        message: format!("Error formatting tagged template literal at line {}: {}", node.start_line(), err),
+      });
+      return None;
+    }
+  };
 
   let mut items = PrintItems::new();
   items.push_sc(sc!("`"));

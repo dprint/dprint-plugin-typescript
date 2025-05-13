@@ -93,15 +93,20 @@ pub fn format_parsed_source(source: &ParsedSource, config: &Configuration, exter
 }
 
 fn inner_format(parsed_source: &ParsedSource, config: &Configuration, external_formatter: Option<&ExternalFormatter>) -> Result<Option<String>> {
+  let mut maybe_err: Box<Option<anyhow::Error>> = Box::new(None);
   let result = dprint_core::formatting::format(
-    || {
-      #[allow(clippy::let_and_return)]
-      let print_items = generate(parsed_source, config, external_formatter);
-      // println!("{}", print_items.get_as_text());
-      print_items
+    || match generate(parsed_source, config, external_formatter) {
+      Ok(print_items) => print_items,
+      Err(e) => {
+        maybe_err.replace(e);
+        PrintItems::default()
+      }
     },
     config_to_print_options(parsed_source.text(), config),
   );
+  if let Some(e) = maybe_err.take() {
+    return Err(e);
+  }
   if result == parsed_source.text().as_ref() {
     Ok(None)
   } else {
@@ -144,5 +149,22 @@ mod test {
       .unwrap();
       assert_eq!(result, "const t = 5;\n");
     }
+  }
+
+  #[test]
+  fn syntax_error_from_external_formatter() {
+    let config = crate::configuration::ConfigurationBuilder::new().build();
+    let result = format_text(FormatTextOptions {
+      path: &std::path::PathBuf::from("test.ts"),
+      extension: None,
+      text: "const content = html`<div>broken html</p>`".into(),
+      config: &config,
+      external_formatter: Some(&|media_type, _text, _config| {
+        assert!(matches!(media_type, deno_ast::MediaType::Html));
+        Err(anyhow::anyhow!("Syntax error from external formatter"))
+      }),
+    });
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().to_string(), "Error formatting tagged template literal at line 0: Syntax error from external formatter");
   }
 }
