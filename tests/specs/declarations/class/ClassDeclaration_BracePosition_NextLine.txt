@@ -32,3 +32,20 @@ class Test
     extends SomethingReallyReallyReallyLong
 {
 }
+
+== should handle export default with a name ==
+export default class Test {
+}
+
+[expect]
+export default class Test
+{
+}
+
+== should not consider a class in an export default decl with no name as a declaration ==
+export default class {
+}
+
+[expect]
+export default class {
+}

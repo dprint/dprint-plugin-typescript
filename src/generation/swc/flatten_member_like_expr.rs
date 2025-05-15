@@ -10,8 +10,6 @@ use crate::generation::generate_types::CallOrOptCallExpr;
 use super::super::node_helpers;
 
 pub struct FlattenedMemberLikeExpr<'a> {
-  pub node: Node<'a>,
-
   pub nodes: Vec<MemberLikeExprItem<'a>>,
 }
 
@@ -74,7 +72,7 @@ pub fn flatten_member_like_expr<'a>(node: Node<'a>, program: Program<'a>) -> Fla
   let mut nodes = Vec::new();
   push_descendant_nodes(node, &mut nodes, program);
 
-  FlattenedMemberLikeExpr { node, nodes }
+  FlattenedMemberLikeExpr { nodes }
 }
 
 fn push_descendant_nodes<'a>(node: Node<'a>, nodes: &mut Vec<MemberLikeExprItem<'a>>, program: Program<'a>) {

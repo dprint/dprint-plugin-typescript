@@ -25,13 +25,20 @@ use super::*;
 use crate::configuration::*;
 use crate::utils;
 
-pub fn generate(parsed_source: &ParsedSource, config: &Configuration) -> PrintItems {
-  // println!("Leading: {:?}", parsed_source.comments().leading_map());
-  // println!("Trailing: {:?}", parsed_source.comments().trailing_map());
+pub fn generate(parsed_source: &ParsedSource, config: &Configuration, external_formatter: Option<&ExternalFormatter>) -> anyhow::Result<PrintItems> {
+  // eprintln!("Leading: {:?}", parsed_source.comments().leading_map());
+  // eprintln!("Trailing: {:?}", parsed_source.comments().trailing_map());
 
   parsed_source.with_view(|program| {
     let program_node = program.into();
-    let mut context = Context::new(parsed_source.media_type(), parsed_source.tokens(), program_node, program, config);
+    let mut context = Context::new(
+      parsed_source.media_type(),
+      parsed_source.tokens(),
+      program_node,
+      program,
+      config,
+      external_formatter,
+    );
     let mut items = gen_node(program_node, &mut context);
     items.push_condition(if_true(
       "endOfFileNewLine",
@@ -42,7 +49,15 @@ pub fn generate(parsed_source: &ParsedSource, config: &Configuration) -> PrintIt
     #[cfg(debug_assertions)]
     context.assert_end_of_file_state();
 
-    items
+    if let Some(diagnostic) = context.diagnostics.pop() {
+      return Err(anyhow::anyhow!(diagnostic.message));
+    }
+
+    if config.file_indent_level > 0 {
+      Ok(with_indent_times(items, config.file_indent_level))
+    } else {
+      Ok(items)
+    }
   })
 }
 
@@ -52,13 +67,13 @@ fn gen_node<'a>(node: Node<'a>, context: &mut Context<'a>) -> PrintItems {
 
 fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_gen: impl FnOnce(PrintItems, &mut Context<'a>) -> PrintItems) -> PrintItems {
   let node_kind = node.kind();
-  // println!("Node kind: {:?}", node_kind);
-  // println!("Text: {:?}", node.text());
-  // println!("Range: {:?}", node.range());
+  // eprintln!("Node kind: {:?}", node_kind);
+  // eprintln!("Text: {:?}", node.text());
+  // eprintln!("Range: {:?}", node.range());
 
   // store info
   let past_current_node = std::mem::replace(&mut context.current_node, node);
-  let parent_hi = past_current_node.end();
+  let parent_end = past_current_node.end();
   context.parent_stack.push(past_current_node);
 
   // handle decorators (since their starts can come before their parent)
@@ -96,7 +111,19 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
   // generate the node
   if has_ignore_comment {
     items.push_force_current_line_indentation();
-    items.extend(inner_gen(ir_helpers::gen_from_raw_string(node.text_fast(context.program)), context));
+    let node_text = if node_kind == NodeKind::JSXText {
+      // keep the leading text, but leave the trailing text to be formatted if on a separate line
+      let node_text = node.text_fast(context.program);
+      let end_trim = node_text.trim_end();
+      if node_text[end_trim.len()..].contains('\n') {
+        end_trim
+      } else {
+        node_text
+      }
+    } else {
+      node.text_fast(context.program)
+    };
+    items.extend(inner_gen(ir_helpers::gen_from_raw_string(node_text), context));
 
     // mark any previous comments as handled
     for comment in context.comments.trailing_comments_with_previous(node_end) {
@@ -110,7 +137,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
 
   // Get the trailing comments -- This needs to be done based on the parse
   // stack order because certain nodes like binary expressions are flattened
-  if node_end != parent_hi || matches!(context.parent().kind(), NodeKind::Module | NodeKind::Script) {
+  if node_end != parent_end || matches!(context.parent().kind(), NodeKind::Module | NodeKind::Script) {
     let trailing_comments = context.comments.trailing_comments_with_previous(node_end);
     items.extend(gen_comments_as_trailing(&node_range, trailing_comments, context));
   }
@@ -154,6 +181,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       /* common */
       Node::ComputedPropName(node) => gen_computed_prop_name(node, context),
       Node::Ident(node) => gen_identifier(node, context),
+      Node::IdentName(node) => gen_ident_name(node, context),
       Node::BindingIdent(node) => gen_binding_identifier(node, context),
       /* declarations */
       Node::ClassDecl(node) => gen_class_decl(node, context),
@@ -295,6 +323,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       Node::TsSetterSignature(node) => gen_setter_signature(node, context),
       Node::TsKeywordType(node) => gen_keyword_type(node, context),
       Node::TsImportType(node) => gen_import_type(node, context),
+      Node::TsImportCallOptions(node) => gen_ts_import_call_options(node, context),
       Node::TsIndexedAccessType(node) => gen_indexed_access_type(node, context),
       Node::TsInferType(node) => gen_infer_type(node, context),
       Node::TsInstantiation(node) => gen_ts_instantiation(node, context),
@@ -429,6 +458,20 @@ fn get_has_ignore_comment<'a>(leading_comments: &CommentsIterator<'a>, node: Nod
 
     iterator
   }
+}
+
+fn is_ignore_jsx_expr_container(node: Node, context: &Context) -> bool {
+  if let Node::JSXExprContainer(expr_container) = node {
+    if let JSXExpr::JSXEmptyExpr(empty_expr) = expr_container.expr {
+      for comment in get_jsx_empty_expr_comments(empty_expr, context) {
+        if ir_helpers::text_has_dprint_ignore(&comment.text, &context.config.ignore_node_comment_text) {
+          return true;
+        }
+      }
+    }
+  }
+
+  false
 }
 
 /* class */
@@ -575,10 +618,10 @@ fn gen_parameter_prop<'a>(node: &TsParamProp<'a>, context: &mut Context<'a>) -> 
   items
 }
 
-fn gen_private_name<'a>(node: &PrivateName<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_private_name<'a>(node: &PrivateName<'a>, _context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_sc(sc!("#"));
-  items.extend(gen_node(node.id.into(), context));
+  items.push_string(node.name().to_string());
   items
 }
 
@@ -784,6 +827,12 @@ fn gen_identifier<'a>(node: &Ident<'a>, _: &mut Context<'a>) -> PrintItems {
   items
 }
 
+fn gen_ident_name<'a>(node: &IdentName<'a>, _: &mut Context<'a>) -> PrintItems {
+  let mut items = PrintItems::new();
+  items.push_string(node.sym().to_string());
+  items
+}
+
 fn gen_binding_identifier<'a>(node: &BindingIdent<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.extend(gen_node(node.id.into(), context));
@@ -807,7 +856,7 @@ fn gen_class_decl<'a>(node: &ClassDecl<'a>, context: &mut Context<'a>) -> PrintI
       node: node.into(),
       member_node: node.class.into(),
       decorators: node.class.decorators,
-      is_class_expr: false,
+      is_class_decl: true,
       is_declare: node.declare(),
       is_abstract: node.class.is_abstract(),
       ident: Some(node.ident.into()),
@@ -826,7 +875,7 @@ struct ClassDeclOrExpr<'a> {
   node: Node<'a>,
   member_node: Node<'a>,
   decorators: &'a [&'a Decorator<'a>],
-  is_class_expr: bool,
+  is_class_decl: bool,
   is_declare: bool,
   is_abstract: bool,
   ident: Option<Node<'a>>,
@@ -845,7 +894,8 @@ fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'
   // generate decorators
   let parent_kind = node.node.parent().unwrap().kind();
   if parent_kind != NodeKind::ExportDecl && parent_kind != NodeKind::ExportDefaultDecl {
-    items.extend(gen_decorators(node.decorators, node.is_class_expr, context));
+    let is_inline = !node.is_class_decl;
+    items.extend(gen_decorators(node.decorators, is_inline, context));
   }
 
   // generate header and body
@@ -920,7 +970,9 @@ fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'
     },
   ));
 
-  if node.is_class_expr {
+  if node.is_class_decl {
+    items
+  } else {
     let items = items.into_rc_path();
     if_true_or(
       "classExprConditionalIndent",
@@ -935,8 +987,6 @@ fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'
       items.into(),
     )
     .into()
-  } else {
-    items
   }
 }
 
@@ -1466,7 +1516,7 @@ fn gen_using_decl<'a>(node: &UsingDecl<'a>, context: &mut Context<'a>) -> PrintI
 
   items.extend(gen_var_declarators(node.into(), node.decls, context));
 
-  if context.config.semi_colons.is_true() {
+  if requires_semi_colon_for_var_or_using_decl(node.into(), context) {
     items.push_sc(sc!(";"));
   }
 
@@ -1536,8 +1586,14 @@ fn gen_named_import_or_export_specifiers<'a>(opts: GenNamedImportOrExportSpecifi
     context: &Context<'a>,
   ) -> Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), Program<'a>) -> std::cmp::Ordering>> {
     match parent_decl {
-      Node::NamedExport(_) => get_node_sorter_from_order(context.config.export_declaration_sort_named_exports),
-      Node::ImportDecl(_) => get_node_sorter_from_order(context.config.import_declaration_sort_named_imports),
+      Node::NamedExport(_) => get_node_sorter_from_order(
+        context.config.export_declaration_sort_named_exports,
+        context.config.export_declaration_sort_type_only_exports,
+      ),
+      Node::ImportDecl(_) => get_node_sorter_from_order(
+        context.config.import_declaration_sort_named_imports,
+        context.config.import_declaration_sort_type_only_imports,
+      ),
       _ => unreachable!(),
     }
   }
@@ -1782,7 +1838,7 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
       BlockStmtOrExpr::BlockStmt(_) => true,
       BlockStmtOrExpr::Expr(expr) => match expr {
         Expr::Paren(_) | Expr::Array(_) => true,
-        Expr::Tpl(tpl) => tpl.quasis[0].raw().starts_with(|c: char| c == '\n' || c == '\r'),
+        Expr::Tpl(tpl) => tpl.quasis[0].raw().starts_with(['\n', '\r']),
         _ => is_jsx_paren_expr_handled_node(expr.into(), context),
       },
     }
@@ -2266,12 +2322,13 @@ fn gen_import_callee<'a>(node: &Import<'a>, _context: &mut Context<'a>) -> Print
 }
 
 fn gen_class_expr<'a>(node: &ClassExpr<'a>, context: &mut Context<'a>) -> PrintItems {
+  let is_class_decl = node.parent().kind() == NodeKind::ExportDefaultDecl && node.ident.is_some();
   gen_class_decl_or_expr(
     ClassDeclOrExpr {
       node: node.into(),
       member_node: node.class.into(),
       decorators: node.class.decorators,
-      is_class_expr: true,
+      is_class_decl,
       is_declare: false,
       is_abstract: node.class.is_abstract(),
       ident: node.ident.map(|x| x.into()),
@@ -2280,7 +2337,11 @@ fn gen_class_expr<'a>(node: &ClassExpr<'a>, context: &mut Context<'a>) -> PrintI
       super_type_params: node.class.super_type_params.map(|x| x.into()),
       implements: node.class.implements.iter().map(|&x| x.into()).collect(),
       members: node.class.body.iter().map(|x| x.into()).collect(),
-      brace_position: context.config.class_expression_brace_position,
+      brace_position: if is_class_decl {
+        context.config.class_declaration_brace_position
+      } else {
+        context.config.class_expression_brace_position
+      },
     },
     context,
   )
@@ -2581,7 +2642,7 @@ fn gen_fn_expr<'a>(node: &FnExpr<'a>, context: &mut Context<'a>) -> PrintItems {
   let items = gen_function_decl_or_expr(
     FunctionDeclOrExprNode {
       node: node.into(),
-      is_func_decl: false,
+      is_func_decl: node.parent().kind() == NodeKind::ExportDefaultDecl && node.ident.is_some(),
       ident: node.ident,
       declare: false,
       func: node.function,
@@ -2837,7 +2898,7 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     return false;
   }
 
-  if matches!(node.expr.kind(), NodeKind::ArrayLit) || matches!(node.expr.kind(), NodeKind::Ident) {
+  if matches!(node.expr.kind(), NodeKind::ArrayLit) || matches!(node.expr, Expr::Ident(_)) {
     return true;
   }
 
@@ -2951,6 +3012,105 @@ fn gen_spread_element<'a>(node: &SpreadElement<'a>, context: &mut Context<'a>) -
   items
 }
 
+/// Formats the tagged template literal using an external formatter.
+/// Detects the type of embedded language automatically.
+fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> Option<PrintItems> {
+  let external_formatter = context.external_formatter.as_ref()?;
+  let media_type = detect_embedded_language_type(node)?;
+
+  // First creates text with placeholders for the expressions.
+  let placeholder_text = "dpr1nt_";
+  let text = capacity_builder::StringBuilder::<String>::build(|builder| {
+    let expr_len = node.tpl.exprs.len();
+    for (i, quasi) in node.tpl.quasis.iter().enumerate() {
+      builder.append(quasi.raw().as_str());
+      if i < expr_len {
+        builder.append(placeholder_text);
+        if i < 10 {
+          // increase chance all placeholders have the same length
+          builder.append("0");
+        }
+        builder.append(i); // give each placeholder a unique name so the formatter doesn't remove duplicates
+        builder.append("_d");
+      }
+    }
+  })
+  .unwrap();
+
+  // Then formats the text with the external formatter.
+  let formatted_tpl = match external_formatter(media_type, text, context.config) {
+    Ok(formatted_tpl) => formatted_tpl?,
+    Err(err) => {
+      context.diagnostics.push(context::GenerateDiagnostic {
+        message: format!("Error formatting tagged template literal at line {}: {}", node.start_line(), err),
+      });
+      return None;
+    }
+  };
+
+  let mut items = PrintItems::new();
+  items.push_sc(sc!("`"));
+  items.push_signal(Signal::NewLine);
+  items.push_signal(Signal::StartIndent);
+  let mut index = 0;
+  for line in formatted_tpl.lines() {
+    let mut pos = 0;
+    let mut parts = line.split(placeholder_text).enumerate().peekable();
+    while let Some((i, part)) = parts.next() {
+      let end = pos + part.len();
+      if i > 0 {
+        pos += part.find("_d").unwrap() + 2;
+      }
+      let text = &line[pos..end];
+      if !text.is_empty() {
+        items.extend(gen_from_raw_string(text));
+      }
+      if parts.peek().is_some() {
+        items.push_sc(sc!("${"));
+        items.extend(gen_node(node.tpl.exprs[index].into(), context));
+        items.push_sc(sc!("}"));
+        pos = end + placeholder_text.len();
+        index += 1;
+      }
+    }
+    items.push_signal(Signal::NewLine);
+  }
+  items.push_signal(Signal::FinishIndent);
+  items.push_sc(sc!("`"));
+  Some(items)
+}
+
+/// Detects the type of embedded language in a tagged template literal.
+fn detect_embedded_language_type<'a>(node: &TaggedTpl<'a>) -> Option<MediaType> {
+  match node.tag {
+    Expr::Ident(ident) => {
+      match ident.sym().as_str() {
+        "css" => Some(MediaType::Css),   // css`...`
+        "html" => Some(MediaType::Html), // html`...`
+        "sql" => Some(MediaType::Sql),   // sql`...`
+        _ => None,
+      }
+    }
+    Expr::Member(member_expr) => {
+      if let Expr::Ident(ident) = member_expr.obj {
+        if ident.sym().as_str() == "styled" {
+          return Some(MediaType::Css); // styled.foo`...`
+        }
+      }
+      None
+    }
+    Expr::Call(call_expr) => {
+      if let Callee::Expr(Expr::Ident(ident)) = call_expr.callee {
+        if ident.sym().as_str() == "styled" {
+          return Some(MediaType::Css); // styled(Button)`...`
+        }
+      }
+      None
+    }
+    _ => None,
+  }
+}
+
 fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintItems {
   let use_space = context.config.tagged_template_space_before_literal;
   let mut items = gen_node(node.tag.into(), context);
@@ -2965,6 +3125,11 @@ fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintI
     }
   } else {
     items.extend(generated_between_comments);
+  }
+
+  if let Some(formatted_tpl) = maybe_gen_tagged_tpl_with_external_formatter(node, context) {
+    items.push_condition(conditions::indent_if_start_of_line(formatted_tpl));
+    return items;
   }
 
   items.push_condition(conditions::indent_if_start_of_line(gen_node(node.tpl.into(), context)));
@@ -3063,7 +3228,7 @@ fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context
   // handle this on a case by case basis for now
   fn get_keep_on_one_line(node: Node) -> bool {
     match node {
-      Node::Ident(_) | Node::ThisExpr(_) | Node::SuperPropExpr(_) | Node::MetaPropExpr(_) | Node::Str(_) | Node::PrivateName(_) => true,
+      Node::Ident(_) | Node::IdentName(_) | Node::ThisExpr(_) | Node::SuperPropExpr(_) | Node::MetaPropExpr(_) | Node::Str(_) | Node::PrivateName(_) => true,
       Node::OptChainExpr(expr) => get_keep_on_one_line(expr.base.as_node()),
       Node::MemberExpr(expr) => keep_member_expr_on_one_line(expr),
       Node::CallExpr(expr) => keep_call_expr_on_one_line(expr.into()),
@@ -3453,10 +3618,6 @@ fn gen_property_signature<'a>(node: &TsPropertySignature<'a>, context: &mut Cont
   }
   items.extend(gen_type_ann_with_colon_if_exists(node.type_ann, context));
 
-  if let Some(init) = &node.init {
-    items.extend(gen_assignment(init.into(), sc!("="), context));
-  }
-
   items
 }
 
@@ -3470,6 +3631,7 @@ fn gen_quotable_prop<'a>(node: Node<'a>, context: &mut Context<'a>) -> PrintItem
       Some(true) => match node {
         // add quotes
         Node::Ident(ident) => string_literal::gen_non_jsx_text(ident.sym(), context),
+        Node::IdentName(ident) => string_literal::gen_non_jsx_text(ident.sym(), context),
         _ => gen_node(node, context),
       },
       Some(false) => match node {
@@ -4678,6 +4840,9 @@ fn gen_expr_stmt<'a>(stmt: &ExprStmt<'a>, context: &mut Context<'a>) -> PrintIte
         for item in PrintItemsIterator::new(path) {
           match item {
             PrintItem::String(value) => {
+              if value.text.starts_with("++") || value.text.starts_with("--") {
+                return Some(false); // don't need to add for increment/decrement
+              }
               if let Some(c) = value.text.chars().next() {
                 return utils::is_prefix_semi_colon_insertion_char(c).into();
               }
@@ -4974,7 +5139,7 @@ fn gen_if_stmt<'a>(node: &IfStmt<'a>, context: &mut Context<'a>) -> PrintItems {
   let cons_range = cons.range();
   let result = gen_header_with_conditional_brace_body(
     GenHeaderWithConditionalBraceBodyOptions {
-      body_node: cons.into(),
+      body_node: cons,
       generated_header: {
         let mut items = PrintItems::new();
         items.push_sc(sc!("if"));
@@ -5330,22 +5495,22 @@ fn gen_var_decl<'a>(node: &VarDecl<'a>, context: &mut Context<'a>) -> PrintItems
 
   items.extend(gen_var_declarators(node.into(), node.decls, context));
 
-  if requires_semi_colon(node, context) {
+  if requires_semi_colon_for_var_or_using_decl(node.into(), context) {
     items.push_sc(sc!(";"));
   }
 
-  return items;
+  items
+}
 
-  fn requires_semi_colon(node: &VarDecl, context: &mut Context) -> bool {
-    let use_semi_colons = context.config.semi_colons.is_true();
-    use_semi_colons
-      && match node.parent() {
-        Node::ForInStmt(node) => node.start() >= node.body.start(),
-        Node::ForOfStmt(node) => node.start() >= node.body.start(),
-        Node::ForStmt(node) => node.start() >= node.body.start(),
-        _ => use_semi_colons,
-      }
-  }
+fn requires_semi_colon_for_var_or_using_decl(node: Node, context: &mut Context) -> bool {
+  let use_semi_colons = context.config.semi_colons.is_true();
+  use_semi_colons
+    && match node.parent() {
+      Some(Node::ForInStmt(node)) => node.start() >= node.body.start(),
+      Some(Node::ForOfStmt(node)) => node.start() >= node.body.start(),
+      Some(Node::ForStmt(node)) => node.start() >= node.body.start(),
+      _ => use_semi_colons,
+    }
 }
 
 fn gen_var_declarators<'a>(parent: Node<'a>, decls: &[&'a VarDeclarator<'a>], context: &mut Context<'a>) -> PrintItems {
@@ -5747,7 +5912,7 @@ fn gen_getter_signature<'a>(node: &TsGetterSignature<'a>, context: &mut Context<
       node: node.into(),
       method_kind: MethodSignatureLikeKind::Getter,
       computed: node.computed(),
-      optional: node.optional(),
+      optional: false,
       key: node.key.into(),
       parameters_range: node.get_parameters_range(context),
       type_params: None,
@@ -5764,7 +5929,7 @@ fn gen_setter_signature<'a>(node: &TsSetterSignature<'a>, context: &mut Context<
       node: node.into(),
       method_kind: MethodSignatureLikeKind::Setter,
       computed: node.computed(),
-      optional: node.optional(),
+      optional: false,
       key: node.key.into(),
       parameters_range: node.get_parameters_range(context),
       type_params: None,
@@ -5784,6 +5949,10 @@ fn gen_import_type<'a>(node: &TsImportType<'a>, context: &mut Context<'a>) -> Pr
   let mut items = PrintItems::new();
   items.push_sc(sc!("import("));
   items.extend(gen_node(node.arg.into(), context));
+  if let Some(attributes) = node.attributes {
+    items.push_sc(sc!(", "));
+    items.extend(gen_node(attributes.into(), context));
+  }
   items.push_sc(sc!(")"));
 
   if let Some(qualifier) = &node.qualifier {
@@ -5795,6 +5964,71 @@ fn gen_import_type<'a>(node: &TsImportType<'a>, context: &mut Context<'a>) -> Pr
     items.extend(gen_node(type_args.into(), context));
   }
   items
+}
+
+fn gen_ts_import_call_options<'a>(node: &TsImportCallOptions<'a>, context: &mut Context<'a>) -> PrintItems {
+  let first_member_tokens = node.tokens_fast(context.program);
+  let with_token = first_member_tokens.iter().find(|t| t.text_fast(context.program) == "with").unwrap();
+  let member_range = SourceRange::new(with_token.start(), node.with.end());
+  let force_multi_line = get_use_new_lines_for_nodes_with_preceeding_token("{", &[member_range], context.config.object_expression_prefer_single_line, context);
+  gen_surrounded_by_tokens(
+    |context| {
+      let mut items = PrintItems::new();
+      let start_ln = LineNumber::new("objectStart");
+      let end_ln = LineNumber::new("objectStart");
+      if force_multi_line {
+        items.push_signal(Signal::NewLine);
+      } else {
+        items.push_info(start_ln);
+        items.push_condition(conditions::new_line_if_multiple_lines_space_or_new_line_otherwise(start_ln, Some(end_ln)));
+      }
+      items.push_condition(indent_if_start_of_line_or_start_of_line_indented({
+        let mut items = PrintItems::new();
+        items.push_sc(sc!("with: "));
+        items.extend(gen_node(node.with.into(), context));
+        match context.config.object_expression_trailing_commas {
+          TrailingCommas::OnlyMultiLine => {
+            if force_multi_line {
+              items.push_sc(sc!(","));
+            } else {
+              items.push_condition(conditions::if_true(
+                "trailingComma",
+                Rc::new(move |context| condition_helpers::is_on_different_line(context, start_ln)),
+                ",".into(),
+              ));
+            }
+          }
+          TrailingCommas::Always => {
+            items.push_sc(sc!(","));
+          }
+          TrailingCommas::Never => {}
+        }
+        items
+      }));
+      if force_multi_line {
+        items.push_signal(Signal::NewLine);
+      } else {
+        items.push_condition(conditions::if_true(
+          "newlineIfMultipleLines",
+          Rc::new(move |context| condition_helpers::is_on_different_line(context, start_ln)),
+          Signal::NewLine.into(),
+        ));
+        items.push_info(end_ln);
+      }
+      items
+    },
+    |_| None,
+    GenSurroundedByTokensOptions {
+      open_token: sc!("{"),
+      close_token: sc!("}"),
+      range: Some(node.range()),
+      first_member: Some(member_range),
+      prefer_single_line_when_empty: false,
+      allow_open_token_trailing_comments: true,
+      single_line_space_around: false,
+    },
+    context,
+  )
 }
 
 fn gen_indexed_access_type<'a>(node: &TsIndexedAccessType<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -6142,7 +6376,7 @@ fn gen_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -
             let type_param = children[0];
             let children = type_param.children();
             // We have a possible ambiguity iff this type parameter is just an identifier.
-            if children.len() == 1 && children[0].kind() == NodeKind::Ident {
+            if children.len() == 1 && matches!(children[0].kind(), NodeKind::Ident | NodeKind::IdentName) {
               return TrailingCommas::Always;
             }
           }
@@ -6811,7 +7045,7 @@ fn get_trailing_comments_same_line<'a>(node: &SourceRange, trailing_comments: Co
   trailing_comments_on_same_line
 }
 
-fn get_jsx_empty_expr_comments<'a>(node: &JSXEmptyExpr, context: &mut Context<'a>) -> CommentsIterator<'a> {
+fn get_jsx_empty_expr_comments<'a>(node: &JSXEmptyExpr, context: &Context<'a>) -> CommentsIterator<'a> {
   node.end().leading_comments_fast(context.program)
 }
 
@@ -7091,8 +7325,8 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
     context: &Context<'a>,
   ) -> Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), Program<'a>) -> std::cmp::Ordering>> {
     match group_kind {
-      StmtGroupKind::Imports => get_node_sorter_from_order(context.config.module_sort_import_declarations),
-      StmtGroupKind::Exports => get_node_sorter_from_order(context.config.module_sort_export_declarations),
+      StmtGroupKind::Imports => get_node_sorter_from_order(context.config.module_sort_import_declarations, NamedTypeImportsExportsOrder::None),
+      StmtGroupKind::Exports => get_node_sorter_from_order(context.config.module_sort_export_declarations, NamedTypeImportsExportsOrder::None),
       StmtGroupKind::Other => None,
     }
   }
@@ -7191,12 +7425,16 @@ where
   let mut items = PrintItems::new();
   let children_len = opts.items.len();
 
-  for (i, (node, optional_print_items)) in opts.items.into_iter().enumerate() {
+  let mut member_items = opts.items.into_iter().enumerate().peekable();
+
+  while let Some((i, (node, optional_print_items))) = member_items.next() {
     // class declarations may have empty statements
     let is_empty_stmt = node.is::<EmptyStmt>();
     if !is_empty_stmt {
       if let Some(last_node) = last_node {
-        if should_use_new_line(&opts.should_use_new_line, last_node, node, context) {
+        if is_ignore_jsx_expr_container(last_node, context) && node.kind() == NodeKind::JSXText {
+          // ignore
+        } else if should_use_new_line(&opts.should_use_new_line, last_node, node, context) {
           items.push_signal(Signal::NewLine);
 
           if (opts.should_use_blank_line)(last_node, node, context) {
@@ -7213,11 +7451,12 @@ where
         }
       }
 
+      let next_node = member_items.peek().map(|(_, (n, _))| n);
       let end_ln = LineNumber::new("endMember");
       context.end_statement_or_member_lns.push(end_ln);
       items.extend(if let Some(print_items) = optional_print_items {
         print_items
-      } else if opts.separator.is_none() {
+      } else if opts.separator.is_none() || is_ignore_jsx_expr_container(node, context) && next_node.map(|n| n.kind() == NodeKind::JSXText).unwrap_or(false) {
         gen_node(node, context)
       } else {
         let generated_separator = get_generated_separator(&opts.separator, i == children_len - 1, &condition_resolvers::true_resolver());
@@ -7631,13 +7870,13 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
   if node_sorter.is_some() && compute_lines_span {
     panic!("Not implemented scenario. Cannot computed lines span and allow blank lines");
   }
+  let sorted_indexes = node_sorter.map(|sorter| get_sorted_indexes(nodes.iter().map(|d| d.as_node()), sorter, context));
 
   ir_helpers::gen_separated_values(
     |is_multi_line_or_hanging_ref| {
       let is_multi_line_or_hanging = is_multi_line_or_hanging_ref.create_resolver();
       let mut generated_nodes = Vec::new();
       let nodes_count = nodes.len();
-      let sorted_indexes = node_sorter.map(|sorter| get_sorted_indexes(nodes.iter().map(|d| d.as_node()), sorter, context));
 
       for (i, value) in nodes.into_iter().enumerate() {
         let node_index = match &sorted_indexes {
@@ -9009,7 +9248,9 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
 }
 
 fn jsx_space_separator<'a>(previous_node: Node<'a>, current_node: Node<'a>, context: &Context<'a>) -> PrintItems {
-  return if node_should_force_newline_if_multi_line(previous_node) || node_should_force_newline_if_multi_line(current_node) {
+  return if is_ignore_jsx_expr_container(previous_node, context) && current_node.kind() == NodeKind::JSXText {
+    PrintItems::new()
+  } else if node_should_force_newline_if_multi_line(previous_node) || node_should_force_newline_if_multi_line(current_node) {
     jsx_force_space_with_newline_if_either_node_multi_line(previous_node, current_node, context)
   } else {
     jsx_space_or_newline_or_expr_space(previous_node, current_node, context)

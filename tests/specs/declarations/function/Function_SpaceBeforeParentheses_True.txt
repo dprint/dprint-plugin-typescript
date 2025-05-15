@@ -3,8 +3,14 @@
 function test<T>() {
 }
 
+export default function test() {
+}
+
 [expect]
 function test<T> () {
+}
+
+export default function test () {
 }
 
 == should format with a space before the parens even when multi-line ==

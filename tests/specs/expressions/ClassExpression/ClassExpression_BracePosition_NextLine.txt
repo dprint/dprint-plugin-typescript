@@ -34,3 +34,20 @@ const t = class
     extends SomethingReallyReallyReallyLong
 {
 };
+
+== should consider export default with no name as an expr ==
+export default class {
+}
+
+[expect]
+export default class
+{
+}
+
+== export default class is a declaration ==
+export default class Test {
+}
+
+[expect]
+export default class Test {
+}

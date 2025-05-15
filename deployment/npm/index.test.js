@@ -5,6 +5,9 @@ const getPath = require("./index").getPath;
 
 const buffer = require("fs").readFileSync(getPath());
 const formatter = createFromBuffer(buffer);
-const result = formatter.formatText("file.ts", "const   t   = 5");
+const result = formatter.formatText({
+  filePath: "file.ts",
+  fileText: "const   t   = 5",
+});
 
 assert.strictEqual(result, "const t = 5;\n");

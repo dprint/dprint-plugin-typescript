@@ -69,6 +69,8 @@ impl ConfigurationBuilder {
       .ignore_file_comment_text("deno-fmt-ignore-file")
       .module_sort_import_declarations(SortOrder::Maintain)
       .module_sort_export_declarations(SortOrder::Maintain)
+      .export_declaration_sort_type_only_exports(NamedTypeImportsExportsOrder::None)
+      .import_declaration_sort_type_only_imports(NamedTypeImportsExportsOrder::None)
   }
 
   /// The width of a line the printer will try to stay under. Note that the printer may exceed this width in certain cases.
@@ -199,6 +201,15 @@ impl ConfigurationBuilder {
   /// Default: SingleBodyPosition::Maintain
   pub fn single_body_position(&mut self, value: SameOrNextLinePosition) -> &mut Self {
     self.insert("singleBodyPosition", value.to_string().into())
+  }
+
+  /// Amount of indents to use for the whole file.
+  ///
+  /// This should only be set by tools that need to indent all the code in the file.
+  ///
+  /// Default: `0`
+  pub fn file_indent_level(&mut self, value: u16) -> &mut Self {
+    self.insert("fileIndentLevel", (value as i32).into())
   }
 
   /// If trailing commas should be used.
@@ -536,11 +547,25 @@ impl ConfigurationBuilder {
     self.insert("importDeclaration.sortNamedImports", value.to_string().into())
   }
 
+  /// Sorts type-only named imports first, last, or none (no sorting).
+  ///
+  /// Default: Last
+  pub fn import_declaration_sort_type_only_imports(&mut self, value: NamedTypeImportsExportsOrder) -> &mut Self {
+    self.insert("importDeclaration.sortTypeOnlyImports", value.to_string().into())
+  }
+
   /// Alphabetically sorts the export declaration's named exports.
   ///
   /// Default: Case insensitive
   pub fn export_declaration_sort_named_exports(&mut self, value: SortOrder) -> &mut Self {
     self.insert("exportDeclaration.sortNamedExports", value.to_string().into())
+  }
+
+  /// Sorts type-only named exports first, last, or none (no sorting).
+  ///
+  /// Default: Last
+  pub fn export_declaration_sort_type_only_exports(&mut self, value: NamedTypeImportsExportsOrder) -> &mut Self {
+    self.insert("exportDeclaration.sortTypeOnlyExports", value.to_string().into())
   }
 
   /* ignore comments */
@@ -1089,6 +1114,7 @@ mod tests {
       .operator_position(OperatorPosition::SameLine)
       .single_body_position(SameOrNextLinePosition::SameLine)
       .trailing_commas(TrailingCommas::Never)
+      .file_indent_level(1)
       .use_braces(UseBraces::WhenNotSingleLine)
       .quote_props(QuoteProps::AsNeeded)
       .prefer_hanging(false)
@@ -1105,6 +1131,8 @@ mod tests {
       .module_sort_export_declarations(SortOrder::Maintain)
       .import_declaration_sort_named_imports(SortOrder::Maintain)
       .export_declaration_sort_named_exports(SortOrder::Maintain)
+      .import_declaration_sort_type_only_imports(NamedTypeImportsExportsOrder::First)
+      .export_declaration_sort_type_only_exports(NamedTypeImportsExportsOrder::None)
       /* ignore comments */
       .ignore_node_comment_text("ignore")
       .ignore_file_comment_text("ignore-file")
@@ -1269,7 +1297,7 @@ mod tests {
       .while_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 179);
+    assert_eq!(inner_config.len(), 182);
     let diagnostics = resolve_config(inner_config, &Default::default()).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

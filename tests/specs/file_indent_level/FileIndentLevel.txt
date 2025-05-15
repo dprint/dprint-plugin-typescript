@@ -1,0 +1,16 @@
+~~ fileIndentLevel: 4 ~~
+== formats with indentation ==
+const test = `this
+
+is a multiline string
+
+`;
+console.log(test);
+
+[expect]
+                const test = `this
+
+is a multiline string
+
+`;
+                console.log(test);
