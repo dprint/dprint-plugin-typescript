@@ -122,3 +122,28 @@ styled.div`color:red;`;
 [expect]
 // dprint-ignore
 styled.div`color:red;`;
+
+== should format css when expressions appear as key-value pair, or css block ==
+css`
+div {
+    margin:   1px;
+       ${otherDivStyles};
+}
+${OTHER_STYLES};
+${ANOTHER_STYLES}`
+[expect]
+css`
+    div {
+        margin: 1px;
+        ${otherDivStyles};
+    }
+    ${OTHER_STYLES};
+    ${ANOTHER_STYLES};
+`;
+
+== should format expression only template literal ==
+css`${expr}`
+[expect]
+css`
+    ${expr};
+`;

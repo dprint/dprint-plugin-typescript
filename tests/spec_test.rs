@@ -27,8 +27,10 @@ fn format_embedded_css(text: &str, config: &Configuration) -> Result<Option<Stri
     ..Default::default()
   };
   // Wraps the text in a css block of `a { ... }`
-  // to make it valid css (scss)
-  let text = malva::format_text(&format!("a{{\n{}\n}}", text), malva::Syntax::Scss, &options)?;
+  // to make it valid css (less)
+  // We choose LESS syntax because it allows us to use `@variable` as both value and mixin.
+  // The latter works as placeholder for key-value pair.
+  let text = malva::format_text(&format!("a{{\n{}\n;}}", text), malva::Syntax::Less, &options)?;
   let mut buf = vec![];
   for (i, l) in text.lines().enumerate() {
     // skip the first line (a {)
