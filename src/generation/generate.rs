@@ -3018,8 +3018,13 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
   let external_formatter = context.external_formatter.as_ref()?;
   let media_type = detect_embedded_language_type(node)?;
 
+  let placeholder_css = "@dpr1nt_";
+  let placeholder_other = "dpr1nt_";
   // First creates text with placeholders for the expressions.
-  let placeholder_text = "dpr1nt_";
+  let placeholder_text = match media_type {
+    MediaType::Css => placeholder_css,
+    _ => placeholder_other,
+  };
   let text = capacity_builder::StringBuilder::<String>::build(|builder| {
     let expr_len = node.tpl.exprs.len();
     for (i, quasi) in node.tpl.quasis.iter().enumerate() {
