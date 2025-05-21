@@ -147,3 +147,12 @@ css`${expr}`
 css`
     ${expr};
 `;
+
+== should format css that includes \\ ==
+css`.bg-\\[\\#86efac\\] { background-color: #86efac; }`
+[expect]
+css`
+    .bg-\\[\\#86efac\\] {
+        background-color: #86efac;
+    }
+`;

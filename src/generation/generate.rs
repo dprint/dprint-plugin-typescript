@@ -3043,8 +3043,8 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
   .unwrap();
 
   // Then formats the text with the external formatter.
-  let formatted_tpl = match external_formatter(media_type, text, context.config) {
-    Ok(formatted_tpl) => formatted_tpl?,
+  let formatted_tpl = match external_formatter(media_type, text.replace(r"\\", "\\"), context.config) {
+    Ok(formatted_tpl) => formatted_tpl?.replace("\\", r"\\"),
     Err(err) => {
       context.diagnostics.push(context::GenerateDiagnostic {
         message: format!("Error formatting tagged template literal at line {}: {}", node.start_line(), err),
