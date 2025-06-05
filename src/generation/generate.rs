@@ -3013,15 +3013,7 @@ fn gen_spread_element<'a>(node: &SpreadElement<'a>, context: &mut Context<'a>) -
 }
 
 fn count_indent_char(line: &str, c: char) -> usize {
-  let mut indent = 0;
-  for ch in line.chars() {
-    if ch == c {
-      indent += 1;
-    } else {
-      break;
-    }
-  }
-  indent
+  line.chars().take_while(|ch| *ch == c).count()
 }
 
 /// Formats the tagged template literal using an external formatter.
