@@ -3071,8 +3071,9 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
   items.push_signal(Signal::StartIndent);
   let mut index = 0;
   let mut current_indent_level = 0;
-  let indent_width = context.config.indent_width;
-  let indent_char = if context.config.use_tabs { '\t' } else { ' ' };
+  let use_tabs = context.config.use_tabs;
+  let indent_width = if use_tabs { 1 } else { context.config.indent_width };
+  let indent_char = if use_tabs { '\t' } else { ' ' };
   for line in formatted_tpl.lines() {
     let mut pos = count_indent_char(line, indent_char);
     let indent_level = pos / indent_width as usize;
