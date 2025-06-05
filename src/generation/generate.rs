@@ -3012,6 +3012,18 @@ fn gen_spread_element<'a>(node: &SpreadElement<'a>, context: &mut Context<'a>) -
   items
 }
 
+fn count_indent_char(line: &str, c: char) -> usize {
+  let mut indent = 0;
+  for ch in line.chars() {
+    if ch == c {
+      indent += 1;
+    } else {
+      break;
+    }
+  }
+  indent
+}
+
 /// Formats the tagged template literal using an external formatter.
 /// Detects the type of embedded language automatically.
 fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> Option<PrintItems> {
@@ -3060,17 +3072,10 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
   let mut index = 0;
   let mut current_indent_level = 0;
   let indent_width = context.config.indent_width;
-  let indent_str = if context.config.use_tabs { '\t' } else { ' ' };
+  let indent_char = if context.config.use_tabs { '\t' } else { ' ' };
   for line in formatted_tpl.lines() {
-    let mut indent = 0_usize;
-    for c in line.chars() {
-      if c == indent_str {
-        indent += 1;
-      } else {
-        break;
-      }
-    }
-    let indent_level = indent / indent_width as usize;
+    let mut pos = count_indent_char(line, indent_char);
+    let indent_level = pos / indent_width as usize;
     if indent_level > current_indent_level {
       items.push_signal(Signal::StartIndent);
       current_indent_level = indent_level;
@@ -3078,9 +3083,7 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
       items.push_signal(Signal::FinishIndent);
       current_indent_level = indent_level;
     }
-    let line = &line[indent..];
-    let mut pos = 0;
-    let mut parts = line.split(placeholder_text).enumerate().peekable();
+    let mut parts = line[pos..].split(placeholder_text).enumerate().peekable();
     while let Some((i, part)) = parts.next() {
       let end = pos + part.len();
       if i > 0 {
