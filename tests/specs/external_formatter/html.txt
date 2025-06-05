@@ -19,3 +19,33 @@ htmlString = html`
         <footer>${footer}</footer>
     </body>
 `;
+
+== should format nested html templates with correct indent level ==
+export const Layout = (props: Props) => html`
+  <html>
+    <body>
+      ${props.title.endsWith("example")
+        ? html`
+            <a href="/">Reactive Mastro examples</a>
+            <h1>${props.title}</h1>
+            `
+        : ""}
+      <main>${props.children}</main>
+    </body>
+  </html>
+  `;
+[expect]
+export const Layout = (props: Props) =>
+    html`
+        <html>
+            <body>
+                ${props.title.endsWith("example")
+                    ? html`
+                        <a href="/">Reactive Mastro examples</a>
+                        <h1>${props.title}</h1>
+                    `
+                    : ""}
+                <main>${props.children}</main>
+            </body>
+        </html>
+    `;
