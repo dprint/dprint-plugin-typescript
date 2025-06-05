@@ -20,7 +20,7 @@ htmlString = html`
     </body>
 `;
 
-== should format nexted html templates with correct indent level ==
+== should format nested html templates with correct indent level ==
 export const Layout = (props: Props) => html`
   <html>
     <body>
