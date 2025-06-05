@@ -3012,10 +3012,6 @@ fn gen_spread_element<'a>(node: &SpreadElement<'a>, context: &mut Context<'a>) -
   items
 }
 
-fn count_indent_char(line: &str, c: char) -> usize {
-  line.chars().take_while(|ch| *ch == c).count()
-}
-
 /// Formats the tagged template literal using an external formatter.
 /// Detects the type of embedded language automatically.
 fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> Option<PrintItems> {
@@ -3067,7 +3063,8 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
   let indent_width = if use_tabs { 1 } else { context.config.indent_width };
   let indent_char = if use_tabs { '\t' } else { ' ' };
   for line in formatted_tpl.lines() {
-    let mut pos = count_indent_char(line, indent_char);
+    // count indent characters
+    let mut pos = line.chars().take_while(|ch| *ch == indent_char).count();
     let indent_level = pos / indent_width as usize;
     if indent_level > current_indent_level {
       items.push_signal(Signal::StartIndent);
