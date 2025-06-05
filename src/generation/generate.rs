@@ -3058,7 +3058,27 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
   items.push_signal(Signal::NewLine);
   items.push_signal(Signal::StartIndent);
   let mut index = 0;
+  let mut current_indent_level = 0;
+  let indent_width = context.config.indent_width;
+  let indent_str = if context.config.use_tabs { '\t' } else { ' ' };
   for line in formatted_tpl.lines() {
+    let mut indent = 0_usize;
+    for c in line.chars() {
+      if c == indent_str {
+        indent += 1;
+      } else {
+        break;
+      }
+    }
+    let indent_level = indent / indent_width as usize;
+    if indent_level > current_indent_level {
+      items.push_signal(Signal::StartIndent);
+      current_indent_level = indent_level;
+    } else if indent_level < current_indent_level {
+      items.push_signal(Signal::FinishIndent);
+      current_indent_level = indent_level;
+    }
+    let line = &line[indent..];
     let mut pos = 0;
     let mut parts = line.split(placeholder_text).enumerate().peekable();
     while let Some((i, part)) = parts.next() {
@@ -3079,6 +3099,10 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
       }
     }
     items.push_signal(Signal::NewLine);
+  }
+  while current_indent_level > 0 {
+    items.push_signal(Signal::FinishIndent);
+    current_indent_level -= 1;
   }
   items.push_signal(Signal::FinishIndent);
   items.push_sc(sc!("`"));
