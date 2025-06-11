@@ -318,7 +318,7 @@ dependencies = [
 
 [[package]]
 name = "dprint-plugin-typescript"
-version = "0.95.5"
+version = "0.95.6"
 dependencies = [
  "anyhow",
  "capacity_builder",
