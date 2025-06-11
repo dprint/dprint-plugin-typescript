@@ -3047,7 +3047,7 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
     Ok(formatted_tpl) => formatted_tpl?.replace("\\", r"\\"),
     Err(err) => {
       context.diagnostics.push(context::GenerateDiagnostic {
-        message: format!("Error formatting tagged template literal at line {}: {}", node.start_line(), err),
+        message: format!("Error formatting tagged template literal at line {}: {}", node.start_line() + 1, err),
       });
       return None;
     }

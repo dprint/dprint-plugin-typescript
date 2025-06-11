@@ -167,7 +167,7 @@ mod test {
     assert!(result.is_err());
     assert_eq!(
       result.unwrap_err().to_string(),
-      "Error formatting tagged template literal at line 0: Syntax error from external formatter"
+      "Error formatting tagged template literal at line 1: Syntax error from external formatter"
     );
   }
 }
