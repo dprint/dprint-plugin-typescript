@@ -3058,9 +3058,22 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
   items.push_signal(Signal::NewLine);
   items.push_signal(Signal::StartIndent);
   let mut index = 0;
+  let mut current_indent_level = 0;
+  let use_tabs = context.config.use_tabs;
+  let indent_width = if use_tabs { 1 } else { context.config.indent_width };
+  let indent_char = if use_tabs { '\t' } else { ' ' };
   for line in formatted_tpl.lines() {
-    let mut pos = 0;
-    let mut parts = line.split(placeholder_text).enumerate().peekable();
+    // count indent characters
+    let mut pos = line.chars().take_while(|ch| *ch == indent_char).count();
+    let indent_level = if indent_width == 0 { 0 } else { pos / indent_width as usize };
+    if indent_level > current_indent_level {
+      items.push_signal(Signal::StartIndent);
+      current_indent_level = indent_level;
+    } else if indent_level < current_indent_level {
+      items.push_signal(Signal::FinishIndent);
+      current_indent_level = indent_level;
+    }
+    let mut parts = line[pos..].split(placeholder_text).enumerate().peekable();
     while let Some((i, part)) = parts.next() {
       let end = pos + part.len();
       if i > 0 {
@@ -3079,6 +3092,10 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
       }
     }
     items.push_signal(Signal::NewLine);
+  }
+  while current_indent_level > 0 {
+    items.push_signal(Signal::FinishIndent);
+    current_indent_level -= 1;
   }
   items.push_signal(Signal::FinishIndent);
   items.push_sc(sc!("`"));
