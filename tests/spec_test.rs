@@ -2,18 +2,17 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use anyhow::Result;
-use deno_ast::MediaType;
 use dprint_core::configuration::*;
 use dprint_development::*;
 use dprint_plugin_typescript::configuration::*;
 use dprint_plugin_typescript::*;
 
-fn external_formatter(media_type: MediaType, text: String, config: &Configuration) -> Result<Option<String>> {
-  match media_type {
-    MediaType::Css => format_embedded_css(&text, config),
-    MediaType::Html => format_html(&text, config),
-    MediaType::Sql => format_sql(&text, config),
-    _ => unreachable!(),
+fn external_formatter(lang: &str, text: String, config: &Configuration) -> Result<Option<String>> {
+  match lang {
+    "css" => format_embedded_css(&text, config),
+    "html" => format_html(&text, config),
+    "sql" => format_sql(&text, config),
+    _ => Ok(None),
   }
 }
 
