@@ -18,9 +18,10 @@ use super::*;
 use crate::configuration::*;
 use crate::utils::Stack;
 
-/// A callback that will be called when encountering certain tagged templates.
+/// A callback that will be called when encountering tagged templates.
 ///
-/// Currently supports `css`, `html` and `sql` tagged templated.
+/// It is up to the caller to decide if a certain tagged template should be formatted
+/// by the external formatter.
 ///
 /// Examples:
 /// ```ignore
@@ -41,11 +42,11 @@ use crate::utils::Stack;
 ///   active IS TRUE;
 /// ```
 ///
-/// External formatter should return `None` if it doesn't understand given `MediaType`, in such
+/// External formatter should return `None` if it doesn't understand given language, in such
 /// cases the templates will be left as they are.
 ///
 /// Only templates with no interpolation are supported.
-pub type ExternalFormatter = dyn Fn(MediaType, String, &Configuration) -> anyhow::Result<Option<String>>;
+pub type ExternalFormatter = dyn Fn(&str, String, &Configuration) -> anyhow::Result<Option<String>>;
 
 pub(crate) struct GenerateDiagnostic {
   pub message: String,

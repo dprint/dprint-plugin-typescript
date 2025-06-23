@@ -159,8 +159,8 @@ mod test {
       extension: None,
       text: "const content = html`<div>broken html</p>`".into(),
       config: &config,
-      external_formatter: Some(&|media_type, _text, _config| {
-        assert!(matches!(media_type, deno_ast::MediaType::Html));
+      external_formatter: Some(&|lang, _text, _config| {
+        assert!(matches!(lang, "html"));
         Err(anyhow::anyhow!("Syntax error from external formatter"))
       }),
     });
