@@ -1,8 +1,19 @@
-~~ ifStatement.spaceAround: true ~~
+~~ ifStatement.spaceAround: true, lineWidth: 40 ~~
 == should format with space around the condition ==
 if (i <= arr.length) {
 }
 
 [expect]
 if ( i <= arr.length ) {
+}
+
+== shouldn't add the space around the condition if multi-line ==
+if (somereallylongidentifier <= anotherreallylongidentifier) {
+}
+
+[expect]
+if (
+    somereallylongidentifier
+        <= anotherreallylongidentifier
+) {
 }
