@@ -3949,16 +3949,16 @@ fn gen_as_jsx_expr_container(expr: Node, inner_items: PrintItems, context: &mut 
   if surround_with_new_lines {
     items.push_signal(Signal::NewLine);
     items.push_signal(Signal::StartIndent);
-  } else if surround_with_space {
-    items.push_space();
-  }
-  items.extend(inner_items);
-  if surround_with_new_lines {
+    items.extend(inner_items);
     items.extend(gen_trailing_comments_as_statements(&expr.range(), context));
     items.push_signal(Signal::NewLine);
     items.push_signal(Signal::FinishIndent);
   } else if surround_with_space {
-    items.push_space();
+    items.push_signal(Signal::SpaceOrNewLine);
+    items.extend(inner_items);
+    items.push_condition(if_false("addSpaceIfNotStartOfLine", condition_resolvers::is_start_of_line(), " ".into()));
+  } else {
+    items.extend(inner_items);
   }
   items.push_sc(sc!("}"));
 
