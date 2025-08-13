@@ -1,0 +1,44 @@
+~~ paddingLineBetweenStatements: true ~~
+== should add blank lines between statements ==
+const a = 1;
+const b = 2;
+
+function test() {
+    const too = 0;
+    if (a > 0) {
+        const foo = 0;
+        const bar = 1;
+        console.log(a);
+    }
+    if (b > 0) {
+        const foo = 0;
+        const bar = 1;
+        console.log(b);
+    } else {
+        console.log(too);
+    }
+}
+
+[expect]
+const a = 1;
+const b = 2;
+
+function test() {
+    const too = 0;
+
+    if (a > 0) {
+        const foo = 0;
+        const bar = 1;
+
+        console.log(a);
+    }
+
+    if (b > 0) {
+        const foo = 0;
+        const bar = 1;
+
+        console.log(b);
+    } else {
+        console.log(too);
+    }
+}
