@@ -7309,7 +7309,7 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
 
             // Always add blank line when previous is one of the specified types
             // EXCEPT when both are variable declarations (no blank line between consecutive vars)
-            let should_add_blank_line = if is_prev_var && is_current_var {
+            let rule_wants_blank_line = if is_prev_var && is_current_var {
               false // No blank line between consecutive variable declarations
             } else if is_prev_var || is_prev_control_flow || is_prev_function || is_prev_class || is_prev_block {
               true // Always add blank line after var/control-flow/function/class/block
@@ -7317,7 +7317,9 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
               false // No blank line for other cases
             };
 
-            if should_add_blank_line {
+            // Never remove existing blank lines—preserve what's in the source
+            let had_blank_line_in_source = node_helpers::has_separating_blank_line(&last_node, &node, context.program);
+            if rule_wants_blank_line || had_blank_line_in_source {
               separator_items.push_signal(Signal::NewLine);
             }
           } else if node_helpers::has_separating_blank_line(&last_node, &node, context.program) {

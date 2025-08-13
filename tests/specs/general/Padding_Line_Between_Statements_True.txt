@@ -17,6 +17,14 @@ function test() {
     } else {
         console.log(too);
     }
+    test2();
+    test2();
+
+    console.log("hello world");
+    // Get the header from the first row of the first file
+}
+
+function test2() {
 }
 
 [expect]
@@ -41,4 +49,13 @@ function test() {
     } else {
         console.log(too);
     }
+
+    test2();
+    test2();
+
+    console.log("hello world");
+    // Get the header from the first row of the first file
+}
+
+function test2() {
 }
