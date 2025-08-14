@@ -7278,49 +7278,56 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
           // Check if we should add padding lines between statements based on ESLint rule
           let should_add_padding = context.config.padding_line_between_statements;
           if should_add_padding {
-            // Check if we should add blank line based on ESLint padding-line-between-statements rule
-            let prev_node = &nodes_clone[i - 1];
-            let current_node = &nodes_clone[i];
+            if i > 0 {
+              // Check if we should add blank line based on the previous statement type
+              let prev_node = &nodes_clone[i - 1];
+              let current_node = &nodes_clone[i];
 
-            // Check if previous is a variable declaration
-            let is_prev_var = prev_node.is::<VarDecl>();
+              // Check if previous is a variable declaration
+              let is_prev_var = prev_node.is::<VarDecl>();
 
-            // Check if current is a variable declaration
-            let is_current_var = current_node.is::<VarDecl>();
+              // Check if current is a variable declaration
+              let is_current_var = current_node.is::<VarDecl>();
 
-            // Check if previous is a control flow statement
-            let is_prev_control_flow = prev_node.is::<ForStmt>()
-              || prev_node.is::<ForInStmt>()
-              || prev_node.is::<ForOfStmt>()
-              || prev_node.is::<WhileStmt>()
-              || prev_node.is::<DoWhileStmt>()
-              || prev_node.is::<SwitchStmt>()
-              || prev_node.is::<IfStmt>()
-              || prev_node.is::<TryStmt>();
+              // Check if previous is a control flow statement
+              let is_prev_control_flow = prev_node.is::<ForStmt>()
+                || prev_node.is::<ForInStmt>()
+                || prev_node.is::<ForOfStmt>()
+                || prev_node.is::<WhileStmt>()
+                || prev_node.is::<DoWhileStmt>()
+                || prev_node.is::<SwitchStmt>()
+                || prev_node.is::<IfStmt>()
+                || prev_node.is::<TryStmt>();
 
-            // Check if previous is a function declaration
-            let is_prev_function = prev_node.is::<FnDecl>();
+              // Check if previous is a function declaration
+              let is_prev_function = prev_node.is::<FnDecl>();
 
-            // Check if previous is a class declaration
-            let is_prev_class = prev_node.is::<ClassDecl>();
+              // Check if previous is a class declaration
+              let is_prev_class = prev_node.is::<ClassDecl>();
 
-            // Check if previous is a block statement
-            let is_prev_block = prev_node.is::<BlockStmt>();
+              // Check if previous is a block statement
+              let is_prev_block = prev_node.is::<BlockStmt>();
 
-            // Always add blank line when previous is one of the specified types
-            // EXCEPT when both are variable declarations (no blank line between consecutive vars)
-            let rule_wants_blank_line = if is_prev_var && is_current_var {
-              false // No blank line between consecutive variable declarations
-            } else if is_prev_var || is_prev_control_flow || is_prev_function || is_prev_class || is_prev_block {
-              true // Always add blank line after var/control-flow/function/class/block
+              // Always add blank line when previous is one of the specified types
+              // EXCEPT when both are variable declarations (no blank line between consecutive vars)
+              let rule_wants_blank_line = if is_prev_var && is_current_var {
+                false // No blank line between consecutive variable declarations
+              } else if is_prev_var || is_prev_control_flow || is_prev_function || is_prev_class || is_prev_block {
+                true // Always add blank line after var/control-flow/function/class/block
+              } else {
+                false // No blank line for other cases
+              };
+
+              // Never remove existing blank lines—preserve what's in the source
+              let had_blank_line_in_source = node_helpers::has_separating_blank_line(&last_node, &node, context.program);
+              if rule_wants_blank_line || had_blank_line_in_source {
+                separator_items.push_signal(Signal::NewLine);
+              }
             } else {
-              false // No blank line for other cases
-            };
-
-            // Never remove existing blank lines—preserve what's in the source
-            let had_blank_line_in_source = node_helpers::has_separating_blank_line(&last_node, &node, context.program);
-            if rule_wants_blank_line || had_blank_line_in_source {
-              separator_items.push_signal(Signal::NewLine);
+              // First statement in group—only preserve existing blank lines
+              if node_helpers::has_separating_blank_line(&last_node, &node, context.program) {
+                separator_items.push_signal(Signal::NewLine);
+              }
             }
           } else if node_helpers::has_separating_blank_line(&last_node, &node, context.program) {
             separator_items.push_signal(Signal::NewLine);
