@@ -2885,9 +2885,9 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     return false;
   }
 
-  // keep when there is a JSDoc type assertion
+  // keep when there is a JSDoc because it could be a type assertion or satisfies
   for c in node.leading_comments_fast(context.program) {
-    if c.kind == CommentKind::Block && c.text.starts_with('*') && c.text.contains("@type") {
+    if c.kind == CommentKind::Block && c.text.starts_with('*') {
       return false;
     }
   }

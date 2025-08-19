@@ -1,0 +1,6 @@
+~~ deno: true ~~
+== should not remove parens ==
+foo(/** @satisfies {Bar} */ ({ a: true }));
+
+[expect]
+foo(/** @satisfies {Bar} */ ({ a: true }));
