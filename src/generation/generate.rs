@@ -9538,16 +9538,15 @@ fn gen_surrounded_by_tokens<'a>(
 
     // generate
     let open_token_start_line = open_token_end.start_line_fast(context.program);
-    let is_single_line;
 
     items.extend(gen_leading_comments(&range, context));
     items.push_sc(opts.open_token);
     if let Some(first_member) = opts.first_member {
       let first_member_start_line = first_member.start_line_fast(context.program);
-      is_single_line = open_token_start_line == first_member_start_line;
+      let is_single_line = open_token_start_line == first_member_start_line;
 
       if is_single_line && opts.single_line_space_around {
-        items.push_space();
+        items.push_signal(Signal::SpaceOrNewLine);
       }
 
       if opts.allow_open_token_trailing_comments && !is_single_line {
@@ -9577,10 +9576,10 @@ fn gen_surrounded_by_tokens<'a>(
       ));
     } else {
       let comments = open_token_end.trailing_comments_fast(context.program);
-      is_single_line = open_token_start_line == close_token_start.start_line_fast(context.program);
+      let is_single_line = open_token_start_line == close_token_start.start_line_fast(context.program);
 
       if is_single_line && opts.single_line_space_around {
-        items.push_space();
+        items.push_signal(Signal::SpaceOrNewLine);
       }
 
       if !comments.is_empty() {
@@ -9638,8 +9637,8 @@ fn gen_surrounded_by_tokens<'a>(
       }
     }
 
-    if is_single_line && opts.single_line_space_around {
-      items.push_space();
+    if opts.single_line_space_around {
+      items.push_condition(if_false("addSpaceIfNotStartOfLine", condition_resolvers::is_start_of_line(), " ".into()));
     }
   } else {
     // todo: have a warning here when this happens
