@@ -111,7 +111,7 @@ pub fn ensure_no_specific_syntax_errors(parsed_source: &ParsedSource) -> Result<
     .iter()
     .filter(|e| {
       matches!(
-        e.kind,
+        e.kind(),
         // unexpected eof
         SyntaxError::Eof |
         // expected identifier
@@ -196,9 +196,9 @@ mod tests {
       "+value.",
       concat!(
         // comment to keep this multi-line
-        "Unexpected eof at file:///test.ts:1:8\n\n",
+        "Expected ident at file:///test.ts:1:2\n\n",
         "  +value.\n",
-        "         ~"
+        "   ~~~~~"
       ),
     );
   }
@@ -263,6 +263,7 @@ mod tests {
     );
   }
 
+  #[track_caller]
   fn run_fatal_diagnostic_test(file_path: &str, text: &str, expected: &str) {
     let file_path = PathBuf::from(file_path);
     assert_eq!(parse_swc_ast(&file_path, None, text.into()).err().unwrap().to_string(), expected);
@@ -302,10 +303,10 @@ mod tests {
     // swc can parse this, but we explicitly fail formatting
     // in this scenario because I believe it might cause more
     // harm than good.
-    run_non_fatal_diagnostic_test(
+    run_fatal_diagnostic_test(
       "./test.ts",
       "class Test {",
-      concat!("Expected '}', got '<eof>' at file:///test.ts:1:12\n\n", "  class Test {\n", "             ~"),
+      concat!("Unexpected eof at file:///test.ts:1:13\n\n", "  class Test {\n", "              ~"),
     );
   }
 
@@ -351,6 +352,7 @@ Merge conflict marker encountered. at file:///test.ts:6:1
     );
   }
 
+  #[track_caller]
   fn run_non_fatal_diagnostic_test(file_path: &str, text: &str, expected: &str) {
     let file_path = PathBuf::from(file_path);
     assert_eq!(format!("{}", parse_swc_ast(&file_path, None, text.into()).err().unwrap()), expected);
