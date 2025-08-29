@@ -1,5 +1,5 @@
 use deno_ast::swc::common::comments::CommentKind;
-use deno_ast::swc::parser::lexer::util::CharExt;
+use deno_ast::swc::lexer::common::lexer::char::CharExt;
 use deno_ast::view::Node;
 use deno_ast::view::Program;
 use deno_ast::RootNode;
