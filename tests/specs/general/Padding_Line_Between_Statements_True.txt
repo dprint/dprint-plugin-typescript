@@ -1,0 +1,61 @@
+~~ paddingLineBetweenStatements: true ~~
+== should add blank lines between statements ==
+const a = 1;
+const b = 2;
+
+function test() {
+    const too = 0;
+    if (a > 0) {
+        const foo = 0;
+        const bar = 1;
+        console.log(a);
+    }
+    if (b > 0) {
+        const foo = 0;
+        const bar = 1;
+        console.log(b);
+    } else {
+        console.log(too);
+    }
+    test2();
+    test2();
+
+    console.log("hello world");
+    // Get the header from the first row of the first file
+}
+
+function test2() {
+}
+
+[expect]
+const a = 1;
+const b = 2;
+
+function test() {
+    const too = 0;
+
+    if (a > 0) {
+        const foo = 0;
+        const bar = 1;
+
+        console.log(a);
+    }
+
+    if (b > 0) {
+        const foo = 0;
+        const bar = 1;
+
+        console.log(b);
+    } else {
+        console.log(too);
+    }
+
+    test2();
+    test2();
+
+    console.log("hello world");
+    // Get the header from the first row of the first file
+}
+
+function test2() {
+}

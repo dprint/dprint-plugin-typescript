@@ -4382,7 +4382,7 @@ fn gen_program<'a, 'b>(node: ProgramInfo<'a, 'b>, context: &mut Context<'a>) -> 
     }
   }
 
-  items.extend(gen_statements(node.range, node.statements, context));
+  items.extend(gen_statements(node.range, node.statements, context, true));
 
   items
 }
@@ -4653,7 +4653,7 @@ fn accessibility_to_str(accessibility: Accessibility) -> &'static str {
 
 fn gen_block_stmt<'a>(node: &BlockStmt<'a>, context: &mut Context<'a>) -> PrintItems {
   gen_block(
-    |stmts, context| gen_statements(node.get_inner_range(context), stmts, context),
+    |stmts, context| gen_statements(node.get_inner_range(context), stmts, context, false),
     GenBlockOptions {
       range: Some(node.range()),
       children: node.stmts.iter().map(|x| x.into()).collect(),
@@ -5360,6 +5360,7 @@ fn gen_switch_case<'a>(node: &SwitchCase<'a>, context: &mut Context<'a>) -> Prin
         SourceRange::new(colon_token.end(), node.end()),
         node.cons.iter().map(|node| node.into()).collect(),
         context,
+        false,
       )));
     }
   }
@@ -7237,7 +7238,7 @@ where
   items
 }
 
-fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> PrintItems {
+fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &mut Context<'a>, _is_top_level: bool) -> PrintItems {
   let stmt_groups = get_stmt_groups(stmts, context);
   let mut items = PrintItems::new();
   let mut last_node: Option<SourceRange> = None;
@@ -7264,13 +7265,71 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
       Some(sorter) => Some(get_sorted_indexes(stmt_group.nodes.iter().map(|n| Some(*n)), sorter, context)),
       None => None,
     };
+
+    // Clone nodes to avoid borrow checker issues
+    let nodes_clone = stmt_group.nodes.clone();
+
     for (i, node) in stmt_group.nodes.into_iter().enumerate() {
       let is_empty_stmt = node.is::<EmptyStmt>();
       if !is_empty_stmt {
         let mut separator_items = PrintItems::new();
         if let Some(last_node) = &last_node {
           separator_items.push_signal(Signal::NewLine);
-          if node_helpers::has_separating_blank_line(&last_node, &node, context.program) {
+          // Check if we should add padding lines between statements based on ESLint rule
+          let should_add_padding = context.config.padding_line_between_statements;
+          if should_add_padding {
+            if i > 0 {
+              // Check if we should add blank line based on the previous statement type
+              let prev_node = &nodes_clone[i - 1];
+              let current_node = &nodes_clone[i];
+
+              // Check if previous is a variable declaration
+              let is_prev_var = prev_node.is::<VarDecl>();
+
+              // Check if current is a variable declaration
+              let is_current_var = current_node.is::<VarDecl>();
+
+              // Check if previous is a control flow statement
+              let is_prev_control_flow = prev_node.is::<ForStmt>()
+                || prev_node.is::<ForInStmt>()
+                || prev_node.is::<ForOfStmt>()
+                || prev_node.is::<WhileStmt>()
+                || prev_node.is::<DoWhileStmt>()
+                || prev_node.is::<SwitchStmt>()
+                || prev_node.is::<IfStmt>()
+                || prev_node.is::<TryStmt>();
+
+              // Check if previous is a function declaration
+              let is_prev_function = prev_node.is::<FnDecl>();
+
+              // Check if previous is a class declaration
+              let is_prev_class = prev_node.is::<ClassDecl>();
+
+              // Check if previous is a block statement
+              let is_prev_block = prev_node.is::<BlockStmt>();
+
+              // Always add blank line when previous is one of the specified types
+              // EXCEPT when both are variable declarations (no blank line between consecutive vars)
+              let rule_wants_blank_line = if is_prev_var && is_current_var {
+                false // No blank line between consecutive variable declarations
+              } else if is_prev_var || is_prev_control_flow || is_prev_function || is_prev_class || is_prev_block {
+                true // Always add blank line after var/control-flow/function/class/block
+              } else {
+                false // No blank line for other cases
+              };
+
+              // Never remove existing blank lines—preserve what's in the source
+              let had_blank_line_in_source = node_helpers::has_separating_blank_line(&last_node, &node, context.program);
+              if rule_wants_blank_line || had_blank_line_in_source {
+                separator_items.push_signal(Signal::NewLine);
+              }
+            } else {
+              // First statement in group—only preserve existing blank lines
+              if node_helpers::has_separating_blank_line(&last_node, &node, context.program) {
+                separator_items.push_signal(Signal::NewLine);
+              }
+            }
+          } else if node_helpers::has_separating_blank_line(&last_node, &node, context.program) {
             separator_items.push_signal(Signal::NewLine);
           }
           generated_line_separators.insert(i, separator_items);
@@ -8810,7 +8869,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
           context,
         ));
       } else {
-        items.extend(gen_statements(inner_range, body_node.stmts.iter().map(|x| x.into()).collect(), context));
+        items.extend(gen_statements(inner_range, body_node.stmts.iter().map(|x| x.into()).collect(), context, false));
       }
       items
     }));
