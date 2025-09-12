@@ -9900,37 +9900,40 @@ fn has_any_node_comment_on_different_line(nodes: &[impl SourceRanged], context: 
 
     let node_end = node.end();
     let next_node_pos = nodes.get(i + 1).map(|n| n.start());
-    if check_pos_has_trailing_comments(node_end, next_node_pos, context) {
+    let comment_kind = if let Some(comma) = context.token_finder.get_next_token_if_comma(&node_end) {
+      get_pos_trailing_comments(comma.end(), next_node_pos, context)
+    } else {
+      get_pos_trailing_comments(node_end, next_node_pos, context)
+    };
+
+    // the final node is allowed to have a trailing line comment as it'll be on the same line
+    if comment_kind.is_some() && (nodes.len() == 1 || !(i == nodes.len() - 1 && comment_kind == Some(CommentKind::Line))) {
       return true;
-    } else if let Some(comma) = context.token_finder.get_next_token_if_comma(&node_end) {
-      if check_pos_has_trailing_comments(comma.end(), next_node_pos, context) {
-        return true;
-      }
     }
   }
 
   return false;
 
-  fn check_pos_has_trailing_comments(end: SourcePos, next_node_pos: Option<SourcePos>, context: &mut Context) -> bool {
+  fn get_pos_trailing_comments(end: SourcePos, next_node_pos: Option<SourcePos>, context: &mut Context) -> Option<CommentKind> {
     let end_line = end.end_line_fast(context.program);
     let stop_line = next_node_pos.map(|p| p.start_line_fast(context.program));
 
     for c in end.trailing_comments_fast(context.program) {
       if c.kind == CommentKind::Line {
-        return true;
+        return Some(CommentKind::Line);
       }
       if let Some(stop_line) = stop_line {
         if c.start_line_fast(context.program) >= stop_line {
           // do not look at comments that the next node owns
-          return false;
+          return None;
         }
       }
       if c.end_line_fast(context.program) > end_line {
-        return true;
+        return Some(CommentKind::Block);
       }
     }
 
-    false
+    None
   }
 }
 
