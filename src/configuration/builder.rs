@@ -1077,6 +1077,22 @@ impl ConfigurationBuilder {
     self.insert("whileStatement.spaceAround", value.into())
   }
 
+  /* alignment */
+
+  /// Whether to align assignments with surrounding assignments.
+  ///
+  /// Default: `false`
+  pub fn variable_statement_align_assignments(&mut self, value: bool) -> &mut Self {
+    self.insert("variableStatement.alignAssignments", value.into())
+  }
+
+  /// Whether to align object properties with surrounding properties.
+  ///
+  /// Default: `false`
+  pub fn object_expression_align_properties(&mut self, value: bool) -> &mut Self {
+    self.insert("objectExpression.alignProperties", value.into())
+  }
+
   #[cfg(test)]
   pub(super) fn get_inner_config(&self) -> ConfigKeyMap {
     self.config.clone()
@@ -1294,10 +1310,12 @@ mod tests {
       .paren_expression_space_around(true)
       .switch_statement_space_around(true)
       .tuple_type_space_around(true)
-      .while_statement_space_around(true);
+      .while_statement_space_around(true)
+      .variable_statement_align_assignments(true)
+      .object_expression_align_properties(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 182);
+    assert_eq!(inner_config.len(), 184);
     let diagnostics = resolve_config(inner_config, &Default::default()).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

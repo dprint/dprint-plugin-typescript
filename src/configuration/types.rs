@@ -662,4 +662,9 @@ pub struct Configuration {
   pub tuple_type_space_around: bool,
   #[serde(rename = "whileStatement.spaceAround")]
   pub while_statement_space_around: bool,
+  /* alignment */
+  #[serde(rename = "variableStatement.alignAssignments")]
+  pub variable_statement_align_assignments: bool,
+  #[serde(rename = "objectExpression.alignProperties")]
+  pub object_expression_align_properties: bool,
 }

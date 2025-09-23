@@ -2741,9 +2741,54 @@ fn gen_getter_prop<'a>(node: &GetterProp<'a>, context: &mut Context<'a>) -> Prin
 
 fn gen_key_value_prop<'a>(node: &KeyValueProp<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
+  
+  // check if we have alignment information for object properties and config is enabled
+  let max_left_width = if context.config.object_expression_align_properties {
+    let parent = node.parent();
+    context.alignment_groups.get(&parent.range()).map(|ag| ag.max_left_width)
+  } else {
+    None
+  };
+  
   items.extend(gen_quotable_prop(node.key.into(), context));
-  items.extend(gen_assignment(node.value.into(), sc!(":"), context));
+  
+  if let Some(max_width) = max_left_width {
+    // Generate aligned assignment 
+    items.extend(gen_aligned_assignment(node.key.into(), node.value.into(), sc!(":"), max_width, context));
+  } else {
+    // Standard assignment
+    items.extend(gen_assignment(node.value.into(), sc!(":"), context));
+  }
+  
   items
+}
+
+fn prepare_object_alignment<'a>(node: &ObjectLit<'a>, context: &mut Context<'a>) {
+  // calculate max width of all property keys
+  let max_key_width = node.props
+    .iter()
+    .filter_map(|prop| match prop {
+      PropOrSpread::Prop(prop_node) => Some(prop_node),
+      PropOrSpread::Spread(_) => None, // skip spread properties
+    })
+    .filter_map(|prop| match prop {
+      Prop::KeyValue(kv) => Some(kv.key.into()),
+      Prop::Shorthand(_) => None, // skip shorthand properties
+      Prop::Assign(_) => None, // skip assign properties (invalid but handle gracefully)
+      Prop::Method(_) => None, // skip method properties
+      Prop::Getter(_) => None, // skip getter properties  
+      Prop::Setter(_) => None, // skip setter properties
+    })
+    .map(|key_node| context.measure_node_width(key_node))
+    .max()
+    .unwrap_or(0);
+
+  if max_key_width > 0 {
+    let alignment_group = super::context::AlignmentGroup {
+      max_left_width: max_key_width,
+    };
+    context.alignment_groups.insert(node.range(), alignment_group);
+  }
 }
 
 fn gen_assign_prop<'a>(node: &AssignProp<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -2800,7 +2845,64 @@ fn gen_non_null_expr<'a>(node: &TsNonNullExpr<'a>, context: &mut Context<'a>) ->
   items
 }
 
+fn prepare_variable_statement_alignment<'a>(stmts: &[Node<'a>], context: &mut Context<'a>) {
+  let mut i = 0;
+  while i < stmts.len() {
+    // find consecutive variable declarations
+    let start = i;
+    while i < stmts.len() {
+      match stmts[i] {
+        Node::VarDecl(var_decl) if var_decl.decls.len() == 1 => {
+          i += 1;
+        }
+        _ => break,
+      }
+    }
+    
+    let end = i;
+    if end - start > 1 {
+      // we have a group of consecutive variable declarations
+      let var_decls: Vec<&VarDecl> = stmts[start..end]
+        .iter()
+        .filter_map(|stmt| {
+          match stmt {
+            Node::VarDecl(var_decl) if var_decl.decls.len() == 1 => Some(*var_decl),
+            _ => None,
+          }
+        })
+        .collect();
+        
+      // calculate maximum left-hand side width across all variable declarations
+      let max_name_width = var_decls
+        .iter()
+        .map(|var_decl| {
+          let decl = &var_decl.decls[0];
+          context.measure_node_width(decl.name.into())
+        })
+        .max()
+        .unwrap_or(0);
+        
+      // store alignment info for each variable declaration
+      for var_decl in var_decls {
+        let alignment_group = super::context::AlignmentGroup {
+          max_left_width: max_name_width,
+        };
+        context.alignment_groups.insert(var_decl.range(), alignment_group);
+      }
+    }
+    
+    if i == start {
+      i += 1; // avoid infinite loop if we didn't advance
+    }
+  }
+}
+
 fn gen_object_lit<'a>(node: &ObjectLit<'a>, context: &mut Context<'a>) -> PrintItems {
+  // Check if we should align properties and prepare alignment info
+  if context.config.object_expression_align_properties && node.props.len() > 1 {
+    prepare_object_alignment(node, context);
+  }
+
   let items = context.with_maybe_consistent_props(
     node,
     |node| use_consistent_quotes_for_members(node.props.iter().map(|p| p.into())),
@@ -5543,43 +5645,113 @@ fn gen_var_declarators<'a>(parent: Node<'a>, decls: &[&'a VarDeclarator<'a>], co
     // be lightweight by default
     gen_node(decls[0].into(), context)
   } else if decls_len > 1 {
-    let force_use_new_lines = get_use_new_lines(parent, decls, context);
-    gen_separated_values(
-      GenSeparatedValuesParams {
-        nodes: decls.iter().map(|&p| NodeOrSeparator::Node(p.into())).collect(),
-        prefer_hanging: context.config.variable_statement_prefer_hanging,
-        force_use_new_lines,
-        allow_blank_lines: false,
-        separator: TrailingCommas::Never.into(),
-        single_line_options: ir_helpers::SingleLineOptions::same_line_maybe_space_separated(),
-        multi_line_options: ir_helpers::MultiLineOptions::same_line_start_hanging_indent(),
-        force_possible_newline_at_start: false,
-        node_sorter: None,
-      },
-      context,
-    )
+    // Check if we should align assignments
+    if context.config.variable_statement_align_assignments && decls_len > 1 {
+      gen_var_declarators_with_alignment(parent, decls, context)
+    } else {
+      let force_use_new_lines = get_use_new_lines(parent, decls, context);
+      gen_separated_values(
+        GenSeparatedValuesParams {
+          nodes: decls.iter().map(|&p| NodeOrSeparator::Node(p.into())).collect(),
+          prefer_hanging: context.config.variable_statement_prefer_hanging,
+          force_use_new_lines,
+          allow_blank_lines: false,
+          separator: TrailingCommas::Never.into(),
+          single_line_options: ir_helpers::SingleLineOptions::same_line_maybe_space_separated(),
+          multi_line_options: ir_helpers::MultiLineOptions::same_line_start_hanging_indent(),
+          force_possible_newline_at_start: false,
+          node_sorter: None,
+        },
+        context,
+      )
+    }
   } else {
     PrintItems::new()
   }
 }
 
+fn gen_var_declarators_with_alignment<'a>(parent: Node<'a>, decls: &[&'a VarDeclarator<'a>], context: &mut Context<'a>) -> PrintItems {
+  // Measure all left-hand sides to find maximum width
+  let max_name_width = decls
+    .iter()
+    .map(|decl| context.measure_node_width(decl.name.into()))
+    .max()
+    .unwrap_or(0);
+
+  // Store alignment info for use in gen_var_declarator
+  let alignment_group = super::context::AlignmentGroup {
+    max_left_width: max_name_width,
+  };
+  context.alignment_groups.insert(parent.range(), alignment_group);
+
+  // Check if we should use new lines (same logic as original)
+  let force_use_new_lines = if get_use_new_lines_for_nodes(decls, context.config.variable_statement_prefer_single_line, context) {
+    true
+  } else {
+    // probably minified code
+    decls.len() >= 2 && is_node_definitely_above_line_width(parent.range(), context)
+  };
+
+  // Generate using the same structure as the original but with alignment
+  gen_separated_values(
+    GenSeparatedValuesParams {
+      nodes: decls.iter().map(|&p| NodeOrSeparator::Node(p.into())).collect(),
+      prefer_hanging: context.config.variable_statement_prefer_hanging,
+      force_use_new_lines,
+      allow_blank_lines: false,
+      separator: TrailingCommas::Never.into(),
+      single_line_options: ir_helpers::SingleLineOptions::same_line_maybe_space_separated(),
+      multi_line_options: ir_helpers::MultiLineOptions::same_line_start_hanging_indent(),
+      force_possible_newline_at_start: false,
+      node_sorter: None,
+    },
+    context,
+  )
+}
+
 fn gen_var_declarator<'a>(node: &VarDeclarator<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
+
+  // Check if we have alignment information for this variable declaration
+  // First check the parent VarDecl (for within-statement alignment)
+  // Then check the VarDecl itself (for cross-statement alignment)
+  let max_left_width = {
+    let parent_range = node.parent().range();
+    context.alignment_groups.get(&parent_range).map(|ag| ag.max_left_width)
+      .or_else(|| {
+        // Check if this VarDecl has cross-statement alignment info
+        match node.parent() {
+          Node::VarDecl(var_decl) => {
+            context.alignment_groups.get(&var_decl.range()).map(|ag| ag.max_left_width)
+          }
+          _ => None
+        }
+      })
+  };
 
   items.extend(gen_node(node.name.into(), context));
 
   if let Some(init) = &node.init {
-    items.extend(gen_assignment(init.into(), sc!("="), context));
+    if let Some(max_width) = max_left_width {
+      // Generate aligned assignment
+      items.extend(gen_aligned_assignment(node.name.into(), init.into(), sc!("="), max_width, context));
+    } else {
+      // Standard assignment
+      items.extend(gen_assignment(init.into(), sc!("="), context));
+    }
   }
 
   // Indent the first variable declarator when there are multiple.
   // Not ideal, but doing this here because of the abstraction used in
   // `gen_var_decl`. In the future this should probably be moved away.
 
-  let parent_decls = match node.parent() {
-    Node::VarDecl(parent) => Some(&parent.decls),
-    Node::UsingDecl(parent) => Some(&parent.decls),
-    _ => None,
+  let parent_decls = {
+    let parent = node.parent();
+    match parent {
+      Node::VarDecl(parent) => Some(&parent.decls),
+      Node::UsingDecl(parent) => Some(&parent.decls),
+      _ => None,
+    }
   };
   if let Some(var_decls) = parent_decls {
     if var_decls.len() > 1 && var_decls[0].range() == node.range() {
@@ -7238,6 +7410,11 @@ where
 }
 
 fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> PrintItems {
+  // Prepare alignment information for variable statements
+  if context.config.variable_statement_align_assignments {
+    prepare_variable_statement_alignment(&stmts, context);
+  }
+  
   let stmt_groups = get_stmt_groups(stmts, context);
   let mut items = PrintItems::new();
   let mut last_node: Option<SourceRange> = None;
@@ -9379,6 +9556,43 @@ fn get_quote_char(context: &Context) -> String {
 #[inline]
 fn gen_assignment<'a>(expr: Node<'a>, op: &'static StringContainer, context: &mut Context<'a>) -> PrintItems {
   gen_assignment_op_to(expr, op.text, op, context)
+}
+
+fn gen_aligned_assignment<'a>(
+  left_node: Node<'a>, 
+  expr: Node<'a>, 
+  op: &'static StringContainer, 
+  max_left_width: usize, 
+  context: &mut Context<'a>
+) -> PrintItems {
+  let mut items = PrintItems::new();
+  
+  // calculate current left width and add padding
+  let current_left_width = context.measure_node_width(left_node);
+  let padding_needed = if max_left_width > current_left_width {
+    max_left_width - current_left_width
+  } else {
+    0
+  };
+  
+  if op.text == "=" {
+    // for variable assignments, add padding before the operator
+    for _ in 0..padding_needed {
+      items.push_space();
+    }
+    // add the assignment normally
+    items.extend(gen_assignment(expr, op, context));
+  } else {
+    // for object properties (:), add operator first then padding
+    items.push_sc(op);
+    for _ in 0..padding_needed {
+      items.push_space();
+    }
+    items.push_space(); // standard space
+    items.extend(gen_node(expr, context));
+  }
+  
+  items
 }
 
 #[inline]
