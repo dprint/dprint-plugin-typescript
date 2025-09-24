@@ -1,0 +1,20 @@
+~~ typeLiteral.alignProperties: false ~~
+== should not align when disabled ==
+type Config = {
+host: string;
+port: number;
+database: string;
+username: string;
+password: string;
+maxConnections: number;
+};
+
+[expect]
+type Config = {
+    host: string;
+    port: number;
+    database: string;
+    username: string;
+    password: string;
+    maxConnections: number;
+};

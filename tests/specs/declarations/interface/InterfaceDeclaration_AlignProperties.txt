@@ -1,0 +1,12 @@
+~~ interfaceDeclaration.alignProperties: true, indentWidth: 2 ~~
+== should align interface properties ==
+interface User {
+name: string;
+age: number;
+}
+
+[expect]
+interface User {
+  name: string;
+  age:  number;
+}
