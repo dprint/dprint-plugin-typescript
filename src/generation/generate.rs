@@ -1818,7 +1818,7 @@ fn gen_array_expr<'a>(node: &ArrayLit<'a>, context: &mut Context<'a>) -> PrintIt
     PreferHanging::OnlySingleItem => node.elems.len() == 1,
     PreferHanging::Always => true,
   };
-  gen_array_like_nodes(
+  return gen_array_like_nodes(
     GenArrayLikeNodesOptions {
       node: node.into(),
       range: node.range(),
@@ -1827,9 +1827,23 @@ fn gen_array_expr<'a>(node: &ArrayLit<'a>, context: &mut Context<'a>) -> PrintIt
       prefer_single_line: context.config.array_expression_prefer_single_line,
       trailing_commas: context.config.array_expression_trailing_commas,
       space_around: context.config.array_expression_space_around,
+      // only fill the lines with elements that print on a single line
+      line_per_element: context.config.array_expression_line_per_element
+        || !node
+          .elems
+          .iter()
+          .all(|elem| elem.is_some_and(|elem| elem.spread().is_none() && is_single_line_expr(elem.expr))),
     },
     context,
-  )
+  );
+
+  fn is_single_line_expr(expr: Expr) -> bool {
+    match expr {
+      Expr::Lit(_) | Expr::Ident(_) => true,
+      Expr::Unary(unary) => is_single_line_expr(unary.arg),
+      _ => false,
+    }
+  }
 }
 
 fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
@@ -5607,6 +5621,7 @@ fn gen_array_pat<'a>(node: &ArrayPat<'a>, context: &mut Context<'a>) -> PrintIte
       prefer_single_line: context.config.array_pattern_prefer_single_line,
       trailing_commas: context.config.array_pattern_trailing_commas,
       space_around: context.config.array_pattern_space_around,
+      line_per_element: true,
     },
     context,
   ));
@@ -7804,6 +7819,7 @@ fn gen_tuple_type<'a>(node: &TsTupleType<'a>, context: &mut Context<'a>) -> Prin
       prefer_single_line: context.config.tuple_type_prefer_single_line,
       trailing_commas: context.config.tuple_type_trailing_commas,
       space_around: context.config.tuple_type_space_around,
+      line_per_element: true,
     },
     context,
   )
@@ -8933,6 +8949,7 @@ struct GenArrayLikeNodesOptions<'a> {
   prefer_single_line: bool,
   space_around: bool,
   trailing_commas: TrailingCommas,
+  line_per_element: bool,
 }
 
 fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
@@ -8949,6 +8966,7 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
   };
   let prefer_hanging = opts.prefer_hanging;
   let space_around = opts.space_around;
+  let line_per_element = opts.line_per_element;
   let range = opts.range;
   let force_use_new_lines = get_array_like_force_use_new_lines(range, &nodes, prefer_single_line, context);
   let mut items = PrintItems::new(context.arena);
@@ -8968,7 +8986,10 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
             space_at_end: space_around,
             separator: Signal::SpaceOrNewLine.into_print_items(context.arena),
           },
-          multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(),
+          multi_line_options: ir_helpers::MultiLineOptions {
+            maintain_line_breaks: !line_per_element,
+            ..ir_helpers::MultiLineOptions::surround_newlines_indented()
+          },
           force_possible_newline_at_start: false,
           node_sorter: None,
         },

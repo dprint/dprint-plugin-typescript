@@ -460,6 +460,18 @@
         "description": ""
       }]
     },
+    "arrayExpression.linePerElement": {
+      "description": "Whether to force a line per element when an array expression spans multiple lines.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Formats with each element on a new line."
+      }, {
+        "const": false,
+        "description": "Maintains the line breaks as written by the programmer and fills the lines when all elements are literals, identifiers or unary expressions."
+      }]
+    },
     "arrowFunction.useParentheses": {
       "description": "Whether to use parentheses around a single parameter in an arrow function.",
       "type": "string",
@@ -1113,6 +1125,9 @@
     },
     "deno": {
       "$ref": "#/definitions/deno"
+    },
+    "arrayExpression.linePerElement": {
+      "$ref": "#/definitions/arrayExpression.linePerElement"
     },
     "arrowFunction.useParentheses": {
       "$ref": "#/definitions/arrowFunction.useParentheses"
