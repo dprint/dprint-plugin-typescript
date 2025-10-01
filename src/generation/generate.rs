@@ -2885,9 +2885,9 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     return false;
   }
 
-  // keep when there is a JSDoc type assertion
+  // keep when there is a JSDoc because it could be a type assertion or satisfies
   for c in node.leading_comments_fast(context.program) {
-    if c.kind == CommentKind::Block && c.text.starts_with('*') && c.text.contains("@type") {
+    if c.kind == CommentKind::Block && c.text.starts_with('*') {
       return false;
     }
   }
@@ -3016,10 +3016,15 @@ fn gen_spread_element<'a>(node: &SpreadElement<'a>, context: &mut Context<'a>) -
 /// Detects the type of embedded language automatically.
 fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> Option<PrintItems> {
   let external_formatter = context.external_formatter.as_ref()?;
-  let media_type = detect_embedded_language_type(node)?;
+  let embedded_lang = normalize_embedded_language_type(node)?;
 
+  let placeholder_css = "@dpr1nt_";
+  let placeholder_other = "dpr1nt_";
   // First creates text with placeholders for the expressions.
-  let placeholder_text = "dpr1nt_";
+  let placeholder_text = match embedded_lang {
+    "css" => placeholder_css,
+    _ => placeholder_other,
+  };
   let text = capacity_builder::StringBuilder::<String>::build(|builder| {
     let expr_len = node.tpl.exprs.len();
     for (i, quasi) in node.tpl.quasis.iter().enumerate() {
@@ -3038,11 +3043,11 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
   .unwrap();
 
   // Then formats the text with the external formatter.
-  let formatted_tpl = match external_formatter(media_type, text, context.config) {
-    Ok(formatted_tpl) => formatted_tpl?,
+  let formatted_tpl = match external_formatter(embedded_lang, text.replace(r"\\", "\\"), context.config) {
+    Ok(formatted_tpl) => formatted_tpl?.replace("\\", r"\\"),
     Err(err) => {
       context.diagnostics.push(context::GenerateDiagnostic {
-        message: format!("Error formatting tagged template literal at line {}: {}", node.start_line(), err),
+        message: format!("Error formatting tagged template literal at line {}: {}", node.start_line() + 1, err),
       });
       return None;
     }
@@ -3053,9 +3058,22 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
   items.push_signal(Signal::NewLine);
   items.push_signal(Signal::StartIndent);
   let mut index = 0;
+  let mut current_indent_level = 0;
+  let use_tabs = context.config.use_tabs;
+  let indent_width = if use_tabs { 1 } else { context.config.indent_width };
+  let indent_char = if use_tabs { '\t' } else { ' ' };
   for line in formatted_tpl.lines() {
-    let mut pos = 0;
-    let mut parts = line.split(placeholder_text).enumerate().peekable();
+    // count indent characters
+    let mut pos = line.chars().take_while(|ch| *ch == indent_char).count();
+    let indent_level = if indent_width == 0 { 0 } else { pos / indent_width as usize };
+    if indent_level > current_indent_level {
+      items.push_signal(Signal::StartIndent);
+      current_indent_level = indent_level;
+    } else if indent_level < current_indent_level {
+      items.push_signal(Signal::FinishIndent);
+      current_indent_level = indent_level;
+    }
+    let mut parts = line[pos..].split(placeholder_text).enumerate().peekable();
     while let Some((i, part)) = parts.next() {
       let end = pos + part.len();
       if i > 0 {
@@ -3075,26 +3093,23 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
     }
     items.push_signal(Signal::NewLine);
   }
+  while current_indent_level > 0 {
+    items.push_signal(Signal::FinishIndent);
+    current_indent_level -= 1;
+  }
   items.push_signal(Signal::FinishIndent);
   items.push_sc(sc!("`"));
   Some(items)
 }
 
-/// Detects the type of embedded language in a tagged template literal.
-fn detect_embedded_language_type<'a>(node: &TaggedTpl<'a>) -> Option<MediaType> {
+/// Normalizes the type of embedded language in a tagged template literal.
+fn normalize_embedded_language_type<'a>(node: &TaggedTpl<'a>) -> Option<&'a str> {
   match node.tag {
-    Expr::Ident(ident) => {
-      match ident.sym().as_str() {
-        "css" => Some(MediaType::Css),   // css`...`
-        "html" => Some(MediaType::Html), // html`...`
-        "sql" => Some(MediaType::Sql),   // sql`...`
-        _ => None,
-      }
-    }
+    Expr::Ident(ident) => return Some(ident.sym().as_str()),
     Expr::Member(member_expr) => {
       if let Expr::Ident(ident) = member_expr.obj {
         if ident.sym().as_str() == "styled" {
-          return Some(MediaType::Css); // styled.foo`...`
+          return Some("css"); // styled.foo`...`
         }
       }
       None
@@ -3102,7 +3117,7 @@ fn detect_embedded_language_type<'a>(node: &TaggedTpl<'a>) -> Option<MediaType> 
     Expr::Call(call_expr) => {
       if let Callee::Expr(Expr::Ident(ident)) = call_expr.callee {
         if ident.sym().as_str() == "styled" {
-          return Some(MediaType::Css); // styled(Button)`...`
+          return Some("css"); // styled(Button)`...`
         }
       }
       None

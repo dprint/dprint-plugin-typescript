@@ -2,18 +2,17 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use anyhow::Result;
-use deno_ast::MediaType;
 use dprint_core::configuration::*;
 use dprint_development::*;
 use dprint_plugin_typescript::configuration::*;
 use dprint_plugin_typescript::*;
 
-fn external_formatter(media_type: MediaType, text: String, config: &Configuration) -> Result<Option<String>> {
-  match media_type {
-    MediaType::Css => format_embedded_css(&text, config),
-    MediaType::Html => format_html(&text, config),
-    MediaType::Sql => format_sql(&text, config),
-    _ => unreachable!(),
+fn external_formatter(lang: &str, text: String, config: &Configuration) -> Result<Option<String>> {
+  match lang {
+    "css" => format_embedded_css(&text, config),
+    "html" => format_html(&text, config),
+    "sql" => format_sql(&text, config),
+    _ => Ok(None),
   }
 }
 
@@ -27,8 +26,10 @@ fn format_embedded_css(text: &str, config: &Configuration) -> Result<Option<Stri
     ..Default::default()
   };
   // Wraps the text in a css block of `a { ... }`
-  // to make it valid css (scss)
-  let text = malva::format_text(&format!("a{{\n{}\n}}", text), malva::Syntax::Scss, &options)?;
+  // to make it valid css (less)
+  // We choose LESS syntax because it allows us to use `@variable` as both value and mixin.
+  // The latter works as placeholder for key-value pair.
+  let text = malva::format_text(&format!("a{{\n{}\n;}}", text), malva::Syntax::Less, &options)?;
   let mut buf = vec![];
   for (i, l) in text.lines().enumerate() {
     // skip the first line (a {)

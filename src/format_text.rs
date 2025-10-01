@@ -159,12 +159,15 @@ mod test {
       extension: None,
       text: "const content = html`<div>broken html</p>`".into(),
       config: &config,
-      external_formatter: Some(&|media_type, _text, _config| {
-        assert!(matches!(media_type, deno_ast::MediaType::Html));
+      external_formatter: Some(&|lang, _text, _config| {
+        assert!(matches!(lang, "html"));
         Err(anyhow::anyhow!("Syntax error from external formatter"))
       }),
     });
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err().to_string(), "Error formatting tagged template literal at line 0: Syntax error from external formatter");
+    assert_eq!(
+      result.unwrap_err().to_string(),
+      "Error formatting tagged template literal at line 1: Syntax error from external formatter"
+    );
   }
 }
