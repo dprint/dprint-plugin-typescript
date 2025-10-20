@@ -2348,6 +2348,7 @@ fn gen_class_expr<'a>(node: &ClassExpr<'a>, context: &mut Context<'a>) -> PrintI
 }
 
 fn gen_conditional_expr<'a>(node: &CondExpr<'a>, context: &mut Context<'a>) -> PrintItems {
+  let is_structural_mode = context.config.conditional_expression_indent_style == TernaryIndentStyle::Structural;
   let question_token = context.token_finder.get_first_operator_after(&node.test, "?").unwrap();
   let colon_token = context.token_finder.get_first_operator_after(&node.cons, ":").unwrap();
   let line_per_expression = context.config.conditional_expression_line_per_expression;
@@ -2376,14 +2377,18 @@ fn gen_conditional_expr<'a>(node: &CondExpr<'a>, context: &mut Context<'a>) -> P
 
   let top_most_il = top_most_data.il;
 
-  items.extend(ir_helpers::new_line_group(with_queued_indent({
+  items.extend({
     let mut items = gen_node(node.test.into(), context);
     if question_position == OperatorPosition::SameLine {
       items.push_sc(sc!(" ?"));
     }
     items.extend(question_comment_items.trailing_line);
-    items
-  })));
+    if is_structural_mode && no_conditional_or_alternate(node.into()) {
+      items
+    } else {
+      ir_helpers::new_line_group(with_queued_indent(items))
+    }
+  });
 
   items.extend(question_comment_items.previous_lines);
 
@@ -2416,19 +2421,39 @@ fn gen_conditional_expr<'a>(node: &CondExpr<'a>, context: &mut Context<'a>) -> P
       items
     });
 
-    items.push_condition({
-      let mut items = PrintItems::new();
-      items.extend(question_comment_items.leading_line);
-      if question_position == OperatorPosition::NextLine {
-        items.push_sc(sc!("? "));
-      }
-      items.extend(gen_node(node.cons.into(), context));
-      if colon_position == OperatorPosition::SameLine {
-        items.push_sc(sc!(" :"));
-      }
-      items.extend(colon_comment_items.trailing_line);
-      indent_if_sol_and_same_indent_as_top_most(ir_helpers::new_line_group(items), top_most_il)
-    });
+    if is_structural_mode {
+      items.extend({
+        let mut items = PrintItems::new();
+        items.extend(question_comment_items.leading_line);
+        if question_position == OperatorPosition::NextLine {
+          items.push_sc(sc!("? "));
+        }
+        if top_most_data.is_top_most {
+          items.extend(ir_helpers::new_line_group(with_queued_indent(gen_node(node.cons.into(), context))));
+        } else {
+          items.extend(gen_node(node.cons.into(), context));
+        }
+        if colon_position == OperatorPosition::SameLine {
+          items.push_sc(sc!(" :"));
+        }
+        items.extend(colon_comment_items.trailing_line);
+        items
+      });
+    } else {
+      items.push_condition({
+        let mut items = PrintItems::new();
+        items.extend(question_comment_items.leading_line);
+        if question_position == OperatorPosition::NextLine {
+          items.push_sc(sc!("? "));
+        }
+        items.extend(gen_node(node.cons.into(), context));
+        if colon_position == OperatorPosition::SameLine {
+          items.push_sc(sc!(" :"));
+        }
+        items.extend(colon_comment_items.trailing_line);
+        indent_if_sol_and_same_indent_as_top_most(ir_helpers::new_line_group(items), top_most_il)
+      });
+    }
 
     items.extend(colon_comment_items.previous_lines);
 
@@ -2443,16 +2468,29 @@ fn gen_conditional_expr<'a>(node: &CondExpr<'a>, context: &mut Context<'a>) -> P
       items.push_signal(Signal::SpaceOrNewLine);
     }
 
-    items.push_condition({
-      let mut items = PrintItems::new();
-      items.extend(colon_comment_items.leading_line);
-      if colon_position == OperatorPosition::NextLine {
-        items.push_sc(sc!(": "));
-      }
-      items.push_info(before_alternate_ln);
-      items.extend(gen_node(node.alt.into(), context));
-      indent_if_sol_and_same_indent_as_top_most(ir_helpers::new_line_group(items), top_most_il)
-    });
+    if is_structural_mode {
+      items.extend({
+        let mut items = PrintItems::new();
+        items.extend(colon_comment_items.leading_line);
+        if colon_position == OperatorPosition::NextLine {
+          items.push_sc(sc!(": "));
+        }
+        items.push_info(before_alternate_ln);
+        items.extend(ir_helpers::new_line_group(with_queued_indent(gen_node(node.alt.into(), context))));
+        items
+      });
+    } else {
+      items.push_condition({
+        let mut items = PrintItems::new();
+        items.extend(colon_comment_items.leading_line);
+        if colon_position == OperatorPosition::NextLine {
+          items.push_sc(sc!(": "));
+        }
+        items.push_info(before_alternate_ln);
+        items.extend(gen_node(node.alt.into(), context));
+        indent_if_sol_and_same_indent_as_top_most(ir_helpers::new_line_group(items), top_most_il)
+      });
+    }
     items.push_info(end_ln);
 
     if let Some(reevaluation) = multi_line_reevaluation {
@@ -2544,6 +2582,13 @@ fn gen_conditional_expr<'a>(node: &CondExpr<'a>, context: &mut Context<'a>) -> P
         get_maintain_position(node, node.test, question_token, context),
         get_maintain_position(node, node.cons, colon_token, context),
       ),
+    }
+  }
+
+  fn no_conditional_or_alternate(node: Node) -> bool {
+    match node.parent() {
+      Some(Node::CondExpr(parent_conditional)) => parent_conditional.alt.range() == node.range(),
+      _ => true,
     }
   }
 }
@@ -2688,7 +2733,17 @@ fn should_add_parens_around_expr<'a>(node: Node<'a>, context: &Context<'a>) -> b
           return false;
         }
       }
-      Node::ExprStmt(_) => return true,
+      Node::ExprStmt(_) => {
+        if context.config.expression_statement_force_parentheses {
+          return true; // Always add parentheses (original behavior)
+        } else {
+          // Only add parentheses for expressions that need disambiguation
+          match original_node {
+            Node::ObjectLit(_) | Node::FnExpr(_) => return true,
+            _ => return false,
+          }
+        }
+      }
       Node::MemberExpr(expr) => {
         if matches!(expr.prop, MemberProp::Computed(_)) && expr.prop.range().contains(&original_node.range()) {
           return false;
@@ -4719,6 +4774,15 @@ fn gen_do_while_stmt<'a>(node: &DoWhileStmt<'a>, context: &mut Context<'a>) -> P
     },
     context,
   ));
+
+  let body_has_braces_ref = if matches!(node.body, Stmt::Block(_))
+    && context.config.do_while_statement_next_control_flow_position == NextControlFlowPosition::NextLineExceptAfterBrace
+  {
+    Some(push_always_true_condition(&mut items, "doWhileBodyHasBraces"))
+  } else {
+    None
+  };
+
   items.extend(gen_node(node.body.into(), context));
   if context.config.semi_colons.is_true() || matches!(node.body, Stmt::Block(_)) {
     items.extend(gen_control_flow_separator(
@@ -4726,7 +4790,7 @@ fn gen_do_while_stmt<'a>(node: &DoWhileStmt<'a>, context: &mut Context<'a>) -> P
       &node.body.range(),
       "while",
       None,
-      None,
+      body_has_braces_ref,
       context,
     ));
   } else {
@@ -5174,7 +5238,11 @@ fn gen_if_stmt<'a>(node: &IfStmt<'a>, context: &mut Context<'a>) -> PrintItems {
         ));
         items
       },
-      use_braces: context.config.if_statement_use_braces,
+      use_braces: if use_braces_for_then(cons, node.alt) {
+        UseBraces::Always
+      } else {
+        context.config.if_statement_use_braces
+      },
       brace_position: context.config.if_statement_brace_position,
       single_body_position: Some(context.config.if_statement_single_body_position),
       requires_braces_condition_ref: context.take_if_stmt_last_brace_condition_ref(),
@@ -5229,7 +5297,11 @@ fn gen_if_stmt<'a>(node: &IfStmt<'a>, context: &mut Context<'a>) -> PrintItems {
         gen_conditional_brace_body(
           GenConditionalBraceBodyOptions {
             body_node: alt.into(),
-            use_braces: context.config.if_statement_use_braces,
+            use_braces: if use_braces_for_else(alt) {
+              UseBraces::Always
+            } else {
+              context.config.if_statement_use_braces
+            },
             brace_position: context.config.if_statement_brace_position,
             single_body_position: Some(context.config.if_statement_single_body_position),
             requires_braces_condition_ref: Some(result.open_brace_condition_ref),
@@ -5430,24 +5502,28 @@ fn gen_try_stmt<'a>(node: &TryStmt<'a>, context: &mut Context<'a>) -> PrintItems
   let mut last_block_range = node.block.range();
   let mut last_block_start_ln = LineNumber::new("tryStart");
 
+  let has_braces_ref = if next_control_flow_position == NextControlFlowPosition::NextLineExceptAfterBrace {
+    Some(push_always_true_condition(&mut items, "tryStatementHasBraces"))
+  } else {
+    None
+  };
+
   items.push_info(last_block_start_ln);
   items.push_sc(sc!("try"));
 
-  items.extend(
-    gen_conditional_brace_body(
-      GenConditionalBraceBodyOptions {
-        body_node: node.block.into(),
-        use_braces: UseBraces::Always, // braces required
-        brace_position: context.config.try_statement_brace_position,
-        single_body_position: Some(SameOrNextLinePosition::NextLine),
-        requires_braces_condition_ref: None,
-        start_header_info: None,
-        end_header_info: None,
-      },
-      context,
-    )
-    .generated_node,
+  let try_result = gen_conditional_brace_body(
+    GenConditionalBraceBodyOptions {
+      body_node: node.block.into(),
+      use_braces: UseBraces::Always, // braces required
+      brace_position: context.config.try_statement_brace_position,
+      single_body_position: Some(SameOrNextLinePosition::NextLine),
+      requires_braces_condition_ref: None,
+      start_header_info: None,
+      end_header_info: None,
+    },
+    context,
   );
+  items.extend(try_result.generated_node);
 
   if let Some(handler) = node.handler {
     let handler_start_ln = LineNumber::new("handlerStart");
@@ -5457,13 +5533,11 @@ fn gen_try_stmt<'a>(node: &TryStmt<'a>, context: &mut Context<'a>) -> PrintItems
       &last_block_range,
       "catch",
       Some(last_block_start_ln),
-      None,
+      has_braces_ref,
       context,
     ));
     last_block_range = handler.range();
     items.extend(gen_node(handler.into(), context));
-
-    // set the next block to check the handler start info
     last_block_start_ln = handler_start_ln;
   }
 
@@ -5473,7 +5547,7 @@ fn gen_try_stmt<'a>(node: &TryStmt<'a>, context: &mut Context<'a>) -> PrintItems
       &last_block_range,
       "finally",
       Some(last_block_start_ln),
-      None,
+      has_braces_ref,
       context,
     ));
     items.push_sc(sc!("finally"));
@@ -8534,17 +8608,71 @@ fn gen_control_flow_separator(
       ));
     }
     NextControlFlowPosition::NextLine => items.push_signal(Signal::NewLine),
+    NextControlFlowPosition::NextLineExceptAfterBrace => {
+      items.push_condition(if_true_or(
+        "nextLineExceptAfterBrace",
+        Rc::new(move |condition_context| {
+          // use space if previous had a close brace
+          if let Some(previous_close_brace_condition_ref) = previous_close_brace_condition_ref {
+            if condition_context.resolved_condition(&previous_close_brace_condition_ref)? {
+              return Some(false);
+            }
+          }
+          // otherwise force new line
+          Some(true)
+        }),
+        Signal::NewLine.into(),
+        " ".into(),
+      ));
+    }
     NextControlFlowPosition::Maintain => {
       let token = context.token_finder.get_first_keyword_after(previous_node_block, token_text);
 
       if token.is_some() && node_helpers::is_first_node_on_line(&token.unwrap().range(), context.program) {
         items.push_signal(Signal::NewLine);
+      } else if token_text == "else" {
+        if let Some(else_separator) = handle_else_after_brace_removal(token, previous_node_block, previous_close_brace_condition_ref, context) {
+          items.extend(else_separator);
+        } else {
+          items.push_space();
+        }
       } else {
         items.push_space();
       }
     }
   }
   items
+}
+
+fn handle_else_after_brace_removal(
+  token: Option<&TokenAndSpan>,
+  previous_node_block: &SourceRange,
+  previous_close_brace_condition_ref: Option<ConditionReference>,
+  context: &mut Context,
+) -> Option<PrintItems> {
+  let full_text = SourceRange::new(previous_node_block.start, token?.range().start).text_fast(context.program);
+  if !full_text[full_text.rfind('}')? + 1..].trim().is_empty() {
+    return None;
+  }
+
+  let if_start_line = previous_node_block.start_line_fast(context.program);
+  let else_line = token?.range().start_line_fast(context.program);
+  if if_start_line == else_line {
+    return None;
+  }
+
+  let mut items = PrintItems::new();
+  if let Some(close_brace_ref) = previous_close_brace_condition_ref {
+    items.push_condition(if_true_or(
+      "elseSeparator",
+      Rc::new(move |condition_context| Some(condition_context.resolved_condition(&close_brace_ref)?)),
+      " ".into(),
+      Signal::NewLine.into(),
+    ));
+  } else {
+    items.push_signal(Signal::NewLine);
+  }
+  Some(items)
 }
 
 struct GenHeaderWithConditionalBraceBodyOptions<'a> {
@@ -8579,7 +8707,10 @@ fn gen_header_with_conditional_brace_body<'a>(
   let result = gen_conditional_brace_body(
     GenConditionalBraceBodyOptions {
       body_node: opts.body_node.into(),
-      use_braces: if force_use_braces_for_stmt(opts.body_node) {
+      use_braces: if opts.use_braces != UseBraces::WhenNeeded
+        && opts.use_braces != UseBraces::WhenFormattedMultiLine
+        && get_use_braces_for_stmt(opts.body_node, true)
+      {
         UseBraces::Always
       } else {
         opts.use_braces
@@ -8601,29 +8732,114 @@ fn gen_header_with_conditional_brace_body<'a>(
   }
 }
 
-fn force_use_braces_for_stmt(stmt: Stmt) -> bool {
-  match stmt {
-    Stmt::Block(block) => {
-      if block.stmts.len() != 1 {
-        true
-      } else {
-        force_use_braces_for_stmt(block.stmts[0])
+fn push_always_true_condition(items: &mut PrintItems, name: &'static str) -> ConditionReference {
+  let mut condition = if_true(name, Rc::new(|_| Some(true)), PrintItems::new());
+  let condition_ref = condition.create_reference();
+  items.push_condition(condition);
+  condition_ref
+}
+
+fn single_non_empty_stmt<'a, I>(mut iter: I) -> Option<Stmt<'a>>
+where
+  I: Iterator<Item = &'a Stmt<'a>>,
+{
+  match (iter.next(), iter.next()) {
+    (Some(first), None) => Some(*first),
+    _ => None,
+  }
+}
+
+fn get_use_braces_for_node(body_node: Node, preferred: bool) -> bool {
+  match body_node {
+    Node::BlockStmt(block) => {
+      let non_empty = block.stmts.iter().filter(|s| s.kind() != NodeKind::EmptyStmt);
+      match single_non_empty_stmt(non_empty) {
+        Some(stmt) => get_use_braces_for_stmt(stmt, preferred),
+        None => true,
       }
     }
-    // force braces for any children where no braces could be ambiguous
-    Stmt::Empty(_)
-    | Stmt::DoWhile(_)
+    Node::ExprStmt(expr_stmt) => preferred && matches!(expr_stmt.expr, Expr::Await(_)),
+    Node::DoWhileStmt(_)
+    | Node::ForStmt(_)
+    | Node::ForInStmt(_)
+    | Node::ForOfStmt(_)
+    | Node::IfStmt(_)
+    | Node::LabeledStmt(_)
+    | Node::SwitchStmt(_)
+    | Node::TryStmt(_)
+    | Node::WhileStmt(_)
+    | Node::WithStmt(_) => preferred,
+    _ => false,
+  }
+}
+
+fn get_use_braces_for_stmt(stmt: Stmt, preferred: bool) -> bool {
+  match stmt {
+    Stmt::Block(block) => {
+      let non_empty = block.stmts.iter().filter(|s| s.kind() != NodeKind::EmptyStmt);
+      match single_non_empty_stmt(non_empty) {
+        Some(stmt) => get_use_braces_for_stmt(stmt, preferred),
+        None => true,
+      }
+    }
+    Stmt::Expr(expr_stmt) => preferred && matches!(expr_stmt.expr, Expr::Await(_)),
+    Stmt::DoWhile(_)
     | Stmt::For(_)
     | Stmt::ForIn(_)
     | Stmt::ForOf(_)
-    | Stmt::Decl(_)
-    | Stmt::If(_) // especially force for this as it may cause a bug
+    | Stmt::If(_)
     | Stmt::Labeled(_)
     | Stmt::Switch(_)
     | Stmt::Try(_)
     | Stmt::While(_)
-    | Stmt::With(_) => true,
-    Stmt::Break(_) | Stmt::Continue(_) | Stmt::Debugger(_) | Stmt::Expr(_) | Stmt::Return(_) | Stmt::Throw(_) => false,
+    | Stmt::With(_) => preferred,
+    Stmt::Decl(_) => true,
+    _ => false,
+  }
+}
+
+fn contains_dangling_if(stmt: Stmt) -> bool {
+  match stmt {
+    Stmt::If(if_stmt) => if_stmt.alt.is_none(),
+    Stmt::For(for_stmt) => contains_dangling_if(for_stmt.body),
+    Stmt::ForIn(for_in_stmt) => contains_dangling_if(for_in_stmt.body),
+    Stmt::ForOf(for_of_stmt) => contains_dangling_if(for_of_stmt.body),
+    Stmt::While(while_stmt) => contains_dangling_if(while_stmt.body),
+    Stmt::Block(block_stmt) => {
+      let non_empty = block_stmt.stmts.iter().filter(|s| !matches!(s, Stmt::Empty(_)));
+      single_non_empty_stmt(non_empty).map_or(false, contains_dangling_if)
+    }
+    Stmt::With(with_stmt) => contains_dangling_if(with_stmt.body),
+    Stmt::Labeled(labeled_stmt) => contains_dangling_if(labeled_stmt.body),
+    _ => false,
+  }
+}
+
+fn use_braces_for_then(then_node: Stmt, else_node: Option<Stmt>) -> bool {
+  match then_node {
+    Stmt::Block(block_stmt) => {
+      let non_empty = block_stmt.stmts.iter().filter(|s| !matches!(s, Stmt::Empty(_)));
+      match single_non_empty_stmt(non_empty) {
+        Some(stmt) => use_braces_for_then(stmt, else_node),
+        None => true,
+      }
+    }
+    Stmt::Decl(_) => true,
+    _ => else_node.is_some() && contains_dangling_if(then_node),
+  }
+}
+
+fn use_braces_for_else(else_node: Stmt) -> bool {
+  match else_node {
+    Stmt::Block(block_stmt) => {
+      let non_empty = block_stmt.stmts.iter().filter(|s| !matches!(s, Stmt::Empty(_)));
+      match single_non_empty_stmt(non_empty) {
+        Some(stmt) => use_braces_for_else(stmt),
+        None => true,
+      }
+    }
+    Stmt::Decl(_) => true,
+    _ => false,
   }
 }
 
@@ -8697,6 +8913,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
   );
   let newline_condition_ref = newline_condition.create_reference();
   let force_braces = get_force_braces(opts.body_node);
+  let when_needed_use_braces = opts.use_braces == UseBraces::WhenNeeded && get_use_braces_for_node(opts.body_node, false);
   let mut open_brace_condition = if_true(
     "openBrace",
     {
@@ -8743,6 +8960,10 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
             }
 
             Some(false)
+          }
+          UseBraces::WhenNeeded => Some(when_needed_use_braces),
+          UseBraces::WhenFormattedMultiLine => {
+            Some(force_braces || condition_helpers::is_multiple_lines(condition_context, start_statements_lc.line, end_statements_lc.line)?)
           }
         }
       })
@@ -8898,7 +9119,6 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
     } else {
       if let Node::BlockStmt(block_stmt) = body_node {
         if block_stmt.stmts.is_empty() {
-          // keep the block on the same line
           return block_stmt.start_line_fast(context.program) < block_stmt.end_line_fast(context.program);
         }
       }
@@ -8925,6 +9145,10 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
       }
       return true;
     } else {
+      // Function declarations should be multi-line due to their inherent structure
+      if let Node::FnDecl(_) = body_node {
+        return true;
+      }
       return has_leading_comment_on_different_line(&body_node.range(), header_trailing_comments, context.program);
     }
 
@@ -8934,12 +9158,13 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
   }
 
   fn get_force_braces(body_node: Node) -> bool {
-    if let Node::BlockStmt(body_node) = body_node {
-      body_node.stmts.is_empty()
-        || body_node.stmts.iter().all(|s| s.kind() == NodeKind::EmptyStmt)
-        || (body_node.stmts.len() == 1 && matches!(body_node.stmts[0], Stmt::Decl(_)))
-    } else {
-      false
+    let Node::BlockStmt(body_node) = body_node else {
+      return false;
+    };
+    let non_empty = body_node.stmts.iter().filter(|s| s.kind() != NodeKind::EmptyStmt);
+    match single_non_empty_stmt(non_empty) {
+      Some(stmt) => matches!(stmt, Stmt::Decl(_)),
+      None => true,
     }
   }
 

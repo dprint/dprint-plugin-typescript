@@ -1,0 +1,124 @@
+~~ ifStatement.nextControlFlowPosition: nextLineExceptAfterBrace, ifStatement.useBraces: whenNotSingleLine, ifStatement.singleBodyPosition: maintain ~~
+== should force else to new line for simple statements ==
+if (condition) doSomething(); else doOther();
+
+[expect]
+if (condition) doSomething();
+else doOther();
+
+== should force else to new line for non-braced then clause ==
+if (condition) 
+  doSomething(); 
+else 
+  doOther();
+
+[expect]
+if (condition) {
+    doSomething();
+} else {
+    doOther();
+}
+
+== should keep else on same line after closing brace ==
+if (condition) {
+  doSomething();
+} else {
+  doOther();
+}
+
+[expect]
+if (condition) {
+    doSomething();
+} else {
+    doOther();
+}
+
+== should keep else on same line after closing brace - single line ==
+if (condition) { doSomething(); } else { doOther(); }
+
+[expect]
+if (condition) doSomething();
+else doOther();
+
+== should handle mixed braced and non-braced ==
+if (condition) {
+  doSomething();
+} else doOther();
+
+[expect]
+if (condition) {
+    doSomething();
+} else doOther();
+
+== should handle mixed non-braced and braced ==
+if (condition) doSomething(); else {
+  doOther();
+}
+
+[expect]
+if (condition) doSomething();
+else {
+    doOther();
+}
+
+== should handle nested if-else statements ==
+if (condition1) doFirst(); else if (condition2) doSecond(); else doThird();
+
+[expect]
+if (condition1) doFirst();
+else if (condition2) doSecond();
+else doThird();
+
+== should handle nested if-else with braces ==
+if (condition1) {
+  doFirst();
+} else if (condition2) {
+  doSecond();
+} else {
+  doThird();
+}
+
+[expect]
+if (condition1) {
+    doFirst();
+} else if (condition2) {
+    doSecond();
+} else {
+    doThird();
+}
+
+== should handle complex mixed scenarios ==
+if (condition1) {
+  doFirst();
+} else if (condition2) doSecond(); else {
+  doThird();
+}
+
+[expect]
+if (condition1) {
+    doFirst();
+} else if (condition2) doSecond();
+else {
+    doThird();
+}
+
+== should work with function declarations ==
+if (condition) function test1() { return 1; } else function test2() { return 2; }
+
+[expect]
+if (condition) {
+    function test1() {
+        return 1;
+    }
+} else {
+    function test2() {
+        return 2;
+    }
+}
+
+== should work with arrow functions ==
+if (condition) () => 1; else () => 2;
+
+[expect]
+if (condition) (() => 1);
+else (() => 2);

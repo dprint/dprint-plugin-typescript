@@ -1,0 +1,88 @@
+~~ lineWidth: 40, ifStatement.useBraces: whenFormattedMultiLine ~~
+== should not add braces for single line statement ==
+if (condition) doSomething();
+
+[expect]
+if (condition) doSomething();
+
+== should add braces when statement would be formatted on multiple lines ==
+if (condition) doSomethingVeryLongThatExceedsTheLineWidth();
+
+[expect]
+if (condition)
+    doSomethingVeryLongThatExceedsTheLineWidth();
+
+== should add braces when condition itself is multi-line ==
+if (someVeryLongConditionThatExceedsWidth)
+  doSomething();
+
+[expect]
+if (someVeryLongConditionThatExceedsWidth)
+    doSomething();
+
+== should handle if-else chain ==
+if (shortCondition) shortStatement();
+else if (anotherVeryLongConditionThatExceedsTheLineWidth) doSomething();
+else doAnotherThing();
+
+[expect]
+if (shortCondition) shortStatement();
+else if (
+    anotherVeryLongConditionThatExceedsTheLineWidth
+) doSomething();
+else doAnotherThing();
+
+== should add braces for already multi-line content ==
+if (condition) {
+  doSomething();
+  doAnotherThing();
+}
+
+[expect]
+if (condition) {
+    doSomething();
+    doAnotherThing();
+}
+
+== should handle empty blocks ==
+if (condition) {
+}
+
+[expect]
+if (condition) {
+}
+
+== should handle declarations that would be multi-line ==
+if (condition) { const veryLongVariableNameThatExceedsWidth = 42; }
+
+[expect]
+if (condition) {
+    const veryLongVariableNameThatExceedsWidth =
+        42;
+}
+
+== should preserve single line when everything fits ==
+if (short) brief();
+else if (also) quick();
+else final();
+
+[expect]
+if (short) brief();
+else if (also) quick();
+else final();
+
+== should preserve single line when everything fits ==
+if (short) {
+  brief();
+} else if (also) {
+  quick();
+} else
+  final();
+
+[expect]
+if (short)
+    brief();
+else if (also)
+    quick();
+else
+    final();

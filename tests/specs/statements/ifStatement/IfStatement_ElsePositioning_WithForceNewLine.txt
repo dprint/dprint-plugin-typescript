@@ -1,0 +1,22 @@
+~~ ifStatement.nextControlFlowPosition: nextLineExceptAfterBrace, ifStatement.useBraces: whenNotSingleLine, ifStatement.singleBodyPosition: nextLine ~~
+== should combine NextLineExceptAfterBrace with nextLine ==
+if (condition) doSomething(); else doOther();
+
+[expect]
+if (condition) {
+    doSomething();
+} else {
+    doOther();
+}
+
+== should handle mixed braced and non-braced with both settings ==
+if (condition) {
+  doSomething();
+} else doOther();
+
+[expect]
+if (condition) {
+    doSomething();
+} else {
+    doOther();
+}

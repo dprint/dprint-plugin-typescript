@@ -119,9 +119,11 @@ pub enum NextControlFlowPosition {
   SameLine,
   /// Forces the next control flow to be on the next line.
   NextLine,
+  /// Forces the next control flow to be on the next line except when it appears after a closing brace.
+  NextLineExceptAfterBrace,
 }
 
-generate_str_to_from![NextControlFlowPosition, [Maintain, "maintain"], [SameLine, "sameLine"], [NextLine, "nextLine"]];
+generate_str_to_from![NextControlFlowPosition, [Maintain, "maintain"], [SameLine, "sameLine"], [NextLine, "nextLine"], [NextLineExceptAfterBrace, "nextLineExceptAfterBrace"]];
 
 /// Where to place the operator for expressions that span multiple lines.
 #[derive(Debug, Clone, PartialEq, Copy, Serialize, Deserialize)]
@@ -136,6 +138,19 @@ pub enum OperatorPosition {
 }
 
 generate_str_to_from![OperatorPosition, [Maintain, "maintain"], [SameLine, "sameLine"], [NextLine, "nextLine"]];
+
+/// How to indent ternary expression branches.
+#[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TernaryIndentStyle {
+  /// Align all ternary branches at the same indentation level (original behavior).
+  Align,
+  /// Add structural indentation for nested ternary branches.
+  Structural,
+}
+
+generate_str_to_from![TernaryIndentStyle, [Align, "align"], [Structural, "structural"]];
+
 
 /// Where to place a node that could be on the same line or next line.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
@@ -163,6 +178,10 @@ pub enum UseBraces {
   Always,
   /// Forces no braces when the header is one line and body is one line. Otherwise forces braces.
   PreferNone,
+  /// Only uses braces when syntactically required (empty blocks, declarations, multiple statements).
+  WhenNeeded,
+  /// Uses braces when the formatted body spans multiple lines.
+  WhenFormattedMultiLine,
 }
 
 generate_str_to_from![
@@ -170,7 +189,9 @@ generate_str_to_from![
   [Maintain, "maintain"],
   [WhenNotSingleLine, "whenNotSingleLine"],
   [Always, "always"],
-  [PreferNone, "preferNone"]
+  [PreferNone, "preferNone"],
+  [WhenNeeded, "whenNeeded"],
+  [WhenFormattedMultiLine, "whenFormattedMultiLine"]
 ];
 
 /// Whether to use parentheses around a single parameter in an arrow function.
@@ -466,6 +487,8 @@ pub struct Configuration {
   pub binary_expression_operator_position: OperatorPosition,
   #[serde(rename = "conditionalExpression.operatorPosition")]
   pub conditional_expression_operator_position: OperatorPosition,
+  #[serde(rename = "conditionalExpression.indentStyle")]
+  pub conditional_expression_indent_style: TernaryIndentStyle,
   #[serde(rename = "conditionalType.operatorPosition")]
   pub conditional_type_operator_position: OperatorPosition,
   /* single body position */
@@ -662,4 +685,7 @@ pub struct Configuration {
   pub tuple_type_space_around: bool,
   #[serde(rename = "whileStatement.spaceAround")]
   pub while_statement_space_around: bool,
+  /* expression parentheses */
+  #[serde(rename = "expressionStatement.forceParentheses")]
+  pub expression_statement_force_parentheses: bool,
 }

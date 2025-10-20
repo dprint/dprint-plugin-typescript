@@ -1,0 +1,76 @@
+~~ ifStatement.useBraces: preferNone, ifStatement.nextControlFlowPosition: maintain ~~
+== should keep else on new line when braces are removed and else was after closing brace ==
+if (true) {
+    a;
+}
+else {
+    b;
+}
+
+[expect]
+if (true)
+    a;
+else
+    b;
+
+== should keep else if on new line when braces are removed and else if was after closing brace ==
+if (true) {
+    a;
+}
+else if (false) {
+    b;
+}
+
+[expect]
+if (true)
+    a;
+else if (false)
+    b;
+
+== should keep else on new line in nested if statements when braces are removed ==
+if (outer) {
+    if (inner) {
+        a;
+    }
+    else {
+        b;
+    }
+}
+
+[expect]
+if (outer) {
+    if (inner)
+        a;
+    else
+        b;
+}
+
+== should handle multiple else if clauses with proper positioning ==
+if (a) {
+    first();
+}
+else if (b) {
+    second();
+}
+else if (c) {
+    third();
+}
+else {
+    fourth();
+}
+
+[expect]
+if (a)
+    first();
+else if (b)
+    second();
+else if (c)
+    third();
+else
+    fourth();
+
+== should handle inline else positioning when braces are removed ==
+if (true) { a; } else { b; }
+
+[expect]
+if (true) a; else b;

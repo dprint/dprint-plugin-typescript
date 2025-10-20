@@ -202,6 +202,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     /* operator position */
     binary_expression_operator_position: get_value(&mut config, "binaryExpression.operatorPosition", operator_position, &mut diagnostics),
     conditional_expression_operator_position: get_value(&mut config, "conditionalExpression.operatorPosition", operator_position, &mut diagnostics),
+    conditional_expression_indent_style: get_value(&mut config, "conditionalExpression.indentStyle", TernaryIndentStyle::Align, &mut diagnostics),
     conditional_type_operator_position: get_value(&mut config, "conditionalType.operatorPosition", operator_position, &mut diagnostics),
     /* single body position */
     if_statement_single_body_position: get_value(&mut config, "ifStatement.singleBodyPosition", single_body_position, &mut diagnostics),
@@ -333,6 +334,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     switch_statement_space_around: get_value(&mut config, "switchStatement.spaceAround", space_around, &mut diagnostics),
     tuple_type_space_around: get_value(&mut config, "tupleType.spaceAround", space_around, &mut diagnostics),
     while_statement_space_around: get_value(&mut config, "whileStatement.spaceAround", space_around, &mut diagnostics),
+    expression_statement_force_parentheses: get_value(&mut config, "expressionStatement.forceParentheses", true, &mut diagnostics),
   };
 
   diagnostics.extend(get_unknown_property_diagnostics(config));

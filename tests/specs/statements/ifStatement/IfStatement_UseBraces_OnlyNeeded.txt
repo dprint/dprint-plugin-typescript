@@ -1,0 +1,82 @@
+~~ ifStatement.useBraces: whenNeeded ~~
+== should only add braces when syntactically necessary ==
+if (condition)
+  doSomething();
+
+[expect]
+if (condition)
+    doSomething();
+
+== should add braces for empty block ==
+if (condition) {
+}
+
+[expect]
+if (condition) {
+}
+
+== should add braces for multiple statements ==
+if (condition) {
+  doSomething();
+  doAnotherThing();
+}
+
+[expect]
+if (condition) {
+    doSomething();
+    doAnotherThing();
+}
+
+== should add braces for variable declarations ==
+if (condition) {
+  const value = 42;
+}
+
+[expect]
+if (condition) {
+    const value = 42;
+}
+
+== should add braces for let declarations ==
+if (condition) {
+  let value = 42;
+}
+
+[expect]
+if (condition) {
+    let value = 42;
+}
+
+== should add braces for class declarations ==
+if (condition) {
+  class MyClass {}
+}
+
+[expect]
+if (condition) {
+    class MyClass {}
+}
+
+== should keep braces for function declarations ==
+if (condition) {
+  function myFunc() {}
+}
+
+[expect]
+if (condition) {
+    function myFunc() {}
+}
+
+== should keep braces for single function declaration ==
+if (condition) {
+  function myFunc() {
+    return 42;
+  }
+}
+
+[expect]
+if (condition) {
+    function myFunc() {
+        return 42;
+    }
+}

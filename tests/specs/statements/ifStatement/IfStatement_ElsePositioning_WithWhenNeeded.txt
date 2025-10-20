@@ -1,0 +1,90 @@
+~~ ifStatement.nextControlFlowPosition: nextLineExceptAfterBrace, ifStatement.useBraces: whenNeeded, ifStatement.singleBodyPosition: maintain ~~
+== should force else to new line with single statements ==
+if (condition) doSomething(); else doOther();
+
+[expect]
+if (condition) doSomething();
+else doOther();
+
+== should keep else on same line after closing brace with whenNeeded ==
+if (condition) {
+  const x = 1;
+  doSomething();
+} else {
+  const y = 2;
+  doOther();
+}
+
+[expect]
+if (condition) {
+    const x = 1;
+    doSomething();
+} else {
+    const y = 2;
+    doOther();
+}
+
+== should handle await expressions requiring braces ==
+if (condition) await doAsync(); else await doOtherAsync();
+
+[expect]
+if (condition) await doAsync();
+else await doOtherAsync();
+
+== should handle mixed single and multiple statements ==
+if (condition) doSomething(); else {
+  const x = 1;
+  doOther();
+}
+
+[expect]
+if (condition) doSomething();
+else {
+    const x = 1;
+    doOther();
+}
+
+== should handle mixed multiple and single statements ==
+if (condition) {
+  const x = 1;
+  doSomething();
+} else doOther();
+
+[expect]
+if (condition) {
+    const x = 1;
+    doSomething();
+} else doOther();
+
+== should handle nested if with dangling else protection ==
+if (condition1) if (condition2) doSomething(); else doOther();
+
+[expect]
+if (condition1)
+    if (condition2) doSomething();
+    else doOther();
+
+== should handle nested if with dangling else protection ==
+if (condition1) { if (condition2) doSomething(); } else doOther();
+
+[expect]
+if (condition1) { if (condition2) doSomething(); } else doOther();
+
+== should handle complex nested scenarios ==
+if (condition1) {
+  const x = 1;
+  if (condition2) doNested();
+} else if (condition3) await doAsync(); else {
+  const y = 2;
+  doFinal();
+}
+
+[expect]
+if (condition1) {
+    const x = 1;
+    if (condition2) doNested();
+} else if (condition3) await doAsync();
+else {
+    const y = 2;
+    doFinal();
+}

@@ -1,0 +1,62 @@
+~~ expressionStatement.forceParentheses: true ~~
+== should add parentheses around object literal ==
+({
+    prop: value
+});
+
+[expect]
+({
+    prop: value,
+});
+
+== should add parentheses around function expression ==
+(function test() {
+    return 1;
+});
+
+[expect]
+(function test() {
+    return 1;
+});
+
+== should add parentheses around arrow function ==
+() => 42;
+
+[expect]
+(() => 42);
+
+== should NOT add parentheses around simple identifier (not supported) ==
+someVariable;
+
+[expect]
+someVariable;
+
+== should NOT add parentheses around call expression (not supported) ==
+someFunction();
+
+[expect]
+someFunction();
+
+== should NOT add parentheses around member expression (not supported) ==
+obj.prop;
+
+[expect]
+obj.prop;
+
+== should NOT add parentheses around array literal (not supported) ==
+[1, 2, 3];
+
+[expect]
+[1, 2, 3];
+
+== should NOT add parentheses around template literal (not supported) ==
+`hello world`;
+
+[expect]
+`hello world`;
+
+== should NOT add parentheses around binary expression (not supported) ==
+a + b;
+
+[expect]
+a + b;

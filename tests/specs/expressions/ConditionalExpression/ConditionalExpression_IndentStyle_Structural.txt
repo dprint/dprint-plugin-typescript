@@ -1,0 +1,82 @@
+~~ conditionalExpression.indentStyle: structural ~~
+== should handle simple ternary with structural indentation ==
+const result = condition
+  ? value1
+  : value2;
+
+[expect]
+const result = condition
+    ? value1
+    : value2;
+
+== should handle nested ternary with structural indentation ==
+const result = condition1
+  ? value1
+  : condition2
+  ? value2
+  : condition3
+  ? value3
+  : value4;
+
+[expect]
+const result = condition1
+    ? value1
+    : condition2
+        ? value2
+        : condition3
+            ? value3
+            : value4;
+
+== should handle deeply nested ternary ==
+const test = this.log(`long text here`)
+  ? this.log(`another long text`)
+  : this.log(`third long text`)
+  ? this.log(`fourth long text`)
+  ? this.log(`fifth long text`)
+  : this.log(`sixth long text`)
+  : this.log(`seventh long text`);
+
+[expect]
+const test = this.log(`long text here`)
+    ? this.log(`another long text`)
+    : this.log(`third long text`)
+        ? this.log(`fourth long text`)
+            ? this.log(`fifth long text`)
+            : this.log(`sixth long text`)
+        : this.log(`seventh long text`);
+
+== should handle ternary with function calls ==
+const value = isValid(data)
+  ? processData(data)
+  : hasFallback(data)
+  ? getFallback(data)
+  : getDefault();
+
+[expect]
+const value = isValid(data)
+    ? processData(data)
+    : hasFallback(data)
+        ? getFallback(data)
+        : getDefault();
+
+== should handle ternary in else branch ==
+if (condition) {
+  doSomething();
+} else {
+  const result = check1
+    ? value1
+    : check2
+    ? value2
+    : value3;
+}
+
+[expect]
+if (condition) {
+    doSomething();
+} else {
+    const result = check1
+        ? value1
+        : check2
+            ? value2
+            : value3;
+}

@@ -1,0 +1,14 @@
+~~ tryStatement.nextControlFlowPosition: nextLineExceptAfterBrace ~~
+== should keep catch on same line after brace ==
+try {
+    doSomething();
+} catch (err) {
+    handleError();
+}
+
+[expect]
+try {
+    doSomething();
+} catch (err) {
+    handleError();
+}

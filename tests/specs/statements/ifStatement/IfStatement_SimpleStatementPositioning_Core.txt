@@ -1,0 +1,87 @@
+~~ ifStatement.singleBodyPosition: nextLine, ifStatement.useBraces: maintain ~~
+== should force non-braced statements to new line with nextLine ==
+if (condition) statement();
+
+[expect]
+if (condition)
+    statement();
+
+== should force else statements to new line with nextLine ==
+if (condition) stmt1();
+else stmt2();
+
+[expect]
+if (condition)
+    stmt1();
+else
+    stmt2();
+
+== should not affect braced blocks with nextLine (BracePosition controls) ==
+if (condition) {
+    statement();
+}
+
+[expect]
+if (condition) {
+    statement();
+}
+
+== should not affect braced else blocks with nextLine ==
+if (condition) {
+    stmt1();
+} else {
+    stmt2();
+}
+
+[expect]
+if (condition) {
+    stmt1();
+} else {
+    stmt2();
+}
+
+== should handle mixed braced and non-braced with nextLine ==
+if (condition) {
+    stmt1();
+} else stmt2();
+
+[expect]
+if (condition) {
+    stmt1();
+} else
+    stmt2();
+
+== should handle nested if statements with nextLine ==
+if (condition1) if (condition2) statement();
+
+[expect]
+if (condition1) {
+    if (condition2)
+        statement();
+}
+
+== should handle complex expressions with nextLine ==
+if (condition) console.log("message");
+
+[expect]
+if (condition)
+    console.log("message");
+
+== should handle return statements with nextLine ==
+if (condition) return value;
+
+[expect]
+if (condition)
+    return value;
+
+== should handle multiple non-braced statements (via block) ==
+if (condition) {
+    stmt1();
+    stmt2();
+}
+
+[expect]
+if (condition) {
+    stmt1();
+    stmt2();
+}

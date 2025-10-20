@@ -1,0 +1,17 @@
+~~ doWhileStatement.nextControlFlowPosition: nextLineExceptAfterBrace ~~
+== should keep while on same line after brace ==
+do {
+    doSomething();
+} while (condition);
+
+[expect]
+do {
+    doSomething();
+} while (condition);
+
+== should use newline before while for non-block body ==
+do doSomething(); while (condition);
+
+[expect]
+do doSomething();
+while (condition);

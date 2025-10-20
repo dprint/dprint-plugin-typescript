@@ -1,0 +1,106 @@
+~~ ifStatement.useBraces: whenNeeded, ifStatement.nextControlFlowPosition: maintain ~~
+== should maintain spacing after brace removal for simple else ==
+if (condition) {
+  doSomething();
+} else {
+  doOtherThing();
+}
+
+[expect]
+if (condition)
+    doSomething();
+else
+    doOtherThing();
+
+== should maintain spacing after brace removal for simple else ==
+if (condition) doSomething();
+else doOtherThing();
+
+[expect]
+if (condition) doSomething();
+else doOtherThing();
+
+== should handle else-if positioning after brace removal ==
+if (condition1) {
+  doSomething();
+} else if (condition2) {
+  doOtherThing();
+} else {
+  doThirdThing();
+}
+
+[expect]
+if (condition1)
+    doSomething();
+else if (condition2)
+    doOtherThing();
+else
+    doThirdThing();
+
+== should handle mixed brace scenarios ==
+if (condition1) {
+  const value = 42;
+} else if (condition2) {
+  doOtherThing();
+} else {
+  doThirdThing();
+}
+
+[expect]
+if (condition1) {
+    const value = 42;
+} else if (condition2)
+    doOtherThing();
+else
+    doThirdThing();
+
+== should handle dangling else with proper positioning ==
+if (condition1) {
+  if (condition2) doSomething();
+} else {
+  doOtherThing();
+}
+
+[expect]
+if (condition1) {
+    if (condition2) doSomething();
+} else
+    doOtherThing();
+
+== should handle comments before else ==
+if (condition) {
+  doSomething();
+}
+// comment before else
+else {
+  doOtherThing();
+}
+
+[expect]
+if (condition)
+    doSomething();
+// comment before else
+else
+    doOtherThing();
+
+== should handle multiline comments before else ==
+if (condition) {
+  doSomething();
+}
+/*
+ * multiline comment
+ * before else
+ */
+else {
+  doOtherThing();
+}
+
+[expect]
+if (condition)
+    doSomething();
+/*
+ * multiline comment
+ * before else
+ */
+else
+    doOtherThing();

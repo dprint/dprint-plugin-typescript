@@ -1,0 +1,72 @@
+~~ ifStatement.nextControlFlowPosition: nextLineExceptAfterBrace, ifStatement.useBraces: whenFormattedMultiLine, ifStatement.singleBodyPosition: nextLine ~~
+== should force else to new line with single statements when not formatted multiline ==
+if (condition) doSomething(); else doOther();
+
+[expect]
+if (condition)
+    doSomething();
+else
+    doOther();
+
+== should add braces when statements are formatted multiline ==
+if (condition) console.log("this is a very long statement that will be formatted on multiple lines"); else console.log("another very long statement");
+
+[expect]
+if (condition)
+    console.log("this is a very long statement that will be formatted on multiple lines");
+else
+    console.log("another very long statement");
+
+== should handle await expressions with multiline formatting ==
+if (condition) await veryLongFunctionNameThatMakesThisLineVeryLong(); else await anotherVeryLongFunction();
+
+[expect]
+if (condition)
+    await veryLongFunctionNameThatMakesThisLineVeryLong();
+else
+    await anotherVeryLongFunction();
+
+== should keep braces when already multiline ==
+if (condition) {
+    const x = 1;
+    doSomething();
+} else {
+    const y = 2;
+    doOther();
+}
+
+[expect]
+if (condition) {
+    const x = 1;
+    doSomething();
+} else {
+    const y = 2;
+    doOther();
+}
+
+== should handle mixed scenarios with some multiline and some single line ==
+if (condition) veryLongFunctionNameThatWillCauseWrapping(); else if (condition2) doShort(); else {
+    multipleStatements();
+    here();
+}
+
+[expect]
+if (condition)
+    veryLongFunctionNameThatWillCauseWrapping();
+else if (condition2)
+    doShort();
+else {
+    multipleStatements();
+    here();
+}
+
+== should work with function expressions that become multiline ==
+if (condition) function veryLongFunctionName() { return someVeryLongExpressionThatCausesWrapping; } else shortFunc();
+
+[expect]
+if (condition) {
+    function veryLongFunctionName() {
+        return someVeryLongExpressionThatCausesWrapping;
+    }
+} else
+    shortFunc();

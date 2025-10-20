@@ -151,6 +151,24 @@
       }, {
         "const": "preferNone",
         "description": "Forces no braces when the header is one line and body is one line. Otherwise forces braces."
+      }, {
+        "const": "whenNeeded",
+        "description": "Uses braces when needed for clarity or safety, avoiding them when the statement is simple and unambiguous."
+      }, {
+        "const": "whenFormattedMultiLine",
+        "description": "Uses braces when the formatted code spans multiple lines, removing them for single-line statements."
+      }]
+    },
+    "ternaryIndentStyle": {
+      "description": "How ternary conditional expressions should be indented.",
+      "type": "string",
+      "default": "align",
+      "oneOf": [{
+        "const": "align",
+        "description": "Align the ? and : operators under the condition."
+      }, {
+        "const": "structural",
+        "description": "Use structural indentation for the ternary expression."
       }]
     },
     "bracePosition": {
@@ -199,6 +217,9 @@
       }, {
         "const": "nextLine",
         "description": "Forces the next control flow to be on the next line."
+      }, {
+        "const": "nextLineExceptAfterBrace",
+        "description": "Forces the next control flow to be on the next line, except when preceded by a brace."
       }]
     },
     "trailingCommas": {
@@ -1180,6 +1201,14 @@
     },
     "conditionalExpression.operatorPosition": {
       "$ref": "#/definitions/operatorPosition"
+    },
+    "conditionalExpression.indentStyle": {
+      "$ref": "#/definitions/ternaryIndentStyle"
+    },
+    "expressionStatement.forceParentheses": {
+      "description": "Whether to force parentheses around expression statements.",
+      "type": "boolean",
+      "default": true
     },
     "conditionalType.operatorPosition": {
       "$ref": "#/definitions/operatorPosition"

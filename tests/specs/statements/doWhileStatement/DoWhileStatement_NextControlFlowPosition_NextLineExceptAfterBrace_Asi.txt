@@ -1,0 +1,10 @@
+~~ semiColons: asi, doWhileStatement.nextControlFlowPosition: nextLineExceptAfterBrace ~~
+== should keep while on same line after brace with ASI ==
+do {
+    doSomething();
+} while (condition);
+
+[expect]
+do {
+    doSomething()
+} while (condition)
