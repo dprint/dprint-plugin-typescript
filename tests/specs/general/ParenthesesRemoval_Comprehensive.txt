@@ -1,0 +1,352 @@
+~~ expressionStatement.useParentheses: preferNone ~~
+== should retain parentheses that change meaning ==
+const ratio = (a / b) / c;
+
+[expect]
+const ratio = (a / b) / c;
+
+== should remove parentheses inside call arguments ==
+f((1 + 2));
+
+[expect]
+f(1 + 2);
+
+== should remove parentheses inside return statement ==
+function test() {
+    return (value);
+}
+
+[expect]
+function test() {
+    return value;
+}
+
+== should keep parentheses when they affect operator precedence ==
+const result = (a + b) * c;
+
+[expect]
+const result = (a + b) * c;
+
+== should retain parentheses that enforce grouping ==
+const ambiguous = a / (b * c);
+
+[expect]
+const ambiguous = a / (b * c);
+
+== should remove parentheses that do not affect precedence ==
+const precedenceOk = (a * b) + c;
+
+[expect]
+const precedenceOk = a * b + c;
+
+== should remove parentheses in ternary branches ==
+const value = condition ? (left) : (right);
+
+[expect]
+const value = condition ? left : right;
+
+== should remove parentheses inside array elements ==
+const items = [(value), ((other))];
+
+[expect]
+const items = [value, other];
+
+== should retain parentheses in array destructuring pattern when required ==
+const [value = (await load())] = source;
+
+[expect]
+const [value = (await load())] = source;
+
+== should remove parentheses inside object properties ==
+const obj = {
+    prop: (value),
+    nested: ((other)),
+};
+
+[expect]
+const obj = {
+    prop: value,
+    nested: other,
+};
+
+== should remove parentheses inside template expression ==
+const message = `hello ${ (name) }`;
+
+[expect]
+const message = `hello ${ name }`;
+
+== should remove parentheses around optional chaining ==
+const maybe = (obj?.prop);
+
+[expect]
+const maybe = obj?.prop;
+
+== should retain parentheses around optional chaining when combined with exponentiation ==
+const complex = (obj?.value) ** 2;
+
+[expect]
+const complex = (obj?.value) ** 2;
+
+== should remove parentheses around nullish coalescing inside assignments ==
+const fallback = (primary ?? secondary);
+
+[expect]
+const fallback = primary ?? secondary;
+
+== should remove parentheses around await inside expressions ==
+async function load() {
+    const data = (await fetchData());
+}
+
+[expect]
+async function load() {
+    const data = await fetchData();
+}
+
+== should remove parentheses around yield expression ==
+function* gen() {
+    yield (value);
+}
+
+[expect]
+function* gen() {
+    yield value;
+}
+
+== should retain parentheses around yield used in expression ==
+const collected = [ (yield value) ];
+
+[expect]
+const collected = [ (yield value) ];
+
+== should remove parentheses around throw expression ==
+throw (error);
+
+[expect]
+throw error;
+
+== should retain parentheses around throw in ternary ==
+const result = condition ? value : (throw error);
+
+[expect]
+const result = condition ? value : (throw error);
+
+== should remove parentheses around export default expression ==
+export default (component);
+
+[expect]
+export default component;
+
+== should retain parentheses around export default when template literal ==
+export default (`value`);
+
+[expect]
+export default (`value`);
+
+== should remove parentheses in if condition ==
+if ((condition)) {
+    doSomething();
+}
+
+[expect]
+if (condition) {
+    doSomething();
+}
+
+== should remove parentheses in while condition ==
+while ((ready)) {
+    run();
+}
+
+[expect]
+while (ready) {
+    run();
+}
+
+== should remove parentheses in do while condition ==
+do {
+    work();
+} while ((shouldContinue));
+
+[expect]
+do {
+    work();
+} while (shouldContinue);
+
+== should remove parentheses in for-of iterable ==
+for (const item of (collection)) {
+    consume(item);
+}
+
+[expect]
+for (const item of collection) {
+    consume(item);
+}
+
+== should remove parentheses in for head ==
+for (let i = (0); i < (max); i++) {
+    step(i);
+}
+
+[expect]
+for (let i = 0; i < max; i++) {
+    step(i);
+}
+
+== should remove parentheses in switch discriminant and cases ==
+switch ((value)) {
+case (1):
+    break;
+}
+
+[expect]
+switch (value) {
+case 1:
+    break;
+}
+
+== should remove parentheses around unary operations ==
+const increment = (++(value));
+
+[expect]
+const increment = ++value;
+
+== should remove parentheses in default parameter initializers ==
+function configure(option = (defaultValue)) {}
+
+[expect]
+function configure(option = defaultValue) {}
+
+== should remove parentheses inside logical expressions ==
+const combined = (a && b) || (c && d);
+
+[expect]
+const combined = a && b || c && d;
+
+== should retain parentheses in logical expression when required ==
+const precedence = a && (b || c);
+
+[expect]
+const precedence = a && (b || c);
+
+== should remove parentheses around new expression ==
+const instance = (new Foo());
+
+[expect]
+const instance = new Foo();
+
+== should retain parentheses around new with call when needed ==
+const construct = (new Foo())();
+
+[expect]
+const construct = (new Foo())();
+
+== should remove parentheses around typeof/void/delete ==
+const info = {
+    type: typeof (value),
+    cleared: void (0),
+    removed: delete (obj.prop),
+};
+
+[expect]
+const info = {
+    type: typeof value,
+    cleared: void 0,
+    removed: delete obj.prop,
+};
+
+== should remove parentheses around tagged template expressions ==
+const tagged = tag((value));
+
+[expect]
+const tagged = tag(value);
+
+== should remove parentheses inside class field initializer ==
+class Example {
+    value = (initial);
+}
+
+[expect]
+class Example {
+    value = initial;
+}
+
+== should remove parentheses in array destructuring defaults ==
+const [first = (fallback)] = source;
+
+[expect]
+const [first = fallback] = source;
+
+== should remove parentheses in object destructuring defaults ==
+const { value = (fallback) } = source;
+
+[expect]
+const { value = fallback } = source;
+
+== should remove parentheses around dynamic import specifier ==
+async function load() {
+    return import((moduleName));
+}
+
+[expect]
+async function load() {
+    return import(moduleName);
+}
+
+== should retain parentheses around dynamic import with assertions ==
+async function load() {
+    return import(moduleName, { with: (options) });
+}
+
+[expect]
+async function load() {
+    return import(moduleName, { with: (options) });
+}
+
+== should remove parentheses around class heritage ==
+class Derived extends (Base) {}
+
+[expect]
+class Derived extends Base {}
+
+== should remove parentheses in super call ==
+class Child extends Base {
+    constructor() {
+        super((arg));
+    }
+}
+
+[expect]
+class Child extends Base {
+    constructor() {
+        super(arg);
+    }
+}
+
+== should remove parentheses around yield star expression ==
+function* forward() {
+    yield* (iterable);
+}
+
+[expect]
+function* forward() {
+    yield* iterable;
+}
+
+== should keep parentheses around sequence expressions ==
+doSomething((a, b));
+
+[expect]
+doSomething((a, b));
+
+== should remove parentheses around call expression results ==
+const resultCall = (compute()) + 1;
+
+[expect]
+const resultCall = compute() + 1;
+
+== should remove parentheses around expressions in for loop headers ==
+for (let i = (0); i < (max); i++) {}
+
+[expect]
+for (let i = 0; i < max; i++) {}
