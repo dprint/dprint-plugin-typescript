@@ -79,6 +79,18 @@ a + b;
 [expect]
 a + b;
 
+== should remove redundant outer parens from nested binary expressions ==
+((a || b) && c);
+
+[expect]
+(a || b) && c;
+
+== should keep parentheses around arrow function used as callee ==
+(() => 42)();
+
+[expect]
+(() => 42)();
+
 == should keep parentheses around object literal with as assertion ==
 ({}) as Foo;
 

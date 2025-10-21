@@ -2926,14 +2926,27 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
         if matches!(unwrapped, Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_)) {
           return false; // keep these parens
         } else if matches!(unwrapped, Node::ArrowExpr(_)) {
-          // arrow functions only need parens if they're followed by an assertion
-          if matches!(parent.kind(), NodeKind::TsAsExpr | NodeKind::TsSatisfiesExpr | NodeKind::TsConstAssertion | NodeKind::TsTypeAssertion | NodeKind::TsNonNullExpr) {
-            return false; // keep parens for arrow with assertion
+          // arrow functions only need parens if they're used (called, have assertion, member access, etc.)
+          if matches!(parent.kind(), NodeKind::TsAsExpr | NodeKind::TsSatisfiesExpr | NodeKind::TsConstAssertion | NodeKind::TsTypeAssertion | NodeKind::TsNonNullExpr | NodeKind::CallExpr | NodeKind::MemberExpr | NodeKind::OptChainExpr) {
+            return false; // keep parens for arrow with assertion or being used
+          } else if matches!(parent.kind(), NodeKind::ExprStmt) {
+            return true; // remove parens for bare arrow in statement position
           } else {
-            return true; // remove parens for bare arrow
+            return false; // keep parens in other contexts
           }
+        } else if matches!(parent.kind(), NodeKind::TsAsExpr | NodeKind::TsSatisfiesExpr | NodeKind::TsConstAssertion | NodeKind::TsTypeAssertion | NodeKind::TsNonNullExpr) {
+          // parent is an assertion - only remove parens if inner is also an assertion (nested chains)
+          if matches!(node.expr.kind(), NodeKind::TsAsExpr | NodeKind::TsSatisfiesExpr | NodeKind::TsConstAssertion | NodeKind::TsTypeAssertion | NodeKind::TsNonNullExpr) {
+            return true; // remove parens in nested assertion chains like ((expr as X) as Y)
+          } else {
+            return false; // keep parens when parent is assertion but inner isn't (for operator precedence)
+          }
+        } else if matches!(parent.kind(), NodeKind::ExprStmt) {
+          // direct child of expression statement - safe to remove if not object/function/class/arrow
+          return true;
         } else {
-          return true; // remove all other parens in expression statements
+          // parens are not direct child of ExprStmt - keep them as they may be needed for precedence/grouping
+          return false;
         }
       }
     }
