@@ -2917,11 +2917,26 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
   }
 
   // keep parens for object/function/class at statement position to avoid ambiguity
-  if parent.kind() == NodeKind::ExprStmt
-    && !context.config.expression_statement_disambiguation_parentheses
-    && matches!(unwrap_assertion_node(node.expr.into()), Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_))
-  {
-    return false;
+  if !context.config.expression_statement_disambiguation_parentheses {
+    // check if we're inside an expression statement (anywhere up the tree)
+    for ancestor in node.ancestors() {
+      if ancestor.kind() == NodeKind::ExprStmt {
+        // we're in an expression statement - only keep parens if needed for disambiguation
+        let unwrapped = unwrap_assertion_node(node.expr.into());
+        if matches!(unwrapped, Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_)) {
+          return false; // keep these parens
+        } else if matches!(unwrapped, Node::ArrowExpr(_)) {
+          // arrow functions only need parens if they're followed by an assertion
+          if matches!(parent.kind(), NodeKind::TsAsExpr | NodeKind::TsSatisfiesExpr | NodeKind::TsConstAssertion | NodeKind::TsTypeAssertion | NodeKind::TsNonNullExpr) {
+            return false; // keep parens for arrow with assertion
+          } else {
+            return true; // remove parens for bare arrow
+          }
+        } else {
+          return true; // remove all other parens in expression statements
+        }
+      }
+    }
   }
 
   if matches!(node.expr.kind(), NodeKind::ArrayLit) || matches!(node.expr, Expr::Ident(_)) {

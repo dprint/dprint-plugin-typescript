@@ -229,17 +229,17 @@ foo() as Bar;
 [expect]
 ({} as X) as Y;
 
-== should keep necessary parens in nested assertion chains on function expression ==
+== should remove redundant outer parens from nested assertion chains on function expression ==
 ((function() {}) as X) as Y;
 
 [expect]
-((function() {}) as X) as Y;
+(function() {}) as X as Y;
 
-== should keep necessary parens in nested assertion chains on class expression ==
+== should remove redundant outer parens from nested assertion chains on class expression ==
 ((class {}) as X) as Y;
 
 [expect]
-((class {}) as X) as Y;
+(class {}) as X as Y;
 
 == should keep parentheses around anonymous class expression ==
 (class {});
