@@ -1,4 +1,4 @@
-~~ expressionStatement.disambiguationParentheses: false ~~
+~~ expressionStatement.useParentheses: preferNone ~~
 == should keep parentheses around object literal (disambiguation required) ==
 ({
     prop: value
@@ -114,6 +114,42 @@ value;
 
 [expect]
 (() => 42) as NumberFunction;
+
+== should remove parentheses around await expression ==
+(await value());
+
+[expect]
+await value();
+
+== should remove parentheses around unary expression ==
+(+value);
+
+[expect]
++value;
+
+== should remove parentheses around prefix increment ==
++(value);
+
+[expect]
++value;
+
+== should remove parentheses around new expression ==
+(new Foo());
+
+[expect]
+new Foo();
+
+== should remove parentheses around optional chain expression ==
+(obj?.prop);
+
+[expect]
+obj?.prop;
+
+== should remove parentheses around nullish coalescing expression ==
+(a ?? b);
+
+[expect]
+a ?? b;
 
 == should keep parentheses around object literal with as assertion ==
 ({}) as Foo;
@@ -276,6 +312,12 @@ foo() as Bar;
 
 [expect]
 (class {}) as X as Y;
+
+== should keep parentheses around sequence expression ==
+(a, b);
+
+[expect]
+(a, b);
 
 == should keep parentheses around anonymous class expression ==
 (class {});
