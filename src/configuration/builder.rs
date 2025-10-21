@@ -822,6 +822,10 @@ impl ConfigurationBuilder {
     self.insert("conditionalExpression.operatorPosition", value.to_string().into())
   }
 
+  pub fn conditional_expression_indent_style(&mut self, value: TernaryIndentStyle) -> &mut Self {
+    self.insert("conditionalExpression.indentStyle", value.to_string().into())
+  }
+
   pub fn conditional_type_operator_position(&mut self, value: OperatorPosition) -> &mut Self {
     self.insert("conditionalType.operatorPosition", value.to_string().into())
   }

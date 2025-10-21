@@ -137,6 +137,19 @@ pub enum OperatorPosition {
 
 generate_str_to_from![OperatorPosition, [Maintain, "maintain"], [SameLine, "sameLine"], [NextLine, "nextLine"]];
 
+/// How to indent ternary expression branches.
+#[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TernaryIndentStyle {
+  /// Align all ternary branches at the same indentation level (original behavior).
+  Align,
+  /// Add structural indentation for nested ternary branches.
+  Structural,
+}
+
+generate_str_to_from![TernaryIndentStyle, [Align, "align"], [Structural, "structural"]];
+
+
 /// Where to place a node that could be on the same line or next line.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -466,6 +479,8 @@ pub struct Configuration {
   pub binary_expression_operator_position: OperatorPosition,
   #[serde(rename = "conditionalExpression.operatorPosition")]
   pub conditional_expression_operator_position: OperatorPosition,
+  #[serde(rename = "conditionalExpression.indentStyle")]
+  pub conditional_expression_indent_style: TernaryIndentStyle,
   #[serde(rename = "conditionalType.operatorPosition")]
   pub conditional_type_operator_position: OperatorPosition,
   /* single body position */

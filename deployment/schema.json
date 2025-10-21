@@ -153,6 +153,18 @@
         "description": "Forces no braces when the header is one line and body is one line. Otherwise forces braces."
       }]
     },
+    "ternaryIndentStyle": {
+      "description": "How ternary conditional expressions should be indented.",
+      "type": "string",
+      "default": "align",
+      "oneOf": [{
+        "const": "align",
+        "description": "Align the ? and : operators under the condition."
+      }, {
+        "const": "structural",
+        "description": "Use structural indentation for the ternary expression."
+      }]
+    },
     "bracePosition": {
       "description": "Where to place the opening brace.",
       "type": "string",
@@ -1180,6 +1192,9 @@
     },
     "conditionalExpression.operatorPosition": {
       "$ref": "#/definitions/operatorPosition"
+    },
+    "conditionalExpression.indentStyle": {
+      "$ref": "#/definitions/ternaryIndentStyle"
     },
     "conditionalType.operatorPosition": {
       "$ref": "#/definitions/operatorPosition"
