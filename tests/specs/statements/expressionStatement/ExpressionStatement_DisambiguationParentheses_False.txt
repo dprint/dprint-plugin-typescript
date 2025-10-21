@@ -85,11 +85,35 @@ a + b;
 [expect]
 (a || b) && c;
 
+== should remove redundant outer parens from simple expression ==
+(value);
+
+[expect]
+value;
+
+== should keep parentheses that affect operator precedence ==
+((a + b) * c);
+
+[expect]
+(a + b) * c;
+
 == should keep parentheses around arrow function used as callee ==
 (() => 42)();
 
 [expect]
 (() => 42)();
+
+== should keep parentheses around arrow function used in optional chain ==
+(() => 42)?.prop;
+
+[expect]
+(() => 42)?.prop;
+
+== should keep parentheses around arrow function with type assertion ==
+(() => 42) as NumberFunction;
+
+[expect]
+(() => 42) as NumberFunction;
 
 == should keep parentheses around object literal with as assertion ==
 ({}) as Foo;
