@@ -2661,6 +2661,20 @@ fn gen_fn_expr<'a>(node: &FnExpr<'a>, context: &mut Context<'a>) -> PrintItems {
   }
 }
 
+// unwrap type assertions to find the underlying expression
+fn unwrap_assertion_node(mut node: Node) -> Node {
+  loop {
+    node = match node {
+      Node::TsAsExpr(n) => n.expr.into(),
+      Node::TsSatisfiesExpr(n) => n.expr.into(),
+      Node::TsConstAssertion(n) => n.expr.into(),
+      Node::TsTypeAssertion(n) => n.expr.into(),
+      Node::TsNonNullExpr(n) => n.expr.into(),
+      _ => return node,
+    };
+  }
+}
+
 fn should_add_parens_around_expr<'a>(node: Node<'a>, context: &Context<'a>) -> bool {
   let original_node = node;
   for node in node.ancestors() {
@@ -2688,7 +2702,11 @@ fn should_add_parens_around_expr<'a>(node: Node<'a>, context: &Context<'a>) -> b
           return false;
         }
       }
-      Node::ExprStmt(_) => return true,
+      Node::ExprStmt(_) => {
+        // keep parens for object/function/class at statement position to avoid ambiguity
+        return context.config.expression_statement_disambiguation_parentheses
+          || matches!(unwrap_assertion_node(original_node), Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_));
+      }
       Node::MemberExpr(expr) => {
         if matches!(expr.prop, MemberProp::Computed(_)) && expr.prop.range().contains(&original_node.range()) {
           return false;
@@ -2898,6 +2916,14 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     return false;
   }
 
+  // keep parens for object/function/class at statement position to avoid ambiguity
+  if parent.kind() == NodeKind::ExprStmt
+    && !context.config.expression_statement_disambiguation_parentheses
+    && matches!(unwrap_assertion_node(node.expr.into()), Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_))
+  {
+    return false;
+  }
+
   if matches!(node.expr.kind(), NodeKind::ArrayLit) || matches!(node.expr, Expr::Ident(_)) {
     return true;
   }
@@ -2910,13 +2936,17 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
   if matches!(
     parent.kind(),
     NodeKind::ParenExpr
-      | NodeKind::ExprStmt
       | NodeKind::JSXElement
       | NodeKind::JSXFragment
       | NodeKind::JSXExprContainer
       | NodeKind::UpdateExpr
       | NodeKind::ComputedPropName
   ) {
+    return true;
+  }
+
+  // keep parens for all expression statements when disambiguation is enabled
+  if parent.kind() == NodeKind::ExprStmt && context.config.expression_statement_disambiguation_parentheses {
     return true;
   }
 

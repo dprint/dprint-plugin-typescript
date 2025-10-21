@@ -1181,6 +1181,11 @@
     "conditionalExpression.operatorPosition": {
       "$ref": "#/definitions/operatorPosition"
     },
+    "expressionStatement.disambiguationParentheses": {
+      "description": "Whether to use parentheses around expression statements for disambiguation.",
+      "type": "boolean",
+      "default": true
+    },
     "conditionalType.operatorPosition": {
       "$ref": "#/definitions/operatorPosition"
     },

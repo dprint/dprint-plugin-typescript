@@ -1077,6 +1077,10 @@ impl ConfigurationBuilder {
     self.insert("whileStatement.spaceAround", value.into())
   }
 
+  pub fn expression_statement_disambiguation_parentheses(&mut self, value: bool) -> &mut Self {
+    self.insert("expressionStatement.disambiguationParentheses", value.into())
+  }
+
   #[cfg(test)]
   pub(super) fn get_inner_config(&self) -> ConfigKeyMap {
     self.config.clone()

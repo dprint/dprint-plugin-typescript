@@ -662,4 +662,7 @@ pub struct Configuration {
   pub tuple_type_space_around: bool,
   #[serde(rename = "whileStatement.spaceAround")]
   pub while_statement_space_around: bool,
+  /* expression parentheses */
+  #[serde(rename = "expressionStatement.disambiguationParentheses")]
+  pub expression_statement_disambiguation_parentheses: bool,
 }
