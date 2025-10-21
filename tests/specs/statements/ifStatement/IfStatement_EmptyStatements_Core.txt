@@ -1,0 +1,120 @@
+~~ ifStatement.useBraces: whenNeeded ~~
+== should keep braces for truly empty block ==
+if (condition) {}
+
+[expect]
+if (condition) {}
+
+== should keep braces for block with only empty statements ==
+if (condition) {
+  ;
+}
+
+[expect]
+if (condition) {
+}
+
+== should remove braces when empty statement plus single expression ==
+if (condition) {
+  ;
+  doSomething();
+}
+
+[expect]
+if (condition)
+    doSomething();
+
+== should keep braces when empty statement plus declaration ==
+if (condition) {
+  ;
+  const value = 42;
+}
+
+[expect]
+if (condition) {
+    const value = 42;
+}
+
+== should remove braces for expression plus empty statement ==
+if (condition) {
+  doSomething();
+  ;
+}
+
+[expect]
+if (condition)
+    doSomething();
+
+== should keep braces for declaration plus empty statement ==
+if (condition) {
+  const value = 42;
+  ;
+}
+
+[expect]
+if (condition) {
+    const value = 42;
+}
+
+== should handle multiple empty statements ==
+if (condition) {
+  ;
+  ;
+  ;
+}
+
+[expect]
+if (condition) {
+}
+
+== should handle mixed empty statements and expressions ==
+if (condition) {
+  ;
+  doSomething();
+  ;
+  doOtherThing();
+}
+
+[expect]
+if (condition) {
+    doSomething();
+
+    doOtherThing();
+}
+
+== should handle empty statements with await expressions ==
+if (condition) {
+  ;
+  await doSomething();
+}
+
+[expect]
+if (condition)
+    await doSomething();
+
+== should handle empty statements with function declarations ==
+if (condition) {
+  ;
+  function myFunc() {}
+}
+
+[expect]
+if (condition) {
+    function myFunc() {}
+}
+
+== should handle complex mixed scenarios ==
+if (condition) {
+  ;
+  const x = 42;
+  ;
+  doSomething();
+  ;
+}
+
+[expect]
+if (condition) {
+    const x = 42;
+
+    doSomething();
+}
