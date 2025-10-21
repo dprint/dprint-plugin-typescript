@@ -2945,8 +2945,9 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     return true;
   }
 
-  // keep parens for all expression statements when disambiguation is enabled
-  if parent.kind() == NodeKind::ExprStmt && context.config.expression_statement_disambiguation_parentheses {
+  // handle expression statements: keep all parens when disambiguation enabled,
+  // otherwise remove them (necessary ones already kept above at line 2920)
+  if parent.kind() == NodeKind::ExprStmt {
     return true;
   }
 

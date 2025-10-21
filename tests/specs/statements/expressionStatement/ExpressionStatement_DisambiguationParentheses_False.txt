@@ -25,6 +25,12 @@
 [expect]
 () => 42;
 
+== should remove parentheses around arrow function ==
+(() => 42);
+
+[expect]
+() => 42;
+
 == should NOT add parentheses around simple identifier (not supported) ==
 someVariable;
 
@@ -33,6 +39,12 @@ someVariable;
 
 == should NOT add parentheses around call expression (not supported) ==
 someFunction();
+
+[expect]
+someFunction();
+
+== should remove parentheses around call expression ==
+(someFunction());
 
 [expect]
 someFunction();
@@ -57,6 +69,12 @@ obj.prop;
 
 == should NOT add parentheses around binary expression (not supported) ==
 a + b;
+
+[expect]
+a + b;
+
+== should remove parentheses around binary expression ==
+(a + b);
 
 [expect]
 a + b;
