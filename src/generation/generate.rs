@@ -8425,6 +8425,7 @@ fn gen_node_in_parens<'a>(gen_node: impl FnOnce(&mut Context<'a>) -> PrintItems,
   fn get_force_use_new_lines(inner_range: SourceRange, paren_range: &Option<SourceRange>, context: &mut Context) -> bool {
     if !context.config.parentheses_prefer_single_line {
       if let Some(paren_range) = &paren_range {
+        // Check if opening paren and inner content start on different lines
         if node_helpers::get_use_new_lines_for_nodes(&paren_range.start(), &inner_range, context.program) {
           return true;
         }
