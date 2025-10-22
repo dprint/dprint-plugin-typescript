@@ -117,6 +117,28 @@ const optionalClassIife = (class {})?.();
 [expect]
 const optionalClassIife = (class {})?.();
 
+== should keep parentheses around optional chained class expression property access ==
+const optionalClassProp = (class { constructor() { this.prop = 1; } })?.prop;
+
+[expect]
+const optionalClassProp = (class {
+    constructor() {
+        this.prop = 1;
+    }
+})?.prop;
+
+== should keep parentheses around optional chained function expression property access ==
+const optionalFuncProp = (function () {})?.prop;
+
+[expect]
+const optionalFuncProp = (function() {})?.prop;
+
+== should keep parentheses around optional chained arrow function property access ==
+const optionalArrowProp = (() => {})?.prop;
+
+[expect]
+const optionalArrowProp = (() => {})?.prop;
+
 == should remove redundant parens around optional chained new expression access ==
 const optionalNewProp = (new Foo())?.prop;
 
@@ -139,6 +161,16 @@ async function load() {
     const data = await fetchData();
 }
 
+== should keep parentheses around awaited call when accessing members ==
+async function useData() {
+    return (await loadData()).map(item => item);
+}
+
+[expect]
+async function useData() {
+    return (await loadData()).map(item => item);
+}
+
 == should remove parentheses around yield expression ==
 function* gen() {
     yield (value);
@@ -157,6 +189,16 @@ function* collect() {
 [expect]
 function* collect() {
     const collected = [(yield value)];
+}
+
+== should keep parentheses around yield when accessing members ==
+function* project() {
+    const result = (yield getValue()).prop;
+}
+
+[expect]
+function* project() {
+    const result = (yield getValue()).prop;
 }
 
 == should remove parentheses around throw expression ==
@@ -252,6 +294,30 @@ const increment = (++(value));
 
 [expect]
 const increment = ++value;
+
+== should remove parentheses around typeof in binary expressions ==
+const typeCheck = (typeof value) + " suffix";
+
+[expect]
+const typeCheck = typeof value + " suffix";
+
+== should keep parentheses around delete when followed by member access ==
+const deleteResult = (delete obj.prop).toString();
+
+[expect]
+const deleteResult = (delete obj.prop).toString();
+
+== should keep parentheses around typeof when accessing members ==
+const typeInfo = (typeof value).toUpperCase();
+
+[expect]
+const typeInfo = (typeof value).toUpperCase();
+
+== should keep parentheses around void when accessing members ==
+const voidInfo = (void 0).toString();
+
+[expect]
+const voidInfo = (void 0).toString();
 
 == should remove parentheses in default parameter initializers ==
 function configure(option = (defaultValue)) {}
@@ -392,3 +458,84 @@ for (let i = (0); i < (max); i++) {}
 
 [expect]
 for (let i = 0; i < max; i++) {}
+
+== should retain parentheses when mixing nullish coalescing with logical OR ==
+const fallbackOr = (x ?? y) || z;
+
+[expect]
+const fallbackOr = (x ?? y) || z;
+
+== should retain parentheses when mixing nullish coalescing with logical AND ==
+const fallbackAnd = (x ?? y) && z;
+
+[expect]
+const fallbackAnd = (x ?? y) && z;
+
+== should retain parentheses when mixing logical OR with nullish coalescing ==
+const orWithNull = x || (y ?? z);
+
+[expect]
+const orWithNull = x || (y ?? z);
+
+== should retain parentheses when mixing logical AND with nullish coalescing ==
+const andWithNull = x && (y ?? z);
+
+[expect]
+const andWithNull = x && (y ?? z);
+
+== should remove parentheses around delete in logical expressions ==
+const deleteCheck = (delete obj.prop) && other;
+
+[expect]
+const deleteCheck = delete obj.prop && other;
+
+== should remove parentheses around typeof in binary expressions ==
+const typeCheck = (typeof value) + " suffix";
+
+[expect]
+const typeCheck = typeof value + " suffix";
+
+== should remove parentheses around void in logical expressions ==
+const voidCheck = (void 0) || fallback;
+
+[expect]
+const voidCheck = void 0 || fallback;
+
+== should keep parentheses around await in binary expressions ==
+async function asyncBinary() {
+    const result = (await fetch()) + 1;
+}
+
+[expect]
+async function asyncBinary() {
+    const result = (await fetch()) + 1;
+}
+
+== should remove redundant parentheses around await in ternary expressions ==
+async function asyncTernary() {
+    const value = condition ? (await foo()) : bar;
+}
+
+[expect]
+async function asyncTernary() {
+    const value = condition ? await foo() : bar;
+}
+
+== should retain parentheses around yield in binary expressions ==
+function* yieldBinary() {
+    const result = (yield value) + 1;
+}
+
+[expect]
+function* yieldBinary() {
+    const result = (yield value) + 1;
+}
+== should keep parentheses around await when combined with property access before ternary ==
+async function ternaryAccess(cond) {
+    return ((await fetchData()).value) ? (await fetchData()).value : defaultValue;
+}
+
+[expect]
+async function ternaryAccess(cond) {
+    return ((await fetchData()).value) ? (await fetchData()).value : defaultValue;
+}

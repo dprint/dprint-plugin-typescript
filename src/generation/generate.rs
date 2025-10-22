@@ -3055,9 +3055,39 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
 
     // Keep parens around arrow/function/class expressions when they're being called or used with optional chaining
     // Without parens these become invalid syntax: function() {}() or function() {}?.()
-    if matches!(parent.kind(), NodeKind::CallExpr | NodeKind::OptCall | NodeKind::OptChainExpr) {
-      if matches!(node.expr, Expr::Arrow(_) | Expr::Fn(_) | Expr::Class(_)) {
+    if matches!(node.expr, Expr::Arrow(_) | Expr::Fn(_) | Expr::Class(_)) {
+      if matches!(parent.kind(), NodeKind::CallExpr | NodeKind::OptCall | NodeKind::OptChainExpr) {
         return false; // keep parens: (() => {})(), (function() {})(), (() => {})?.()
+      }
+      // Also need to check ancestors for OptChainExpr when doing property access
+      // (function() {})?.prop needs parens
+      if node.ancestors().any(|a| matches!(a.kind(), NodeKind::OptChainExpr)) {
+        return false; // keep parens: (function() {})?.prop
+      }
+    }
+
+    // Keep parens around high-precedence unary expressions (typeof, delete, void, unary +/-, etc.)
+    // ONLY when used for member access, because these unary ops have high precedence
+    // (delete obj.prop).toString() needs parens, but (delete obj.prop) && other doesn't
+    if matches!(node.expr, Expr::Unary(_)) {
+      // Only keep parens when accessing members on the unary expression result
+      if matches!(parent.kind(), NodeKind::MemberExpr | NodeKind::OptChainExpr) {
+        return false; // keep parens: (typeof x).toUpperCase(), (delete obj.prop).toString()
+      }
+    }
+
+    // Keep parens around low-precedence await/yield expressions in most contexts
+    // These have very low precedence, lower than binary operators
+    // (yield value) + 1 is different from yield value + 1
+    // (await foo()) + 1 is different from await foo() + 1
+    if matches!(node.expr, Expr::Await(_) | Expr::Yield(_)) {
+      // Keep parens in binary, member access, and optional chaining contexts
+      // Note: Ternary (CondExpr) allows await/yield in branches without parens
+      if matches!(
+        parent.kind(),
+        NodeKind::BinExpr | NodeKind::MemberExpr | NodeKind::OptChainExpr
+      ) {
+        return false; // keep parens: (await x) + 1, (yield x).prop, etc.
       }
     }
   }
