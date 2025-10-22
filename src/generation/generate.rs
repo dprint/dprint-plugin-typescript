@@ -2890,6 +2890,22 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     return false;
   }
 
+  // Rule 1.5: Preserve parens for multi-line expressions (readability) in preferNone mode
+  // If the parentheses themselves span multiple lines in the source (i.e., opening and closing
+  // parens are on different lines), keep them to preserve the user's formatting intent.
+  // This indicates the user deliberately formatted it this way for readability.
+  // Exclude JSX elements as they have their own formatting rules.
+  if context.config.expression_statement_use_parentheses == ExpressionStatementParentheses::PreferNone {
+    if !matches!(node.expr.kind(), NodeKind::JSXElement | NodeKind::JSXFragment) {
+      // Check if the opening and closing parens are on different lines
+      let paren_start_line = node.start_line_fast(context.program);
+      let paren_end_line = node.end_line_fast(context.program);
+      if paren_start_line != paren_end_line {
+        return false; // keep parens for multi-line expressions
+      }
+    }
+  }
+
   // Check for ASI (Automatic Semicolon Insertion) hazards
   // If the parenthesized expression spans multiple lines and is in a context where ASI applies,
   // we must keep the parens to avoid semantic changes
