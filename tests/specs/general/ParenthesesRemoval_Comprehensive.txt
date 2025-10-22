@@ -93,6 +93,30 @@ const iifeResult = (function () {})();
 [expect]
 const iifeResult = (function() {})();
 
+== should keep parentheses around optional chained function expression callees ==
+const optionalIife = (function () {})?.();
+
+[expect]
+const optionalIife = (function() {})?.();
+
+== should keep parentheses around optional chained arrow callees ==
+const optionalArrowIife = (() => {})?.();
+
+[expect]
+const optionalArrowIife = (() => {})?.();
+
+== should keep parentheses around optional chained class expression callees ==
+const optionalClassIife = (class {})?.();
+
+[expect]
+const optionalClassIife = (class {})?.();
+
+== should keep parentheses around optional chained new expression access ==
+const optionalNewProp = (new Foo())?.prop;
+
+[expect]
+const optionalNewProp = (new Foo())?.prop;
+
 == should remove parentheses around nullish coalescing inside assignments ==
 const fallback = (primary ?? secondary);
 

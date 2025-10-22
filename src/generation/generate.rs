@@ -3041,6 +3041,27 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
         }
       }
     }
+
+    // Check if parens are needed around `new` expressions when called or used with optional chaining
+    // (new Foo())() vs new Foo()() or (new Foo())?.prop vs new Foo()?.prop
+    if matches!(node.expr, Expr::New(_)) {
+      // Check parent or ancestors for call/optional chaining contexts
+      if matches!(parent.kind(), NodeKind::CallExpr | NodeKind::OptCall | NodeKind::OptChainExpr) {
+        return false; // keep parens: (new Foo())() or (new Foo())?.()
+      }
+      // Also check if we're inside an OptChainExpr via MemberExpr
+      if node.ancestors().any(|a| matches!(a.kind(), NodeKind::OptChainExpr)) {
+        return false; // keep parens: (new Foo())?.prop
+      }
+    }
+
+    // Keep parens around arrow/function/class expressions when they're being called or used with optional chaining
+    // Without parens these become invalid syntax: function() {}() or function() {}?.()
+    if matches!(parent.kind(), NodeKind::CallExpr | NodeKind::OptCall | NodeKind::OptChainExpr) {
+      if matches!(node.expr, Expr::Arrow(_) | Expr::Fn(_) | Expr::Class(_)) {
+        return false; // keep parens: (() => {})(), (function() {})(), (() => {})?.()
+      }
+    }
   }
 
   // With preferNone, default to removing parens unless they're needed for correctness
@@ -3106,21 +3127,6 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
             return false; // keep parens: (obj?.value) ** 2
           }
         }
-      }
-    }
-
-    // Check if parens are needed around `new` expressions when called
-    if parent.kind() == NodeKind::CallExpr {
-      if matches!(node.expr, Expr::New(_)) {
-        return false; // keep parens: (new Foo())() vs new Foo()()
-      }
-    }
-
-    // Keep parens around arrow/function/class expressions when they're being called
-    // Without parens these become invalid syntax: function() {}() or class {}()
-    if parent.kind() == NodeKind::CallExpr {
-      if matches!(node.expr, Expr::Arrow(_) | Expr::Fn(_) | Expr::Class(_)) {
-        return false; // keep parens: (() => {})(), (function() {})(), (class {})()
       }
     }
 
