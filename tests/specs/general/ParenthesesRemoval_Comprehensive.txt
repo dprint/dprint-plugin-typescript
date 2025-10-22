@@ -67,7 +67,7 @@ const obj = {
 const message = `hello ${ (name) }`;
 
 [expect]
-const message = `hello ${ name }`;
+const message = `hello ${name}`;
 
 == should remove parentheses around optional chaining ==
 const maybe = (obj?.prop);
@@ -114,7 +114,7 @@ function* collect() {
 
 [expect]
 function* collect() {
-    const collected = [ (yield value) ];
+    const collected = [(yield value)];
 }
 
 == should remove parentheses around throw expression ==
@@ -127,7 +127,9 @@ throw error;
 const result = condition ? value : (() => { throw error; })();
 
 [expect]
-const result = condition ? value : (() => { throw error; })();
+const result = condition ? value : (() => {
+    throw error;
+})();
 
 == should remove parentheses around export default expression ==
 export default (component);
@@ -199,8 +201,8 @@ case (1):
 
 [expect]
 switch (value) {
-case 1:
-    break;
+    case 1:
+        break;
 }
 
 == should remove parentheses around unary operations ==
@@ -298,7 +300,7 @@ async function load() {
 
 [expect]
 async function load() {
-    return import(moduleName, { with: (options) });
+    return import(moduleName, { with: options });
 }
 
 == should remove parentheses around class heritage ==
