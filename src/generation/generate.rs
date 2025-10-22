@@ -3042,16 +3042,14 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
       }
     }
 
-    // Check if parens are needed around `new` expressions when called or used with optional chaining
-    // (new Foo())() vs new Foo()() or (new Foo())?.prop vs new Foo()?.prop
+    // Check if parens are needed around `new` expressions when called
+    // (new Foo())() vs new Foo()() - parens needed for immediate calls
+    // (new Foo())?.() - parens needed for optional calls
+    // But (new Foo())?.prop can be simplified to new Foo()?.prop (parens redundant)
     if matches!(node.expr, Expr::New(_)) {
-      // Check parent or ancestors for call/optional chaining contexts
-      if matches!(parent.kind(), NodeKind::CallExpr | NodeKind::OptCall | NodeKind::OptChainExpr) {
+      // Only keep parens for call expressions (regular or optional)
+      if matches!(parent.kind(), NodeKind::CallExpr | NodeKind::OptCall) {
         return false; // keep parens: (new Foo())() or (new Foo())?.()
-      }
-      // Also check if we're inside an OptChainExpr via MemberExpr
-      if node.ancestors().any(|a| matches!(a.kind(), NodeKind::OptChainExpr)) {
-        return false; // keep parens: (new Foo())?.prop
       }
     }
 

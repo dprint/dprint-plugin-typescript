@@ -105,17 +105,23 @@ const optionalArrowIife = (() => {})?.();
 [expect]
 const optionalArrowIife = (() => {})?.();
 
+== should remove redundant parens in nested optional arrow calls ==
+const nestedOptionalArrow = ((() => {})?.())?.();
+
+[expect]
+const nestedOptionalArrow = (() => {})?.()?.();
+
 == should keep parentheses around optional chained class expression callees ==
 const optionalClassIife = (class {})?.();
 
 [expect]
 const optionalClassIife = (class {})?.();
 
-== should keep parentheses around optional chained new expression access ==
+== should remove redundant parens around optional chained new expression access ==
 const optionalNewProp = (new Foo())?.prop;
 
 [expect]
-const optionalNewProp = (new Foo())?.prop;
+const optionalNewProp = new Foo()?.prop;
 
 == should remove parentheses around nullish coalescing inside assignments ==
 const fallback = (primary ?? secondary);
