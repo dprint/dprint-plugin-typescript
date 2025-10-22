@@ -63,6 +63,12 @@ const obj = {
     nested: other,
 };
 
+== should keep parentheses around object literal arrow body ==
+const arrow = () => ({ value: 1 });
+
+[expect]
+const arrow = () => ({ value: 1 });
+
 == should remove parentheses inside template expression ==
 const message = `hello ${ (name) }`;
 
@@ -80,6 +86,12 @@ const complex = (obj?.value) ** 2;
 
 [expect]
 const complex = (obj?.value) ** 2;
+
+== should keep parentheses around function expression callees ==
+const iifeResult = (function () {})();
+
+[expect]
+const iifeResult = (function() {})();
 
 == should remove parentheses around nullish coalescing inside assignments ==
 const fallback = (primary ?? secondary);

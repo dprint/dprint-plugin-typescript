@@ -3116,10 +3116,11 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
       }
     }
 
-    // Keep parens around arrow functions when they're being called
+    // Keep parens around arrow/function/class expressions when they're being called
+    // Without parens these become invalid syntax: function() {}() or class {}()
     if parent.kind() == NodeKind::CallExpr {
-      if matches!(node.expr, Expr::Arrow(_)) {
-        return false; // keep parens: (() => {})()
+      if matches!(node.expr, Expr::Arrow(_) | Expr::Fn(_) | Expr::Class(_)) {
+        return false; // keep parens: (() => {})(), (function() {})(), (class {})()
       }
     }
 
@@ -3127,6 +3128,21 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     if parent.kind() == NodeKind::ExportDefaultExpr {
       if matches!(node.expr, Expr::Tpl(_)) {
         return false; // keep parens: export default (`value`);
+      }
+    }
+
+    // Keep parens around object/function/class literals in arrow function bodies
+    // Without parens: () => { a: 1 } is a block with label statement
+    // With parens: () => ({ a: 1 }) is an expression that returns an object
+    if parent.kind() == NodeKind::ArrowExpr {
+      if let Node::ArrowExpr(arrow) = parent {
+        // Check if this paren is the body of the arrow function
+        if arrow.body.range().contains(&node.range()) {
+          let unwrapped = unwrap_assertion_node(node.expr.into());
+          if matches!(unwrapped, Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_)) {
+            return false; // keep parens for arrow expression body disambiguation
+          }
+        }
       }
     }
 
