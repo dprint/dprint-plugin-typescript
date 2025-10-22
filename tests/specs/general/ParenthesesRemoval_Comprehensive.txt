@@ -530,12 +530,13 @@ function* yieldBinary() {
 function* yieldBinary() {
     const result = (yield value) + 1;
 }
-== should keep parentheses around await when combined with property access before ternary ==
+
+== should remove redundant parens around member access on await in ternary condition ==
 async function ternaryAccess(cond) {
     return ((await fetchData()).value) ? (await fetchData()).value : defaultValue;
 }
 
 [expect]
 async function ternaryAccess(cond) {
-    return ((await fetchData()).value) ? (await fetchData()).value : defaultValue;
+    return (await fetchData()).value ? (await fetchData()).value : defaultValue;
 }
