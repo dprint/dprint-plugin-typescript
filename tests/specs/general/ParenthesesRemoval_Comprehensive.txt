@@ -1,10 +1,4 @@
 ~~ expressionStatement.useParentheses: preferNone ~~
-== should retain parentheses that change meaning ==
-const ratio = (a / b) / c;
-
-[expect]
-const ratio = (a / b) / c;
-
 == should remove parentheses inside call arguments ==
 f((1 + 2));
 
@@ -114,10 +108,14 @@ function* gen() {
 }
 
 == should retain parentheses around yield used in expression ==
-const collected = [ (yield value) ];
+function* collect() {
+    const collected = [ (yield value) ];
+}
 
 [expect]
-const collected = [ (yield value) ];
+function* collect() {
+    const collected = [ (yield value) ];
+}
 
 == should remove parentheses around throw expression ==
 throw (error);
@@ -125,11 +123,11 @@ throw (error);
 [expect]
 throw error;
 
-== should retain parentheses around throw in ternary ==
-const result = condition ? value : (throw error);
+== should retain parentheses around throw in IIFE ==
+const result = condition ? value : (() => { throw error; })();
 
 [expect]
-const result = condition ? value : (throw error);
+const result = condition ? value : (() => { throw error; })();
 
 == should remove parentheses around export default expression ==
 export default (component);

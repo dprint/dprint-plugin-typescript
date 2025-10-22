@@ -1,4 +1,4 @@
-~~ expressionStatement.disambiguationParentheses: true ~~
+~~ expressionStatement.useParentheses: disambiguation ~~
 == should add parentheses around object literal ==
 ({
     prop: value

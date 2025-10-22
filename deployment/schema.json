@@ -153,6 +153,18 @@
         "description": "Forces no braces when the header is one line and body is one line. Otherwise forces braces."
       }]
     },
+    "expressionStatement.useParentheses": {
+      "description": "If parentheses should be used in expression statements.",
+      "type": "string",
+      "default": "disambiguation",
+      "oneOf": [{
+        "const": "disambiguation",
+        "description": "Forces parentheses for disambiguation (object literals, function expressions, class expressions)."
+      }, {
+        "const": "preferNone",
+        "description": "Prefers no parentheses - only uses them when absolutely necessary to avoid breaking code."
+      }]
+    },
     "bracePosition": {
       "description": "Where to place the opening brace.",
       "type": "string",
@@ -1181,10 +1193,8 @@
     "conditionalExpression.operatorPosition": {
       "$ref": "#/definitions/operatorPosition"
     },
-    "expressionStatement.disambiguationParentheses": {
-      "description": "Whether to use parentheses around expression statements for disambiguation.",
-      "type": "boolean",
-      "default": true
+    "expressionStatement.useParentheses": {
+      "$ref": "#/definitions/expressionStatement.useParentheses"
     },
     "conditionalType.operatorPosition": {
       "$ref": "#/definitions/operatorPosition"

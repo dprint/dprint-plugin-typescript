@@ -2704,7 +2704,7 @@ fn should_add_parens_around_expr<'a>(node: Node<'a>, context: &Context<'a>) -> b
       }
       Node::ExprStmt(_) => {
         // keep parens for object/function/class at statement position to avoid ambiguity
-        return context.config.expression_statement_disambiguation_parentheses
+        return context.config.expression_statement_use_parentheses == ExpressionStatementParentheses::Disambiguation
           || matches!(unwrap_assertion_node(original_node), Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_));
       }
       Node::MemberExpr(expr) => {
@@ -2916,40 +2916,37 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     return false;
   }
 
-  // keep parens for object/function/class at statement position to avoid ambiguity
-  if !context.config.expression_statement_disambiguation_parentheses {
+  // with preferNone, remove all unnecessary parens everywhere
+  if context.config.expression_statement_use_parentheses == ExpressionStatementParentheses::PreferNone {
     // check if we're inside an expression statement (anywhere up the tree)
-    for ancestor in node.ancestors() {
-      if ancestor.kind() == NodeKind::ExprStmt {
-        // we're in an expression statement - only keep parens if needed for disambiguation
-        let unwrapped = unwrap_assertion_node(node.expr.into());
-        if matches!(unwrapped, Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_)) {
-          return false; // keep these parens
-        } else if matches!(unwrapped, Node::ArrowExpr(_)) {
-          // arrow functions only need parens if they're used (called, have assertion, member access, etc.)
-          if matches!(parent.kind(), NodeKind::TsAsExpr | NodeKind::TsSatisfiesExpr | NodeKind::TsConstAssertion | NodeKind::TsTypeAssertion | NodeKind::TsNonNullExpr | NodeKind::CallExpr | NodeKind::MemberExpr | NodeKind::OptChainExpr) {
-            return false; // keep parens for arrow with assertion or being used
-          } else if matches!(parent.kind(), NodeKind::ExprStmt) {
-            return true; // remove parens for bare arrow in statement position
-          } else {
-            return false; // keep parens in other contexts
-          }
-        } else if matches!(parent.kind(), NodeKind::TsAsExpr | NodeKind::TsSatisfiesExpr | NodeKind::TsConstAssertion | NodeKind::TsTypeAssertion | NodeKind::TsNonNullExpr) {
-          // parent is an assertion - only remove parens if inner is also an assertion (nested chains)
-          if matches!(node.expr.kind(), NodeKind::TsAsExpr | NodeKind::TsSatisfiesExpr | NodeKind::TsConstAssertion | NodeKind::TsTypeAssertion | NodeKind::TsNonNullExpr) {
-            return true; // remove parens in nested assertion chains like ((expr as X) as Y)
-          } else {
-            return false; // keep parens when parent is assertion but inner isn't (for operator precedence)
-          }
-        } else if matches!(parent.kind(), NodeKind::ExprStmt) {
-          // direct child of expression statement - safe to remove if not object/function/class/arrow
-          return true;
-        } else {
-          // parens are not direct child of ExprStmt - keep them as they may be needed for precedence/grouping
-          return false;
+    let in_expr_stmt = node.ancestors().any(|a| a.kind() == NodeKind::ExprStmt);
+
+    // In expression statements, keep parens only for disambiguation
+    if in_expr_stmt {
+      let unwrapped = unwrap_assertion_node(node.expr.into());
+      if matches!(unwrapped, Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_)) {
+        return false; // keep these parens for disambiguation
+      }
+
+      if matches!(unwrapped, Node::ArrowExpr(_)) {
+        // arrow functions only need parens if they're used (called, have assertion, member access, etc.)
+        if matches!(parent.kind(), NodeKind::TsAsExpr | NodeKind::TsSatisfiesExpr | NodeKind::TsConstAssertion | NodeKind::TsTypeAssertion | NodeKind::TsNonNullExpr | NodeKind::CallExpr | NodeKind::MemberExpr | NodeKind::OptChainExpr) {
+          return false; // keep parens for arrow with assertion or being used
         }
       }
     }
+
+    // Check for nested assertion chains - remove redundant outer parens (applies everywhere, not just expr stmts)
+    if matches!(parent.kind(), NodeKind::TsAsExpr | NodeKind::TsSatisfiesExpr | NodeKind::TsConstAssertion | NodeKind::TsTypeAssertion | NodeKind::TsNonNullExpr) {
+      if matches!(node.expr.kind(), NodeKind::TsAsExpr | NodeKind::TsSatisfiesExpr | NodeKind::TsConstAssertion | NodeKind::TsTypeAssertion | NodeKind::TsNonNullExpr) {
+        return true; // remove parens in nested assertion chains like ((expr as X) as Y)
+      } else {
+        return false; // keep parens when parent is assertion but inner isn't (for operator precedence)
+      }
+    }
+
+    // For preferNone mode, let the standard logic below handle the rest
+    // It will remove parens where safe and keep them where needed for precedence
   }
 
   if matches!(node.expr.kind(), NodeKind::ArrayLit) || matches!(node.expr, Expr::Ident(_)) {
@@ -3010,6 +3007,12 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     );
     debug_assert!(is_known_parent);
     if is_known_parent && expr_or_spread.spread().is_none() {
+      // With preferNone mode, don't remove parens around await/yield in arrays
+      if context.config.expression_statement_use_parentheses == ExpressionStatementParentheses::PreferNone {
+        if matches!(node.expr, Expr::Await(_) | Expr::Yield(_)) && expr_or_spread.parent().kind() == NodeKind::ArrayLit {
+          return false; // keep parens around await/yield in arrays
+        }
+      }
       return true;
     }
   }
@@ -3020,7 +3023,134 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     }
   }
 
+  // With preferNone mode, check for special cases that need parens BEFORE the general removal logic
+  if context.config.expression_statement_use_parentheses == ExpressionStatementParentheses::PreferNone {
+    // Keep parens around await/yield when used in arrays, objects, or as default values
+    if matches!(node.expr, Expr::Await(_) | Expr::Yield(_)) {
+      // Yield and await expressions need parens in many contexts to avoid ambiguity
+      // Check if this paren is necessary by looking at ancestors
+      for ancestor in node.ancestors() {
+        match ancestor.kind() {
+          // In array literals or array patterns (destructuring), keep parens
+          NodeKind::ArrayLit | NodeKind::ArrayPat => return false,
+          // In object literals or object patterns, keep parens
+          NodeKind::ObjectLit | NodeKind::ObjectPat => return false,
+          // Stop checking once we hit a statement boundary
+          NodeKind::ExprStmt | NodeKind::VarDecl | NodeKind::ReturnStmt => break,
+          _ => continue,
+        }
+      }
+    }
+  }
+
+  // With preferNone, default to removing parens unless they're needed for correctness
+  if context.config.expression_statement_use_parentheses == ExpressionStatementParentheses::PreferNone {
+    // Check if parens are needed for operator precedence in binary/logical expressions
+    if let Node::BinExpr(parent_bin) = parent {
+      if let Expr::Bin(inner_bin) = node.expr {
+        let parent_prec = get_precedence(&parent_bin.op());
+        let inner_prec = get_precedence(&inner_bin.op());
+
+        // Keep parens only if the inner expression has LOWER precedence than parent
+        // (removing parens would change evaluation order)
+        if inner_prec < parent_prec {
+          return false;
+        }
+
+        // Also keep parens when precedences are equal and associativity matters
+        // Examples:
+        // - (a / b) / c is NOT the same as a / b / c (left side needs parens for meaning change)
+        // - a / (b * c) is different from a / b * c (right side with different ops)
+        // - a - (b - c) is different from a - b - c (right side with same op)
+        if inner_prec == parent_prec {
+          // For left-associative operators (most binary ops), parens change meaning when:
+          // - On the right side with same operator: a - (b - c) vs a - b - c
+          // - On either side when mixing ops of same precedence: a / (b * c) or (a * b) / c
+
+          let is_right_operand = parent_bin.right.range().contains(&node.range());
+
+          // Check if operators are different (like / and *, both precedence 10)
+          let ops_differ = parent_bin.op() != inner_bin.op();
+
+          if ops_differ {
+            // Different ops at same precedence level - parens always matter
+            // e.g. a / (b * c) vs a / b * c
+            return false;
+          }
+
+          // Same operator - parens matter on right side for non-commutative ops
+          if is_right_operand {
+            // Right side of /, %, -, <<, >>, >>> needs parens when same precedence and same op
+            // e.g. a - (b - c) vs a - b - c
+            if matches!(
+              parent_bin.op(),
+              BinaryOp::Div | BinaryOp::Mod | BinaryOp::Sub
+              | BinaryOp::LShift | BinaryOp::RShift | BinaryOp::ZeroFillRShift
+            ) {
+              return false;
+            }
+          }
+          // Exponentiation is right-associative, so left side needs parens
+          if !is_right_operand && matches!(parent_bin.op(), BinaryOp::Exp) {
+            return false;
+          }
+        }
+      }
+    }
+
+    // Keep parens around optional chaining when it's the base of exponentiation
+    if parent.kind() == NodeKind::BinExpr {
+      if let Node::BinExpr(bin) = parent {
+        if matches!(bin.op(), BinaryOp::Exp) && bin.left.range().contains(&node.range()) {
+          if matches!(node.expr.kind(), NodeKind::OptChainExpr) {
+            return false; // keep parens: (obj?.value) ** 2
+          }
+        }
+      }
+    }
+
+    // Check if parens are needed around `new` expressions when called
+    if parent.kind() == NodeKind::CallExpr {
+      if matches!(node.expr, Expr::New(_)) {
+        return false; // keep parens: (new Foo())() vs new Foo()()
+      }
+    }
+
+    // Keep parens around arrow functions when they're being called
+    if parent.kind() == NodeKind::CallExpr {
+      if matches!(node.expr, Expr::Arrow(_)) {
+        return false; // keep parens: (() => {})()
+      }
+    }
+
+    // Keep parens around template literals in export default
+    if parent.kind() == NodeKind::ExportDefaultExpr {
+      if matches!(node.expr, Expr::Tpl(_)) {
+        return false; // keep parens: export default (`value`);
+      }
+    }
+
+    // All other parens can be removed
+    return true;
+  }
+
   false
+}
+
+fn get_precedence(op: &BinaryOp) -> u8 {
+  match op {
+    BinaryOp::LogicalOr | BinaryOp::NullishCoalescing => 1,
+    BinaryOp::LogicalAnd => 2,
+    BinaryOp::BitOr => 3,
+    BinaryOp::BitXor => 4,
+    BinaryOp::BitAnd => 5,
+    BinaryOp::EqEq | BinaryOp::NotEq | BinaryOp::EqEqEq | BinaryOp::NotEqEq => 6,
+    BinaryOp::Lt | BinaryOp::LtEq | BinaryOp::Gt | BinaryOp::GtEq | BinaryOp::In | BinaryOp::InstanceOf => 7,
+    BinaryOp::LShift | BinaryOp::RShift | BinaryOp::ZeroFillRShift => 8,
+    BinaryOp::Add | BinaryOp::Sub => 9,
+    BinaryOp::Mul | BinaryOp::Div | BinaryOp::Mod => 10,
+    BinaryOp::Exp => 11,
+  }
 }
 
 fn gen_sequence_expr<'a>(node: &SeqExpr<'a>, context: &mut Context<'a>) -> PrintItems {

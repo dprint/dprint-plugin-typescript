@@ -173,6 +173,18 @@ generate_str_to_from![
   [PreferNone, "preferNone"]
 ];
 
+/// If parentheses should be used in expression statements.
+#[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ExpressionStatementParentheses {
+  /// Forces parentheses for disambiguation (object literals, function expressions, class expressions).
+  Disambiguation,
+  /// Prefers no parentheses - only uses them when absolutely necessary to avoid breaking code.
+  PreferNone,
+}
+
+generate_str_to_from![ExpressionStatementParentheses, [Disambiguation, "disambiguation"], [PreferNone, "preferNone"]];
+
 /// Whether to use parentheses around a single parameter in an arrow function.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -663,6 +675,6 @@ pub struct Configuration {
   #[serde(rename = "whileStatement.spaceAround")]
   pub while_statement_space_around: bool,
   /* expression parentheses */
-  #[serde(rename = "expressionStatement.disambiguationParentheses")]
-  pub expression_statement_disambiguation_parentheses: bool,
+  #[serde(rename = "expressionStatement.useParentheses")]
+  pub expression_statement_use_parentheses: ExpressionStatementParentheses,
 }

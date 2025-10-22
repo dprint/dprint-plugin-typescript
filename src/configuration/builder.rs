@@ -1077,8 +1077,8 @@ impl ConfigurationBuilder {
     self.insert("whileStatement.spaceAround", value.into())
   }
 
-  pub fn expression_statement_disambiguation_parentheses(&mut self, value: bool) -> &mut Self {
-    self.insert("expressionStatement.disambiguationParentheses", value.into())
+  pub fn expression_statement_use_parentheses(&mut self, value: &str) -> &mut Self {
+    self.insert("expressionStatement.useParentheses", value.into())
   }
 
   #[cfg(test)]
