@@ -3009,7 +3009,17 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     // It will remove parens where safe and keep them where needed for precedence
   }
 
-  if matches!(node.expr.kind(), NodeKind::ArrayLit) || matches!(node.expr, Expr::Ident(_)) {
+  // Helper to unwrap nested ParenExprs to see what we're really wrapping
+  // This ensures single-pass formatting matches multi-pass stabilization
+  fn get_innermost_expr<'a>(mut expr: &'a Expr<'a>) -> &'a Expr<'a> {
+    while let Expr::Paren(paren_expr) = expr {
+      expr = &paren_expr.expr;
+    }
+    expr
+  }
+
+  let innermost = get_innermost_expr(&node.expr);
+  if matches!(innermost.kind(), NodeKind::ArrayLit) || matches!(innermost, Expr::Ident(_)) {
     return true;
   }
 
