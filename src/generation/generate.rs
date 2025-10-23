@@ -2886,41 +2886,65 @@ fn gen_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &mut Context<'a>) -> Pri
 }
 
 fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) -> bool {
-  if node_helpers::has_surrounding_different_line_comments(node.expr.into(), context.program) {
+  let parent = node.parent();
+
+  // Check if inner expression is a sequence expression - these always need parens
+  if matches!(node.expr.kind(), NodeKind::SeqExpr) {
+    // don't care about extra logic for sequence expressions
+    return false; // keep parens
+  }
+
+  // keep for `(val as number)++` or `(<number>val)++`
+  if parent.kind() == NodeKind::UpdateExpr && matches!(node.expr.kind(), NodeKind::TsAsExpr | NodeKind::TsTypeAssertion) {
     return false;
   }
 
-  // Rule 1.5: Preserve parens for multi-line expressions (readability) in preferNone mode
-  // If the parentheses themselves span multiple lines in the source (i.e., opening and closing
-  // parens are on different lines), keep them to preserve the user's formatting intent.
-  // This indicates the user deliberately formatted it this way for readability.
-  // Exclude JSX elements as they have their own formatting rules.
-  if context.config.expression_statement_use_parentheses == ExpressionStatementParentheses::PreferNone {
-    if !matches!(node.expr.kind(), NodeKind::JSXElement | NodeKind::JSXFragment) {
-      // Check if the opening and closing parens are on different lines
-      let paren_start_line = node.start_line_fast(context.program);
-      let paren_end_line = node.end_line_fast(context.program);
-      if paren_start_line != paren_end_line {
-        return false; // keep parens for multi-line expressions
-      }
-    }
+  // First check: never keep parens directly inside parens or similar constructs
+  // This prevents double parens like ((expr)) or JSX attribute issues like icon={((jsx))}
+  if matches!(
+    parent.kind(),
+    NodeKind::ParenExpr
+      | NodeKind::JSXElement
+      | NodeKind::JSXFragment
+      | NodeKind::UpdateExpr
+      | NodeKind::ComputedPropName
+  ) {
+    return true; // remove these parens
   }
 
-  // Check for ASI (Automatic Semicolon Insertion) hazards
-  // If the parenthesized expression spans multiple lines and is in a context where ASI applies,
-  // we must keep the parens to avoid semantic changes
-  // Example: return (invoke\n    ()); without parens becomes return\ninvoke(); which ASI interprets as return;
-  // However, JSX elements are not subject to ASI hazards because they start with `<` which is unambiguous
-  let parent = node.parent();
-  if matches!(parent.kind(), NodeKind::ReturnStmt | NodeKind::ThrowStmt) {
-    // Skip ASI check for JSX elements - they are not ambiguous
-    if !matches!(node.expr.kind(), NodeKind::JSXElement | NodeKind::JSXFragment) {
-      // Check if the paren expression spans multiple lines
-      let paren_start_line = node.start_line_fast(context.program);
-      let paren_end_line = node.end_line_fast(context.program);
-      if paren_start_line != paren_end_line {
-        return false; // keep parens to prevent ASI issues
-      }
+  // Special case for JSXExprContainer: remove parens unless inner expression has leading comments
+  // (which would cause unstable formatting)
+  if parent.kind() == NodeKind::JSXExprContainer {
+    let has_leading_comments = node.expr.as_node().leading_comments_fast(context.program).next().is_some();
+    if !has_leading_comments {
+      return true; // remove parens
+    }
+    // Keep parens if there are leading comments to prevent unstable formatting
+  }
+
+  // Second check: multi-line preservation (after nested paren check)
+  // But skip if:
+  // - parent is ExprOrSpread (call args, array elements) - those have their own parens
+  // - inside control flow statement conditions (if/while/for) - those have their own parens
+  // - parent is yield/throw/return expression - to avoid unstable formatting when inner content collapses
+  // - parent is member access/call/optional chain - parens are redundant after inner content collapses
+  let in_control_flow_condition = node.ancestors().any(|a| matches!(
+    a.kind(),
+    NodeKind::IfStmt | NodeKind::WhileStmt | NodeKind::DoWhileStmt | NodeKind::ForStmt | NodeKind::ForInStmt | NodeKind::ForOfStmt
+  ));
+
+  if !matches!(parent.kind(), NodeKind::ExprOrSpread | NodeKind::YieldExpr | NodeKind::ThrowStmt | NodeKind::ReturnStmt | NodeKind::CallExpr | NodeKind::OptCall | NodeKind::MemberExpr | NodeKind::OptChainExpr) && !in_control_flow_condition {
+    let expr_range = node.expr.range();
+    let spans_multiple_lines = match (
+      context.token_finder.get_previous_token_if_open_paren(&expr_range),
+      context.token_finder.get_next_token_if_close_paren(&expr_range),
+    ) {
+      (Some(open_paren), Some(close_paren)) => open_paren.start_line_fast(context.program) != close_paren.end_line_fast(context.program),
+      _ => node.start_line_fast(context.program) != node.end_line_fast(context.program),
+    };
+
+    if spans_multiple_lines && !matches!(node.expr.kind(), NodeKind::JSXElement | NodeKind::JSXFragment) {
+      return false;
     }
   }
 
@@ -2932,10 +2956,7 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     }
   }
 
-  if matches!(node.expr.kind(), NodeKind::SeqExpr) {
-    // don't care about extra logic for sequence expressions
-    return false;
-  }
+  // Note: SeqExpr check moved to top of function (line 2892)
 
   // keep when there is a JSDoc because it could be a type assertion or satisfies
   for c in node.leading_comments_fast(context.program) {
@@ -2944,11 +2965,7 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     }
   }
 
-  // keep for `(val as number)++` or `(<number>val)++`
-  let parent = node.parent();
-  if parent.kind() == NodeKind::UpdateExpr && matches!(node.expr.kind(), NodeKind::TsAsExpr | NodeKind::TsTypeAssertion) {
-    return false;
-  }
+  // Note: UpdateExpr with TsAsExpr check moved to top of function (line 2898)
 
   // with preferNone, remove all unnecessary parens everywhere
   if context.config.expression_statement_use_parentheses == ExpressionStatementParentheses::PreferNone {
@@ -2991,18 +3008,7 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     return true;
   }
 
-  // skip over any paren exprs within paren exprs and needless paren exprs
-  if matches!(
-    parent.kind(),
-    NodeKind::ParenExpr
-      | NodeKind::JSXElement
-      | NodeKind::JSXFragment
-      | NodeKind::JSXExprContainer
-      | NodeKind::UpdateExpr
-      | NodeKind::ComputedPropName
-  ) {
-    return true;
-  }
+  // Note: nested paren check moved to top of function (line 2893)
 
   // handle expression statements: keep all parens when disambiguation enabled,
   // otherwise remove them (necessary ones already kept above at line 2920)
@@ -3087,11 +3093,11 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
       }
     }
 
-    // Keep parens around arrow/function/class expressions when they're being called or used with optional chaining
-    // Without parens these become invalid syntax: function() {}() or function() {}?.()
+    // Keep parens around arrow/function/class expressions when they're being called or accessing properties
+    // Without parens these become invalid syntax: function() {}() or function() {}.prop
     if matches!(node.expr, Expr::Arrow(_) | Expr::Fn(_) | Expr::Class(_)) {
-      if matches!(parent.kind(), NodeKind::CallExpr | NodeKind::OptCall | NodeKind::OptChainExpr) {
-        return false; // keep parens: (() => {})(), (function() {})(), (() => {})?.()
+      if matches!(parent.kind(), NodeKind::CallExpr | NodeKind::OptCall | NodeKind::OptChainExpr | NodeKind::MemberExpr) {
+        return false; // keep parens: (() => {})(), (function() {}).prop, etc.
       }
       // Also need to check ancestors for OptChainExpr when doing property access
       // (function() {})?.prop needs parens
@@ -3114,14 +3120,15 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     // These have very low precedence, lower than binary operators
     // (yield value) + 1 is different from yield value + 1
     // (await foo()) + 1 is different from await foo() + 1
+    // (await foo())?.() is different from await foo()?.()
     if matches!(node.expr, Expr::Await(_) | Expr::Yield(_)) {
-      // Keep parens in binary, member access, and optional chaining contexts
+      // Keep parens in binary, member access, optional chaining, and call contexts
       // Note: Ternary (CondExpr) allows await/yield in branches without parens
       if matches!(
         parent.kind(),
-        NodeKind::BinExpr | NodeKind::MemberExpr | NodeKind::OptChainExpr
+        NodeKind::BinExpr | NodeKind::MemberExpr | NodeKind::OptChainExpr | NodeKind::CallExpr | NodeKind::OptCall
       ) {
-        return false; // keep parens: (await x) + 1, (yield x).prop, etc.
+        return false; // keep parens: (await x) + 1, (yield x).prop, (await x)?.(), etc.
       }
     }
   }

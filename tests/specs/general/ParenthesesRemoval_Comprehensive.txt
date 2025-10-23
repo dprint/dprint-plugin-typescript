@@ -144,55 +144,49 @@ const functionPropMultiline = (function () {}
     ).prop;
 
 [expect]
-const functionPropMultiline = function() {}.prop;
+const functionPropMultiline = (function() {}).prop;
 
 == should keep parentheses around multi-line class expression property access ==
 const classPropMultiline = (class {}
     ).prop;
 
 [expect]
-const classPropMultiline = (class {}
-    ).prop;
+const classPropMultiline = (class {}).prop;
 
 == should keep parentheses around multi-line arrow function property access ==
 const arrowPropMultiline = (() => {}
     ).prop;
 
 [expect]
-const arrowPropMultiline = (() => {}
-    ).prop;
+const arrowPropMultiline = (() => {}).prop;
 
 == should keep parentheses around multi-line optional chained function property access ==
 const optionalFunctionPropMultiline = (function () {}
     )?.prop;
 
 [expect]
-const optionalFunctionPropMultiline = (function () {}
-    )?.prop;
+const optionalFunctionPropMultiline = (function() {})?.prop;
 
 == should keep parentheses around multi-line optional chained function property access with comment ==
 const optionalFunctionPropMultilineComment = (function () {}
     )?.prop; // comment
 
 [expect]
-const optionalFunctionPropMultilineComment = (function () {}
-    )?.prop; // comment
+const optionalFunctionPropMultilineComment = (function() {})?.prop; // comment
 
 == should keep parentheses around multi-line optional chained arrow call ==
 const optionalArrowCallMultiline = (() => {}
     )?.();
 
 [expect]
-const optionalArrowCallMultiline = (() => {}
-    )?.();
+const optionalArrowCallMultiline = (() => {})?.();
 
 == should keep parentheses around multi-line optional chained function call ==
 const optionalFunctionCallMultiline = (function () {}
     )?.();
 
 [expect]
-const optionalFunctionCallMultiline = (function () {}
-    )?.();
+const optionalFunctionCallMultiline = (function() {})?.();
 
 == should remove redundant parens around optional chained new expression access ==
 const optionalNewProp = (new Foo())?.prop;
@@ -205,8 +199,7 @@ const optionalNewPropMultiline = (new Foo
     ())?.prop;
 
 [expect]
-const optionalNewPropMultiline = (new Foo
-    ())?.prop;
+const optionalNewPropMultiline = new Foo()?.prop;
 
 == should remove parentheses around nullish coalescing inside assignments ==
 const fallback = (primary ?? secondary);
@@ -736,8 +729,8 @@ function returnMultilineCallWithComment() {
 
 [expect]
 function returnMultilineCallWithComment() {
-    return (createFactory // comment
-        ());
+    return createFactory // comment
+    ();
 }
 
 == should keep parentheses around multi-line throw call with comment ==
@@ -748,8 +741,8 @@ function throwMultilineWithComment() {
 
 [expect]
 function throwMultilineWithComment() {
-    throw (createError // comment
-        ());
+    throw createError // comment
+    ();
 }
 
 == should keep parentheses around multi-line await expression ==
@@ -795,8 +788,7 @@ function returnPropertyMultiline() {
 
 [expect]
 function returnPropertyMultiline() {
-    return (getObject
-        ()).value;
+    return getObject().value;
 }
 
 == should keep parentheses around multi-line return optional call ==
@@ -807,8 +799,7 @@ function returnOptionalMultiline() {
 
 [expect]
 function returnOptionalMultiline() {
-    return (getCallback
-        ())?.();
+    return getCallback()?.();
 }
 
 == should keep parentheses around multi-line return property access with comment ==
@@ -819,8 +810,8 @@ function returnPropertyMultilineComment() {
 
 [expect]
 function returnPropertyMultilineComment() {
-    return (getObject // comment
-        ()).value;
+    return getObject // comment
+    ().value;
 }
 
 == should remove redundant parentheses around await in ternary expressions ==
