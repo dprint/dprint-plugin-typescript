@@ -1,11 +1,11 @@
 ~~ useParentheses: maintain ~~
-== should keep parentheses inside call arguments ==
+== should remove parentheses inside call arguments ==
 f((1 + 2));
 
 [expect]
 f((1 + 2));
 
-== should keep parentheses inside return statement ==
+== should remove parentheses inside return statement ==
 function test() {
     return (value);
 }
@@ -27,19 +27,19 @@ const ambiguous = a / (b * c);
 [expect]
 const ambiguous = a / (b * c);
 
-== should keep parentheses that do not affect precedence ==
+== should remove parentheses that do not affect precedence ==
 const precedenceOk = (a * b) + c;
 
 [expect]
 const precedenceOk = (a * b) + c;
 
-== should keep parentheses in ternary branches ==
+== should remove parentheses in ternary branches ==
 const value = condition ? (left) : (right);
 
 [expect]
 const value = condition ? (left) : (right);
 
-== should keep parentheses inside array elements ==
+== should remove parentheses inside array elements ==
 const items = [(value), ((other))];
 
 [expect]
@@ -51,7 +51,7 @@ const [value = (await load())] = source;
 [expect]
 const [value = (await load())] = source;
 
-== should keep parentheses inside object properties ==
+== should remove parentheses inside object properties ==
 const obj = {
     prop: (value),
     nested: ((other)),
@@ -69,13 +69,13 @@ const arrow = () => ({ value: 1 });
 [expect]
 const arrow = () => ({ value: 1 });
 
-== should keep parentheses inside template expression ==
+== should remove parentheses inside template expression ==
 const message = `hello ${ (name) }`;
 
 [expect]
 const message = `hello ${(name)}`;
 
-== should keep parentheses around optional chaining ==
+== should remove parentheses around optional chaining ==
 const maybe = (obj?.prop);
 
 [expect]
@@ -105,7 +105,7 @@ const optionalArrowIife = (() => {})?.();
 [expect]
 const optionalArrowIife = (() => {})?.();
 
-== should keep redundant parens in nested optional arrow calls ==
+== should remove redundant parens in nested optional arrow calls ==
 const nestedOptionalArrow = ((() => {})?.())?.();
 
 [expect]
@@ -188,7 +188,7 @@ const optionalFunctionCallMultiline = (function () {}
 [expect]
 const optionalFunctionCallMultiline = (function() {})?.();
 
-== should keep redundant parens around optional chained new expression access ==
+== should remove redundant parens around optional chained new expression access ==
 const optionalNewProp = (new Foo())?.prop;
 
 [expect]
@@ -201,13 +201,13 @@ const optionalNewPropMultiline = (new Foo
 [expect]
 const optionalNewPropMultiline = (new Foo())?.prop;
 
-== should keep parentheses around nullish coalescing inside assignments ==
+== should remove parentheses around nullish coalescing inside assignments ==
 const fallback = (primary ?? secondary);
 
 [expect]
 const fallback = (primary ?? secondary);
 
-== should keep parentheses around await inside expressions ==
+== should remove parentheses around await inside expressions ==
 async function load() {
     const data = (await fetchData());
 }
@@ -227,7 +227,7 @@ async function useData() {
     return (await loadData()).map(item => item);
 }
 
-== should keep parentheses around yield expression ==
+== should remove parentheses around yield expression ==
 function* gen() {
     yield (value);
 }
@@ -290,7 +290,7 @@ function* yieldPropertyMultiline() {
     return (yield getFactory()).value;
 }
 
-== should keep parentheses around throw expression ==
+== should remove parentheses around throw expression ==
 throw (error);
 
 [expect]
@@ -348,7 +348,7 @@ const result = condition ? value : (() => {
     throw error;
 })();
 
-== should keep parentheses around export default expression ==
+== should remove parentheses around export default expression ==
 export default (component);
 
 [expect]
@@ -360,7 +360,7 @@ export default (`value`);
 [expect]
 export default (`value`);
 
-== should keep parentheses in if condition ==
+== should remove parentheses in if condition ==
 if ((condition)) {
     doSomething();
 }
@@ -385,7 +385,7 @@ async function ifAwaitMultiline() {
     }
 }
 
-== should keep parentheses in while condition ==
+== should remove parentheses in while condition ==
 while ((ready)) {
     run();
 }
@@ -395,7 +395,7 @@ while ((ready)) {
     run();
 }
 
-== should keep parentheses in do while condition ==
+== should remove parentheses in do while condition ==
 do {
     work();
 } while ((shouldContinue));
@@ -420,7 +420,7 @@ async function whileAwaitMultiline() {
     }
 }
 
-== should keep parentheses in for-of iterable ==
+== should remove parentheses in for-of iterable ==
 for (const item of (collection)) {
     consume(item);
 }
@@ -445,7 +445,7 @@ async function forOfAwaitMultiline() {
     }
 }
 
-== should keep parentheses in for head ==
+== should remove parentheses in for head ==
 for (let i = (0); i < (max); i++) {
     step(i);
 }
@@ -455,7 +455,7 @@ for (let i = (0); i < (max); i++) {
     step(i);
 }
 
-== should keep parentheses in switch discriminant and cases ==
+== should remove parentheses in switch discriminant and cases ==
 switch ((value)) {
 case (1):
     break;
@@ -467,13 +467,13 @@ switch ((value)) {
         break;
 }
 
-== should keep parentheses around unary operations ==
+== should remove parentheses around unary operations ==
 const increment = (++(value));
 
 [expect]
 const increment = (++(value));
 
-== should keep parentheses around typeof in binary expressions ==
+== should remove parentheses around typeof in binary expressions ==
 const typeCheck = (typeof value) + " suffix";
 
 [expect]
@@ -497,13 +497,13 @@ const voidInfo = (void 0).toString();
 [expect]
 const voidInfo = (void 0).toString();
 
-== should keep parentheses in default parameter initializers ==
+== should remove parentheses in default parameter initializers ==
 function configure(option = (defaultValue)) {}
 
 [expect]
 function configure(option = (defaultValue)) {}
 
-== should keep parentheses inside logical expressions ==
+== should remove parentheses inside logical expressions ==
 const combined = (a && b) || (c && d);
 
 [expect]
@@ -515,7 +515,7 @@ const precedence = a && (b || c);
 [expect]
 const precedence = a && (b || c);
 
-== should keep parentheses around new expression ==
+== should remove parentheses around new expression ==
 const instance = (new Foo());
 
 [expect]
@@ -527,7 +527,7 @@ const construct = (new Foo())();
 [expect]
 const construct = (new Foo())();
 
-== should keep parentheses around typeof/void/delete ==
+== should remove parentheses around typeof/void/delete ==
 const info = {
     type: typeof (value),
     cleared: void (0),
@@ -541,13 +541,13 @@ const info = {
     removed: delete (obj.prop),
 };
 
-== should keep parentheses around tagged template expressions ==
+== should remove parentheses around tagged template expressions ==
 const tagged = tag((value));
 
 [expect]
 const tagged = tag((value));
 
-== should keep parentheses inside class field initializer ==
+== should remove parentheses inside class field initializer ==
 class Example {
     value = (initial);
 }
@@ -557,19 +557,19 @@ class Example {
     value = (initial);
 }
 
-== should keep parentheses in array destructuring defaults ==
+== should remove parentheses in array destructuring defaults ==
 const [first = (fallback)] = source;
 
 [expect]
 const [first = (fallback)] = source;
 
-== should keep parentheses in object destructuring defaults ==
+== should remove parentheses in object destructuring defaults ==
 const { value = (fallback) } = source;
 
 [expect]
 const { value = (fallback) } = source;
 
-== should keep parentheses around dynamic import specifier ==
+== should remove parentheses around dynamic import specifier ==
 async function load() {
     return import((moduleName));
 }
@@ -589,13 +589,13 @@ async function load() {
     return import(moduleName, { with: (options) });
 }
 
-== should keep parentheses around class heritage ==
+== should remove parentheses around class heritage ==
 class Derived extends (Base) {}
 
 [expect]
 class Derived extends (Base) {}
 
-== should keep parentheses in super call ==
+== should remove parentheses in super call ==
 class Child extends Base {
     constructor() {
         super((arg));
@@ -609,7 +609,7 @@ class Child extends Base {
     }
 }
 
-== should keep parentheses around yield star expression ==
+== should remove parentheses around yield star expression ==
 function* forward() {
     yield* (iterable);
 }
@@ -636,13 +636,13 @@ doSomething((a, b));
 [expect]
 doSomething((a, b));
 
-== should keep parentheses around call expression results ==
+== should remove parentheses around call expression results ==
 const resultCall = (compute()) + 1;
 
 [expect]
 const resultCall = (compute()) + 1;
 
-== should keep parentheses around expressions in for loop headers ==
+== should remove parentheses around expressions in for loop headers ==
 for (let i = (0); i < (max); i++) {}
 
 [expect]
@@ -672,19 +672,19 @@ const andWithNull = x && (y ?? z);
 [expect]
 const andWithNull = x && (y ?? z);
 
-== should keep parentheses around delete in logical expressions ==
+== should remove parentheses around delete in logical expressions ==
 const deleteCheck = (delete obj.prop) && other;
 
 [expect]
 const deleteCheck = (delete obj.prop) && other;
 
-== should keep parentheses around typeof in binary expressions ==
+== should remove parentheses around typeof in binary expressions ==
 const typeCheck = (typeof value) + " suffix";
 
 [expect]
 const typeCheck = (typeof value) + " suffix";
 
-== should keep parentheses around void in logical expressions ==
+== should remove parentheses around void in logical expressions ==
 const voidCheck = (void 0) || fallback;
 
 [expect]
@@ -700,7 +700,7 @@ async function asyncBinary() {
     const result = (await fetch()) + 1;
 }
 
-== should keep redundant parentheses around await when returned ==
+== should remove redundant parentheses around await when returned ==
 async function returnAwait(condition) {
     return (await resolveValue(condition));
 }
@@ -814,7 +814,7 @@ function returnPropertyMultilineComment() {
     ()).value;
 }
 
-== should keep redundant parentheses around await in ternary expressions ==
+== should remove redundant parentheses around await in ternary expressions ==
 async function asyncTernary() {
     const value = condition ? (await foo()) : bar;
 }
@@ -847,7 +847,7 @@ function* yieldBinaryMultiline() {
     return result;
 }
 
-== should keep parens around member access on await in ternary condition ==
+== should remove redundant parens around member access on await in ternary condition ==
 async function ternaryAccess(cond) {
     return ((await fetchData()).value) ? (await fetchData()).value : defaultValue;
 }
