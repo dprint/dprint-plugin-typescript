@@ -856,6 +856,7 @@ async function ternaryAccess(cond) {
 async function ternaryAccess(cond) {
     return (await fetchData()).value ? (await fetchData()).value : defaultValue;
 }
+
 == should keep parentheses around object literal (disambiguation required) ==
 ({
     prop: value
