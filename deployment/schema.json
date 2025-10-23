@@ -153,6 +153,21 @@
         "description": "Forces no braces when the header is one line and body is one line. Otherwise forces braces."
       }]
     },
+    "useParentheses": {
+      "description": "Controls how parentheses are used around expression statements.",
+      "type": "string",
+      "default": "disambiguation",
+      "oneOf": [{
+        "const": "maintain",
+        "description": "Maintains parentheses as written in the source code."
+      }, {
+        "const": "disambiguation",
+        "description": "Forces parentheses for disambiguation (object literals, function expressions, class expressions)."
+      }, {
+        "const": "preferNone",
+        "description": "Prefers no parentheses - only uses them when absolutely necessary to avoid breaking code."
+      }]
+    },
     "bracePosition": {
       "description": "Where to place the opening brace.",
       "type": "string",
@@ -1183,6 +1198,9 @@
     },
     "conditionalType.operatorPosition": {
       "$ref": "#/definitions/operatorPosition"
+    },
+    "useParentheses": {
+      "$ref": "#/definitions/useParentheses"
     },
     "arguments.preferHanging": {
       "$ref": "#/definitions/preferHangingGranular"
