@@ -173,13 +173,13 @@ generate_str_to_from![
   [PreferNone, "preferNone"]
 ];
 
-/// If parentheses should be used in expression statements.
+/// Controls how parentheses are used around expressions.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum UseParentheses {
   /// Maintains parentheses as written in the source code.
   Maintain,
-  /// Forces parentheses for disambiguation (object literals, function expressions, class expressions).
+  /// Forces parentheses for disambiguation (object literals, function expressions, class expressions at statement position).
   Disambiguation,
   /// Prefers no parentheses - only uses them when absolutely necessary to avoid breaking code.
   PreferNone,
