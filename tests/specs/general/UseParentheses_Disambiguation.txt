@@ -1,4 +1,4 @@
-~~ useParentheses: preferNone ~~
+~~ useParentheses: disambiguation ~~
 == should remove parentheses inside call arguments ==
 f((1 + 2));
 
