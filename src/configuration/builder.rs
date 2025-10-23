@@ -1081,11 +1081,6 @@ impl ConfigurationBuilder {
     self.insert("useParentheses", value.into())
   }
 
-  #[deprecated(note = "Use use_parentheses() instead")]
-  pub fn expression_statement_use_parentheses(&mut self, value: &str) -> &mut Self {
-    self.use_parentheses(value)
-  }
-
   #[cfg(test)]
   pub(super) fn get_inner_config(&self) -> ConfigKeyMap {
     self.config.clone()
