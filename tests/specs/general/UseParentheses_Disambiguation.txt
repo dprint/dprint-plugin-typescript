@@ -51,6 +51,18 @@ const [value = (await load())] = source;
 [expect]
 const [value = (await load())] = source;
 
+== should remove parentheses inside object properties ==
+const obj = {
+    prop: (value),
+    nested: ((other)),
+};
+
+[expect]
+const obj = {
+    prop: value,
+    nested: other,
+};
+
 == should keep parentheses around object literal arrow body ==
 const arrow = () => ({ value: 1 });
 
