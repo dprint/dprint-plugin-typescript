@@ -1035,6 +1035,16 @@ a ?? b;
 [expect]
 ({}) as Foo as Bar;
 
+== should keep parentheses around object literal with as assertion inside while loop ==
+while (true) {
+    ({} as X);
+}
+
+[expect]
+while (true) {
+    ({} as X);
+}
+
 == should keep parentheses around function expression with as assertion ==
 (function() {}) as Foo;
 

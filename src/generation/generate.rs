@@ -3034,10 +3034,16 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
 
   // Note: nested paren check moved to top of function (line 2893)
 
-  // handle expression statements: keep all parens when disambiguation enabled,
-  // otherwise remove them (necessary ones already kept above at line 2920)
+  // handle expression statements
   if parent.kind() == NodeKind::ExprStmt {
-    return true;
+    // In disambiguation/maintain modes, check if this expression needs parens for disambiguation
+    if context.config.use_parentheses != UseParentheses::PreferNone {
+      let unwrapped = unwrap_assertion_node(node.expr.into());
+      if matches!(unwrapped, Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_)) {
+        return false; // keep parens for disambiguation
+      }
+    }
+    return true; // otherwise remove parens
   }
 
   // skip explicitly parsing this as a paren expr as that will be handled
