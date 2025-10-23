@@ -2886,45 +2886,28 @@ fn gen_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &mut Context<'a>) -> Pri
 }
 
 fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) -> bool {
+  // Keep parens if: maintain mode, sequence expression, or comments on different lines
+  if context.config.use_parentheses == UseParentheses::Maintain
+    || matches!(node.expr.kind(), NodeKind::SeqExpr)
+    || node_helpers::has_surrounding_different_line_comments(node.expr.into(), context.program)
+  {
+    return false;
+  }
+
   let parent = node.parent();
-
-  // In maintain mode, never add or remove parens
-  if context.config.use_parentheses == UseParentheses::Maintain {
-    return false; // keep all parens as-is
-  }
-
-  // Check if inner expression is a sequence expression - these always need parens
-  if matches!(node.expr.kind(), NodeKind::SeqExpr) {
-    // don't care about extra logic for sequence expressions
-    return false; // keep parens
-  }
 
   // keep for `(val as number)++` or `(<number>val)++`
   if parent.kind() == NodeKind::UpdateExpr && matches!(node.expr.kind(), NodeKind::TsAsExpr | NodeKind::TsTypeAssertion) {
     return false;
   }
 
-  // First check: never keep parens directly inside parens or similar constructs
-  // This prevents double parens like ((expr)) or JSX attribute issues like icon={((jsx))}
+  // Remove parens when directly inside these parent types (unless JSXExprContainer has leading comments)
   if matches!(
     parent.kind(),
-    NodeKind::ParenExpr
-      | NodeKind::JSXElement
-      | NodeKind::JSXFragment
-      | NodeKind::UpdateExpr
-      | NodeKind::ComputedPropName
-  ) {
-    return true; // remove these parens
-  }
-
-  // Special case for JSXExprContainer: remove parens unless inner expression has leading comments
-  // (which would cause unstable formatting)
-  if parent.kind() == NodeKind::JSXExprContainer {
-    let has_leading_comments = node.expr.as_node().leading_comments_fast(context.program).next().is_some();
-    if !has_leading_comments {
-      return true; // remove parens
-    }
-    // Keep parens if there are leading comments to prevent unstable formatting
+    NodeKind::ParenExpr | NodeKind::JSXElement | NodeKind::JSXFragment | NodeKind::UpdateExpr | NodeKind::ComputedPropName
+  ) || (parent.kind() == NodeKind::JSXExprContainer && node.expr.as_node().leading_comments_fast(context.program).next().is_none())
+  {
+    return true;
   }
 
   // Second check: multi-line preservation (after nested paren check)
@@ -2933,12 +2916,22 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
   // - inside control flow statement conditions (if/while/for) - those have their own parens
   // - parent is yield/throw/return expression - to avoid unstable formatting when inner content collapses
   // - parent is member access/call/optional chain - parens are redundant after inner content collapses
-  let in_control_flow_condition = node.ancestors().any(|a| matches!(
-    a.kind(),
-    NodeKind::IfStmt | NodeKind::WhileStmt | NodeKind::DoWhileStmt | NodeKind::ForStmt | NodeKind::ForInStmt | NodeKind::ForOfStmt
-  ));
-
-  if !matches!(parent.kind(), NodeKind::ExprOrSpread | NodeKind::YieldExpr | NodeKind::ThrowStmt | NodeKind::ReturnStmt | NodeKind::CallExpr | NodeKind::OptCall | NodeKind::MemberExpr | NodeKind::OptChainExpr) && !in_control_flow_condition {
+  if !matches!(
+    parent.kind(),
+    NodeKind::ExprOrSpread
+      | NodeKind::YieldExpr
+      | NodeKind::ThrowStmt
+      | NodeKind::ReturnStmt
+      | NodeKind::CallExpr
+      | NodeKind::OptCall
+      | NodeKind::MemberExpr
+      | NodeKind::OptChainExpr
+  ) && !node.ancestors().any(|a| {
+    matches!(
+      a.kind(),
+      NodeKind::IfStmt | NodeKind::WhileStmt | NodeKind::DoWhileStmt | NodeKind::ForStmt | NodeKind::ForInStmt | NodeKind::ForOfStmt
+    )
+  }) {
     let expr_range = node.expr.range();
     let spans_multiple_lines = match (
       context.token_finder.get_previous_token_if_open_paren(&expr_range),
@@ -2986,15 +2979,31 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
 
       if matches!(unwrapped, Node::ArrowExpr(_)) {
         // arrow functions only need parens if they're used (called, have assertion, member access, etc.)
-        if matches!(parent.kind(), NodeKind::TsAsExpr | NodeKind::TsSatisfiesExpr | NodeKind::TsConstAssertion | NodeKind::TsTypeAssertion | NodeKind::TsNonNullExpr | NodeKind::CallExpr | NodeKind::MemberExpr | NodeKind::OptChainExpr) {
+        if matches!(
+          parent.kind(),
+          NodeKind::TsAsExpr
+            | NodeKind::TsSatisfiesExpr
+            | NodeKind::TsConstAssertion
+            | NodeKind::TsTypeAssertion
+            | NodeKind::TsNonNullExpr
+            | NodeKind::CallExpr
+            | NodeKind::MemberExpr
+            | NodeKind::OptChainExpr
+        ) {
           return false; // keep parens for arrow with assertion or being used
         }
       }
     }
 
     // Check for nested assertion chains - remove redundant outer parens (applies everywhere, not just expr stmts)
-    if matches!(parent.kind(), NodeKind::TsAsExpr | NodeKind::TsSatisfiesExpr | NodeKind::TsConstAssertion | NodeKind::TsTypeAssertion | NodeKind::TsNonNullExpr) {
-      if matches!(node.expr.kind(), NodeKind::TsAsExpr | NodeKind::TsSatisfiesExpr | NodeKind::TsConstAssertion | NodeKind::TsTypeAssertion | NodeKind::TsNonNullExpr) {
+    if matches!(
+      parent.kind(),
+      NodeKind::TsAsExpr | NodeKind::TsSatisfiesExpr | NodeKind::TsConstAssertion | NodeKind::TsTypeAssertion | NodeKind::TsNonNullExpr
+    ) {
+      if matches!(
+        node.expr.kind(),
+        NodeKind::TsAsExpr | NodeKind::TsSatisfiesExpr | NodeKind::TsConstAssertion | NodeKind::TsTypeAssertion | NodeKind::TsNonNullExpr
+      ) {
         return true; // remove parens in nested assertion chains like ((expr as X) as Y)
       } else {
         return false; // keep parens when parent is assertion but inner isn't (for operator precedence)
@@ -3111,7 +3120,10 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     // Keep parens around arrow/function/class expressions when they're being called or accessing properties
     // Without parens these become invalid syntax: function() {}() or function() {}.prop
     if matches!(node.expr, Expr::Arrow(_) | Expr::Fn(_) | Expr::Class(_)) {
-      if matches!(parent.kind(), NodeKind::CallExpr | NodeKind::OptCall | NodeKind::OptChainExpr | NodeKind::MemberExpr) {
+      if matches!(
+        parent.kind(),
+        NodeKind::CallExpr | NodeKind::OptCall | NodeKind::OptChainExpr | NodeKind::MemberExpr
+      ) {
         return false; // keep parens: (() => {})(), (function() {}).prop, etc.
       }
       // Also need to check ancestors for OptChainExpr when doing property access
@@ -3189,8 +3201,7 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
             // e.g. a - (b - c) vs a - b - c
             if matches!(
               parent_bin.op(),
-              BinaryOp::Div | BinaryOp::Mod | BinaryOp::Sub
-              | BinaryOp::LShift | BinaryOp::RShift | BinaryOp::ZeroFillRShift
+              BinaryOp::Div | BinaryOp::Mod | BinaryOp::Sub | BinaryOp::LShift | BinaryOp::RShift | BinaryOp::ZeroFillRShift
             ) {
               return false;
             }
