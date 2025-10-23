@@ -1,0 +1,212 @@
+~~ useParentheses: disambiguation ~~
+== should add parentheses around object literal at statement position ==
+({
+    prop: value
+});
+
+[expect]
+({
+    prop: value,
+});
+
+== should add parentheses around function expression at statement position ==
+(function test() {
+    return 1;
+});
+
+[expect]
+(function test() {
+    return 1;
+});
+
+== should add parentheses around arrow function at statement position ==
+() => 42;
+
+[expect]
+(() => 42);
+
+== should remove unnecessary parentheses in non-statement contexts ==
+const value = (42);
+
+[expect]
+const value = 42;
+
+== should remove unnecessary parentheses in call arguments ==
+f((1 + 2));
+
+[expect]
+f(1 + 2);
+
+== should remove unnecessary parentheses in return ==
+function test() {
+    return (value);
+}
+
+[expect]
+function test() {
+    return value;
+}
+
+== should keep parentheses around object literal with assertion ==
+({}) as Foo;
+
+[expect]
+({}) as Foo;
+
+== should keep parentheses around function expression with assertion ==
+(function() {}) as Foo;
+
+[expect]
+(function() {}) as Foo;
+
+== should keep parentheses around class expression with assertion ==
+(class {}) as Foo;
+
+[expect]
+(class {}) as Foo;
+
+== should keep parentheses around object literal used as member expression base ==
+({}).foo;
+
+[expect]
+({}).foo;
+
+== should keep parentheses around function expression used as member expression base ==
+(function() {}).foo;
+
+[expect]
+(function() {}).foo;
+
+== should keep parentheses around class expression used as member expression base ==
+(class {}).foo;
+
+[expect]
+(class {}).foo;
+
+== should keep parentheses around object literal used as call expression callee ==
+({})();
+
+[expect]
+({})();
+
+== should keep parentheses around function expression used as call expression callee ==
+(function() {})();
+
+[expect]
+(function() {})();
+
+== should keep parentheses around class expression used as call expression callee ==
+(class {})();
+
+[expect]
+(class {})();
+
+== should remove unnecessary parentheses around simple expressions ==
+const a = (value);
+const b = (foo());
+const c = (obj.prop);
+
+[expect]
+const a = value;
+const b = foo();
+const c = obj.prop;
+
+== should keep parentheses when they affect precedence ==
+const result = (a + b) * c;
+
+[expect]
+const result = (a + b) * c;
+
+== should keep existing parentheses even when not affecting precedence ==
+const result = (a * b) + c;
+
+[expect]
+const result = (a * b) + c;
+
+== should keep parentheses for arrow function with member access ==
+(() => {}).prop;
+
+[expect]
+(() => {}).prop;
+
+== should keep parentheses for arrow function with optional chaining ==
+(() => {})?.prop;
+
+[expect]
+(() => {})?.prop;
+
+== should keep parentheses for arrow function as callee ==
+(() => {})();
+
+[expect]
+(() => {})();
+
+== should keep parentheses around arrow function with assertion ==
+(() => 42) as Foo;
+
+[expect]
+(() => 42) as Foo;
+
+== should remove parentheses around await in assignment ==
+async function test() {
+    const value = (await fetchData());
+}
+
+[expect]
+async function test() {
+    const value = await fetchData();
+}
+
+== should keep parentheses around awaited call when accessing members ==
+async function test() {
+    return (await loadData()).map(item => item);
+}
+
+[expect]
+async function test() {
+    return (await loadData()).map(item => item);
+}
+
+== should remove parentheses in if condition ==
+if ((condition)) {
+    doSomething();
+}
+
+[expect]
+if (condition) {
+    doSomething();
+}
+
+== should remove parentheses in while condition ==
+while ((ready)) {
+    run();
+}
+
+[expect]
+while (ready) {
+    run();
+}
+
+== should keep parentheses around sequence expression ==
+(a, b);
+
+[expect]
+(a, b);
+
+== should keep required parentheses for optional chaining with new ==
+(new Foo())?.prop;
+
+[expect]
+(new Foo())?.prop;
+
+== should keep required parentheses for function expression with optional chaining ==
+(function() {})?.prop;
+
+[expect]
+(function() {})?.prop;
+
+== should keep required parentheses for class expression with optional chaining ==
+(class {})?.prop;
+
+[expect]
+(class {})?.prop;

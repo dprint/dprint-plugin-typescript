@@ -1846,11 +1846,11 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
 
   fn get_should_use_parens<'a>(node: &ArrowSignature<'a>, context: &Context<'a>) -> bool {
     return match context.config.arrow_function_use_parentheses {
-      UseParentheses::Force => true,
-      UseParentheses::PreferNone => {
+      ArrowFunctionUseParentheses::Force => true,
+      ArrowFunctionUseParentheses::PreferNone => {
         node.params().len() != 1 || node.return_type().is_some() || is_first_param_not_identifier_or_has_type_annotation(node.params(), node, context.program)
       }
-      UseParentheses::Maintain => has_parens(node, context.program),
+      ArrowFunctionUseParentheses::Maintain => has_parens(node, context.program),
     };
 
     fn is_first_param_not_identifier_or_has_type_annotation<'a>(params: &[Pat<'a>], arrow: &ArrowSignature<'a>, program: Program<'a>) -> bool {
@@ -2703,8 +2703,12 @@ fn should_add_parens_around_expr<'a>(node: Node<'a>, context: &Context<'a>) -> b
         }
       }
       Node::ExprStmt(_) => {
+        // In maintain mode, don't add parens
+        if context.config.use_parentheses == UseParentheses::Maintain {
+          return false;
+        }
         // keep parens for object/function/class at statement position to avoid ambiguity
-        return context.config.expression_statement_use_parentheses == ExpressionStatementParentheses::Disambiguation
+        return context.config.use_parentheses == UseParentheses::Disambiguation
           || matches!(unwrap_assertion_node(original_node), Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_));
       }
       Node::MemberExpr(expr) => {
@@ -2888,6 +2892,11 @@ fn gen_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &mut Context<'a>) -> Pri
 fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) -> bool {
   let parent = node.parent();
 
+  // In maintain mode, never add or remove parens
+  if context.config.use_parentheses == UseParentheses::Maintain {
+    return false; // keep all parens as-is
+  }
+
   // Check if inner expression is a sequence expression - these always need parens
   if matches!(node.expr.kind(), NodeKind::SeqExpr) {
     // don't care about extra logic for sequence expressions
@@ -2968,7 +2977,7 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
   // Note: UpdateExpr with TsAsExpr check moved to top of function (line 2898)
 
   // with preferNone, remove all unnecessary parens everywhere
-  if context.config.expression_statement_use_parentheses == ExpressionStatementParentheses::PreferNone {
+  if context.config.use_parentheses == UseParentheses::PreferNone {
     // check if we're inside an expression statement (anywhere up the tree)
     let in_expr_stmt = node.ancestors().any(|a| a.kind() == NodeKind::ExprStmt);
 
@@ -3048,7 +3057,7 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     debug_assert!(is_known_parent);
     if is_known_parent && expr_or_spread.spread().is_none() {
       // With preferNone mode, don't remove parens around await/yield in arrays
-      if context.config.expression_statement_use_parentheses == ExpressionStatementParentheses::PreferNone {
+      if context.config.use_parentheses == UseParentheses::PreferNone {
         if matches!(node.expr, Expr::Await(_) | Expr::Yield(_)) && expr_or_spread.parent().kind() == NodeKind::ArrayLit {
           return false; // keep parens around await/yield in arrays
         }
@@ -3064,7 +3073,7 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
   }
 
   // With preferNone mode, check for special cases that need parens BEFORE the general removal logic
-  if context.config.expression_statement_use_parentheses == ExpressionStatementParentheses::PreferNone {
+  if context.config.use_parentheses == UseParentheses::PreferNone {
     // Keep parens around await/yield when used in arrays, objects, or as default values
     if matches!(node.expr, Expr::Await(_) | Expr::Yield(_)) {
       // Yield and await expressions need parens in many contexts to avoid ambiguity
@@ -3134,7 +3143,7 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
   }
 
   // With preferNone, default to removing parens unless they're needed for correctness
-  if context.config.expression_statement_use_parentheses == ExpressionStatementParentheses::PreferNone {
+  if context.config.use_parentheses == UseParentheses::PreferNone {
     // Check if parens are needed for operator precedence in binary/logical expressions
     if let Node::BinExpr(parent_bin) = parent {
       if let Expr::Bin(inner_bin) = node.expr {

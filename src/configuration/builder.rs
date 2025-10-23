@@ -58,7 +58,7 @@ impl ConfigurationBuilder {
       .comment_line_force_space_after_slashes(false)
       .construct_signature_space_after_new_keyword(true)
       .constructor_type_space_after_new_keyword(true)
-      .arrow_function_use_parentheses(UseParentheses::Force)
+      .arrow_function_use_parentheses(ArrowFunctionUseParentheses::Force)
       .new_line_kind(NewLineKind::LineFeed)
       .function_expression_space_after_function_keyword(true)
       .tagged_template_space_before_literal(false)
@@ -481,7 +481,7 @@ impl ConfigurationBuilder {
   /// Whether to use parentheses for arrow functions.
   ///
   /// Default: `UseParentheses::Maintain`
-  pub fn arrow_function_use_parentheses(&mut self, value: UseParentheses) -> &mut Self {
+  pub fn arrow_function_use_parentheses(&mut self, value: ArrowFunctionUseParentheses) -> &mut Self {
     self.insert("arrowFunction.useParentheses", value.to_string().into())
   }
 
@@ -1077,8 +1077,13 @@ impl ConfigurationBuilder {
     self.insert("whileStatement.spaceAround", value.into())
   }
 
+  pub fn use_parentheses(&mut self, value: &str) -> &mut Self {
+    self.insert("useParentheses", value.into())
+  }
+
+  #[deprecated(note = "Use use_parentheses() instead")]
   pub fn expression_statement_use_parentheses(&mut self, value: &str) -> &mut Self {
-    self.insert("expressionStatement.useParentheses", value.into())
+    self.use_parentheses(value)
   }
 
   #[cfg(test)]
@@ -1123,7 +1128,7 @@ mod tests {
       .quote_props(QuoteProps::AsNeeded)
       .prefer_hanging(false)
       /* situational */
-      .arrow_function_use_parentheses(UseParentheses::Maintain)
+      .arrow_function_use_parentheses(ArrowFunctionUseParentheses::Maintain)
       .binary_expression_line_per_expression(false)
       .conditional_expression_line_per_expression(true)
       .member_expression_line_per_expression(false)

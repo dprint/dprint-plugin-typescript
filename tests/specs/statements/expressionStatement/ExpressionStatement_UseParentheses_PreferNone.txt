@@ -1,4 +1,4 @@
-~~ expressionStatement.useParentheses: preferNone ~~
+~~ useParentheses: preferNone ~~
 == should keep parentheses around object literal (disambiguation required) ==
 ({
     prop: value

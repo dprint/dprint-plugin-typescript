@@ -176,19 +176,21 @@ generate_str_to_from![
 /// If parentheses should be used in expression statements.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum ExpressionStatementParentheses {
+pub enum UseParentheses {
+  /// Maintains parentheses as written in the source code.
+  Maintain,
   /// Forces parentheses for disambiguation (object literals, function expressions, class expressions).
   Disambiguation,
   /// Prefers no parentheses - only uses them when absolutely necessary to avoid breaking code.
   PreferNone,
 }
 
-generate_str_to_from![ExpressionStatementParentheses, [Disambiguation, "disambiguation"], [PreferNone, "preferNone"]];
+generate_str_to_from![UseParentheses, [Maintain, "maintain"], [Disambiguation, "disambiguation"], [PreferNone, "preferNone"]];
 
 /// Whether to use parentheses around a single parameter in an arrow function.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum UseParentheses {
+pub enum ArrowFunctionUseParentheses {
   /// Maintains the current state of the parentheses.
   Maintain,
   /// Forces parentheses.
@@ -197,7 +199,7 @@ pub enum UseParentheses {
   PreferNone,
 }
 
-generate_str_to_from![UseParentheses, [Maintain, "maintain"], [Force, "force"], [PreferNone, "preferNone"]];
+generate_str_to_from![ArrowFunctionUseParentheses, [Maintain, "maintain"], [Force, "force"], [PreferNone, "preferNone"]];
 
 /// How to decide to use single or double quotes.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
@@ -332,7 +334,7 @@ pub struct Configuration {
   pub file_indent_level: u32,
   /* situational */
   #[serde(rename = "arrowFunction.useParentheses")]
-  pub arrow_function_use_parentheses: UseParentheses,
+  pub arrow_function_use_parentheses: ArrowFunctionUseParentheses,
   #[serde(rename = "binaryExpression.linePerExpression")]
   pub binary_expression_line_per_expression: bool,
   #[serde(rename = "conditionalExpression.linePerExpression")]
@@ -675,6 +677,6 @@ pub struct Configuration {
   #[serde(rename = "whileStatement.spaceAround")]
   pub while_statement_space_around: bool,
   /* expression parentheses */
-  #[serde(rename = "expressionStatement.useParentheses")]
-  pub expression_statement_use_parentheses: ExpressionStatementParentheses,
+  #[serde(rename = "useParentheses")]
+  pub use_parentheses: UseParentheses,
 }
