@@ -139,93 +139,51 @@ const optionalArrowProp = (() => {})?.prop;
 [expect]
 const optionalArrowProp = (() => {})?.prop;
 
-== should keep parentheses around multi-line function expression property access (1st pass) ==
+== should keep parentheses around multi-line function expression property access ==
 const functionPropMultiline = (function () {}
     ).prop;
 
 [expect]
 const functionPropMultiline = (function() {}).prop;
 
-== should keep parentheses around multi-line function expression property access (2nd pass) ==
-const functionPropMultiline = (function() {}).prop;
-
-[expect]
-const functionPropMultiline = (function() {}).prop;
-
-== should keep parentheses around multi-line class expression property access (1st pass) ==
+== should keep parentheses around multi-line class expression property access ==
 const classPropMultiline = (class {}
     ).prop;
 
 [expect]
 const classPropMultiline = (class {}).prop;
 
-== should keep parentheses around multi-line class expression property access (2nd pass) ==
-const classPropMultiline = (class {}).prop;
-
-[expect]
-const classPropMultiline = (class {}).prop;
-
-== should keep parentheses around multi-line arrow function property access (1st pass) ==
+== should keep parentheses around multi-line arrow function property access ==
 const arrowPropMultiline = (() => {}
     ).prop;
 
 [expect]
 const arrowPropMultiline = (() => {}).prop;
 
-== should keep parentheses around multi-line arrow function property access (2nd pass) ==
-const arrowPropMultiline = (() => {}).prop;
-
-[expect]
-const arrowPropMultiline = (() => {}).prop;
-
-== should keep parentheses around multi-line optional chained function property access (1st pass) ==
+== should keep parentheses around multi-line optional chained function property access ==
 const optionalFunctionPropMultiline = (function () {}
     )?.prop;
 
 [expect]
 const optionalFunctionPropMultiline = (function() {})?.prop;
 
-== should keep parentheses around multi-line optional chained function property access (2nd pass) ==
-const optionalFunctionPropMultiline = (function() {})?.prop;
-
-[expect]
-const optionalFunctionPropMultiline = (function() {})?.prop;
-
-== should keep parentheses around multi-line optional chained function property access with comment (1st pass) ==
+== should keep parentheses around multi-line optional chained function property access with comment ==
 const optionalFunctionPropMultilineComment = (function () {}
     )?.prop; // comment
 
 [expect]
 const optionalFunctionPropMultilineComment = (function() {})?.prop; // comment
 
-== should keep parentheses around multi-line optional chained function property access with comment (2nd pass) ==
-const optionalFunctionPropMultilineComment = (function() {})?.prop; // comment
-
-[expect]
-const optionalFunctionPropMultilineComment = (function() {})?.prop; // comment
-
-== should keep parentheses around multi-line optional chained arrow call (1st pass) ==
+== should keep parentheses around multi-line optional chained arrow call ==
 const optionalArrowCallMultiline = (() => {}
     )?.();
 
 [expect]
 const optionalArrowCallMultiline = (() => {})?.();
 
-== should keep parentheses around multi-line optional chained arrow call (2nd pass) ==
-const optionalArrowCallMultiline = (() => {})?.();
-
-[expect]
-const optionalArrowCallMultiline = (() => {})?.();
-
-== should keep parentheses around multi-line optional chained function call (1st pass) ==
+== should keep parentheses around multi-line optional chained function call ==
 const optionalFunctionCallMultiline = (function () {}
     )?.();
-
-[expect]
-const optionalFunctionCallMultiline = (function() {})?.();
-
-== should keep parentheses around multi-line optional chained function call (2nd pass) ==
-const optionalFunctionCallMultiline = (function() {})?.();
 
 [expect]
 const optionalFunctionCallMultiline = (function() {})?.();
@@ -310,7 +268,7 @@ function* yieldMultiline() {
     yield getGenerator();
 }
 
-== should keep parentheses around multi-line yield optional call (1st pass) ==
+== should keep parentheses around multi-line yield optional call ==
 function* yieldOptionalMultiline() {
     return (yield getFactory
         ())?.();
@@ -321,30 +279,10 @@ function* yieldOptionalMultiline() {
     return (yield getFactory())?.();
 }
 
-== should keep parentheses around multi-line yield optional call (2nd pass) ==
-function* yieldOptionalMultiline() {
-    return (yield getFactory())?.();
-}
-
-[expect]
-function* yieldOptionalMultiline() {
-    return (yield getFactory())?.();
-}
-
-== should keep parentheses around multi-line yield property access (1st pass) ==
+== should keep parentheses around multi-line yield property access ==
 function* yieldPropertyMultiline() {
     return (yield getFactory
         ()).value;
-}
-
-[expect]
-function* yieldPropertyMultiline() {
-    return (yield getFactory()).value;
-}
-
-== should keep parentheses around multi-line yield property access (2nd pass) ==
-function* yieldPropertyMultiline() {
-    return (yield getFactory()).value;
 }
 
 [expect]
@@ -807,7 +745,7 @@ function throwMultilineWithComment() {
     ();
 }
 
-== should keep parentheses around multi-line await expression (1st pass) ==
+== should keep parentheses around multi-line await expression ==
 async function awaitMultiline() {
     return (await loadData
         ()).map(item => item);
@@ -818,17 +756,7 @@ async function awaitMultiline() {
     return (await loadData()).map(item => item);
 }
 
-== should keep parentheses around multi-line await expression (2nd pass) ==
-async function awaitMultiline() {
-    return (await loadData()).map(item => item);
-}
-
-[expect]
-async function awaitMultiline() {
-    return (await loadData()).map(item => item);
-}
-
-== should keep parentheses around multi-line await optional call (1st pass) ==
+== should keep parentheses around multi-line await optional call ==
 async function awaitOptionalMultiline() {
     return (await loadFactory
         ())?.();
@@ -839,17 +767,7 @@ async function awaitOptionalMultiline() {
     return (await loadFactory())?.();
 }
 
-== should keep parentheses around multi-line await optional call (2nd pass) ==
-async function awaitOptionalMultiline() {
-    return (await loadFactory())?.();
-}
-
-[expect]
-async function awaitOptionalMultiline() {
-    return (await loadFactory())?.();
-}
-
-== should keep parentheses around multi-line await binary expression (1st pass) ==
+== should keep parentheses around multi-line await binary expression ==
 async function awaitBinaryMultiline() {
     const total = (await computeValue
         ()) + 1;
@@ -862,32 +780,10 @@ async function awaitBinaryMultiline() {
     return total;
 }
 
-== should keep parentheses around multi-line await binary expression (2nd pass) ==
-async function awaitBinaryMultiline() {
-    const total = (await computeValue()) + 1;
-    return total;
-}
-
-[expect]
-async function awaitBinaryMultiline() {
-    const total = (await computeValue()) + 1;
-    return total;
-}
-
-== should keep parentheses around multi-line return property access (1st pass) ==
+== should keep parentheses around multi-line return property access ==
 function returnPropertyMultiline() {
     return (getObject
         ()).value;
-}
-
-[expect]
-function returnPropertyMultiline() {
-    return getObject().value;
-}
-
-== should keep parentheses around multi-line return property access (2nd pass) ==
-function returnPropertyMultiline() {
-    return getObject().value;
 }
 
 [expect]
