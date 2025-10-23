@@ -2703,13 +2703,9 @@ fn should_add_parens_around_expr<'a>(node: Node<'a>, context: &Context<'a>) -> b
         }
       }
       Node::ExprStmt(_) => {
-        // In maintain mode, don't add parens
-        if context.config.use_parentheses == UseParentheses::Maintain {
-          return false;
-        }
-        // keep parens for object/function/class at statement position to avoid ambiguity
-        return context.config.use_parentheses == UseParentheses::Disambiguation
-          || matches!(unwrap_assertion_node(original_node), Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_));
+        return context.config.use_parentheses != UseParentheses::Maintain
+          && (context.config.use_parentheses == UseParentheses::Disambiguation
+            || matches!(unwrap_assertion_node(original_node), Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_)));
       }
       Node::MemberExpr(expr) => {
         if matches!(expr.prop, MemberProp::Computed(_)) && expr.prop.range().contains(&original_node.range()) {
