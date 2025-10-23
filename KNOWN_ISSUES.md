@@ -1,8 +1,8 @@
 # Known Issues
 
-## Disambiguation Mode - Formatting Stability Issue with Nested Parentheses
+## Formatting Stability Issue with Nested Parentheses in Object Properties
 
-**Issue**: The Disambiguation mode formatter is not stable (not idempotent) when formatting nested parentheses in object properties.
+**Issue**: The formatter is not stable (not idempotent) when formatting nested parentheses in object properties. This issue exists in the official dprint TypeScript plugin v0.95.11 and we maintain compatibility with that behavior.
 
 **Example**:
 ```typescript
