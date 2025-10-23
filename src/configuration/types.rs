@@ -185,7 +185,12 @@ pub enum UseParentheses {
   PreferNone,
 }
 
-generate_str_to_from![UseParentheses, [Maintain, "maintain"], [Disambiguation, "disambiguation"], [PreferNone, "preferNone"]];
+generate_str_to_from![
+  UseParentheses,
+  [Maintain, "maintain"],
+  [Disambiguation, "disambiguation"],
+  [PreferNone, "preferNone"]
+];
 
 /// Whether to use parentheses around a single parameter in an arrow function.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
@@ -199,7 +204,12 @@ pub enum ArrowFunctionUseParentheses {
   PreferNone,
 }
 
-generate_str_to_from![ArrowFunctionUseParentheses, [Maintain, "maintain"], [Force, "force"], [PreferNone, "preferNone"]];
+generate_str_to_from![
+  ArrowFunctionUseParentheses,
+  [Maintain, "maintain"],
+  [Force, "force"],
+  [PreferNone, "preferNone"]
+];
 
 /// How to decide to use single or double quotes.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]

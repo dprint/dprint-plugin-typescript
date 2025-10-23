@@ -94,7 +94,12 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     semi_colons,
     file_indent_level: get_value(&mut config, "fileIndentLevel", 0, &mut diagnostics),
     /* situational */
-    arrow_function_use_parentheses: get_value(&mut config, "arrowFunction.useParentheses", ArrowFunctionUseParentheses::Maintain, &mut diagnostics),
+    arrow_function_use_parentheses: get_value(
+      &mut config,
+      "arrowFunction.useParentheses",
+      ArrowFunctionUseParentheses::Maintain,
+      &mut diagnostics,
+    ),
     binary_expression_line_per_expression: get_value(&mut config, "binaryExpression.linePerExpression", false, &mut diagnostics),
     conditional_expression_line_per_expression: get_value(&mut config, "conditionalExpression.linePerExpression", true, &mut diagnostics),
     jsx_quote_style: get_value(&mut config, "jsx.quoteStyle", quote_style.to_jsx_quote_style(), &mut diagnostics),
