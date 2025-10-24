@@ -2932,17 +2932,15 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
       NodeKind::IfStmt | NodeKind::WhileStmt | NodeKind::DoWhileStmt | NodeKind::ForStmt | NodeKind::ForInStmt | NodeKind::ForOfStmt
     )
   }) && !matches!(node.expr.kind(), NodeKind::JSXElement | NodeKind::JSXFragment)
-  {
-    let spans_multiple_lines = match (
+    && match (
       context.token_finder.get_previous_token_if_open_paren(&node.expr.range()),
       context.token_finder.get_next_token_if_close_paren(&node.expr.range()),
     ) {
       (Some(open_paren), Some(close_paren)) => open_paren.start_line_fast(context.program) != close_paren.end_line_fast(context.program),
       _ => node.start_line_fast(context.program) != node.end_line_fast(context.program),
-    };
-    if spans_multiple_lines {
-      return false;
     }
+  {
+    return false;
   }
 
   // keep parens around any destructuring assignments
