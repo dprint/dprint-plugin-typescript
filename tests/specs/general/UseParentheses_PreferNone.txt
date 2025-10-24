@@ -1,4 +1,35 @@
 ~~ useParentheses: preferNone ~~
+== should keep multi-line parentheses around optional chain object with comment ==
+(f //
+)?.prop;
+
+[expect]
+(
+    f //
+)?.prop;
+
+== should remove multi-line parentheses around optional chain object without comment ==
+(f
+)?.prop;
+
+[expect]
+f?.prop;
+
+== should keep multi-line parentheses with comment before optional chain member access ==
+(f //
+?.prop);
+
+[expect]
+(f //
+?.prop);
+
+== should remove multi-line parentheses around optional chain member access without comment ==
+(f
+?.prop);
+
+[expect]
+f?.prop;
+
 == should keep multi-line parentheses around member access object with comment ==
 (f //
 ).prop;
