@@ -3000,14 +3000,10 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
       parent.kind(),
       NodeKind::TsAsExpr | NodeKind::TsSatisfiesExpr | NodeKind::TsConstAssertion | NodeKind::TsTypeAssertion | NodeKind::TsNonNullExpr
     ) {
-      if matches!(
+      return matches!(
         node.expr.kind(),
         NodeKind::TsAsExpr | NodeKind::TsSatisfiesExpr | NodeKind::TsConstAssertion | NodeKind::TsTypeAssertion | NodeKind::TsNonNullExpr
-      ) {
-        return true; // remove parens in nested assertion chains like ((expr as X) as Y)
-      } else {
-        return false; // keep parens when parent is assertion but inner isn't (for operator precedence)
-      }
+      );
     }
 
     // For preferNone mode, let the standard logic below handle the rest
