@@ -2914,10 +2914,8 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
   // But skip if:
   // - inside control flow statement conditions (if/while/for) - those have their own parens
   // - parent is yield/throw/return expression - to avoid unstable formatting when inner content collapses
-  if !matches!(
-    parent.kind(),
-    NodeKind::YieldExpr | NodeKind::ThrowStmt | NodeKind::ReturnStmt
-  ) && !node.ancestors().any(|a| {
+  if !matches!(parent.kind(), NodeKind::YieldExpr | NodeKind::ThrowStmt | NodeKind::ReturnStmt)
+    && !node.ancestors().any(|a| {
     matches!(
       a.kind(),
       NodeKind::IfStmt | NodeKind::WhileStmt | NodeKind::DoWhileStmt | NodeKind::ForStmt | NodeKind::ForInStmt | NodeKind::ForOfStmt
