@@ -2896,6 +2896,16 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
 
   let parent = node.parent();
 
+  // Check ancestor context once for efficiency
+  let in_control_flow_condition = node.ancestors().any(|a| {
+    matches!(
+      a.kind(),
+      NodeKind::IfStmt | NodeKind::WhileStmt | NodeKind::DoWhileStmt | NodeKind::ForStmt | NodeKind::ForInStmt | NodeKind::ForOfStmt
+    )
+  });
+  let in_expr_stmt = node.ancestors().any(|a| a.kind() == NodeKind::ExprStmt);
+  let in_opt_chain = node.ancestors().any(|a| a.kind() == NodeKind::OptChainExpr);
+
   // keep for `(val as number)++` or `(<number>val)++`
   if parent.kind() == NodeKind::UpdateExpr && matches!(node.expr.kind(), NodeKind::TsAsExpr | NodeKind::TsTypeAssertion) {
     return false;
@@ -2915,12 +2925,8 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
   // - inside control flow statement conditions (if/while/for) - those have their own parens
   // - parent is yield/throw/return expression - to avoid unstable formatting when inner content collapses
   if !matches!(parent.kind(), NodeKind::YieldExpr | NodeKind::ThrowStmt | NodeKind::ReturnStmt)
-    && !node.ancestors().any(|a| {
-    matches!(
-      a.kind(),
-      NodeKind::IfStmt | NodeKind::WhileStmt | NodeKind::DoWhileStmt | NodeKind::ForStmt | NodeKind::ForInStmt | NodeKind::ForOfStmt
-    )
-  }) && !matches!(node.expr.kind(), NodeKind::JSXElement | NodeKind::JSXFragment)
+    && !in_control_flow_condition
+    && !matches!(node.expr.kind(), NodeKind::JSXElement | NodeKind::JSXFragment)
     && match (
       context.token_finder.get_previous_token_if_open_paren(&node.expr.range()),
       context.token_finder.get_next_token_if_close_paren(&node.expr.range()),
@@ -2954,7 +2960,7 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
   // with preferNone, remove all unnecessary parens everywhere
   if context.config.use_parentheses == UseParentheses::PreferNone {
     // In expression statements, keep parens only for disambiguation
-    if node.ancestors().any(|a| a.kind() == NodeKind::ExprStmt) {
+    if in_expr_stmt {
       let unwrapped = unwrap_assertion_node(node.expr.into());
       if matches!(unwrapped, Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_)) {
         return false; // keep parens: object literal (disambiguation), function/class expr (required)
@@ -3090,7 +3096,7 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
       }
       // Also need to check ancestors for OptChainExpr when doing property access
       // (function() {})?.prop needs parens
-      if node.ancestors().any(|a| matches!(a.kind(), NodeKind::OptChainExpr)) {
+      if in_opt_chain {
         return false; // keep parens: (function() {})?.prop
       }
     }
