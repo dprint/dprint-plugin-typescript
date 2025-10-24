@@ -1,0 +1,10 @@
+~~ whileStatement.useBraces: whenNeeded ~~
+== should keep braces for declaration bodies ==
+while (true) {
+    const value = 1;
+}
+
+[expect]
+while (true) {
+    const value = 1;
+}

@@ -5420,7 +5420,11 @@ fn gen_if_stmt<'a>(node: &IfStmt<'a>, context: &mut Context<'a>) -> PrintItems {
         ));
         items
       },
-      use_braces: context.config.if_statement_use_braces,
+      use_braces: if use_braces_for_then(cons, node.alt) {
+        UseBraces::Always
+      } else {
+        context.config.if_statement_use_braces
+      },
       brace_position: context.config.if_statement_brace_position,
       single_body_position: Some(context.config.if_statement_single_body_position),
       requires_braces_condition_ref: context.take_if_stmt_last_brace_condition_ref(),
@@ -5475,7 +5479,11 @@ fn gen_if_stmt<'a>(node: &IfStmt<'a>, context: &mut Context<'a>) -> PrintItems {
         gen_conditional_brace_body(
           GenConditionalBraceBodyOptions {
             body_node: alt.into(),
-            use_braces: context.config.if_statement_use_braces,
+            use_braces: if use_braces_for_else(alt) {
+              UseBraces::Always
+            } else {
+              context.config.if_statement_use_braces
+            },
             brace_position: context.config.if_statement_brace_position,
             single_body_position: Some(context.config.if_statement_single_body_position),
             requires_braces_condition_ref: Some(result.open_brace_condition_ref),
@@ -8825,7 +8833,10 @@ fn gen_header_with_conditional_brace_body<'a>(
   let result = gen_conditional_brace_body(
     GenConditionalBraceBodyOptions {
       body_node: opts.body_node.into(),
-      use_braces: if force_use_braces_for_stmt(opts.body_node) {
+      use_braces: if opts.use_braces != UseBraces::WhenNeeded
+        && opts.use_braces != UseBraces::WhenFormattedMultiLine
+        && get_use_braces_for_stmt(opts.body_node, true)
+      {
         UseBraces::Always
       } else {
         opts.use_braces
@@ -8847,29 +8858,107 @@ fn gen_header_with_conditional_brace_body<'a>(
   }
 }
 
-fn force_use_braces_for_stmt(stmt: Stmt) -> bool {
-  match stmt {
-    Stmt::Block(block) => {
-      if block.stmts.len() != 1 {
-        true
-      } else {
-        force_use_braces_for_stmt(block.stmts[0])
+fn single_non_empty_stmt<'a, I>(mut iter: I) -> Option<Stmt<'a>>
+where
+  I: Iterator<Item = &'a Stmt<'a>>,
+{
+  match (iter.next(), iter.next()) {
+    (Some(first), None) => Some(*first),
+    _ => None,
+  }
+}
+
+fn get_use_braces_for_node(body_node: Node, preferred: bool) -> bool {
+  match body_node {
+    Node::BlockStmt(block) => {
+      let non_empty = block.stmts.iter().filter(|s| s.kind() != NodeKind::EmptyStmt);
+      match single_non_empty_stmt(non_empty) {
+        Some(stmt) => get_use_braces_for_stmt(stmt, preferred),
+        None => true,
       }
     }
-    // force braces for any children where no braces could be ambiguous
-    Stmt::Empty(_)
-    | Stmt::DoWhile(_)
+    Node::ExprStmt(expr_stmt) => preferred && matches!(expr_stmt.expr, Expr::Await(_)),
+    Node::DoWhileStmt(_)
+    | Node::ForStmt(_)
+    | Node::ForInStmt(_)
+    | Node::ForOfStmt(_)
+    | Node::IfStmt(_)
+    | Node::LabeledStmt(_)
+    | Node::SwitchStmt(_)
+    | Node::TryStmt(_)
+    | Node::WhileStmt(_)
+    | Node::WithStmt(_) => preferred,
+    _ => false,
+  }
+}
+
+fn get_use_braces_for_stmt(stmt: Stmt, preferred: bool) -> bool {
+  match stmt {
+    Stmt::Block(block) => {
+      let non_empty = block.stmts.iter().filter(|s| s.kind() != NodeKind::EmptyStmt);
+      match single_non_empty_stmt(non_empty) {
+        Some(stmt) => get_use_braces_for_stmt(stmt, preferred),
+        None => true,
+      }
+    }
+    Stmt::Expr(expr_stmt) => preferred && matches!(expr_stmt.expr, Expr::Await(_)),
+    Stmt::DoWhile(_)
     | Stmt::For(_)
     | Stmt::ForIn(_)
     | Stmt::ForOf(_)
-    | Stmt::Decl(_)
-    | Stmt::If(_) // especially force for this as it may cause a bug
+    | Stmt::If(_)
     | Stmt::Labeled(_)
     | Stmt::Switch(_)
     | Stmt::Try(_)
     | Stmt::While(_)
-    | Stmt::With(_) => true,
-    Stmt::Break(_) | Stmt::Continue(_) | Stmt::Debugger(_) | Stmt::Expr(_) | Stmt::Return(_) | Stmt::Throw(_) => false,
+    | Stmt::With(_) => preferred,
+    Stmt::Decl(_) => true,
+    _ => false,
+  }
+}
+
+fn contains_dangling_if(stmt: Stmt) -> bool {
+  match stmt {
+    Stmt::If(if_stmt) => if_stmt.alt.is_none(),
+    Stmt::For(for_stmt) => contains_dangling_if(for_stmt.body),
+    Stmt::ForIn(for_in_stmt) => contains_dangling_if(for_in_stmt.body),
+    Stmt::ForOf(for_of_stmt) => contains_dangling_if(for_of_stmt.body),
+    Stmt::While(while_stmt) => contains_dangling_if(while_stmt.body),
+    Stmt::Block(block_stmt) => {
+      let non_empty = block_stmt.stmts.iter().filter(|s| !matches!(s, Stmt::Empty(_)));
+      single_non_empty_stmt(non_empty).map_or(false, contains_dangling_if)
+    }
+    Stmt::With(with_stmt) => contains_dangling_if(with_stmt.body),
+    Stmt::Labeled(labeled_stmt) => contains_dangling_if(labeled_stmt.body),
+    _ => false,
+  }
+}
+
+fn use_braces_for_then(then_node: Stmt, else_node: Option<Stmt>) -> bool {
+  match then_node {
+    Stmt::Block(block_stmt) => {
+      let non_empty = block_stmt.stmts.iter().filter(|s| !matches!(s, Stmt::Empty(_)));
+      match single_non_empty_stmt(non_empty) {
+        Some(stmt) => use_braces_for_then(stmt, else_node),
+        None => true,
+      }
+    }
+    Stmt::Decl(_) => true,
+    _ => else_node.is_some() && contains_dangling_if(then_node),
+  }
+}
+
+fn use_braces_for_else(else_node: Stmt) -> bool {
+  match else_node {
+    Stmt::Block(block_stmt) => {
+      let non_empty = block_stmt.stmts.iter().filter(|s| !matches!(s, Stmt::Empty(_)));
+      match single_non_empty_stmt(non_empty) {
+        Some(stmt) => use_braces_for_else(stmt),
+        None => true,
+      }
+    }
+    Stmt::Decl(_) => true,
+    _ => false,
   }
 }
 
@@ -8943,6 +9032,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
   );
   let newline_condition_ref = newline_condition.create_reference();
   let force_braces = get_force_braces(opts.body_node);
+  let when_needed_use_braces = opts.use_braces == UseBraces::WhenNeeded && get_use_braces_for_node(opts.body_node, false);
   let mut open_brace_condition = if_true(
     "openBrace",
     {
@@ -8989,6 +9079,10 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
             }
 
             Some(false)
+          }
+          UseBraces::WhenNeeded => Some(when_needed_use_braces),
+          UseBraces::WhenFormattedMultiLine => {
+            Some(force_braces || condition_helpers::is_multiple_lines(condition_context, start_statements_lc.line, end_statements_lc.line)?)
           }
         }
       })
