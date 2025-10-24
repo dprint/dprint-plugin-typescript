@@ -3077,12 +3077,6 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     );
     debug_assert!(is_known_parent);
     if is_known_parent && expr_or_spread.spread().is_none() {
-      // With preferNone mode, don't remove parens around await/yield in arrays
-      if context.config.use_parentheses == UseParentheses::PreferNone {
-        if matches!(node.expr, Expr::Await(_) | Expr::Yield(_)) && expr_or_spread.parent().kind() == NodeKind::ArrayLit {
-          return false; // keep parens around await/yield in arrays
-        }
-      }
       return true;
     }
   }
@@ -3095,23 +3089,6 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
 
   // With preferNone mode, check for special cases that need parens BEFORE the general removal logic
   if context.config.use_parentheses == UseParentheses::PreferNone {
-    // Keep parens around await/yield when used in arrays, objects, or as default values
-    if matches!(node.expr, Expr::Await(_) | Expr::Yield(_)) {
-      // Yield and await expressions need parens in many contexts to avoid ambiguity
-      // Check if this paren is necessary by looking at ancestors
-      for ancestor in node.ancestors() {
-        match ancestor.kind() {
-          // In array literals or array patterns (destructuring), keep parens
-          NodeKind::ArrayLit | NodeKind::ArrayPat => return false,
-          // In object literals or object patterns, keep parens
-          NodeKind::ObjectLit | NodeKind::ObjectPat => return false,
-          // Stop checking once we hit a statement boundary
-          NodeKind::ExprStmt | NodeKind::VarDecl | NodeKind::ReturnStmt => break,
-          _ => continue,
-        }
-      }
-    }
-
     // Check if parens are needed around `new` expressions when called
     // (new Foo())() vs new Foo()() - parens needed for immediate calls
     // (new Foo())?.() - parens needed for optional calls

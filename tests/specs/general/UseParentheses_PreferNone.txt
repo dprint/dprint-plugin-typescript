@@ -45,11 +45,11 @@ const items = [(value), ((other))];
 [expect]
 const items = [value, other];
 
-== should retain parentheses in array destructuring pattern when required ==
+== should remove parentheses in array destructuring pattern ==
 const [value = (await load())] = source;
 
 [expect]
-const [value = (await load())] = source;
+const [value = await load()] = source;
 
 == should remove parentheses inside object properties ==
 const obj = {
@@ -237,14 +237,14 @@ function* gen() {
     yield value;
 }
 
-== should retain parentheses around yield used in expression ==
+== should remove parentheses around yield used in array ==
 function* collect() {
     const collected = [ (yield value) ];
 }
 
 [expect]
 function* collect() {
-    const collected = [(yield value)];
+    const collected = [yield value];
 }
 
 == should keep parentheses around yield when accessing members ==
