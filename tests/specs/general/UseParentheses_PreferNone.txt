@@ -1,5 +1,5 @@
 ~~ useParentheses: preferNone ~~
-== should keep multi-line parentheses around optional call callee ==
+== should keep multi-line parentheses around optional call callee with comment ==
 (f //
 )?.();
 
@@ -7,6 +7,28 @@
 (
     f //
 )?.();
+
+== should remove multi-line parentheses around optional call callee without comment ==
+(f
+)?.();
+
+[expect]
+f?.();
+
+== should keep multi-line parentheses with comment before optional chain ==
+(f //
+?.());
+
+[expect]
+(f //
+?.());
+
+== should remove multi-line parentheses around optional chain call without comment ==
+(f
+?.());
+
+[expect]
+f?.();
 
 == TEST: single line array access should remove parens ==
 (a[2]);
