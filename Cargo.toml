@@ -1,6 +1,6 @@
 [package]
 name = "dprint-plugin-typescript"
-version = "0.95.11+sf.2"
+version = "0.95.11+sf.3"
 authors = ["David Sherret <dsherret@gmail.com>"]
 edition = "2021"
 homepage = "https://github.com/secforge/dprint-plugin-typescript"
