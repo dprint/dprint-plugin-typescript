@@ -2972,25 +2972,22 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     // In expression statements, keep parens only for disambiguation
     if context_stmt_kind.is_some_and(|kind| kind == NodeKind::ExprStmt) {
       let unwrapped = unwrap_assertion_node(node.expr.into());
-      if matches!(unwrapped, Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_)) {
-        return false; // keep parens: object literal (disambiguation), function/class expr (required)
-      }
-
-      if matches!(unwrapped, Node::ArrowExpr(_)) {
-        // arrow functions only need parens if they're used (called, have assertion, member access, etc.)
-        if matches!(
-          parent.kind(),
-          NodeKind::TsAsExpr
-            | NodeKind::TsSatisfiesExpr
-            | NodeKind::TsConstAssertion
-            | NodeKind::TsTypeAssertion
-            | NodeKind::TsNonNullExpr
-            | NodeKind::CallExpr
-            | NodeKind::MemberExpr
-            | NodeKind::OptChainExpr
-        ) {
-          return false; // keep parens for arrow with assertion or being used
-        }
+      // Keep parens for: object/function/class (always) or arrow (when used)
+      if matches!(unwrapped, Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_))
+        || (matches!(unwrapped, Node::ArrowExpr(_))
+          && matches!(
+            parent.kind(),
+            NodeKind::TsAsExpr
+              | NodeKind::TsSatisfiesExpr
+              | NodeKind::TsConstAssertion
+              | NodeKind::TsTypeAssertion
+              | NodeKind::TsNonNullExpr
+              | NodeKind::CallExpr
+              | NodeKind::MemberExpr
+              | NodeKind::OptChainExpr
+          ))
+      {
+        return false;
       }
     }
 
