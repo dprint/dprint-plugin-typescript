@@ -1,4 +1,23 @@
 ~~ useParentheses: preferNone ~~
+== should remove multi-line parentheses in expression statement without comment ==
+if (a)
+  (f
+    ());
+
+[expect]
+if (a)
+  f();
+
+== should keep multi-line parentheses in expression statement with comment ==
+if (a)
+  (f //
+    ());
+
+[expect]
+if (a)
+  (f //
+  ());
+
 == should remove multi-line parentheses in return without braces ==
 if (a)
   return (f
