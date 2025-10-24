@@ -1,4 +1,35 @@
 ~~ useParentheses: preferNone ~~
+== should remove multi-line parentheses in return without braces ==
+if (a)
+  return (f
+    ());
+
+[expect]
+if (a)
+  return f();
+
+== should remove multi-line parentheses in throw without braces ==
+if (a)
+  throw (f
+    ());
+
+[expect]
+if (a)
+  throw f();
+
+== should remove multi-line parentheses in yield without braces ==
+function* gen() {
+  if (a)
+    yield (f
+      ());
+}
+
+[expect]
+function* gen() {
+  if (a)
+    yield f();
+}
+
 == should keep multi-line parentheses in call argument with comment ==
 foo((arg //
 ));
