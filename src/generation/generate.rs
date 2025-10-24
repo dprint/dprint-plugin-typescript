@@ -2971,9 +2971,8 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
   if context.config.use_parentheses == UseParentheses::PreferNone {
     // In expression statements, keep parens only for disambiguation
     if context_stmt_kind.is_some_and(|kind| kind == NodeKind::ExprStmt) {
-      let unwrapped = unwrap_assertion_node(node.expr.into());
       // Keep parens for: object/function/class (always) or arrow (when used)
-      match unwrapped {
+      match unwrap_assertion_node(node.expr.into()) {
         Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_) => return false,
         Node::ArrowExpr(_) => {
           if matches!(
