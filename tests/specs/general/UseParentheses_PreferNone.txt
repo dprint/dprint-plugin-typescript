@@ -1,4 +1,13 @@
 ~~ useParentheses: preferNone ~~
+== should keep multi-line parentheses around optional call callee ==
+(f //
+)?.();
+
+[expect]
+(
+    f //
+)?.();
+
 == TEST: single line array access should remove parens ==
 (a[2]);
 

@@ -2922,7 +2922,6 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
       | NodeKind::YieldExpr
       | NodeKind::ThrowStmt
       | NodeKind::ReturnStmt
-      | NodeKind::OptCall
       | NodeKind::MemberExpr
       | NodeKind::OptChainExpr
   ) && !node.ancestors().any(|a| {
