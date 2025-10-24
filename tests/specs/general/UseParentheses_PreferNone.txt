@@ -1,11 +1,16 @@
 ~~ useParentheses: preferNone ~~
+== TEST: single line array access should remove parens ==
+(a[2]);
+
+[expect]
+a[2];
+
 == should keep multi-line parentheses around call expression ==
 (f //
 ());
 
 [expect]
-(
-  f //
+(f //
 ());
 
 == should keep multi-line parentheses around function callee ==
@@ -14,7 +19,7 @@
 
 [expect]
 (
-  f //
+    f //
 )();
 
 == should remove parentheses inside call arguments ==
