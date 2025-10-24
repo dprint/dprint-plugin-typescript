@@ -1,4 +1,302 @@
 ~~ useParentheses: maintain ~~
+== should keep multi-line parentheses around call callee with comment ==
+(f //
+)();
+
+[expect]
+(
+    f //
+)();
+
+== should keep multi-line parentheses around call expression ==
+(f //
+());
+
+[expect]
+(f //
+());
+
+== should keep multi-line parentheses around function callee ==
+(f //
+)();
+
+[expect]
+(
+    f //
+)();
+
+== should keep multi-line parentheses around member access object with comment ==
+(f //
+).prop;
+
+[expect]
+(
+    f //
+).prop;
+
+== should keep multi-line parentheses around optional call callee with comment ==
+(f //
+)?.();
+
+[expect]
+(
+    f //
+)?.();
+
+== should keep multi-line parentheses around optional chain object with comment ==
+(f //
+)?.prop;
+
+[expect]
+(
+    f //
+)?.prop;
+
+== should keep multi-line parentheses in array element with comment ==
+[(item //
+)];
+
+[expect]
+[
+    (
+        item //
+    ),
+];
+
+== should keep multi-line parentheses in call argument with comment ==
+foo((arg //
+));
+
+[expect]
+foo(
+    (
+        arg //
+    ),
+);
+
+== should keep multi-line parentheses in expression statement with comment ==
+if (a)
+  (f //
+    ());
+
+[expect]
+if (a) {
+    (f //
+    ());
+}
+
+== should keep multi-line parentheses in return with comment ==
+if (a)
+  return (f //
+    ());
+
+[expect]
+if (a) {
+    return (f //
+    ());
+}
+
+== should keep multi-line parentheses in throw with comment ==
+if (a)
+  throw (f //
+    ());
+
+[expect]
+if (a) {
+    throw (f //
+    ());
+}
+
+== should keep multi-line parentheses in yield with comment ==
+function* gen() {
+  if (a)
+    yield (f //
+      ());
+}
+
+[expect]
+function* gen() {
+    if (a) {
+        yield (f //
+        ());
+    }
+}
+
+== should keep multi-line parentheses with comment before call ==
+(f //
+());
+
+[expect]
+(f //
+());
+
+== should keep multi-line parentheses with comment before member access ==
+(f //
+.prop);
+
+[expect]
+(f //
+    .prop);
+
+== should keep multi-line parentheses with comment before optional chain ==
+(f //
+?.());
+
+[expect]
+(f //
+?.());
+
+== should keep multi-line parentheses with comment before optional chain member access ==
+(f //
+?.prop);
+
+[expect]
+(f //
+    ?.prop);
+
+== should retain multi-line parentheses around call callee without comment ==
+(f
+)();
+
+[expect]
+(f)();
+
+== should retain multi-line parentheses around call without comment ==
+(f
+());
+
+[expect]
+(f());
+
+== should retain multi-line parentheses around long variable in return ==
+return (
+  veryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryLongIdentifierName1234567890123456789012345678901234567890);
+
+[expect]
+return (
+    veryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryLongIdentifierName1234567890123456789012345678901234567890
+);
+
+== should retain multi-line parentheses around member access object without comment ==
+(f
+).prop;
+
+[expect]
+(f).prop;
+
+== should retain multi-line parentheses around member access without comment ==
+(f
+.prop);
+
+[expect]
+(f
+    .prop);
+
+== should retain multi-line parentheses around optional call callee without comment ==
+(f
+)?.();
+
+[expect]
+(f)?.();
+
+== should retain multi-line parentheses around optional chain call without comment ==
+(f
+?.());
+
+[expect]
+(f?.());
+
+== should retain multi-line parentheses around optional chain member access without comment ==
+(f
+?.prop);
+
+[expect]
+(f
+    ?.prop);
+
+== should retain multi-line parentheses around optional chain object without comment ==
+(f
+)?.prop;
+
+[expect]
+(f)?.prop;
+
+== should retain multi-line parentheses in array element without comment ==
+[(item
+)];
+
+[expect]
+[(item)];
+
+== should retain multi-line parentheses in call argument without comment ==
+foo((arg
+));
+
+[expect]
+foo((arg));
+
+== should retain multi-line parentheses in expression statement without comment ==
+if (a)
+  (f
+    ());
+
+[expect]
+if (a) {
+    (f());
+}
+
+== should retain multi-line parentheses in return with function call on next line ==
+if (a)
+  return (f
+(veryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryLongIdentifierName1234567890123456789012345678901234567890));
+
+[expect]
+if (a) {
+    return (f(
+        veryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryLongIdentifierName1234567890123456789012345678901234567890,
+    ));
+}
+
+== should retain multi-line parentheses in return without comment ==
+if (a)
+  return (f
+    ());
+
+[expect]
+if (a) {
+    return (f());
+}
+
+== should retain multi-line parentheses in throw without comment ==
+if (a)
+  throw (f
+    ());
+
+[expect]
+if (a) {
+    throw (f());
+}
+
+== should retain multi-line parentheses in yield without comment ==
+function* gen() {
+  if (a)
+    yield (f
+      ());
+}
+
+[expect]
+function* gen() {
+    if (a) {
+        yield (f());
+    }
+}
+
+== TEST: single line array access should retain parens ==
+(a[2]);
+
+[expect]
+(a[2]);
+
 == should remove parentheses inside call arguments ==
 f((1 + 2));
 
