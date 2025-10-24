@@ -2927,10 +2927,12 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
   // Multi-line preservation for ASI (Automatic Semicolon Insertion) protection
   // Keep parens when they span multiple lines to prevent ASI from breaking code
   // Skip this protection when:
-  // - parent is yield/throw/return - these keywords already prevent ASI
+  // - parent or ancestor is yield/throw/return - these keywords already prevent ASI
   // - inside control flow conditions (if/while/for) - these have their own parens
   let context_stmt_kind = get_context_stmt_kind(node);
-  if !matches!(parent.kind(), NodeKind::YieldExpr | NodeKind::ThrowStmt | NodeKind::ReturnStmt)
+  let has_return_throw_yield_ancestor = matches!(parent.kind(), NodeKind::YieldExpr | NodeKind::ThrowStmt | NodeKind::ReturnStmt)
+    || node.ancestors().any(|ancestor| matches!(ancestor.kind(), NodeKind::YieldExpr | NodeKind::ThrowStmt | NodeKind::ReturnStmt));
+  if !has_return_throw_yield_ancestor
     && !context_stmt_kind.is_some_and(|kind| {
       matches!(
         kind,
