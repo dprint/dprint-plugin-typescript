@@ -2896,19 +2896,16 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
 
   let parent = node.parent();
 
-  // Find the first ancestor statement and collect context info in a single traversal
+  // Find the first ancestor statement in a single traversal
   let mut context_stmt: Option<Node> = None;
-  let mut in_opt_chain = false;
 
   for ancestor in node.ancestors() {
-    match ancestor.kind() {
-      NodeKind::IfStmt | NodeKind::WhileStmt | NodeKind::DoWhileStmt | NodeKind::ForStmt | NodeKind::ForInStmt | NodeKind::ForOfStmt | NodeKind::ExprStmt => {
-        if context_stmt.is_none() {
-          context_stmt = Some(ancestor);
-        }
-      }
-      NodeKind::OptChainExpr => in_opt_chain = true,
-      _ => {}
+    if matches!(
+      ancestor.kind(),
+      NodeKind::IfStmt | NodeKind::WhileStmt | NodeKind::DoWhileStmt | NodeKind::ForStmt | NodeKind::ForInStmt | NodeKind::ForOfStmt | NodeKind::ExprStmt
+    ) {
+      context_stmt = Some(ancestor);
+      break; // Found the first statement, stop searching
     }
   }
 
@@ -3106,12 +3103,7 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
         parent.kind(),
         NodeKind::CallExpr | NodeKind::OptCall | NodeKind::OptChainExpr | NodeKind::MemberExpr
       ) {
-        return false; // keep parens: (() => {})(), (function() {}).prop, etc.
-      }
-      // Also need to check ancestors for OptChainExpr when doing property access
-      // (function() {})?.prop needs parens
-      if in_opt_chain {
-        return false; // keep parens: (function() {})?.prop
+        return false; // keep parens: (() => {})(), (function() {}).prop, (function() {})?.prop, etc.
       }
     }
 
