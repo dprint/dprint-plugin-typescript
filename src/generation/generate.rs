@@ -2973,20 +2973,21 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     if context_stmt_kind.is_some_and(|kind| kind == NodeKind::ExprStmt) {
       let unwrapped = unwrap_assertion_node(node.expr.into());
       // Keep parens for: object/function/class (always) or arrow (when used)
-      if matches!(unwrapped, Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_))
-        || (matches!(unwrapped, Node::ArrowExpr(_))
-          && matches!(
-            parent.kind(),
-            NodeKind::TsAsExpr
-              | NodeKind::TsSatisfiesExpr
-              | NodeKind::TsConstAssertion
-              | NodeKind::TsTypeAssertion
-              | NodeKind::TsNonNullExpr
-              | NodeKind::CallExpr
-              | NodeKind::MemberExpr
-              | NodeKind::OptChainExpr
-          ))
-      {
+      if match unwrapped {
+        Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_) => true,
+        Node::ArrowExpr(_) => matches!(
+          parent.kind(),
+          NodeKind::TsAsExpr
+            | NodeKind::TsSatisfiesExpr
+            | NodeKind::TsConstAssertion
+            | NodeKind::TsTypeAssertion
+            | NodeKind::TsNonNullExpr
+            | NodeKind::CallExpr
+            | NodeKind::MemberExpr
+            | NodeKind::OptChainExpr
+        ),
+        _ => false,
+      } {
         return false;
       }
     }
