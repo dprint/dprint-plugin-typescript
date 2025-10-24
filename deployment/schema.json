@@ -168,6 +168,18 @@
         "description": "Prefers no parentheses - only uses them when absolutely necessary to avoid breaking code."
       }]
     },
+    "ternaryIndentStyle": {
+      "description": "How ternary conditional expressions should be indented.",
+      "type": "string",
+      "default": "align",
+      "oneOf": [{
+        "const": "align",
+        "description": "Align the ? and : operators under the condition."
+      }, {
+        "const": "structural",
+        "description": "Use structural indentation for the ternary expression."
+      }]
+    },
     "bracePosition": {
       "description": "Where to place the opening brace.",
       "type": "string",
@@ -1195,6 +1207,9 @@
     },
     "conditionalExpression.operatorPosition": {
       "$ref": "#/definitions/operatorPosition"
+    },
+    "conditionalExpression.indentStyle": {
+      "$ref": "#/definitions/ternaryIndentStyle"
     },
     "conditionalType.operatorPosition": {
       "$ref": "#/definitions/operatorPosition"

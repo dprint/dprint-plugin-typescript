@@ -207,6 +207,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     /* operator position */
     binary_expression_operator_position: get_value(&mut config, "binaryExpression.operatorPosition", operator_position, &mut diagnostics),
     conditional_expression_operator_position: get_value(&mut config, "conditionalExpression.operatorPosition", operator_position, &mut diagnostics),
+    conditional_expression_indent_style: get_value(&mut config, "conditionalExpression.indentStyle", TernaryIndentStyle::Align, &mut diagnostics),
     conditional_type_operator_position: get_value(&mut config, "conditionalType.operatorPosition", operator_position, &mut diagnostics),
     /* single body position */
     if_statement_single_body_position: get_value(&mut config, "ifStatement.singleBodyPosition", single_body_position, &mut diagnostics),
