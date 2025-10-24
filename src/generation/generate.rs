@@ -2896,15 +2896,21 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
 
   let parent = node.parent();
 
-  // Check ancestor context once for efficiency
-  let in_control_flow_condition = node.ancestors().any(|a| {
-    matches!(
-      a.kind(),
-      NodeKind::IfStmt | NodeKind::WhileStmt | NodeKind::DoWhileStmt | NodeKind::ForStmt | NodeKind::ForInStmt | NodeKind::ForOfStmt
-    )
-  });
-  let in_expr_stmt = node.ancestors().any(|a| a.kind() == NodeKind::ExprStmt);
-  let in_opt_chain = node.ancestors().any(|a| a.kind() == NodeKind::OptChainExpr);
+  // Check ancestor context once for efficiency - single traversal collecting all relevant info
+  let mut in_control_flow_condition = false;
+  let mut in_expr_stmt = false;
+  let mut in_opt_chain = false;
+
+  for ancestor in node.ancestors() {
+    match ancestor.kind() {
+      NodeKind::IfStmt | NodeKind::WhileStmt | NodeKind::DoWhileStmt | NodeKind::ForStmt | NodeKind::ForInStmt | NodeKind::ForOfStmt => {
+        in_control_flow_condition = true;
+      }
+      NodeKind::ExprStmt => in_expr_stmt = true,
+      NodeKind::OptChainExpr => in_opt_chain = true,
+      _ => {}
+    }
+  }
 
   // keep for `(val as number)++` or `(<number>val)++`
   if parent.kind() == NodeKind::UpdateExpr && matches!(node.expr.kind(), NodeKind::TsAsExpr | NodeKind::TsTypeAssertion) {
