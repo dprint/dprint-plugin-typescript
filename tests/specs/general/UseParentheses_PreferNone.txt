@@ -1,4 +1,4 @@
-~~ useParentheses: preferNone ~~
+~~ useParentheses: preferNone, useBraces: preferNone ~~
 == should remove multi-line parentheses in expression statement without comment ==
 if (a)
   (f
@@ -6,7 +6,7 @@ if (a)
 
 [expect]
 if (a)
-  f();
+    f();
 
 == should keep multi-line parentheses in expression statement with comment ==
 if (a)
@@ -14,9 +14,10 @@ if (a)
     ());
 
 [expect]
-if (a)
-  (f //
-  ());
+if (a) {
+    f //
+    ();
+}
 
 == should remove multi-line parentheses in return without braces ==
 if (a)
@@ -25,7 +26,7 @@ if (a)
 
 [expect]
 if (a)
-  return f();
+    return f();
 
 == should keep multi-line parentheses in return with comment ==
 if (a)
@@ -33,9 +34,10 @@ if (a)
     ());
 
 [expect]
-if (a)
-  return (f //
-  ());
+if (a) {
+    return f //
+    ();
+}
 
 == should remove multi-line parentheses in return with function call on next line ==
 if (a)
@@ -63,7 +65,7 @@ if (a)
 
 [expect]
 if (a)
-  throw f();
+    throw f();
 
 == should keep multi-line parentheses in throw with comment ==
 if (a)
@@ -71,9 +73,10 @@ if (a)
     ());
 
 [expect]
-if (a)
-  throw (f //
-  ());
+if (a) {
+    throw f //
+    ();
+}
 
 == should remove multi-line parentheses in yield without braces ==
 function* gen() {
@@ -84,8 +87,8 @@ function* gen() {
 
 [expect]
 function* gen() {
-  if (a)
-    yield f();
+    if (a)
+        yield f();
 }
 
 == should keep multi-line parentheses in yield with comment ==
@@ -97,9 +100,10 @@ function* gen() {
 
 [expect]
 function* gen() {
-  if (a)
-    yield (f //
-    ());
+    if (a) {
+        yield f //
+        ();
+    }
 }
 
 == should keep multi-line parentheses in call argument with comment ==
@@ -107,9 +111,11 @@ foo((arg //
 ));
 
 [expect]
-foo((
-    arg //
-));
+foo(
+    (
+        arg //
+    ),
+);
 
 == should remove multi-line parentheses in call argument without comment ==
 foo((arg
@@ -123,9 +129,11 @@ foo(arg);
 )];
 
 [expect]
-[(
-    item //
-)];
+[
+    (
+        item //
+    ),
+];
 
 == should remove multi-line parentheses in array element without comment ==
 [(item
@@ -155,15 +163,16 @@ f?.prop;
 ?.prop);
 
 [expect]
-(f //
-?.prop);
+f //
+    ?.prop;
 
 == should remove multi-line parentheses around optional chain member access without comment ==
 (f
 ?.prop);
 
 [expect]
-f?.prop;
+f
+    ?.prop;
 
 == should keep multi-line parentheses around member access object with comment ==
 (f //
@@ -186,15 +195,16 @@ f.prop;
 .prop);
 
 [expect]
-(f //
-.prop);
+f //
+    .prop;
 
 == should remove multi-line parentheses around member access without comment ==
 (f
 .prop);
 
 [expect]
-f.prop;
+f
+    .prop;
 
 == should keep multi-line parentheses around call callee with comment ==
 (f //
@@ -217,8 +227,8 @@ f();
 ());
 
 [expect]
-(f //
-());
+f //
+();
 
 == should remove multi-line parentheses around call without comment ==
 (f
@@ -248,8 +258,8 @@ f?.();
 ?.());
 
 [expect]
-(f //
-?.());
+f //
+?.();
 
 == should remove multi-line parentheses around optional chain call without comment ==
 (f
@@ -269,8 +279,8 @@ a[2];
 ());
 
 [expect]
-(f //
-());
+f //
+();
 
 == should keep multi-line parentheses around function callee ==
 (f //
@@ -648,9 +658,8 @@ if ((condition)) {
 }
 
 [expect]
-if (condition) {
+if (condition)
     doSomething();
-}
 
 == should keep parentheses around multi-line await in if condition ==
 async function ifAwaitMultiline() {
@@ -662,9 +671,8 @@ async function ifAwaitMultiline() {
 
 [expect]
 async function ifAwaitMultiline() {
-    if (await shouldProceed()) {
+    if (await shouldProceed())
         doSomething();
-    }
 }
 
 == should remove parentheses in while condition ==
@@ -673,9 +681,8 @@ while ((ready)) {
 }
 
 [expect]
-while (ready) {
+while (ready)
     run();
-}
 
 == should remove parentheses in do while condition ==
 do {
@@ -697,9 +704,8 @@ async function whileAwaitMultiline() {
 
 [expect]
 async function whileAwaitMultiline() {
-    while (await shouldContinue()) {
+    while (await shouldContinue())
         run();
-    }
 }
 
 == should remove parentheses in for-of iterable ==
@@ -708,9 +714,8 @@ for (const item of (collection)) {
 }
 
 [expect]
-for (const item of collection) {
+for (const item of collection)
     consume(item);
-}
 
 == should keep parentheses around multi-line await in for-of iterable ==
 async function forOfAwaitMultiline() {
@@ -722,9 +727,8 @@ async function forOfAwaitMultiline() {
 
 [expect]
 async function forOfAwaitMultiline() {
-    for (const item of await loadItems()) {
+    for (const item of await loadItems())
         consume(item);
-    }
 }
 
 == should remove parentheses in for head ==
@@ -733,9 +737,8 @@ for (let i = (0); i < (max); i++) {
 }
 
 [expect]
-for (let i = 0; i < max; i++) {
+for (let i = 0; i < max; i++)
     step(i);
-}
 
 == should remove parentheses in switch discriminant and cases ==
 switch ((value)) {
@@ -1333,9 +1336,8 @@ while (true) {
 }
 
 [expect]
-while (true) {
+while (true)
     ({} as X);
-}
 
 == should keep parentheses around function expression with as assertion ==
 (function() {}) as Foo;
