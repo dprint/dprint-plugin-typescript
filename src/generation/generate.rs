@@ -2675,6 +2675,47 @@ fn unwrap_assertion_node(mut node: Node) -> Node {
   }
 }
 
+/// Check if a node kind is a type assertion (includes all 5 types)
+fn is_type_assertion(kind: NodeKind) -> bool {
+  matches!(
+    kind,
+    NodeKind::TsAsExpr | NodeKind::TsSatisfiesExpr | NodeKind::TsConstAssertion | NodeKind::TsTypeAssertion | NodeKind::TsNonNullExpr
+  )
+}
+
+/// Check if a node kind is a statement
+fn is_stmt(kind: NodeKind) -> bool {
+  matches!(
+    kind,
+    NodeKind::BlockStmt
+      | NodeKind::BreakStmt
+      | NodeKind::ContinueStmt
+      | NodeKind::DebuggerStmt
+      | NodeKind::DoWhileStmt
+      | NodeKind::EmptyStmt
+      | NodeKind::ExprStmt
+      | NodeKind::ForInStmt
+      | NodeKind::ForOfStmt
+      | NodeKind::ForStmt
+      | NodeKind::IfStmt
+      | NodeKind::LabeledStmt
+      | NodeKind::ReturnStmt
+      | NodeKind::SwitchStmt
+      | NodeKind::ThrowStmt
+      | NodeKind::TryStmt
+      | NodeKind::WhileStmt
+      | NodeKind::WithStmt
+  )
+}
+
+/// Unwrap nested ParenExprs to get the innermost expression
+fn get_innermost_expr<'a>(mut expr: &'a Expr<'a>) -> &'a Expr<'a> {
+  while let Expr::Paren(paren_expr) = expr {
+    expr = &paren_expr.expr;
+  }
+  expr
+}
+
 fn should_add_parens_around_expr<'a>(node: Node<'a>, context: &Context<'a>) -> bool {
   let original_node = node;
   for node in node.ancestors() {
@@ -2885,14 +2926,11 @@ fn gen_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &mut Context<'a>) -> Pri
   }
 }
 
-/// Find the kind of the first ancestor statement (if/while/for/ExprStmt) for a given node
+/// Find the kind of the first ancestor statement for a given node
 fn get_context_stmt_kind(node: &ParenExpr) -> Option<NodeKind> {
   for ancestor in node.ancestors() {
     let kind = ancestor.kind();
-    if matches!(
-      kind,
-      NodeKind::IfStmt | NodeKind::WhileStmt | NodeKind::DoWhileStmt | NodeKind::ForStmt | NodeKind::ForInStmt | NodeKind::ForOfStmt | NodeKind::ExprStmt
-    ) {
+    if is_stmt(kind) {
       return Some(kind);
     }
   }
@@ -2911,7 +2949,7 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
   let parent = node.parent();
 
   // keep for `(val as number)++` or `(<number>val)++`
-  if parent.kind() == NodeKind::UpdateExpr && matches!(node.expr.kind(), NodeKind::TsAsExpr | NodeKind::TsTypeAssertion) {
+  if parent.kind() == NodeKind::UpdateExpr && is_type_assertion(node.expr.kind()) {
     return false;
   }
 
@@ -2939,13 +2977,10 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     }
   }
 
-  // Note: UpdateExpr with TsAsExpr check moved to top of function (line 2898)
-
   // preferNone mode: remove all unnecessary parens
   if context.config.use_parentheses == UseParentheses::PreferNone {
-    let context_stmt_kind = get_context_stmt_kind(node);
     // In expression statements, keep parens for disambiguation
-    if context_stmt_kind.is_some_and(|kind| kind == NodeKind::ExprStmt) {
+    if get_context_stmt_kind(node).is_some_and(|kind| kind == NodeKind::ExprStmt) {
       match unwrap_assertion_node(node.expr.into()) {
         Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_) => return false,
         Node::ArrowExpr(_) => {
@@ -2968,43 +3003,19 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     }
 
     // Remove redundant outer parens in nested assertion chains
-    if matches!(
-      parent.kind(),
-      NodeKind::TsAsExpr | NodeKind::TsSatisfiesExpr | NodeKind::TsConstAssertion | NodeKind::TsTypeAssertion | NodeKind::TsNonNullExpr
-    ) {
-      return matches!(
-        node.expr.kind(),
-        NodeKind::TsAsExpr | NodeKind::TsSatisfiesExpr | NodeKind::TsConstAssertion | NodeKind::TsTypeAssertion | NodeKind::TsNonNullExpr
-      );
+    if is_type_assertion(parent.kind()) {
+      return is_type_assertion(node.expr.kind());
     }
-
-    // For preferNone mode, let the standard logic below handle the rest
-    // It will remove parens where safe and keep them where needed for precedence
   }
 
-  // Helper to unwrap nested ParenExprs to see what we're really wrapping
-  // This ensures single-pass formatting matches multi-pass stabilization
-  fn get_innermost_expr<'a>(mut expr: &'a Expr<'a>) -> &'a Expr<'a> {
-    while let Expr::Paren(paren_expr) = expr {
-      expr = &paren_expr.expr;
-    }
-    expr
-  }
-
-  let innermost = get_innermost_expr(&node.expr);
-  if matches!(innermost.kind(), NodeKind::ArrayLit) || matches!(innermost, Expr::Ident(_)) {
+  if matches!(get_innermost_expr(&node.expr), Expr::Array(_) | Expr::Ident(_))
+    || (parent.kind() == NodeKind::MemberExpr && node.expr.kind() == NodeKind::MemberExpr)
+  {
     return true;
   }
 
-  if parent.kind() == NodeKind::MemberExpr && node.expr.kind() == NodeKind::MemberExpr {
-    return true;
-  }
-
-  // Note: nested paren check moved to top of function (line 2893)
-
-  // handle expression statements
+  // keep parens for object/function/class expressions (required for disambiguation)
   if parent.kind() == NodeKind::ExprStmt {
-    // keep parens for object/function/class expressions (required for disambiguation)
     return context.config.use_parentheses == UseParentheses::PreferNone
       || !matches!(unwrap_assertion_node(node.expr.into()), Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_));
   }
@@ -3052,139 +3063,71 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
 
   // With preferNone mode, check for special cases that need parens BEFORE the general removal logic
   if context.config.use_parentheses == UseParentheses::PreferNone {
-    // Check if parens are needed around `new` expressions when called
-    // (new Foo())() vs new Foo()() - parens needed for immediate calls
-    // (new Foo())?.() - parens needed for optional calls
-    // But (new Foo())?.prop can be simplified to new Foo()?.prop (parens redundant)
-    if matches!(node.expr, Expr::New(_)) {
-      // Only keep parens for call expressions (regular or optional)
-      if matches!(parent.kind(), NodeKind::CallExpr | NodeKind::OptCall) {
-        return false; // keep parens: (new Foo())() or (new Foo())?.()
-      }
+    // Keep parens for `new` when called: (new Foo())() vs new Foo()()
+    if matches!(node.expr, Expr::New(_)) && matches!(parent.kind(), NodeKind::CallExpr | NodeKind::OptCall) {
+      return false;
     }
 
-    // Keep parens around arrow/function/class expressions when they're being called or accessing properties
-    // Without parens these become invalid syntax: function() {}() or function() {}.prop
-    if matches!(node.expr, Expr::Arrow(_) | Expr::Fn(_) | Expr::Class(_)) {
-      if matches!(
-        parent.kind(),
-        NodeKind::CallExpr | NodeKind::OptCall | NodeKind::OptChainExpr | NodeKind::MemberExpr
-      ) {
-        return false; // keep parens: (() => {})(), (function() {}).prop, (function() {})?.prop, etc.
-      }
+    // Keep parens for arrow/function/class when called or member accessed: (function() {})()
+    if matches!(node.expr, Expr::Arrow(_) | Expr::Fn(_) | Expr::Class(_))
+      && matches!(parent.kind(), NodeKind::CallExpr | NodeKind::OptCall | NodeKind::OptChainExpr | NodeKind::MemberExpr)
+    {
+      return false;
     }
 
-    // Keep parens around high-precedence unary expressions (typeof, delete, void, unary +/-, etc.)
-    // ONLY when used for member access, because these unary ops have high precedence
-    // (delete obj.prop).toString() needs parens, but (delete obj.prop) && other doesn't
-    if matches!(node.expr, Expr::Unary(_)) {
-      // Only keep parens when accessing members on the unary expression result
-      if matches!(parent.kind(), NodeKind::MemberExpr | NodeKind::OptChainExpr) {
-        return false; // keep parens: (typeof x).toUpperCase(), (delete obj.prop).toString()
-      }
+    // Keep parens for unary when member accessed: (typeof x).toUpperCase()
+    if matches!(node.expr, Expr::Unary(_)) && matches!(parent.kind(), NodeKind::MemberExpr | NodeKind::OptChainExpr) {
+      return false;
     }
 
-    // Keep parens around low-precedence await/yield expressions in most contexts
-    // These have very low precedence, lower than binary operators
-    // (yield value) + 1 is different from yield value + 1
-    // (await foo()) + 1 is different from await foo() + 1
-    // (await foo())?.() is different from await foo()?.()
-    if matches!(node.expr, Expr::Await(_) | Expr::Yield(_)) {
-      // Keep parens in binary, member access, optional chaining, and call contexts
-      // Note: Ternary (CondExpr) allows await/yield in branches without parens
-      if matches!(
-        parent.kind(),
-        NodeKind::BinExpr | NodeKind::MemberExpr | NodeKind::OptChainExpr | NodeKind::CallExpr | NodeKind::OptCall
-      ) {
-        return false; // keep parens: (await x) + 1, (yield x).prop, (await x)?.(), etc.
-      }
+    // Keep parens for await/yield in binary/member/call contexts: (await x) + 1
+    if matches!(node.expr, Expr::Await(_) | Expr::Yield(_))
+      && matches!(parent.kind(), NodeKind::BinExpr | NodeKind::MemberExpr | NodeKind::OptChainExpr | NodeKind::CallExpr | NodeKind::OptCall)
+    {
+      return false;
     }
-  }
 
-  // With preferNone, default to removing parens unless they're needed for correctness
-  if context.config.use_parentheses == UseParentheses::PreferNone {
     // Check if parens are needed for operator precedence in binary/logical expressions
     if let Node::BinExpr(parent_bin) = parent {
       if let Expr::Bin(inner_bin) = node.expr {
         let parent_prec = get_precedence(&parent_bin.op());
         let inner_prec = get_precedence(&inner_bin.op());
 
-        // Keep parens only if the inner expression has LOWER precedence than parent
-        // (removing parens would change evaluation order)
+        // Keep parens if the inner expression has LOWER precedence than parent
         if inner_prec < parent_prec {
           return false;
         }
 
         // Also keep parens when precedences are equal and associativity matters
-        // Examples:
-        // - (a / b) / c is NOT the same as a / b / c (left side needs parens for meaning change)
-        // - a / (b * c) is different from a / b * c (right side with different ops)
-        // - a - (b - c) is different from a - b - c (right side with same op)
         if inner_prec == parent_prec {
-          // For left-associative operators (most binary ops), parens change meaning when:
-          // - On the right side with same operator: a - (b - c) vs a - b - c
-          // - On either side when mixing ops of same precedence: a / (b * c) or (a * b) / c
 
-          let is_right_operand = parent_bin.right.range().contains(&node.range());
-
-          // Check if operators are different (like / and *, both precedence 10)
-          let ops_differ = parent_bin.op() != inner_bin.op();
-
-          if ops_differ {
-            // Different ops at same precedence level - parens always matter
-            // e.g. a / (b * c) vs a / b * c
+          // Different ops at same precedence level - parens always matter: a / (b * c)
+          if parent_bin.op() != inner_bin.op() {
             return false;
           }
 
-          // Same operator - parens matter on right side for non-commutative ops
-          if is_right_operand {
-            // Right side of /, %, -, <<, >>, >>> needs parens when same precedence and same op
-            // e.g. a - (b - c) vs a - b - c
+          if parent_bin.right.range().contains(&node.range()) {
+            // Same operator - parens matter on right side for non-commutative ops
             if matches!(
               parent_bin.op(),
               BinaryOp::Div | BinaryOp::Mod | BinaryOp::Sub | BinaryOp::LShift | BinaryOp::RShift | BinaryOp::ZeroFillRShift
             ) {
               return false;
             }
-          }
-          // Exponentiation is right-associative, so left side needs parens
-          if !is_right_operand && matches!(parent_bin.op(), BinaryOp::Exp) {
+          } else if matches!(parent_bin.op(), BinaryOp::Exp) {
+            // Exponentiation is right-associative, so left side needs parens
             return false;
           }
         }
       }
     }
 
-    // Keep parens around optional chaining when it's the base of exponentiation
-    if parent.kind() == NodeKind::BinExpr {
-      if let Node::BinExpr(bin) = parent {
-        if matches!(bin.op(), BinaryOp::Exp) && bin.left.range().contains(&node.range()) {
-          if matches!(node.expr.kind(), NodeKind::OptChainExpr) {
-            return false; // keep parens: (obj?.value) ** 2
-          }
-        }
-      }
-    }
-
-    // Keep parens around template literals in export default
-    if parent.kind() == NodeKind::ExportDefaultExpr {
-      if matches!(node.expr, Expr::Tpl(_)) {
-        return false; // keep parens: export default (`value`);
-      }
-    }
-
-    // Keep parens around object/function/class literals in arrow function bodies
-    // Without parens: () => { a: 1 } is a block with label statement
-    // With parens: () => ({ a: 1 }) is an expression that returns an object
-    if parent.kind() == NodeKind::ArrowExpr {
-      if let Node::ArrowExpr(arrow) = parent {
-        // Check if this paren is the body of the arrow function
-        if arrow.body.range().contains(&node.range()) {
-          let unwrapped = unwrap_assertion_node(node.expr.into());
-          if matches!(unwrapped, Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_)) {
-            return false; // keep parens for arrow expression body disambiguation
-          }
-        }
+    // Keep parens for object/function/class in arrow body: () => ({ a: 1 })
+    if let Node::ArrowExpr(arrow) = parent {
+      if arrow.body.range().contains(&node.range())
+        && matches!(unwrap_assertion_node(node.expr.into()), Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_))
+      {
+        return false;
       }
     }
 

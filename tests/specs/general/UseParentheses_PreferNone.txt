@@ -373,11 +373,11 @@ const maybe = (obj?.prop);
 [expect]
 const maybe = obj?.prop;
 
-== should retain parentheses around optional chaining when combined with exponentiation ==
+== should remove parentheses around optional chaining with exponentiation ==
 const complex = (obj?.value) ** 2;
 
 [expect]
-const complex = (obj?.value) ** 2;
+const complex = obj?.value ** 2;
 
 == should keep parentheses around function expression callees ==
 const iifeResult = (function () {})();
@@ -646,11 +646,11 @@ export default (component);
 [expect]
 export default component;
 
-== should retain parentheses around export default when template literal ==
+== should remove parentheses around export default template literal ==
 export default (`value`);
 
 [expect]
-export default (`value`);
+export default `value`;
 
 == should remove parentheses in if condition ==
 if ((condition)) {
