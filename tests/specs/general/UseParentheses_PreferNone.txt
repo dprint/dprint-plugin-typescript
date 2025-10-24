@@ -8,6 +8,16 @@ if (a)
 if (a)
   return f();
 
+== should keep multi-line parentheses in return with comment ==
+if (a)
+  return (f //
+    ());
+
+[expect]
+if (a)
+  return (f //
+  ());
+
 == should remove multi-line parentheses in throw without braces ==
 if (a)
   throw (f
@@ -16,6 +26,16 @@ if (a)
 [expect]
 if (a)
   throw f();
+
+== should keep multi-line parentheses in throw with comment ==
+if (a)
+  throw (f //
+    ());
+
+[expect]
+if (a)
+  throw (f //
+  ());
 
 == should remove multi-line parentheses in yield without braces ==
 function* gen() {
@@ -28,6 +48,20 @@ function* gen() {
 function* gen() {
   if (a)
     yield f();
+}
+
+== should keep multi-line parentheses in yield with comment ==
+function* gen() {
+  if (a)
+    yield (f //
+      ());
+}
+
+[expect]
+function* gen() {
+  if (a)
+    yield (f //
+    ());
 }
 
 == should keep multi-line parentheses in call argument with comment ==
