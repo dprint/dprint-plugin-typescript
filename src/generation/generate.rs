@@ -2886,7 +2886,7 @@ fn gen_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &mut Context<'a>) -> Pri
 }
 
 /// Find the first ancestor statement (if/while/for/ExprStmt) for a given node
-fn get_context_stmt(node: &ParenExpr) -> Option<Node> {
+fn get_context_stmt<'a>(node: &ParenExpr<'a>) -> Option<Node<'a>> {
   for ancestor in node.ancestors() {
     if matches!(
       ancestor.kind(),
@@ -3033,14 +3033,9 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
 
   // handle expression statements
   if parent.kind() == NodeKind::ExprStmt {
-    // In disambiguation/maintain modes, check if this expression needs parens for disambiguation
-    if context.config.use_parentheses != UseParentheses::PreferNone {
-      let unwrapped = unwrap_assertion_node(node.expr.into());
-      if matches!(unwrapped, Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_)) {
-        return false; // keep parens: object literal (disambiguation), function/class expr (required)
-      }
-    }
-    return true; // otherwise remove parens
+    // keep parens for object/function/class expressions (required for disambiguation)
+    return context.config.use_parentheses == UseParentheses::PreferNone
+      || !matches!(unwrap_assertion_node(node.expr.into()), Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_));
   }
 
   // skip explicitly parsing this as a paren expr as that will be handled
