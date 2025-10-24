@@ -2915,14 +2915,13 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
   // - parent is ExprOrSpread (call args, array elements) - those have their own parens
   // - inside control flow statement conditions (if/while/for) - those have their own parens
   // - parent is yield/throw/return expression - to avoid unstable formatting when inner content collapses
-  // - parent is member access/optional chain - parens are redundant after inner content collapses
+  // - parent is optional chain - parens are redundant after inner content collapses
   if !matches!(
     parent.kind(),
     NodeKind::ExprOrSpread
       | NodeKind::YieldExpr
       | NodeKind::ThrowStmt
       | NodeKind::ReturnStmt
-      | NodeKind::MemberExpr
       | NodeKind::OptChainExpr
   ) && !node.ancestors().any(|a| {
     matches!(

@@ -1,4 +1,35 @@
 ~~ useParentheses: preferNone ~~
+== should keep multi-line parentheses around member access object with comment ==
+(f //
+).prop;
+
+[expect]
+(
+    f //
+).prop;
+
+== should remove multi-line parentheses around member access object without comment ==
+(f
+).prop;
+
+[expect]
+f.prop;
+
+== should keep multi-line parentheses with comment before member access ==
+(f //
+.prop);
+
+[expect]
+(f //
+.prop);
+
+== should remove multi-line parentheses around member access without comment ==
+(f
+.prop);
+
+[expect]
+f.prop;
+
 == should keep multi-line parentheses around call callee with comment ==
 (f //
 )();
