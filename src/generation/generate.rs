@@ -1846,11 +1846,11 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
 
   fn get_should_use_parens<'a>(node: &ArrowSignature<'a>, context: &Context<'a>) -> bool {
     return match context.config.arrow_function_use_parentheses {
-      UseParentheses::Force => true,
-      UseParentheses::PreferNone => {
+      ArrowFunctionUseParentheses::Force => true,
+      ArrowFunctionUseParentheses::PreferNone => {
         node.params().len() != 1 || node.return_type().is_some() || is_first_param_not_identifier_or_has_type_annotation(node.params(), node, context.program)
       }
-      UseParentheses::Maintain => has_parens(node, context.program),
+      ArrowFunctionUseParentheses::Maintain => has_parens(node, context.program),
     };
 
     fn is_first_param_not_identifier_or_has_type_annotation<'a>(params: &[Pat<'a>], arrow: &ArrowSignature<'a>, program: Program<'a>) -> bool {
@@ -2661,6 +2661,61 @@ fn gen_fn_expr<'a>(node: &FnExpr<'a>, context: &mut Context<'a>) -> PrintItems {
   }
 }
 
+// unwrap type assertions to find the underlying expression
+fn unwrap_assertion_node(mut node: Node) -> Node {
+  loop {
+    node = match node {
+      Node::TsAsExpr(n) => n.expr.into(),
+      Node::TsSatisfiesExpr(n) => n.expr.into(),
+      Node::TsConstAssertion(n) => n.expr.into(),
+      Node::TsTypeAssertion(n) => n.expr.into(),
+      Node::TsNonNullExpr(n) => n.expr.into(),
+      _ => return node,
+    };
+  }
+}
+
+/// Check if a node kind is a type assertion (includes all 5 types)
+fn is_type_assertion(kind: NodeKind) -> bool {
+  matches!(
+    kind,
+    NodeKind::TsAsExpr | NodeKind::TsSatisfiesExpr | NodeKind::TsConstAssertion | NodeKind::TsTypeAssertion | NodeKind::TsNonNullExpr
+  )
+}
+
+/// Check if a node kind is a statement
+fn is_stmt(kind: NodeKind) -> bool {
+  matches!(
+    kind,
+    NodeKind::BlockStmt
+      | NodeKind::BreakStmt
+      | NodeKind::ContinueStmt
+      | NodeKind::DebuggerStmt
+      | NodeKind::DoWhileStmt
+      | NodeKind::EmptyStmt
+      | NodeKind::ExprStmt
+      | NodeKind::ForInStmt
+      | NodeKind::ForOfStmt
+      | NodeKind::ForStmt
+      | NodeKind::IfStmt
+      | NodeKind::LabeledStmt
+      | NodeKind::ReturnStmt
+      | NodeKind::SwitchStmt
+      | NodeKind::ThrowStmt
+      | NodeKind::TryStmt
+      | NodeKind::WhileStmt
+      | NodeKind::WithStmt
+  )
+}
+
+/// Unwrap nested ParenExprs to get the innermost expression
+fn get_innermost_expr<'a>(mut expr: &'a Expr<'a>) -> &'a Expr<'a> {
+  while let Expr::Paren(paren_expr) = expr {
+    expr = &paren_expr.expr;
+  }
+  expr
+}
+
 fn should_add_parens_around_expr<'a>(node: Node<'a>, context: &Context<'a>) -> bool {
   let original_node = node;
   for node in node.ancestors() {
@@ -2688,7 +2743,11 @@ fn should_add_parens_around_expr<'a>(node: Node<'a>, context: &Context<'a>) -> b
           return false;
         }
       }
-      Node::ExprStmt(_) => return true,
+      Node::ExprStmt(_) => {
+        return context.config.use_parentheses != UseParentheses::Maintain
+          && (context.config.use_parentheses == UseParentheses::Disambiguation
+            || matches!(unwrap_assertion_node(original_node), Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_)));
+      }
       Node::MemberExpr(expr) => {
         if matches!(expr.prop, MemberProp::Computed(_)) && expr.prop.range().contains(&original_node.range()) {
           return false;
@@ -2867,9 +2926,40 @@ fn gen_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &mut Context<'a>) -> Pri
   }
 }
 
+/// Find the kind of the first ancestor statement for a given node
+fn get_context_stmt_kind(node: &ParenExpr) -> Option<NodeKind> {
+  for ancestor in node.ancestors() {
+    let kind = ancestor.kind();
+    if is_stmt(kind) {
+      return Some(kind);
+    }
+  }
+  None
+}
+
 fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) -> bool {
-  if node_helpers::has_surrounding_different_line_comments(node.expr.into(), context.program) {
+  // Keep parens if: maintain mode, sequence expression, or comments on different lines
+  if context.config.use_parentheses == UseParentheses::Maintain
+    || matches!(node.expr.kind(), NodeKind::SeqExpr)
+    || node_helpers::has_surrounding_different_line_comments(node.expr.into(), context.program)
+  {
     return false;
+  }
+
+  let parent = node.parent();
+
+  // keep for `(val as number)++` or `(<number>val)++`
+  if parent.kind() == NodeKind::UpdateExpr && is_type_assertion(node.expr.kind()) {
+    return false;
+  }
+
+  // Remove parens when directly inside these parent types (unless JSXExprContainer has leading comments)
+  if matches!(
+    parent.kind(),
+    NodeKind::ParenExpr | NodeKind::JSXElement | NodeKind::JSXFragment | NodeKind::UpdateExpr | NodeKind::ComputedPropName
+  ) || (parent.kind() == NodeKind::JSXExprContainer && node.expr.as_node().leading_comments_fast(context.program).next().is_none())
+  {
+    return true;
   }
 
   // keep parens around any destructuring assignments
@@ -2880,11 +2970,6 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     }
   }
 
-  if matches!(node.expr.kind(), NodeKind::SeqExpr) {
-    // don't care about extra logic for sequence expressions
-    return false;
-  }
-
   // keep when there is a JSDoc because it could be a type assertion or satisfies
   for c in node.leading_comments_fast(context.program) {
     if c.kind == CommentKind::Block && c.text.starts_with('*') {
@@ -2892,32 +2977,50 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     }
   }
 
-  // keep for `(val as number)++` or `(<number>val)++`
-  let parent = node.parent();
-  if parent.kind() == NodeKind::UpdateExpr && matches!(node.expr.kind(), NodeKind::TsAsExpr | NodeKind::TsTypeAssertion) {
-    return false;
+  // preferNone mode: remove all unnecessary parens
+  if context.config.use_parentheses == UseParentheses::PreferNone {
+    // In expression statements, keep parens for disambiguation
+    if get_context_stmt_kind(node).is_some_and(|kind| kind == NodeKind::ExprStmt) {
+      match unwrap_assertion_node(node.expr.into()) {
+        Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_) => return false,
+        Node::ArrowExpr(_) => {
+          if matches!(
+            parent.kind(),
+            NodeKind::TsAsExpr
+              | NodeKind::TsSatisfiesExpr
+              | NodeKind::TsConstAssertion
+              | NodeKind::TsTypeAssertion
+              | NodeKind::TsNonNullExpr
+              | NodeKind::CallExpr
+              | NodeKind::MemberExpr
+              | NodeKind::OptChainExpr
+          ) {
+            return false;
+          }
+        }
+        _ => {}
+      }
+    }
+
+    // Remove redundant outer parens in nested assertion chains
+    if is_type_assertion(parent.kind()) {
+      return is_type_assertion(node.expr.kind());
+    }
   }
 
-  if matches!(node.expr.kind(), NodeKind::ArrayLit) || matches!(node.expr, Expr::Ident(_)) {
+  if matches!(get_innermost_expr(&node.expr), Expr::Array(_) | Expr::Ident(_))
+    || (parent.kind() == NodeKind::MemberExpr && node.expr.kind() == NodeKind::MemberExpr)
+  {
     return true;
   }
 
-  if parent.kind() == NodeKind::MemberExpr && node.expr.kind() == NodeKind::MemberExpr {
-    return true;
-  }
-
-  // skip over any paren exprs within paren exprs and needless paren exprs
-  if matches!(
-    parent.kind(),
-    NodeKind::ParenExpr
-      | NodeKind::ExprStmt
-      | NodeKind::JSXElement
-      | NodeKind::JSXFragment
-      | NodeKind::JSXExprContainer
-      | NodeKind::UpdateExpr
-      | NodeKind::ComputedPropName
-  ) {
-    return true;
+  // keep parens for object/function/class expressions (required for disambiguation)
+  if parent.kind() == NodeKind::ExprStmt {
+    return context.config.use_parentheses == UseParentheses::PreferNone
+      || !matches!(
+        unwrap_assertion_node(node.expr.into()),
+        Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_)
+      );
   }
 
   // skip explicitly parsing this as a paren expr as that will be handled
@@ -2961,7 +3064,105 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     }
   }
 
+  // With preferNone mode, check for special cases that need parens BEFORE the general removal logic
+  if context.config.use_parentheses == UseParentheses::PreferNone {
+    // Keep parens for `new` when called: (new Foo())() vs new Foo()()
+    if matches!(node.expr, Expr::New(_)) && matches!(parent.kind(), NodeKind::CallExpr | NodeKind::OptCall) {
+      return false;
+    }
+
+    // Keep parens for arrow/function/class when called or member accessed: (function() {})()
+    if matches!(node.expr, Expr::Arrow(_) | Expr::Fn(_) | Expr::Class(_))
+      && matches!(
+        parent.kind(),
+        NodeKind::CallExpr | NodeKind::OptCall | NodeKind::OptChainExpr | NodeKind::MemberExpr
+      )
+    {
+      return false;
+    }
+
+    // Keep parens for unary when member accessed: (typeof x).toUpperCase()
+    if matches!(node.expr, Expr::Unary(_)) && matches!(parent.kind(), NodeKind::MemberExpr | NodeKind::OptChainExpr) {
+      return false;
+    }
+
+    // Keep parens for await/yield in binary/member/call contexts: (await x) + 1
+    if matches!(node.expr, Expr::Await(_) | Expr::Yield(_))
+      && matches!(
+        parent.kind(),
+        NodeKind::BinExpr | NodeKind::MemberExpr | NodeKind::OptChainExpr | NodeKind::CallExpr | NodeKind::OptCall
+      )
+    {
+      return false;
+    }
+
+    // Check if parens are needed for operator precedence in binary/logical expressions
+    if let Node::BinExpr(parent_bin) = parent {
+      if let Expr::Bin(inner_bin) = node.expr {
+        let parent_prec = get_precedence(&parent_bin.op());
+        let inner_prec = get_precedence(&inner_bin.op());
+
+        // Keep parens if the inner expression has LOWER precedence than parent
+        if inner_prec < parent_prec {
+          return false;
+        }
+
+        // Also keep parens when precedences are equal and associativity matters
+        if inner_prec == parent_prec {
+          // Different ops at same precedence level - parens always matter: a / (b * c)
+          if parent_bin.op() != inner_bin.op() {
+            return false;
+          }
+
+          if parent_bin.right.range().contains(&node.range()) {
+            // Same operator - parens matter on right side for non-commutative ops
+            if matches!(
+              parent_bin.op(),
+              BinaryOp::Div | BinaryOp::Mod | BinaryOp::Sub | BinaryOp::LShift | BinaryOp::RShift | BinaryOp::ZeroFillRShift
+            ) {
+              return false;
+            }
+          } else if matches!(parent_bin.op(), BinaryOp::Exp) {
+            // Exponentiation is right-associative, so left side needs parens
+            return false;
+          }
+        }
+      }
+    }
+
+    // Keep parens for object/function/class in arrow body: () => ({ a: 1 })
+    if let Node::ArrowExpr(arrow) = parent {
+      if arrow.body.range().contains(&node.range())
+        && matches!(
+          unwrap_assertion_node(node.expr.into()),
+          Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_)
+        )
+      {
+        return false;
+      }
+    }
+
+    // All other parens can be removed
+    return true;
+  }
+
   false
+}
+
+fn get_precedence(op: &BinaryOp) -> u8 {
+  match op {
+    BinaryOp::LogicalOr | BinaryOp::NullishCoalescing => 1,
+    BinaryOp::LogicalAnd => 2,
+    BinaryOp::BitOr => 3,
+    BinaryOp::BitXor => 4,
+    BinaryOp::BitAnd => 5,
+    BinaryOp::EqEq | BinaryOp::NotEq | BinaryOp::EqEqEq | BinaryOp::NotEqEq => 6,
+    BinaryOp::Lt | BinaryOp::LtEq | BinaryOp::Gt | BinaryOp::GtEq | BinaryOp::In | BinaryOp::InstanceOf => 7,
+    BinaryOp::LShift | BinaryOp::RShift | BinaryOp::ZeroFillRShift => 8,
+    BinaryOp::Add | BinaryOp::Sub => 9,
+    BinaryOp::Mul | BinaryOp::Div | BinaryOp::Mod => 10,
+    BinaryOp::Exp => 11,
+  }
 }
 
 fn gen_sequence_expr<'a>(node: &SeqExpr<'a>, context: &mut Context<'a>) -> PrintItems {
