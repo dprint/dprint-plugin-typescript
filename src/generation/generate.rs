@@ -4965,6 +4965,15 @@ fn gen_do_while_stmt<'a>(node: &DoWhileStmt<'a>, context: &mut Context<'a>) -> P
     },
     context,
   ));
+
+  let body_has_braces_ref = if matches!(node.body, Stmt::Block(_))
+    && context.config.do_while_statement_next_control_flow_position == NextControlFlowPosition::NextLineExceptAfterBrace
+  {
+    Some(push_always_true_condition(&mut items, "doWhileBodyHasBraces"))
+  } else {
+    None
+  };
+
   items.extend(gen_node(node.body.into(), context));
   if context.config.semi_colons.is_true() || matches!(node.body, Stmt::Block(_)) {
     items.extend(gen_control_flow_separator(
@@ -4972,7 +4981,7 @@ fn gen_do_while_stmt<'a>(node: &DoWhileStmt<'a>, context: &mut Context<'a>) -> P
       &node.body.range(),
       "while",
       None,
-      None,
+      body_has_braces_ref,
       context,
     ));
   } else {
@@ -5684,24 +5693,28 @@ fn gen_try_stmt<'a>(node: &TryStmt<'a>, context: &mut Context<'a>) -> PrintItems
   let mut last_block_range = node.block.range();
   let mut last_block_start_ln = LineNumber::new("tryStart");
 
+  let has_braces_ref = if next_control_flow_position == NextControlFlowPosition::NextLineExceptAfterBrace {
+    Some(push_always_true_condition(&mut items, "tryStatementHasBraces"))
+  } else {
+    None
+  };
+
   items.push_info(last_block_start_ln);
   items.push_sc(sc!("try"));
 
-  items.extend(
-    gen_conditional_brace_body(
-      GenConditionalBraceBodyOptions {
-        body_node: node.block.into(),
-        use_braces: UseBraces::Always, // braces required
-        brace_position: context.config.try_statement_brace_position,
-        single_body_position: Some(SameOrNextLinePosition::NextLine),
-        requires_braces_condition_ref: None,
-        start_header_info: None,
-        end_header_info: None,
-      },
-      context,
-    )
-    .generated_node,
+  let try_result = gen_conditional_brace_body(
+    GenConditionalBraceBodyOptions {
+      body_node: node.block.into(),
+      use_braces: UseBraces::Always, // braces required
+      brace_position: context.config.try_statement_brace_position,
+      single_body_position: Some(SameOrNextLinePosition::NextLine),
+      requires_braces_condition_ref: None,
+      start_header_info: None,
+      end_header_info: None,
+    },
+    context,
   );
+  items.extend(try_result.generated_node);
 
   if let Some(handler) = node.handler {
     let handler_start_ln = LineNumber::new("handlerStart");
@@ -5711,7 +5724,7 @@ fn gen_try_stmt<'a>(node: &TryStmt<'a>, context: &mut Context<'a>) -> PrintItems
       &last_block_range,
       "catch",
       Some(last_block_start_ln),
-      None,
+      has_braces_ref,
       context,
     ));
     last_block_range = handler.range();
@@ -5727,7 +5740,7 @@ fn gen_try_stmt<'a>(node: &TryStmt<'a>, context: &mut Context<'a>) -> PrintItems
       &last_block_range,
       "finally",
       Some(last_block_start_ln),
-      None,
+      has_braces_ref,
       context,
     ));
     items.push_sc(sc!("finally"));
@@ -8788,17 +8801,78 @@ fn gen_control_flow_separator(
       ));
     }
     NextControlFlowPosition::NextLine => items.push_signal(Signal::NewLine),
+    NextControlFlowPosition::NextLineExceptAfterBrace => {
+      items.push_condition(if_true_or(
+        "nextLineExceptAfterBrace",
+        Rc::new(move |condition_context| {
+          // use space if previous had a close brace
+          if let Some(previous_close_brace_condition_ref) = previous_close_brace_condition_ref {
+            if condition_context.resolved_condition(&previous_close_brace_condition_ref)? {
+              return Some(false);
+            }
+          }
+          // otherwise force new line
+          Some(true)
+        }),
+        Signal::NewLine.into(),
+        " ".into(),
+      ));
+    }
     NextControlFlowPosition::Maintain => {
       let token = context.token_finder.get_first_keyword_after(previous_node_block, token_text);
 
       if token.is_some() && node_helpers::is_first_node_on_line(&token.unwrap().range(), context.program) {
         items.push_signal(Signal::NewLine);
+      } else if token_text == "else" {
+        if let Some(else_separator) = handle_else_after_brace_removal(token, previous_node_block, previous_close_brace_condition_ref, context) {
+          items.extend(else_separator);
+        } else {
+          items.push_space();
+        }
       } else {
         items.push_space();
       }
     }
   }
   items
+}
+
+fn handle_else_after_brace_removal(
+  token: Option<&TokenAndSpan>,
+  previous_node_block: &SourceRange,
+  previous_close_brace_condition_ref: Option<ConditionReference>,
+  context: &mut Context,
+) -> Option<PrintItems> {
+  let full_text = SourceRange::new(previous_node_block.start, token?.range().start).text_fast(context.program);
+  if !full_text[full_text.rfind('}')? + 1..].trim().is_empty() {
+    return None;
+  }
+
+  let if_start_line = previous_node_block.start_line_fast(context.program);
+  let else_line = token?.range().start_line_fast(context.program);
+  if if_start_line == else_line {
+    return None;
+  }
+
+  let mut items = PrintItems::new();
+  if let Some(close_brace_ref) = previous_close_brace_condition_ref {
+    items.push_condition(if_true_or(
+      "elseSeparator",
+      Rc::new(move |condition_context| Some(condition_context.resolved_condition(&close_brace_ref)?)),
+      " ".into(),
+      Signal::NewLine.into(),
+    ));
+  } else {
+    items.push_signal(Signal::NewLine);
+  }
+  Some(items)
+}
+
+fn push_always_true_condition(items: &mut PrintItems, name: &'static str) -> ConditionReference {
+  let mut condition = if_true(name, Rc::new(|_| Some(true)), PrintItems::new());
+  let condition_ref = condition.create_reference();
+  items.push_condition(condition);
+  condition_ref
 }
 
 struct GenHeaderWithConditionalBraceBodyOptions<'a> {
