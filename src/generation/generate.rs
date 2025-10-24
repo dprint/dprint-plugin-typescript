@@ -2953,11 +2953,8 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
 
   // with preferNone, remove all unnecessary parens everywhere
   if context.config.use_parentheses == UseParentheses::PreferNone {
-    // check if we're inside an expression statement (anywhere up the tree)
-    let in_expr_stmt = node.ancestors().any(|a| a.kind() == NodeKind::ExprStmt);
-
     // In expression statements, keep parens only for disambiguation
-    if in_expr_stmt {
+    if node.ancestors().any(|a| a.kind() == NodeKind::ExprStmt) {
       let unwrapped = unwrap_assertion_node(node.expr.into());
       if matches!(unwrapped, Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_)) {
         return false; // keep parens: object literal (disambiguation), function/class expr (required)
