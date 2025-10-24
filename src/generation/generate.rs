@@ -2956,8 +2956,6 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     }
   }
 
-  // Note: SeqExpr check moved to top of function (line 2892)
-
   // keep when there is a JSDoc because it could be a type assertion or satisfies
   for c in node.leading_comments_fast(context.program) {
     if c.kind == CommentKind::Block && c.text.starts_with('*') {
@@ -2967,11 +2965,10 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
 
   // Note: UpdateExpr with TsAsExpr check moved to top of function (line 2898)
 
-  // with preferNone, remove all unnecessary parens everywhere
+  // preferNone mode: remove all unnecessary parens
   if context.config.use_parentheses == UseParentheses::PreferNone {
-    // In expression statements, keep parens only for disambiguation
+    // In expression statements, keep parens for disambiguation
     if context_stmt_kind.is_some_and(|kind| kind == NodeKind::ExprStmt) {
-      // Keep parens for: object/function/class (always) or arrow (when used)
       match unwrap_assertion_node(node.expr.into()) {
         Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_) => return false,
         Node::ArrowExpr(_) => {
@@ -2993,7 +2990,7 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
       }
     }
 
-    // Check for nested assertion chains - remove redundant outer parens (applies everywhere, not just expr stmts)
+    // Remove redundant outer parens in nested assertion chains
     if matches!(
       parent.kind(),
       NodeKind::TsAsExpr | NodeKind::TsSatisfiesExpr | NodeKind::TsConstAssertion | NodeKind::TsTypeAssertion | NodeKind::TsNonNullExpr
