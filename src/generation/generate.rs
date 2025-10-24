@@ -3017,7 +3017,10 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
   // keep parens for object/function/class expressions (required for disambiguation)
   if parent.kind() == NodeKind::ExprStmt {
     return context.config.use_parentheses == UseParentheses::PreferNone
-      || !matches!(unwrap_assertion_node(node.expr.into()), Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_));
+      || !matches!(
+        unwrap_assertion_node(node.expr.into()),
+        Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_)
+      );
   }
 
   // skip explicitly parsing this as a paren expr as that will be handled
@@ -3070,7 +3073,10 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
 
     // Keep parens for arrow/function/class when called or member accessed: (function() {})()
     if matches!(node.expr, Expr::Arrow(_) | Expr::Fn(_) | Expr::Class(_))
-      && matches!(parent.kind(), NodeKind::CallExpr | NodeKind::OptCall | NodeKind::OptChainExpr | NodeKind::MemberExpr)
+      && matches!(
+        parent.kind(),
+        NodeKind::CallExpr | NodeKind::OptCall | NodeKind::OptChainExpr | NodeKind::MemberExpr
+      )
     {
       return false;
     }
@@ -3082,7 +3088,10 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
 
     // Keep parens for await/yield in binary/member/call contexts: (await x) + 1
     if matches!(node.expr, Expr::Await(_) | Expr::Yield(_))
-      && matches!(parent.kind(), NodeKind::BinExpr | NodeKind::MemberExpr | NodeKind::OptChainExpr | NodeKind::CallExpr | NodeKind::OptCall)
+      && matches!(
+        parent.kind(),
+        NodeKind::BinExpr | NodeKind::MemberExpr | NodeKind::OptChainExpr | NodeKind::CallExpr | NodeKind::OptCall
+      )
     {
       return false;
     }
@@ -3100,7 +3109,6 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
 
         // Also keep parens when precedences are equal and associativity matters
         if inner_prec == parent_prec {
-
           // Different ops at same precedence level - parens always matter: a / (b * c)
           if parent_bin.op() != inner_bin.op() {
             return false;
@@ -3125,7 +3133,10 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     // Keep parens for object/function/class in arrow body: () => ({ a: 1 })
     if let Node::ArrowExpr(arrow) = parent {
       if arrow.body.range().contains(&node.range())
-        && matches!(unwrap_assertion_node(node.expr.into()), Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_))
+        && matches!(
+          unwrap_assertion_node(node.expr.into()),
+          Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_)
+        )
       {
         return false;
       }
