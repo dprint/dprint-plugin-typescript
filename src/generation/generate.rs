@@ -2924,33 +2924,6 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     return true;
   }
 
-  // Multi-line preservation for ASI (Automatic Semicolon Insertion) protection
-  // Keep parens when they span multiple lines to prevent ASI from breaking code
-  // Skip this protection when:
-  // - parent or ancestor is yield/throw/return - these keywords already prevent ASI
-  // - inside control flow conditions (if/while/for) - these have their own parens
-  let context_stmt_kind = get_context_stmt_kind(node);
-  let has_return_throw_yield_ancestor = matches!(parent.kind(), NodeKind::YieldExpr | NodeKind::ThrowStmt | NodeKind::ReturnStmt)
-    || node.ancestors().any(|ancestor| matches!(ancestor.kind(), NodeKind::YieldExpr | NodeKind::ThrowStmt | NodeKind::ReturnStmt));
-  if !has_return_throw_yield_ancestor
-    && !context_stmt_kind.is_some_and(|kind| {
-      matches!(
-        kind,
-        NodeKind::IfStmt | NodeKind::WhileStmt | NodeKind::DoWhileStmt | NodeKind::ForStmt | NodeKind::ForInStmt | NodeKind::ForOfStmt
-      )
-    })
-    && !matches!(node.expr.kind(), NodeKind::JSXElement | NodeKind::JSXFragment)
-    && match (
-      context.token_finder.get_previous_token_if_open_paren(&node.expr.range()),
-      context.token_finder.get_next_token_if_close_paren(&node.expr.range()),
-    ) {
-      (Some(open_paren), Some(close_paren)) => open_paren.start_line_fast(context.program) != close_paren.end_line_fast(context.program),
-      _ => node.start_line_fast(context.program) != node.end_line_fast(context.program),
-    }
-  {
-    return false;
-  }
-
   // keep parens around any destructuring assignments
   if let Node::AssignExpr(assign_expr) = node.expr.as_node() {
     let left_kind = assign_expr.left.kind();
@@ -2970,6 +2943,7 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
 
   // preferNone mode: remove all unnecessary parens
   if context.config.use_parentheses == UseParentheses::PreferNone {
+    let context_stmt_kind = get_context_stmt_kind(node);
     // In expression statements, keep parens for disambiguation
     if context_stmt_kind.is_some_and(|kind| kind == NodeKind::ExprStmt) {
       match unwrap_assertion_node(node.expr.into()) {
