@@ -37,6 +37,16 @@ if (a)
   return (f //
   ());
 
+== should remove multi-line parentheses in return with function call on next line ==
+if (a)
+  return (f
+(veryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryLongIdentifierName12345678901234567890));
+
+[expect]
+if (a) {
+    return f(veryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryLongIdentifierName12345678901234567890);
+}
+
 == should remove multi-line parentheses in throw without braces ==
 if (a)
   throw (f
