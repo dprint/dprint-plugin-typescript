@@ -2910,14 +2910,6 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
   let parent = node.parent();
   let context_stmt = get_context_stmt(node);
 
-  let in_control_flow_condition = context_stmt.is_some_and(|stmt| {
-    matches!(
-      stmt.kind(),
-      NodeKind::IfStmt | NodeKind::WhileStmt | NodeKind::DoWhileStmt | NodeKind::ForStmt | NodeKind::ForInStmt | NodeKind::ForOfStmt
-    )
-  });
-  let in_expr_stmt = context_stmt.is_some_and(|stmt| stmt.kind() == NodeKind::ExprStmt);
-
   // keep for `(val as number)++` or `(<number>val)++`
   if parent.kind() == NodeKind::UpdateExpr && matches!(node.expr.kind(), NodeKind::TsAsExpr | NodeKind::TsTypeAssertion) {
     return false;
@@ -2937,7 +2929,12 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
   // - inside control flow statement conditions (if/while/for) - those have their own parens
   // - parent is yield/throw/return expression - to avoid unstable formatting when inner content collapses
   if !matches!(parent.kind(), NodeKind::YieldExpr | NodeKind::ThrowStmt | NodeKind::ReturnStmt)
-    && !in_control_flow_condition
+    && !context_stmt.is_some_and(|stmt| {
+      matches!(
+        stmt.kind(),
+        NodeKind::IfStmt | NodeKind::WhileStmt | NodeKind::DoWhileStmt | NodeKind::ForStmt | NodeKind::ForInStmt | NodeKind::ForOfStmt
+      )
+    })
     && !matches!(node.expr.kind(), NodeKind::JSXElement | NodeKind::JSXFragment)
     && match (
       context.token_finder.get_previous_token_if_open_paren(&node.expr.range()),
@@ -2972,7 +2969,7 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
   // with preferNone, remove all unnecessary parens everywhere
   if context.config.use_parentheses == UseParentheses::PreferNone {
     // In expression statements, keep parens only for disambiguation
-    if in_expr_stmt {
+    if context_stmt.is_some_and(|stmt| stmt.kind() == NodeKind::ExprStmt) {
       let unwrapped = unwrap_assertion_node(node.expr.into());
       if matches!(unwrapped, Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_)) {
         return false; // keep parens: object literal (disambiguation), function/class expr (required)
