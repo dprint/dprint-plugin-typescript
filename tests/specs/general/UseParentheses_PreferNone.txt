@@ -1,4 +1,36 @@
 ~~ useParentheses: preferNone ~~
+== should keep multi-line parentheses in call argument with comment ==
+foo((arg //
+));
+
+[expect]
+foo((
+    arg //
+));
+
+== should remove multi-line parentheses in call argument without comment ==
+foo((arg
+));
+
+[expect]
+foo(arg);
+
+== should keep multi-line parentheses in array element with comment ==
+[(item //
+)];
+
+[expect]
+[(
+    item //
+)];
+
+== should remove multi-line parentheses in array element without comment ==
+[(item
+)];
+
+[expect]
+[item];
+
 == should keep multi-line parentheses around optional chain object with comment ==
 (f //
 )?.prop;

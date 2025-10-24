@@ -2912,15 +2912,11 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
 
   // Second check: multi-line preservation (after nested paren check)
   // But skip if:
-  // - parent is ExprOrSpread (call args, array elements) - those have their own parens
   // - inside control flow statement conditions (if/while/for) - those have their own parens
   // - parent is yield/throw/return expression - to avoid unstable formatting when inner content collapses
   if !matches!(
     parent.kind(),
-    NodeKind::ExprOrSpread
-      | NodeKind::YieldExpr
-      | NodeKind::ThrowStmt
-      | NodeKind::ReturnStmt
+    NodeKind::YieldExpr | NodeKind::ThrowStmt | NodeKind::ReturnStmt
   ) && !node.ancestors().any(|a| {
     matches!(
       a.kind(),
