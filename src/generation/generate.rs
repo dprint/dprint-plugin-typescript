@@ -2908,7 +2908,6 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
   }
 
   let parent = node.parent();
-  let context_stmt = get_context_stmt(node);
 
   // keep for `(val as number)++` or `(<number>val)++`
   if parent.kind() == NodeKind::UpdateExpr && matches!(node.expr.kind(), NodeKind::TsAsExpr | NodeKind::TsTypeAssertion) {
@@ -2928,6 +2927,7 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
   // But skip if:
   // - inside control flow statement conditions (if/while/for) - those have their own parens
   // - parent is yield/throw/return expression - to avoid unstable formatting when inner content collapses
+  let context_stmt = get_context_stmt(node);
   if !matches!(parent.kind(), NodeKind::YieldExpr | NodeKind::ThrowStmt | NodeKind::ReturnStmt)
     && !context_stmt.is_some_and(|stmt| {
       matches!(
