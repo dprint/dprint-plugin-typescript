@@ -2933,15 +2933,14 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     )
   }) {
     let expr_range = node.expr.range();
-    let spans_multiple_lines = match (
+    if match (
       context.token_finder.get_previous_token_if_open_paren(&expr_range),
       context.token_finder.get_next_token_if_close_paren(&expr_range),
     ) {
       (Some(open_paren), Some(close_paren)) => open_paren.start_line_fast(context.program) != close_paren.end_line_fast(context.program),
       _ => node.start_line_fast(context.program) != node.end_line_fast(context.program),
-    };
-
-    if spans_multiple_lines && !matches!(node.expr.kind(), NodeKind::JSXElement | NodeKind::JSXFragment) {
+    } && !matches!(node.expr.kind(), NodeKind::JSXElement | NodeKind::JSXFragment)
+    {
       return false;
     }
   }
