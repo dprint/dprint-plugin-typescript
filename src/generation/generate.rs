@@ -2885,6 +2885,19 @@ fn gen_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &mut Context<'a>) -> Pri
   }
 }
 
+/// Find the first ancestor statement (if/while/for/ExprStmt) for a given node
+fn get_context_stmt(node: &ParenExpr) -> Option<Node> {
+  for ancestor in node.ancestors() {
+    if matches!(
+      ancestor.kind(),
+      NodeKind::IfStmt | NodeKind::WhileStmt | NodeKind::DoWhileStmt | NodeKind::ForStmt | NodeKind::ForInStmt | NodeKind::ForOfStmt | NodeKind::ExprStmt
+    ) {
+      return Some(ancestor);
+    }
+  }
+  None
+}
+
 fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) -> bool {
   // Keep parens if: maintain mode, sequence expression, or comments on different lines
   if context.config.use_parentheses == UseParentheses::Maintain
@@ -2895,19 +2908,7 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
   }
 
   let parent = node.parent();
-
-  // Find the first ancestor statement in a single traversal
-  let mut context_stmt: Option<Node> = None;
-
-  for ancestor in node.ancestors() {
-    if matches!(
-      ancestor.kind(),
-      NodeKind::IfStmt | NodeKind::WhileStmt | NodeKind::DoWhileStmt | NodeKind::ForStmt | NodeKind::ForInStmt | NodeKind::ForOfStmt | NodeKind::ExprStmt
-    ) {
-      context_stmt = Some(ancestor);
-      break; // Found the first statement, stop searching
-    }
-  }
+  let context_stmt = get_context_stmt(node);
 
   let in_control_flow_condition = context_stmt.is_some_and(|stmt| {
     matches!(
