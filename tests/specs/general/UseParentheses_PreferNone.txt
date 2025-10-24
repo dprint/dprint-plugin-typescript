@@ -1,4 +1,22 @@
 ~~ useParentheses: preferNone ~~
+== should keep multi-line parentheses around call expression ==
+(f //
+());
+
+[expect]
+(
+  f //
+());
+
+== should keep multi-line parentheses around function callee ==
+(f //
+)();
+
+[expect]
+(
+  f //
+)();
+
 == should remove parentheses inside call arguments ==
 f((1 + 2));
 
