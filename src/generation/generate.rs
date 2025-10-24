@@ -2896,21 +2896,29 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
 
   let parent = node.parent();
 
-  // Check ancestor context once for efficiency - single traversal collecting all relevant info
-  let mut in_control_flow_condition = false;
-  let mut in_expr_stmt = false;
+  // Find the first ancestor statement and collect context info in a single traversal
+  let mut context_stmt: Option<Node> = None;
   let mut in_opt_chain = false;
 
   for ancestor in node.ancestors() {
     match ancestor.kind() {
-      NodeKind::IfStmt | NodeKind::WhileStmt | NodeKind::DoWhileStmt | NodeKind::ForStmt | NodeKind::ForInStmt | NodeKind::ForOfStmt => {
-        in_control_flow_condition = true;
+      NodeKind::IfStmt | NodeKind::WhileStmt | NodeKind::DoWhileStmt | NodeKind::ForStmt | NodeKind::ForInStmt | NodeKind::ForOfStmt | NodeKind::ExprStmt => {
+        if context_stmt.is_none() {
+          context_stmt = Some(ancestor);
+        }
       }
-      NodeKind::ExprStmt => in_expr_stmt = true,
       NodeKind::OptChainExpr => in_opt_chain = true,
       _ => {}
     }
   }
+
+  let in_control_flow_condition = context_stmt.is_some_and(|stmt| {
+    matches!(
+      stmt.kind(),
+      NodeKind::IfStmt | NodeKind::WhileStmt | NodeKind::DoWhileStmt | NodeKind::ForStmt | NodeKind::ForInStmt | NodeKind::ForOfStmt
+    )
+  });
+  let in_expr_stmt = context_stmt.is_some_and(|stmt| stmt.kind() == NodeKind::ExprStmt);
 
   // keep for `(val as number)++` or `(<number>val)++`
   if parent.kind() == NodeKind::UpdateExpr && matches!(node.expr.kind(), NodeKind::TsAsExpr | NodeKind::TsTypeAssertion) {
