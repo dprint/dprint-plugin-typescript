@@ -2885,14 +2885,15 @@ fn gen_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &mut Context<'a>) -> Pri
   }
 }
 
-/// Find the first ancestor statement (if/while/for/ExprStmt) for a given node
-fn get_context_stmt<'a>(node: &ParenExpr<'a>) -> Option<Node<'a>> {
+/// Find the kind of the first ancestor statement (if/while/for/ExprStmt) for a given node
+fn get_context_stmt_kind(node: &ParenExpr) -> Option<NodeKind> {
   for ancestor in node.ancestors() {
+    let kind = ancestor.kind();
     if matches!(
-      ancestor.kind(),
+      kind,
       NodeKind::IfStmt | NodeKind::WhileStmt | NodeKind::DoWhileStmt | NodeKind::ForStmt | NodeKind::ForInStmt | NodeKind::ForOfStmt | NodeKind::ExprStmt
     ) {
-      return Some(ancestor);
+      return Some(kind);
     }
   }
   None
@@ -2927,11 +2928,11 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
   // But skip if:
   // - inside control flow statement conditions (if/while/for) - those have their own parens
   // - parent is yield/throw/return expression - to avoid unstable formatting when inner content collapses
-  let context_stmt = get_context_stmt(node);
+  let context_stmt_kind = get_context_stmt_kind(node);
   if !matches!(parent.kind(), NodeKind::YieldExpr | NodeKind::ThrowStmt | NodeKind::ReturnStmt)
-    && !context_stmt.is_some_and(|stmt| {
+    && !context_stmt_kind.is_some_and(|kind| {
       matches!(
-        stmt.kind(),
+        kind,
         NodeKind::IfStmt | NodeKind::WhileStmt | NodeKind::DoWhileStmt | NodeKind::ForStmt | NodeKind::ForInStmt | NodeKind::ForOfStmt
       )
     })
@@ -2969,7 +2970,7 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
   // with preferNone, remove all unnecessary parens everywhere
   if context.config.use_parentheses == UseParentheses::PreferNone {
     // In expression statements, keep parens only for disambiguation
-    if context_stmt.is_some_and(|stmt| stmt.kind() == NodeKind::ExprStmt) {
+    if context_stmt_kind.is_some_and(|kind| kind == NodeKind::ExprStmt) {
       let unwrapped = unwrap_assertion_node(node.expr.into());
       if matches!(unwrapped, Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_)) {
         return false; // keep parens: object literal (disambiguation), function/class expr (required)
