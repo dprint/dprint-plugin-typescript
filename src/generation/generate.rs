@@ -2974,7 +2974,7 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     if in_expr_stmt {
       let unwrapped = unwrap_assertion_node(node.expr.into());
       if matches!(unwrapped, Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_)) {
-        return false; // keep these parens for disambiguation
+        return false; // keep parens: object literal (disambiguation), function/class expr (required)
       }
 
       if matches!(unwrapped, Node::ArrowExpr(_)) {
@@ -3040,7 +3040,7 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     if context.config.use_parentheses != UseParentheses::PreferNone {
       let unwrapped = unwrap_assertion_node(node.expr.into());
       if matches!(unwrapped, Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_)) {
-        return false; // keep parens for disambiguation
+        return false; // keep parens: object literal (disambiguation), function/class expr (required)
       }
     }
     return true; // otherwise remove parens
