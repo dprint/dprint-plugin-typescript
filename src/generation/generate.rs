@@ -3053,6 +3053,16 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     }
   }
 
+  // Keep parens when parent is unary and child is binary expression
+  // Unary operators have higher precedence than ALL binary operators
+  // !('word' in obj) is valid, but !"word" in obj is invalid
+  // !(a < b) is valid, but !a < b is invalid
+  if parent.kind() == NodeKind::UnaryExpr {
+    if let Expr::Bin(_bin_expr) = node.expr {
+      return false;
+    }
+  }
+
   if matches!(get_innermost_expr(&node.expr), Expr::Array(_) | Expr::Ident(_))
     || (parent.kind() == NodeKind::MemberExpr && node.expr.kind() == NodeKind::MemberExpr)
   {
@@ -3109,89 +3119,122 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     }
   }
 
-  // With preferNone mode, check for special cases that need parens BEFORE the general removal logic
-  if context.config.use_parentheses == UseParentheses::PreferNone {
-    // Keep parens for `new` when called: (new Foo())() vs new Foo()()
-    if matches!(node.expr, Expr::New(_)) && matches!(parent.kind(), NodeKind::CallExpr | NodeKind::OptCall) {
+  // In non-PreferNone modes, we've handled all cases where parens should be removed
+  if context.config.use_parentheses != UseParentheses::PreferNone {
+    return false;
+  }
+
+  // Everything below is PreferNone mode only - we aggressively remove parens where safe
+
+  // Keep parens for `new` when called: (new Foo())() vs new Foo()()
+  if matches!(node.expr, Expr::New(_)) && matches!(parent.kind(), NodeKind::CallExpr | NodeKind::OptCall) {
+    return false;
+  }
+
+  // Keep parens for arrow/function/class when called or member accessed: (function() {})()
+  if matches!(node.expr, Expr::Arrow(_) | Expr::Fn(_) | Expr::Class(_))
+    && matches!(
+      parent.kind(),
+      NodeKind::CallExpr | NodeKind::OptCall | NodeKind::OptChainExpr | NodeKind::MemberExpr
+    )
+  {
+    return false;
+  }
+
+  // Keep parens for unary expressions in specific contexts
+  if matches!(node.expr, Expr::Unary(_)) {
+    // Keep parens when member accessed: (typeof x).toUpperCase()
+    if matches!(parent.kind(), NodeKind::MemberExpr | NodeKind::OptChainExpr) {
       return false;
     }
 
-    // Keep parens for arrow/function/class when called or member accessed: (function() {})()
-    if matches!(node.expr, Expr::Arrow(_) | Expr::Fn(_) | Expr::Class(_))
-      && matches!(
-        parent.kind(),
-        NodeKind::CallExpr | NodeKind::OptCall | NodeKind::OptChainExpr | NodeKind::MemberExpr
-      )
-    {
-      return false;
-    }
-
-    // Keep parens for unary when member accessed: (typeof x).toUpperCase()
-    if matches!(node.expr, Expr::Unary(_)) && matches!(parent.kind(), NodeKind::MemberExpr | NodeKind::OptChainExpr) {
-      return false;
-    }
-
-    // Keep parens for await/yield in binary/member/call contexts: (await x) + 1
-    if matches!(node.expr, Expr::Await(_) | Expr::Yield(_))
-      && matches!(
-        parent.kind(),
-        NodeKind::BinExpr | NodeKind::MemberExpr | NodeKind::OptChainExpr | NodeKind::CallExpr | NodeKind::OptCall
-      )
-    {
-      return false;
-    }
-
-    // Check if parens are needed for operator precedence in binary/logical expressions
-    if let Node::BinExpr(parent_bin) = parent {
-      if let Expr::Bin(inner_bin) = node.expr {
-        let parent_prec = get_precedence(&parent_bin.op());
-        let inner_prec = get_precedence(&inner_bin.op());
-
-        // Keep parens if the inner expression has LOWER precedence than parent
-        if inner_prec < parent_prec {
-          return false;
-        }
-
-        // Also keep parens when precedences are equal and associativity matters
-        if inner_prec == parent_prec {
-          // Different ops at same precedence level - parens always matter: a / (b * c)
-          if parent_bin.op() != inner_bin.op() {
-            return false;
-          }
-
-          if parent_bin.right.range().contains(&node.range()) {
-            // Same operator - parens matter on right side for non-commutative ops
-            if matches!(
-              parent_bin.op(),
-              BinaryOp::Div | BinaryOp::Mod | BinaryOp::Sub | BinaryOp::LShift | BinaryOp::RShift | BinaryOp::ZeroFillRShift
-            ) {
-              return false;
-            }
-          } else if matches!(parent_bin.op(), BinaryOp::Exp) {
-            // Exponentiation is right-associative, so left side needs parens
-            return false;
-          }
-        }
-      }
-    }
-
-    // Keep parens for object/function/class in arrow body: () => ({ a: 1 })
-    if let Node::ArrowExpr(arrow) = parent {
-      if arrow.body.range().contains(&node.range())
-        && matches!(
-          unwrap_assertion_node(node.expr.into()),
-          Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_)
-        )
-      {
+    // JavaScript spec requires parens here - unary operators cannot appear unparenthesized before **
+    if let Node::BinExpr(bin_expr) = parent {
+      if bin_expr.op() == BinaryOp::Exp && bin_expr.left.range().contains(&node.range()) {
         return false;
       }
     }
-
-    // All other parens can be removed
-    return true;
   }
 
-  false
+  // Keep parens for await/yield in binary/member/call contexts: (await x) + 1
+  if matches!(node.expr, Expr::Await(_) | Expr::Yield(_))
+    && matches!(
+      parent.kind(),
+      NodeKind::BinExpr | NodeKind::MemberExpr | NodeKind::OptChainExpr | NodeKind::CallExpr | NodeKind::OptCall
+    )
+  {
+    return false;
+  }
+
+  // Check if parens are needed for operator precedence in binary/logical expressions
+  if let Node::BinExpr(parent_bin) = parent {
+    // Keep parens for assignment expressions in binary context: (a = b) && c
+    if matches!(node.expr, Expr::Assign(_) | Expr::Update(_)) {
+      return false;
+    }
+
+    if let Expr::Bin(inner_bin) = node.expr {
+      let parent_prec = get_precedence(&parent_bin.op());
+      let inner_prec = get_precedence(&inner_bin.op());
+
+      // Keep parens if the inner expression has LOWER precedence than parent
+      if inner_prec < parent_prec {
+        return false;
+      }
+
+      // Also keep parens when precedences are equal and associativity matters
+      if inner_prec == parent_prec {
+        // Different ops at same precedence level - parens always matter: a / (b * c)
+        if parent_bin.op() != inner_bin.op() {
+          return false;
+        }
+
+        if parent_bin.right.range().contains(&node.range()) {
+          // Same operator - parens matter on right side for non-commutative ops
+          if matches!(
+            parent_bin.op(),
+            BinaryOp::Div | BinaryOp::Mod | BinaryOp::Sub | BinaryOp::LShift | BinaryOp::RShift | BinaryOp::ZeroFillRShift
+          ) {
+            return false;
+          }
+        } else if matches!(parent_bin.op(), BinaryOp::Exp) {
+          // Exponentiation is right-associative, so left side needs parens
+          return false;
+        }
+      }
+    }
+  }
+
+  // Keep parens for object/function/class in arrow body: () => ({ a: 1 })
+  if let Node::ArrowExpr(arrow) = parent {
+    if arrow.body.range().contains(&node.range())
+      && matches!(
+        unwrap_assertion_node(node.expr.into()),
+        Node::ObjectLit(_) | Node::FnExpr(_) | Node::ClassExpr(_)
+      )
+    {
+      return false;
+    }
+  }
+
+  // Keep parens for type assertions followed by member/optional access: (expr as Type).member or (expr as Type)?.optional
+  if is_type_assertion(node.expr.kind()) && matches!(parent.kind(), NodeKind::MemberExpr | NodeKind::OptChainExpr) {
+    return false;
+  }
+
+  // Keep parens for conditional expressions in binary context: (a ? b : c) + d
+  if matches!(node.expr, Expr::Cond(_)) && matches!(parent.kind(), NodeKind::BinExpr | NodeKind::MemberExpr | NodeKind::CallExpr | NodeKind::OptCall) {
+    return false;
+  }
+
+  // Keep parens for binary expressions with member access: (a / 1000).toString()
+  // Member access has higher precedence than binary operators, so parens are needed
+  if matches!(node.expr, Expr::Bin(_)) && matches!(parent.kind(), NodeKind::MemberExpr | NodeKind::OptChainExpr) {
+    return false;
+  }
+
+  // All other parens can be removed in PreferNone mode
+  true
 }
 
 fn get_precedence(op: &BinaryOp) -> u8 {

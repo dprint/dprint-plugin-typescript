@@ -1562,3 +1562,143 @@ foo() as Bar;
 
 [expect]
 (class {})?.prop;
+
+== should retain parentheses with nested assignments in logical expression ==
+if (this.leaving && (distanceL2 = (dlx = this.leaving.x - x) ** 2 + (dly = this.leaving.y - y) ** 2) > this.far2) {}
+
+[expect]
+if (this.leaving && (distanceL2 = (dlx = this.leaving.x - x) ** 2 + (dly = this.leaving.y - y) ** 2) > this.far2) {}
+
+== should retain parentheses around type assertion with optional chaining ==
+expect((result as Payload).options?.debug).toBe(true);
+
+[expect]
+expect((result as Payload).options?.debug).toBe(true);
+
+== should retain parentheses around type assertion with optional chaining in assignment ==
+const errorCode = (event.target as IDBOpenDBRequest).error?.name || 'Unknown';
+
+[expect]
+const errorCode = (event.target as IDBOpenDBRequest).error?.name || "Unknown";
+
+== should retain parentheses around type assertion with method call ==
+return Object.keys(object).every(key => (keys as string[]).includes(key));
+
+[expect]
+return Object.keys(object).every(key => (keys as string[]).includes(key));
+
+== should retain parentheses around negation of in expression ==
+const onlyColor = computed(() => 'color' in props.colorData && !('word' in props.colorData));
+
+[expect]
+const onlyColor = computed(() => "color" in props.colorData && !("word" in props.colorData));
+
+== should retain parentheses around negation of in expression with member access ==
+const onlyWord = computed(() => !('color' in props.colorData) && 'word' in props.colorData);
+
+[expect]
+const onlyWord = computed(() => !("color" in props.colorData) && "word" in props.colorData);
+
+== should retain parentheses around identifier in ternary operator ==
+const errorTitle = computed(() => 'Fehler' + (anyErrors.value ? '' : '(leer)'));
+
+[expect]
+const errorTitle = computed(() => "Fehler" + (anyErrors.value ? "" : "(leer)"));
+
+== should retain parentheses around complex arithmetic expression ==
+const duration = computed(() => (props.data.entries.flatMap(x => x.log[x.log.length - 1].t - x.log[0].t).reduce((a, b) => a + b) / 1000).toString());
+
+[expect]
+const duration = computed(() =>
+    (props.data.entries.flatMap(x => x.log[x.log.length - 1].t - x.log[0].t).reduce((a, b) => a + b) / 1000).toString()
+);
+
+== should retain parentheses around negation of instanceof expression ==
+const isNotInstance = !(obj instanceof MyClass);
+
+[expect]
+const isNotInstance = !(obj instanceof MyClass);
+
+== should retain parentheses around negation of comparison expression ==
+const isNotLess = !(a < b);
+
+[expect]
+const isNotLess = !(a < b);
+
+== should retain parentheses around negation of equality expression ==
+const isNotEqual = !(a == b);
+
+[expect]
+const isNotEqual = !(a == b);
+
+== should retain parentheses around negation of strict equality expression ==
+const isNotStrictEqual = !(a === b);
+
+[expect]
+const isNotStrictEqual = !(a === b);
+
+== should retain parentheses around negation of addition expression ==
+const notSum = !(a + b);
+
+[expect]
+const notSum = !(a + b);
+
+== should retain parentheses around negation of subtraction expression ==
+const notDiff = !(a - b);
+
+[expect]
+const notDiff = !(a - b);
+
+== should retain parentheses around negation of logical and expression ==
+const notBoth = !(a && b);
+
+[expect]
+const notBoth = !(a && b);
+
+== should retain parentheses around negation of logical or expression ==
+const notEither = !(a || b);
+
+[expect]
+const notEither = !(a || b);
+
+== should retain parentheses around typeof with binary expression ==
+const typeOfSum = typeof (a + b);
+
+[expect]
+const typeOfSum = typeof (a + b);
+
+== should retain parentheses around void with logical and expression ==
+const voidResult = void (a && b);
+
+[expect]
+const voidResult = void (a && b);
+
+== should retain parentheses around unary minus with exponentiation ==
+const negativeSquared = (-2) ** 3;
+
+[expect]
+const negativeSquared = (-2) ** 3;
+
+== should retain parentheses around unary plus with exponentiation ==
+const positiveSquared = (+x) ** 2;
+
+[expect]
+const positiveSquared = (+x) ** 2;
+
+== should retain parentheses around typeof with exponentiation ==
+const typeofExp = (typeof x) ** 2;
+
+[expect]
+const typeofExp = (typeof x) ** 2;
+
+== should retain parentheses around void with exponentiation ==
+const voidExp = (void 0) ** 2;
+
+[expect]
+const voidExp = (void 0) ** 2;
+
+== should retain parentheses around bitwise not with exponentiation ==
+const bitwiseNotExp = (~flags) ** 2;
+
+[expect]
+const bitwiseNotExp = (~flags) ** 2;
