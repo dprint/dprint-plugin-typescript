@@ -65,6 +65,22 @@ if (true) {
     // 1
 }
 
+== should keep braces when header wraps ==
+if (
+    longConditionA
+    && longConditionB
+) {
+    a;
+}
+
+[expect]
+if (
+    longConditionA
+    && longConditionB
+) {
+    a;
+}
+
 == should handle trailing comments ==
 if(true){
 } // 1

@@ -1,0 +1,40 @@
+~~ ifStatement.useBraces: maintain ~~
+== should not add braces for triple nested if statements ==
+if (a) if (b) if (c) statement();
+
+[expect]
+if (a) if (b) if (c) statement();
+
+== should maintain nested if with mixed braces ==
+if (a) if (b) if (c) { statement(); }
+
+[expect]
+if (a) if (b) if (c) { statement(); }
+
+== should handle deeply nested (quadruple) ==
+if (a) if (b) if (c) if (d) e;
+
+[expect]
+if (a) if (b) if (c) if (d) e;
+
+== should maintain comments in nested if statements ==
+if (a) // comment
+  if (b) if (c) statement();
+
+[expect]
+if (a) // comment
+    if (b) if (c) statement();
+
+== should maintain nested if-else ==
+if (a) if (b) x; else y;
+
+[expect]
+if (a)
+    if (b) x;
+    else y;
+
+== should maintain nested with braces on outer only ==
+if (a) { if (b) if (c) statement(); }
+
+[expect]
+if (a) { if (b) if (c) statement(); }

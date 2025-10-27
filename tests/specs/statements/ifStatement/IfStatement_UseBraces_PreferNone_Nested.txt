@@ -1,0 +1,31 @@
+~~ ifStatement.useBraces: preferNone, preferSingleLine: true ~~
+== should remove braces from triple nested if statements ==
+if (a) { if (b) { if (c) { statement(); } } }
+
+[expect]
+if (a) if (b) if (c) statement();
+
+== should keep braces for readability when comments are present ==
+if (a) {
+    // comment
+    if (b) if (c) statement();
+}
+
+[expect]
+if (a) {
+    // comment
+    if (b) if (c) statement();
+}
+
+== should remove braces from deeply nested (quadruple) ==
+if (a) { if (b) { if (c) { if (d) { e; } } } }
+
+[expect]
+if (a) if (b) if (c) if (d) e;
+
+== should handle mixed nesting with declarations ==
+if (a) { const x = 1; } else if (b) if (c) statement();
+
+[expect]
+if (a) { const x = 1; }
+else if (b) if (c) statement();

@@ -64,3 +64,17 @@ if (
 ) { // testing this out
     logger;
 }
+
+== should handle triple nested if statements ==
+if (a) if (b) if(c) d;
+
+[expect]
+if (a) if (b) if (c) d;
+
+== should handle else-if chain ==
+if (a) x; else if (b) y; else if (c) z;
+
+[expect]
+if (a) x;
+else if (b) y;
+else if (c) z;

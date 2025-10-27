@@ -1,0 +1,129 @@
+~~ ifStatement.useBraces: whenNeeded ~~
+== should not add braces for single statement ==
+if (condition)
+  doSomething();
+
+[expect]
+if (condition)
+    doSomething();
+
+== should keep braces for empty block ==
+if (condition) {
+}
+
+[expect]
+if (condition) {
+}
+
+== should keep braces for multiple statements ==
+if (condition) {
+  doSomething();
+  doAnotherThing();
+}
+
+[expect]
+if (condition) {
+    doSomething();
+    doAnotherThing();
+}
+
+== should keep braces for declarations ==
+if (condition) {
+  const value = 42;
+}
+
+[expect]
+if (condition) {
+    const value = 42;
+}
+
+== should handle if-else chain independently ==
+if (condition1)
+  statement1();
+else if (condition2) {
+  const value = 42;
+}
+else
+  statement3();
+
+[expect]
+if (condition1)
+    statement1();
+else if (condition2) {
+    const value = 42;
+} else
+    statement3();
+
+== should remove unnecessary braces from single expressions ==
+if (condition) {
+  doSomething();
+}
+
+[expect]
+if (condition)
+    doSomething();
+
+== should handle nested if statements ==
+if (condition1)
+  if (condition2)
+    doSomething();
+
+[expect]
+if (condition1)
+    if (condition2)
+        doSomething();
+
+== should keep braces for function declarations ==
+if (condition) {
+  function innerFunc() {
+    return 42;
+  }
+}
+
+[expect]
+if (condition) {
+    function innerFunc() {
+        return 42;
+    }
+}
+
+== should remove braces when header wraps ==
+if (
+    longConditionA
+    && longConditionB
+) {
+  doSomething();
+}
+
+[expect]
+if (
+    longConditionA
+    && longConditionB
+)
+    doSomething();
+
+== should keep braces when syntactically required ==
+if (condition) {
+  if (true) f()
+} else
+  g();
+
+[expect]
+if (condition) {
+    if (true) f();
+} else
+    g();
+
+== should handle triple nested if statements ==
+if (a) if (b) if(c) d;
+
+[expect]
+if (a) if (b) if (c) d;
+
+== should handle else-if chain ==
+if (a) x; else if (b) y; else if (c) z;
+
+[expect]
+if (a) x;
+else if (b) y;
+else if (c) z;

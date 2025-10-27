@@ -1,0 +1,163 @@
+~~ ifStatement.useBraces: whenNeeded ~~
+== should not add braces when no else clause ==
+if (condition1)
+  if (condition2) doSomething();
+
+[expect]
+if (condition1)
+    if (condition2) doSomething();
+
+== should not add braces when inner if has else ==
+if (condition1)
+  if (condition2) doSomething();
+  else doOtherThing();
+else
+  doThirdThing();
+
+[expect]
+if (condition1)
+    if (condition2) doSomething();
+    else doOtherThing();
+else
+    doThirdThing();
+
+== should keep braces for declaration in then branch ==
+if (condition1) {
+  const x = 42;
+}
+else
+  doOtherThing();
+
+[expect]
+if (condition1) {
+    const x = 42;
+} else
+    doOtherThing();
+
+== should keep braces for function declaration in then branch ==
+if (condition1) {
+  function foo() {}
+}
+else
+  doOtherThing();
+
+[expect]
+if (condition1) {
+    function foo() {}
+} else
+    doOtherThing();
+
+== should keep braces to resolve dangling else ambiguity ==
+if (condition1) {
+  if (condition2) doSomething();
+}
+else
+  doOtherThing();
+
+[expect]
+if (condition1) {
+    if (condition2) doSomething();
+} else
+    doOtherThing();
+
+== should remove unnecessary braces from else clause ==
+if (condition1) {
+  if (condition2) doSomething();
+} else {
+  doOtherThing();
+}
+
+[expect]
+if (condition1) {
+    if (condition2) doSomething();
+} else
+    doOtherThing();
+
+== should handle nested if statements without dangling else ==
+if (condition1) {
+  if (condition2) {
+    if (condition3) doSomething();
+  }
+}
+
+[expect]
+if (condition1)
+    if (condition2)
+        if (condition3) doSomething();
+
+== should preserve braces when needed for multiple statements ==
+if (condition1) {
+  if (condition2) doSomething();
+  console.log("after");
+} else
+  doOtherThing();
+
+[expect]
+if (condition1) {
+    if (condition2) doSomething();
+    console.log("after");
+} else
+    doOtherThing();
+
+== should remove braces for async/await patterns ==
+if (condition1) {
+  await doSomething();
+}
+else
+  doOtherThing();
+
+[expect]
+if (condition1)
+    await doSomething();
+else
+    doOtherThing();
+
+== should handle async function expressions in if blocks ==
+if (condition1) {
+  const result = async () => await fetch("/api");
+} else
+  doOtherThing();
+
+[expect]
+if (condition1) {
+    const result = async () => await fetch("/api");
+} else
+    doOtherThing();
+
+== should keep braces for TypeScript type assertions ==
+if (condition1) {
+  const value = data as MyType;
+} else
+  doOtherThing();
+
+[expect]
+if (condition1) {
+    const value = data as MyType;
+} else
+    doOtherThing();
+
+== should handle TypeScript interface declarations ==
+if (condition1) {
+  interface LocalInterface { prop: string; }
+} else
+  doOtherThing();
+
+[expect]
+if (condition1) {
+    interface LocalInterface {
+        prop: string;
+    }
+} else
+    doOtherThing();
+
+== should handle declarations ==
+if (condition1) {
+  const x = 1;
+} else
+  doOtherThing();
+
+[expect]
+if (condition1) {
+    const x = 1;
+} else
+    doOtherThing();

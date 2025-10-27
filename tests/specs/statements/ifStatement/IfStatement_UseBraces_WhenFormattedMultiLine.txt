@@ -1,0 +1,157 @@
+~~ lineWidth: 40, ifStatement.useBraces: whenFormattedMultiLine ~~
+== should not add braces for single line statement ==
+if (condition) doSomething();
+
+[expect]
+if (condition) doSomething();
+
+== should add braces when statement body wraps across multiple lines ==
+if (condition) callWithManyArguments(argumentOne, argumentTwo, argumentThree, argumentFour, argumentFive);
+
+[expect]
+if (condition) {
+    callWithManyArguments(
+        argumentOne,
+        argumentTwo,
+        argumentThree,
+        argumentFour,
+        argumentFive,
+    );
+}
+
+== should keep braces off when only the condition wraps ==
+if (someVeryLongConditionThatExceedsWidth)
+  doSomething();
+
+[expect]
+if (someVeryLongConditionThatExceedsWidth)
+    doSomething();
+
+== should handle if-else chain ==
+if (shortCondition) shortStatement();
+else if (anotherVeryLongConditionThatExceedsTheLineWidth) doSomething();
+else doAnotherThing();
+
+[expect]
+if (shortCondition) shortStatement();
+else if (
+    anotherVeryLongConditionThatExceedsTheLineWidth
+) doSomething();
+else doAnotherThing();
+
+== should keep braces for already multi-line content ==
+if (condition) {
+  doSomething();
+  doAnotherThing();
+}
+
+[expect]
+if (condition) {
+    doSomething();
+    doAnotherThing();
+}
+
+== should handle empty blocks ==
+if (condition) {
+}
+
+[expect]
+if (condition) {
+}
+
+== should remove braces when header wraps but body stays single line ==
+if (
+    longConditionA
+    && longConditionB
+) {
+  doSomething();
+}
+
+[expect]
+if (
+    longConditionA
+    && longConditionB
+)
+    doSomething();
+
+== should handle declarations that would be multi-line ==
+if (condition) { const veryLongVariableNameThatExceedsWidth = 42; }
+
+[expect]
+if (condition) {
+    const veryLongVariableNameThatExceedsWidth =
+        42;
+}
+
+== should preserve single line when everything fits ==
+if (short) brief();
+else if (also) quick();
+else final();
+
+[expect]
+if (short) brief();
+else if (also) quick();
+else final();
+
+== should add braces when else body wraps across multiple lines ==
+if (first)
+  doFirst();
+else doSecondWithManyArguments(argumentOne, argumentTwo, argumentThree, argumentFour, argumentFive);
+
+[expect]
+if (first)
+    doFirst();
+else {
+    doSecondWithManyArguments(
+        argumentOne,
+        argumentTwo,
+        argumentThree,
+        argumentFour,
+        argumentFive,
+    );
+}
+
+== should add braces when await expression wraps across multiple lines ==
+if (shouldAwait)
+  await doAsyncWork(argumentOne, argumentTwo, argumentThree, argumentFour, argumentFive);
+
+[expect]
+if (shouldAwait) {
+    await doAsyncWork(
+        argumentOne,
+        argumentTwo,
+        argumentThree,
+        argumentFour,
+        argumentFive,
+    );
+}
+
+== should remove braces when body fits on single line ==
+if (short) {
+  brief();
+} else if (also) {
+  quick();
+} else
+  final();
+
+[expect]
+if (short)
+    brief();
+else if (also)
+    quick();
+else
+    final();
+
+== should handle triple nested if statements ==
+if (a) if (b) if(c) d;
+
+[expect]
+if (a) if (b) if (c) d;
+
+== should handle else-if chain ==
+if (a) x; else if (b) y; else if (c) z;
+
+[expect]
+if (a) x;
+else if (b) y;
+else if (c) z;

@@ -1,0 +1,91 @@
+~~ ifStatement.singleBodyPosition: nextLine, ifStatement.useBraces: whenNeeded ~~
+== should handle empty statements correctly ==
+if (condition) ;
+
+[expect]
+if (condition);
+
+== should force new line with whenNeeded - simple expression ==
+if (condition) doSomething();
+
+[expect]
+if (condition)
+    doSomething();
+
+== should force new line with whenNeeded - else clause ==
+if (condition) doFirst();
+else doSecond();
+
+[expect]
+if (condition)
+    doFirst();
+else
+    doSecond();
+
+== should keep braces when syntactically needed with nextLine ==
+if (condition) { const x = 1; }
+
+[expect]
+if (condition) {
+    const x = 1;
+}
+
+== should not add braces for await expressions with nextLine ==
+if (condition) await doSomething();
+
+[expect]
+if (condition)
+    await doSomething();
+
+== should keep braces for function declarations with nextLine ==
+if (condition) function test() { return 1; }
+
+[expect]
+if (condition) {
+    function test() {
+        return 1;
+    }
+}
+
+== should handle mixed scenarios with whenNeeded ==
+if (condition1) { const x = 1; }
+else if (condition2) doSomething();
+else { await doAsync(); }
+
+[expect]
+if (condition1) {
+    const x = 1;
+} else if (condition2)
+    doSomething();
+else
+    await doAsync();
+
+== should handle dangling else with nextLine - nested if with else ==
+if (condition1) if (condition2) doSomething(); else doOther();
+
+[expect]
+if (condition1)
+    if (condition2)
+        doSomething();
+    else
+        doOther();
+
+== should handle triple nested if statements ==
+if (a) if (b) if(c) d;
+
+[expect]
+if (a)
+    if (b)
+        if (c)
+            d;
+
+== should handle else-if chain ==
+if (a) x; else if (b) y; else if (c) z;
+
+[expect]
+if (a)
+    x;
+else if (b)
+    y;
+else if (c)
+    z;
