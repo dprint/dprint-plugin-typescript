@@ -4721,12 +4721,19 @@ fn gen_do_while_stmt<'a>(node: &DoWhileStmt<'a>, context: &mut Context<'a>) -> P
   ));
   items.extend(gen_node(node.body.into(), context));
   if context.config.semi_colons.is_true() || matches!(node.body, Stmt::Block(_)) {
+    let body_has_braces_ref = if matches!(node.body, Stmt::Block(_))
+      && context.config.do_while_statement_next_control_flow_position == NextControlFlowPosition::NextLineExceptAfterBrace
+    {
+      Some(push_always_true_condition(&mut items, "doWhileBodyHasBraces"))
+    } else {
+      None
+    };
     items.extend(gen_control_flow_separator(
       context.config.do_while_statement_next_control_flow_position,
       &node.body.range(),
       "while",
       None,
-      None,
+      body_has_braces_ref,
       context,
     ));
   } else {
@@ -5430,6 +5437,12 @@ fn gen_try_stmt<'a>(node: &TryStmt<'a>, context: &mut Context<'a>) -> PrintItems
   let mut last_block_range = node.block.range();
   let mut last_block_start_ln = LineNumber::new("tryStart");
 
+  let has_braces_ref = if next_control_flow_position == NextControlFlowPosition::NextLineExceptAfterBrace {
+    Some(push_always_true_condition(&mut items, "tryStatementHasBraces"))
+  } else {
+    None
+  };
+
   items.push_info(last_block_start_ln);
   items.push_sc(sc!("try"));
 
@@ -5457,7 +5470,7 @@ fn gen_try_stmt<'a>(node: &TryStmt<'a>, context: &mut Context<'a>) -> PrintItems
       &last_block_range,
       "catch",
       Some(last_block_start_ln),
-      None,
+      has_braces_ref,
       context,
     ));
     last_block_range = handler.range();
@@ -5473,7 +5486,7 @@ fn gen_try_stmt<'a>(node: &TryStmt<'a>, context: &mut Context<'a>) -> PrintItems
       &last_block_range,
       "finally",
       Some(last_block_start_ln),
-      None,
+      has_braces_ref,
       context,
     ));
     items.push_sc(sc!("finally"));
@@ -8507,12 +8520,76 @@ fn gen_control_flow_separator(
   previous_close_brace_condition_ref: Option<ConditionReference>,
   context: &mut Context,
 ) -> PrintItems {
+  fn should_force_newline_for_keyword(keyword_token: Option<&TokenAndSpan>, previous_node_block: &SourceRange, context: &mut Context) -> bool {
+    let Some(token_ref) = keyword_token else {
+      return false;
+    };
+    let range = token_ref.range();
+    if !get_leading_comments_on_previous_lines(&range, context).is_empty() {
+      return true;
+    }
+    let mut remaining = SourceRange::new(previous_node_block.end, range.start).text_fast(context.program).trim_start();
+    while let Some(after_block_start) = remaining.strip_prefix("/*") {
+      if let Some(end_index) = after_block_start.find("*/") {
+        remaining = after_block_start[end_index + 2..].trim_start();
+      } else {
+        return true;
+      }
+    }
+    if !remaining.is_empty() {
+      return true;
+    }
+
+    for comment in previous_node_block.trailing_comments_fast(context.program) {
+      if comment.start() >= range.start {
+        break;
+      }
+      if comment.start_line_fast(context.program) > previous_node_block.end_line_fast(context.program) {
+        return true;
+      }
+    }
+
+    false
+  }
+
   let mut items = PrintItems::new();
   match next_control_flow_position {
     NextControlFlowPosition::SameLine => {
+      // Check if previous block is an empty block statement by checking if it's on one line
+      // and contains only braces with whitespace
+      let is_previous_empty_block_stmt = {
+        let text = previous_node_block.text_fast(context.program);
+        let is_single_line = previous_node_block.start_line_fast(context.program) == previous_node_block.end_line_fast(context.program);
+
+        is_single_line
+          && text
+            .rfind('{')
+            .and_then(|open_pos| {
+              text.rfind('}').and_then(|close_pos| {
+                if open_pos < close_pos {
+                  let between = &text[open_pos + 1..close_pos];
+                  // Empty if only whitespace between braces
+                  Some(between.trim().is_empty())
+                } else {
+                  Some(false)
+                }
+              })
+            })
+            .unwrap_or(false)
+      };
+      let keyword_token = context.token_finder.get_first_keyword_after(previous_node_block, token_text);
+      let force_newline_due_to_comment = should_force_newline_for_keyword(keyword_token, previous_node_block, context);
       items.push_condition(if_true_or(
         "newLineOrSpace",
         Rc::new(move |condition_context| {
+          if force_newline_due_to_comment {
+            return Some(true);
+          }
+          // Don't force newline if previous block is empty and compact (like try {} catch {})
+          if is_previous_empty_block_stmt {
+            return Some(false);
+          }
+
           // newline if on the same line as the previous
           if let Some(previous_start_ln) = previous_start_ln {
             if condition_helpers::is_on_same_line(condition_context, previous_start_ln)? {
@@ -8534,17 +8611,105 @@ fn gen_control_flow_separator(
       ));
     }
     NextControlFlowPosition::NextLine => items.push_signal(Signal::NewLine),
-    NextControlFlowPosition::Maintain => {
-      let token = context.token_finder.get_first_keyword_after(previous_node_block, token_text);
+    NextControlFlowPosition::NextLineExceptAfterBrace => {
+      // Check if there's a trailing comment on the same line as the closing brace
+      let keyword_token = context.token_finder.get_first_keyword_after(previous_node_block, token_text);
+      let keyword_start = keyword_token.map(|token| token.start()).unwrap_or(previous_node_block.end());
+      let has_trailing_comment = previous_node_block
+        .trailing_comments_fast(context.program)
+        .take_while(|c| c.start() < keyword_start)
+        .any(|c| c.start_line_fast(context.program) == previous_node_block.end_line_fast(context.program));
+      let force_newline_due_to_comment = should_force_newline_for_keyword(keyword_token, previous_node_block, context);
 
-      if token.is_some() && node_helpers::is_first_node_on_line(&token.unwrap().range(), context.program) {
+      if has_trailing_comment || force_newline_due_to_comment {
+        // If there's a trailing comment, always use newline before the next keyword
         items.push_signal(Signal::NewLine);
+      } else {
+        // Use space if previous had braces, otherwise newline
+        items.push_condition(if_true_or(
+          "nextLineExceptAfterBrace",
+          Rc::new(move |condition_context| {
+            // use space if previous had a close brace
+            if let Some(previous_close_brace_condition_ref) = previous_close_brace_condition_ref {
+              if condition_context.resolved_condition(&previous_close_brace_condition_ref)? {
+                return Some(false);
+              }
+            }
+            // otherwise force new line
+            Some(true)
+          }),
+          Signal::NewLine.into(),
+          " ".into(),
+        ));
+      }
+    }
+    NextControlFlowPosition::Maintain => {
+      let keyword_token = context.token_finder.get_first_keyword_after(previous_node_block, token_text);
+      let force_newline_due_to_comment = should_force_newline_for_keyword(keyword_token, previous_node_block, context);
+      let previous_end_line = previous_node_block.end_line_fast(context.program);
+      let token_past_previous_line = keyword_token
+        .map(|token_ref| {
+          let range = token_ref.range();
+          node_helpers::is_first_node_on_line(&range, context.program) || range.start_line_fast(context.program) > previous_end_line
+        })
+        .unwrap_or(false);
+
+      if force_newline_due_to_comment || token_past_previous_line {
+        items.push_signal(Signal::NewLine);
+      } else if let Some(else_separator) =
+        handle_else_after_brace_removal(keyword_token, token_text, previous_node_block, previous_close_brace_condition_ref, context)
+      {
+        items.extend(else_separator);
       } else {
         items.push_space();
       }
     }
   }
   items
+}
+
+fn handle_else_after_brace_removal(
+  token: Option<&TokenAndSpan>,
+  token_text: &str,
+  previous_node_block: &SourceRange,
+  previous_close_brace_condition_ref: Option<ConditionReference>,
+  context: &mut Context,
+) -> Option<PrintItems> {
+  if token_text != "else" {
+    return None;
+  }
+  let token_range = token?.range();
+
+  // Check that only whitespace exists between the closing brace and "else"
+  // If there are comments or other code, don't apply special formatting
+  let full_text = SourceRange::new(previous_node_block.start, token_range.start).text_fast(context.program);
+  if !full_text[full_text.rfind('}')? + 1..].trim().is_empty() {
+    return None;
+  }
+
+  if previous_node_block.start_line_fast(context.program) == token_range.start_line_fast(context.program) {
+    return None;
+  }
+
+  let mut items = PrintItems::new();
+  if let Some(close_brace_ref) = previous_close_brace_condition_ref {
+    items.push_condition(if_true_or(
+      "elseSeparator",
+      Rc::new(move |condition_context| Some(condition_context.resolved_condition(&close_brace_ref)?)),
+      " ".into(),
+      Signal::NewLine.into(),
+    ));
+  } else {
+    items.push_signal(Signal::NewLine);
+  }
+  Some(items)
+}
+
+fn push_always_true_condition(items: &mut PrintItems, name: &'static str) -> ConditionReference {
+  let mut condition = if_true(name, Rc::new(|_| Some(true)), PrintItems::new());
+  let condition_ref = condition.create_reference();
+  items.push_condition(condition);
+  condition_ref
 }
 
 struct GenHeaderWithConditionalBraceBodyOptions<'a> {
@@ -8855,11 +9020,30 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
         .into(),
       ));
       items.push_sc(sc!("}"));
+      // Generate trailing comments for BlockStmt nodes when braces are always present
+      if use_braces == UseBraces::Always {
+        if let Node::BlockStmt(block_node) = opts.body_node {
+          items.extend(gen_trailing_comments(&block_node.range(), context));
+        }
+      }
       items
     },
   );
   let close_brace_condition_ref = close_brace_condition.create_reference();
   items.push_condition(close_brace_condition);
+
+  // Generate trailing comments for BlockStmt nodes when braces can be removed
+  // (so comments appear even when braces are not present)
+  // These should be generated as statement comments (on separate lines) not trailing comments
+  if use_braces == UseBraces::PreferNone {
+    if let Node::BlockStmt(_) = opts.body_node {
+      let trailing_comments = opts.body_node.range().trailing_comments_fast(context.program);
+      if !trailing_comments.is_empty() {
+        items.extend(gen_trailing_comments_as_statements(&opts.body_node.range(), context));
+      }
+    }
+  }
+
   items.push_info(end_ln);
   items.push_reevaluation(open_brace_condition_reevaluation);
 
@@ -8884,7 +9068,15 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
         SameOrNextLinePosition::Maintain => {
           get_body_stmt_start_line(body_node, context) > body_node.previous_token_fast(context.program).start_line_fast(context.program)
         }
-        SameOrNextLinePosition::NextLine => true,
+        SameOrNextLinePosition::NextLine => {
+          // Keep empty single-line blocks on the same line
+          if let Node::BlockStmt(block_stmt) = body_node {
+            if block_stmt.stmts.is_empty() {
+              return block_stmt.start_line_fast(context.program) < block_stmt.end_line_fast(context.program);
+            }
+          }
+          true
+        }
         SameOrNextLinePosition::SameLine => {
           if let Node::BlockStmt(block_stmt) = body_node {
             if block_stmt.stmts.len() != 1 {

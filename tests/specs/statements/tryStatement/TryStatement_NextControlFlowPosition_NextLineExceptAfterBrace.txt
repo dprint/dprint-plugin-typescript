@@ -1,0 +1,407 @@
+~~ tryStatement.nextControlFlowPosition: nextLineExceptAfterBrace ~~
+== should keep catch on same line after brace ==
+try {
+    doSomething();
+} catch (err) {
+    handleError();
+}
+
+[expect]
+try {
+    doSomething();
+} catch (err) {
+    handleError();
+}
+
+== should keep catch on new line when trailing comment present ==
+try {
+    run();
+} // trailing comment
+catch (err) {
+    handle(err);
+}
+
+[expect]
+try {
+    run();
+} // trailing comment
+catch (err) {
+    handle(err);
+}
+
+== should keep finally on new line when trailing comment present ==
+try {
+    run();
+} // trailing comment
+finally {
+    cleanup();
+}
+
+[expect]
+try {
+    run();
+} // trailing comment
+finally {
+    cleanup();
+}
+
+== should keep finally on same line in try-finally ==
+try {
+    doSomething();
+} finally {
+    cleanup();
+}
+
+[expect]
+try {
+    doSomething();
+} finally {
+    cleanup();
+}
+
+== should handle try-catch-finally ==
+try {
+    doSomething();
+} catch (err) {
+    handleError();
+} finally {
+    cleanup();
+}
+
+[expect]
+try {
+    doSomething();
+} catch (err) {
+    handleError();
+} finally {
+    cleanup();
+}
+
+== should handle try-catch-finally with trailing comments ==
+try {
+    doSomething();
+} // comment1
+catch (err) {
+    handleError();
+} // comment2
+finally {
+    cleanup();
+}
+
+[expect]
+try {
+    doSomething();
+} // comment1
+catch (err) {
+    handleError();
+} // comment2
+finally {
+    cleanup();
+}
+
+== should handle block comment after closing brace ==
+try {
+    code();
+} /* block comment */
+catch (e) {
+    handle();
+}
+
+[expect]
+try {
+    code();
+} /* block comment */
+catch (e) {
+    handle();
+}
+
+== should handle empty blocks with trailing comments ==
+try {} // comment
+catch (e) {}
+
+[expect]
+try {} // comment
+catch (e) {}
+
+== should handle comment after finally block ==
+try {
+    code();
+} catch (e) {
+    handle();
+} finally {
+    cleanup();
+} // final comment
+
+[expect]
+try {
+    code();
+} catch (e) {
+    handle();
+} finally {
+    cleanup();
+} // final comment
+
+== should handle nested structures with multiple trailing comments ==
+try {
+    if (x) {
+        code();
+    } // inner comment
+} // outer comment
+catch (e) {
+    handle();
+}
+
+[expect]
+try {
+    if (x) {
+        code();
+    } // inner comment
+} // outer comment
+catch (e) {
+    handle();
+}
+
+== should handle multi-line block comments ==
+try {
+    code();
+} /*
+ * multi-line
+ * comment
+ */
+catch (e) {
+    handle();
+}
+
+[expect]
+try {
+    code();
+} /*
+ * multi-line
+ * comment
+ */
+catch (e) {
+    handle();
+}
+
+== should keep catch on same line when no trailing comment ==
+try {
+    run();
+}
+catch (err) {
+    handleWithoutBraces();
+}
+
+[expect]
+try {
+    run();
+} catch (err) {
+    handleWithoutBraces();
+}
+
+== should handle empty comment with no text ==
+try {
+    code();
+} //
+catch (e) {
+    handle();
+}
+
+[expect]
+try {
+    code();
+} //
+catch (e) {
+    handle();
+}
+
+== should handle comment with only whitespace ==
+try {
+    code();
+} //
+catch (e) {
+    handle();
+}
+
+[expect]
+try {
+    code();
+} //
+catch (e) {
+    handle();
+}
+
+== should handle very deeply nested structures ==
+try {
+    if (a) {
+        while (b) {
+            do {
+                code();
+            } // inner1
+            while (c); // inner2
+        } // inner3
+    } // inner4
+} // outer
+catch (e) {
+    handle();
+}
+
+[expect]
+try {
+    if (a) {
+        while (b) {
+            do {
+                code();
+            } // inner1
+            while (c); // inner2
+        } // inner3
+    } // inner4
+} // outer
+catch (e) {
+    handle();
+}
+
+== should keep empty try block compact without trailing comment ==
+try {}
+catch (e) {
+    handle();
+}
+
+[expect]
+try {} catch (e) {
+    handle();
+}
+
+== should keep empty try block compact with trailing comment ==
+try {} // empty
+catch (e) {
+    handle();
+}
+
+[expect]
+try {} // empty
+catch (e) {
+    handle();
+}
+
+== should keep non-empty try block compact without trailing comment ==
+try {
+    code();
+}
+catch (e) {
+    handle();
+}
+
+[expect]
+try {
+    code();
+} catch (e) {
+    handle();
+}
+
+== should keep non-empty try block compact with trailing comment ==
+try {
+    code();
+} // done
+catch (e) {
+    handle();
+}
+
+[expect]
+try {
+    code();
+} // done
+catch (e) {
+    handle();
+}
+
+== should keep empty catch block on same line without trailing comment ==
+try {
+    code();
+} catch (e) {}
+
+[expect]
+try {
+    code();
+} catch (e) {}
+
+== should keep empty catch block compact with trailing comment ==
+try {
+    code();
+} catch (e) {} // empty catch
+
+[expect]
+try {
+    code();
+} catch (e) {} // empty catch
+
+== should keep non-empty catch block compact ==
+try {
+    code();
+} catch (e) {
+    handle();
+}
+
+[expect]
+try {
+    code();
+} catch (e) {
+    handle();
+}
+
+== should keep empty finally block on same line without trailing comment ==
+try {
+    code();
+} catch (e) {
+    handle();
+} finally {}
+
+[expect]
+try {
+    code();
+} catch (e) {
+    handle();
+} finally {}
+
+== should keep empty finally block compact with trailing comment ==
+try {
+    code();
+} catch (e) {
+    handle();
+} finally {} // cleanup
+
+[expect]
+try {
+    code();
+} catch (e) {
+    handle();
+} finally {} // cleanup
+
+== should handle mixed empty and non-empty blocks ==
+try {} // empty try
+catch (e) {
+    handle();
+} finally {} // empty finally
+
+[expect]
+try {} // empty try
+catch (e) {
+    handle();
+} finally {} // empty finally
+
+== should keep all empty blocks compact without comments ==
+try {}
+catch (e) {}
+finally {}
+
+[expect]
+try {} catch (e) {} finally {}
+
+== should keep all empty blocks compact with comments ==
+try {} // t
+catch (e) {} // c
+finally {} // f
+
+[expect]
+try {} // t
+catch (e) {} // c
+finally {} // f

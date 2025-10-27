@@ -56,18 +56,14 @@ try {
     test;
 } catch {}
 
-== should expand to try block being on one line when all are on one line ==
+== should keep empty try block compact when all are on one line ==
 try {} catch {}
 
 [expect]
-try {
-} catch {}
+try {} catch {}
 
-== should expand to try block being on one line when all are on one line ==
+== should keep all empty blocks compact when all are on one line ==
 try {} catch {} finally {}
 
 [expect]
-try {
-} catch {
-} finally {
-}
+try {} catch {} finally {}

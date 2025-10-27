@@ -1,0 +1,51 @@
+~~ semiColons: asi, ifStatement.useBraces: preferNone, ifStatement.nextControlFlowPosition: nextLineExceptAfterBrace ~~
+== should handle trailing comment before else with ASI ==
+if (x) {
+    f()
+} // test
+else {
+    g()
+}
+
+[expect]
+if (x)
+    f()
+// test
+else
+    g()
+
+== should handle else-if chain with trailing comments under ASI ==
+if (x) {
+    f()
+} // comment1
+else if (y) {
+    g()
+} // comment2
+else {
+    h()
+}
+
+[expect]
+if (x)
+    f()
+// comment1
+else if (y)
+    g()
+// comment2
+else
+    h()
+
+== should handle block comment before else with ASI ==
+if (x) {
+    f()
+} /* block comment */
+else {
+    g()
+}
+
+[expect]
+if (x)
+    f()
+/* block comment */
+else
+    g()

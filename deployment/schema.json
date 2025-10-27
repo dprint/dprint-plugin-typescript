@@ -199,6 +199,9 @@
       }, {
         "const": "nextLine",
         "description": "Forces the next control flow to be on the next line."
+      }, {
+        "const": "nextLineExceptAfterBrace",
+        "description": "Forces the next control flow to be on the next line, except when preceded by a brace."
       }]
     },
     "trailingCommas": {
