@@ -30,3 +30,31 @@ else console.log(7);
 if (true) { console.log(5); }
 else if (false) { console.log(6); }
 else { console.log(7); }
+
+== comment after else - exhibits formatting instability ==
+if (a) {
+    // comment
+    return;
+}
+// comment
+else {}
+
+[expect]
+if (a) {
+    // comment
+    return;
+}
+// comment
+else {}
+
+== block and line comments before else ==
+if (a) {
+    act();
+} /* block */ // trailing
+else {}
+
+[expect]
+if (a) {
+    act();
+} /* block */ // trailing
+else {}

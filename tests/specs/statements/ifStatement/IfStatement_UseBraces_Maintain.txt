@@ -17,3 +17,33 @@ else if (true) {
     b;
 } else
     c;
+
+== comment after else ==
+if (a) {
+    // comment
+    return;
+}
+// comment
+else {}
+
+[expect]
+if (a) {
+    // comment
+    return;
+}
+// comment
+else {}
+
+== block and line comments before else ==
+if (a) {
+    act();
+} /* block */ // trailing
+else {}
+
+[expect]
+if (a) {
+    act();
+}
+/* block */
+// trailing
+else {}
