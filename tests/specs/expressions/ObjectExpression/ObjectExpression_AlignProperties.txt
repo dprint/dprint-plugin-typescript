@@ -1,0 +1,36 @@
+~~ objectExpression.alignProperties: true ~~
+== should align object properties ==
+const foo = {
+    bar: 123,
+    barbaz: 123
+}
+
+[expect]
+const foo = {
+    bar:    123,
+    barbaz: 123,
+};
+
+== should align computed properties ==
+const foo = {
+    [key]: 123,
+    barbaz: 456
+}
+
+[expect]
+const foo = {
+    [key]:  123,
+    barbaz: 456,
+};
+
+== should align quoted properties ==
+const foo = {
+    "short": 123,
+    "very long key": 456
+}
+
+[expect]
+const foo = {
+    "short":         123,
+    "very long key": 456,
+};

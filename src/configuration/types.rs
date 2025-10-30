@@ -662,4 +662,21 @@ pub struct Configuration {
   pub tuple_type_space_around: bool,
   #[serde(rename = "whileStatement.spaceAround")]
   pub while_statement_space_around: bool,
+  /* alignment */
+  #[serde(rename = "alignment.enableAll")]
+  pub alignment_enable_all: bool,
+  #[serde(rename = "variableStatement.alignAssignments")]
+  pub variable_statement_align_assignments: bool,
+  #[serde(rename = "objectExpression.alignProperties")]
+  pub object_expression_align_properties: bool,
+  #[serde(rename = "interfaceDeclaration.alignProperties")]
+  pub interface_declaration_align_properties: bool,
+  #[serde(rename = "typeLiteral.alignProperties")]
+  pub type_literal_align_properties: bool,
+  #[serde(rename = "classDeclaration.alignProperties")]
+  pub class_declaration_align_properties: bool,
+  #[serde(rename = "enumDeclaration.alignMembers")]
+  pub enum_declaration_align_members: bool,
+  #[serde(rename = "moduleDeclaration.alignProperties")]
+  pub module_declaration_align_properties: bool,
 }

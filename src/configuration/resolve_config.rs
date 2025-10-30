@@ -333,6 +333,32 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     switch_statement_space_around: get_value(&mut config, "switchStatement.spaceAround", space_around, &mut diagnostics),
     tuple_type_space_around: get_value(&mut config, "tupleType.spaceAround", space_around, &mut diagnostics),
     while_statement_space_around: get_value(&mut config, "whileStatement.spaceAround", space_around, &mut diagnostics),
+    /* alignment - initialize with defaults */
+    alignment_enable_all: false,
+    variable_statement_align_assignments: false,
+    object_expression_align_properties: false,
+    interface_declaration_align_properties: false,
+    type_literal_align_properties: false,
+    class_declaration_align_properties: false,
+    enum_declaration_align_members: false,
+    module_declaration_align_properties: false,
+  };
+
+  // Get alignment.enableAll setting to use as default for individual alignment settings
+  let alignment_enable_all = get_value(&mut config, "alignment.enableAll", false, &mut diagnostics);
+
+  let resolved_config = Configuration {
+    /* alignment */
+    alignment_enable_all,
+    variable_statement_align_assignments: get_value(&mut config, "variableStatement.alignAssignments", alignment_enable_all, &mut diagnostics),
+    object_expression_align_properties: get_value(&mut config, "objectExpression.alignProperties", alignment_enable_all, &mut diagnostics),
+    interface_declaration_align_properties: get_value(&mut config, "interfaceDeclaration.alignProperties", alignment_enable_all, &mut diagnostics),
+    type_literal_align_properties: get_value(&mut config, "typeLiteral.alignProperties", alignment_enable_all, &mut diagnostics),
+    class_declaration_align_properties: get_value(&mut config, "classDeclaration.alignProperties", alignment_enable_all, &mut diagnostics),
+    enum_declaration_align_members: get_value(&mut config, "enumDeclaration.alignMembers", alignment_enable_all, &mut diagnostics),
+    module_declaration_align_properties: get_value(&mut config, "moduleDeclaration.alignProperties", alignment_enable_all, &mut diagnostics),
+    // Copy all the previous fields from resolved_config
+    ..resolved_config
   };
 
   diagnostics.extend(get_unknown_property_diagnostics(config));
@@ -408,6 +434,65 @@ mod tests {
     let expected_config = ConfigurationBuilder::new().deno().build();
     assert_eq!(result.config.indent_width, 8);
     assert_eq!(result.config.line_width, expected_config.line_width);
+    assert_eq!(result.diagnostics.len(), 0);
+  }
+
+  #[test]
+  fn handle_global_alignment_enable_all() {
+    let mut config = ConfigKeyMap::new();
+    config.insert(String::from("alignment.enableAll"), ConfigKeyValue::from_bool(true));
+    let global_config = GlobalConfiguration::default();
+    let result = resolve_config(config, &global_config);
+    
+    // When alignment.enableAll is true, all individual alignment settings should be true by default
+    assert!(result.config.alignment_enable_all);
+    assert!(result.config.variable_statement_align_assignments);
+    assert!(result.config.object_expression_align_properties);
+    assert!(result.config.interface_declaration_align_properties);
+    assert!(result.config.type_literal_align_properties);
+    assert!(result.config.class_declaration_align_properties);
+    assert!(result.config.enum_declaration_align_members);
+    assert!(result.config.module_declaration_align_properties);
+    assert_eq!(result.diagnostics.len(), 0);
+  }
+
+  #[test]
+  fn handle_global_alignment_enable_all_with_individual_override() {
+    let mut config = ConfigKeyMap::new();
+    config.insert(String::from("alignment.enableAll"), ConfigKeyValue::from_bool(true));
+    // Override one individual setting to false
+    config.insert(String::from("variableStatement.alignAssignments"), ConfigKeyValue::from_bool(false));
+    let global_config = GlobalConfiguration::default();
+    let result = resolve_config(config, &global_config);
+    
+    // alignment.enableAll is true but variableStatement.alignAssignments should be false due to override
+    assert!(result.config.alignment_enable_all);
+    assert!(!result.config.variable_statement_align_assignments); // overridden to false
+    assert!(result.config.object_expression_align_properties); // should still be true from global setting
+    assert!(result.config.interface_declaration_align_properties);
+    assert!(result.config.type_literal_align_properties);
+    assert!(result.config.class_declaration_align_properties);
+    assert!(result.config.enum_declaration_align_members);
+    assert!(result.config.module_declaration_align_properties);
+    assert_eq!(result.diagnostics.len(), 0);
+  }
+
+  #[test]
+  fn handle_alignment_defaults() {
+    let config = ConfigKeyMap::new();
+    // No alignment settings provided
+    let global_config = GlobalConfiguration::default();
+    let result = resolve_config(config, &global_config);
+    
+    // All alignment settings should be false by default
+    assert!(!result.config.alignment_enable_all);
+    assert!(!result.config.variable_statement_align_assignments);
+    assert!(!result.config.object_expression_align_properties);
+    assert!(!result.config.interface_declaration_align_properties);
+    assert!(!result.config.type_literal_align_properties);
+    assert!(!result.config.class_declaration_align_properties);
+    assert!(!result.config.enum_declaration_align_members);
+    assert!(!result.config.module_declaration_align_properties);
     assert_eq!(result.diagnostics.len(), 0);
   }
 }

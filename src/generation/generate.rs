@@ -714,7 +714,43 @@ fn gen_class_prop_common<'a, 'b>(node: GenClassPropCommon<'a, 'b>, context: &mut
   items.extend(gen_type_ann_with_colon_if_exists(node.type_ann, context));
 
   if let Some(value) = node.value {
-    items.extend(gen_assignment(value.into(), sc!("="), context));
+    if context.config.class_declaration_align_properties {
+      if let Some(parent) = node.original.parent() {
+        if parent.is::<Class>() {
+          // try grouped alignment first, then class-wide alignment
+          let alignment_group = context.alignment_groups.get(&node.original.range())
+            .or_else(|| context.alignment_groups.get(&parent.range()));
+          
+          if let Some(alignment_group) = alignment_group {
+            let key_width = context.measure_node_width(node.key);
+            let max_key_width = alignment_group.max_left_width;
+            
+            let target_width = max_key_width;
+            let current_width = key_width;
+            let padding_needed = if target_width > current_width {
+              target_width - current_width
+            } else {
+              0
+            };
+            
+            for _ in 0..padding_needed {
+              items.push_space();
+            }
+            
+            items.extend(gen_assignment(value.into(), sc!("="), context));
+          } else {
+            items.extend(gen_assignment(value.into(), sc!("="), context));
+          }
+        } else {
+          items.extend(gen_assignment(value.into(), sc!("="), context));
+        }
+      } else {
+        items.extend(gen_assignment(value.into(), sc!("="), context));
+      }
+    } else {
+      // Fall back to regular assignment
+      items.extend(gen_assignment(value.into(), sc!("="), context));
+    }
   }
 
   let should_semi = context.config.semi_colons.is_true()
@@ -952,6 +988,12 @@ fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'
     context,
   ));
 
+  if context.config.class_declaration_align_properties && node.members.len() > 1 {
+    if let Node::Class(class_node) = node.member_node {
+      prepare_class_alignment(class_node, context);
+    }
+  }
+
   items.extend(context.with_maybe_consistent_props(
     node.members,
     |members| use_consistent_quotes_for_members(members.iter().copied()),
@@ -1036,6 +1078,10 @@ fn gen_enum_decl<'a>(node: &TsEnumDecl<'a>, context: &mut Context<'a>) -> PrintI
   items.push_sc(sc!("enum "));
   items.extend(gen_node(node.id.into(), context));
 
+  if context.config.enum_declaration_align_members && node.members.len() > 1 {
+    prepare_enum_alignment(node, context);
+  }
+
   // body
   let member_spacing = context.config.enum_declaration_member_spacing;
   items.extend(gen_membered_body(
@@ -1059,10 +1105,42 @@ fn gen_enum_decl<'a>(node: &TsEnumDecl<'a>, context: &mut Context<'a>) -> PrintI
 
 fn gen_enum_member<'a>(node: &TsEnumMember<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
+  
   items.extend(gen_node(node.id.into(), context));
-
+  
   if let Some(init) = &node.init {
-    items.extend(gen_assignment(init.into(), sc!("="), context));
+    if context.config.enum_declaration_align_members && context.parent().is::<TsEnumDecl>() {
+      if let Node::TsEnumDecl(parent_enum) = context.parent() {
+        // try grouped alignment first, then enum-wide alignment
+        let alignment_group = context.alignment_groups.get(&node.range())
+          .or_else(|| context.alignment_groups.get(&parent_enum.range()));
+        
+        if let Some(alignment_group) = alignment_group {
+          let key_width = context.measure_node_width(node.id.into());
+          let max_key_width = alignment_group.max_left_width;
+          
+          let target_width = max_key_width;
+          let current_width = key_width;
+          let padding_needed = if target_width > current_width {
+            target_width - current_width
+          } else {
+            0
+          };
+          
+          for _ in 0..padding_needed {
+            items.push_space();
+          }
+          
+          items.extend(gen_assignment(init.into(), sc!("="), context));
+        } else {
+          items.extend(gen_assignment(init.into(), sc!("="), context));
+        }
+      } else {
+        items.extend(gen_assignment(init.into(), sc!("="), context));
+      }
+    } else {
+      items.extend(gen_assignment(init.into(), sc!("="), context));
+    }
   }
 
   items
@@ -1406,6 +1484,14 @@ fn gen_interface_decl<'a>(node: &TsInterfaceDecl<'a>, context: &mut Context<'a>)
 }
 
 fn gen_module_decl<'a>(node: &TsModuleDecl<'a>, context: &mut Context<'a>) -> PrintItems {
+  if context.config.module_declaration_align_properties {
+    if let Some(TsNamespaceBody::TsModuleBlock(body)) = &node.body {
+      if body.body.len() > 1 {
+        prepare_module_alignment(node, context);
+      }
+    }
+  }
+
   gen_module_or_namespace_decl(
     ModuleOrNamespaceDecl {
       declare: node.declare(),
@@ -1418,6 +1504,45 @@ fn gen_module_decl<'a>(node: &TsModuleDecl<'a>, context: &mut Context<'a>) -> Pr
 }
 
 fn gen_namespace_decl<'a>(node: &TsNamespaceDecl<'a>, context: &mut Context<'a>) -> PrintItems {
+  // Check if we should align properties and prepare alignment info
+  if context.config.module_declaration_align_properties {
+    if let TsNamespaceBody::TsModuleBlock(body) = &node.body {
+      if body.body.len() > 1 {
+        // use namespace range for alignment group key
+        let mut variable_names = Vec::new();
+        
+        // Collect all variable declarations from export statements
+        for stmt in body.body {
+          if let ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(export_decl)) = stmt {
+            if let Decl::Var(var_decl) = &export_decl.decl {
+              // Collect all variable declarations with assignments in this statement
+              for decl in var_decl.decls {
+                if decl.init.is_some() {
+                  variable_names.push(decl.name.into());
+                }
+              }
+            }
+          }
+        }
+
+        if !variable_names.is_empty() {
+          let max_key_width = variable_names
+            .iter()
+            .map(|key_node| context.measure_node_width(*key_node))
+            .max()
+            .unwrap_or(0);
+
+          if max_key_width > 0 {
+            let alignment_group = super::context::AlignmentGroup {
+              max_left_width: max_key_width,
+            };
+            context.alignment_groups.insert(node.range(), alignment_group);
+          }
+        }
+      }
+    }
+  }
+
   gen_module_or_namespace_decl(
     ModuleOrNamespaceDecl {
       declare: node.declare(),
@@ -1461,6 +1586,7 @@ fn gen_module_or_namespace_decl<'a, 'b>(node: ModuleOrNamespaceDecl<'a, 'b>, con
     if let Some(body) = body {
       match body {
         TsNamespaceBody::TsModuleBlock(block) => {
+          
           items.extend(gen_membered_body(
             GenMemberedBodyOptions {
               node: (*block).into(),
@@ -2741,9 +2867,51 @@ fn gen_getter_prop<'a>(node: &GetterProp<'a>, context: &mut Context<'a>) -> Prin
 
 fn gen_key_value_prop<'a>(node: &KeyValueProp<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
+  
+  let max_left_width = if context.config.object_expression_align_properties {
+    let parent = node.parent();
+    context.alignment_groups.get(&parent.range()).map(|ag| ag.max_left_width)
+  } else {
+    None
+  };
+  
   items.extend(gen_quotable_prop(node.key.into(), context));
-  items.extend(gen_assignment(node.value.into(), sc!(":"), context));
+  
+  if let Some(max_width) = max_left_width {
+    items.extend(gen_aligned_assignment(node.key.into(), node.value.into(), sc!(":"), max_width, context));
+  } else {
+    items.extend(gen_assignment(node.value.into(), sc!(":"), context));
+  }
+  
   items
+}
+
+fn prepare_object_alignment<'a>(node: &ObjectLit<'a>, context: &mut Context<'a>) {
+  // calculate max width of all property keys
+  let max_key_width = node.props
+    .iter()
+    .filter_map(|prop| match prop {
+      PropOrSpread::Prop(prop_node) => Some(prop_node),
+      PropOrSpread::Spread(_) => None, // skip spread properties
+    })
+    .filter_map(|prop| match prop {
+      Prop::KeyValue(kv) => Some(kv.key.into()),
+      Prop::Shorthand(_) => None, // skip shorthand properties
+      Prop::Assign(_) => None, // skip assign properties (invalid but handle gracefully)
+      Prop::Method(_) => None, // skip method properties
+      Prop::Getter(_) => None, // skip getter properties  
+      Prop::Setter(_) => None, // skip setter properties
+    })
+    .map(|key_node| context.measure_node_width(key_node))
+    .max()
+    .unwrap_or(0);
+
+  if max_key_width > 0 {
+    let alignment_group = super::context::AlignmentGroup {
+      max_left_width: max_key_width,
+    };
+    context.alignment_groups.insert(node.range(), alignment_group);
+  }
 }
 
 fn gen_assign_prop<'a>(node: &AssignProp<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -2800,7 +2968,294 @@ fn gen_non_null_expr<'a>(node: &TsNonNullExpr<'a>, context: &mut Context<'a>) ->
   items
 }
 
+fn prepare_variable_statement_alignment<'a>(stmts: &[Node<'a>], context: &mut Context<'a>) {
+  let mut i = 0;
+  while i < stmts.len() {
+    // find consecutive variable declarations
+    let start = i;
+    while i < stmts.len() {
+      match stmts[i] {
+        Node::VarDecl(var_decl) if var_decl.decls.len() == 1 => {
+          i += 1;
+        }
+        _ => break,
+      }
+    }
+    
+    let end = i;
+    if end - start > 1 {
+      // we have a group of consecutive variable declarations
+      let var_decls: Vec<&VarDecl> = stmts[start..end]
+        .iter()
+        .filter_map(|stmt| {
+          match stmt {
+            Node::VarDecl(var_decl) if var_decl.decls.len() == 1 => Some(*var_decl),
+            _ => None,
+          }
+        })
+        .collect();
+        
+      // calculate maximum left-hand side width across all variable declarations
+      let max_name_width = var_decls
+        .iter()
+        .map(|var_decl| {
+          let decl = &var_decl.decls[0];
+          context.measure_node_width(decl.name.into())
+        })
+        .max()
+        .unwrap_or(0);
+        
+      // store alignment info
+      for var_decl in var_decls {
+        let alignment_group = super::context::AlignmentGroup {
+          max_left_width: max_name_width,
+        };
+        context.alignment_groups.insert(var_decl.range(), alignment_group);
+      }
+    }
+    
+    if i == start {
+      i += 1; // avoid infinite loop if we didn't advance
+    }
+  }
+}
+
+
+
+fn group_interface_members_by_blank_lines<'a>(node: &TsInterfaceBody<'a>, context: &Context<'a>) -> Vec<Vec<&'a TsTypeElement<'a>>> {
+  let mut groups = Vec::new();
+  let mut current_group = Vec::new();
+  
+  for (i, member) in node.body.iter().enumerate() {
+    current_group.push(member);
+    
+    // Check if there's a blank line after this member
+    let has_blank_line_after = if i + 1 < node.body.len() {
+      let next_member = &node.body[i + 1];
+      // Use the existing node_helpers function to check for separating blank line  
+      super::node_helpers::has_separating_blank_line(&Node::from(*member), &Node::from(*next_member), context.program)
+    } else {
+      true // End of interface, finish the group
+    };
+    
+    if has_blank_line_after {
+      if !current_group.is_empty() {
+        groups.push(current_group);
+        current_group = Vec::new();
+      }
+    }
+  }
+  
+  groups
+}
+
+fn prepare_interface_body_alignment<'a>(node: &TsInterfaceBody<'a>, context: &mut Context<'a>) {
+  // Group interface members by blank line separations
+  let member_groups = group_interface_members_by_blank_lines(node, context);
+  
+  for group in member_groups {
+    let max_key_width = group
+      .iter()
+      .filter_map(|member| {
+        match member {
+          TsTypeElement::TsPropertySignature(prop) => {
+            Some(prop.key.into())
+          },
+          _ => None, // skip other member types (methods, call signatures, etc.)
+        }
+      })
+      .map(|key_node| context.measure_node_width(key_node))
+      .max()
+      .unwrap_or(0);
+
+    if max_key_width > 0 && group.len() > 1 {
+      for member in &group {
+        let alignment_group = super::context::AlignmentGroup {
+          max_left_width: max_key_width,
+        };
+        context.alignment_groups.insert(member.range(), alignment_group);
+      }
+    }
+  }
+}
+
+fn prepare_type_literal_alignment<'a>(node: &TsTypeLit<'a>, context: &mut Context<'a>) {
+  // calculate max width of all property keys
+  let max_key_width = node.members
+    .iter()
+    .filter_map(|member| {
+      match member {
+        TsTypeElement::TsPropertySignature(prop) => {
+          Some(prop.key.into())
+        },
+        _ => None, // skip other member types (methods, call signatures, etc.)
+      }
+    })
+    .map(|key_node| context.measure_node_width(key_node))
+    .max()
+    .unwrap_or(0);
+
+  if max_key_width > 0 {
+    let alignment_group = super::context::AlignmentGroup {
+      max_left_width: max_key_width,
+    };
+    context.alignment_groups.insert(node.range(), alignment_group);
+  }
+}
+
+fn group_class_members_by_blank_lines<'a>(node: &Class<'a>, context: &Context<'a>) -> Vec<Vec<&'a ClassMember<'a>>> {
+  let mut groups = Vec::new();
+  let mut current_group = Vec::new();
+  
+  for (i, member) in node.body.iter().enumerate() {
+    current_group.push(member);
+    
+    // Check if there's a blank line after this member
+    let has_blank_line_after = if i + 1 < node.body.len() {
+      let next_member = &node.body[i + 1];
+      // Use the existing node_helpers function to check for separating blank line  
+      super::node_helpers::has_separating_blank_line(&Node::from(*member), &Node::from(*next_member), context.program)
+    } else {
+      true // End of class, finish the group
+    };
+    
+    if has_blank_line_after {
+      if !current_group.is_empty() {
+        groups.push(current_group);
+        current_group = Vec::new();
+      }
+    }
+  }
+  
+  groups
+}
+
+fn prepare_class_alignment<'a>(node: &Class<'a>, context: &mut Context<'a>) {
+  if !context.config.class_declaration_align_properties {
+    return;
+  }
+  
+  // Group class members by blank line separations
+  let property_groups = group_class_members_by_blank_lines(node, context);
+  
+  for group in property_groups {
+    let max_key_width = group
+      .iter()
+      .filter_map(|member| match member {
+        ClassMember::ClassProp(prop) if prop.value.is_some() => Some(prop.key.into()),
+        ClassMember::PrivateProp(prop) if prop.value.is_some() => Some(prop.key.into()),
+        ClassMember::AutoAccessor(prop) if prop.value.is_some() => Some(prop.key.into()),
+        _ => None, // skip methods and properties without values
+      })
+      .map(|key_node| context.measure_node_width(key_node))
+      .max()
+      .unwrap_or(0);
+
+    if max_key_width > 0 && group.len() > 1 {
+      for member in &group {
+        let alignment_group = super::context::AlignmentGroup {
+          max_left_width: max_key_width,
+        };
+        context.alignment_groups.insert(member.range(), alignment_group);
+      }
+    }
+  }
+}
+
+fn group_enum_members_by_blank_lines<'a>(node: &TsEnumDecl<'a>, context: &Context<'a>) -> Vec<Vec<&'a TsEnumMember<'a>>> {
+  let mut groups = Vec::new();
+  let mut current_group = Vec::new();
+  
+  for (i, member) in node.members.iter().enumerate() {
+    current_group.push(*member);
+    
+    // Check if there's a blank line after this member
+    let has_blank_line_after = if i + 1 < node.members.len() {
+      let next_member = &node.members[i + 1];
+      // Use the existing node_helpers function to check for separating blank line  
+      super::node_helpers::has_separating_blank_line(&Node::from(*member), &Node::from(*next_member), context.program)
+    } else {
+      true // End of enum, finish the group
+    };
+    
+    if has_blank_line_after {
+      if !current_group.is_empty() {
+        groups.push(current_group);
+        current_group = Vec::new();
+      }
+    }
+  }
+  
+  groups
+}
+
+fn prepare_enum_alignment<'a>(node: &TsEnumDecl<'a>, context: &mut Context<'a>) {
+  // Group enum members by blank line separations
+  let member_groups = group_enum_members_by_blank_lines(node, context);
+  
+  for group in member_groups {
+    let max_key_width = group
+      .iter()
+      .filter(|member| member.init.is_some()) // only align members with values
+      .map(|member| context.measure_node_width(member.id.into()))
+      .max()
+      .unwrap_or(0);
+
+    if max_key_width > 0 && group.len() > 1 {
+      for member in &group {
+        let alignment_group = super::context::AlignmentGroup {
+          max_left_width: max_key_width,
+        };
+        context.alignment_groups.insert(member.range(), alignment_group);
+      }
+    }
+  }
+}
+
+
+
+fn prepare_module_alignment<'a>(node: &TsModuleDecl<'a>, context: &mut Context<'a>) {
+  // For module declarations, align export variable declarations
+  if let Some(TsNamespaceBody::TsModuleBlock(body)) = &node.body {
+    let mut variable_names = Vec::new();
+    
+    // Collect all variable declarations from export statements
+    for stmt in body.body {
+      if let ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(export_decl)) = stmt {
+        if let Decl::Var(var_decl) = &export_decl.decl {
+          // Collect all variable declarations with assignments in this statement
+          for decl in var_decl.decls {
+            if decl.init.is_some() {
+              variable_names.push(decl.name.into());
+            }
+          }
+        }
+      }
+    }
+
+    if !variable_names.is_empty() {
+      let max_key_width = variable_names
+        .iter()
+        .map(|key_node| context.measure_node_width(*key_node))
+        .max()
+        .unwrap_or(0);
+
+      if max_key_width > 0 {
+        let alignment_group = super::context::AlignmentGroup {
+          max_left_width: max_key_width,
+        };
+        context.alignment_groups.insert(node.range(), alignment_group);
+      }
+    }
+  }
+}
+
 fn gen_object_lit<'a>(node: &ObjectLit<'a>, context: &mut Context<'a>) -> PrintItems {
+  // Check if we should align properties and prepare alignment info
+  if context.config.object_expression_align_properties && node.props.len() > 1 {
+    prepare_object_alignment(node, context);
+  }
+
   let items = context.with_maybe_consistent_props(
     node,
     |node| use_consistent_quotes_for_members(node.props.iter().map(|p| p.into())),
@@ -3631,7 +4086,44 @@ fn gen_property_signature<'a>(node: &TsPropertySignature<'a>, context: &mut Cont
   if node.optional() {
     items.push_sc(sc!("?"));
   }
-  items.extend(gen_type_ann_with_colon_if_exists(node.type_ann, context));
+
+  // Check if we have alignment information and config is enabled for interfaces/type literals
+  let max_left_width = {
+    let parent = node.parent();
+    match parent {
+      Node::TsInterfaceBody(interface_body) => {
+        if context.config.interface_declaration_align_properties {
+          // First try to get alignment info for this specific member (grouped alignment)
+          // Then fall back to interface-wide alignment (legacy behavior)
+          context.alignment_groups.get(&node.range())
+            .or_else(|| context.alignment_groups.get(&interface_body.range()))
+            .map(|ag| ag.max_left_width)
+        } else {
+          None
+        }
+      },
+      Node::TsTypeLit(type_lit) => {
+        if context.config.type_literal_align_properties {
+          // First try to get alignment info for this specific member (grouped alignment)
+          // Then fall back to type literal-wide alignment (legacy behavior)
+          context.alignment_groups.get(&node.range())
+            .or_else(|| context.alignment_groups.get(&type_lit.range()))
+            .map(|ag| ag.max_left_width)
+        } else {
+          None
+        }
+      },
+      _ => None,
+    }
+  };
+
+  if let (Some(type_ann), Some(max_width)) = (node.type_ann, max_left_width) {
+    // Generate aligned type annotation
+    items.extend(gen_aligned_assignment(node.key.into(), type_ann.type_ann.into(), sc!(":"), max_width, context));
+  } else {
+    // Standard type annotation
+    items.extend(gen_type_ann_with_colon_if_exists(node.type_ann, context));
+  }
 
   items
 }
@@ -3665,6 +4157,10 @@ fn gen_quotable_prop<'a>(node: Node<'a>, context: &mut Context<'a>) -> PrintItem
 
 fn gen_interface_body<'a>(node: &TsInterfaceBody<'a>, context: &mut Context<'a>) -> PrintItems {
   let start_header_lsil = get_parent_lsil(node, context);
+
+  if context.config.interface_declaration_align_properties {
+    prepare_interface_body_alignment(node, context);
+  }
 
   return context.with_maybe_consistent_props(
     node,
@@ -3732,6 +4228,11 @@ fn use_consistent_quotes_for_members<'a>(mut members: impl Iterator<Item = Node<
 }
 
 fn gen_type_lit<'a>(node: &TsTypeLit<'a>, context: &mut Context<'a>) -> PrintItems {
+  // Check if we should align properties and prepare alignment info
+  if context.config.type_literal_align_properties {
+    prepare_type_literal_alignment(node, context);
+  }
+
   return context.with_maybe_consistent_props(
     node,
     |node| use_consistent_quotes_for_members(node.members.iter().map(|n| n.into())),
@@ -5543,43 +6044,141 @@ fn gen_var_declarators<'a>(parent: Node<'a>, decls: &[&'a VarDeclarator<'a>], co
     // be lightweight by default
     gen_node(decls[0].into(), context)
   } else if decls_len > 1 {
-    let force_use_new_lines = get_use_new_lines(parent, decls, context);
-    gen_separated_values(
-      GenSeparatedValuesParams {
-        nodes: decls.iter().map(|&p| NodeOrSeparator::Node(p.into())).collect(),
-        prefer_hanging: context.config.variable_statement_prefer_hanging,
-        force_use_new_lines,
-        allow_blank_lines: false,
-        separator: TrailingCommas::Never.into(),
-        single_line_options: ir_helpers::SingleLineOptions::same_line_maybe_space_separated(),
-        multi_line_options: ir_helpers::MultiLineOptions::same_line_start_hanging_indent(),
-        force_possible_newline_at_start: false,
-        node_sorter: None,
-      },
-      context,
-    )
+    // Check if we should align assignments
+    if context.config.variable_statement_align_assignments && decls_len > 1 {
+      gen_var_declarators_with_alignment(parent, decls, context)
+    } else {
+      let force_use_new_lines = get_use_new_lines(parent, decls, context);
+      gen_separated_values(
+        GenSeparatedValuesParams {
+          nodes: decls.iter().map(|&p| NodeOrSeparator::Node(p.into())).collect(),
+          prefer_hanging: context.config.variable_statement_prefer_hanging,
+          force_use_new_lines,
+          allow_blank_lines: false,
+          separator: TrailingCommas::Never.into(),
+          single_line_options: ir_helpers::SingleLineOptions::same_line_maybe_space_separated(),
+          multi_line_options: ir_helpers::MultiLineOptions::same_line_start_hanging_indent(),
+          force_possible_newline_at_start: false,
+          node_sorter: None,
+        },
+        context,
+      )
+    }
   } else {
     PrintItems::new()
   }
 }
 
+fn gen_var_declarators_with_alignment<'a>(parent: Node<'a>, decls: &[&'a VarDeclarator<'a>], context: &mut Context<'a>) -> PrintItems {
+  // Measure all left-hand sides to find maximum width
+  let max_name_width = decls
+    .iter()
+    .map(|decl| context.measure_node_width(decl.name.into()))
+    .max()
+    .unwrap_or(0);
+
+  // Store alignment info for use in gen_var_declarator
+  let alignment_group = super::context::AlignmentGroup {
+    max_left_width: max_name_width,
+  };
+  context.alignment_groups.insert(parent.range(), alignment_group);
+
+  // Check if we should use new lines (same logic as original)
+  let force_use_new_lines = if get_use_new_lines_for_nodes(decls, context.config.variable_statement_prefer_single_line, context) {
+    true
+  } else {
+    // probably minified code
+    decls.len() >= 2 && is_node_definitely_above_line_width(parent.range(), context)
+  };
+
+  // Generate using the same structure as the original but with alignment
+  gen_separated_values(
+    GenSeparatedValuesParams {
+      nodes: decls.iter().map(|&p| NodeOrSeparator::Node(p.into())).collect(),
+      prefer_hanging: context.config.variable_statement_prefer_hanging,
+      force_use_new_lines,
+      allow_blank_lines: false,
+      separator: TrailingCommas::Never.into(),
+      single_line_options: ir_helpers::SingleLineOptions::same_line_maybe_space_separated(),
+      multi_line_options: ir_helpers::MultiLineOptions::same_line_start_hanging_indent(),
+      force_possible_newline_at_start: false,
+      node_sorter: None,
+    },
+    context,
+  )
+}
+
 fn gen_var_declarator<'a>(node: &VarDeclarator<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
+
+  // Check if we have alignment information for this variable declaration
+  // First check the parent VarDecl (for within-statement alignment)
+  // Then check the VarDecl itself (for cross-statement alignment)
+  // Finally check for module alignment if we're inside a module
+  let max_left_width = {
+    let parent_range = node.parent().range();
+    context.alignment_groups.get(&parent_range).map(|ag| ag.max_left_width)
+      .or_else(|| {
+        // Check if this VarDecl has cross-statement alignment info
+        match node.parent() {
+          Node::VarDecl(var_decl) => {
+            context.alignment_groups.get(&var_decl.range()).map(|ag| ag.max_left_width)
+          }
+          _ => None
+        }
+      })
+      .or_else(|| {
+        // Check for module declaration alignment
+        if context.config.module_declaration_align_properties {
+          // Walk up the tree to find a TsModuleDecl
+          let mut current = Some(node.parent());
+          while let Some(current_node) = current {
+            if let Node::TsModuleDecl(module_decl) = current_node {
+              return context.alignment_groups.get(&module_decl.range()).map(|ag| ag.max_left_width);
+            }
+            current = current_node.parent();
+          }
+        }
+        None
+      })
+  };
 
   items.extend(gen_node(node.name.into(), context));
 
   if let Some(init) = &node.init {
-    items.extend(gen_assignment(init.into(), sc!("="), context));
+    if let Some(max_width) = max_left_width {
+      let key_width = context.measure_node_width(node.name.into());
+      let target_width = max_width;
+      let current_width = key_width;
+      let padding_needed = if target_width > current_width {
+        target_width - current_width
+      } else {
+        0
+      };
+      
+      for _ in 0..padding_needed {
+        items.push_space();
+      }
+      
+      // Add the assignment normally
+      items.extend(gen_assignment(init.into(), sc!("="), context));
+    } else {
+      // Standard assignment
+      items.extend(gen_assignment(init.into(), sc!("="), context));
+    }
   }
 
   // Indent the first variable declarator when there are multiple.
   // Not ideal, but doing this here because of the abstraction used in
   // `gen_var_decl`. In the future this should probably be moved away.
 
-  let parent_decls = match node.parent() {
-    Node::VarDecl(parent) => Some(&parent.decls),
-    Node::UsingDecl(parent) => Some(&parent.decls),
-    _ => None,
+  let parent_decls = {
+    let parent = node.parent();
+    match parent {
+      Node::VarDecl(parent) => Some(&parent.decls),
+      Node::UsingDecl(parent) => Some(&parent.decls),
+      _ => None,
+    }
   };
   if let Some(var_decls) = parent_decls {
     if var_decls.len() > 1 && var_decls[0].range() == node.range() {
@@ -6092,6 +6691,7 @@ fn gen_lit_type<'a>(node: &TsLitType<'a>, context: &mut Context<'a>) -> PrintIte
 }
 
 fn gen_mapped_type<'a>(node: &TsMappedType<'a>, context: &mut Context<'a>) -> PrintItems {
+  
   let force_use_new_lines =
     !context.config.mapped_type_prefer_single_line && node_helpers::get_use_new_lines_for_nodes(&node.start(), node.type_param, context.program);
 
@@ -6160,7 +6760,58 @@ fn gen_mapped_type<'a>(node: &TsMappedType<'a>, context: &mut Context<'a>) -> Pr
           });
         }
 
-        items.extend(gen_type_ann_with_colon_if_exists_for_type(node.type_ann, context));
+        // Check if we should use aligned assignment for mapped types
+        if let Some(type_ann) = node.type_ann {
+          let max_left_width = context.alignment_groups.get(&node.range()).map(|ag| ag.max_left_width);
+          
+          if let Some(max_width) = max_left_width {
+            // Calculate the current left width for this mapped type
+            let mut current_left_width = 0;
+            
+            // Add readonly prefix width if present
+            if let Some(readonly) = node.readonly() {
+              current_left_width += match readonly {
+                TruePlusMinus::True => "readonly ".len(),
+                TruePlusMinus::Plus => "+readonly ".len(),
+                TruePlusMinus::Minus => "-readonly ".len(),
+              };
+            }
+            
+            // Add width of [K in keyof T] part
+            current_left_width += 1; // opening bracket
+            current_left_width += context.measure_node_width(node.type_param.as_node());
+            current_left_width += 1; // closing bracket
+            
+            // Add optional suffix width if present
+            if let Some(optional) = node.optional() {
+              current_left_width += match optional {
+                TruePlusMinus::True => "?".len(),
+                TruePlusMinus::Plus => "+?".len(),
+                TruePlusMinus::Minus => "-?".len(),
+              };
+            }
+            
+            // Add aligned colon and type
+            let padding_needed = if max_width > current_left_width {
+              max_width - current_left_width
+            } else {
+              0
+            };
+            
+            // Add padding spaces before the colon
+            for _ in 0..padding_needed {
+              items.push_space();
+            }
+            items.push_space(); // space before colon
+            items.push_sc(sc!(":"));
+            items.push_space(); // space after colon
+            items.extend(gen_node(type_ann.into(), context));
+          } else {
+            // Standard type annotation without alignment
+            items.extend(gen_type_ann_with_colon_if_exists_for_type(Some(type_ann), context));
+          }
+        }
+        
         items.extend(get_generated_semi_colon(context.config.semi_colons, true, &is_different_line_than_start));
         items.extend(generated_semi_colon_comments);
 
@@ -7238,6 +7889,13 @@ where
 }
 
 fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> PrintItems {
+  // Prepare alignment information for variable statements
+  if context.config.variable_statement_align_assignments {
+    prepare_variable_statement_alignment(&stmts, context);
+  }
+  
+
+  
   let stmt_groups = get_stmt_groups(stmts, context);
   let mut items = PrintItems::new();
   let mut last_node: Option<SourceRange> = None;
@@ -9379,6 +10037,43 @@ fn get_quote_char(context: &Context) -> String {
 #[inline]
 fn gen_assignment<'a>(expr: Node<'a>, op: &'static StringContainer, context: &mut Context<'a>) -> PrintItems {
   gen_assignment_op_to(expr, op.text, op, context)
+}
+
+fn gen_aligned_assignment<'a>(
+  left_node: Node<'a>, 
+  expr: Node<'a>, 
+  op: &'static StringContainer, 
+  max_left_width: usize, 
+  context: &mut Context<'a>
+) -> PrintItems {
+  let mut items = PrintItems::new();
+  
+  // calculate current left width and add padding
+  let current_left_width = context.measure_node_width(left_node);
+  let padding_needed = if max_left_width > current_left_width {
+    max_left_width - current_left_width
+  } else {
+    0
+  };
+  
+  if op.text == "=" {
+    // for variable assignments, add padding before the operator
+    for _ in 0..padding_needed {
+      items.push_space();
+    }
+    // add the assignment normally
+    items.extend(gen_assignment(expr, op, context));
+  } else {
+    // for object properties (:), add operator first then padding
+    items.push_sc(op);
+    for _ in 0..padding_needed {
+      items.push_space();
+    }
+    items.push_space(); // standard space
+    items.extend(gen_node(expr, context));
+  }
+  
+  items
 }
 
 #[inline]

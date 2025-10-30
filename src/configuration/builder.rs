@@ -1077,6 +1077,67 @@ impl ConfigurationBuilder {
     self.insert("whileStatement.spaceAround", value.into())
   }
 
+  /* alignment */
+
+  /// Enable all alignment options at once.
+  ///
+  /// When set to `true`, all individual alignment settings are enabled by default.
+  /// Individual settings can still be set to `false` to override this global setting.
+  ///
+  /// Default: `false`
+  pub fn alignment_enable_all(&mut self, value: bool) -> &mut Self {
+    self.insert("alignment.enableAll", value.into())
+  }
+
+  /// Whether to align assignments with surrounding assignments.
+  ///
+  /// Default: `false`
+  pub fn variable_statement_align_assignments(&mut self, value: bool) -> &mut Self {
+    self.insert("variableStatement.alignAssignments", value.into())
+  }
+
+  /// Whether to align object properties with surrounding properties.
+  ///
+  /// Default: `false`
+  pub fn object_expression_align_properties(&mut self, value: bool) -> &mut Self {
+    self.insert("objectExpression.alignProperties", value.into())
+  }
+
+  /// Whether to align interface properties with surrounding properties.
+  ///
+  /// Default: `false`
+  pub fn interface_declaration_align_properties(&mut self, value: bool) -> &mut Self {
+    self.insert("interfaceDeclaration.alignProperties", value.into())
+  }
+
+  /// Whether to align type literal properties with surrounding properties.
+  ///
+  /// Default: `false`
+  pub fn type_literal_align_properties(&mut self, value: bool) -> &mut Self {
+    self.insert("typeLiteral.alignProperties", value.into())
+  }
+
+  /// Whether to align class properties with surrounding properties.
+  ///
+  /// Default: `false`
+  pub fn class_declaration_align_properties(&mut self, value: bool) -> &mut Self {
+    self.insert("classDeclaration.alignProperties", value.into())
+  }
+
+  /// Whether to align enum members with surrounding members.
+  ///
+  /// Default: `false`
+  pub fn enum_declaration_align_members(&mut self, value: bool) -> &mut Self {
+    self.insert("enumDeclaration.alignMembers", value.into())
+  }
+
+  /// Whether to align module declaration properties with surrounding properties.
+  ///
+  /// Default: `false`
+  pub fn module_declaration_align_properties(&mut self, value: bool) -> &mut Self {
+    self.insert("moduleDeclaration.alignProperties", value.into())
+  }
+
   #[cfg(test)]
   pub(super) fn get_inner_config(&self) -> ConfigKeyMap {
     self.config.clone()
@@ -1294,10 +1355,18 @@ mod tests {
       .paren_expression_space_around(true)
       .switch_statement_space_around(true)
       .tuple_type_space_around(true)
-      .while_statement_space_around(true);
+      .while_statement_space_around(true)
+      .alignment_enable_all(true)
+      .variable_statement_align_assignments(true)
+      .object_expression_align_properties(true)
+      .interface_declaration_align_properties(true)
+      .type_literal_align_properties(true)
+      .class_declaration_align_properties(true)
+      .enum_declaration_align_members(true)
+      .module_declaration_align_properties(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 182);
+    assert_eq!(inner_config.len(), 190);
     let diagnostics = resolve_config(inner_config, &Default::default()).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

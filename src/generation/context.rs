@@ -14,6 +14,15 @@ use dprint_core::formatting::LineStartIndentLevel;
 use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
 
+/// Stores alignment information for variable statements and object expressions.
+#[derive(Debug, Clone)]
+pub struct AlignmentGroup {
+  /// Maximum width of the left-hand side for alignment calculation.
+  pub max_left_width: usize,
+}
+
+use deno_ast::SourceTextProvider;
+use super::swc::is_text_valid_identifier;
 use super::*;
 use crate::configuration::*;
 use crate::utils::Stack;
@@ -72,6 +81,8 @@ pub struct Context<'a> {
   before_comments_start_info_stack: Stack<(SourceRange, LineNumber, IsStartOfLine)>,
   if_stmt_last_brace_condition_ref: Option<ConditionReference>,
   expr_stmt_single_line_parent_brace_ref: Option<ConditionReference>,
+  /// Stores alignment information for variable statements and object expressions.
+  pub alignment_groups: FxHashMap<SourceRange, AlignmentGroup>,
   /// Used for ensuring nodes are parsed in order.
   #[cfg(debug_assertions)]
   pub last_generated_node_pos: SourcePos,
@@ -106,6 +117,7 @@ impl<'a> Context<'a> {
       before_comments_start_info_stack: Default::default(),
       if_stmt_last_brace_condition_ref: None,
       expr_stmt_single_line_parent_brace_ref: None,
+      alignment_groups: Default::default(),
       #[cfg(debug_assertions)]
       last_generated_node_pos: deno_ast::SourceTextInfoProvider::text_info(&program).range().start.into(),
       diagnostics: Vec::new(),
@@ -239,6 +251,61 @@ impl<'a> Context<'a> {
     let actual_text = range.text_fast(self.program);
     if actual_text != expected_text {
       panic!("Debug Panic Expected text `{expected_text}`, but found `{actual_text}`")
+    }
+  }
+
+  /// Measures the display width of a node's text representation
+  pub fn measure_node_width(&self, node: Node) -> usize {
+    match node {
+      Node::Ident(ident) => ident.sym().chars().count(),
+      Node::BindingIdent(binding) => binding.id.sym().chars().count(),
+      Node::PrivateName(name) => name.name().chars().count() + 1, // +1 for the #
+      Node::Str(str_lit) => {
+        // For string keys in objects, measure the actual key length
+        if self.config.quote_props == QuoteProps::AsNeeded {
+          // Check if quotes are needed
+          let value = str_lit.value();
+          if is_text_valid_identifier(value) {
+            value.chars().count()
+          } else {
+            value.chars().count() + 2 // +2 for quotes
+          }
+        } else {
+          str_lit.value().chars().count() + 2 // +2 for quotes
+        }
+      }
+      Node::Number(num) => num.raw().as_ref().map(|r| r.chars().count()).unwrap_or(8), // fallback for numeric keys
+      Node::ComputedPropName(computed) => {
+        // For computed properties like [key]: value, measure [key]
+        2 + self.measure_node_width(computed.expr.as_node()) // +2 for brackets
+      }
+      Node::ArrayPat(array_pat) => {
+        // For array destructuring: [a, b, c] = ...
+        let elems_width: usize = array_pat.elems.iter()
+          .filter_map(|elem| elem.as_ref())
+          .map(|elem| self.measure_node_width(elem.as_node()))
+          .sum();
+        let separators_width = if array_pat.elems.len() > 1 { (array_pat.elems.len() - 1) * 2 } else { 0 }; // ", " between elements
+        2 + elems_width + separators_width // +2 for brackets
+      }
+      Node::ObjectPat(object_pat) => {
+        // For object destructuring: { a, b, c } = ...
+        let props_width: usize = object_pat.props.iter()
+          .map(|prop| match prop {
+            ObjectPatProp::Assign(assign) => assign.key.id.sym().chars().count(),
+            ObjectPatProp::KeyValue(kv) => self.measure_node_width(kv.key.as_node()),
+            ObjectPatProp::Rest(_) => 3, // "..."
+          })
+          .sum();
+        let separators_width = if object_pat.props.len() > 1 { (object_pat.props.len() - 1) * 2 } else { 0 }; // ", " between props
+        4 + props_width + separators_width // +4 for "{ " and " }"
+      }
+      _ => {
+        // Fallback: estimate based on node text span (less accurate but works)
+        let range = node.range();
+        let start_pos = self.program.start_pos();
+        (range.end.as_byte_index(start_pos) - range.start.as_byte_index(start_pos)).min(50) // cap at reasonable width
+      }
     }
   }
 }
