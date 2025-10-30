@@ -1,0 +1,49 @@
+~~ semiColons: asi, doWhileStatement.nextControlFlowPosition: nextLineExceptAfterBrace ~~
+== should keep while on same line after brace with ASI ==
+do {
+    doSomething();
+} while (condition);
+
+[expect]
+do {
+    doSomething()
+} while (condition)
+
+== should keep while on same line after brace with trailing comment under ASI ==
+do {
+    doSomething()
+} // trailing comment
+while (condition)
+
+[expect]
+do {
+    doSomething()
+} // trailing comment
+while (condition)
+
+== should use newline before while when body lacks braces under ASI with trailing comment ==
+do doSomething() // trailing comment
+while (condition)
+
+[expect]
+do doSomething() // trailing comment
+while (condition)
+
+== should handle empty comment with no text under ASI ==
+do {
+    code()
+} //
+while (condition)
+
+[expect]
+do {
+    code()
+} //
+while (condition)
+
+== should handle pathological all-on-one-line case with ASI ==
+do {} /* comment */ while (condition)
+
+[expect]
+do {} /* comment */
+while (condition)

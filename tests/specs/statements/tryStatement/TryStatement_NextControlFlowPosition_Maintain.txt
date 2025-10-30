@@ -54,3 +54,51 @@ catch {
 }
 finally {
 }
+
+== should maintain same line after brace with trailing comment ==
+try {
+    code();
+} // comment
+catch (e) {
+    handle();
+}
+
+[expect]
+try {
+    code();
+} // comment
+catch (e) {
+    handle();
+}
+
+== should maintain new line when comment before catch ==
+try {
+    code();
+}
+// comment before catch
+catch (e) {
+    handle();
+}
+
+[expect]
+try {
+    code();
+}
+// comment before catch
+catch (e) {
+    handle();
+}
+
+== should maintain position with block comment ==
+try {
+    code();
+} /* block */ catch (e) {
+    handle();
+}
+
+[expect]
+try {
+    code();
+} /* block */ catch (e) {
+    handle();
+}

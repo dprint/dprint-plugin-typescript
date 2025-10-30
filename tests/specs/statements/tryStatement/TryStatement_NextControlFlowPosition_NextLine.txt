@@ -15,3 +15,35 @@ catch {
 }
 finally {
 }
+
+== should always use newline even with trailing comment ==
+try {
+    code();
+} // comment
+catch (e) {
+    handle();
+}
+
+[expect]
+try {
+    code();
+} // comment
+catch (e) {
+    handle();
+}
+
+== should always use newline with block comment ==
+try {
+    code();
+} /* block */
+catch (e) {
+    handle();
+}
+
+[expect]
+try {
+    code();
+} /* block */
+catch (e) {
+    handle();
+}

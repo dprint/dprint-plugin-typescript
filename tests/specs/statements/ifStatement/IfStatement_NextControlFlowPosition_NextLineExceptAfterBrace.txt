@@ -1,0 +1,349 @@
+~~ ifStatement.useBraces: preferNone, ifStatement.nextControlFlowPosition: nextLineExceptAfterBrace ~~
+== should move else to next line when braces removed ==
+if (value) {
+    handle();
+} else {
+    fallback();
+}
+
+[expect]
+if (value)
+    handle();
+else
+    fallback();
+
+== should keep else on same line when braces remain ==
+if (value) {
+    handle();
+} else {
+    fallback();
+    more();
+}
+
+[expect]
+if (value)
+    handle();
+else {
+    fallback();
+    more();
+}
+
+== should handle trailing comment before else ==
+if (x) {
+    f();
+} // test
+else {
+    g();
+}
+
+[expect]
+if (x)
+    f();
+// test
+else
+    g();
+
+== should handle else-if chain ==
+if (first) {
+    handleFirst();
+} else if (second) {
+    handleSecond();
+} else {
+    handleFallback();
+}
+
+[expect]
+if (first)
+    handleFirst();
+else if (second)
+    handleSecond();
+else
+    handleFallback();
+
+== should handle else-if chain with trailing comments ==
+if (x) {
+    f();
+} // comment1
+else if (y) {
+    g();
+} // comment2
+else {
+    h();
+}
+
+[expect]
+if (x)
+    f();
+// comment1
+else if (y)
+    g();
+// comment2
+else
+    h();
+
+== should handle block comment before else ==
+if (x) {
+    f();
+} /* block comment */ else {
+    g();
+}
+
+[expect]
+if (x)
+    f();
+/* block comment */ else
+    g();
+
+== should handle empty if block with trailing comment ==
+if (x) {} // comment
+else {
+    g();
+}
+
+[expect]
+if (x) {} // comment
+else {
+    g();
+}
+
+== should handle comment after else block ==
+if (x) {
+    f();
+} else {
+    g();
+} // final comment
+
+[expect]
+if (x)
+    f();
+else
+    g(); // final comment
+
+== should handle nested structures with multiple trailing comments ==
+if (outer) {
+    if (inner) {
+        code();
+    } // inner comment
+} // outer comment
+else {
+    fallback();
+}
+
+[expect]
+if (outer) {
+    if (inner)
+        code(); // inner comment
+} // outer comment
+else {
+    fallback();
+}
+
+== should handle multi-line block comment before else ==
+if (x) {
+    f();
+} /*
+ * multi-line
+ * comment
+ */
+else {
+    g();
+}
+
+[expect]
+if (x)
+    f();
+/*
+ * multi-line
+ * comment
+ */
+else
+    g();
+
+== should handle comments with else-if without braces ==
+if (x)
+    single(); // comment
+else if (y)
+    other();
+
+[expect]
+if (x)
+    single(); // comment
+else if (y)
+    other();
+
+== should handle block comment with braces kept ==
+if (x) {
+    f();
+    g();
+} /* block */
+else {
+    h();
+}
+
+[expect]
+if (x) {
+    f();
+    g();
+} /* block */
+else {
+    h();
+}
+
+== should handle empty comment with no text ==
+if (x) {
+    f();
+} //
+else {
+    g();
+}
+
+[expect]
+if (x)
+    f();
+//
+else
+    g();
+
+== should handle comment with only whitespace ==
+if (x) {
+    f();
+} //
+else {
+    g();
+}
+
+[expect]
+if (x)
+    f();
+//
+else
+    g();
+
+== should handle pathological all-on-one-line case ==
+if (a) {} /* c1 */ else if (b) {} /* c2 */ else {}
+
+[expect]
+if (a) {} /* c1 */
+else if (b) {} /* c2 */
+else {}
+
+== should handle very deeply nested structures with comments ==
+if (outer) {
+    if (mid) {
+        if (inner) {
+            code();
+        } // level3
+    } // level2
+} // level1
+else {
+    fallback();
+}
+
+[expect]
+if (outer) {
+    if (mid) {
+        if (inner)
+            code(); // level3
+    } // level2
+} // level1
+else {
+    fallback();
+}
+
+== should keep empty if block compact with trailing comment ==
+if (x) {} // empty
+else {
+    g();
+}
+
+[expect]
+if (x) {} // empty
+else {
+    g();
+}
+
+== should keep non-empty if block compact without trailing comment ==
+if (x) {
+    f();
+}
+else {
+    g();
+}
+
+[expect]
+if (x)
+    f();
+else
+    g();
+
+== should keep non-empty if block compact with trailing comment ==
+if (x) {
+    f();
+} // done
+else {
+    g();
+}
+
+[expect]
+if (x)
+    f();
+// done
+else
+    g();
+
+== should keep empty else block compact with trailing comment ==
+if (x) {
+    f();
+} else {} // empty else
+
+[expect]
+if (x)
+    f();
+else {} // empty else
+
+== should keep non-empty else block compact ==
+if (x) {
+    f();
+} else {
+    g();
+}
+
+[expect]
+if (x)
+    f();
+else
+    g();
+
+== should handle mixed empty and non-empty blocks with comments ==
+if (x) {} // empty if
+else {
+    g();
+}
+
+[expect]
+if (x) {} // empty if
+else {
+    g();
+}
+
+== should handle all empty if-else with comments ==
+if (x) {} // x
+else {} // y
+
+[expect]
+if (x) {} // x
+else {} // y
+
+== should handle empty if with braces kept and trailing comment ==
+if (x) {
+    f();
+    g();
+} // multi
+else {} // empty
+
+[expect]
+if (x) {
+    f();
+    g();
+} // multi
+else {} // empty

@@ -1,0 +1,68 @@
+~~ semiColons: asi, tryStatement.nextControlFlowPosition: nextLineExceptAfterBrace ~~
+== should keep catch on same line with ASI ==
+try {
+    doSomething()
+} catch (err) {
+    handleError()
+}
+
+[expect]
+try {
+    doSomething()
+} catch (err) {
+    handleError()
+}
+
+== should handle trailing comment with ASI ==
+try {
+    run()
+} // trailing comment
+catch (err) {
+    handle(err)
+}
+
+[expect]
+try {
+    run()
+} // trailing comment
+catch (err) {
+    handle(err)
+}
+
+== should handle block comment with ASI ==
+try {
+    code()
+} /* block comment */
+catch (e) {
+    handle()
+}
+
+[expect]
+try {
+    code()
+} /* block comment */
+catch (e) {
+    handle()
+}
+
+== should handle try-catch-finally with trailing comments under ASI ==
+try {
+    doSomething()
+} // comment1
+catch (err) {
+    handleError()
+} // comment2
+finally {
+    cleanup()
+}
+
+[expect]
+try {
+    doSomething()
+} // comment1
+catch (err) {
+    handleError()
+} // comment2
+finally {
+    cleanup()
+}

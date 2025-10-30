@@ -1,0 +1,30 @@
+~~ ifStatement.useBraces: preferNone, ifStatement.nextControlFlowPosition: maintain ~~
+== should move else to next line when braces are removed ==
+if (condition) {
+    doSomething();
+} else {
+    handleElse();
+}
+
+[expect]
+if (condition)
+    doSomething();
+else
+    handleElse();
+
+== should keep else-if chain readable after brace removal ==
+if (first) {
+    handleFirst();
+} else if (second) {
+    handleSecond();
+} else {
+    handleFallback();
+}
+
+[expect]
+if (first)
+    handleFirst();
+else if (second)
+    handleSecond();
+else
+    handleFallback();

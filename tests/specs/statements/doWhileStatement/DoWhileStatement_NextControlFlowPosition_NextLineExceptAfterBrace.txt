@@ -1,0 +1,141 @@
+~~ doWhileStatement.nextControlFlowPosition: nextLineExceptAfterBrace ~~
+== should keep while on same line after brace ==
+do {
+    doSomething();
+} while (condition);
+
+[expect]
+do {
+    doSomething();
+} while (condition);
+
+== should use newline before while for non-block body ==
+do doSomething(); while (condition);
+
+[expect]
+do doSomething();
+while (condition);
+
+== should keep while on same line after brace even with trailing comment ==
+do {
+    doSomething();
+} // trailing comment
+while (condition);
+
+[expect]
+do {
+    doSomething();
+} // trailing comment
+while (condition);
+
+== should use newline before while when body lacks braces despite trailing comment ==
+do doSomething(); // trailing comment
+while (condition);
+
+[expect]
+do doSomething(); // trailing comment
+while (condition);
+
+== should handle block comment after closing brace ==
+do {
+    code();
+} /* block comment */ while (condition);
+
+[expect]
+do {
+    code();
+} /* block comment */
+while (condition);
+
+== should handle empty block with trailing comment ==
+do {} // comment
+while (condition);
+
+[expect]
+do {} // comment
+while (condition);
+
+== should handle multi-line block comment ==
+do {
+    code();
+} /*
+ * multi-line
+ * comment
+ */
+while (condition);
+
+[expect]
+do {
+    code();
+} /*
+ * multi-line
+ * comment
+ */
+while (condition);
+
+== should handle nested structures with trailing comments ==
+do {
+    if (x) {
+        code();
+    } // inner comment
+} // outer comment
+while (condition);
+
+[expect]
+do {
+    if (x) {
+        code();
+    } // inner comment
+} // outer comment
+while (condition);
+
+== should handle empty comment with no text ==
+do {
+    code();
+} //
+while (condition);
+
+[expect]
+do {
+    code();
+} //
+while (condition);
+
+== should handle comment with only whitespace ==
+do {
+    code();
+} //
+while (condition);
+
+[expect]
+do {
+    code();
+} //
+while (condition);
+
+== should handle pathological all-on-one-line case ==
+do {} /* comment */ while (condition);
+
+[expect]
+do {} /* comment */
+while (condition);
+
+== should handle very deeply nested structures ==
+do {
+    if (a) {
+        while (b) {
+            code();
+        } // inner
+    } // middle
+} // outer
+while (condition);
+
+[expect]
+do {
+    if (a) {
+        while (b) {
+            code();
+        } // inner
+    } // middle
+} // outer
+while (condition);
