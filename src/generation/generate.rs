@@ -8249,6 +8249,13 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
     None
   };
 
+  let space_at_start = opts.surround_single_line_with_spaces;
+  let space_at_end = if let Some(last) = opts.members.last() {
+    space_at_start && last.tokens().last().unwrap().token != Token::RBrace
+  } else {
+    false
+  };
+
   items.extend(gen_surrounded_by_tokens(
     |context| {
       if opts.members.is_empty() {
@@ -8262,8 +8269,8 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
             allow_blank_lines: opts.allow_blank_lines,
             separator: opts.separator,
             single_line_options: ir_helpers::SingleLineOptions {
-              space_at_start: opts.surround_single_line_with_spaces,
-              space_at_end: opts.surround_single_line_with_spaces,
+              space_at_start,
+              space_at_end,
               separator: Signal::SpaceOrNewLine.into(),
             },
             multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(),

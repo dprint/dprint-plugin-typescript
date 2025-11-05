@@ -33,8 +33,8 @@ export const AID = {
     "name": { "kd": "Name", "value": "AI" },
     "variableDefinitions": [{
       "kd": "VariableDefinition",
-      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
-      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "AIInput" } } },
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" }},
+      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "AIInput" }}},
     }],
     "selectionSet": {
       "kd": "SelectionSet",
@@ -44,11 +44,11 @@ export const AID = {
         "arguments": [{
           "kd": "Argument",
           "name": { "kd": "Name", "value": "input" },
-          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" }},
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "organizationArn" } }, {
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "organizationArn" }}, {
             "kd": "Field",
             "name": { "kd": "Name", "value": "principalArn" },
           }],
@@ -65,18 +65,18 @@ export const AcD = {
     "name": { "kd": "Name", "value": "Ac" },
     "variableDefinitions": [{
       "kd": "VariableDefinition",
-      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "arns" } },
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "arns" }},
       "type": {
         "kd": "NonNullType",
         "type": {
           "kd": "ListType",
-          "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "Arn" } } },
+          "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "Arn" }}},
         },
       },
     }, {
       "kd": "VariableDefinition",
-      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "filter" } },
-      "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "AcFilterInput" } },
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "filter" }},
+      "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "AcFilterInput" }},
     }],
     "selectionSet": {
       "kd": "SelectionSet",
@@ -86,17 +86,17 @@ export const AcD = {
         "arguments": [{
           "kd": "Argument",
           "name": { "kd": "Name", "value": "arns" },
-          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "arns" } },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "arns" }},
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" }}, {
             "kd": "Field",
             "name": { "kd": "Name", "value": "appliedAces" },
             "arguments": [{
               "kd": "Argument",
               "name": { "kd": "Name", "value": "filter" },
-              "value": { "kd": "Variable", "name": { "kd": "Name", "value": "filter" } },
+              "value": { "kd": "Variable", "name": { "kd": "Name", "value": "filter" }},
             }],
             "selectionSet": {
               "kd": "SelectionSet",
@@ -106,23 +106,23 @@ export const AcD = {
                 "selectionSet": {
                   "kd": "SelectionSet",
                   "selections": [
-                    { "kd": "Field", "name": { "kd": "Name", "value": "arn" } },
+                    { "kd": "Field", "name": { "kd": "Name", "value": "arn" }},
                     {
                       "kd": "Field",
                       "name": { "kd": "Name", "value": "assignedPrincipals" },
                       "selectionSet": {
                         "kd": "SelectionSet",
-                        "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }],
+                        "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" }}],
                       },
                     },
-                    { "kd": "Field", "name": { "kd": "Name", "value": "description" } },
-                    { "kd": "Field", "name": { "kd": "Name", "value": "name" } },
+                    { "kd": "Field", "name": { "kd": "Name", "value": "description" }},
+                    { "kd": "Field", "name": { "kd": "Name", "value": "name" }},
                     {
                       "kd": "Field",
                       "name": { "kd": "Name", "value": "target" },
                       "selectionSet": {
                         "kd": "SelectionSet",
-                        "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }],
+                        "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" }}],
                       },
                     },
                   ],
@@ -143,8 +143,8 @@ export const CrAcD = {
     "name": { "kd": "Name", "value": "createAc" },
     "variableDefinitions": [{
       "kd": "VariableDefinition",
-      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
-      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "CrAcInput" } } },
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" }},
+      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "CrAcInput" }}},
     }],
     "selectionSet": {
       "kd": "SelectionSet",
@@ -154,11 +154,11 @@ export const CrAcD = {
         "arguments": [{
           "kd": "Argument",
           "name": { "kd": "Name", "value": "input" },
-          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" }},
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "accessArn" } }],
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "accessArn" }}],
         },
       }],
     },
@@ -172,10 +172,10 @@ export const DelAcD = {
     "name": { "kd": "Name", "value": "deleteAc" },
     "variableDefinitions": [{
       "kd": "VariableDefinition",
-      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" }},
       "type": {
         "kd": "NonNullType",
-        "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "BatchDelAcInput" } },
+        "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "BatchDelAcInput" }},
       },
     }],
     "selectionSet": {
@@ -186,11 +186,11 @@ export const DelAcD = {
         "arguments": [{
           "kd": "Argument",
           "name": { "kd": "Name", "value": "input" },
-          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" }},
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arns" } }],
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arns" }}],
         },
       }],
     },
@@ -204,12 +204,12 @@ export const OAcD = {
     "name": { "kd": "Name", "value": "OAc" },
     "variableDefinitions": [{
       "kd": "VariableDefinition",
-      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "arn" } },
-      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "Arn" } } },
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "arn" }},
+      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "Arn" }}},
     }, {
       "kd": "VariableDefinition",
-      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "filter" } },
-      "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "AcFilterInput" } },
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "filter" }},
+      "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "AcFilterInput" }},
     }],
     "selectionSet": {
       "kd": "SelectionSet",
@@ -219,17 +219,17 @@ export const OAcD = {
         "arguments": [{
           "kd": "Argument",
           "name": { "kd": "Name", "value": "organizationArn" },
-          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "arn" } },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "arn" }},
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" }}, {
             "kd": "Field",
             "name": { "kd": "Name", "value": "appliedAces" },
             "arguments": [{
               "kd": "Argument",
               "name": { "kd": "Name", "value": "filter" },
-              "value": { "kd": "Variable", "name": { "kd": "Name", "value": "filter" } },
+              "value": { "kd": "Variable", "name": { "kd": "Name", "value": "filter" }},
             }],
             "selectionSet": {
               "kd": "SelectionSet",
@@ -239,23 +239,23 @@ export const OAcD = {
                 "selectionSet": {
                   "kd": "SelectionSet",
                   "selections": [
-                    { "kd": "Field", "name": { "kd": "Name", "value": "arn" } },
+                    { "kd": "Field", "name": { "kd": "Name", "value": "arn" }},
                     {
                       "kd": "Field",
                       "name": { "kd": "Name", "value": "assignedPrincipals" },
                       "selectionSet": {
                         "kd": "SelectionSet",
-                        "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }],
+                        "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" }}],
                       },
                     },
-                    { "kd": "Field", "name": { "kd": "Name", "value": "description" } },
-                    { "kd": "Field", "name": { "kd": "Name", "value": "name" } },
+                    { "kd": "Field", "name": { "kd": "Name", "value": "description" }},
+                    { "kd": "Field", "name": { "kd": "Name", "value": "name" }},
                     {
                       "kd": "Field",
                       "name": { "kd": "Name", "value": "target" },
                       "selectionSet": {
                         "kd": "SelectionSet",
-                        "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }],
+                        "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" }}],
                       },
                     },
                   ],
@@ -276,12 +276,12 @@ export const GetAcD = {
     "name": { "kd": "Name", "value": "GetAc" },
     "variableDefinitions": [{
       "kd": "VariableDefinition",
-      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "arns" } },
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "arns" }},
       "type": {
         "kd": "NonNullType",
         "type": {
           "kd": "ListType",
-          "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "Arn" } } },
+          "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "Arn" }}},
         },
       },
     }],
@@ -293,24 +293,24 @@ export const GetAcD = {
         "arguments": [{
           "kd": "Argument",
           "name": { "kd": "Name", "value": "arns" },
-          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "arns" } },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "arns" }},
         }],
         "selectionSet": {
           "kd": "SelectionSet",
           "selections": [
-            { "kd": "Field", "name": { "kd": "Name", "value": "arn" } },
-            { "kd": "Field", "name": { "kd": "Name", "value": "name" } },
-            { "kd": "Field", "name": { "kd": "Name", "value": "description" } },
-            { "kd": "Field", "name": { "kd": "Name", "value": "createdAt" } },
+            { "kd": "Field", "name": { "kd": "Name", "value": "arn" }},
+            { "kd": "Field", "name": { "kd": "Name", "value": "name" }},
+            { "kd": "Field", "name": { "kd": "Name", "value": "description" }},
+            { "kd": "Field", "name": { "kd": "Name", "value": "createdAt" }},
             {
               "kd": "Field",
               "name": { "kd": "Name", "value": "role" },
               "selectionSet": {
                 "kd": "SelectionSet",
-                "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "roleId" } }, {
+                "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "roleId" }}, {
                   "kd": "Field",
                   "name": { "kd": "Name", "value": "applicationName" },
-                }, { "kd": "Field", "name": { "kd": "Name", "value": "roleName" } }],
+                }, { "kd": "Field", "name": { "kd": "Name", "value": "roleName" }}],
               },
             },
             {
@@ -318,7 +318,7 @@ export const GetAcD = {
               "name": { "kd": "Name", "value": "target" },
               "selectionSet": {
                 "kd": "SelectionSet",
-                "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }],
+                "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" }}],
               },
             },
             {
@@ -326,7 +326,7 @@ export const GetAcD = {
               "name": { "kd": "Name", "value": "assignedPrincipals" },
               "selectionSet": {
                 "kd": "SelectionSet",
-                "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }],
+                "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" }}],
               },
             },
           ],
@@ -343,10 +343,10 @@ export const UnassignAcD = {
     "name": { "kd": "Name", "value": "UnassignAc" },
     "variableDefinitions": [{
       "kd": "VariableDefinition",
-      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" }},
       "type": {
         "kd": "NonNullType",
-        "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "UnassignAcInput" } },
+        "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "UnassignAcInput" }},
       },
     }],
     "selectionSet": {
@@ -357,11 +357,11 @@ export const UnassignAcD = {
         "arguments": [{
           "kd": "Argument",
           "name": { "kd": "Name", "value": "input" },
-          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" }},
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "principalArn" } }, {
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "principalArn" }}, {
             "kd": "Field",
             "name": { "kd": "Name", "value": "accessArn" },
           }],
@@ -383,7 +383,7 @@ export const ApsD = {
         "name": { "kd": "Name", "value": "applications" },
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "id" } }, {
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "id" }}, {
             "kd": "Field",
             "name": { "kd": "Name", "value": "name" },
           }, {
@@ -391,7 +391,7 @@ export const ApsD = {
             "name": { "kd": "Name", "value": "roles" },
             "selectionSet": {
               "kd": "SelectionSet",
-              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "id" } }, {
+              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "id" }}, {
                 "kd": "Field",
                 "name": { "kd": "Name", "value": "name" },
               }],
@@ -410,8 +410,8 @@ export const CancelID = {
     "name": { "kd": "Name", "value": "CancelI" },
     "variableDefinitions": [{
       "kd": "VariableDefinition",
-      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
-      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "CancelIInput" } } },
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" }},
+      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "CancelIInput" }}},
     }],
     "selectionSet": {
       "kd": "SelectionSet",
@@ -421,11 +421,11 @@ export const CancelID = {
         "arguments": [{
           "kd": "Argument",
           "name": { "kd": "Name", "value": "input" },
-          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" }},
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "invitationArn" } }],
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "invitationArn" }}],
         },
       }],
     },
@@ -439,8 +439,8 @@ export const CrOD = {
     "name": { "kd": "Name", "value": "createO" },
     "variableDefinitions": [{
       "kd": "VariableDefinition",
-      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
-      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "CrOInput" } } },
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" }},
+      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "CrOInput" }}},
     }],
     "selectionSet": {
       "kd": "SelectionSet",
@@ -450,11 +450,11 @@ export const CrOD = {
         "arguments": [{
           "kd": "Argument",
           "name": { "kd": "Name", "value": "input" },
-          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" }},
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "organizationArn" } }],
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "organizationArn" }}],
         },
       }],
     },
@@ -468,8 +468,8 @@ export const CrRgD = {
     "name": { "kd": "Name", "value": "createRg" },
     "variableDefinitions": [{
       "kd": "VariableDefinition",
-      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
-      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "CrRgInput" } } },
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" }},
+      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "CrRgInput" }}},
     }],
     "selectionSet": {
       "kd": "SelectionSet",
@@ -479,11 +479,11 @@ export const CrRgD = {
         "arguments": [{
           "kd": "Argument",
           "name": { "kd": "Name", "value": "input" },
-          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" }},
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "resourceGroupArn" } }],
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "resourceGroupArn" }}],
         },
       }],
     },
@@ -497,8 +497,8 @@ export const DelRgD = {
     "name": { "kd": "Name", "value": "deleteRg" },
     "variableDefinitions": [{
       "kd": "VariableDefinition",
-      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
-      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "DelRgInput" } } },
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" }},
+      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "DelRgInput" }}},
     }],
     "selectionSet": {
       "kd": "SelectionSet",
@@ -508,11 +508,11 @@ export const DelRgD = {
         "arguments": [{
           "kd": "Argument",
           "name": { "kd": "Name", "value": "input" },
-          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" }},
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "resourceGroupArn" } }],
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "resourceGroupArn" }}],
         },
       }],
     },
@@ -526,10 +526,10 @@ export const DelUD = {
     "name": { "kd": "Name", "value": "DelU" },
     "variableDefinitions": [{
       "kd": "VariableDefinition",
-      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" }},
       "type": {
         "kd": "NonNullType",
-        "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "DelPrincipalInput" } },
+        "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "DelPrincipalInput" }},
       },
     }],
     "selectionSet": {
@@ -540,11 +540,11 @@ export const DelUD = {
         "arguments": [{
           "kd": "Argument",
           "name": { "kd": "Name", "value": "input" },
-          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" }},
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "principalArn" } }],
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "principalArn" }}],
         },
       }],
     },
@@ -558,10 +558,10 @@ export const InviteXPrincipalD = {
     "name": { "kd": "Name", "value": "InviteXPrincipal" },
     "variableDefinitions": [{
       "kd": "VariableDefinition",
-      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" }},
       "type": {
         "kd": "NonNullType",
-        "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "InviteXPrincipalInput" } },
+        "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "InviteXPrincipalInput" }},
       },
     }],
     "selectionSet": {
@@ -572,11 +572,11 @@ export const InviteXPrincipalD = {
         "arguments": [{
           "kd": "Argument",
           "name": { "kd": "Name", "value": "input" },
-          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" }},
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "invitationArn" } }, {
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "invitationArn" }}, {
             "kd": "Field",
             "name": { "kd": "Name", "value": "principalArn" },
           }],
@@ -598,19 +598,19 @@ export const ListIsD = {
         "name": { "kd": "Name", "value": "invitations" },
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "invitationArn" } }, {
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "invitationArn" }}, {
             "kd": "Field",
             "name": { "kd": "Name", "value": "inviter" },
             "selectionSet": {
               "kd": "SelectionSet",
-              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "email" } }],
+              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "email" }}],
             },
           }, {
             "kd": "Field",
             "name": { "kd": "Name", "value": "organization" },
             "selectionSet": {
               "kd": "SelectionSet",
-              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
+              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" }}, {
                 "kd": "Field",
                 "name": { "kd": "Name", "value": "name" },
               }],
@@ -629,8 +629,8 @@ export const MstmApsD = {
     "name": { "kd": "Name", "value": "MstmAps" },
     "variableDefinitions": [{
       "kd": "VariableDefinition",
-      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "arn" } },
-      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "Arn" } } },
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "arn" }},
+      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "Arn" }}},
     }],
     "selectionSet": {
       "kd": "SelectionSet",
@@ -640,16 +640,16 @@ export const MstmApsD = {
         "arguments": [{
           "kd": "Argument",
           "name": { "kd": "Name", "value": "organizationArn" },
-          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "arn" } },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "arn" }},
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" }}, {
             "kd": "Field",
             "name": { "kd": "Name", "value": "mySystemAps" },
             "selectionSet": {
               "kd": "SelectionSet",
-              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "name" } }, {
+              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "name" }}, {
                 "kd": "Field",
                 "name": { "kd": "Name", "value": "url" },
               }],
@@ -668,8 +668,8 @@ export const OD = {
     "name": { "kd": "Name", "value": "O" },
     "variableDefinitions": [{
       "kd": "VariableDefinition",
-      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "arn" } },
-      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "Arn" } } },
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "arn" }},
+      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "Arn" }}},
     }],
     "selectionSet": {
       "kd": "SelectionSet",
@@ -679,11 +679,11 @@ export const OD = {
         "arguments": [{
           "kd": "Argument",
           "name": { "kd": "Name", "value": "organizationArn" },
-          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "arn" } },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "arn" }},
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" }}, {
             "kd": "Field",
             "name": { "kd": "Name", "value": "name" },
           }, {
@@ -696,7 +696,7 @@ export const OD = {
                 "name": { "kd": "Name", "value": "children" },
                 "selectionSet": {
                   "kd": "SelectionSet",
-                  "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
+                  "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" }}, {
                     "kd": "Field",
                     "name": { "kd": "Name", "value": "name" },
                   }],
@@ -727,7 +727,7 @@ export const OsD = {
             "name": { "kd": "Name", "value": "organizations" },
             "selectionSet": {
               "kd": "SelectionSet",
-              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
+              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" }}, {
                 "kd": "Field",
                 "name": { "kd": "Name", "value": "name" },
               }],
@@ -746,8 +746,8 @@ export const ResourceTreeD = {
     "name": { "kd": "Name", "value": "ResourceTree" },
     "variableDefinitions": [{
       "kd": "VariableDefinition",
-      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "organizationArn" } },
-      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "Arn" } } },
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "organizationArn" }},
+      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "Arn" }}},
     }],
     "selectionSet": {
       "kd": "SelectionSet",
@@ -757,16 +757,16 @@ export const ResourceTreeD = {
         "arguments": [{
           "kd": "Argument",
           "name": { "kd": "Name", "value": "organizationArn" },
-          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "organizationArn" } },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "organizationArn" }},
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" }}, {
             "kd": "Field",
             "name": { "kd": "Name", "value": "resourceTree" },
             "selectionSet": {
               "kd": "SelectionSet",
-              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "resourceTree" } }],
+              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "resourceTree" }}],
             },
           }],
         },
@@ -782,10 +782,10 @@ export const SetUPrsD = {
     "name": { "kd": "Name", "value": "SetUPrs" },
     "variableDefinitions": [{
       "kd": "VariableDefinition",
-      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" }},
       "type": {
         "kd": "NonNullType",
-        "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "SetPrincipalPrsInput" } },
+        "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "SetPrincipalPrsInput" }},
       },
     }],
     "selectionSet": {
@@ -796,19 +796,19 @@ export const SetUPrsD = {
         "arguments": [{
           "kd": "Argument",
           "name": { "kd": "Name", "value": "input" },
-          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" }},
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "principalArn" } }, {
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "principalArn" }}, {
             "kd": "Field",
             "name": { "kd": "Name", "value": "properties" },
             "selectionSet": {
               "kd": "SelectionSet",
-              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "isOwner" } }, {
+              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "isOwner" }}, {
                 "kd": "Field",
                 "name": { "kd": "Name", "value": "isAcAdmin" },
-              }, { "kd": "Field", "name": { "kd": "Name", "value": "isPrincipalAdmin" } }],
+              }, { "kd": "Field", "name": { "kd": "Name", "value": "isPrincipalAdmin" }}],
             },
           }],
         },
@@ -824,10 +824,10 @@ export const UpdateDescD = {
     "name": { "kd": "Name", "value": "UpdateDesc" },
     "variableDefinitions": [{
       "kd": "VariableDefinition",
-      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" }},
       "type": {
         "kd": "NonNullType",
-        "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "UpdateDescInput" } },
+        "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "UpdateDescInput" }},
       },
     }],
     "selectionSet": {
@@ -838,11 +838,11 @@ export const UpdateDescD = {
         "arguments": [{
           "kd": "Argument",
           "name": { "kd": "Name", "value": "input" },
-          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" }},
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" }}, {
             "kd": "Field",
             "name": { "kd": "Name", "value": "description" },
           }],
@@ -859,10 +859,10 @@ export const UpdateNameD = {
     "name": { "kd": "Name", "value": "updateName" },
     "variableDefinitions": [{
       "kd": "VariableDefinition",
-      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" }},
       "type": {
         "kd": "NonNullType",
-        "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "UpdateNameInput" } },
+        "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "UpdateNameInput" }},
       },
     }],
     "selectionSet": {
@@ -873,11 +873,11 @@ export const UpdateNameD = {
         "arguments": [{
           "kd": "Argument",
           "name": { "kd": "Name", "value": "input" },
-          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" }},
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" }}, {
             "kd": "Field",
             "name": { "kd": "Name", "value": "name" },
           }],
@@ -894,8 +894,8 @@ export const UsAndItsD = {
     "name": { "kd": "Name", "value": "UsAndIts" },
     "variableDefinitions": [{
       "kd": "VariableDefinition",
-      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "organizationArn" } },
-      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "Arn" } } },
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "organizationArn" }},
+      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "Arn" }}},
     }],
     "selectionSet": {
       "kd": "SelectionSet",
@@ -905,16 +905,16 @@ export const UsAndItsD = {
         "arguments": [{
           "kd": "Argument",
           "name": { "kd": "Name", "value": "organizationArn" },
-          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "organizationArn" } },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "organizationArn" }},
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" }}, {
             "kd": "Field",
             "name": { "kd": "Name", "value": "invitations" },
             "selectionSet": {
               "kd": "SelectionSet",
-              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "invitationArn" } }, {
+              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "invitationArn" }}, {
                 "kd": "Field",
                 "name": { "kd": "Name", "value": "createdAt" },
               }, {
@@ -922,7 +922,7 @@ export const UsAndItsD = {
                 "name": { "kd": "Name", "value": "invitee" },
                 "selectionSet": {
                   "kd": "SelectionSet",
-                  "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "email" } }, {
+                  "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "email" }}, {
                     "kd": "Field",
                     "name": { "kd": "Name", "value": "principalArn" },
                   }],
@@ -941,45 +941,45 @@ export const UsAndItsD = {
                   "kd": "SelectionSet",
                   "selections": [{
                     "kd": "InlineFragment",
-                    "typeCondition": { "kd": "NamedType", "name": { "kd": "Name", "value": "XPrincipal" } },
+                    "typeCondition": { "kd": "NamedType", "name": { "kd": "Name", "value": "XPrincipal" }},
                     "selectionSet": {
                       "kd": "SelectionSet",
                       "selections": [
-                        { "kd": "Field", "name": { "kd": "Name", "value": "__typename" } },
+                        { "kd": "Field", "name": { "kd": "Name", "value": "__typename" }},
                         {
                           "kd": "Field",
                           "name": { "kd": "Name", "value": "contactInfo" },
                           "selectionSet": {
                             "kd": "SelectionSet",
-                            "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "name" } }, {
+                            "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "name" }}, {
                               "kd": "Field",
                               "name": { "kd": "Name", "value": "email" },
                             }],
                           },
                         },
-                        { "kd": "Field", "name": { "kd": "Name", "value": "arn" } },
-                        { "kd": "Field", "name": { "kd": "Name", "value": "createdAt" } },
+                        { "kd": "Field", "name": { "kd": "Name", "value": "arn" }},
+                        { "kd": "Field", "name": { "kd": "Name", "value": "createdAt" }},
                         {
                           "kd": "Field",
                           "name": { "kd": "Name", "value": "properties" },
                           "selectionSet": {
                             "kd": "SelectionSet",
                             "selections": [
-                              { "kd": "Field", "name": { "kd": "Name", "value": "isOwner" } },
-                              { "kd": "Field", "name": { "kd": "Name", "value": "isPrincipalAdmin" } },
-                              { "kd": "Field", "name": { "kd": "Name", "value": "isPrincipalViewer" } },
-                              { "kd": "Field", "name": { "kd": "Name", "value": "isAcAdmin" } },
-                              { "kd": "Field", "name": { "kd": "Name", "value": "isAcViewer" } },
+                              { "kd": "Field", "name": { "kd": "Name", "value": "isOwner" }},
+                              { "kd": "Field", "name": { "kd": "Name", "value": "isPrincipalAdmin" }},
+                              { "kd": "Field", "name": { "kd": "Name", "value": "isPrincipalViewer" }},
+                              { "kd": "Field", "name": { "kd": "Name", "value": "isAcAdmin" }},
+                              { "kd": "Field", "name": { "kd": "Name", "value": "isAcViewer" }},
                             ],
                           },
                         },
-                        { "kd": "Field", "name": { "kd": "Name", "value": "invitationStatus" } },
+                        { "kd": "Field", "name": { "kd": "Name", "value": "invitationStatus" }},
                         {
                           "kd": "Field",
                           "name": { "kd": "Name", "value": "accesses" },
                           "selectionSet": {
                             "kd": "SelectionSet",
-                            "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
+                            "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" }}, {
                               "kd": "Field",
                               "name": { "kd": "Name", "value": "name" },
                             }],
@@ -1001,17 +1001,17 @@ export const UsAndItsD = {
                 "name": { "kd": "Name", "value": "principal" },
                 "selectionSet": {
                   "kd": "SelectionSet",
-                  "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
+                  "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" }}, {
                     "kd": "InlineFragment",
-                    "typeCondition": { "kd": "NamedType", "name": { "kd": "Name", "value": "XPrincipal" } },
+                    "typeCondition": { "kd": "NamedType", "name": { "kd": "Name", "value": "XPrincipal" }},
                     "selectionSet": {
                       "kd": "SelectionSet",
-                      "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "__typename" } }, {
+                      "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "__typename" }}, {
                         "kd": "Field",
                         "name": { "kd": "Name", "value": "contactInfo" },
                         "selectionSet": {
                           "kd": "SelectionSet",
-                          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "name" } }, {
+                          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "name" }}, {
                             "kd": "Field",
                             "name": { "kd": "Name", "value": "email" },
                           }],
@@ -1022,11 +1022,11 @@ export const UsAndItsD = {
                         "selectionSet": {
                           "kd": "SelectionSet",
                           "selections": [
-                            { "kd": "Field", "name": { "kd": "Name", "value": "isOwner" } },
-                            { "kd": "Field", "name": { "kd": "Name", "value": "isPrincipalAdmin" } },
-                            { "kd": "Field", "name": { "kd": "Name", "value": "isPrincipalViewer" } },
-                            { "kd": "Field", "name": { "kd": "Name", "value": "isAcAdmin" } },
-                            { "kd": "Field", "name": { "kd": "Name", "value": "isAcViewer" } },
+                            { "kd": "Field", "name": { "kd": "Name", "value": "isOwner" }},
+                            { "kd": "Field", "name": { "kd": "Name", "value": "isPrincipalAdmin" }},
+                            { "kd": "Field", "name": { "kd": "Name", "value": "isPrincipalViewer" }},
+                            { "kd": "Field", "name": { "kd": "Name", "value": "isAcAdmin" }},
+                            { "kd": "Field", "name": { "kd": "Name", "value": "isAcViewer" }},
                           ],
                         },
                       }],
