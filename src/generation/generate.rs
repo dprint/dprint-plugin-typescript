@@ -3053,9 +3053,14 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
     }
   };
 
+  let is_single_line_html = embedded_lang == "html" && !text.contains('\n') && formatted_tpl.trim_end().lines().count() == 1;
+  let preserve_single_line = is_single_line_html;
+
   let mut items = PrintItems::new();
   items.push_sc(sc!("`"));
-  items.push_signal(Signal::NewLine);
+  if !preserve_single_line {
+    items.push_signal(Signal::NewLine);
+  }
   items.push_signal(Signal::StartIndent);
   let mut index = 0;
   let mut current_indent_level = 0;
@@ -3091,7 +3096,11 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
         index += 1;
       }
     }
-    items.push_signal(Signal::NewLine);
+    if !preserve_single_line {
+      items.push_signal(Signal::NewLine);
+    } else {
+      break;
+    }
   }
   while current_indent_level > 0 {
     items.push_signal(Signal::FinishIndent);
