@@ -6363,25 +6363,20 @@ fn gen_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -
 
   return items;
 
-  fn get_trailing_commas<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -> TrailingCommas {
-    let trailing_commas = context.config.type_parameters_trailing_commas;
-    if trailing_commas == TrailingCommas::Never {
-      return trailing_commas;
-    }
-
+  fn get_trailing_commas<'a>(node: TypeParamNode<'a>, context: &Context<'a>) -> TrailingCommas {
     // trailing commas should be allowed in type parameters only—not arguments
-    if let Some(type_params) = node.parent().get_type_parameters() {
-      if type_params.start() == node.start() {
+    match node.parent().get_type_parameters() {
+      Some(type_params) if type_params.start() == node.start() => {
         // Use trailing commas for function expressions in a JSX file
         // if the absence of one would lead to a parsing ambiguity.
         let parent = node.parent();
         let is_ambiguous_jsx_fn_expr = context.is_jsx()
-          && (parent.kind() == NodeKind::ArrowExpr || parent.parent().unwrap().kind() == NodeKind::FnExpr)
-          // not ambiguous in a default export
-          && !matches!(
-            parent.parent().and_then(|p| p.parent()).map(|p| p.kind()),
-            Some(NodeKind::ExportDefaultExpr | NodeKind::ExportDefaultDecl)
-          );
+            && (parent.kind() == NodeKind::ArrowExpr)
+            // not ambiguous in a default export
+            && !matches!(
+              parent.parent().and_then(|p| p.parent()).map(|p| p.kind()),
+              Some(NodeKind::ExportDefaultExpr | NodeKind::ExportDefaultDecl)
+            );
         // Prevent "This syntax is reserved in files with the .mts or .cts extension." diagnostic.
         let is_cts_mts_arrow_fn = matches!(context.media_type, MediaType::Cts | MediaType::Mts) && parent.kind() == NodeKind::ArrowExpr;
         if is_ambiguous_jsx_fn_expr || is_cts_mts_arrow_fn {
@@ -6396,11 +6391,13 @@ fn gen_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -
             }
           }
         }
-        return trailing_commas;
-      }
-    }
 
-    TrailingCommas::Never
+        // Unambiguous. Use the preferred style.
+        context.config.type_parameters_trailing_commas
+      }
+      // Type arguments. Trailing commas not allowed.
+      _ => TrailingCommas::Never,
+    }
   }
 
   fn get_use_new_lines(node: &TypeParamNode, params: &[Node], context: &mut Context) -> bool {
