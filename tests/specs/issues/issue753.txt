@@ -1,0 +1,46 @@
+~~ lineWidth: 80, indentWidth: 2, memberExpression.linePerExpression: true ~~
+== function args ==
+const startingFrom = Mylib.map(DateTime.now, now => DateTime.startOf(now, "day"));
+
+const func = () =>
+  function() {
+    const startingFrom = Mylib.map(DateTime.now, now => DateTime.startOf(now, "day"));
+  }
+
+
+[expect]
+const startingFrom = Mylib.map(
+  DateTime.now,
+  now => DateTime.startOf(now, "day"),
+);
+
+const func = () =>
+  function() {
+    const startingFrom = Mylib.map(
+      DateTime.now,
+      now => DateTime.startOf(now, "day"),
+    );
+  };
+
+== function args same line length ==
+const startingFroom = Mylib.map(DateTime.now, now => DateTime.startOf(now, "day"));
+
+const func = () =>
+  function() {
+    const startingF = Mylib.map(DateTime.now, now => DateTime.startOf(now, "day"));
+  }
+
+
+[expect]
+const startingFroom = Mylib.map(
+  DateTime.now,
+  now => DateTime.startOf(now, "day"),
+);
+
+const func = () =>
+  function() {
+    const startingF = Mylib.map(
+      DateTime.now,
+      now => DateTime.startOf(now, "day"),
+    );
+  };
