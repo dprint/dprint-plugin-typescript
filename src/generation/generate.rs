@@ -9793,8 +9793,8 @@ fn allows_inline_multi_line<'a>(node: Node<'a>, context: &Context<'a>, has_sibli
           _ => allows_inline_multi_line(as_expr.type_ann.into(), context, has_siblings),
         }
     }
+    Node::ArrowExpr(arrow) => matches!(arrow.body, BlockStmtOrExpr::BlockStmt(_)),
     Node::FnExpr(_)
-    | Node::ArrowExpr(_)
     | Node::ObjectLit(_)
     | Node::ArrayLit(_)
     | Node::ObjectPat(_)
