@@ -1,0 +1,45 @@
+~~ lineWidth: 80, indentWidth: 2, memberExpression.linePerExpression: true ~~
+== generator ==
+const createTestData = () =>
+  function*() {
+    const startingFrom = yield* Effect.map(DateTime.now, now => DateTime.startOf(now, "day"));
+
+    return HashSet.make(DateTime.toEpochMillis(startingFrom));
+  };
+
+
+[expect]
+const createTestData = () =>
+  function*() {
+    const startingFrom = yield* Effect.map(
+      DateTime.now,
+      now => DateTime.startOf(now, "day"),
+    );
+
+    return HashSet.make(DateTime.toEpochMillis(startingFrom));
+  };
+
+== function ==
+const func = () =>
+  function() {
+    const startingFrom = Effect.map(DateTime.now, now => DateTime.startOf(now, 'day'))
+
+    return myObj
+      .myMethod({
+        missionType: otherObj.prop.nested,
+      });
+  };
+
+[expect]
+const func = () =>
+  function() {
+    const startingFrom = Effect.map(
+      DateTime.now,
+      now => DateTime.startOf(now, "day"),
+    );
+
+    return myObj
+      .myMethod({
+        missionType: otherObj.prop.nested,
+      });
+  };
