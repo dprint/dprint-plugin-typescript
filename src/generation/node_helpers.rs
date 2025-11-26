@@ -115,11 +115,11 @@ pub fn get_siblings_between<'a, 'b>(node_a: Node<'a>, node_b: Node<'b>) -> Vec<N
   parent_children.drain(node_a.child_index() + 1..node_b.child_index()).collect()
 }
 
-pub fn has_jsx_space_expr_text(node: Node) -> bool {
-  get_jsx_space_expr_space_count(node) > 0
+pub fn has_jsx_space_expr_text(node: Node, program: Program) -> bool {
+  get_jsx_space_expr_space_count(node, program) > 0
 }
 
-pub fn get_jsx_space_expr_space_count(node: Node) -> usize {
+pub fn get_jsx_space_expr_space_count(node: Node, program: Program) -> usize {
   // A "JSX space expression" is a JSXExprContainer with
   // a string literal containing only spaces.
   // * {" "}
@@ -130,7 +130,8 @@ pub fn get_jsx_space_expr_space_count(node: Node) -> usize {
       ..
     }) => {
       let mut space_count = 0;
-      for c in text.value().chars() {
+      let text = remove_quotes_from_str(text.text_fast(program));
+      for c in text.chars() {
         if c == ' ' {
           space_count += 1;
         } else {
@@ -140,6 +141,16 @@ pub fn get_jsx_space_expr_space_count(node: Node) -> usize {
       space_count
     }
     _ => 0,
+  }
+}
+
+fn remove_quotes_from_str(text: &str) -> &str {
+  if text.is_empty() {
+    text
+  } else if text.starts_with("'") && text.ends_with("'") || text.starts_with("\"") && text.ends_with("\"") {
+    &text[1..text.len() - 1]
+  } else {
+    text
   }
 }
 
@@ -155,7 +166,7 @@ pub fn count_spaces_between_jsx_children<'a>(previous_node: Node<'a>, next_node:
   let mut previous_node = previous_node;
 
   for node in siblings_between {
-    count += get_jsx_space_expr_space_count(node);
+    count += get_jsx_space_expr_space_count(node, program);
 
     if nodes_have_only_spaces_between(previous_node, node, program) {
       count += 1;
