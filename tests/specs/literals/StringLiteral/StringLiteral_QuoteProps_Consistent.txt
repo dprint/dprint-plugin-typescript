@@ -174,3 +174,15 @@ const x = {
     }),
     "/src/shared/index.ts": `export const a: Unrestricted = 1;`,
 };
+
+== should add quotes for this ==
+const objectLiteral = {
+    "\uD800": true,
+    test: 1,
+};
+
+[expect]
+const objectLiteral = {
+    "\uD800": true,
+    "test": 1,
+};

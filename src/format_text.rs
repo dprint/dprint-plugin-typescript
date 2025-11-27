@@ -118,7 +118,7 @@ fn inner_format(parsed_source: &ParsedSource, config: &Configuration, external_f
 pub fn trace_file(file_path: &Path, file_text: &str, config: &Configuration) -> dprint_core::formatting::TracingResult {
   let parsed_source = parse_swc_ast(file_path, None, file_text.into()).unwrap();
   ensure_no_specific_syntax_errors(&parsed_source).unwrap();
-  dprint_core::formatting::trace_printing(|| generate(&parsed_source, config, None), config_to_print_options(file_text, config))
+  dprint_core::formatting::trace_printing(|| generate(&parsed_source, config, None).unwrap(), config_to_print_options(file_text, config))
 }
 
 fn config_to_print_options(file_text: &str, config: &Configuration) -> PrintOptions {
