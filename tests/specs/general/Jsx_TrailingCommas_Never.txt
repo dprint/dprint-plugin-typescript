@@ -1,0 +1,23 @@
+-- file.tsx --
+~~ trailingCommas: never ~~
+== should never trim trailing commas from single type parameters in expressions ==
+const test1: <T,>(t: T) => T = <T,>(t: T) => t;
+export default <T,>(t: T) => t;
+[].filter(<T,>() => false);
+const test2 = function<T,>(t: T) { };
+const test3 = class<T,> { };
+
+// an extends clause ought to be enough to resolve the ambiguity
+const test4 = function<T extends unknown>(t: T) {};
+const test5 = class<T extends unknown> {};
+
+[expect]
+const test1: <T>(t: T) => T = <T,>(t: T) => t;
+export default <T,>(t: T) => t;
+[].filter(<T,>() => false);
+const test2 = function<T>(t: T) {};
+const test3 = class<T> {};
+
+// an extends clause ought to be enough to resolve the ambiguity
+const test4 = function<T extends unknown>(t: T) {};
+const test5 = class<T extends unknown> {};
