@@ -1602,6 +1602,10 @@ fn gen_named_import_or_export_specifiers<'a>(opts: GenNamedImportOrExportSpecifi
 /* expressions */
 
 fn gen_array_expr<'a>(node: &ArrayLit<'a>, context: &mut Context<'a>) -> PrintItems {
+  if let Some(max_width) = context.config.array_expression_max_width {
+    return gen_array_expr_with_max_width(node, max_width, context);
+  }
+
   let prefer_hanging = match context.config.array_expression_prefer_hanging {
     PreferHanging::Never => false,
     PreferHanging::OnlySingleItem => node.elems.len() == 1,
@@ -1615,6 +1619,152 @@ fn gen_array_expr<'a>(node: &ArrayLit<'a>, context: &mut Context<'a>) -> PrintIt
       prefer_single_line: context.config.array_expression_prefer_single_line,
       trailing_commas: context.config.array_expression_trailing_commas,
       space_around: context.config.array_expression_space_around,
+    },
+    context,
+  )
+}
+
+fn generate_element_text<'a>(node: Node<'a>, context: &mut Context<'a>) -> String {
+  node.text_fast(context.program).to_string()
+}
+
+fn generate_width_constrained_elements(
+  element_texts: &[String],
+  max_width: u32,
+  context: &mut Context<'_>,
+) -> PrintItems {
+  let mut items = PrintItems::new();
+  
+  items.push_signal(Signal::StartIndent);
+  items.push_signal(Signal::NewLine);
+  
+  let mut current_line_items = Vec::new();
+  let mut current_line_width = context.config.indent_width as usize;
+  
+  for (i, text) in element_texts.iter().enumerate() {
+    let is_last_element_globally = i == element_texts.len() - 1;
+    let element_base_width = text.len();
+    
+    let width_with_element = current_line_width + element_base_width;
+    let width_with_separator = if current_line_items.is_empty() { 
+      width_with_element 
+    } else { 
+      width_with_element + 2
+    };
+    
+    if !current_line_items.is_empty() && width_with_separator > max_width as usize {
+      generate_array_line(&mut items, &current_line_items, false);
+      items.push_signal(Signal::NewLine);
+      current_line_items.clear();
+      current_line_width = context.config.indent_width as usize;
+    }
+    
+    current_line_items.push((text.clone(), !is_last_element_globally));
+    
+    if current_line_items.len() == 1 {
+      current_line_width += element_base_width;
+    } else {
+      current_line_width += 2 + element_base_width;
+    }
+  }
+  
+  if !current_line_items.is_empty() {
+    let should_add_trailing_comma = match context.config.array_expression_trailing_commas {
+      TrailingCommas::Always => true,
+      TrailingCommas::OnlyMultiLine => true,
+      TrailingCommas::Never => false,
+    };
+    generate_array_line(&mut items, &current_line_items, should_add_trailing_comma);
+  }
+  
+  items.push_signal(Signal::NewLine);
+  items.push_signal(Signal::FinishIndent);
+  items
+}
+
+fn generate_array_line(items: &mut PrintItems, line_items: &[(String, bool)], add_trailing_comma: bool) {
+  for (i, (text, has_comma_between)) in line_items.iter().enumerate() {
+    items.push_string(text.clone());
+    
+    let is_last_element = i == line_items.len() - 1;
+    let needs_comma = *has_comma_between || (is_last_element && add_trailing_comma);
+    
+    if needs_comma {
+      items.push_sc(sc!(","));
+      if !is_last_element {
+        items.push_sc(sc!(" "));
+      }
+    }
+  }
+}
+
+fn gen_array_expr_with_max_width<'a>(node: &ArrayLit<'a>, max_width: u32, context: &mut Context<'a>) -> PrintItems {
+  let nodes: Vec<Option<Node<'a>>> = node.elems.iter().map(|&x| x.map(|elem| elem.into())).collect();
+  
+  if nodes.is_empty() {
+    return gen_surrounded_by_tokens(
+      |_| PrintItems::new(),
+      |_| None,
+      GenSurroundedByTokensOptions {
+        open_token: sc!("["),
+        close_token: sc!("]"),
+        range: Some(node.range()),
+        first_member: None,
+        prefer_single_line_when_empty: true,
+        allow_open_token_trailing_comments: true,
+        single_line_space_around: context.config.array_expression_space_around,
+      },
+      context,
+    );
+  }
+  
+  let element_texts: Vec<String> = nodes
+    .iter()
+    .filter_map(|node_opt| *node_opt)
+    .map(|node| generate_element_text(node, context))
+    .collect();
+  
+  let single_line_text = element_texts.join(", ");
+  let bracket_and_space_width = 2 + if context.config.array_expression_space_around { 2 } else { 0 };
+  let total_single_line_width = single_line_text.len() + bracket_and_space_width;
+  
+  if total_single_line_width <= max_width as usize {
+    return gen_surrounded_by_tokens(
+      |_context| {
+        let mut inner_items = PrintItems::new();
+        for (i, text) in element_texts.iter().enumerate() {
+          inner_items.push_string(text.clone());
+          if i < element_texts.len() - 1 {
+            inner_items.push_sc(sc!(", "));
+          }
+        }
+        inner_items
+      },
+      |_| None,
+      GenSurroundedByTokensOptions {
+        open_token: sc!("["),
+        close_token: sc!("]"),
+        range: Some(node.range()),
+        first_member: nodes.first().and_then(|n| n.as_ref()).map(|n| n.range()),
+        prefer_single_line_when_empty: true,
+        allow_open_token_trailing_comments: true,
+        single_line_space_around: context.config.array_expression_space_around,
+      },
+      context,
+    );
+  }
+  
+  gen_surrounded_by_tokens(
+    |context| generate_width_constrained_elements(&element_texts, max_width, context),
+    |_| None,
+    GenSurroundedByTokensOptions {
+      open_token: sc!("["),
+      close_token: sc!("]"),
+      range: Some(node.range()),
+      first_member: nodes.first().and_then(|n| n.as_ref()).map(|n| n.range()),
+      prefer_single_line_when_empty: true,
+      allow_open_token_trailing_comments: true,
+      single_line_space_around: false,
     },
     context,
   )
@@ -8880,14 +9030,14 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
   items.push_info(end_ln);
   items.push_reevaluation(open_brace_condition_reevaluation);
 
-  // return result
-  return GenConditionalBraceBodyResult {
+  GenConditionalBraceBodyResult {
     generated_node: items,
     open_brace_condition_ref,
     close_brace_condition_ref,
-  };
+  }
+}
 
-  fn get_should_use_new_line<'a>(
+fn get_should_use_new_line<'a>(
     body_node: Node,
     body_should_be_multi_line: bool,
     single_body_position: &Option<SameOrNextLinePosition>,
@@ -8932,7 +9082,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
     }
   }
 
-  fn get_body_should_be_multi_line<'a>(body_node: Node<'a>, header_trailing_comments: &[&'a Comment], context: &mut Context<'a>) -> bool {
+fn get_body_should_be_multi_line<'a>(body_node: Node<'a>, header_trailing_comments: &[&'a Comment], context: &mut Context<'a>) -> bool {
     if let Node::BlockStmt(body_node) = body_node {
       if body_node.stmts.len() == 1 && !has_leading_comment_on_different_line(&body_node.stmts[0].range(), header_trailing_comments, context.program) {
         return false;
@@ -8945,12 +9095,12 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
       return has_leading_comment_on_different_line(&body_node.range(), header_trailing_comments, context.program);
     }
 
-    fn has_leading_comment_on_different_line<'a>(node: &SourceRange, header_trailing_comments: &[&'a Comment], program: Program<'a>) -> bool {
-      node_helpers::has_leading_comment_on_different_line(node, /* comments to ignore */ Some(header_trailing_comments), program)
-    }
+  fn has_leading_comment_on_different_line<'a>(node: &SourceRange, header_trailing_comments: &[&'a Comment], program: Program<'a>) -> bool {
+    node_helpers::has_leading_comment_on_different_line(node, /* comments to ignore */ Some(header_trailing_comments), program)
   }
+}
 
-  fn get_force_braces(body_node: Node) -> bool {
+fn get_force_braces(body_node: Node) -> bool {
     if let Node::BlockStmt(body_node) = body_node {
       body_node.stmts.is_empty()
         || body_node.stmts.iter().all(|s| s.kind() == NodeKind::EmptyStmt)
@@ -8958,9 +9108,9 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
     } else {
       false
     }
-  }
+}
 
-  fn get_header_trailing_comments<'a>(body_node: Node<'a>, context: &mut Context<'a>) -> Vec<&'a Comment> {
+fn get_header_trailing_comments<'a>(body_node: Node<'a>, context: &mut Context<'a>) -> Vec<&'a Comment> {
     let mut comments = Vec::new();
     if let Node::BlockStmt(block_stmt) = body_node {
       let comment_line = body_node.leading_comments_fast(context.program).find(|c| c.kind == CommentKind::Line);
@@ -8989,12 +9139,11 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
     comments
   }
 
-  fn get_open_brace_token<'a>(body_node: Node<'a>, context: &mut Context<'a>) -> Option<&'a TokenAndSpan> {
-    if let Node::BlockStmt(block_stmt) = body_node {
-      context.token_finder.get_first_open_brace_token_within(block_stmt)
-    } else {
-      None
-    }
+fn get_open_brace_token<'a>(body_node: Node<'a>, context: &mut Context<'a>) -> Option<&'a TokenAndSpan> {
+  if let Node::BlockStmt(block_stmt) = body_node {
+    context.token_finder.get_first_open_brace_token_within(block_stmt)
+  } else {
+    None
   }
 }
 

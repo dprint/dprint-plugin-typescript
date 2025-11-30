@@ -161,6 +161,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     /* prefer hanging */
     arguments_prefer_hanging: get_value(&mut config, "arguments.preferHanging", prefer_hanging_granular, &mut diagnostics),
     array_expression_prefer_hanging: get_value(&mut config, "arrayExpression.preferHanging", prefer_hanging_granular, &mut diagnostics),
+    array_expression_max_width: get_nullable_value(&mut config, "arrayExpression.maxWidth", &mut diagnostics),
     array_pattern_prefer_hanging: get_value(&mut config, "arrayPattern.preferHanging", prefer_hanging, &mut diagnostics),
     do_while_statement_prefer_hanging: get_value(&mut config, "doWhileStatement.preferHanging", prefer_hanging, &mut diagnostics),
     export_declaration_prefer_hanging: get_value(&mut config, "exportDeclaration.preferHanging", prefer_hanging, &mut diagnostics),

@@ -684,6 +684,18 @@ impl ConfigurationBuilder {
     self.insert("arrayExpression.preferHanging", value.to_string().into())
   }
 
+  /// The maximum width for array elements before wrapping to a new line.
+  /// When set, arrays will fit as many elements as possible on each line
+  /// within this width constraint.
+  ///
+  /// Default: `None` (disabled)
+  pub fn array_expression_max_width(&mut self, value: Option<u32>) -> &mut Self {
+    match value {
+      Some(width) => self.insert("arrayExpression.maxWidth", (width as i32).into()),
+      None => self.insert("arrayExpression.maxWidth", ConfigKeyValue::Null),
+    }
+  }
+
   pub fn array_pattern_prefer_hanging(&mut self, value: bool) -> &mut Self {
     self.insert("arrayPattern.preferHanging", value.into())
   }
