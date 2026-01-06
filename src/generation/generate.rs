@@ -2916,6 +2916,7 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
       | NodeKind::JSXExprContainer
       | NodeKind::UpdateExpr
       | NodeKind::ComputedPropName
+      | NodeKind::KeyValueProp
   ) {
     return true;
   }
