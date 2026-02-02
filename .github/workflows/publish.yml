@@ -1,0 +1,47 @@
+name: publish
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - '*'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  cargo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dsherret/rust-toolchain-file@v1
+      - uses: rust-lang/crates-io-auth-action@v1
+        id: auth
+      - name: Cargo publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        run: cargo publish
+
+  npm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dsherret/rust-toolchain-file@v1
+      - name: Install wasm32 target
+        run: rustup target add wasm32-unknown-unknown
+      - name: Build release
+        run: cargo build --target wasm32-unknown-unknown --features wasm --release
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24.x'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Setup and test npm deployment
+        run: |
+          cd deployment/npm
+          npm install
+          node setup.js sync-version
+      - name: npm publish
+        run: |
+          cd deployment/npm
+          npm publish --access public
