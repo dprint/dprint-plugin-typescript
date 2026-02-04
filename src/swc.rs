@@ -15,7 +15,7 @@ pub fn parse_swc_ast(file_path: &Path, file_extension: Option<&str>, file_text: 
       let lowercase_ext = file_extension.map(|ext| ext.to_string()).or_else(|| get_lowercase_extension(file_path));
       let new_file_path = match lowercase_ext.as_deref() {
         Some("ts") | Some("cts") | Some("mts") => file_path.with_extension("tsx"),
-        Some("js") | Some("cjs") | Some("mjs") => file_path.with_extension("jsx"),
+        Some("js") | Some("cjs") | Some("mjs") | Some("gs") => file_path.with_extension("jsx"),
         _ => return Err(err),
       };
       // try to parse as jsx

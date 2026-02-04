@@ -32,6 +32,8 @@ impl SyncPluginHandler<Configuration> for TypeScriptPluginHandler {
           String::from("cjs"),
           String::from("mts"),
           String::from("cts"),
+          // Google App Script
+          String::from("gs"),
         ],
         file_names: vec![],
       },
