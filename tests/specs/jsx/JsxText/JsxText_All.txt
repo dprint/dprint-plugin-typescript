@@ -4,7 +4,7 @@
 const t = <>  Testing this out  </>;
 
 [expect]
-const t = <>Testing this out</>;
+const t = <> Testing this out </>;
 
 == should format when multi line ==
 const t = <>
