@@ -9235,21 +9235,55 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
     if children.is_empty() {
       items.push_signal(Signal::PossibleNewLine);
     } else {
-      let mut previous_child = None;
+      let children_len = children.len();
+      let mut previous_child: Option<Node<'a>> = None;
+      let mut before_last_child: Option<Node<'a>> = None;
       for (index, (child, generated_child)) in children.into_iter().enumerate() {
         if index > 0 && should_use_space(*previous_child.as_ref().unwrap(), child, context) {
           items.extend(jsx_space_separator(*previous_child.as_ref().unwrap(), child, context));
+        } else if index == 0 && jsx_child_has_leading_space(child, context) {
+          items.push_signal(Signal::SpaceOrNewLine);
         } else {
           items.push_signal(Signal::PossibleNewLine);
         }
 
         items.extend(generated_child.into());
 
+        if children_len >= 2 && index == children_len - 2 {
+          before_last_child = Some(child);
+        }
         previous_child = Some(child);
       }
-      items.push_signal(Signal::PossibleNewLine);
+      if jsx_child_has_trailing_space(*previous_child.as_ref().unwrap(), before_last_child, context) {
+        items.push_signal(Signal::SpaceOrNewLine);
+      } else {
+        items.push_signal(Signal::PossibleNewLine);
+      }
     }
     items
+  }
+
+  fn jsx_child_has_leading_space<'a>(child: Node<'a>, context: &mut Context<'a>) -> bool {
+    if let Node::JSXText(text) = child {
+      let raw = text.text_fast(context.program);
+      let leading_whitespace = &raw[..raw.len() - raw.trim_start().len()];
+      !leading_whitespace.is_empty() && !leading_whitespace.contains('\n')
+    } else {
+      false
+    }
+  }
+
+  fn jsx_child_has_trailing_space<'a>(child: Node<'a>, previous_child: Option<Node<'a>>, context: &mut Context<'a>) -> bool {
+    if let Node::JSXText(text) = child {
+      if previous_child.map_or(false, |prev| is_ignore_jsx_expr_container(prev, context)) {
+        return false;
+      }
+      let raw = text.text_fast(context.program);
+      let trailing_whitespace = &raw[raw.trim_end().len()..];
+      !trailing_whitespace.is_empty() && !trailing_whitespace.contains('\n')
+    } else {
+      false
+    }
   }
 
   fn should_use_space<'a>(previous_child: Node<'a>, current: Node<'a>, context: &mut Context<'a>) -> bool {
