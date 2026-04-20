@@ -9235,13 +9235,15 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
     if children.is_empty() {
       items.push_signal(Signal::PossibleNewLine);
     } else {
+      // `gen_jsx_text` trims boundary whitespace so multi-line JSX text doesn't keep source indentation.
+      // Restore meaningful same-line edge spaces here when the first or last rendered child is JSX text.
       let children_len = children.len();
       let mut previous_child: Option<Node<'a>> = None;
       let mut before_last_child: Option<Node<'a>> = None;
       for (index, (child, generated_child)) in children.into_iter().enumerate() {
         if index > 0 && should_use_space(*previous_child.as_ref().unwrap(), child, context) {
           items.extend(jsx_space_separator(*previous_child.as_ref().unwrap(), child, context));
-        } else if index == 0 && jsx_child_has_leading_space(child, context) {
+        } else if index == 0 && has_jsx_leading_space(child, context) {
           items.push_signal(Signal::SpaceOrNewLine);
         } else {
           items.push_signal(Signal::PossibleNewLine);
@@ -9254,7 +9256,7 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
         }
         previous_child = Some(child);
       }
-      if jsx_child_has_trailing_space(*previous_child.as_ref().unwrap(), before_last_child, context) {
+      if has_jsx_trailing_space(*previous_child.as_ref().unwrap(), before_last_child, context) {
         items.push_signal(Signal::SpaceOrNewLine);
       } else {
         items.push_signal(Signal::PossibleNewLine);
@@ -9263,24 +9265,23 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
     items
   }
 
-  fn jsx_child_has_leading_space<'a>(child: Node<'a>, context: &mut Context<'a>) -> bool {
-    if let Node::JSXText(text) = child {
-      let raw = text.text_fast(context.program);
-      let leading_whitespace = &raw[..raw.len() - raw.trim_start().len()];
-      !leading_whitespace.is_empty() && !leading_whitespace.contains('\n')
+  fn has_jsx_leading_space<'a>(current_node: Node<'a>, context: &Context<'a>) -> bool {
+    if let Node::JSXText(text) = current_node {
+      let text = text.text_fast(context.program);
+      text.starts_with(' ') && utils::has_no_new_lines_in_leading_whitespace(text)
     } else {
       false
     }
   }
 
-  fn jsx_child_has_trailing_space<'a>(child: Node<'a>, previous_child: Option<Node<'a>>, context: &mut Context<'a>) -> bool {
-    if let Node::JSXText(text) = child {
-      if previous_child.map_or(false, |prev| is_ignore_jsx_expr_container(prev, context)) {
+  fn has_jsx_trailing_space<'a>(current_node: Node<'a>, previous_node: Option<Node<'a>>, context: &Context<'a>) -> bool {
+    if let Node::JSXText(text) = current_node {
+      if previous_node.map_or(false, |prev| is_ignore_jsx_expr_container(prev, context)) {
         return false;
       }
-      let raw = text.text_fast(context.program);
-      let trailing_whitespace = &raw[raw.trim_end().len()..];
-      !trailing_whitespace.is_empty() && !trailing_whitespace.contains('\n')
+
+      let text = text.text_fast(context.program);
+      text.ends_with(' ') && utils::has_no_new_lines_in_trailing_whitespace(text)
     } else {
       false
     }
