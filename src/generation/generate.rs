@@ -9276,7 +9276,7 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
 
   fn has_jsx_trailing_space<'a>(current_node: Node<'a>, previous_node: Option<Node<'a>>, context: &Context<'a>) -> bool {
     if let Node::JSXText(text) = current_node {
-      if previous_node.map_or(false, |prev| is_ignore_jsx_expr_container(prev, context)) {
+      if matches!(previous_node, Some(previous_node) if is_ignore_jsx_expr_container(previous_node, context)) {
         return false;
       }
 
