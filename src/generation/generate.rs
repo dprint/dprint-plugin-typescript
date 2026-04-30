@@ -1,9 +1,3 @@
-use deno_ast::swc::common::comments::Comment;
-use deno_ast::swc::common::comments::CommentKind;
-use deno_ast::swc::parser::token::BinOpToken;
-use deno_ast::swc::parser::token::Token;
-use deno_ast::swc::parser::token::TokenAndSpan;
-use deno_ast::view::*;
 use deno_ast::CommentsIterator;
 use deno_ast::MediaType;
 use deno_ast::ParsedSource;
@@ -11,6 +5,12 @@ use deno_ast::SourcePos;
 use deno_ast::SourceRange;
 use deno_ast::SourceRanged;
 use deno_ast::SourceRangedForSpanned;
+use deno_ast::swc::common::comments::Comment;
+use deno_ast::swc::common::comments::CommentKind;
+use deno_ast::swc::parser::token::BinOpToken;
+use deno_ast::swc::parser::token::Token;
+use deno_ast::swc::parser::token::TokenAndSpan;
+use deno_ast::view::*;
 use dprint_core::formatting::condition_resolvers;
 use dprint_core::formatting::conditions::*;
 use dprint_core::formatting::ir_helpers::*;
@@ -115,11 +115,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       // keep the leading text, but leave the trailing text to be formatted if on a separate line
       let node_text = node.text_fast(context.program);
       let end_trim = node_text.trim_end();
-      if node_text[end_trim.len()..].contains('\n') {
-        end_trim
-      } else {
-        node_text
-      }
+      if node_text[end_trim.len()..].contains('\n') { end_trim } else { node_text }
     } else {
       node.text_fast(context.program)
     };
@@ -1134,11 +1130,7 @@ fn gen_export_named_decl<'a>(node: &NamedExport<'a>, context: &mut Context<'a>) 
     items.push_sc(sc!(";"));
   }
 
-  if should_single_line {
-    with_no_new_lines(items)
-  } else {
-    items
-  }
+  if should_single_line { with_no_new_lines(items) } else { items }
 }
 
 fn gen_function_decl<'a>(node: &FnDecl<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -1349,11 +1341,7 @@ fn gen_import_decl<'a>(node: &ImportDecl<'a>, context: &mut Context<'a>) -> Prin
     items.push_sc(sc!(";"));
   }
 
-  if should_single_line {
-    with_no_new_lines(items)
-  } else {
-    items
-  }
+  if should_single_line { with_no_new_lines(items) } else { items }
 }
 
 fn gen_import_equals_decl<'a>(node: &TsImportEqualsDecl<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -2638,7 +2626,21 @@ fn gen_expr_with_type_args<'a>(node: &TsExprWithTypeArgs<'a>, context: &mut Cont
   items
 }
 
+fn is_iife_fn_expr(node: &FnExpr) -> bool {
+  let parent = node.parent();
+  if parent.kind() == NodeKind::ParenExpr {
+    if let Some(grandparent) = parent.parent() {
+      return grandparent.kind() == NodeKind::CallExpr;
+    }
+  }
+  false
+}
+
 fn gen_fn_expr<'a>(node: &FnExpr<'a>, context: &mut Context<'a>) -> PrintItems {
+  if !context.config.function_expression_indent_inside_iife && is_iife_fn_expr(node) {
+    context.skip_iife_body_indent = true;
+  }
+
   let items = gen_function_decl_or_expr(
     FunctionDeclOrExprNode {
       node: node.into(),
@@ -7775,11 +7777,7 @@ fn gen_close_paren_with_type<'a>(opts: GenCloseParenWithTypeOptions<'a>, context
       items.extend(generated_type_node);
       items.push_info(type_node_end_ln);
 
-      if use_new_line_group {
-        new_line_group(items)
-      } else {
-        items
-      }
+      if use_new_line_group { new_line_group(items) } else { items }
     } else {
       items
     };
@@ -9475,6 +9473,8 @@ struct GenBlockOptions<'a> {
 
 fn gen_block<'a>(gen_inner: impl FnOnce(Vec<Node<'a>>, &mut Context<'a>) -> PrintItems, opts: GenBlockOptions<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
+  let skip_indent = context.skip_iife_body_indent;
+  context.skip_iife_body_indent = false;
   let before_open_token_ln = LineNumber::new("after_open_token_info");
   let first_member_range = opts.children.first().map(|x| x.range());
   let range = opts.range;
@@ -9493,7 +9493,8 @@ fn gen_block<'a>(gen_inner: impl FnOnce(Vec<Node<'a>>, &mut Context<'a>) -> Prin
         items.push_signal(Signal::NewLine);
       }
       items.push_line_and_column(start_inner_lc);
-      items.extend(ir_helpers::with_indent(gen_inner(opts.children, context)));
+      let inner = gen_inner(opts.children, context);
+      items.extend(if skip_indent { inner } else { ir_helpers::with_indent(inner) });
       items.push_line_and_column(end_inner_lc);
 
       if is_tokens_same_line_and_empty {

@@ -289,6 +289,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     function_declaration_space_before_parentheses: get_value(&mut config, "functionDeclaration.spaceBeforeParentheses", false, &mut diagnostics),
     function_expression_space_before_parentheses: get_value(&mut config, "functionExpression.spaceBeforeParentheses", false, &mut diagnostics),
     function_expression_space_after_function_keyword: get_value(&mut config, "functionExpression.spaceAfterFunctionKeyword", false, &mut diagnostics),
+    function_expression_indent_inside_iife: get_value(&mut config, "functionExpression.indentInsideIife", true, &mut diagnostics),
     get_accessor_space_before_parentheses: get_value(&mut config, "getAccessor.spaceBeforeParentheses", false, &mut diagnostics),
     if_statement_space_after_if_keyword: get_value(&mut config, "ifStatement.spaceAfterIfKeyword", true, &mut diagnostics),
     import_declaration_space_surrounding_named_imports: get_value(&mut config, "importDeclaration.spaceSurroundingNamedImports", true, &mut diagnostics),
@@ -353,8 +354,8 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
 
 #[cfg(test)]
 mod tests {
-  use dprint_core::configuration::resolve_global_config;
   use dprint_core::configuration::NewLineKind;
+  use dprint_core::configuration::resolve_global_config;
 
   use super::super::builder::ConfigurationBuilder;
   use super::*;

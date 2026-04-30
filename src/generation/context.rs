@@ -1,11 +1,11 @@
-use deno_ast::swc::common::comments::Comment;
-use deno_ast::swc::parser::token::TokenAndSpan;
-use deno_ast::view::*;
 use deno_ast::MediaType;
 use deno_ast::SourcePos;
 use deno_ast::SourceRange;
 use deno_ast::SourceRanged;
 use deno_ast::SourceRangedForSpanned;
+use deno_ast::swc::common::comments::Comment;
+use deno_ast::swc::parser::token::TokenAndSpan;
+use deno_ast::view::*;
 use dprint_core::formatting::ConditionReference;
 use dprint_core::formatting::IndentLevel;
 use dprint_core::formatting::IsStartOfLine;
@@ -68,6 +68,7 @@ pub struct Context<'a> {
   stored_lsil: FxHashMap<(SourcePos, SourcePos), LineStartIndentLevel>,
   stored_ln: FxHashMap<(SourcePos, SourcePos), LineNumber>,
   stored_il: FxHashMap<(SourcePos, SourcePos), IndentLevel>,
+  pub skip_iife_body_indent: bool,
   pub end_statement_or_member_lns: Stack<LineNumber>,
   before_comments_start_info_stack: Stack<(SourceRange, LineNumber, IsStartOfLine)>,
   if_stmt_last_brace_condition_ref: Option<ConditionReference>,
@@ -102,6 +103,7 @@ impl<'a> Context<'a> {
       stored_lsil: FxHashMap::default(),
       stored_ln: FxHashMap::default(),
       stored_il: FxHashMap::default(),
+      skip_iife_body_indent: false,
       end_statement_or_member_lns: Default::default(),
       before_comments_start_info_stack: Default::default(),
       if_stmt_last_brace_condition_ref: None,

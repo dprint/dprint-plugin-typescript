@@ -348,6 +348,14 @@ impl ConfigurationBuilder {
     self.insert("functionExpression.spaceAfterFunctionKeyword", value.into())
   }
 
+  /// Whether to indent the body of a function expression used in an IIFE.
+  ///
+  /// `true` (default) - Indents the body as normal.
+  /// `false` - Does not indent the body of the function in `(function() { ... })();`.
+  pub fn function_expression_indent_inside_iife(&mut self, value: bool) -> &mut Self {
+    self.insert("functionExpression.indentInsideIife", value.into())
+  }
+
   /// Whether to add a space before the parentheses of a get accessor.
   ///
   /// `true` - Ex. `get myProp ()`
