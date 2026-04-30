@@ -1,11 +1,11 @@
+use deno_ast::swc::common::comments::Comment;
+use deno_ast::swc::parser::token::TokenAndSpan;
+use deno_ast::view::*;
 use deno_ast::MediaType;
 use deno_ast::SourcePos;
 use deno_ast::SourceRange;
 use deno_ast::SourceRanged;
 use deno_ast::SourceRangedForSpanned;
-use deno_ast::swc::common::comments::Comment;
-use deno_ast::swc::parser::token::TokenAndSpan;
-use deno_ast::view::*;
 use dprint_core::formatting::ConditionReference;
 use dprint_core::formatting::IndentLevel;
 use dprint_core::formatting::IsStartOfLine;
