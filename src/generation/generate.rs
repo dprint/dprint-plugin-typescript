@@ -115,7 +115,11 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       // keep the leading text, but leave the trailing text to be formatted if on a separate line
       let node_text = node.text_fast(context.program);
       let end_trim = node_text.trim_end();
-      if node_text[end_trim.len()..].contains('\n') { end_trim } else { node_text }
+      if node_text[end_trim.len()..].contains('\n') {
+        end_trim
+      } else {
+        node_text
+      }
     } else {
       node.text_fast(context.program)
     };
@@ -1130,7 +1134,11 @@ fn gen_export_named_decl<'a>(node: &NamedExport<'a>, context: &mut Context<'a>) 
     items.push_sc(sc!(";"));
   }
 
-  if should_single_line { with_no_new_lines(items) } else { items }
+  if should_single_line {
+    with_no_new_lines(items)
+  } else {
+    items
+  }
 }
 
 fn gen_function_decl<'a>(node: &FnDecl<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -1341,7 +1349,11 @@ fn gen_import_decl<'a>(node: &ImportDecl<'a>, context: &mut Context<'a>) -> Prin
     items.push_sc(sc!(";"));
   }
 
-  if should_single_line { with_no_new_lines(items) } else { items }
+  if should_single_line {
+    with_no_new_lines(items)
+  } else {
+    items
+  }
 }
 
 fn gen_import_equals_decl<'a>(node: &TsImportEqualsDecl<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -7777,7 +7789,11 @@ fn gen_close_paren_with_type<'a>(opts: GenCloseParenWithTypeOptions<'a>, context
       items.extend(generated_type_node);
       items.push_info(type_node_end_ln);
 
-      if use_new_line_group { new_line_group(items) } else { items }
+      if use_new_line_group {
+        new_line_group(items)
+      } else {
+        items
+      }
     } else {
       items
     };
