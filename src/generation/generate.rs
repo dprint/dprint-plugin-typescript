@@ -2638,7 +2638,27 @@ fn gen_expr_with_type_args<'a>(node: &TsExprWithTypeArgs<'a>, context: &mut Cont
   items
 }
 
+fn is_iife_fn_expr(node: &FnExpr) -> bool {
+  let mut current: Node = node.into();
+  while let Some(parent) = current.parent() {
+    if parent.is::<ParenExpr>() {
+      current = parent;
+      continue;
+    }
+    return match parent {
+      Node::CallExpr(call) => call.callee.range() == current.range(),
+      Node::OptCall(call) => call.callee.range() == current.range(),
+      _ => false,
+    };
+  }
+  false
+}
+
 fn gen_fn_expr<'a>(node: &FnExpr<'a>, context: &mut Context<'a>) -> PrintItems {
+  if context.config.function_expression_flat_iife && is_iife_fn_expr(node) {
+    context.skip_iife_body_indent = true;
+  }
+
   let items = gen_function_decl_or_expr(
     FunctionDeclOrExprNode {
       node: node.into(),
@@ -9475,6 +9495,8 @@ struct GenBlockOptions<'a> {
 
 fn gen_block<'a>(gen_inner: impl FnOnce(Vec<Node<'a>>, &mut Context<'a>) -> PrintItems, opts: GenBlockOptions<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
+  let skip_indent = context.skip_iife_body_indent;
+  context.skip_iife_body_indent = false;
   let before_open_token_ln = LineNumber::new("after_open_token_info");
   let first_member_range = opts.children.first().map(|x| x.range());
   let range = opts.range;
@@ -9493,7 +9515,8 @@ fn gen_block<'a>(gen_inner: impl FnOnce(Vec<Node<'a>>, &mut Context<'a>) -> Prin
         items.push_signal(Signal::NewLine);
       }
       items.push_line_and_column(start_inner_lc);
-      items.extend(ir_helpers::with_indent(gen_inner(opts.children, context)));
+      let inner = gen_inner(opts.children, context);
+      items.extend(if skip_indent { inner } else { ir_helpers::with_indent(inner) });
       items.push_line_and_column(end_inner_lc);
 
       if is_tokens_same_line_and_empty {
