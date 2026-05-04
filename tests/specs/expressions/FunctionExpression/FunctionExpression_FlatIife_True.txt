@@ -1,4 +1,4 @@
-~~ functionExpression.indentInsideIife: false ~~
+~~ functionExpression.flatIife: true ~~
 == should not indent body of IIFE ==
 (function() {
     const a = "foobar";
@@ -92,3 +92,63 @@ return inner();
 
 [expect]
 (function() {})();
+
+== should not indent body of IIFE wrapped in extra parens ==
+((function() {
+    const a = "foobar";
+    return { a };
+}))();
+
+[expect]
+(function() {
+const a = "foobar";
+return { a };
+})();
+
+== should not indent body of optional IIFE ==
+(function() {
+    const a = "foobar";
+    return { a };
+})?.();
+
+[expect]
+(function() {
+const a = "foobar";
+return { a };
+})?.();
+
+== should not indent body of bare-callee IIFE ==
+void function() {
+    const a = "foobar";
+    return { a };
+}();
+
+[expect]
+void function() {
+const a = "foobar";
+return { a };
+}();
+
+== should still indent body of function expression in member call ==
+(function() {
+    const a = "foobar";
+    return { a };
+}).call(null);
+
+[expect]
+(function() {
+    const a = "foobar";
+    return { a };
+}).call(null);
+
+== should still indent body of function expression as call argument ==
+foo((function() {
+    const a = "foobar";
+    return { a };
+}));
+
+[expect]
+foo(function() {
+    const a = "foobar";
+    return { a };
+});

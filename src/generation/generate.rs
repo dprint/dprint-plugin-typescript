@@ -2639,17 +2639,23 @@ fn gen_expr_with_type_args<'a>(node: &TsExprWithTypeArgs<'a>, context: &mut Cont
 }
 
 fn is_iife_fn_expr(node: &FnExpr) -> bool {
-  let parent = node.parent();
-  if parent.kind() == NodeKind::ParenExpr {
-    if let Some(grandparent) = parent.parent() {
-      return grandparent.kind() == NodeKind::CallExpr;
+  let mut current: Node = node.into();
+  while let Some(parent) = current.parent() {
+    if parent.is::<ParenExpr>() {
+      current = parent;
+      continue;
     }
+    return match parent {
+      Node::CallExpr(call) => call.callee.range() == current.range(),
+      Node::OptCall(call) => call.callee.range() == current.range(),
+      _ => false,
+    };
   }
   false
 }
 
 fn gen_fn_expr<'a>(node: &FnExpr<'a>, context: &mut Context<'a>) -> PrintItems {
-  if !context.config.function_expression_indent_inside_iife && is_iife_fn_expr(node) {
+  if context.config.function_expression_flat_iife && is_iife_fn_expr(node) {
     context.skip_iife_body_indent = true;
   }
 

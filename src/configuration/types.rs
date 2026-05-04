@@ -604,8 +604,8 @@ pub struct Configuration {
   pub function_expression_space_before_parentheses: bool,
   #[serde(rename = "functionExpression.spaceAfterFunctionKeyword")]
   pub function_expression_space_after_function_keyword: bool,
-  #[serde(rename = "functionExpression.indentInsideIife")]
-  pub function_expression_indent_inside_iife: bool,
+  #[serde(rename = "functionExpression.flatIife")]
+  pub function_expression_flat_iife: bool,
   #[serde(rename = "getAccessor.spaceBeforeParentheses")]
   pub get_accessor_space_before_parentheses: bool,
   #[serde(rename = "ifStatement.spaceAfterIfKeyword")]
