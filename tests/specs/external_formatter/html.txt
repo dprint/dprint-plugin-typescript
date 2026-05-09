@@ -49,3 +49,18 @@ export const Layout = (props: Props) =>
             </body>
         </html>
     `;
+
+== should format single-line html without whitespace in html`...` ==
+let htmlStringOne = html`<span>foo</span>`;
+let htmlStringTwo = html`  <span>foo</span>`;
+[expect]
+let htmlStringOne = html`<span>foo</span>`;
+let htmlStringTwo = html`<span>foo</span>`;
+
+== should format multi-line html with whitespace in html`...` ==
+let htmlString = html`
+<span>foo</span>`;
+[expect]
+let htmlString = html`
+    <span>foo</span>
+`;
