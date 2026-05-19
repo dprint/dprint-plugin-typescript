@@ -9258,7 +9258,7 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
       if matches!(previous_node, Some(previous_node) if is_ignore_jsx_expr_container(previous_node, context)) {
         return false;
       }
-  
+
       let text = text.text_fast(context.program);
       text.ends_with(' ') && utils::has_no_new_lines_in_trailing_whitespace(text)
     } else {
