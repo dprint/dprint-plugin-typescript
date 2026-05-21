@@ -341,7 +341,6 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
 
   diagnostics.extend(get_unknown_property_diagnostics(config));
 
-  // Surface compile-time diagnostics for module.importGroups.
   if !resolved_config.module_import_groups.is_empty() {
     let mut compile_diags: Vec<String> = Vec::new();
     let _ = crate::generation::imports::resolved::compile(&resolved_config, &mut compile_diags);

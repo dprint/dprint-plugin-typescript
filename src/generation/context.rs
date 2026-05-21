@@ -93,7 +93,6 @@ impl<'a> Context<'a> {
   ) -> Context<'a> {
     let mut _import_group_diags: Vec<String> = Vec::new();
     let resolved_import_groups = crate::generation::imports::resolved::compile(config, &mut _import_group_diags);
-    // diagnostics dropped here for now; surfaced via resolve_config in a later task.
     Context {
       media_type,
       program,

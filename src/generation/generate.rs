@@ -7576,7 +7576,6 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<S
     groups.push(current_group);
   }
 
-  // Partition import groups when feature enabled.
   // Take `resolved_import_groups` out of `context` so we can mutably borrow
   // `context` to mark captured comments handled. Put it back when done.
   let resolved_opt = context.resolved_import_groups.take();
@@ -7640,8 +7639,6 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<S
           // it and the node start AND no blank-line gap between it and any
           // following attached comment. We walk from the node upward.
           let node_start_line = node.start_line_fast(context.program);
-          // Find longest suffix of `comments` where consecutive lines have no
-          // blank-line gap between them or between the last one and the node.
           let mut attached_start = comments.len();
           let mut next_line = node_start_line;
           for i in (0..comments.len()).rev() {
@@ -7687,7 +7684,6 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<S
       g.captured_detached_header = captured_detached_header;
     }
   }
-  // Restore the resolved groups so later code paths still see them.
   context.resolved_import_groups = resolved_opt;
 
   groups
