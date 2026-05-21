@@ -49,15 +49,14 @@ fn base_category(
 }
 
 fn is_index_path(src: &str) -> bool {
-  if src == "." || src == "./" || src == "./index" {
-    return true;
-  }
-  for ext in [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts"] {
-    if src == format!("./index{ext}") {
-      return true;
-    }
-  }
-  false
+  matches!(
+    src,
+    "." | "./" | "./index"
+      | "./index.ts" | "./index.tsx"
+      | "./index.js" | "./index.jsx"
+      | "./index.mjs" | "./index.cjs"
+      | "./index.mts" | "./index.cts"
+  )
 }
 
 #[cfg(test)]

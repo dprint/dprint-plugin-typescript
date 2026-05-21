@@ -354,6 +354,13 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     }
   }
 
+  if resolved_config.module_merge_imports {
+    diagnostics.push(ConfigurationDiagnostic {
+      property_name: "module.mergeImports".to_string(),
+      message: "module.mergeImports is currently not implemented; setting it to true has no effect. Tracked for a future release.".to_string(),
+    });
+  }
+
   return ResolveConfigurationResult {
     config: resolved_config,
     diagnostics,

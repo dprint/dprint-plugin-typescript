@@ -177,7 +177,7 @@ fn cmp_text_case_sensitive(a: &str, b: &str) -> Ordering {
   a.cmp(b)
 }
 
-fn cmp_text_case_insensitive(a: &str, b: &str) -> Ordering {
+pub(crate) fn cmp_text_case_insensitive(a: &str, b: &str) -> Ordering {
   let case_insensitive_result = a.to_lowercase().cmp(&b.to_lowercase());
   if case_insensitive_result == Ordering::Equal {
     cmp_text_case_sensitive(a, b)

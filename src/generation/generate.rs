@@ -7355,14 +7355,20 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
       Some(sorter) => Some(get_sorted_indexes(stmt_group.nodes.iter().map(|n| Some(*n)), sorter, context)),
       None => None,
     };
+    let subgroup_boundary_set: rustc_hash::FxHashSet<usize> = stmt_group
+      .subgroup_boundaries
+      .as_ref()
+      .map(|bs| bs.iter().copied().collect())
+      .unwrap_or_default();
+    let has_subgroup_boundaries = stmt_group.subgroup_boundaries.is_some();
     for (i, node) in stmt_group.nodes.into_iter().enumerate() {
       let is_empty_stmt = node.is::<EmptyStmt>();
       if !is_empty_stmt {
         let mut separator_items = PrintItems::new();
         if let Some(last_node) = &last_node {
           separator_items.push_signal(Signal::NewLine);
-          let blank_line = if let Some(boundaries) = stmt_group.subgroup_boundaries.as_ref() {
-            boundaries.contains(&i)
+          let blank_line = if has_subgroup_boundaries {
+            subgroup_boundary_set.contains(&i)
           } else {
             node_helpers::has_separating_blank_line(&last_node, &node, context.program)
           };
@@ -7376,11 +7382,10 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
         let end_ln = LineNumber::new("endStatement");
         context.end_statement_or_member_lns.push(end_ln);
         // Emit captured attached leading comments so they travel with this
-        // import even after reorder. These were captured BEFORE the partition
-        // mutated `nodes`; look them up by ORIGINAL source index.
-        if let Some(source_index_for) = &stmt_group.source_index_for {
-          let src_idx = source_index_for[i];
-          if let Some(comments) = stmt_group.captured_attached_leading.get(src_idx) {
+        // import even after reorder. The list was permuted to post-reorder
+        // order at partition time so we can index directly.
+        if has_subgroup_boundaries {
+          if let Some(comments) = stmt_group.captured_attached_leading.get(i) {
             if !comments.is_empty() {
               items.extend(gen_captured_comments_as_statements(comments, None, context));
             }
@@ -7490,9 +7495,6 @@ struct StmtGroup<'a> {
   /// header / license). These stay pinned to the file start and are emitted
   /// before the per-node loop.
   captured_detached_header: Vec<&'a Comment>,
-  /// `source_index_for[post_reorder_position] = original source index`.
-  /// Used to look up captured comments during emission.
-  source_index_for: Option<Vec<usize>>,
 }
 
 fn node_src_with_quotes<'a>(node: &Node<'a>, context: &Context<'a>) -> String {
@@ -7535,7 +7537,6 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<S
           subgroup_boundaries: None,
           captured_attached_leading: Vec::new(),
           captured_detached_header: Vec::new(),
-          source_index_for: None,
         })
       }
     } else {
@@ -7545,7 +7546,6 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<S
         subgroup_boundaries: None,
         captured_attached_leading: Vec::new(),
         captured_detached_header: Vec::new(),
-        source_index_for: None,
       });
     }
   }
@@ -7598,7 +7598,7 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<S
           }
           match sort {
             SortOrder::CaseSensitive => cmp_module_specifiers(&node_srcs[a_orig], &node_srcs[b_orig], |x, y| x.cmp(y)),
-            SortOrder::CaseInsensitive => cmp_module_specifiers(&node_srcs[a_orig], &node_srcs[b_orig], |x, y| x.to_lowercase().cmp(&y.to_lowercase())),
+            SortOrder::CaseInsensitive => cmp_module_specifiers(&node_srcs[a_orig], &node_srcs[b_orig], crate::generation::sorting::cmp_text_case_insensitive),
             SortOrder::Maintain => unreachable!(),
           }
         },
@@ -7653,14 +7653,15 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<S
         }
       }
 
-      let mut new_nodes: Vec<Node> = Vec::with_capacity(g.nodes.len());
+      let mut new_nodes: Vec<Node> = Vec::with_capacity(ordered.len());
+      let mut reordered_attached: Vec<Vec<&Comment>> = Vec::with_capacity(ordered.len());
       for orig in &ordered {
         new_nodes.push(g.nodes[*orig]);
+        reordered_attached.push(std::mem::take(&mut captured_attached_leading[*orig]));
       }
       g.nodes = new_nodes;
       g.subgroup_boundaries = Some(boundaries);
-      g.source_index_for = Some(ordered.clone());
-      g.captured_attached_leading = captured_attached_leading;
+      g.captured_attached_leading = reordered_attached;
       g.captured_detached_header = captured_detached_header;
     }
   }
