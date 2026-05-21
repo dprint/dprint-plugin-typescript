@@ -436,6 +436,14 @@ pub struct Configuration {
   pub export_declaration_sort_named_exports: SortOrder,
   #[serde(rename = "exportDeclaration.sortTypeOnlyExports")]
   pub export_declaration_sort_type_only_exports: NamedTypeImportsExportsOrder,
+  #[serde(rename = "module.importGroups", default, skip_serializing_if = "Vec::is_empty")]
+  pub module_import_groups: Vec<ImportGroup>,
+  #[serde(rename = "module.typeImports", default = "default_type_imports_mode")]
+  pub module_type_imports: TypeImportsMode,
+  #[serde(rename = "module.mergeImports", default)]
+  pub module_merge_imports: bool,
+  #[serde(rename = "module.builtinsRuntime", default = "default_builtins_runtime")]
+  pub module_builtins_runtime: BuiltinsRuntime,
   /* ignore comments */
   pub ignore_node_comment_text: String,
   pub ignore_file_comment_text: String,
@@ -746,6 +754,14 @@ pub struct Configuration {
   pub tuple_type_space_around: bool,
   #[serde(rename = "whileStatement.spaceAround")]
   pub while_statement_space_around: bool,
+}
+
+fn default_type_imports_mode() -> TypeImportsMode {
+  TypeImportsMode::Separate
+}
+
+fn default_builtins_runtime() -> BuiltinsRuntime {
+  BuiltinsRuntime::Node
 }
 
 #[cfg(test)]

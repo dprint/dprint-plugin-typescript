@@ -132,6 +132,10 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
       NamedTypeImportsExportsOrder::None,
       &mut diagnostics,
     ),
+    module_import_groups: Vec::new(),
+    module_type_imports: get_value(&mut config, "module.typeImports", TypeImportsMode::Separate, &mut diagnostics),
+    module_merge_imports: get_value(&mut config, "module.mergeImports", false, &mut diagnostics),
+    module_builtins_runtime: get_value(&mut config, "module.builtinsRuntime", BuiltinsRuntime::Node, &mut diagnostics),
     /* ignore comments */
     ignore_node_comment_text: get_value(&mut config, "ignoreNodeCommentText", String::from("dprint-ignore"), &mut diagnostics),
     ignore_file_comment_text: get_value(&mut config, "ignoreFileCommentText", String::from("dprint-ignore-file"), &mut diagnostics),
