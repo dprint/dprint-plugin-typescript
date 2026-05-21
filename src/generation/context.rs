@@ -77,6 +77,7 @@ pub struct Context<'a> {
   #[cfg(debug_assertions)]
   pub last_generated_node_pos: SourcePos,
   pub diagnostics: Vec<GenerateDiagnostic>,
+  pub resolved_import_groups: Option<crate::generation::imports::resolved::ResolvedGroups>,
 }
 
 impl<'a> Context<'a> {
@@ -88,6 +89,9 @@ impl<'a> Context<'a> {
     config: &'a Configuration,
     external_formatter: Option<&'a ExternalFormatter>,
   ) -> Context<'a> {
+    let mut _import_group_diags: Vec<String> = Vec::new();
+    let resolved_import_groups = crate::generation::imports::resolved::compile(config, &mut _import_group_diags);
+    // diagnostics dropped here for now; surfaced via resolve_config in a later task.
     Context {
       media_type,
       program,
@@ -111,6 +115,7 @@ impl<'a> Context<'a> {
       #[cfg(debug_assertions)]
       last_generated_node_pos: deno_ast::SourceTextInfoProvider::text_info(&program).range().start.into(),
       diagnostics: Vec::new(),
+      resolved_import_groups,
     }
   }
 

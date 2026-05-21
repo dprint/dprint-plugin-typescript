@@ -7460,6 +7460,46 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<S
     groups.push(current_group);
   }
 
+  // Partition import groups when feature enabled.
+  if let Some(resolved) = context.resolved_import_groups.as_ref() {
+    for g in groups.iter_mut() {
+      if g.kind != StmtGroupKind::Imports {
+        continue;
+      }
+      let classified: Vec<(usize, usize)> = g
+        .nodes
+        .iter()
+        .enumerate()
+        .map(|(i, node)| {
+          let (src, is_type) = if let Node::ImportDecl(d) = node {
+            (d.src.value().as_str().unwrap_or("").to_string(), d.type_only())
+          } else {
+            (String::new(), false)
+          };
+          let idx = crate::generation::imports::classify::classify(
+            &src,
+            is_type,
+            context.config.module_type_imports,
+            context.config.module_builtins_runtime,
+            resolved,
+          );
+          (idx, i)
+        })
+        .collect();
+      let (ordered, boundaries) = crate::generation::imports::partition::partition_indices(
+        &classified,
+        resolved.groups.len(),
+        |_a, _b| std::cmp::Ordering::Equal, // intra-group sort handled by existing sorter in gen_statements
+      );
+      let mut new_nodes: Vec<Node> = Vec::with_capacity(g.nodes.len());
+      for orig in &ordered {
+        new_nodes.push(g.nodes[*orig]);
+      }
+      g.nodes = new_nodes;
+      g.subgroup_boundaries = Some(boundaries);
+    }
+  }
+
   groups
 }
 
