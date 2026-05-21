@@ -341,6 +341,54 @@ generate_str_to_from![
   [None, "none"]
 ];
 
+/// Built-in category strings allowed in `module.importGroups[].match`.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BuiltinCategory {
+  Builtin,
+  External,
+  Parent,
+  Sibling,
+  Index,
+  Type,
+  Unknown,
+}
+
+generate_str_to_from![
+  BuiltinCategory,
+  [Builtin, "builtin"],
+  [External, "external"],
+  [Parent, "parent"],
+  [Sibling, "sibling"],
+  [Index, "index"],
+  [Type, "type"],
+  [Unknown, "unknown"]
+];
+
+/// A single matcher inside a group's `match` value.
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ImportMatcher {
+  Category(BuiltinCategory),
+  /// Raw glob pattern string. Compiled lazily by resolve_config into a globset.
+  Pattern { pattern: String },
+}
+
+/// Either a single matcher or a list (list = merged into one group).
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ImportGroupMatch {
+  Single(ImportMatcher),
+  Multiple(Vec<ImportMatcher>),
+}
+
+/// One resolved import group, in user-listed order.
+#[derive(Clone, Serialize, Deserialize)]
+pub struct ImportGroup {
+  #[serde(rename = "match")]
+  pub matchers: ImportGroupMatch,
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Configuration {
@@ -719,5 +767,24 @@ mod import_group_enum_tests {
     assert!(matches!(BuiltinsRuntime::from_str("bun"), Ok(BuiltinsRuntime::Bun)));
     assert!(matches!(BuiltinsRuntime::from_str("none"), Ok(BuiltinsRuntime::None)));
     assert_eq!(BuiltinsRuntime::Node.to_string(), "node");
+  }
+
+  #[test]
+  fn import_matcher_variants() {
+    let c = ImportMatcher::Category(BuiltinCategory::External);
+    let p = ImportMatcher::Pattern { pattern: "foo/*".to_string() };
+    assert!(matches!(c, ImportMatcher::Category(BuiltinCategory::External)));
+    assert!(matches!(p, ImportMatcher::Pattern { pattern: _ }));
+  }
+
+  #[test]
+  fn builtin_category_round_trip() {
+    assert!(matches!(BuiltinCategory::from_str("builtin"), Ok(BuiltinCategory::Builtin)));
+    assert!(matches!(BuiltinCategory::from_str("external"), Ok(BuiltinCategory::External)));
+    assert!(matches!(BuiltinCategory::from_str("parent"), Ok(BuiltinCategory::Parent)));
+    assert!(matches!(BuiltinCategory::from_str("sibling"), Ok(BuiltinCategory::Sibling)));
+    assert!(matches!(BuiltinCategory::from_str("index"), Ok(BuiltinCategory::Index)));
+    assert!(matches!(BuiltinCategory::from_str("type"), Ok(BuiltinCategory::Type)));
+    assert!(matches!(BuiltinCategory::from_str("unknown"), Ok(BuiltinCategory::Unknown)));
   }
 }
