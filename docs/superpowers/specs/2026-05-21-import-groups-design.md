@@ -47,7 +47,14 @@ blank line between groups. Eliminates the need for `eslint-plugin-import`'s
   // Merge multiple imports from the same source into one declaration.
   //   false (default) : leave as written (matches ESLint import/order).
   //   true            : merge compatible duplicates (matches Biome organizeImports).
-  "module.mergeImports": false
+  "module.mergeImports": false,
+
+  // What counts as a runtime builtin.
+  //   "node" (default): `node:*` prefix or Node core list (e.g. `fs`, `path`).
+  //   "deno"          : `node:*` prefix only. `npm:`, `jsr:`, `https://` → external.
+  //   "bun"           : `node:*`, `bun:*`, and Node core list.
+  //   "none"          : nothing matches `builtin`; use pattern groups instead.
+  "module.builtinsRuntime": "node"
 }
 ```
 
@@ -62,13 +69,26 @@ blank line between groups. Eliminates the need for `eslint-plugin-import`'s
 
 | Category    | Match condition                                                                 |
 |-------------|---------------------------------------------------------------------------------|
-| `builtin`   | source starts with `node:` OR is in hardcoded Node core list                    |
-| `external`  | bare specifier not matched as builtin (e.g. `react`, `@scope/pkg`)              |
+| `builtin`   | depends on `module.builtinsRuntime` — see runtime table below                    |
+| `external`  | bare specifier not matched as builtin (e.g. `react`, `@scope/pkg`); also `npm:*`, `jsr:*`, `https://*` URL imports under any runtime |
 | `parent`    | source starts with `../`                                                        |
 | `sibling`   | source starts with `./` and is not an index path                                |
 | `index`     | source is `.`, `./`, `./index`, or `./index.{ts,tsx,js,jsx,mjs,cjs,mts,cts}`    |
 | `type`      | `import type` / `export type` declaration, only when `typeImports: "separate"`  |
 | `unknown`   | implicit catch-all; placed at end if not listed; user may insert explicitly     |
+
+### Builtin runtime table
+
+| `module.builtinsRuntime` | Matches as `builtin`                                                     |
+|--------------------------|--------------------------------------------------------------------------|
+| `"node"` (default)       | `node:*` prefix OR source in shipped Node core list                      |
+| `"deno"`                 | `node:*` prefix only                                                     |
+| `"bun"`                  | `node:*` prefix, `bun:*` prefix, OR source in shipped Node core list     |
+| `"none"`                 | nothing                                                                  |
+
+Shipped lists are hardcoded snapshots — Node core from the Node 22 LTS
+`module.builtinModules`, Bun core from Bun's documented `bun:*` modules.
+Snapshot version recorded in the source file header for future bumps.
 
 ### Resolution & precedence
 
@@ -111,14 +131,20 @@ classify(import_decl, config) -> usize  // index into resolved groups
 
   category =
     if is_type && typeImports == "separate":            "type"
-    elif src.starts_with("node:"):                       "builtin"
-    elif NODE_CORE_LIST.contains(src):                   "builtin"
+    elif is_builtin(src, config.builtinsRuntime):       "builtin"
     elif src.starts_with("../"):                         "parent"
     elif src is "." || "./" || "./index"
          || matches "./index.{ts,tsx,js,jsx,mjs,cjs,mts,cts}":
                                                          "index"
     elif src.starts_with("./"):                          "sibling"
     else:                                                "external"
+
+is_builtin(src, runtime):
+  match runtime:
+    "node": src.starts_with("node:") || NODE_CORE_LIST.contains(src)
+    "deno": src.starts_with("node:")
+    "bun" : src.starts_with("node:") || src.starts_with("bun:") || NODE_CORE_LIST.contains(src)
+    "none": false
 
   // Walk resolved group list in order; return first index where any matcher
   // is `Category(category)` or `Pattern(glob)` matching src.
@@ -319,6 +345,12 @@ existing dprint spec test format (input → expected, per-spec config).
 | 53 | `mergeImports: true` — `// dprint-ignore` on either decl prevents merge |
 | 54 | `mergeImports: true` — comments on merged decls preserved above result |
 | 55 | `mergeImports: true` interaction with `importDeclaration.sortNamedImports` — merged specifier list sorted |
+| 56 | `builtinsRuntime: "node"` (default) — bare `fs` → builtin |
+| 57 | `builtinsRuntime: "deno"` — bare `fs` → external (no core list); `node:fs` → builtin |
+| 58 | `builtinsRuntime: "deno"` — `npm:react`, `jsr:@std/path`, `https://deno.land/x/foo/mod.ts` → external |
+| 59 | `builtinsRuntime: "bun"` — `bun:test` → builtin; `bun:sqlite` → builtin; bare `fs` → builtin |
+| 60 | `builtinsRuntime: "none"` — nothing classified as builtin; user-defined pattern groups handle everything |
+| 61 | Invalid `builtinsRuntime` string — diagnostic, default to `"node"` |
 
 ### Unit tests (`#[cfg(test)]`)
 
@@ -336,10 +368,11 @@ Full existing spec suite must produce zero diff with the feature disabled.
   config fields.
 - `src/configuration/builder.rs` — builder methods + defaults.
 - `src/configuration/resolve_config.rs` — parse + validate `module.importGroups`,
-  `module.typeImports`, `module.mergeImports`; emit diagnostics.
+  `module.typeImports`, `module.mergeImports`, `module.builtinsRuntime`; emit diagnostics.
 - `src/generation/generate.rs` — extend `StmtGroup`, add
   `partition_import_group`, classifier, blank-line predicate update.
-- `src/utils/node_builtins.rs` — new file: Node core list + helper.
+- `src/utils/builtins.rs` — new file: Node core list, Bun core list,
+  `is_builtin(src, runtime)` helper.
 - `tests/specs/modules/imports/ImportGroups_*.txt` — new spec files.
 
 ## Migration notes for ESLint users
