@@ -1,0 +1,22 @@
+~~ {
+  "lineWidth": 80,
+  "module.sortImportDeclarations": "maintain",
+  "module.importGroups": [
+    { "match": "builtin" },
+    { "match": "external" },
+    { "match": ["sibling", "index"] }
+  ]
+} ~~
+== side-effect import is a barrier; imports either side grouped independently ==
+import { a } from "react";
+import "./side-effect";
+import { fs } from "node:fs";
+import { c } from "./c";
+
+[expect]
+import { a } from "react";
+import "./side-effect";
+
+import { fs } from "node:fs";
+
+import { c } from "./c";
