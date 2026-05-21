@@ -7425,6 +7425,15 @@ struct StmtGroup<'a> {
   subgroup_boundaries: Option<Vec<usize>>,
 }
 
+fn node_src_with_quotes<'a>(node: &Node<'a>, context: &Context<'a>) -> String {
+  if let Node::ImportDecl(d) = node {
+    // cmp_module_specifiers wants text including surrounding quotes.
+    d.src.text_fast(context.program).to_string()
+  } else {
+    String::new()
+  }
+}
+
 fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<StmtGroup<'a>> {
   let mut groups: Vec<StmtGroup<'a>> = Vec::new();
   let mut current_group: Option<StmtGroup> = None;
@@ -7495,10 +7504,25 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<S
           (idx, i)
         })
         .collect();
+      // Pre-collect source strings to avoid borrowing g.nodes inside the closure.
+      let node_srcs: Vec<String> = g.nodes.iter().map(|n| node_src_with_quotes(n, context)).collect();
+
+      let sort = context.config.module_sort_import_declarations;
       let (ordered, boundaries) = crate::generation::imports::partition::partition_indices(
         &classified,
         resolved.groups.len(),
-        |_a, _b| std::cmp::Ordering::Equal, // intra-group sort handled by existing sorter in gen_statements
+        |a_orig: usize, b_orig: usize| -> std::cmp::Ordering {
+          use crate::configuration::SortOrder;
+          use crate::generation::sorting::module_specifiers::cmp_module_specifiers;
+          if matches!(sort, SortOrder::Maintain) {
+            return a_orig.cmp(&b_orig);
+          }
+          match sort {
+            SortOrder::CaseSensitive => cmp_module_specifiers(&node_srcs[a_orig], &node_srcs[b_orig], |x, y| x.cmp(y)),
+            SortOrder::CaseInsensitive => cmp_module_specifiers(&node_srcs[a_orig], &node_srcs[b_orig], |x, y| x.to_lowercase().cmp(&y.to_lowercase())),
+            SortOrder::Maintain => unreachable!(),
+          }
+        },
       );
       let mut new_nodes: Vec<Node> = Vec::with_capacity(g.nodes.len());
       for orig in &ordered {

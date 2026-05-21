@@ -1,4 +1,4 @@
-mod module_specifiers;
+pub(crate) mod module_specifiers;
 use module_specifiers::*;
 
 use deno_ast::view::*;
