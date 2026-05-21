@@ -22,6 +22,13 @@ blank line between groups. Eliminates the need for `eslint-plugin-import`'s
 - TypeScript `import X = require(...)` / `export X = ...`.
 - Re-exports `export ... from "..."` (handled by the existing `Exports` group;
   not regrouped by this feature).
+- **Merging duplicate-source imports** (combining `import {a} from "x"` and
+  `import {b} from "x"` into one). Biome's `organizeImports` does this;
+  ESLint `import/order` does not. dprint stays formatter-only.
+- **Natural sort** of import sources. Existing `SortOrder` (lexicographic,
+  case-sensitive/-insensitive) only.
+- Classifying imports inside nested `declare module "..."` bodies. Only the
+  top-level statement list of a program is partitioned.
 
 ## Configuration
 
@@ -169,6 +176,22 @@ Touch points (`src/generation/generate.rs`, ~7300–7470):
 - **`unknown` listed explicitly**: that position is used instead of implicit end.
 - **`"type"` listed under `typeImports: "interleave"`**: diagnostic; the
   category never matches anything in this mode and is ignored.
+- **Unknown category string** (e.g. `"buildin"` typo): config-resolve
+  diagnostic; entry ignored.
+- **File header comments** (license, `// @ts-check`, shebang) above the first
+  import: detect "detached" leading comments — comments separated from the
+  first import by at least one blank line — and pin them to the file start.
+  Only comments adjacent (no blank line) to an import travel with that import
+  during reorder.
+- **Import attributes** (`import x from "y" with { type: "json" }`):
+  classification uses only `decl.src.value`; attributes are irrelevant and
+  pass through unchanged.
+- **Multiple import chunks separated by non-import statements**: each chunk
+  grouped independently (existing `get_stmt_groups` chunk boundary). No
+  cross-chunk reorder.
+- **`.d.ts` declaration files**: same code path; no special handling.
+- **Imports inside `declare module "..."`**: not classified; nested module
+  bodies are skipped (top-level program only).
 - **TS `import equals`**: not in the current `Imports` `StmtGroupKind`;
   unaffected. Out of scope.
 - **`export ... from`**: handled by the `Exports` `StmtGroupKind`; unaffected.
@@ -233,6 +256,16 @@ existing dprint spec test format (input → expected, per-spec config).
 | 33 | File with a single import — no-op |
 | 34 | Interaction with `importDeclaration.forceSingleLine` (width orthogonal) |
 | 35 | Interaction with `importDeclaration.sortNamedImports` (specifier sort still applies) |
+| 36 | License header comment above first import stays pinned to file start after reorder |
+| 37 | `// @ts-check` / shebang preservation |
+| 38 | Comment directly adjacent to an import (no blank line) travels with it |
+| 39 | Import attributes `import x from "y" with { type: "json" }` classification + passthrough |
+| 40 | Multiple import chunks separated by a non-import statement — each chunk grouped independently |
+| 41 | `.d.ts` declaration file — same behavior |
+| 42 | Imports inside `declare module "..."` body — untouched |
+| 43 | Unknown category string in config (typo) — diagnostic, entry ignored |
+| 44 | `typeImports: "interleave"` with `"type"` listed — diagnostic, ignored |
+| 45 | Duplicate-source imports — left as-is (no merge) |
 
 ### Unit tests (`#[cfg(test)]`)
 
