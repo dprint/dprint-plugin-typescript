@@ -6747,6 +6747,35 @@ fn gen_comments_as_statements<'a>(comments: impl Iterator<Item = &'a Comment>, l
   items
 }
 
+/// Like `gen_comments_as_statements` but emits comments even if they are
+/// already marked as handled. Used by the import-groups feature to emit
+/// pre-captured comments after marking them handled up-front (so that the
+/// per-node sweep in `gen_node` skips them).
+fn gen_captured_comments_as_statements<'a>(comments: &[&'a Comment], last_node: Option<&SourceRange>, context: &mut Context<'a>) -> PrintItems {
+  let mut last_node = last_node.map(|l| l.range());
+  let mut items = PrintItems::new();
+  let mut was_last_block_comment = false;
+  for comment in comments {
+    // Emit even though already-handled. `gen_comment_based_on_last_node` -> `gen_comment`
+    // would short-circuit on handled, so call the renderer directly.
+    if let Some(last_node) = &last_node {
+      let comment_start_line = comment.start_line_fast(context.program);
+      let last_node_end_line = last_node.end_line_fast(context.program);
+      items.push_signal(Signal::NewLine);
+      if comment_start_line > last_node_end_line + 1 {
+        items.push_signal(Signal::NewLine);
+      }
+    }
+    items.extend(render_comment(comment, context));
+    last_node = Some(comment.range());
+    was_last_block_comment = comment.kind == CommentKind::Block;
+  }
+  if was_last_block_comment {
+    items.push_signal(Signal::ExpectNewLine);
+  }
+  items
+}
+
 fn gen_comments_between_lines_indented(start_between_pos: SourcePos, context: &mut Context) -> PrintItems {
   let trailing_comments = get_comments_between_lines(start_between_pos, context);
   let mut items = PrintItems::new();
@@ -6929,8 +6958,14 @@ fn gen_comment(comment: &Comment, context: &mut Context) -> Option<PrintItems> {
 
   // mark handled and generate
   context.mark_comment_handled(comment);
+  Some(render_comment(comment, context))
+}
 
-  return Some(match comment.kind {
+/// Render a comment's text without consulting the handled-set. Callers use
+/// this when they need to emit a comment that is already marked handled
+/// (e.g. when the import-groups feature pre-captures comments).
+fn render_comment(comment: &Comment, context: &mut Context) -> PrintItems {
+  match comment.kind {
     CommentKind::Block => {
       if has_leading_astrisk_each_line(&comment.text) {
         gen_js_doc_or_multiline_block(comment, context)
@@ -6940,22 +6975,22 @@ fn gen_comment(comment: &Comment, context: &mut Context) -> Option<PrintItems> {
       }
     }
     CommentKind::Line => ir_helpers::gen_js_like_comment_line(&comment.text, context.config.comment_line_force_space_after_slashes),
-  });
+  }
+}
 
-  fn has_leading_astrisk_each_line(text: &str) -> bool {
-    if !text.contains('\n') {
+fn has_leading_astrisk_each_line(text: &str) -> bool {
+  if !text.contains('\n') {
+    return false;
+  }
+
+  for line in text.trim().split('\n') {
+    let first_non_whitespace = line.trim_start().chars().next();
+    if !matches!(first_non_whitespace, Some('*')) {
       return false;
     }
-
-    for line in text.trim().split('\n') {
-      let first_non_whitespace = line.trim_start().chars().next();
-      if !matches!(first_non_whitespace, Some('*')) {
-        return false;
-      }
-    }
-
-    true
   }
+
+  true
 }
 
 fn gen_js_doc_or_multiline_block(comment: &Comment, _context: &mut Context) -> PrintItems {
@@ -7283,7 +7318,20 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
   let stmt_group_len = stmt_groups.len();
 
   for (stmt_group_index, stmt_group) in stmt_groups.into_iter().enumerate() {
-    if stmt_group.kind == StmtGroupKind::Imports || stmt_group.kind == StmtGroupKind::Exports {
+    if stmt_group.subgroup_boundaries.is_some() {
+      // Imports were reordered. Emit the detached file-header comments pinned
+      // to source position; per-node attached comments are emitted inside the
+      // loop below so they follow their import.
+      if !stmt_group.captured_detached_header.is_empty() {
+        let last_comment = stmt_group.captured_detached_header.last().map(|c| c.range());
+        items.extend(gen_captured_comments_as_statements(
+          &stmt_group.captured_detached_header,
+          last_node.as_ref().map(|x| x as &SourceRange),
+          context,
+        ));
+        last_node = last_comment.or(last_node);
+      }
+    } else if stmt_group.kind == StmtGroupKind::Imports || stmt_group.kind == StmtGroupKind::Exports {
       // keep the leading comments of the stmt group on the same line
       let comments = get_leading_comments_on_previous_lines(&stmt_group.nodes.first().as_ref().unwrap().start().range(), context);
       let last_comment = comments.iter().filter(|c| !context.has_handled_comment(c)).last().map(|c| c.range());
@@ -7327,6 +7375,17 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
         let mut items = PrintItems::new();
         let end_ln = LineNumber::new("endStatement");
         context.end_statement_or_member_lns.push(end_ln);
+        // Emit captured attached leading comments so they travel with this
+        // import even after reorder. These were captured BEFORE the partition
+        // mutated `nodes`; look them up by ORIGINAL source index.
+        if let Some(source_index_for) = &stmt_group.source_index_for {
+          let src_idx = source_index_for[i];
+          if let Some(comments) = stmt_group.captured_attached_leading.get(src_idx) {
+            if !comments.is_empty() {
+              items.extend(gen_captured_comments_as_statements(comments, None, context));
+            }
+          }
+        }
         items.extend(gen_node(node, context));
         items.push_info(end_ln);
         generated_nodes.push(items);
@@ -7423,6 +7482,17 @@ struct StmtGroup<'a> {
   /// Indices into `nodes` (post-reorder) marking the start of each subgroup.
   /// Only Some for `StmtGroupKind::Imports` when `module.importGroups` is non-empty.
   subgroup_boundaries: Option<Vec<usize>>,
+  /// Per source-index attached leading comments captured before reorder. Each
+  /// entry holds the comments that should "travel" with the import at that
+  /// original source index. Only populated when imports are reordered.
+  captured_attached_leading: Vec<Vec<&'a Comment>>,
+  /// Detached comments above the FIRST import in source order (e.g. file
+  /// header / license). These stay pinned to the file start and are emitted
+  /// before the per-node loop.
+  captured_detached_header: Vec<&'a Comment>,
+  /// `source_index_for[post_reorder_position] = original source index`.
+  /// Used to look up captured comments during emission.
+  source_index_for: Option<Vec<usize>>,
 }
 
 fn node_src_with_quotes<'a>(node: &Node<'a>, context: &Context<'a>) -> String {
@@ -7463,6 +7533,9 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<S
           kind: stmt_group_kind,
           nodes: vec![stmt],
           subgroup_boundaries: None,
+          captured_attached_leading: Vec::new(),
+          captured_detached_header: Vec::new(),
+          source_index_for: None,
         })
       }
     } else {
@@ -7470,6 +7543,9 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<S
         kind: stmt_group_kind,
         nodes: vec![stmt],
         subgroup_boundaries: None,
+        captured_attached_leading: Vec::new(),
+        captured_detached_header: Vec::new(),
+        source_index_for: None,
       });
     }
   }
@@ -7479,7 +7555,10 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<S
   }
 
   // Partition import groups when feature enabled.
-  if let Some(resolved) = context.resolved_import_groups.as_ref() {
+  // Take `resolved_import_groups` out of `context` so we can mutably borrow
+  // `context` to mark captured comments handled. Put it back when done.
+  let resolved_opt = context.resolved_import_groups.take();
+  if let Some(resolved) = resolved_opt.as_ref() {
     for g in groups.iter_mut() {
       if g.kind != StmtGroupKind::Imports {
         continue;
@@ -7524,14 +7603,69 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<S
           }
         },
       );
+
+      // Capture per-node leading comments BEFORE the reorder mutation so that
+      // comments physically attached to each import travel with that import.
+      // The first import's preamble is further split into detached (header)
+      // and attached portions; only the attached portion travels.
+      let mut captured_attached_leading: Vec<Vec<&Comment>> = Vec::with_capacity(g.nodes.len());
+      let mut captured_detached_header: Vec<&Comment> = Vec::new();
+      for (src_idx, node) in g.nodes.iter().enumerate() {
+        let comments: Vec<&Comment> = node.leading_comments_fast(context.program).collect();
+        if src_idx == 0 {
+          // Split into detached header vs attached preamble. A comment is part
+          // of the "attached" preamble iff there is no blank-line gap between
+          // it and the node start AND no blank-line gap between it and any
+          // following attached comment. We walk from the node upward.
+          let node_start_line = node.start_line_fast(context.program);
+          // Find longest suffix of `comments` where consecutive lines have no
+          // blank-line gap between them or between the last one and the node.
+          let mut attached_start = comments.len();
+          let mut next_line = node_start_line;
+          for i in (0..comments.len()).rev() {
+            let c = comments[i];
+            let c_end_line = c.end_line_fast(context.program);
+            // Blank line between this comment's end and the next anchor line?
+            if next_line > c_end_line + 1 {
+              break;
+            }
+            attached_start = i;
+            next_line = c.start_line_fast(context.program);
+          }
+          captured_detached_header.extend(comments[..attached_start].iter().copied());
+          captured_attached_leading.push(comments[attached_start..].iter().copied().collect());
+        } else {
+          // For non-first nodes, all leading comments travel with the node.
+          captured_attached_leading.push(comments);
+        }
+      }
+
+      // Mark all captured comments handled up-front so the per-node sweep in
+      // `gen_node` (which uses source positions) skips them. We then emit
+      // them ourselves via `gen_captured_comments_as_statements`, which
+      // bypasses the handled-check.
+      for c in &captured_detached_header {
+        context.mark_comment_handled(c);
+      }
+      for cs in &captured_attached_leading {
+        for c in cs {
+          context.mark_comment_handled(c);
+        }
+      }
+
       let mut new_nodes: Vec<Node> = Vec::with_capacity(g.nodes.len());
       for orig in &ordered {
         new_nodes.push(g.nodes[*orig]);
       }
       g.nodes = new_nodes;
       g.subgroup_boundaries = Some(boundaries);
+      g.source_index_for = Some(ordered.clone());
+      g.captured_attached_leading = captured_attached_leading;
+      g.captured_detached_header = captured_detached_header;
     }
   }
+  // Restore the resolved groups so later code paths still see them.
+  context.resolved_import_groups = resolved_opt;
 
   groups
 }

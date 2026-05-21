@@ -20,3 +20,14 @@ import "./side-effect";
 import { fs } from "node:fs";
 
 import { c } from "./c";
+
+== leading comment adjacent to import travels with it on reorder ==
+// keep me with react
+import { a } from "react";
+import { fs } from "node:fs";
+
+[expect]
+import { fs } from "node:fs";
+
+// keep me with react
+import { a } from "react";
