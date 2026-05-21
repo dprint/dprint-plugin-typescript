@@ -342,6 +342,18 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
 
   diagnostics.extend(get_unknown_property_diagnostics(config));
 
+  // Surface compile-time diagnostics for module.importGroups.
+  if !resolved_config.module_import_groups.is_empty() {
+    let mut compile_diags: Vec<String> = Vec::new();
+    let _ = crate::generation::imports::resolved::compile(&resolved_config, &mut compile_diags);
+    for msg in compile_diags {
+      diagnostics.push(ConfigurationDiagnostic {
+        property_name: "module.importGroups".to_string(),
+        message: msg,
+      });
+    }
+  }
+
   return ResolveConfigurationResult {
     config: resolved_config,
     diagnostics,
@@ -487,5 +499,35 @@ mod import_groups_resolution_tests {
     assert_eq!(r.config.module_import_groups.len(), 0);
     assert_eq!(r.diagnostics.len(), 1);
     assert_eq!(r.diagnostics[0].property_name, "module.importGroups");
+  }
+
+  #[test]
+  fn unknown_category_string_diagnostic() {
+    let r = resolve(serde_json::json!({
+      "module.importGroups": [{ "match": "buildin" }]
+    }));
+    assert!(!r.diagnostics.is_empty(), "expected diagnostic for typo");
+    assert!(
+      r.diagnostics.iter().any(|d| {
+        let m = d.message.to_lowercase();
+        m.contains("buildin")
+          || m.contains("unknown")
+          || m.contains("did not match any variant")
+          || m.contains("invalid import groups")
+      }),
+      "diagnostic should signal an invalid variant, got: {:?}",
+      r.diagnostics.iter().map(|d| &d.message).collect::<Vec<_>>()
+    );
+  }
+
+  #[test]
+  fn duplicate_category_surfaces_via_resolve_config() {
+    let r = resolve(serde_json::json!({
+      "module.importGroups": [
+        { "match": "builtin" },
+        { "match": "builtin" }
+      ]
+    }));
+    assert!(r.diagnostics.iter().any(|d| d.property_name == "module.importGroups" && d.message.contains("Builtin")), "expected duplicate-category diagnostic, got: {:?}", r.diagnostics.iter().map(|d| &d.message).collect::<Vec<_>>());
   }
 }
