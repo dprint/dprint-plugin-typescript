@@ -7298,7 +7298,11 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
     let nodes_len = stmt_group.nodes.len();
     let mut generated_nodes = Vec::with_capacity(nodes_len);
     let mut generated_line_separators = utils::VecMap::with_capacity(nodes_len);
-    let sorter = get_node_sorter(stmt_group.kind, context);
+    let sorter = if stmt_group.subgroup_boundaries.is_some() {
+      None
+    } else {
+      get_node_sorter(stmt_group.kind, context)
+    };
     let sorted_indexes = match sorter {
       Some(sorter) => Some(get_sorted_indexes(stmt_group.nodes.iter().map(|n| Some(*n)), sorter, context)),
       None => None,
@@ -7309,7 +7313,12 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
         let mut separator_items = PrintItems::new();
         if let Some(last_node) = &last_node {
           separator_items.push_signal(Signal::NewLine);
-          if node_helpers::has_separating_blank_line(&last_node, &node, context.program) {
+          let blank_line = if let Some(boundaries) = stmt_group.subgroup_boundaries.as_ref() {
+            boundaries.contains(&i)
+          } else {
+            node_helpers::has_separating_blank_line(&last_node, &node, context.program)
+          };
+          if blank_line {
             separator_items.push_signal(Signal::NewLine);
           }
           generated_line_separators.insert(i, separator_items);
