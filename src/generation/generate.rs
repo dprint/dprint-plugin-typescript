@@ -7411,6 +7411,9 @@ enum StmtGroupKind {
 struct StmtGroup<'a> {
   kind: StmtGroupKind,
   nodes: Vec<Node<'a>>,
+  /// Indices into `nodes` (post-reorder) marking the start of each subgroup.
+  /// Only Some for `StmtGroupKind::Imports` when `module.importGroups` is non-empty.
+  subgroup_boundaries: Option<Vec<usize>>,
 }
 
 fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<StmtGroup<'a>> {
@@ -7441,12 +7444,14 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<S
         current_group = Some(StmtGroup {
           kind: stmt_group_kind,
           nodes: vec![stmt],
+          subgroup_boundaries: None,
         })
       }
     } else {
       current_group = Some(StmtGroup {
         kind: stmt_group_kind,
         nodes: vec![stmt],
+        subgroup_boundaries: None,
       });
     }
   }
