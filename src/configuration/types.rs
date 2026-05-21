@@ -342,7 +342,7 @@ generate_str_to_from![
 ];
 
 /// Built-in category strings allowed in `module.importGroups[].match`.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum BuiltinCategory {
   Builtin,
