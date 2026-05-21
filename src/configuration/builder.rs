@@ -592,13 +592,6 @@ impl ConfigurationBuilder {
     self.insert("module.typeImports", value.to_string().into())
   }
 
-  /// Merge multiple imports from the same source into one declaration.
-  ///
-  /// Default: `false`
-  pub fn module_merge_imports(&mut self, value: bool) -> &mut Self {
-    self.insert("module.mergeImports", value.into())
-  }
-
   /// Which runtime's built-in modules count as `builtin`.
   ///
   /// Default: `Node`

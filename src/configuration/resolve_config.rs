@@ -134,7 +134,6 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     ),
     module_import_groups: parse_import_groups(&mut config, &mut diagnostics),
     module_type_imports: get_value(&mut config, "module.typeImports", TypeImportsMode::Separate, &mut diagnostics),
-    module_merge_imports: get_value(&mut config, "module.mergeImports", false, &mut diagnostics),
     module_builtins_runtime: get_value(&mut config, "module.builtinsRuntime", BuiltinsRuntime::Node, &mut diagnostics),
     /* ignore comments */
     ignore_node_comment_text: get_value(&mut config, "ignoreNodeCommentText", String::from("dprint-ignore"), &mut diagnostics),
@@ -354,13 +353,6 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     }
   }
 
-  if resolved_config.module_merge_imports {
-    diagnostics.push(ConfigurationDiagnostic {
-      property_name: "module.mergeImports".to_string(),
-      message: "module.mergeImports is currently not implemented; setting it to true has no effect. Tracked for a future release.".to_string(),
-    });
-  }
-
   return ResolveConfigurationResult {
     config: resolved_config,
     diagnostics,
@@ -480,7 +472,6 @@ mod import_groups_resolution_tests {
     let r = resolve(serde_json::json!({}));
     assert!(r.config.module_import_groups.is_empty());
     assert!(matches!(r.config.module_type_imports, TypeImportsMode::Separate));
-    assert!(!r.config.module_merge_imports);
     assert!(matches!(r.config.module_builtins_runtime, BuiltinsRuntime::Node));
     assert!(r.diagnostics.is_empty());
   }

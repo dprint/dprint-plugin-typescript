@@ -440,8 +440,6 @@ pub struct Configuration {
   pub module_import_groups: Vec<ImportGroup>,
   #[serde(rename = "module.typeImports", default = "default_type_imports_mode")]
   pub module_type_imports: TypeImportsMode,
-  #[serde(rename = "module.mergeImports", default)]
-  pub module_merge_imports: bool,
   #[serde(rename = "module.builtinsRuntime", default = "default_builtins_runtime")]
   pub module_builtins_runtime: BuiltinsRuntime,
   /* ignore comments */

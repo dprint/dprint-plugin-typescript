@@ -46,7 +46,6 @@ This reorders imports across the import block into the listed groups and inserts
 |---|---|---|---|
 | `module.importGroups` | array | `[]` (off) | Ordered list of groups. Empty disables the feature. |
 | `module.typeImports` | `"separate"` \| `"interleave"` | `"separate"` | Whether `import type` lines form their own category. |
-| `module.mergeImports` | bool | `false` | Merge multiple imports from the same source (Biome-style). Currently detection only; emission TBD. |
 | `module.builtinsRuntime` | `"node"` \| `"deno"` \| `"bun"` \| `"none"` | `"node"` | Which runtime's built-in module list classifies as `builtin`. |
 
 ### Built-in categories
@@ -85,5 +84,4 @@ First-match-wins across the list, so position determines precedence.
 - Descending sort not supported.
 - TS `import X = require(...)` not reordered.
 - Imports inside nested `declare module "..."` bodies are not classified.
-- `module.mergeImports` is currently detection-only; merged emission TBD in a follow-up.
 - Currently, an import with `// dprint-ignore` is reordered like any other; barrier treatment is planned for a follow-up.
