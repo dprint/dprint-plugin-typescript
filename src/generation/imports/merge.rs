@@ -4,6 +4,7 @@
 /// point operates on `ImportDecl` nodes (added in Task 8.2); this struct lets
 /// us unit-test the rules without an AST.
 #[derive(Clone, Debug, PartialEq)]
+#[allow(dead_code)]
 pub struct MergeCandidate {
   pub src: String,
   /// Canonicalized attribute fingerprint (`None` if no `with { ... }`).
@@ -80,6 +81,7 @@ mod tests {
 
 /// Index-based bucket: either a single decl at index `i` or a merge of multiple decls.
 #[derive(Debug, PartialEq)]
+#[allow(dead_code)]
 pub enum MergeBucket {
   Single(usize),
   Merged(Vec<usize>),
@@ -87,6 +89,7 @@ pub enum MergeBucket {
 
 /// Compute merge buckets over a slice of decl metadata, in order.
 /// MVP: only named-only imports from the same source merge.
+#[allow(dead_code)]
 pub fn compute_buckets(candidates: &[MergeCandidate], has_namespace: &[bool], has_named: &[bool]) -> Vec<MergeBucket> {
   let mut buckets: Vec<MergeBucket> = Vec::new();
   let mut current: Vec<usize> = Vec::new();
@@ -120,6 +123,7 @@ pub fn compute_buckets(candidates: &[MergeCandidate], has_namespace: &[bool], ha
   buckets
 }
 
+#[allow(dead_code)]
 fn flush_current(buckets: &mut Vec<MergeBucket>, current: &mut Vec<usize>) {
   match current.len() {
     0 => {}

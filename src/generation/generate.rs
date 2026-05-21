@@ -7633,7 +7633,7 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<S
             next_line = c.start_line_fast(context.program);
           }
           captured_detached_header.extend(comments[..attached_start].iter().copied());
-          captured_attached_leading.push(comments[attached_start..].iter().copied().collect());
+          captured_attached_leading.push(comments[attached_start..].to_vec());
         } else {
           // For non-first nodes, all leading comments travel with the node.
           captured_attached_leading.push(comments);
