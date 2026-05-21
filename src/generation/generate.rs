@@ -391,6 +391,9 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
 
   #[cfg(debug_assertions)]
   fn assert_generated_in_order(node: Node, context: &mut Context) {
+    if context.bypass_node_order_check {
+      return;
+    }
     let node_pos = node.start();
     if context.last_generated_node_pos > node_pos {
       // When this panic happens it means that a node with a start further
@@ -7361,6 +7364,14 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
       .map(|bs| bs.iter().copied().collect())
       .unwrap_or_default();
     let has_subgroup_boundaries = stmt_group.subgroup_boundaries.is_some();
+    #[cfg(debug_assertions)]
+    let max_node_pos = stmt_group.nodes.iter().map(|n| n.start()).max();
+    #[cfg(debug_assertions)]
+    let prev_bypass = context.bypass_node_order_check;
+    #[cfg(debug_assertions)]
+    if has_subgroup_boundaries {
+      context.bypass_node_order_check = true;
+    }
     for (i, node) in stmt_group.nodes.into_iter().enumerate() {
       let is_empty_stmt = node.is::<EmptyStmt>();
       if !is_empty_stmt {
@@ -7414,6 +7425,17 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
         // ensure if this is last that it generates the trailing comment statements
         if stmt_group_index == stmt_group_len - 1 && i == nodes_len - 1 {
           last_node = Some(node.range());
+        }
+      }
+    }
+    #[cfg(debug_assertions)]
+    if has_subgroup_boundaries {
+      context.bypass_node_order_check = prev_bypass;
+      // Advance `last_generated_node_pos` to the max source position among
+      // emitted nodes so subsequent statements pass the order check.
+      if let Some(p) = max_node_pos {
+        if p > context.last_generated_node_pos {
+          context.last_generated_node_pos = p;
         }
       }
     }
