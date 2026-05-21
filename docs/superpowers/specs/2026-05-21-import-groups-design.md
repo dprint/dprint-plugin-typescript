@@ -22,9 +22,6 @@ blank line between groups. Eliminates the need for `eslint-plugin-import`'s
 - TypeScript `import X = require(...)` / `export X = ...`.
 - Re-exports `export ... from "..."` (handled by the existing `Exports` group;
   not regrouped by this feature).
-- **Merging duplicate-source imports** (combining `import {a} from "x"` and
-  `import {b} from "x"` into one). Biome's `organizeImports` does this;
-  ESLint `import/order` does not. dprint stays formatter-only.
 - **Natural sort** of import sources. Existing `SortOrder` (lexicographic,
   case-sensitive/-insensitive) only.
 - Classifying imports inside nested `declare module "..."` bodies. Only the
@@ -45,7 +42,12 @@ blank line between groups. Eliminates the need for `eslint-plugin-import`'s
   // How type-only imports are classified.
   //   "separate"  (default): a distinct implicit category "type"; user places it in the list.
   //   "interleave"         : classified by source path the same as value imports.
-  "module.typeImports": "separate"
+  "module.typeImports": "separate",
+
+  // Merge multiple imports from the same source into one declaration.
+  //   false (default) : leave as written (matches ESLint import/order).
+  //   true            : merge compatible duplicates (matches Biome organizeImports).
+  "module.mergeImports": false
 }
 ```
 
@@ -127,6 +129,44 @@ Within each non-empty partition apply
 `get_node_sorter_from_order(module_sort_import_declarations, NamedTypeImportsExportsOrder::None)`
 (existing helper).
 
+### Merge pass (when `module.mergeImports = true`)
+
+Runs once per subgroup, after the within-group sort. Walks consecutive
+declarations; merges runs sharing the same `(source, attributes)` key.
+
+**Merge eligibility** — two adjacent decls `A` and `B` may merge iff all hold:
+
+- `A.src.value == B.src.value` (string equality).
+- Their import-attributes clauses (`with { ... }`) are structurally equal
+  (same keys, same string values, same order is not required).
+- They do not both declare a default specifier with different local names
+  (e.g. `import x from "y"` + `import z from "y"` — two defaults, conflict).
+- Neither carries `// dprint-ignore`.
+
+**Merge result:**
+
+- Specifier set = union of all specifiers from merged decls.
+- Specifier order = defaults first, then namespace, then named (sorted by
+  existing `importDeclaration.sortNamedImports`).
+- Type-only mixing: if at least one merged decl is value and at least one is
+  `import type` (or has per-specifier `type` markers), result is a value
+  declaration with `type` markers preserved per specifier
+  (`import { a, type B } from "x"`). If **all** merged decls are
+  `import type`, result is `import type { ... } from "x"`.
+- Leading comments: concatenated in source order above the merged decl, with
+  blank lines between author-separated blocks preserved.
+- Trailing same-line comment: only one allowed; if multiple, keep the first
+  and emit the rest as preceding line comments of the merged decl, source
+  order preserved.
+- Side-effect import (`import "./x"`) followed by named import from same
+  source: merged to the named import (named import already triggers eval).
+
+**Skip cases** (no merge, original decls kept; emit info diagnostic):
+
+- Two default specifiers with different local names.
+- Different attribute clauses.
+- Either decl has `// dprint-ignore`.
+
 ## Emission
 
 Touch points (`src/generation/generate.rs`, ~7300–7470):
@@ -184,8 +224,11 @@ Touch points (`src/generation/generate.rs`, ~7300–7470):
   Only comments adjacent (no blank line) to an import travel with that import
   during reorder.
 - **Import attributes** (`import x from "y" with { type: "json" }`):
-  classification uses only `decl.src.value`; attributes are irrelevant and
-  pass through unchanged.
+  classification reads only `decl.src.value`; attributes are not part of the
+  category decision. Decls are reordered intact — attribute clauses pass
+  through verbatim. Attributes do participate in the merge eligibility check
+  when `mergeImports = true` (two decls with non-equal attribute clauses are
+  never merged even if their sources match).
 - **Multiple import chunks separated by non-import statements**: each chunk
   grouped independently (existing `get_stmt_groups` chunk boundary). No
   cross-chunk reorder.
@@ -265,7 +308,17 @@ existing dprint spec test format (input → expected, per-spec config).
 | 42 | Imports inside `declare module "..."` body — untouched |
 | 43 | Unknown category string in config (typo) — diagnostic, entry ignored |
 | 44 | `typeImports: "interleave"` with `"type"` listed — diagnostic, ignored |
-| 45 | Duplicate-source imports — left as-is (no merge) |
+| 45 | Duplicate-source imports with `mergeImports: false` (default) — left as-is |
+| 46 | `mergeImports: true` — basic merge of `import {a} from "x"; import {b} from "x"` → `import {a, b} from "x"` |
+| 47 | `mergeImports: true` — side-effect + named from same source merge to named |
+| 48 | `mergeImports: true` — default + namespace from same source merge to `import x, * as y from "z"` |
+| 49 | `mergeImports: true` — value + `import type` merge with per-specifier `type` markers |
+| 50 | `mergeImports: true` — all-`import type` decls merge to single `import type {...}` |
+| 51 | `mergeImports: true` — two conflicting defaults left unmerged + diagnostic |
+| 52 | `mergeImports: true` — different `with { ... }` attributes left unmerged |
+| 53 | `mergeImports: true` — `// dprint-ignore` on either decl prevents merge |
+| 54 | `mergeImports: true` — comments on merged decls preserved above result |
+| 55 | `mergeImports: true` interaction with `importDeclaration.sortNamedImports` — merged specifier list sorted |
 
 ### Unit tests (`#[cfg(test)]`)
 
@@ -283,7 +336,7 @@ Full existing spec suite must produce zero diff with the feature disabled.
   config fields.
 - `src/configuration/builder.rs` — builder methods + defaults.
 - `src/configuration/resolve_config.rs` — parse + validate `module.importGroups`,
-  `module.typeImports`; emit diagnostics.
+  `module.typeImports`, `module.mergeImports`; emit diagnostics.
 - `src/generation/generate.rs` — extend `StmtGroup`, add
   `partition_import_group`, classifier, blank-line predicate update.
 - `src/utils/node_builtins.rs` — new file: Node core list + helper.
