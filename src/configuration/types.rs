@@ -307,6 +307,40 @@ pub enum NamedTypeImportsExportsOrder {
 
 generate_str_to_from![NamedTypeImportsExportsOrder, [First, "first"], [Last, "last"], [None, "none"]];
 
+/// How type-only imports are classified by `module.importGroups`.
+#[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TypeImportsMode {
+  /// Type-only imports form a distinct implicit category `type`.
+  Separate,
+  /// Type-only imports are classified by source path like value imports.
+  Interleave,
+}
+
+generate_str_to_from![TypeImportsMode, [Separate, "separate"], [Interleave, "interleave"]];
+
+/// Which runtime's built-in modules count as `builtin` for grouping.
+#[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BuiltinsRuntime {
+  /// `node:` prefix or Node core module list (default).
+  Node,
+  /// `node:` prefix only.
+  Deno,
+  /// `node:` prefix, `bun:` prefix, or Node core module list.
+  Bun,
+  /// Nothing matches `builtin`.
+  None,
+}
+
+generate_str_to_from![
+  BuiltinsRuntime,
+  [Node, "node"],
+  [Deno, "deno"],
+  [Bun, "bun"],
+  [None, "none"]
+];
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Configuration {
@@ -664,4 +698,26 @@ pub struct Configuration {
   pub tuple_type_space_around: bool,
   #[serde(rename = "whileStatement.spaceAround")]
   pub while_statement_space_around: bool,
+}
+
+#[cfg(test)]
+mod import_group_enum_tests {
+  use super::*;
+  use std::str::FromStr;
+
+  #[test]
+  fn type_imports_mode_round_trip() {
+    assert!(matches!(TypeImportsMode::from_str("separate"), Ok(TypeImportsMode::Separate)));
+    assert!(matches!(TypeImportsMode::from_str("interleave"), Ok(TypeImportsMode::Interleave)));
+    assert_eq!(TypeImportsMode::Separate.to_string(), "separate");
+  }
+
+  #[test]
+  fn builtins_runtime_round_trip() {
+    assert!(matches!(BuiltinsRuntime::from_str("node"), Ok(BuiltinsRuntime::Node)));
+    assert!(matches!(BuiltinsRuntime::from_str("deno"), Ok(BuiltinsRuntime::Deno)));
+    assert!(matches!(BuiltinsRuntime::from_str("bun"), Ok(BuiltinsRuntime::Bun)));
+    assert!(matches!(BuiltinsRuntime::from_str("none"), Ok(BuiltinsRuntime::None)));
+    assert_eq!(BuiltinsRuntime::Node.to_string(), "node");
+  }
 }
