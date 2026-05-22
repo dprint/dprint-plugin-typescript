@@ -6517,13 +6517,14 @@ struct UnionOrIntersectionType<'a, 'b> {
 }
 
 fn gen_union_or_intersection_type<'a, 'b>(node: UnionOrIntersectionType<'a, 'b>, context: &mut Context<'a>) -> PrintItems {
-  // todo: configuration for operator position
   let mut items = PrintItems::new();
   let force_use_new_lines = get_use_new_lines_for_nodes(node.types, context.config.union_and_intersection_type_prefer_single_line, context);
   let separator = if node.is_union { sc!("|") } else { sc!("&") };
+  let trailing_separator = if node.is_union { sc!(" |") } else { sc!(" &") };
 
   let indent_width = context.config.indent_width;
   let prefer_hanging = context.config.union_and_intersection_type_prefer_hanging;
+  let operator_position = context.config.union_and_intersection_type_operator_position;
   let is_parent_union_or_intersection = matches!(node.node.parent().unwrap().kind(), NodeKind::TsUnionType | NodeKind::TsIntersectionType);
   let multi_line_options = if !is_parent_union_or_intersection {
     if use_surround_newlines(node.node, context) {
@@ -6538,6 +6539,42 @@ fn gen_union_or_intersection_type<'a, 'b>(node: UnionOrIntersectionType<'a, 'b>,
     |is_multi_line_or_hanging_ref| {
       let is_multi_line_or_hanging = is_multi_line_or_hanging_ref.create_resolver();
       let types_count = node.types.len();
+
+      // For each pair (between types[i-1] and types[i], i >= 1), decide whether the
+      // separator should be at the end of the previous line (SameLine) or at the
+      // start of the next line (NextLine). Index 0 is unused.
+      let pair_positions: Vec<OperatorPosition> = node
+        .types
+        .iter()
+        .enumerate()
+        .map(|(i, type_node)| {
+          if i == 0 {
+            operator_position
+          } else {
+            resolve_pair_position(&node, i, type_node, operator_position, separator.text, context)
+          }
+        })
+        .collect();
+
+      // Whether to emit the conditional leading separator on the first value when
+      // wrapping. NextLine = always (current behavior, leading-`|` hanging style).
+      // SameLine = never. Maintain = follow the source's leading-`|` presence.
+      let leading_first_when_multi_line = match operator_position {
+        OperatorPosition::NextLine => true,
+        OperatorPosition::SameLine => false,
+        OperatorPosition::Maintain => {
+          if node.node.start_line_fast(context.program) == node.node.end_line_fast(context.program) {
+            true
+          } else {
+            node
+              .types
+              .first()
+              .and_then(|t| context.token_finder.get_previous_token_if_operator(&t.range(), separator.text))
+              .is_some()
+          }
+        }
+      };
+
       let mut generated_nodes = Vec::new();
       for (i, type_node) in node.types.iter().enumerate() {
         let (allow_inline_multi_line, allow_inline_single_line) = {
@@ -6552,14 +6589,16 @@ fn gen_union_or_intersection_type<'a, 'b>(node: UnionOrIntersectionType<'a, 'b>,
         if let Some(separator_token) = separator_token {
           items.extend(gen_leading_comments(&separator_token.range(), context));
         }
-        if i == 0 && !is_parent_union_or_intersection {
+
+        let emit_leading_separator = i > 0 && matches!(pair_positions[i], OperatorPosition::NextLine);
+        if i == 0 && !is_parent_union_or_intersection && leading_first_when_multi_line {
           items.push_condition(if_true("separatorIfMultiLine", is_multi_line_or_hanging.clone(), {
             // todo: .into() implementation for StringContainer
             let mut items = PrintItems::new();
             items.push_sc(separator);
             items
           }));
-        } else if i > 0 {
+        } else if emit_leading_separator {
           items.push_sc(separator);
         }
 
@@ -6578,6 +6617,11 @@ fn gen_union_or_intersection_type<'a, 'b>(node: UnionOrIntersectionType<'a, 'b>,
           Signal::SpaceIfNotTrailing.into(),
         ));
         items.extend(gen_node(type_node.into(), context));
+
+        let next_is_same_line = i + 1 < types_count && matches!(pair_positions[i + 1], OperatorPosition::SameLine);
+        if next_is_same_line {
+          items.push_sc(trailing_separator);
+        }
 
         generated_nodes.push(ir_helpers::GeneratedValue {
           items,
@@ -6610,6 +6654,39 @@ fn gen_union_or_intersection_type<'a, 'b>(node: UnionOrIntersectionType<'a, 'b>,
       Node::TsTypeAssertion(_) => true,
       Node::TsParenthesizedType(paren_type) => !should_skip_parenthesized_type(paren_type, context),
       _ => false,
+    }
+  }
+
+  fn resolve_pair_position<'a, 'b>(
+    node: &UnionOrIntersectionType<'a, 'b>,
+    i: usize,
+    type_node: &TsType<'a>,
+    operator_position: OperatorPosition,
+    separator_text: &str,
+    context: &mut Context<'a>,
+  ) -> OperatorPosition {
+    match operator_position {
+      OperatorPosition::NextLine => OperatorPosition::NextLine,
+      OperatorPosition::SameLine => OperatorPosition::SameLine,
+      OperatorPosition::Maintain => {
+        // When the whole union/intersection is on one source line, prefer dprint's
+        // default (NextLine) for the wrapping layout — matches how `Maintain` is
+        // handled for conditional expressions/types.
+        if node.node.start_line_fast(context.program) == node.node.end_line_fast(context.program) {
+          return OperatorPosition::NextLine;
+        }
+        match context.token_finder.get_previous_token_if_operator(&type_node.range(), separator_text) {
+          Some(sep_token) => {
+            let prev_end_line = node.types[i - 1].end_line_fast(context.program);
+            if prev_end_line == sep_token.start_line_fast(context.program) {
+              OperatorPosition::SameLine
+            } else {
+              OperatorPosition::NextLine
+            }
+          }
+          None => OperatorPosition::NextLine,
+        }
+      }
     }
   }
 }

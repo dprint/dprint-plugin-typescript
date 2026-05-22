@@ -1,0 +1,34 @@
+~~ lineWidth: 40, unionAndIntersectionType.operatorPosition: maintain ~~
+== should use dprint default (leading) when source is single line ==
+export type T = string & test & string & test;
+
+[expect]
+export type T =
+    & string
+    & test
+    & string
+    & test;
+
+== should preserve trailing `&` when source uses trailing style ==
+export type T =
+    string &
+    test &
+    other;
+
+[expect]
+export type T =
+    string &
+    test &
+    other;
+
+== should preserve leading `&` when source uses leading style ==
+export type T =
+    & string
+    & test
+    & other;
+
+[expect]
+export type T =
+    & string
+    & test
+    & other;
