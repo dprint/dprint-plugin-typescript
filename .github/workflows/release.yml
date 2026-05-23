@@ -20,11 +20,11 @@ jobs:
 
     steps:
       - name: Clone repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.GH_DPRINTBOT_PAT }}
 
-      - uses: denoland/setup-deno@v1
+      - uses: denoland/setup-deno@v2
       - uses: dsherret/rust-toolchain-file@v1
 
       - name: Bump version and tag
@@ -34,4 +34,4 @@ jobs:
         run: |
           git config user.email "${{ github.actor }}@users.noreply.github.com"
           git config user.name "${{ github.actor }}"
-          deno run -A https://raw.githubusercontent.com/dprint/automation/0.5.1/tasks/publish_release.ts --${{github.event.inputs.releaseKind}}
+          deno run -A jsr:@dprint/automation@0.10.3/tasks/publish-release --${{github.event.inputs.releaseKind}}
