@@ -3279,6 +3279,7 @@ fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context
       Node::OptChainExpr(expr) => get_possible_surround_newlines(expr.base.as_node()),
       Node::CondExpr(_) => true,
       Node::BinExpr(_) => true,
+      Node::TsUnionType(_) | Node::TsIntersectionType(_) => true,
       Node::MemberExpr(expr) => !keep_member_expr_on_one_line(expr),
       Node::CallExpr(expr) => !keep_call_expr_on_one_line(expr.into()),
       Node::OptCall(expr) => !keep_call_expr_on_one_line(expr.into()),
