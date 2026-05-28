@@ -22,6 +22,7 @@ fn main() {
   let iterations = env_usize("DPRINT_BENCH_ITERS").unwrap_or(10);
   let import_count = env_usize("DPRINT_BENCH_IMPORTS").unwrap_or(2_000);
   let named_count = env_usize("DPRINT_BENCH_NAMED_IMPORTS").unwrap_or(2_000);
+  let call_count = env_usize("DPRINT_BENCH_CALLS").unwrap_or(10_000);
   let parent_segments = env_usize("DPRINT_BENCH_PARENT_SEGMENTS").unwrap_or(6).max(1);
   let config = ConfigurationBuilder::new().build();
   let maintain_order_config = ConfigurationBuilder::new()
@@ -49,15 +50,20 @@ fn main() {
   let grouped_imports_text = grouped_import_declarations(import_count, parent_segments);
   let sorted_named_imports_text = sorted_named_imports(named_count);
   let sorted_named_exports_text = sorted_named_exports(named_count);
+  let simple_calls_text = simple_call_expressions(call_count);
+  let chained_calls_text = chained_call_expressions(call_count);
   let sorted_imports_parsed = parse_source(&sorted_imports_text);
   let sorted_exports_parsed = parse_source(&sorted_exports_text);
   let grouped_imports_parsed = parse_source(&grouped_imports_text);
   let sorted_named_imports_parsed = parse_source(&sorted_named_imports_text);
   let sorted_named_exports_parsed = parse_source(&sorted_named_exports_text);
+  let simple_calls_parsed = parse_source(&simple_calls_text);
+  let chained_calls_parsed = parse_source(&chained_calls_text);
 
   println!("iterations: {iterations}");
   println!("import declarations: {import_count}");
   println!("named imports: {named_count}");
+  println!("call expressions: {call_count}");
   println!("max parent segments: {parent_segments}");
 
   bench("sorted_import_declarations/full", iterations, || {
@@ -101,6 +107,18 @@ fn main() {
   });
   bench("maintain_named_exports/parsed", iterations, || {
     run_format_parsed_source(&sorted_named_exports_parsed, &maintain_order_config)
+  });
+  bench("simple_call_expressions/full", iterations, || {
+    run_format_text(&simple_calls_text, &config)
+  });
+  bench("simple_call_expressions/parsed", iterations, || {
+    run_format_parsed_source(&simple_calls_parsed, &config)
+  });
+  bench("chained_call_expressions/full", iterations, || {
+    run_format_text(&chained_calls_text, &config)
+  });
+  bench("chained_call_expressions/parsed", iterations, || {
+    run_format_parsed_source(&chained_calls_parsed, &config)
   });
 }
 
@@ -236,6 +254,24 @@ fn sorted_named_exports(named_count: usize) -> String {
     }
   }
   text.push_str("} from \"pkg\";\n\nexport const value = 1;\n");
+  text
+}
+
+fn simple_call_expressions(call_count: usize) -> String {
+  let mut text = String::from("export function run() {\n");
+  for i in 0..call_count {
+    text.push_str(&format!("  call{i}(value{i}, other{i});\n"));
+  }
+  text.push_str("}\n");
+  text
+}
+
+fn chained_call_expressions(call_count: usize) -> String {
+  let mut text = String::from("export function run() {\n");
+  for i in 0..call_count {
+    text.push_str(&format!("  service{i}.client.create(value{i}).send(other{i});\n"));
+  }
+  text.push_str("}\n");
   text
 }
 

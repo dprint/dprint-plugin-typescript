@@ -2220,9 +2220,19 @@ fn gen_call_or_opt_expr<'a>(node: CallOrOptCallExpr<'a>, context: &mut Context<'
   }
 
   // flatten the call expression and check if it should be generated as a flattened member like expression
-  let flattened_call_expr = flatten_member_like_expr(node.into(), context.program);
-  return if flattened_call_expr.nodes.len() > 1 {
-    gen_for_flattened_member_like_expr(flattened_call_expr, context)
+  return if should_flatten_call_expr(&node) {
+    let flattened_call_expr = flatten_member_like_expr(node.into(), context.program);
+    if flattened_call_expr.nodes.len() > 1 {
+      gen_for_flattened_member_like_expr(flattened_call_expr, context)
+    } else {
+      gen_call_expr_like(
+        CallExprLike {
+          original_call_expr: node,
+          generated_callee: gen_node(node.callee().into(), context),
+        },
+        context,
+      )
+    }
   } else {
     gen_call_expr_like(
       CallExprLike {
@@ -2232,6 +2242,13 @@ fn gen_call_or_opt_expr<'a>(node: CallOrOptCallExpr<'a>, context: &mut Context<'
       context,
     )
   };
+
+  fn should_flatten_call_expr<'a>(node: &CallOrOptCallExpr<'a>) -> bool {
+    matches!(
+      node.callee(),
+      Callee::Expr(Expr::Call(_) | Expr::Member(_) | Expr::MetaProp(_) | Expr::OptChain(_) | Expr::SuperProp(_))
+    )
+  }
 
   fn gen_test_library_call_expr<'a>(node: &CallExpr<'a>, context: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
