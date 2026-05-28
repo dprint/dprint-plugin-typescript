@@ -209,3 +209,92 @@ const Anchor = styled["a"]`
     text-decoration: none;
     color: #007bff;
 `;
+
+== should format css in JSX css prop ==
+const x = <div css={`display:flex ; align-items:center ;`}>x</div>;
+[expect]
+const x = (
+    <div
+        css={`
+            display: flex;
+            align-items: center;
+        `}
+    >
+        x
+    </div>
+);
+
+== should not treat non-css JSX attribute template as css ==
+const x = <div data={`raw template`}>x</div>;
+[expect]
+const x = <div data={`raw template`}>x</div>;
+
+== should format css in styled-jsx `<style jsx>{`...`}</style>` ==
+const x = <style jsx>{`display:flex ; align-items:center ;`}</style>;
+[expect]
+const x = (
+    <style jsx>
+        {`
+            display: flex;
+            align-items: center;
+        `}
+    </style>
+);
+
+== should format css in styled-jsx `<style jsx global>{`...`}</style>` ==
+const x = <style jsx global>{`html { color: red; }`}</style>;
+[expect]
+const x = (
+    <style jsx global>
+        {`
+            html {
+                color: red;
+            }
+        `}
+    </style>
+);
+
+== should not treat `<style>{`...`}</style>` without jsx attribute as css ==
+const x = <style>{`html { color: red; }`}</style>;
+[expect]
+const x = <style>{`html { color: red; }`}</style>;
+
+== should format css in Angular @Component({ styles: `...` }) ==
+@Component({ selector: 'app', styles: `h1 { color : blue }` })
+export class A {}
+[expect]
+@Component({
+    selector: "app",
+    styles: `
+        h1 {
+            color: blue;
+        }
+    `,
+})
+export class A {}
+
+== should format css in Angular @Component({ styles: [`...`] }) ==
+@Component({ selector: 'app', styles: [`h1 { color : blue }`] })
+export class A {}
+[expect]
+@Component({
+    selector: "app",
+    styles: [`
+        h1 {
+            color: blue;
+        }
+    `],
+})
+export class A {}
+
+== should not treat non-Component decorator template as css/html ==
+decorate({ styles: `h1 { color: red }` });
+[expect]
+decorate({ styles: `h1 { color: red }` });
+
+== should not treat Angular @Component with computed `[styles]` key ==
+@Component({ [stylesKey]: `h1 { color : blue }` })
+export class A {}
+[expect]
+@Component({ [stylesKey]: `h1 { color : blue }` })
+export class A {}

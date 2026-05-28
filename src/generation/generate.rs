@@ -3135,6 +3135,23 @@ fn maybe_gen_tpl_with_external_formatter<'a>(tpl: &Tpl<'a>, embedded_lang: &str,
 /// Detects whether a bare template literal is in a position where the host should
 /// format its contents (currently only `graphql(\`...\`)` — direct call argument
 /// to a `graphql` identifier), and returns the language key if so.
+/// Walks the parent chain of a bare template literal looking for surrounding
+/// context that selects an embedded language (e.g. JSX `css` prop, styled-jsx
+/// `<style jsx>{`...`}</style>`, Angular `@Component({ template/styles })`,
+/// `graphql(`...`)` call argument).
+fn detect_embedded_lang_for_tpl<'a>(tpl: &Tpl<'a>) -> Option<&'a str> {
+  if let Some(lang) = detect_embedded_lang_for_call_arg_tpl(tpl) {
+    return Some(lang);
+  }
+  if let Some(lang) = detect_embedded_lang_for_jsx_tpl(tpl) {
+    return Some(lang);
+  }
+  if let Some(lang) = detect_embedded_lang_for_angular_component_tpl(tpl) {
+    return Some(lang);
+  }
+  None
+}
+
 fn detect_embedded_lang_for_call_arg_tpl<'a>(tpl: &Tpl<'a>) -> Option<&'a str> {
   // template literal arguments live inside an `ExprOrSpread` wrapper.
   let expr_or_spread = tpl.parent().to::<ExprOrSpread>()?;
@@ -3144,6 +3161,84 @@ fn detect_embedded_lang_for_call_arg_tpl<'a>(tpl: &Tpl<'a>) -> Option<&'a str> {
   let call_expr = expr_or_spread.parent().to::<CallExpr>()?;
   match call_expr.callee {
     Callee::Expr(Expr::Ident(ident)) if ident.sym().as_str() == "graphql" => Some("graphql"),
+    _ => None,
+  }
+}
+
+/// Detects:
+/// - `<div css={`...`} />`   -> css   (emotion / theme-ui style prop)
+/// - `<style jsx>{`...`}</style>` and `<style jsx global>` -> css (styled-jsx)
+fn detect_embedded_lang_for_jsx_tpl<'a>(tpl: &Tpl<'a>) -> Option<&'a str> {
+  let container = tpl.parent().to::<JSXExprContainer>()?;
+  match container.parent() {
+    // css prop: `<X css={`...`}>`
+    Node::JSXAttr(attr) => {
+      if let JSXAttrName::Ident(name) = attr.name {
+        if name.sym().as_str() == "css" {
+          return Some("css");
+        }
+      }
+      None
+    }
+    // styled-jsx: `<style jsx>{`...`}</style>`
+    Node::JSXElement(element) => {
+      let opening = element.opening;
+      let JSXElementName::Ident(name) = opening.name else { return None };
+      if name.sym().as_str() != "style" {
+        return None;
+      }
+      let has_jsx_attr = opening.attrs.iter().any(|attr_or_spread| match attr_or_spread {
+        JSXAttrOrSpread::JSXAttr(attr) => matches!(attr.name, JSXAttrName::Ident(ident) if ident.sym().as_str() == "jsx"),
+        _ => false,
+      });
+      if has_jsx_attr { Some("css") } else { None }
+    }
+    _ => None,
+  }
+}
+
+/// Detects template literal in an Angular `@Component({ … })` decorator argument:
+/// - `template: `...`` -> html
+/// - `styles: `...`` and `styles: [`...`]` -> css
+fn detect_embedded_lang_for_angular_component_tpl<'a>(tpl: &Tpl<'a>) -> Option<&'a str> {
+  // walk up through an optional array literal (for the `styles: [`...`]` form),
+  // then to the KeyValueProp whose key tells us the language.
+  let (kv_prop, is_in_array) = {
+    let parent = tpl.parent();
+    if let Some(array_elem) = parent.to::<ExprOrSpread>() {
+      // array element form
+      if array_elem.spread().is_some() {
+        return None;
+      }
+      let array = array_elem.parent().to::<ArrayLit>()?;
+      let array_parent = array.parent();
+      let kv = array_parent.to::<KeyValueProp>()?;
+      (kv, true)
+    } else {
+      let kv = parent.to::<KeyValueProp>()?;
+      (kv, false)
+    }
+  };
+
+  let key = match kv_prop.key {
+    PropName::Ident(ident) => ident.sym().as_str(),
+    _ => return None,
+  };
+  let lang = match (key, is_in_array) {
+    ("template", false) => "html",
+    ("styles", _) => "css",
+    _ => return None,
+  };
+
+  // ensure we are inside `@Component({ … })`
+  let object_lit = kv_prop.parent();
+  let expr_or_spread = object_lit.parent().to::<ExprOrSpread>()?;
+  if expr_or_spread.spread().is_some() {
+    return None;
+  }
+  let call_expr = expr_or_spread.parent().to::<CallExpr>()?;
+  match call_expr.callee {
+    Callee::Expr(Expr::Ident(ident)) if ident.sym().as_str() == "Component" => Some(lang),
     _ => None,
   }
 }
@@ -3234,8 +3329,9 @@ fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintI
 
 fn gen_tpl<'a>(node: &Tpl<'a>, context: &mut Context<'a>) -> PrintItems {
   // Route through the external formatter when the surrounding context selects an
-  // embedded language for this bare template literal (e.g. `graphql(`...`)`).
-  if let Some(lang) = detect_embedded_lang_for_call_arg_tpl(node) {
+  // embedded language for this bare template literal (graphql(`...`), JSX `css`
+  // prop, styled-jsx `<style jsx>`, Angular `@Component({ template/styles })`).
+  if let Some(lang) = detect_embedded_lang_for_tpl(node) {
     if let Some(formatted) = maybe_gen_tpl_with_external_formatter(node, lang, context) {
       return formatted;
     }
