@@ -3126,26 +3126,59 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
 
 /// Normalizes the type of embedded language in a tagged template literal.
 fn normalize_embedded_language_type<'a>(node: &TaggedTpl<'a>) -> Option<&'a str> {
-  match node.tag {
-    Expr::Ident(ident) => return Some(ident.sym().as_str()),
-    Expr::Member(member_expr) => {
-      if let Expr::Ident(ident) = member_expr.obj {
-        if ident.sym().as_str() == "styled" {
-          return Some("css"); // styled.foo`...`
-        }
+  normalize_tag_expr(node.tag)
+}
+
+fn normalize_tag_expr<'a>(tag: Expr<'a>) -> Option<&'a str> {
+  match tag {
+    Expr::Ident(ident) => {
+      // alias `gql` to `graphql` so external formatters only need to handle one key
+      if ident.sym().as_str() == "gql" {
+        Some("graphql")
+      } else {
+        Some(ident.sym().as_str())
       }
-      None
     }
-    Expr::Call(call_expr) => {
-      if let Callee::Expr(Expr::Ident(ident)) = call_expr.callee {
-        if ident.sym().as_str() == "styled" {
-          return Some("css"); // styled(Button)`...`
-        }
-      }
-      None
-    }
+    Expr::Member(member_expr) => normalize_member_tag(member_expr),
+    Expr::Call(call_expr) => match call_expr.callee {
+      // styled(Button)`...`
+      Callee::Expr(Expr::Ident(ident)) if ident.sym().as_str() == "styled" => Some("css"),
+      // styled.foo.attrs({})`...`, styled(Component).attrs({})`...`, Component.extend.attrs({})`...`
+      Callee::Expr(Expr::Member(member_expr)) => normalize_member_tag(member_expr),
+      _ => None,
+    },
     _ => None,
   }
+}
+
+fn normalize_member_tag<'a>(member_expr: &MemberExpr<'a>) -> Option<&'a str> {
+  match member_expr.obj {
+    // styled.foo`...`
+    Expr::Ident(ident) if ident.sym().as_str() == "styled" => Some("css"),
+    // graphql.experimental`...`
+    Expr::Ident(ident) if ident.sym().as_str() == "graphql" => Some("graphql"),
+    // <UpperCaseIdent>.extend`...`  e.g. `Button.extend`
+    Expr::Ident(ident) if member_prop_name(&member_expr.prop) == Some("extend") && starts_with_uppercase(ident.sym().as_str()) => Some("css"),
+    // styled.foo.attrs({})`...`, styled(Component).attrs({})`...`, Component.extend.attrs({})`...`
+    Expr::Member(inner_member) => normalize_member_tag(inner_member),
+    Expr::Call(call_expr) => match call_expr.callee {
+      Callee::Expr(Expr::Ident(ident)) if ident.sym().as_str() == "styled" => Some("css"),
+      Callee::Expr(Expr::Member(inner_member)) => normalize_member_tag(inner_member),
+      _ => None,
+    },
+    _ => None,
+  }
+}
+
+fn member_prop_name<'a>(prop: &MemberProp<'a>) -> Option<&'a str> {
+  match prop {
+    MemberProp::Ident(ident) => Some(ident.sym().as_str()),
+    _ => None,
+  }
+}
+
+fn starts_with_uppercase(name: &str) -> bool {
+  name.chars().next().map(|c| c.is_ascii_uppercase()).unwrap_or(false)
 }
 
 fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintItems {

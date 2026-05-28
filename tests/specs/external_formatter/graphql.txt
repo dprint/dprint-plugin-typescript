@@ -1,0 +1,20 @@
+== should format graphql in graphql`...` ==
+const q = graphql`query   User {   id   name   }`;
+[expect]
+const q = graphql`
+    query User { id name }
+`;
+
+== should format graphql in gql`...` (aliased) ==
+const q = gql`mutation   Foo {   bar   }`;
+[expect]
+const q = gql`
+    mutation Foo { bar }
+`;
+
+== should format graphql in graphql.experimental`...` ==
+graphql.experimental`mutation   MarkRead($input: Bar)   {   markRead(data: $input)  {  id  } }`;
+[expect]
+graphql.experimental`
+    mutation MarkRead($input: Bar) { markRead(data: $input) { id } }
+`;

@@ -156,3 +156,38 @@ css`
         background-color: #86efac;
     }
 `;
+
+== should format css in styled.tag.attrs({})`...` ==
+styled.button.attrs({})`color : #222 ; background-color: #ccc ;`;
+[expect]
+styled.button.attrs({})`
+    color: #222;
+    background-color: #ccc;
+`;
+
+== should format css in styled(Component).attrs({})`...` ==
+styled(Button).attrs({})`color : #222 ;`;
+[expect]
+styled(Button).attrs({})`
+    color: #222;
+`;
+
+== should format css in <UpperIdent>.extend`...` (styled-components extend) ==
+const Tomato = Button.extend`color : tomato ; border-color: tomato ;`;
+[expect]
+const Tomato = Button.extend`
+    color: tomato;
+    border-color: tomato;
+`;
+
+== should format css in <UpperIdent>.extend.attrs({})`...` ==
+Button.extend.attrs({})`border-color : black ;`;
+[expect]
+Button.extend.attrs({})`
+    border-color: black;
+`;
+
+== should not treat lowercase ident with .extend as css ==
+foo.extend`color: red;`;
+[expect]
+foo.extend`color: red;`;
