@@ -10,3 +10,13 @@ for(const t of test) {
     a;
     b;
 }
+
+== should keep space between `for` and `await` (issue #692) ==
+for await (const t of test) {
+    a;
+}
+
+[expect]
+for await(const t of test) {
+    a;
+}
