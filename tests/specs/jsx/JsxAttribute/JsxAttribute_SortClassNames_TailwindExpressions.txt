@@ -1,0 +1,19 @@
+-- file.jsx --
+~~ jsx.sortClassNames: tailwind ~~
+== should sort string literals inside className expression containers ==
+const value = <div className={cn("p-4 flex", active && "p-2 inline")} />;
+
+[expect]
+const value = <div className={cn("flex p-4", active && "inline p-2")} />;
+
+== should sort object keys inside className expression containers ==
+const value = <div className={cn({ "px-2 p-4": active })} />;
+
+[expect]
+const value = <div className={cn({ "p-4 px-2": active })} />;
+
+== should sort template literals inside className expression containers ==
+const value = <div className={`p-4 flex`} />;
+
+[expect]
+const value = <div className={`flex p-4`} />;

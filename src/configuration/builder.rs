@@ -123,6 +123,23 @@ impl ConfigurationBuilder {
     self.insert("jsx.multiLineParens", value.to_string().into())
   }
 
+  /// How to sort JSX class attribute values.
+  ///
+  /// Default: `JsxClassNamesSortOrder::Maintain`
+  pub fn jsx_sort_class_names(&mut self, value: JsxClassNamesSortOrder) -> &mut Self {
+    self.insert("jsx.sortClassNames", value.to_string().into())
+  }
+
+  /// Function names whose string arguments should be sorted as Tailwind class names.
+  ///
+  /// Default: `[]`
+  pub fn jsx_sort_class_names_functions(&mut self, value: Vec<String>) -> &mut Self {
+    self.insert(
+      "jsx.sortClassNames.functions",
+      ConfigKeyValue::Array(value.into_iter().map(ConfigKeyValue::String).collect()),
+    )
+  }
+
   /// Forces newlines surrounding the content of JSX elements.
   ///
   /// Default: `false`
@@ -1112,6 +1129,8 @@ mod tests {
       .quote_style(QuoteStyle::AlwaysDouble)
       .jsx_quote_style(JsxQuoteStyle::PreferSingle)
       .jsx_multi_line_parens(JsxMultiLineParens::Never)
+      .jsx_sort_class_names(JsxClassNamesSortOrder::Tailwind)
+      .jsx_sort_class_names_functions(vec!["cn".to_string()])
       .jsx_force_new_lines_surrounding_content(true)
       .jsx_bracket_position(SameOrNextLinePosition::Maintain)
       .jsx_opening_element_bracket_position(SameOrNextLinePosition::Maintain)
@@ -1305,7 +1324,7 @@ mod tests {
       .while_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 182);
+    assert_eq!(inner_config.len(), 184);
     let diagnostics = resolve_config(inner_config, &Default::default()).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

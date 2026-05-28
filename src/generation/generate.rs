@@ -3182,7 +3182,13 @@ fn gen_tpl<'a>(node: &Tpl<'a>, context: &mut Context<'a>) -> PrintItems {
 }
 
 fn gen_tpl_element<'a>(node: &TplElement<'a>, context: &mut Context<'a>) -> PrintItems {
-  gen_from_raw_string(node.text_fast(context.program))
+  let text = node.text_fast(context.program);
+  let text = if should_sort_template_literal_class_names(node, context) {
+    sort_tailwind_class_names(text)
+  } else {
+    text.to_string()
+  };
+  gen_from_raw_string(&text)
 }
 
 fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context: &mut Context<'a>) -> PrintItems {
@@ -4257,11 +4263,105 @@ fn gen_reg_exp_literal(node: &Regex, _: &mut Context) -> PrintItems {
 
 fn gen_string_literal<'a>(node: &Str<'a>, context: &mut Context<'a>) -> PrintItems {
   let string_value = string_literal::get_value(node, context);
+  let string_value = if should_sort_string_literal_class_names(node, context) {
+    sort_tailwind_class_names(&string_value)
+  } else {
+    string_value
+  };
   if node.parent().is::<JSXAttr>() {
     string_literal::gen_jsx_text(&string_value, context)
   } else {
     string_literal::gen_non_jsx_text(&string_value, context)
   }
+}
+
+fn should_sort_string_literal_class_names(node: &Str, context: &Context) -> bool {
+  should_sort_tailwind_class_names(context)
+    && (has_sortable_jsx_class_attr_ancestor(context) || has_sortable_class_name_function_ancestor(node.range(), context))
+}
+
+fn should_sort_template_literal_class_names(node: &TplElement, context: &Context) -> bool {
+  should_sort_tailwind_class_names(context)
+    && (has_sortable_jsx_class_attr_ancestor(context) || has_sortable_tagged_template_ancestor(context))
+    && !node.text_fast(context.program).contains("${")
+}
+
+fn should_sort_tailwind_class_names(context: &Context) -> bool {
+  context.config.jsx_sort_class_names == JsxClassNamesSortOrder::Tailwind
+}
+
+fn has_sortable_jsx_class_attr_ancestor(context: &Context) -> bool {
+  context
+    .parent_stack
+    .iter()
+    .any(|ancestor| ancestor.to::<JSXAttr>().is_some_and(|attr| should_sort_jsx_class_names(attr, context)))
+}
+
+fn should_sort_jsx_class_names(attr: &JSXAttr, context: &Context) -> bool {
+  context.config.jsx_sort_class_names == JsxClassNamesSortOrder::Tailwind && matches!(attr.name.text_fast(context.program), "class" | "className")
+}
+
+fn has_sortable_class_name_function_ancestor(node_range: SourceRange, context: &Context) -> bool {
+  if context.config.jsx_sort_class_names_functions.is_empty() {
+    return false;
+  }
+
+  context.parent_stack.iter().any(|ancestor| match ancestor {
+    Node::CallExpr(call_expr) => is_range_in_args(node_range, call_expr.args) && is_sortable_class_name_callee(call_expr.callee, context),
+    Node::OptCall(call_expr) => is_range_in_args(node_range, call_expr.args) && is_sortable_class_name_callee(Callee::Expr(call_expr.callee), context),
+    _ => false,
+  })
+}
+
+fn has_sortable_tagged_template_ancestor(context: &Context) -> bool {
+  if context.config.jsx_sort_class_names_functions.is_empty() {
+    return false;
+  }
+
+  context.parent_stack.iter().any(|ancestor| match ancestor {
+    Node::TaggedTpl(tagged_tpl) => is_sortable_class_name_expression(tagged_tpl.tag.text_fast(context.program), context),
+    _ => false,
+  })
+}
+
+fn is_range_in_args(node_range: SourceRange, args: &[&ExprOrSpread]) -> bool {
+  args.iter().any(|arg| contains_range(arg.range(), node_range))
+}
+
+fn contains_range(outer: SourceRange, inner: SourceRange) -> bool {
+  outer.start <= inner.start && inner.end <= outer.end
+}
+
+fn is_sortable_class_name_callee(callee: Callee, context: &Context) -> bool {
+  match callee {
+    Callee::Expr(expr) => is_sortable_class_name_expression(expr.text_fast(context.program), context),
+    _ => false,
+  }
+}
+
+fn is_sortable_class_name_expression(text: &str, context: &Context) -> bool {
+  get_leading_identifier(text)
+    .map(|name| context.config.jsx_sort_class_names_functions.iter().any(|function_name| function_name == name))
+    .unwrap_or(false)
+}
+
+fn get_leading_identifier(text: &str) -> Option<&str> {
+  let text = text.trim_start();
+  let mut chars = text.char_indices();
+  let (_, first_char) = chars.next()?;
+  if !is_identifier_start(first_char) {
+    return None;
+  }
+  let end = chars.find(|(_, c)| !is_identifier_continue(*c)).map(|(index, _)| index).unwrap_or(text.len());
+  Some(&text[..end])
+}
+
+fn is_identifier_start(c: char) -> bool {
+  c == '_' || c == '$' || c.is_ascii_alphabetic()
+}
+
+fn is_identifier_continue(c: char) -> bool {
+  is_identifier_start(c) || c.is_ascii_digit()
 }
 
 mod string_literal {

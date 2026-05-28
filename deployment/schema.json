@@ -60,6 +60,26 @@
         "description": "Prefers using single quotes except in scenarios where the string contains more single quotes than double quotes."
       }]
     },
+    "jsx.sortClassNames": {
+      "description": "How to sort JSX class attribute values.",
+      "type": "string",
+      "default": "maintain",
+      "oneOf": [{
+        "const": "maintain",
+        "description": "Maintains the current class name ordering."
+      }, {
+        "const": "tailwind",
+        "description": "Sorts class names using Tailwind CSS ordering."
+      }]
+    },
+    "jsx.sortClassNames.functions": {
+      "description": "Function names whose string arguments should be sorted as Tailwind class names.",
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string"
+      }
+    },
     "quoteProps": {
       "description": "Change when properties in objects are quoted.",
       "type": "string",
@@ -870,6 +890,12 @@
     },
     "jsx.multiLineParens": {
       "$ref": "#/definitions/jsx.multiLineParens"
+    },
+    "jsx.sortClassNames": {
+      "$ref": "#/definitions/jsx.sortClassNames"
+    },
+    "jsx.sortClassNames.functions": {
+      "$ref": "#/definitions/jsx.sortClassNames.functions"
     },
     "memberExpression.linePerExpression": {
       "$ref": "#/definitions/memberExpression.linePerExpression"

@@ -1,0 +1,19 @@
+-- file.jsx --
+~~ { "jsx.sortClassNames": "tailwind", "jsx.sortClassNames.functions": ["cn", "classnames", "tw"] } ~~
+== should sort configured function call string arguments ==
+const value = cn("p-4 flex", classnames("p-2 inline"));
+
+[expect]
+const value = cn("flex p-4", classnames("inline p-2"));
+
+== should sort configured member expression calls by leading function name ==
+const value = cn.foo("p-4 flex");
+
+[expect]
+const value = cn.foo("flex p-4");
+
+== should sort configured tagged template literals ==
+const value = tw`p-4 flex`;
+
+[expect]
+const value = tw`flex p-4`;
