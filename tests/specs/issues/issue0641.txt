@@ -1,0 +1,76 @@
+~~ lineWidth: 80 ~~
+== should fully break array of objects when total exceeds line width (issue #641) ==
+const fpnMembershipTitles = [{ name: "FPN" }, { name: "FPN Class" }, { name: "Type" }, { name: "Description" }];
+
+[expect]
+const fpnMembershipTitles = [
+    { name: "FPN" },
+    { name: "FPN Class" },
+    { name: "Type" },
+    { name: "Description" },
+];
+
+== should fully break call with multiple object args when total exceeds line width ==
+foo({ name: "FPN" }, { name: "FPN Class" }, { name: "Type" }, { name: "Description" });
+
+[expect]
+foo(
+    { name: "FPN" },
+    { name: "FPN Class" },
+    { name: "Type" },
+    { name: "Description" },
+);
+
+== should keep hugging when only one sibling can go inline multi-line (last arg arrow) ==
+Array.from({}, _ => { return _ + 1; });
+
+[expect]
+Array.from({}, _ => {
+    return _ + 1;
+});
+
+== should keep hugging single-object arrays even when the object wraps ==
+const a = [{ veryLongKeyName: "veryLongValueThatGoesOnAndOn", anotherLongKey: 42 }];
+
+[expect]
+const a = [{
+    veryLongKeyName: "veryLongValueThatGoesOnAndOn",
+    anotherLongKey: 42,
+}];
+
+== should fully break tuple of object-types when too wide ==
+type T = [{ propOne: number; propTwo: number }, { propOne: number; propTwo: number }];
+
+[expect]
+type T = [
+    { propOne: number; propTwo: number },
+    { propOne: number; propTwo: number },
+];
+
+== should fully break array of arrays when total exceeds line width ==
+const grid = [["aaa", "bbb"], ["ccc", "ddd"], ["eee", "fff"], ["gggggg", "hhhhhh"], ["iiiiii", "jjjjjj"]];
+
+[expect]
+const grid = [
+    ["aaa", "bbb"],
+    ["ccc", "ddd"],
+    ["eee", "fff"],
+    ["gggggg", "hhhhhh"],
+    ["iiiiii", "jjjjjj"],
+];
+
+== should keep short array of objects on a single line ==
+const a = [{}, {}, {}];
+
+[expect]
+const a = [{}, {}, {}];
+
+== should preserve arrow-hugging when arrow is the only inline candidate ==
+something(arg1, arg2, () => {
+    doStuff();
+});
+
+[expect]
+something(arg1, arg2, () => {
+    doStuff();
+});
