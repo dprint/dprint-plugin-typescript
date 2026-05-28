@@ -130,7 +130,8 @@ impl ConfigurationBuilder {
     self.insert("jsx.sortClassNames", value.to_string().into())
   }
 
-  /// Function names whose string arguments should be sorted as Tailwind class names.
+  /// Leading function or tag identifiers whose string arguments and template literals should be sorted as
+  /// Tailwind class names.
   ///
   /// Default: `[]`
   pub fn jsx_sort_class_names_functions(&mut self, value: Vec<String>) -> &mut Self {

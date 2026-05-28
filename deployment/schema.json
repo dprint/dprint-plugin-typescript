@@ -73,7 +73,7 @@
       }]
     },
     "jsx.sortClassNames.functions": {
-      "description": "Function names whose string arguments should be sorted as Tailwind class names.",
+      "description": "Leading function or tag identifiers whose string arguments and template literals should be sorted as Tailwind class names.",
       "type": "array",
       "default": [],
       "items": {
