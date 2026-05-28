@@ -314,6 +314,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       Node::VarDecl(node) => gen_var_decl(node, context),
       Node::VarDeclarator(node) => gen_var_declarator(node, context),
       Node::WhileStmt(node) => gen_while_stmt(node, context),
+      Node::WithStmt(node) => gen_with_stmt(node, context),
       /* types */
       Node::TsArrayType(node) => gen_array_type(node, context),
       Node::TsConditionalType(node) => gen_conditional_type(node, context),
@@ -348,7 +349,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       Node::TsTypeRef(node) => gen_type_reference(node, context),
       Node::TsUnionType(node) => gen_union_type(node, context),
       /* These should never be matched. Return its text if so */
-      Node::Class(_) | Node::Function(_) | Node::Invalid(_) | Node::WithStmt(_) | Node::TsModuleBlock(_) => {
+      Node::Class(_) | Node::Function(_) | Node::Invalid(_) | Node::TsModuleBlock(_) => {
         if cfg!(debug_assertions) {
           panic!("Debug panic! Did not expect to generate IR for node of type {}.", node.kind());
         }
@@ -5653,6 +5654,49 @@ fn gen_while_stmt<'a>(node: &WhileStmt<'a>, context: &mut Context<'a>) -> PrintI
     |context| gen_node(node.test.into(), context),
     GenNodeInParensOptions {
       inner_range: node.test.range(),
+      prefer_hanging: context.config.while_statement_prefer_hanging,
+      allow_open_paren_trailing_comments: false,
+      single_line_space_around: context.config.while_statement_space_around,
+    },
+    context,
+  ));
+  items.push_info(end_header_ln);
+  items.extend(
+    gen_conditional_brace_body(
+      GenConditionalBraceBodyOptions {
+        body_node: node.body.into(),
+        use_braces: context.config.while_statement_use_braces,
+        brace_position: context.config.while_statement_brace_position,
+        single_body_position: Some(context.config.while_statement_single_body_position),
+        requires_braces_condition_ref: None,
+        start_header_info: Some((start_header_ln, start_header_lsil)),
+        end_header_info: Some(end_header_ln),
+      },
+      context,
+    )
+    .generated_node,
+  );
+  items
+}
+
+fn gen_with_stmt<'a>(node: &WithStmt<'a>, context: &mut Context<'a>) -> PrintItems {
+  // `with` statements are deprecated and forbidden in strict mode, but still valid
+  // syntax. Reuse the while statement configuration since the shapes are identical
+  // (keyword, parenthesized expression, body statement).
+  let start_header_ln = LineNumber::new("startHeader");
+  let start_header_lsil = LineStartIndentLevel::new("startHeader");
+  let end_header_ln = LineNumber::new("endHeader");
+  let mut items = PrintItems::new();
+  items.push_info(start_header_ln);
+  items.push_info(start_header_lsil);
+  items.push_sc(sc!("with"));
+  if context.config.while_statement_space_after_while_keyword {
+    items.push_space();
+  }
+  items.extend(gen_node_in_parens(
+    |context| gen_node(node.obj.into(), context),
+    GenNodeInParensOptions {
+      inner_range: node.obj.range(),
       prefer_hanging: context.config.while_statement_prefer_hanging,
       allow_open_paren_trailing_comments: false,
       single_line_space_around: context.config.while_statement_space_around,
