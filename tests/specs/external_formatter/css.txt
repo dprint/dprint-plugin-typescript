@@ -191,3 +191,21 @@ Button.extend.attrs({})`
 foo.extend`color: red;`;
 [expect]
 foo.extend`color: red;`;
+
+== should format css in css.global`...` (emotion-style member) ==
+const reset = css.global`.reset { margin : 0 ; padding : 0 ; }`;
+[expect]
+const reset = css.global`
+    .reset {
+        margin: 0;
+        padding: 0;
+    }
+`;
+
+== should format css in styled["a"]`...` (computed member) ==
+const Anchor = styled["a"]`text-decoration : none ; color: #007bff ;`;
+[expect]
+const Anchor = styled["a"]`
+    text-decoration: none;
+    color: #007bff;
+`;

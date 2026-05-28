@@ -3036,8 +3036,16 @@ fn gen_spread_element<'a>(node: &SpreadElement<'a>, context: &mut Context<'a>) -
 /// Formats the tagged template literal using an external formatter.
 /// Detects the type of embedded language automatically.
 fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> Option<PrintItems> {
-  let external_formatter = context.external_formatter.as_ref()?;
   let embedded_lang = normalize_embedded_language_type(node)?;
+  maybe_gen_tpl_with_external_formatter(node.tpl, embedded_lang, context)
+}
+
+/// Shared backbone for embedded-language formatting. Substitutes `${expr}` with
+/// placeholders, sends the resulting text to the host's external formatter, and
+/// stitches expressions back in at the placeholder positions. Used by both the
+/// tagged-template path and the `graphql(\`...\`)` call-argument path.
+fn maybe_gen_tpl_with_external_formatter<'a>(tpl: &Tpl<'a>, embedded_lang: &str, context: &mut Context<'a>) -> Option<PrintItems> {
+  let external_formatter = context.external_formatter.as_ref()?;
 
   let placeholder_css = "@dpr1nt_";
   let placeholder_other = "dpr1nt_";
@@ -3047,8 +3055,8 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
     _ => placeholder_other,
   };
   let text = capacity_builder::StringBuilder::<String>::build(|builder| {
-    let expr_len = node.tpl.exprs.len();
-    for (i, quasi) in node.tpl.quasis.iter().enumerate() {
+    let expr_len = tpl.exprs.len();
+    for (i, quasi) in tpl.quasis.iter().enumerate() {
       builder.append(quasi.raw().as_str());
       if i < expr_len {
         builder.append(placeholder_text);
@@ -3068,7 +3076,7 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
     Ok(formatted_tpl) => formatted_tpl?.replace("\\", r"\\"),
     Err(err) => {
       context.diagnostics.push(context::GenerateDiagnostic {
-        message: format!("Error formatting tagged template literal at line {}: {}", node.start_line() + 1, err),
+        message: format!("Error formatting tagged template literal at line {}: {}", tpl.start_line() + 1, err),
       });
       return None;
     }
@@ -3107,7 +3115,7 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
       }
       if parts.peek().is_some() {
         items.push_sc(sc!("${"));
-        items.extend(gen_node(node.tpl.exprs[index].into(), context));
+        items.extend(gen_node(tpl.exprs[index].into(), context));
         items.push_sc(sc!("}"));
         pos = end + placeholder_text.len();
         index += 1;
@@ -3122,6 +3130,22 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
   items.push_signal(Signal::FinishIndent);
   items.push_sc(sc!("`"));
   Some(items)
+}
+
+/// Detects whether a bare template literal is in a position where the host should
+/// format its contents (currently only `graphql(\`...\`)` — direct call argument
+/// to a `graphql` identifier), and returns the language key if so.
+fn detect_embedded_lang_for_call_arg_tpl<'a>(tpl: &Tpl<'a>) -> Option<&'a str> {
+  // template literal arguments live inside an `ExprOrSpread` wrapper.
+  let expr_or_spread = tpl.parent().to::<ExprOrSpread>()?;
+  if expr_or_spread.spread().is_some() {
+    return None;
+  }
+  let call_expr = expr_or_spread.parent().to::<CallExpr>()?;
+  match call_expr.callee {
+    Callee::Expr(Expr::Ident(ident)) if ident.sym().as_str() == "graphql" => Some("graphql"),
+    _ => None,
+  }
 }
 
 /// Normalizes the type of embedded language in a tagged template literal.
@@ -3153,8 +3177,10 @@ fn normalize_tag_expr<'a>(tag: Expr<'a>) -> Option<&'a str> {
 
 fn normalize_member_tag<'a>(member_expr: &MemberExpr<'a>) -> Option<&'a str> {
   match member_expr.obj {
-    // styled.foo`...`
+    // styled.foo`...`, styled["a"]`...`
     Expr::Ident(ident) if ident.sym().as_str() == "styled" => Some("css"),
+    // css.global`...`, css.<anything>`...`  (matches emotion's `css.global` and similar)
+    Expr::Ident(ident) if ident.sym().as_str() == "css" => Some("css"),
     // graphql.experimental`...`
     Expr::Ident(ident) if ident.sym().as_str() == "graphql" => Some("graphql"),
     // <UpperCaseIdent>.extend`...`  e.g. `Button.extend`
@@ -3207,6 +3233,13 @@ fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintI
 }
 
 fn gen_tpl<'a>(node: &Tpl<'a>, context: &mut Context<'a>) -> PrintItems {
+  // Route through the external formatter when the surrounding context selects an
+  // embedded language for this bare template literal (e.g. `graphql(`...`)`).
+  if let Some(lang) = detect_embedded_lang_for_call_arg_tpl(node) {
+    if let Some(formatted) = maybe_gen_tpl_with_external_formatter(node, lang, context) {
+      return formatted;
+    }
+  }
   gen_template_literal(
     node.quasis.iter().map(|&n| n.into()).collect(),
     node.exprs.iter().map(|x| x.into()).collect(),
