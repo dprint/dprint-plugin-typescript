@@ -7912,10 +7912,7 @@ fn gen_separated_values<'a>(opts: GenSeparatedValuesParams<'a>, context: &mut Co
   gen_separated_values_with_result(opts, context).items
 }
 
-/// True when the value is an arrow / function expression (possibly wrapped in
-/// ExprOrSpread / ParenExpr). These are the prettier-style "last arg hugging"
-/// candidates that should keep inline-multi-line privileges even when there are
-/// other siblings that could also expand inline.
+/// Arrow / function expression (possibly wrapped) — kept inline-multi-line even with other siblings.
 fn is_function_hugging_candidate(value: &NodeOrSeparator) -> bool {
   fn is_arrow_or_fn(expr: Expr) -> bool {
     match expr {
@@ -7958,12 +7955,8 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
           _ => false,
         })
         .collect();
-      // Count siblings that would compete for an inline-multi-line slot, but
-      // ignore arrow/function-expression last-arg "hugging" candidates — those
-      // are the canonical `Array.from(x, () => { ... })` / `foo(arg, () => {})`
-      // shape that prettier keeps single-line at the call level. Without this
-      // exclusion the array-of-objects fix from issue #641 would regress the
-      // last-arrow-arg case.
+      // If 2+ non-arrow siblings would each take the inline-multi-line slot,
+      // break the container instead of expanding only one (issue #641).
       let inline_multi_line_count = nodes
         .iter()
         .zip(inline_multi_line_flags.iter())
