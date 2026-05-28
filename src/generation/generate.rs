@@ -7618,6 +7618,18 @@ where
           items.push_signal(Signal::SpaceIfNotTrailing);
         }
         items.push_condition(conditions::indent_if_start_of_line(generated_node));
+        // When the arrow's expression body forced the call onto multiple lines and
+        // the trailing-comma configuration is `always`, emit the trailing comma
+        // before the closing paren (issue #696). `onlyMultiLine` historically did
+        // not emit a comma here, so preserve that behavior to avoid churn.
+        let trailing_break_items = {
+          let mut break_items = PrintItems::new();
+          if matches!(trailing_commas, TrailingCommas::Always) {
+            break_items.push_sc(sc!(","));
+          }
+          break_items.push_signal(Signal::NewLine);
+          break_items
+        };
         items.push_condition(if_true_or(
           "isDifferentLineAndStartLineIndentation",
           Rc::new(move |context| {
@@ -7627,7 +7639,7 @@ where
             let is_different_start_line_indentation = start_lsil != context.writer_info.line_start_indent_level;
             Some(is_different_line && is_different_start_line_indentation)
           }),
-          Signal::NewLine.into(),
+          trailing_break_items,
           if space_around { Signal::SpaceIfNotTrailing.into() } else { PrintItems::new() },
         ));
       } else {
