@@ -4579,13 +4579,13 @@ fn gen_block_stmt<'a>(node: &'a BlockStatement<'a>, context: &mut Context<'a>) -
   )
 }
 
-fn gen_break_stmt<'a>(node: &BreakStmt<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_break_stmt<'a>(node: &'a BreakStatement<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
   items.push_sc(sc!("break"));
-  if let Some(label) = node.label {
+  if let Some(label) = &node.label {
     items.push_space();
-    items.extend(gen_node(label.into(), context));
+    items.extend(gen_node(Node::LabelIdentifier(label), context));
   }
   if context.config.semi_colons.is_true() {
     items.push_sc(sc!(";"));
@@ -4594,13 +4594,13 @@ fn gen_break_stmt<'a>(node: &BreakStmt<'a>, context: &mut Context<'a>) -> PrintI
   items
 }
 
-fn gen_continue_stmt<'a>(node: &ContinueStmt<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_continue_stmt<'a>(node: &'a ContinueStatement<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
   items.push_sc(sc!("continue"));
-  if let Some(label) = node.label {
+  if let Some(label) = &node.label {
     items.push_space();
-    items.extend(gen_node(label.into(), context));
+    items.extend(gen_node(Node::LabelIdentifier(label), context));
   }
   if context.config.semi_colons.is_true() {
     items.push_sc(sc!(";"));
@@ -4609,7 +4609,7 @@ fn gen_continue_stmt<'a>(node: &ContinueStmt<'a>, context: &mut Context<'a>) -> 
   items
 }
 
-fn gen_debugger_stmt<'a>(_: &'a DebuggerStmt, context: &mut Context<'a>) -> PrintItems {
+fn gen_debugger_stmt<'a>(_: &'a DebuggerStatement, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
   items.push_sc(sc!("debugger"));
@@ -4620,14 +4620,15 @@ fn gen_debugger_stmt<'a>(_: &'a DebuggerStmt, context: &mut Context<'a>) -> Prin
   items
 }
 
-fn gen_do_while_stmt<'a>(node: &DoWhileStmt<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_do_while_stmt<'a>(node: &'a DoWhileStatement<'a>, context: &mut Context<'a>) -> PrintItems {
   // the braces are technically optional on do while statements
   let mut items = PrintItems::new();
+  let body_is_block = matches!(node.body, Statement::BlockStatement(_));
   items.push_sc(sc!("do"));
   items.extend(gen_brace_separator(
     GenBraceSeparatorOptions {
       brace_position: context.config.do_while_statement_brace_position,
-      open_brace_token: if let Stmt::Block(_) = node.body {
+      open_brace_token: if body_is_block {
         context.token_finder.get_first_open_brace_token_within(node)
       } else {
         None
@@ -4636,8 +4637,8 @@ fn gen_do_while_stmt<'a>(node: &DoWhileStmt<'a>, context: &mut Context<'a>) -> P
     },
     context,
   ));
-  items.extend(gen_node(node.body.into(), context));
-  if context.config.semi_colons.is_true() || matches!(node.body, Stmt::Block(_)) {
+  items.extend(gen_node(stmt_to_node(&node.body), context));
+  if context.config.semi_colons.is_true() || body_is_block {
     items.extend(gen_control_flow_separator(
       context.config.do_while_statement_next_control_flow_position,
       &node.body.range(),
@@ -4656,7 +4657,7 @@ fn gen_do_while_stmt<'a>(node: &DoWhileStmt<'a>, context: &mut Context<'a>) -> P
     items.push_space();
   }
   items.extend(gen_node_in_parens(
-    |context| gen_node(node.test.into(), context),
+    |context| gen_node(expr_to_node(&node.test), context),
     GenNodeInParensOptions {
       inner_range: node.test.range(),
       prefer_hanging: context.config.do_while_statement_prefer_hanging,
@@ -4699,7 +4700,7 @@ fn gen_with_clause<'a>(node: &ObjectLit<'a>, context: &mut Context<'a>) -> Print
   items
 }
 
-fn gen_empty_stmt(_: &EmptyStmt, _: &mut Context) -> PrintItems {
+fn gen_empty_stmt(_: &EmptyStatement, _: &mut Context) -> PrintItems {
   ";".into()
 }
 
@@ -5182,12 +5183,12 @@ fn gen_labeled_stmt<'a>(node: &LabeledStmt<'a>, context: &mut Context<'a>) -> Pr
   items
 }
 
-fn gen_return_stmt<'a>(node: &ReturnStmt<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_return_stmt<'a>(node: &'a ReturnStatement<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_sc(sc!("return"));
-  if let Some(arg) = &node.arg {
+  if let Some(arg) = &node.argument {
     items.push_space();
-    items.extend(gen_node(arg.into(), context));
+    items.extend(gen_node(expr_to_node(arg), context));
   }
   if context.config.semi_colons.is_true() {
     items.push_sc(sc!(";"));
@@ -5330,10 +5331,10 @@ fn gen_switch_case<'a>(node: &SwitchCase<'a>, context: &mut Context<'a>) -> Prin
   }
 }
 
-fn gen_throw_stmt<'a>(node: &ThrowStmt<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_throw_stmt<'a>(node: &'a ThrowStatement<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_sc(sc!("throw "));
-  items.extend(gen_node(node.arg.into(), context));
+  items.extend(gen_node(expr_to_node(&node.argument), context));
   if context.config.semi_colons.is_true() {
     items.push_sc(sc!(";"));
   }
@@ -5516,7 +5517,7 @@ fn gen_var_declarator<'a>(node: &VarDeclarator<'a>, context: &mut Context<'a>) -
   }
 }
 
-fn gen_while_stmt<'a>(node: &WhileStmt<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_while_stmt<'a>(node: &'a WhileStatement<'a>, context: &mut Context<'a>) -> PrintItems {
   let start_header_ln = LineNumber::new("startHeader");
   let start_header_lsil = LineStartIndentLevel::new("startHeader");
   let end_header_ln = LineNumber::new("endHeader");
@@ -5528,7 +5529,7 @@ fn gen_while_stmt<'a>(node: &WhileStmt<'a>, context: &mut Context<'a>) -> PrintI
     items.push_space();
   }
   items.extend(gen_node_in_parens(
-    |context| gen_node(node.test.into(), context),
+    |context| gen_node(expr_to_node(&node.test), context),
     GenNodeInParensOptions {
       inner_range: node.test.range(),
       prefer_hanging: context.config.while_statement_prefer_hanging,
@@ -5541,7 +5542,7 @@ fn gen_while_stmt<'a>(node: &WhileStmt<'a>, context: &mut Context<'a>) -> PrintI
   items.extend(
     gen_conditional_brace_body(
       GenConditionalBraceBodyOptions {
-        body_node: node.body.into(),
+        body_node: stmt_to_node(&node.body),
         use_braces: context.config.while_statement_use_braces,
         brace_position: context.config.while_statement_brace_position,
         single_body_position: Some(context.config.while_statement_single_body_position),
