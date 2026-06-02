@@ -32,7 +32,9 @@ harness = false
 [dependencies]
 anyhow = "1.0.64"
 capacity_builder = "0.5.0"
-deno_ast = { version = "0.53.0", features = ["view"] }
+# oxc-port: use the local checkout for iteration. Final form:
+# deno_ast = { git = "https://github.com/nathanwhit/deno_ast", branch = "oxc-port" }
+deno_ast = { path = "../deno_ast" }
 dprint-core = { version = "0.67.4", features = ["formatting"] }
 dprint-core-macros = "0.1.0"
 percent-encoding = "2.3.1"
