@@ -4872,7 +4872,7 @@ fn gen_expr_stmt<'a>(stmt: &'a ExpressionStatement<'a>, context: &mut Context<'a
   }
 }
 
-fn gen_for_stmt<'a>(node: &ForStmt<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_for_stmt<'a>(node: &'a ForStatement<'a>, context: &mut Context<'a>) -> PrintItems {
   let start_header_ln = LineNumber::new("startHeader");
   let start_header_lsil = LineStartIndentLevel::new("startHeader");
   let end_header_ln = LineNumber::new("endHeader");
@@ -4883,7 +4883,7 @@ fn gen_for_stmt<'a>(node: &ForStmt<'a>, context: &mut Context<'a>) -> PrintItems
       node
         .tokens_fast(context.program)
         .iter()
-        .find(|t| t.token == Token::Semi)
+        .find(|t| t.kind() == Kind::Semicolon)
         .expect("Expected to find a semi-colon in for stmt.")
         .range()
     }
@@ -4932,7 +4932,7 @@ fn gen_for_stmt<'a>(node: &ForStmt<'a>, context: &mut Context<'a>) -> PrintItems
   let generated_init = ir_helpers::new_line_group({
     let mut items = PrintItems::new();
     if let Some(init) = &node.init {
-      items.extend(gen_node(init.into(), context));
+      items.extend(gen_node(for_stmt_init_to_node(init), context));
     }
     items.push_sc(sc!(";"));
     if node.test.is_none() {
@@ -4943,12 +4943,12 @@ fn gen_for_stmt<'a>(node: &ForStmt<'a>, context: &mut Context<'a>) -> PrintItems
   let generated_test = node.test.as_ref().map(|test| {
     ir_helpers::new_line_group({
       let mut items = PrintItems::new();
-      items.extend(gen_node(test.into(), context));
+      items.extend(gen_node(expr_to_node(test), context));
       items.push_sc(sc!(";"));
       items
     })
   });
-  let generated_update = node.update.as_ref().map(|update| ir_helpers::new_line_group(gen_node(update.into(), context)));
+  let generated_update = node.update.as_ref().map(|update| ir_helpers::new_line_group(gen_node(expr_to_node(update), context)));
 
   items.extend(gen_node_in_parens(
     |context| {
@@ -4990,7 +4990,7 @@ fn gen_for_stmt<'a>(node: &ForStmt<'a>, context: &mut Context<'a>) -> PrintItems
   items.extend(
     gen_conditional_brace_body(
       GenConditionalBraceBodyOptions {
-        body_node: node.body.into(),
+        body_node: stmt_to_node(&node.body),
         use_braces: context.config.for_statement_use_braces,
         brace_position: context.config.for_statement_brace_position,
         single_body_position: Some(context.config.for_statement_single_body_position),
@@ -5019,7 +5019,7 @@ fn gen_for_stmt<'a>(node: &ForStmt<'a>, context: &mut Context<'a>) -> PrintItems
   }
 }
 
-fn gen_for_in_stmt<'a>(node: &ForInStmt<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_for_in_stmt<'a>(node: &'a ForInStatement<'a>, context: &mut Context<'a>) -> PrintItems {
   let start_header_ln = LineNumber::new("startHeader");
   let start_header_lsil = LineStartIndentLevel::new("startHeader");
   let end_header_ln = LineNumber::new("endHeader");
@@ -5034,12 +5034,12 @@ fn gen_for_in_stmt<'a>(node: &ForInStmt<'a>, context: &mut Context<'a>) -> Print
   items.extend(gen_node_in_parens(
     |context| {
       let mut items = PrintItems::new();
-      items.extend(gen_node(node.left.into(), context));
+      items.extend(gen_node(for_stmt_left_to_node(&node.left), context));
       items.push_signal(Signal::SpaceOrNewLine);
       items.push_condition(conditions::indent_if_start_of_line({
         let mut items = PrintItems::new();
         items.push_sc(sc!("in "));
-        items.extend(gen_node(node.right.into(), context));
+        items.extend(gen_node(expr_to_node(&node.right), context));
         items
       }));
       items
@@ -5057,7 +5057,7 @@ fn gen_for_in_stmt<'a>(node: &ForInStmt<'a>, context: &mut Context<'a>) -> Print
   items.extend(
     gen_conditional_brace_body(
       GenConditionalBraceBodyOptions {
-        body_node: node.body.into(),
+        body_node: stmt_to_node(&node.body),
         use_braces: context.config.for_in_statement_use_braces,
         brace_position: context.config.for_in_statement_brace_position,
         single_body_position: Some(context.config.for_in_statement_single_body_position),
@@ -5073,7 +5073,7 @@ fn gen_for_in_stmt<'a>(node: &ForInStmt<'a>, context: &mut Context<'a>) -> Print
   items
 }
 
-fn gen_for_of_stmt<'a>(node: &ForOfStmt<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_for_of_stmt<'a>(node: &'a ForOfStatement<'a>, context: &mut Context<'a>) -> PrintItems {
   let start_header_ln = LineNumber::new("startHeader");
   let start_header_lsil = LineStartIndentLevel::new("startHeader");
   let end_header_ln = LineNumber::new("endHeader");
@@ -5084,7 +5084,7 @@ fn gen_for_of_stmt<'a>(node: &ForOfStmt<'a>, context: &mut Context<'a>) -> Print
   if context.config.for_of_statement_space_after_for_keyword {
     items.push_space();
   }
-  if node.is_await() {
+  if node.r#await {
     // todo: generate comments around await token range
     items.push_sc(sc!("await "));
   }
@@ -5092,12 +5092,12 @@ fn gen_for_of_stmt<'a>(node: &ForOfStmt<'a>, context: &mut Context<'a>) -> Print
   items.extend(gen_node_in_parens(
     |context| {
       let mut items = PrintItems::new();
-      items.extend(gen_node(node.left.into(), context));
+      items.extend(gen_node(for_stmt_left_to_node(&node.left), context));
       items.push_signal(Signal::SpaceOrNewLine);
       items.push_condition(conditions::indent_if_start_of_line({
         let mut items = PrintItems::new();
         items.push_sc(sc!("of "));
-        items.extend(gen_node(node.right.into(), context));
+        items.extend(gen_node(expr_to_node(&node.right), context));
         items
       }));
       items
@@ -5115,7 +5115,7 @@ fn gen_for_of_stmt<'a>(node: &ForOfStmt<'a>, context: &mut Context<'a>) -> Print
   items.extend(
     gen_conditional_brace_body(
       GenConditionalBraceBodyOptions {
-        body_node: node.body.into(),
+        body_node: stmt_to_node(&node.body),
         use_braces: context.config.for_of_statement_use_braces,
         brace_position: context.config.for_of_statement_brace_position,
         single_body_position: Some(context.config.for_of_statement_single_body_position),
@@ -5131,24 +5131,22 @@ fn gen_for_of_stmt<'a>(node: &ForOfStmt<'a>, context: &mut Context<'a>) -> Print
   items
 }
 
-fn gen_if_stmt<'a>(node: &IfStmt<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_if_stmt<'a>(node: &'a IfStatement<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  let cons = node.cons;
-  let cons_range = cons.range();
+  let cons_range = node.consequent.range();
   let result = gen_header_with_conditional_brace_body(
     GenHeaderWithConditionalBraceBodyOptions {
-      body_node: cons,
+      body_node: stmt_to_node(&node.consequent),
       generated_header: {
         let mut items = PrintItems::new();
         items.push_sc(sc!("if"));
         if context.config.if_statement_space_after_if_keyword {
           items.push_space();
         }
-        let test = node.test;
         items.extend(gen_node_in_parens(
-          |context| gen_node(test.into(), context),
+          |context| gen_node(expr_to_node(&node.test), context),
           GenNodeInParensOptions {
-            inner_range: test.range(),
+            inner_range: node.test.range(),
             prefer_hanging: context.config.if_statement_prefer_hanging,
             allow_open_paren_trailing_comments: false,
             single_line_space_around: context.config.if_statement_space_around,
@@ -5169,9 +5167,9 @@ fn gen_if_stmt<'a>(node: &IfStmt<'a>, context: &mut Context<'a>) -> PrintItems {
   items.push_info(if_stmt_start_ln);
   items.extend(result.generated_node);
 
-  if let Some(alt) = node.alt {
-    if let Stmt::If(alt_alt) = alt {
-      if alt_alt.alt.is_none() {
+  if let Some(alt) = &node.alternate {
+    if let Statement::IfStatement(alt_alt) = alt {
+      if alt_alt.alternate.is_none() {
         context.store_if_stmt_last_brace_condition_ref(result.open_brace_condition_ref);
       }
     }
@@ -5185,16 +5183,13 @@ fn gen_if_stmt<'a>(node: &IfStmt<'a>, context: &mut Context<'a>) -> PrintItems {
       context,
     ));
 
-    // generate the leading comments before the else keyword
+    // generate the leading comments before the else keyword (the first `else` token
+    // after the consequent; oxc has no children-with-tokens API)
     let else_keyword = node
-      .children_with_tokens_fast(context.program)
+      .tokens_fast(context.program)
       .iter()
-      .find(|n| match n {
-        NodeOrToken::Token(token) => token.text_fast(context.program) == "else",
-        _ => false,
-      })
-      .expect("Expected to find an else keyword.")
-      .unwrap_token();
+      .find(|t| t.start() >= cons_range.end() && t.text_fast(context.program) == "else")
+      .expect("Expected to find an else keyword.");
     items.extend(gen_leading_comments(&else_keyword.range(), context));
     items.extend(gen_leading_comments(&alt.range(), context));
 
@@ -5204,14 +5199,14 @@ fn gen_if_stmt<'a>(node: &IfStmt<'a>, context: &mut Context<'a>) -> PrintItems {
     items.push_info(start_else_header_lsil);
     items.push_sc(sc!("else"));
 
-    if let Stmt::If(alt) = alt {
+    if let Statement::IfStatement(alt) = alt {
       items.push_space();
-      items.extend(gen_node(alt.into(), context));
+      items.extend(gen_node(Node::IfStatement(alt), context));
     } else {
       items.extend(
         gen_conditional_brace_body(
           GenConditionalBraceBodyOptions {
-            body_node: alt.into(),
+            body_node: stmt_to_node(alt),
             use_braces: context.config.if_statement_use_braces,
             brace_position: context.config.if_statement_brace_position,
             single_body_position: Some(context.config.if_statement_single_body_position),
@@ -5261,13 +5256,13 @@ fn gen_return_stmt<'a>(node: &'a ReturnStatement<'a>, context: &mut Context<'a>)
   items
 }
 
-fn gen_switch_stmt<'a>(node: &SwitchStmt<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_switch_stmt<'a>(node: &'a SwitchStatement<'a>, context: &mut Context<'a>) -> PrintItems {
   let start_header_lsil = LineStartIndentLevel::new("startHeader");
   let mut items = PrintItems::new();
   items.push_info(start_header_lsil);
   items.push_sc(sc!("switch "));
   items.extend(gen_node_in_parens(
-    |context| gen_node(node.discriminant.into(), context),
+    |context| gen_node(expr_to_node(&node.discriminant), context),
     GenNodeInParensOptions {
       inner_range: node.discriminant.range(),
       prefer_hanging: context.config.switch_statement_prefer_hanging,
@@ -5278,14 +5273,14 @@ fn gen_switch_stmt<'a>(node: &SwitchStmt<'a>, context: &mut Context<'a>) -> Prin
   ));
   items.extend(gen_membered_body(
     GenMemberedBodyOptions {
-      node: node.into(),
-      members: node.cases.iter().map(|&x| x.into()).collect(),
+      node: Node::SwitchStatement(node),
+      members: node.cases.iter().map(Node::SwitchCase).collect(),
       start_header_lsil: Some(start_header_lsil),
       brace_position: context.config.switch_statement_brace_position,
       should_use_blank_line: |previous, next, context| {
         // do not put a blank line when the previous case has no body
         if let Node::SwitchCase(previous) = previous {
-          if previous.cons.is_empty() {
+          if previous.consequent.is_empty() {
             return false;
           }
         }
@@ -5308,17 +5303,17 @@ fn gen_switch_stmt<'a>(node: &SwitchStmt<'a>, context: &mut Context<'a>) -> Prin
   items
 }
 
-fn gen_switch_case<'a>(node: &SwitchCase<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_switch_case<'a>(node: &'a SwitchCase<'a>, context: &mut Context<'a>) -> PrintItems {
   let block_stmt_body = get_block_stmt_body(node);
   let mut items = PrintItems::new();
   let colon_token = context
     .token_finder
-    .get_first_colon_token_after(&if let Some(test) = node.test { test.end() } else { node.start() })
+    .get_first_colon_token_after(&if let Some(test) = &node.test { test.end() } else { node.start() })
     .expect("Expected to find a colon token.");
 
   if let Some(test) = &node.test {
     items.push_sc(sc!("case "));
-    items.extend(gen_node(test.into(), context));
+    items.extend(gen_node(expr_to_node(test), context));
     items.push_sc(sc!(":"));
   } else {
     items.push_sc(sc!("default:"));
@@ -5326,7 +5321,7 @@ fn gen_switch_case<'a>(node: &SwitchCase<'a>, context: &mut Context<'a>) -> Prin
 
   items.extend(gen_trailing_comments_same_line(&colon_token.range(), context));
   let generated_trailing_comments = gen_trailing_comments_for_case(node, &block_stmt_body, context);
-  if !node.cons.is_empty() {
+  if !node.consequent.is_empty() {
     if let Some(block_stmt_body) = block_stmt_body {
       items.extend(gen_brace_separator(
         GenBraceSeparatorOptions {
@@ -5336,12 +5331,12 @@ fn gen_switch_case<'a>(node: &SwitchCase<'a>, context: &mut Context<'a>) -> Prin
         },
         context,
       ));
-      items.extend(gen_node(node.cons.first().unwrap().into(), context));
+      items.extend(gen_node(stmt_to_node(node.consequent.first().unwrap()), context));
     } else {
       items.push_signal(Signal::NewLine);
       items.extend(ir_helpers::with_indent(gen_statements(
         SourceRange::new(colon_token.end(), node.end()),
-        node.cons.iter().map(|node| node.into()).collect(),
+        node.consequent.iter().map(stmt_to_node).collect(),
         context,
       )));
     }
@@ -5352,21 +5347,24 @@ fn gen_switch_case<'a>(node: &SwitchCase<'a>, context: &mut Context<'a>) -> Prin
   return items;
 
   fn get_block_stmt_body(node: &SwitchCase) -> Option<SourceRange> {
-    if node.cons.len() == 1 {
-      if let Some(Stmt::Block(block_stmt)) = node.cons.first() {
+    if node.consequent.len() == 1 {
+      if let Some(Statement::BlockStatement(block_stmt)) = node.consequent.first() {
         return Some(block_stmt.range());
       }
     }
     None
   }
 
-  fn gen_trailing_comments_for_case<'a>(node: &SwitchCase<'a>, block_stmt_body: &Option<SourceRange>, context: &mut Context<'a>) -> PrintItems {
+  fn gen_trailing_comments_for_case<'a>(node: &'a SwitchCase<'a>, block_stmt_body: &Option<SourceRange>, context: &mut Context<'a>) -> PrintItems {
     let node_range = node.range();
     let mut items = PrintItems::new();
     // generate the trailing comments as statements
     let trailing_comments = get_trailing_comments_as_statements(&node_range, context);
     if !trailing_comments.is_empty() {
-      let last_case = node.parent().cases.last();
+      let last_case = match context.parent() {
+        Node::SwitchStatement(sw) => sw.cases.last(),
+        _ => None,
+      };
       let is_last_case = match last_case {
         Some(last_case) => last_case.start() == node_range.start,
         _ => false,
@@ -5406,7 +5404,7 @@ fn gen_throw_stmt<'a>(node: &'a ThrowStatement<'a>, context: &mut Context<'a>) -
   items
 }
 
-fn gen_try_stmt<'a>(node: &TryStmt<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_try_stmt<'a>(node: &'a TryStatement<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   let brace_position = context.config.try_statement_brace_position;
   let next_control_flow_position = context.config.try_statement_next_control_flow_position;
@@ -5419,7 +5417,7 @@ fn gen_try_stmt<'a>(node: &TryStmt<'a>, context: &mut Context<'a>) -> PrintItems
   items.extend(
     gen_conditional_brace_body(
       GenConditionalBraceBodyOptions {
-        body_node: node.block.into(),
+        body_node: Node::BlockStatement(&node.block),
         use_braces: UseBraces::Always, // braces required
         brace_position: context.config.try_statement_brace_position,
         single_body_position: Some(SameOrNextLinePosition::NextLine),
@@ -5432,7 +5430,7 @@ fn gen_try_stmt<'a>(node: &TryStmt<'a>, context: &mut Context<'a>) -> PrintItems
     .generated_node,
   );
 
-  if let Some(handler) = node.handler {
+  if let Some(handler) = &node.handler {
     let handler_start_ln = LineNumber::new("handlerStart");
     items.push_info(handler_start_ln);
     items.extend(gen_control_flow_separator(
@@ -5444,13 +5442,13 @@ fn gen_try_stmt<'a>(node: &TryStmt<'a>, context: &mut Context<'a>) -> PrintItems
       context,
     ));
     last_block_range = handler.range();
-    items.extend(gen_node(handler.into(), context));
+    items.extend(gen_node(Node::CatchClause(handler), context));
 
     // set the next block to check the handler start info
     last_block_start_ln = handler_start_ln;
   }
 
-  if let Some(finalizer) = node.finalizer {
+  if let Some(finalizer) = &node.finalizer {
     items.extend(gen_control_flow_separator(
       next_control_flow_position,
       &last_block_range,
@@ -5463,7 +5461,7 @@ fn gen_try_stmt<'a>(node: &TryStmt<'a>, context: &mut Context<'a>) -> PrintItems
     items.extend(
       gen_conditional_brace_body(
         GenConditionalBraceBodyOptions {
-          body_node: finalizer.into(),
+          body_node: Node::BlockStatement(finalizer),
           use_braces: UseBraces::Always, // braces required
           brace_position,
           single_body_position: Some(SameOrNextLinePosition::NextLine),

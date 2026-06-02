@@ -66,6 +66,29 @@ pub fn array_element_to_node<'a>(e: &'a ArrayExpressionElement<'a>) -> Option<No
   }
 }
 
+pub fn for_stmt_init_to_node<'a>(init: &'a ForStatementInit<'a>) -> Node<'a> {
+  match init {
+    ForStatementInit::VariableDeclaration(n) => AstKind::VariableDeclaration(n),
+    it @ match_expression!(ForStatementInit) => expr_to_node(it.to_expression()),
+  }
+}
+
+pub fn for_stmt_left_to_node<'a>(left: &'a ForStatementLeft<'a>) -> Node<'a> {
+  match left {
+    ForStatementLeft::VariableDeclaration(n) => AstKind::VariableDeclaration(n),
+    ForStatementLeft::AssignmentTargetIdentifier(n) => AstKind::IdentifierReference(n),
+    ForStatementLeft::TSAsExpression(n) => AstKind::TSAsExpression(n),
+    ForStatementLeft::TSSatisfiesExpression(n) => AstKind::TSSatisfiesExpression(n),
+    ForStatementLeft::TSNonNullExpression(n) => AstKind::TSNonNullExpression(n),
+    ForStatementLeft::TSTypeAssertion(n) => AstKind::TSTypeAssertion(n),
+    ForStatementLeft::ComputedMemberExpression(n) => AstKind::ComputedMemberExpression(n),
+    ForStatementLeft::StaticMemberExpression(n) => AstKind::StaticMemberExpression(n),
+    ForStatementLeft::PrivateFieldExpression(n) => AstKind::PrivateFieldExpression(n),
+    ForStatementLeft::ArrayAssignmentTarget(n) => AstKind::ArrayAssignmentTarget(n),
+    ForStatementLeft::ObjectAssignmentTarget(n) => AstKind::ObjectAssignmentTarget(n),
+  }
+}
+
 pub fn arg_to_node<'a>(a: &'a Argument<'a>) -> Node<'a> {
   match a {
     Argument::SpreadElement(n) => AstKind::SpreadElement(n),
