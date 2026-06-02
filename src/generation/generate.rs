@@ -304,6 +304,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       Node::TSConstructorType(node) => gen_constructor_type(node, context),
       Node::TSFunctionType(node) => gen_function_type(node, context),
       Node::TSImportType(node) => gen_import_type(node, context),
+      Node::TSImportTypeQualifiedName(node) => gen_import_type_qualified_name(node, context),
       Node::TSIndexedAccessType(node) => gen_indexed_access_type(node, context),
       Node::TSInferType(node) => gen_infer_type(node, context),
       Node::TSIntersectionType(node) => gen_intersection_type(node, context),
@@ -5842,31 +5843,33 @@ fn gen_conditional_type<'a>(node: &TsConditionalType<'a>, context: &mut Context<
   }
 }
 
-fn gen_constructor_type<'a>(node: &TsConstructorType<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_constructor_type<'a>(node: &'a TSConstructorType<'a>, context: &mut Context<'a>) -> PrintItems {
   let start_lsil = LineStartIndentLevel::new("startConstructorType");
   let mut items = PrintItems::new();
   items.push_info(start_lsil);
-  if node.is_abstract() {
+  if node.r#abstract {
     items.push_sc(sc!("abstract "));
   }
   items.push_sc(sc!("new"));
   if context.config.constructor_type_space_after_new_keyword {
     items.push_space();
   }
-  if let Some(type_params) = node.type_params {
-    items.extend(gen_node(type_params.into(), context));
+  if let Some(type_params) = &node.type_parameters {
+    items.extend(gen_node(Node::TSTypeParameterDeclaration(type_params), context));
   }
 
+  let param_nodes = formal_params_to_nodes(&node.params);
+  let param_count = param_nodes.len();
   items.extend(gen_parameters_or_arguments(
     GenParametersOrArgumentsOptions {
-      node: node.into(),
+      node: Node::TSConstructorType(node),
       range: node.get_parameters_range(context),
-      nodes: node.params.iter().map(|node| node.into()).collect(),
+      nodes: param_nodes,
       custom_close_paren: |context| {
         Some(gen_close_paren_with_type(
           GenCloseParenWithTypeOptions {
             start_lsil,
-            type_node: Some(node.type_ann.into()),
+            type_node: Some(Node::TSTypeAnnotation(&node.return_type)),
             type_node_separator: Some({
               let mut items = PrintItems::new();
               items.push_sc(sc!(" =>"));
@@ -5874,7 +5877,7 @@ fn gen_constructor_type<'a>(node: &TsConstructorType<'a>, context: &mut Context<
               items.push_signal(Signal::PossibleNewLine);
               items
             }),
-            param_count: node.params.len(),
+            param_count,
           },
           context,
         ))
@@ -5887,7 +5890,7 @@ fn gen_constructor_type<'a>(node: &TsConstructorType<'a>, context: &mut Context<
   items
 }
 
-fn gen_function_type<'a>(node: &TsFnType<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_function_type<'a>(node: &'a TSFunctionType<'a>, context: &mut Context<'a>) -> PrintItems {
   let start_lsil = LineStartIndentLevel::new("startFunctionType");
   let mut items = PrintItems::new();
   let mut indent_after_arrow_condition = if_true(
@@ -5898,19 +5901,21 @@ fn gen_function_type<'a>(node: &TsFnType<'a>, context: &mut Context<'a>) -> Prin
   let indent_after_arrow_condition_ref = indent_after_arrow_condition.create_reference();
 
   items.push_info(start_lsil);
-  if let Some(type_params) = node.type_params {
-    items.extend(gen_node(type_params.into(), context));
+  if let Some(type_params) = &node.type_parameters {
+    items.extend(gen_node(Node::TSTypeParameterDeclaration(type_params), context));
   }
+  let param_nodes = formal_params_to_nodes(&node.params);
+  let param_count = param_nodes.len();
   items.extend(gen_parameters_or_arguments(
     GenParametersOrArgumentsOptions {
-      node: node.into(),
+      node: Node::TSFunctionType(node),
       range: node.get_parameters_range(context),
-      nodes: node.params.iter().map(|node| node.into()).collect(),
+      nodes: param_nodes,
       custom_close_paren: |context| {
         Some(gen_close_paren_with_type(
           GenCloseParenWithTypeOptions {
             start_lsil,
-            type_node: Some(node.type_ann.into()),
+            type_node: Some(Node::TSTypeAnnotation(&node.return_type)),
             type_node_separator: {
               let mut items = PrintItems::new();
               items.push_sc(sc!(" =>"));
@@ -5919,7 +5924,7 @@ fn gen_function_type<'a>(node: &TsFnType<'a>, context: &mut Context<'a>) -> Prin
               items.push_condition(indent_after_arrow_condition);
               Some(items)
             },
-            param_count: node.params.len(),
+            param_count,
           },
           context,
         ))
@@ -5978,24 +5983,39 @@ fn gen_keyword_type<'a>(node: Node<'a>, context: &mut Context<'a>) -> PrintItems
   node.text_fast(context.program).to_string().into()
 }
 
-fn gen_import_type<'a>(node: &TsImportType<'a>, context: &mut Context<'a>) -> PrintItems {
+fn import_type_qualifier_to_node<'a>(q: &'a TSImportTypeQualifier<'a>) -> Node<'a> {
+  match q {
+    TSImportTypeQualifier::Identifier(i) => Node::IdentifierName(i),
+    TSImportTypeQualifier::QualifiedName(q) => Node::TSImportTypeQualifiedName(q),
+  }
+}
+
+fn gen_import_type<'a>(node: &'a TSImportType<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_sc(sc!("import("));
-  items.extend(gen_node(node.arg.into(), context));
-  if let Some(attributes) = node.attributes {
+  items.extend(gen_node(Node::StringLiteral(&node.source), context));
+  if let Some(options) = &node.options {
     items.push_sc(sc!(", "));
-    items.extend(gen_node(attributes.into(), context));
+    items.extend(gen_node(Node::ObjectExpression(options), context));
   }
   items.push_sc(sc!(")"));
 
   if let Some(qualifier) = &node.qualifier {
     items.push_sc(sc!("."));
-    items.extend(gen_node(qualifier.into(), context));
+    items.extend(gen_node(import_type_qualifier_to_node(qualifier), context));
   }
 
-  if let Some(type_args) = node.type_args {
-    items.extend(gen_node(type_args.into(), context));
+  if let Some(type_args) = &node.type_arguments {
+    items.extend(gen_node(Node::TSTypeParameterInstantiation(type_args), context));
   }
+  items
+}
+
+// `import("x").Foo.Bar` qualified name within an import type
+fn gen_import_type_qualified_name<'a>(node: &'a TSImportTypeQualifiedName<'a>, context: &mut Context<'a>) -> PrintItems {
+  let mut items = gen_node(import_type_qualifier_to_node(&node.left), context);
+  items.push_sc(sc!("."));
+  items.extend(gen_node(Node::IdentifierName(&node.right), context));
   items
 }
 
