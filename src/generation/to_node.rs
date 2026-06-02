@@ -66,6 +66,22 @@ pub fn array_element_to_node<'a>(e: &'a ArrayExpressionElement<'a>) -> Option<No
   }
 }
 
+pub fn ts_type_predicate_name_to_node<'a>(n: &'a TSTypePredicateName<'a>) -> Node<'a> {
+  match n {
+    TSTypePredicateName::Identifier(i) => AstKind::IdentifierName(i),
+    TSTypePredicateName::This(t) => AstKind::TSThisType(t),
+  }
+}
+
+pub fn ts_type_query_expr_name_to_node<'a>(n: &'a TSTypeQueryExprName<'a>) -> Node<'a> {
+  match n {
+    TSTypeQueryExprName::TSImportType(i) => AstKind::TSImportType(i),
+    TSTypeQueryExprName::IdentifierReference(i) => AstKind::IdentifierReference(i),
+    TSTypeQueryExprName::QualifiedName(q) => AstKind::TSQualifiedName(q),
+    TSTypeQueryExprName::ThisExpression(t) => AstKind::ThisExpression(t),
+  }
+}
+
 pub fn ts_tuple_element_to_node<'a>(e: &'a TSTupleElement<'a>) -> Node<'a> {
   match e {
     TSTupleElement::TSOptionalType(n) => AstKind::TSOptionalType(n),

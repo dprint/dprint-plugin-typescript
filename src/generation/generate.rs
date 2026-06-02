@@ -6310,42 +6310,42 @@ fn gen_tuple_element<'a>(node: &'a TSNamedTupleMember<'a>, context: &mut Context
   items
 }
 
-fn gen_type_ann<'a>(node: &TsTypeAnn<'a>, context: &mut Context<'a>) -> PrintItems {
-  gen_node(node.type_ann.into(), context)
+fn gen_type_ann<'a>(node: &'a TSTypeAnnotation<'a>, context: &mut Context<'a>) -> PrintItems {
+  gen_node(ts_type_to_node(&node.type_annotation), context)
 }
 
-fn gen_type_param<'a>(node: &TsTypeParam<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_type_param<'a>(node: &'a TSTypeParameter<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
-  if node.is_const() {
+  if node.r#const {
     items.push_sc(sc!("const "));
   }
-  if node.is_in() {
+  if node.r#in {
     items.push_sc(sc!("in "));
   }
-  if node.is_out() {
+  if node.out {
     items.push_sc(sc!("out "));
   }
 
-  items.extend(gen_node(node.name.into(), context));
+  items.extend(gen_node(Node::BindingIdentifier(&node.name), context));
 
   if let Some(constraint) = &node.constraint {
     items.push_signal(Signal::SpaceOrNewLine);
     items.push_condition(conditions::indent_if_start_of_line({
       let mut items = PrintItems::new();
-      items.push_sc(if node.parent().kind() == NodeKind::TsMappedType {
+      items.push_sc(if matches!(context.parent(), Node::TSMappedType(_)) {
         sc!("in")
       } else {
         sc!("extends")
       });
       items.push_signal(Signal::SpaceIfNotTrailing);
-      items.extend(gen_node(constraint.into(), context));
+      items.extend(gen_node(ts_type_to_node(constraint), context));
       items
     }));
   }
 
   if let Some(default) = &node.default {
-    items.extend(gen_assignment(default.into(), sc!("="), context));
+    items.extend(gen_assignment(ts_type_to_node(default), sc!("="), context));
   }
 
   items
@@ -6432,57 +6432,57 @@ fn gen_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -
   }
 }
 
-fn gen_type_operator<'a>(node: &TsTypeOperator<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_type_operator<'a>(node: &'a TSTypeOperator<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.push_sc(match node.op() {
-    TsTypeOperatorOp::KeyOf => sc!("keyof"),
-    TsTypeOperatorOp::Unique => sc!("unique"),
-    TsTypeOperatorOp::ReadOnly => sc!("readonly"),
+  items.push_sc(match node.operator {
+    TSTypeOperatorOperator::Keyof => sc!("keyof"),
+    TSTypeOperatorOperator::Unique => sc!("unique"),
+    TSTypeOperatorOperator::Readonly => sc!("readonly"),
   });
   items.push_signal(Signal::SpaceIfNotTrailing);
-  items.extend(gen_node(node.type_ann.into(), context));
+  items.extend(gen_node(ts_type_to_node(&node.type_annotation), context));
   items
 }
 
-fn gen_type_predicate<'a>(node: &TsTypePredicate<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_type_predicate<'a>(node: &'a TSTypePredicate<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  if node.asserts() {
+  if node.asserts {
     items.push_sc(sc!("asserts "));
   }
-  items.extend(gen_node(node.param_name.into(), context));
-  if let Some(type_ann) = node.type_ann {
+  items.extend(gen_node(ts_type_predicate_name_to_node(&node.parameter_name), context));
+  if let Some(type_ann) = &node.type_annotation {
     items.push_sc(sc!(" is"));
     items.push_signal(Signal::SpaceIfNotTrailing);
-    items.extend(gen_node(type_ann.into(), context));
+    items.extend(gen_node(ts_type_to_node(&type_ann.type_annotation), context));
   }
   items
 }
 
-fn gen_type_query<'a>(node: &TsTypeQuery<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_type_query<'a>(node: &'a TSTypeQuery<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_sc(sc!("typeof"));
   items.push_signal(Signal::SpaceIfNotTrailing);
-  items.extend(gen_node(node.expr_name.into(), context));
-  if let Some(type_args) = node.type_args {
-    items.extend(gen_node(type_args.into(), context));
+  items.extend(gen_node(ts_type_query_expr_name_to_node(&node.expr_name), context));
+  if let Some(type_args) = &node.type_arguments {
+    items.extend(gen_node(Node::TSTypeParameterInstantiation(type_args), context));
   }
   items
 }
 
-fn gen_type_reference<'a>(node: &TsTypeRef<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_type_reference<'a>(node: &'a TSTypeReference<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(gen_node(node.type_name.into(), context));
-  if let Some(type_params) = node.type_params {
-    items.extend(gen_node(type_params.into(), context));
+  items.extend(gen_node(ts_type_name_to_node(&node.type_name), context));
+  if let Some(type_args) = &node.type_arguments {
+    items.extend(gen_node(Node::TSTypeParameterInstantiation(type_args), context));
   }
   items
 }
 
-fn gen_union_type<'a>(node: &TsUnionType<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_union_type<'a>(node: &'a TSUnionType<'a>, context: &mut Context<'a>) -> PrintItems {
   gen_union_or_intersection_type(
     UnionOrIntersectionType {
-      node: node.into(),
-      types: node.types,
+      node: Node::TSUnionType(node),
+      types: &node.types,
       is_union: true,
     },
     context,
