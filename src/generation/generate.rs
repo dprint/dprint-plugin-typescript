@@ -271,6 +271,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       Node::BindingProperty(node) => gen_key_value_pat_prop(node, context),
       Node::BindingRestElement(node) => gen_rest_pat(node, context),
       Node::FormalParameter(node) => gen_param(node, context),
+      Node::FormalParameterRest(node) => gen_formal_parameter_rest(node, context),
       /* statements */
       Node::BlockStatement(node) => gen_block_stmt(node, context),
       Node::BreakStatement(node) => gen_break_stmt(node, context),
@@ -481,8 +482,9 @@ fn gen_method_definition<'a>(node: &'a MethodDefinition<'a>, context: &mut Conte
       is_optional: node.optional,
       is_override: node.r#override,
       key: prop_key_to_node(&node.key),
+      key_computed: node.computed,
       type_params: func.type_parameters.as_deref().map(Node::TSTypeParameterDeclaration),
-      params: func.params.items.iter().map(Node::FormalParameter).collect(),
+      params: formal_params_to_nodes(&func.params),
       return_type: func.return_type.as_deref().map(Node::TSTypeAnnotation),
       body: func.body.as_deref().map(Node::FunctionBody),
     },
@@ -1162,6 +1164,26 @@ fn gen_function_decl_or_expr<'a>(node: FunctionDeclOrExprNode<'a>, context: &mut
       context.config.function_expression_space_before_parentheses
     }
   }
+}
+
+// oxc stores a function's rest parameter in a dedicated `FormalParameters.rest` field
+// (a `FormalParameterRest`) rather than as the last item, so callers building the node
+// list for parameter generation must append it.
+fn formal_params_to_nodes<'a>(params: &'a FormalParameters<'a>) -> Vec<Node<'a>> {
+  let mut nodes: Vec<Node<'a>> = params.items.iter().map(Node::FormalParameter).collect();
+  if let Some(rest) = &params.rest {
+    nodes.push(Node::FormalParameterRest(rest));
+  }
+  nodes
+}
+
+fn gen_formal_parameter_rest<'a>(node: &'a FormalParameterRest<'a>, context: &mut Context<'a>) -> PrintItems {
+  let mut items = PrintItems::new();
+  items.extend(gen_decorators(&node.decorators, true, context));
+  items.push_sc(sc!("..."));
+  items.extend(gen_node(binding_pattern_to_node(&node.rest.argument), context));
+  items.extend(gen_type_ann_with_colon_if_exists(node.type_annotation.as_deref(), context));
+  items
 }
 
 fn gen_param<'a>(node: &'a FormalParameter<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -2634,43 +2656,64 @@ fn should_add_parens_around_expr<'a>(node: Node<'a>, context: &Context<'a>) -> b
   false
 }
 
-fn gen_getter_prop<'a>(node: &GetterProp<'a>, context: &mut Context<'a>) -> PrintItems {
+// oxc unifies SWC's KeyValueProp / GetterProp / SetterProp / MethodProp / shorthand
+// into a single `ObjectProperty` (distinguished by `.kind`, `.method`, `.shorthand`).
+fn gen_object_property<'a>(node: &'a ObjectProperty<'a>, context: &mut Context<'a>) -> PrintItems {
+  let func = || match &node.value {
+    Expression::FunctionExpression(f) => &**f,
+    _ => unreachable!("object getter/setter/method value is always a function expression"),
+  };
+  match node.kind {
+    PropertyKind::Get => return gen_object_method(node, func(), ClassOrObjectMethodKind::Getter, context),
+    PropertyKind::Set => return gen_object_method(node, func(), ClassOrObjectMethodKind::Setter, context),
+    PropertyKind::Init if node.method => return gen_object_method(node, func(), ClassOrObjectMethodKind::Method, context),
+    PropertyKind::Init => {}
+  }
+
+  // shorthand: `{ a }` (object literals don't allow shorthand defaults)
+  if node.shorthand {
+    return gen_node(prop_key_to_node(&node.key), context);
+  }
+
+  let mut items = PrintItems::new();
+  if node.computed {
+    items.extend(gen_computed_prop_like(
+      |context| gen_node(prop_key_to_node(&node.key), context),
+      GenComputedPropLikeOptions {
+        inner_node_range: node.key.range(),
+      },
+      context,
+    ));
+  } else {
+    items.extend(gen_quotable_prop(prop_key_to_node(&node.key), context));
+  }
+  items.extend(gen_assignment(expr_to_node(&node.value), sc!(":"), context));
+  items
+}
+
+fn gen_object_method<'a>(node: &'a ObjectProperty<'a>, func: &'a Function<'a>, kind: ClassOrObjectMethodKind, context: &mut Context<'a>) -> PrintItems {
   gen_class_or_object_method(
     ClassOrObjectMethod {
-      node: node.into(),
-      parameters_range: node.get_parameters_range(context),
+      node: Node::ObjectProperty(node),
+      parameters_range: func.get_parameters_range(context),
       decorators: None,
       accessibility: None,
       is_static: false,
-      is_async: false,
+      is_async: func.r#async,
       is_abstract: false,
-      kind: ClassOrObjectMethodKind::Getter,
-      is_generator: false,
+      kind,
+      is_generator: func.generator,
       is_optional: false,
       is_override: false,
-      key: node.key.into(),
-      type_params: None,
-      params: Vec::new(),
-      return_type: node.type_ann.map(|x| x.into()),
-      body: node.body.map(|x| x.into()),
+      key: prop_key_to_node(&node.key),
+      key_computed: node.computed,
+      type_params: func.type_parameters.as_deref().map(Node::TSTypeParameterDeclaration),
+      params: formal_params_to_nodes(&func.params),
+      return_type: func.return_type.as_deref().map(Node::TSTypeAnnotation),
+      body: func.body.as_deref().map(Node::FunctionBody),
     },
     context,
   )
-}
-
-fn gen_key_value_prop<'a>(node: &KeyValueProp<'a>, context: &mut Context<'a>) -> PrintItems {
-  let mut items = PrintItems::new();
-  items.extend(gen_quotable_prop(node.key.into(), context));
-  items.extend(gen_assignment(node.value.into(), sc!(":"), context));
-  items
-}
-
-fn gen_assign_prop<'a>(node: &AssignProp<'a>, context: &mut Context<'a>) -> PrintItems {
-  // assignment properties are not valid, so turn this into a key value property
-  let mut items = PrintItems::new();
-  items.extend(gen_node(node.key.into(), context));
-  items.extend(gen_assignment_op_to(node.value.into(), "=", sc!(":"), context)); // go from = to :
-  items
 }
 
 fn gen_member_expr<'a>(node: &MemberExpr<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -2719,15 +2762,15 @@ fn gen_non_null_expr<'a>(node: &TsNonNullExpr<'a>, context: &mut Context<'a>) ->
   items
 }
 
-fn gen_object_lit<'a>(node: &ObjectLit<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_object_lit<'a>(node: &'a ObjectExpression<'a>, context: &mut Context<'a>) -> PrintItems {
   let items = context.with_maybe_consistent_props(
     node,
-    |node| use_consistent_quotes_for_members(node.props.iter().map(|p| p.into())),
+    |node| use_consistent_quotes_for_members(node.properties.iter().map(obj_prop_kind_to_node)),
     |context, node| {
       gen_object_like_node(
         GenObjectLikeNodeOptions {
-          node: node.into(),
-          members: node.props.iter().map(|x| x.into()).collect(),
+          node: Node::ObjectExpression(node),
+          members: node.properties.iter().map(obj_prop_kind_to_node).collect(),
           separator: context.config.object_expression_trailing_commas.into(),
           prefer_hanging: context.config.object_expression_prefer_hanging,
           prefer_single_line: context.config.object_expression_prefer_single_line,
@@ -2742,7 +2785,7 @@ fn gen_object_lit<'a>(node: &ObjectLit<'a>, context: &mut Context<'a>) -> PrintI
     },
   );
 
-  if should_add_parens_around_expr(node.into(), context) {
+  if should_add_parens_around_expr(Node::ObjectExpression(node), context) {
     surround_with_parens(if context.config.paren_expression_space_around {
       surround_with_spaces(items)
     } else {
@@ -2901,34 +2944,10 @@ fn gen_sequence_expr<'a>(node: &SeqExpr<'a>, context: &mut Context<'a>) -> Print
   )
 }
 
-fn gen_setter_prop<'a>(node: &SetterProp<'a>, context: &mut Context<'a>) -> PrintItems {
-  gen_class_or_object_method(
-    ClassOrObjectMethod {
-      node: node.into(),
-      parameters_range: node.get_parameters_range(context),
-      decorators: None,
-      accessibility: None,
-      is_static: false,
-      is_async: false,
-      is_abstract: false,
-      kind: ClassOrObjectMethodKind::Setter,
-      is_generator: false,
-      is_optional: false,
-      is_override: false,
-      key: node.key.into(),
-      type_params: None,
-      params: vec![node.param.into()],
-      return_type: None,
-      body: node.body.map(|x| x.into()),
-    },
-    context,
-  )
-}
-
-fn gen_spread_element<'a>(node: &SpreadElement<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_spread_element<'a>(node: &'a SpreadElement<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_sc(sc!("..."));
-  items.extend(gen_node(node.expr.into(), context));
+  items.extend(gen_node(expr_to_node(&node.argument), context));
   items
 }
 
@@ -4410,30 +4429,6 @@ fn gen_object_pat<'a>(node: &'a ObjectPattern<'a>, context: &mut Context<'a>) ->
 
 /* properties */
 
-fn gen_method_prop<'a>(node: &MethodProp<'a>, context: &mut Context<'a>) -> PrintItems {
-  gen_class_or_object_method(
-    ClassOrObjectMethod {
-      node: node.into(),
-      parameters_range: node.get_parameters_range(context),
-      decorators: None,
-      accessibility: None,
-      is_static: false,
-      is_async: node.function.is_async(),
-      is_abstract: false,
-      is_override: false,
-      kind: ClassOrObjectMethodKind::Method,
-      is_generator: node.function.is_generator(),
-      is_optional: false,
-      key: node.key.into(),
-      type_params: node.function.type_params.map(|x| x.into()),
-      params: node.function.params.iter().map(|&x| x.into()).collect(),
-      return_type: node.function.return_type.map(|x| x.into()),
-      body: node.function.body.map(|x| x.into()),
-    },
-    context,
-  )
-}
-
 struct ClassOrObjectMethod<'a> {
   node: Node<'a>,
   parameters_range: Option<SourceRange>,
@@ -4447,6 +4442,8 @@ struct ClassOrObjectMethod<'a> {
   is_optional: bool,
   is_override: bool,
   key: Node<'a>,
+  // oxc records computed keys (`[x]() {}`) as a flag rather than a ComputedPropName wrapper.
+  key_computed: bool,
   type_params: Option<Node<'a>>,
   params: Vec<Node<'a>>,
   return_type: Option<Node<'a>>,
@@ -4505,7 +4502,17 @@ fn gen_class_or_object_method<'a>(node: ClassOrObjectMethod<'a>, context: &mut C
   if node.is_generator {
     items.push_sc(sc!("*"));
   }
-  items.extend(gen_quotable_prop(node.key, context));
+  if node.key_computed {
+    items.extend(gen_computed_prop_like(
+      |context| gen_node(node.key, context),
+      GenComputedPropLikeOptions {
+        inner_node_range: node.key.range(),
+      },
+      context,
+    ));
+  } else {
+    items.extend(gen_quotable_prop(node.key, context));
+  }
   if node.is_optional {
     items.push_sc(sc!("?"));
   }

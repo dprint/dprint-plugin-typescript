@@ -57,6 +57,13 @@ pub fn stmt_to_node<'a>(s: &'a Statement<'a>) -> Node<'a> {
   }
 }
 
+pub fn obj_prop_kind_to_node<'a>(p: &'a ObjectPropertyKind<'a>) -> Node<'a> {
+  match p {
+    ObjectPropertyKind::ObjectProperty(n) => AstKind::ObjectProperty(n),
+    ObjectPropertyKind::SpreadProperty(n) => AstKind::SpreadElement(n),
+  }
+}
+
 pub fn class_element_to_node<'a>(e: &'a ClassElement<'a>) -> Node<'a> {
   match e {
     ClassElement::StaticBlock(n) => AstKind::StaticBlock(n),
