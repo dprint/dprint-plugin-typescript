@@ -15,10 +15,12 @@ mod tokens;
 #[allow(dead_code)]
 mod swc;
 
+#[allow(dead_code)]
+mod sorting;
+
 // mod generate;
 // mod generate_types;
 // mod node_helpers;
-// mod sorting;
 
 use comments::*;
 use tokens::*;

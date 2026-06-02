@@ -1,11 +1,13 @@
 mod module_specifiers;
 use module_specifiers::*;
 
-use deno_ast::view::*;
-use deno_ast::SourceRange;
-use deno_ast::SourceRanged;
+use deno_ast::oxc::ast::ast::ImportOrExportKind;
 use std::cmp::Ordering;
 
+use super::oxc_helpers::Node;
+use super::oxc_helpers::ProgramInfo;
+use super::oxc_helpers::SourceRange;
+use super::oxc_helpers::SourceRanged;
 use crate::configuration::*;
 
 // very rough... this should be improved to not allocate so much
@@ -14,7 +16,7 @@ use crate::configuration::*;
 pub fn get_node_sorter_from_order<'a>(
   order: SortOrder,
   named_type_imports_exports_order: NamedTypeImportsExportsOrder,
-) -> Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), Program<'a>) -> Ordering>> {
+) -> Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), ProgramInfo<'a>) -> Ordering>> {
   // todo: how to reduce code duplication here?
   match order {
     SortOrder::Maintain => None,
@@ -56,9 +58,9 @@ pub fn get_node_sorter_from_order<'a>(
 fn cmp_optional_nodes<'a>(
   a: Option<Node<'a>>,
   b: Option<Node<'a>>,
-  program: Program<'a>,
+  program: ProgramInfo<'a>,
   named_type_imports_exports_order: NamedTypeImportsExportsOrder,
-  cmp_func: impl Fn(&SourceRange, &SourceRange, Program<'a>) -> Ordering,
+  cmp_func: impl Fn(&SourceRange, &SourceRange, ProgramInfo<'a>) -> Ordering,
 ) -> Ordering {
   if let Some(a) = a {
     if let Some(b) = b {
@@ -76,9 +78,9 @@ fn cmp_optional_nodes<'a>(
 fn cmp_nodes<'a>(
   a: Node<'a>,
   b: Node<'a>,
-  program: Program<'a>,
+  program: ProgramInfo<'a>,
   named_type_imports_exports_order: NamedTypeImportsExportsOrder,
-  cmp_func: impl Fn(&SourceRange, &SourceRange, Program<'a>) -> Ordering,
+  cmp_func: impl Fn(&SourceRange, &SourceRange, ProgramInfo<'a>) -> Ordering,
 ) -> Ordering {
   let a_nodes = get_comparison_nodes(a);
   let b_nodes = get_comparison_nodes(b);
@@ -124,35 +126,38 @@ enum ComparisonNode {
 
 fn get_comparison_nodes(node: Node) -> Vec<ComparisonNode> {
   match node {
-    Node::ImportNamedSpecifier(node) => {
-      let first_node = if node.is_type_only() {
+    Node::ImportSpecifier(node) => {
+      let first_node = if node.import_kind == ImportOrExportKind::Type {
         ComparisonNode::HasType
       } else {
         ComparisonNode::NoType
       };
-      if let Some(imported) = &node.imported {
-        vec![first_node, ComparisonNode::Node(imported.range()), ComparisonNode::Node(node.local.range())]
+      // oxc always populates `imported`; aliasing (`import { a as b }`) is
+      // detected by the imported/local spans differing.
+      if node.imported.start() != node.local.start() {
+        vec![first_node, ComparisonNode::Node(node.imported.range()), ComparisonNode::Node(node.local.range())]
       } else {
         vec![first_node, ComparisonNode::Node(node.local.range())]
       }
     }
-    Node::ExportNamedSpecifier(node) => {
-      let first_node = if node.is_type_only() {
+    Node::ExportSpecifier(node) => {
+      let first_node = if node.export_kind == ImportOrExportKind::Type {
         ComparisonNode::HasType
       } else {
         ComparisonNode::NoType
       };
-      if let Some(exported) = &node.exported {
-        vec![first_node, ComparisonNode::Node(node.orig.range()), ComparisonNode::Node(exported.range())]
+      // `local` is the original name; aliasing detected via differing spans.
+      if node.local.start() != node.exported.start() {
+        vec![first_node, ComparisonNode::Node(node.local.range()), ComparisonNode::Node(node.exported.range())]
       } else {
-        vec![first_node, ComparisonNode::Node(node.orig.range())]
+        vec![first_node, ComparisonNode::Node(node.local.range())]
       }
     }
-    Node::ImportDecl(node) => {
-      vec![ComparisonNode::Node(node.src.range())]
+    Node::ImportDeclaration(node) => {
+      vec![ComparisonNode::Node(node.source.range())]
     }
-    Node::NamedExport(node) => {
-      if let Some(src) = &node.src {
+    Node::ExportNamedDeclaration(node) => {
+      if let Some(src) = &node.source {
         vec![ComparisonNode::Node(src.range())]
       } else if cfg!(debug_assertions) {
         unimplemented!("Should not call this for named exports with src.");
@@ -160,8 +165,8 @@ fn get_comparison_nodes(node: Node) -> Vec<ComparisonNode> {
         vec![ComparisonNode::Node(node.range())]
       }
     }
-    Node::ExportAll(node) => {
-      vec![ComparisonNode::Node(node.src.range())]
+    Node::ExportAllDeclaration(node) => {
+      vec![ComparisonNode::Node(node.source.range())]
     }
     _ => {
       if cfg!(debug_assertions) {
@@ -187,5 +192,8 @@ fn cmp_text_case_insensitive(a: &str, b: &str) -> Ordering {
 }
 
 fn is_import_or_export_declaration(node: &Option<Node>) -> bool {
-  matches!(node, Some(Node::ImportDecl(_) | Node::NamedExport(_) | Node::ExportAll(_)))
+  matches!(
+    node,
+    Some(Node::ImportDeclaration(_) | Node::ExportNamedDeclaration(_) | Node::ExportAllDeclaration(_))
+  )
 }
