@@ -5637,11 +5637,11 @@ fn gen_array_type<'a>(node: &'a TSArrayType<'a>, context: &mut Context<'a>) -> P
   items
 }
 
-fn gen_conditional_type<'a>(node: &TsConditionalType<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_conditional_type<'a>(node: &'a TSConditionalType<'a>, context: &mut Context<'a>) -> PrintItems {
   let use_new_lines =
     !context.config.conditional_type_prefer_single_line && node_helpers::get_use_new_lines_for_nodes(&node.true_type, &node.false_type, context.program);
   let top_most_data = get_top_most_data(node, context);
-  let is_parent_conditional_type = node.parent().kind() == NodeKind::TsConditionalType;
+  let is_parent_conditional_type = matches!(context.parent(), Node::TSConditionalType(_));
   let mut items = PrintItems::new();
   let before_false_ln = LineNumber::new("beforeFalse");
   let question_token = context.token_finder.get_first_operator_after(&node.extends_type, "?").unwrap();
@@ -5651,7 +5651,7 @@ fn gen_conditional_type<'a>(node: &TsConditionalType<'a>, context: &mut Context<
   let colon_comment_items = gen_cond_token_comments(colon_token, context, top_most_data.il);
 
   // main area
-  items.extend(ir_helpers::new_line_group(gen_node(node.check_type.into(), context)));
+  items.extend(ir_helpers::new_line_group(gen_node(ts_type_to_node(&node.check_type), context)));
   items.push_sc(sc!(" extends")); // do not newline before because it's a parsing error
   items.push_signal(Signal::SpaceOrNewLine);
 
@@ -5661,7 +5661,7 @@ fn gen_conditional_type<'a>(node: &TsConditionalType<'a>, context: &mut Context<
   }
 
   items.push_condition(conditions::indent_if_start_of_line(ir_helpers::new_line_group({
-    let mut items = gen_node(node.extends_type.into(), context);
+    let mut items = gen_node(ts_type_to_node(&node.extends_type), context);
     if question_position == OperatorPosition::SameLine {
       items.push_sc(sc!(" ?"));
     }
@@ -5683,7 +5683,7 @@ fn gen_conditional_type<'a>(node: &TsConditionalType<'a>, context: &mut Context<
         items.push_sc(sc!("?"));
         items.push_signal(Signal::SpaceIfNotTrailing);
       }
-      items.extend(ir_helpers::new_line_group(gen_node(node.true_type.into(), context)));
+      items.extend(ir_helpers::new_line_group(gen_node(ts_type_to_node(&node.true_type), context)));
       if colon_position == OperatorPosition::SameLine {
         items.push_sc(sc!(" :"));
       }
@@ -5727,7 +5727,7 @@ fn gen_conditional_type<'a>(node: &TsConditionalType<'a>, context: &mut Context<
       items.push_sc(sc!(":"));
       items.push_signal(Signal::SpaceIfNotTrailing);
     }
-    items.extend(ir_helpers::new_line_group(gen_node(node.false_type.into(), context)));
+    items.extend(ir_helpers::new_line_group(gen_node(ts_type_to_node(&node.false_type), context)));
     items
   };
 
@@ -5745,14 +5745,14 @@ fn gen_conditional_type<'a>(node: &TsConditionalType<'a>, context: &mut Context<
     is_top_most: bool,
   }
 
-  fn get_top_most_data<'a>(node: &TsConditionalType<'a>, context: &mut Context<'a>) -> TopMostData {
+  fn get_top_most_data<'a>(node: &'a TSConditionalType<'a>, context: &mut Context<'a>) -> TopMostData {
     // todo: consolidate with conditional expression
     // The "top most" node in nested conditionals follows the ancestors up through
     // the false expressions.
     let mut top_most_node = node;
 
     for ancestor in context.parent_stack.iter() {
-      if let Node::TsConditionalType(parent) = ancestor {
+      if let Node::TSConditionalType(parent) = *ancestor {
         if parent.false_type.start() == top_most_node.start() {
           top_most_node = parent;
         } else {
@@ -5785,12 +5785,12 @@ fn gen_conditional_type<'a>(node: &TsConditionalType<'a>, context: &mut Context<
   }
 
   fn get_operator_position(
-    node: &TsConditionalType,
-    question_token: &TokenAndSpan,
-    colon_token: &TokenAndSpan,
+    node: &TSConditionalType,
+    question_token: &Token,
+    colon_token: &Token,
     context: &mut Context,
   ) -> (OperatorPosition, OperatorPosition) {
-    fn get_maintain_position(node: &TsConditionalType, ts_type: TsType, token: &TokenAndSpan, context: &mut Context) -> OperatorPosition {
+    fn get_maintain_position(node: &TSConditionalType, ts_type: &TSType, token: &Token, context: &mut Context) -> OperatorPosition {
       if ts_type.end_line_fast(context.program) == token.start_line_fast(context.program) {
         if node.start_line_fast(context.program) == node.end_line_fast(context.program) {
           // prefer the dprint default when going from one to multiple lines
@@ -5807,8 +5807,8 @@ fn gen_conditional_type<'a>(node: &TsConditionalType<'a>, context: &mut Context<
       OperatorPosition::NextLine => (OperatorPosition::NextLine, OperatorPosition::NextLine),
       OperatorPosition::SameLine => (OperatorPosition::SameLine, OperatorPosition::SameLine),
       OperatorPosition::Maintain => (
-        get_maintain_position(node, node.extends_type, question_token, context),
-        get_maintain_position(node, node.true_type, colon_token, context),
+        get_maintain_position(node, &node.extends_type, question_token, context),
+        get_maintain_position(node, &node.true_type, colon_token, context),
       ),
     }
   }
