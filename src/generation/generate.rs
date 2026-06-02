@@ -4315,7 +4315,7 @@ mod string_literal {
 /* top level */
 
 // oxc unifies SWC's Module + Script into a single `Program` (with `hashbang`/`directives`/`body`).
-fn gen_program_node<'a>(node: &'a Program<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_program_node<'a>(node: &'a ProgramInfo<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   let mut statements: Vec<Node<'a>> = node.directives.iter().map(Node::Directive).collect();
   statements.extend(node.body.iter().map(stmt_to_node));
@@ -7345,7 +7345,7 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
   fn get_node_sorter<'a>(
     group_kind: StmtGroupKind,
     context: &Context<'a>,
-  ) -> Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), Program<'a>) -> std::cmp::Ordering>> {
+  ) -> Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), ProgramInfo<'a>) -> std::cmp::Ordering>> {
     match group_kind {
       StmtGroupKind::Imports => get_node_sorter_from_order(context.config.module_sort_import_declarations, NamedTypeImportsExportsOrder::None),
       StmtGroupKind::Exports => get_node_sorter_from_order(context.config.module_sort_export_declarations, NamedTypeImportsExportsOrder::None),
@@ -7679,7 +7679,7 @@ where
     }
   }
 
-  fn only_single_item_and_no_comments<'a>(nodes: &[Node<'a>], program: Program<'a>) -> bool {
+  fn only_single_item_and_no_comments<'a>(nodes: &[Node<'a>], program: ProgramInfo<'a>) -> bool {
     if nodes.len() != 1 {
       return false;
     }
@@ -7690,7 +7690,7 @@ where
     }
     // search after the trailing comma if it exists
     match child.next_token_fast(program) {
-      Some(TokenAndSpan { token: Token::Comma, span, .. }) => span.trailing_comments_fast(program).is_empty(),
+      Some(t) if t.kind() == Kind::Comma => t.trailing_comments_fast(program).is_empty(),
       _ => true,
     }
   }
@@ -7842,12 +7842,12 @@ struct GenSeparatedValuesParams<'a> {
   single_line_options: ir_helpers::SingleLineOptions,
   multi_line_options: ir_helpers::MultiLineOptions,
   force_possible_newline_at_start: bool,
-  node_sorter: Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), Program<'a>) -> std::cmp::Ordering>>,
+  node_sorter: Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), ProgramInfo<'a>) -> std::cmp::Ordering>>,
 }
 
 enum NodeOrSeparator<'a> {
   Node(Node<'a>),
-  Separator(&'a TokenAndSpan),
+  Separator(&'a Token),
 }
 
 impl<'a> SourceRanged for NodeOrSeparator<'a> {
@@ -7977,7 +7977,7 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
 
 fn get_sorted_indexes<'a: 'b, 'b>(
   nodes: impl Iterator<Item = Option<Node<'a>>>,
-  sorter: Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), Program<'a>) -> std::cmp::Ordering>,
+  sorter: Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), ProgramInfo<'a>) -> std::cmp::Ordering>,
   context: &mut Context<'a>,
 ) -> utils::VecMap<usize> {
   let mut nodes_with_indexes = nodes.enumerate().collect::<Vec<_>>();
@@ -8033,7 +8033,7 @@ fn gen_node_with_separator<'a>(value: Node<'a>, generated_separator: PrintItems,
 
   return items;
 
-  fn get_comma_token<'a>(element: Node<'a>, context: &mut Context<'a>) -> Option<&'a TokenAndSpan> {
+  fn get_comma_token<'a>(element: Node<'a>, context: &mut Context<'a>) -> Option<&'a Token> {
     match context.token_finder.get_next_token_if_comma(&element) {
       Some(comma) => Some(comma),
       None => context.token_finder.get_last_token_within_if_comma(&element), // may occur for type literals
@@ -8082,7 +8082,7 @@ fn gen_type_ann_with_colon<'a>(type_ann: Node<'a>, colon_token: Option<&Token>, 
 
 struct GenBraceSeparatorOptions<'a> {
   brace_position: BracePosition,
-  open_brace_token: Option<&'a TokenAndSpan>,
+  open_brace_token: Option<&'a Token>,
   start_header_lsil: Option<LineStartIndentLevel>,
 }
 
@@ -8237,7 +8237,7 @@ struct GenObjectLikeNodeOptions<'a> {
   force_multi_line: bool,
   surround_single_line_with_spaces: bool,
   allow_blank_lines: bool,
-  node_sorter: Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), Program<'a>) -> std::cmp::Ordering>>,
+  node_sorter: Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), ProgramInfo<'a>) -> std::cmp::Ordering>>,
 }
 
 fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -8555,7 +8555,7 @@ fn gen_control_flow_separator(
 }
 
 struct GenHeaderWithConditionalBraceBodyOptions<'a> {
-  body_node: Stmt<'a>,
+  body_node: Node<'a>,
   generated_header: PrintItems,
   use_braces: UseBraces,
   brace_position: BracePosition,
@@ -8608,29 +8608,37 @@ fn gen_header_with_conditional_brace_body<'a>(
   }
 }
 
-fn force_use_braces_for_stmt(stmt: Stmt) -> bool {
+fn force_use_braces_for_stmt(stmt: Node) -> bool {
   match stmt {
-    Stmt::Block(block) => {
-      if block.stmts.len() != 1 {
+    Node::BlockStatement(block) => {
+      if block.body.len() != 1 {
         true
       } else {
-        force_use_braces_for_stmt(block.stmts[0])
+        force_use_braces_for_stmt(stmt_to_node(&block.body[0]))
       }
     }
     // force braces for any children where no braces could be ambiguous
-    Stmt::Empty(_)
-    | Stmt::DoWhile(_)
-    | Stmt::For(_)
-    | Stmt::ForIn(_)
-    | Stmt::ForOf(_)
-    | Stmt::Decl(_)
-    | Stmt::If(_) // especially force for this as it may cause a bug
-    | Stmt::Labeled(_)
-    | Stmt::Switch(_)
-    | Stmt::Try(_)
-    | Stmt::While(_)
-    | Stmt::With(_) => true,
-    Stmt::Break(_) | Stmt::Continue(_) | Stmt::Debugger(_) | Stmt::Expr(_) | Stmt::Return(_) | Stmt::Throw(_) => false,
+    Node::EmptyStatement(_)
+    | Node::DoWhileStatement(_)
+    | Node::ForStatement(_)
+    | Node::ForInStatement(_)
+    | Node::ForOfStatement(_)
+    | Node::IfStatement(_) // especially force for this as it may cause a bug
+    | Node::LabeledStatement(_)
+    | Node::SwitchStatement(_)
+    | Node::TryStatement(_)
+    | Node::WhileStatement(_)
+    | Node::WithStatement(_)
+    // declarations (SWC's Stmt::Decl)
+    | Node::VariableDeclaration(_)
+    | Node::Function(_)
+    | Node::Class(_)
+    | Node::TSTypeAliasDeclaration(_)
+    | Node::TSInterfaceDeclaration(_)
+    | Node::TSEnumDeclaration(_)
+    | Node::TSModuleDeclaration(_)
+    | Node::TSImportEqualsDeclaration(_) => true,
+    _ => false,
   }
 }
 
@@ -8666,7 +8674,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
   let should_use_new_line = get_should_use_new_line(opts.body_node, body_should_be_multi_line, &opts.single_body_position, context);
   let open_brace_token = get_open_brace_token(opts.body_node, context);
   let use_braces = opts.use_braces;
-  let is_body_empty_stmt = opts.body_node.kind() == NodeKind::EmptyStmt;
+  let is_body_empty_stmt = matches!(opts.body_node, Node::EmptyStatement(_));
   let mut inner_brace_space_condition = if_true(
     "spaceCondition",
     Rc::new(move |condition_context| {
@@ -8800,14 +8808,14 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
     ));
   }
 
-  if let Node::BlockStmt(body_node) = opts.body_node {
+  if let Node::BlockStatement(body_node) = opts.body_node {
     items.extend(ir_helpers::with_indent({
       let mut items = PrintItems::new();
       // generate the remaining trailing comments inside because some of them are generated already
       // by parsing the header trailing comments
       items.extend(gen_leading_comments(&body_node.range(), context));
       let inner_range = body_node.get_inner_range(context);
-      if body_node.stmts.is_empty() {
+      if body_node.body.is_empty() {
         let trailing_comments_same_line = get_trailing_comments_on_same_line(&inner_range.start().range(), context);
         items.extend(gen_comments_same_line(trailing_comments_same_line, context));
         // treat the remaining unhandled comments as statements
@@ -8817,7 +8825,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
           context,
         ));
       } else {
-        items.extend(gen_statements(inner_range, body_node.stmts.iter().map(|x| x.into()).collect(), context));
+        items.extend(gen_statements(inner_range, body_node.body.iter().map(stmt_to_node).collect(), context));
       }
       items
     }));
@@ -8893,8 +8901,8 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
         }
         SameOrNextLinePosition::NextLine => true,
         SameOrNextLinePosition::SameLine => {
-          if let Node::BlockStmt(block_stmt) = body_node {
-            if block_stmt.stmts.len() != 1 {
+          if let Node::BlockStatement(block_stmt) = body_node {
+            if block_stmt.body.len() != 1 {
               return true;
             }
             return get_body_stmt_start_line(body_node, context) > body_node.previous_token_fast(context.program).start_line_fast(context.program);
@@ -8903,8 +8911,8 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
         }
       };
     } else {
-      if let Node::BlockStmt(block_stmt) = body_node {
-        if block_stmt.stmts.is_empty() {
+      if let Node::BlockStatement(block_stmt) = body_node {
+        if block_stmt.body.is_empty() {
           // keep the block on the same line
           return block_stmt.start_line_fast(context.program) < block_stmt.end_line_fast(context.program);
         }
@@ -8913,8 +8921,8 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
     }
 
     fn get_body_stmt_start_line(body_node: Node, context: &mut Context) -> usize {
-      if let Node::BlockStmt(body_node) = body_node {
-        if let Some(first_stmt) = body_node.stmts.first() {
+      if let Node::BlockStatement(body_node) = body_node {
+        if let Some(first_stmt) = body_node.body.first() {
           return first_stmt.start_line_fast(context.program);
         }
       }
@@ -8923,11 +8931,11 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
   }
 
   fn get_body_should_be_multi_line<'a>(body_node: Node<'a>, header_trailing_comments: &[&'a Comment], context: &mut Context<'a>) -> bool {
-    if let Node::BlockStmt(body_node) = body_node {
-      if body_node.stmts.len() == 1 && !has_leading_comment_on_different_line(&body_node.stmts[0].range(), header_trailing_comments, context.program) {
+    if let Node::BlockStatement(body_node) = body_node {
+      if body_node.body.len() == 1 && !has_leading_comment_on_different_line(&body_node.body[0].range(), header_trailing_comments, context.program) {
         return false;
       }
-      if body_node.stmts.is_empty() && body_node.start_line_fast(context.program) == body_node.end_line_fast(context.program) {
+      if body_node.body.is_empty() && body_node.start_line_fast(context.program) == body_node.end_line_fast(context.program) {
         return false;
       }
       return true;
@@ -8935,16 +8943,16 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
       return has_leading_comment_on_different_line(&body_node.range(), header_trailing_comments, context.program);
     }
 
-    fn has_leading_comment_on_different_line<'a>(node: &SourceRange, header_trailing_comments: &[&'a Comment], program: Program<'a>) -> bool {
+    fn has_leading_comment_on_different_line<'a>(node: &SourceRange, header_trailing_comments: &[&'a Comment], program: ProgramInfo<'a>) -> bool {
       node_helpers::has_leading_comment_on_different_line(node, /* comments to ignore */ Some(header_trailing_comments), program)
     }
   }
 
   fn get_force_braces(body_node: Node) -> bool {
-    if let Node::BlockStmt(body_node) = body_node {
-      body_node.stmts.is_empty()
-        || body_node.stmts.iter().all(|s| s.kind() == NodeKind::EmptyStmt)
-        || (body_node.stmts.len() == 1 && matches!(body_node.stmts[0], Stmt::Decl(_)))
+    if let Node::BlockStatement(body_node) = body_node {
+      body_node.body.is_empty()
+        || body_node.body.iter().all(|s| matches!(s, Statement::EmptyStatement(_)))
+        || (body_node.body.len() == 1 && body_node.body[0].is_declaration())
     } else {
       false
     }
@@ -8952,7 +8960,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
 
   fn get_header_trailing_comments<'a>(body_node: Node<'a>, context: &mut Context<'a>) -> Vec<&'a Comment> {
     let mut comments = Vec::new();
-    if let Node::BlockStmt(block_stmt) = body_node {
+    if let Node::BlockStatement(block_stmt) = body_node {
       let comment_line = body_node.leading_comments_fast(context.program).find(|c| c.kind == CommentKind::Line);
       if let Some(comment) = comment_line {
         comments.push(comment);
@@ -8979,8 +8987,8 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
     comments
   }
 
-  fn get_open_brace_token<'a>(body_node: Node<'a>, context: &mut Context<'a>) -> Option<&'a TokenAndSpan> {
-    if let Node::BlockStmt(block_stmt) = body_node {
+  fn get_open_brace_token<'a>(body_node: Node<'a>, context: &mut Context<'a>) -> Option<&'a Token> {
+    if let Node::BlockStatement(block_stmt) = body_node {
       context.token_finder.get_first_open_brace_token_within(block_stmt)
     } else {
       None
@@ -9226,15 +9234,13 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
     }
 
     let past_token = context.token_finder.get_previous_token(&current);
-    if let Some(TokenAndSpan {
-      token: deno_ast::swc::parser::token::Token::JSXText { .. },
-      span,
-      had_line_break,
-    }) = past_token
-    {
-      let text = span.text_fast(context.program);
-      if !had_line_break && text.ends_with(' ') {
-        return true;
+    if let Some(token) = past_token {
+      if token.kind() == Kind::JSXText {
+        let text = token.text_fast(context.program);
+        let had_line_break = text.contains('\n') || text.contains('\r');
+        if !had_line_break && text.ends_with(' ') {
+          return true;
+        }
       }
     }
     if let Node::JSXText(child) = current {
@@ -9397,7 +9403,7 @@ fn gen_assignment_op_to<'a>(expr: Node<'a>, _op: &'static str, op_to: &'static S
   gen_assignment_like_with_token(expr, op_to, op_token, context)
 }
 
-fn gen_assignment_like_with_token<'a>(expr: Node<'a>, op: &'static StringContainer, op_token: Option<&TokenAndSpan>, context: &mut Context<'a>) -> PrintItems {
+fn gen_assignment_like_with_token<'a>(expr: Node<'a>, op: &'static StringContainer, op_token: Option<&Token>, context: &mut Context<'a>) -> PrintItems {
   let use_new_line_group = get_use_new_line_group(expr);
   let mut items = PrintItems::new();
 
@@ -9683,7 +9689,7 @@ fn gen_surrounded_by_tokens<'a>(
 }
 
 #[cfg(debug_assertions)]
-fn assert_has_op(op: &str, op_token: Option<&TokenAndSpan>, context: &mut Context) {
+fn assert_has_op(op: &str, op_token: Option<&Token>, context: &mut Context) {
   if let Some(op_token) = op_token {
     context.assert_text(SourceRange::new(op_token.start(), op_token.end()), op);
   } else {
@@ -10029,7 +10035,7 @@ fn get_generated_semi_colon(option: SemiColons, is_trailing: bool, is_multi_line
   }
 }
 
-fn get_comma_tokens_from_children_with_tokens<'a>(node: Node<'a>, program: Program<'a>) -> Vec<&'a TokenAndSpan> {
+fn get_comma_tokens_from_children_with_tokens<'a>(node: Node<'a>, program: ProgramInfo<'a>) -> Vec<&'a Token> {
   node
     .children_with_tokens_fast(program)
     .into_iter()
@@ -10046,7 +10052,7 @@ fn get_comma_tokens_from_children_with_tokens<'a>(node: Node<'a>, program: Progr
     .collect::<Vec<_>>()
 }
 
-fn get_tokens_from_children_with_tokens<'a>(node: Node<'a>, program: Program<'a>) -> Vec<&'a TokenAndSpan> {
+fn get_tokens_from_children_with_tokens<'a>(node: Node<'a>, program: ProgramInfo<'a>) -> Vec<&'a Token> {
   node
     .children_with_tokens_fast(program)
     .into_iter()
