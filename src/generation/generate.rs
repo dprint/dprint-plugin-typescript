@@ -7160,7 +7160,7 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
       let open_bracket_token = node
         .tokens_fast(context.program)
         .iter()
-        .find(|t| t.token == Token::LBracket)
+        .find(|t| t.kind() == Kind::LBrack)
         .expect("Expected to find an open bracket token.");
 
       // todo: tests for this (ex. [\n,] -> [\n    ,\n])
@@ -7171,7 +7171,7 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
   fn allow_trailing_commas(nodes: &[NodeOrSeparator]) -> bool {
     if let Some(NodeOrSeparator::Node(last)) = nodes.last() {
       // this would be a syntax error
-      if last.kind() == NodeKind::RestPat {
+      if matches!(last, Node::BindingRestElement(_)) {
         return false;
       }
     }
@@ -7199,12 +7199,12 @@ where
   let child_tokens = get_tokens_from_children_with_tokens(opts.node, context.program);
   let open_brace_token = child_tokens
     .iter()
-    .find(|t| t.token == Token::LBrace)
+    .find(|t| t.kind() == Kind::LCurly)
     .expect("Expected to find an open brace token.");
   let close_brace_token = child_tokens
     .iter()
     .rev()
-    .find(|t| t.token == Token::RBrace)
+    .find(|t| t.kind() == Kind::RCurly)
     .expect("Expected to find a close brace token.");
 
   items.extend(gen_brace_separator(
@@ -7272,7 +7272,7 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
       None => None,
     };
     for (i, node) in stmt_group.nodes.into_iter().enumerate() {
-      let is_empty_stmt = node.is::<EmptyStmt>();
+      let is_empty_stmt = matches!(node, Node::EmptyStatement(_));
       if !is_empty_stmt {
         let mut separator_items = PrintItems::new();
         if let Some(last_node) = &last_node {
@@ -7451,10 +7451,10 @@ where
 
   while let Some((i, (node, optional_print_items))) = member_items.next() {
     // class declarations may have empty statements
-    let is_empty_stmt = node.is::<EmptyStmt>();
+    let is_empty_stmt = matches!(node, Node::EmptyStatement(_));
     if !is_empty_stmt {
       if let Some(last_node) = last_node {
-        if is_ignore_jsx_expr_container(last_node, context) && node.kind() == NodeKind::JSXText {
+        if is_ignore_jsx_expr_container(last_node, context) && matches!(node, Node::JSXText(_)) {
           // ignore
         } else if should_use_new_line(&opts.should_use_new_line, last_node, node, context) {
           items.push_signal(Signal::NewLine);
@@ -7478,7 +7478,7 @@ where
       context.end_statement_or_member_lns.push(end_ln);
       items.extend(if let Some(print_items) = optional_print_items {
         print_items
-      } else if opts.separator.is_none() || is_ignore_jsx_expr_container(node, context) && next_node.map(|n| n.kind() == NodeKind::JSXText).unwrap_or(false) {
+      } else if opts.separator.is_none() || is_ignore_jsx_expr_container(node, context) && next_node.map(|n| matches!(n, Node::JSXText(_))).unwrap_or(false) {
         gen_node(node, context)
       } else {
         let generated_separator = get_generated_separator(&opts.separator, i == children_len - 1, &condition_resolvers::true_resolver());
@@ -7670,12 +7670,9 @@ where
     }
 
     fn is_param_rest_pat(param: Node) -> bool {
-      if let Node::Param(param) = param {
-        param.pat.kind() == NodeKind::RestPat
-      } else {
-        // arrow functions will not be a Param
-        param.kind() == NodeKind::RestPat
-      }
+      // oxc represents a function rest parameter as a FormalParameterRest and a
+      // destructuring rest as a BindingRestElement.
+      matches!(param, Node::FormalParameterRest(_) | Node::BindingRestElement(_))
     }
   }
 
@@ -8244,8 +8241,8 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
   let mut items = PrintItems::new();
 
   let child_tokens = get_tokens_from_children_with_tokens(opts.node, context.program);
-  let open_brace_token = child_tokens.iter().find(|t| t.token == Token::LBrace);
-  let close_brace_token = child_tokens.iter().rev().find(|t| t.token == Token::RBrace);
+  let open_brace_token = child_tokens.iter().find(|t| t.kind() == Kind::LCurly);
+  let close_brace_token = child_tokens.iter().rev().find(|t| t.kind() == Kind::RCurly);
   let force_multi_line =
     opts.force_multi_line || !opts.force_single_line && get_use_new_lines_for_nodes_with_preceeding_token("{", &opts.members, opts.prefer_single_line, context);
 
@@ -10035,30 +10032,24 @@ fn get_generated_semi_colon(option: SemiColons, is_trailing: bool, is_multi_line
   }
 }
 
+// oxc has no children-with-tokens API; collect only the node's *top-level* commas
+// (depth 1 within its own brackets) so nested commas don't throw off hole indexing.
 fn get_comma_tokens_from_children_with_tokens<'a>(node: Node<'a>, program: ProgramInfo<'a>) -> Vec<&'a Token> {
-  node
-    .children_with_tokens_fast(program)
-    .into_iter()
-    .filter_map(|c| match c {
-      NodeOrToken::Token(token) => {
-        if token.token == Token::Comma {
-          Some(token)
-        } else {
-          None
-        }
-      }
-      _ => None,
-    })
-    .collect::<Vec<_>>()
+  let mut result = Vec::new();
+  let mut depth: i32 = 0;
+  for token in node.tokens_fast(program) {
+    match token.kind() {
+      Kind::LBrack | Kind::LCurly | Kind::LParen => depth += 1,
+      Kind::RBrack | Kind::RCurly | Kind::RParen => depth -= 1,
+      Kind::Comma if depth == 1 => result.push(token),
+      _ => {}
+    }
+  }
+  result
 }
 
 fn get_tokens_from_children_with_tokens<'a>(node: Node<'a>, program: ProgramInfo<'a>) -> Vec<&'a Token> {
-  node
-    .children_with_tokens_fast(program)
-    .into_iter()
-    .filter_map(|n| match n {
-      NodeOrToken::Token(t) => Some(t),
-      _ => None,
-    })
-    .collect::<Vec<_>>()
+  // all tokens within the node; callers only need the first `{` / last `}`, which are the
+  // outermost braces regardless of nesting.
+  node.tokens_fast(program).iter().collect()
 }
