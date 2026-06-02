@@ -1945,7 +1945,7 @@ fn gen_await_expr<'a>(node: &'a AwaitExpression<'a>, context: &mut Context<'a>) 
   items
 }
 
-fn gen_binary_expr<'a>(node: &BinExpr<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_binary_expr<'a>(node: BinaryLikeExpr<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   let flattened_binary_expr = get_flattened_bin_expr(node, context);
   // println!("Bin expr: {:?}", flattened_binary_expr.iter().map(|x| x.expr.text(context)).collect::<Vec<_>>());
@@ -1963,9 +1963,9 @@ fn gen_binary_expr<'a>(node: &BinExpr<'a>, context: &mut Context<'a>) -> PrintIt
   let indent_width = context.config.indent_width;
   let binary_expr_start_il = IndentLevel::new("binExprStart");
   let binary_expr_start_isol = IsStartOfLine::new("binExprStart");
-  let allow_no_indent = get_allow_no_indent(node);
+  let allow_no_indent = get_allow_no_indent(node, context);
   let use_space_surrounding_operator = get_use_space_surrounding_operator(&node.op(), context);
-  let is_parent_bin_expr = node.parent().kind() == NodeKind::BinExpr;
+  let is_parent_bin_expr = matches!(context.parent(), Node::BinaryExpression(_) | Node::LogicalExpression(_));
   let multi_line_options = {
     let mut options = if line_per_expression {
       ir_helpers::MultiLineOptions::same_line_no_indent()
@@ -2010,14 +2010,14 @@ fn gen_binary_expr<'a>(node: &BinExpr<'a>, context: &mut Context<'a>) -> PrintIt
           } else {
             (PrintItems::new(), PrintItems::new())
           };
-          let is_inner_binary_expression = bin_expr_item.expr.kind() == NodeKind::BinExpr;
+          let is_inner_binary_expression = matches!(bin_expr_item.expr, Node::BinaryExpression(_) | Node::LogicalExpression(_));
           items.extend(gen_node_with_inner_gen(bin_expr_item.expr, context, |node_items, context| {
             let mut items = PrintItems::new();
             if let Some(op) = pre_op {
               if !leading_pre_op_comments.is_empty() {
                 items.extend(leading_pre_op_comments);
               }
-              items.push_sc(binary_op_sc(op.op));
+              items.push_sc(bin_like_op_sc(op.op));
               if trailing_pre_op_comments.is_empty() {
                 if use_space_surrounding_operator {
                   items.push_space();
@@ -2062,7 +2062,7 @@ fn gen_binary_expr<'a>(node: &BinExpr<'a>, context: &mut Context<'a>) -> PrintIt
                 items.push_space();
                 items.extend(leading_post_op_comments);
               }
-              items.push_sc(binary_op_sc(op.op));
+              items.push_sc(bin_like_op_sc(op.op));
               if !trailing_post_op_comments.is_empty() {
                 items.extend(trailing_post_op_comments);
               }
@@ -2111,29 +2111,28 @@ fn gen_binary_expr<'a>(node: &BinExpr<'a>, context: &mut Context<'a>) -> PrintIt
 
   return if node.op().is_equality() { ir_helpers::new_line_group(items) } else { items };
 
-  fn get_allow_no_indent(node: &BinExpr) -> bool {
-    let parent = node.parent();
-    let parent_kind = parent.kind();
-    if !node.op().is_add_sub()
-      && !node.op().is_mul_div()
-      && !node.op().is_logical()
-      && !node.op().is_bit_logical()
-      && !node.op().is_bit_shift()
-      && node.op() != BinaryOp::Mod
+  fn get_allow_no_indent(node: BinaryLikeExpr, context: &mut Context) -> bool {
+    let op = node.op();
+    if !op.is_add_sub()
+      && !op.is_mul_div()
+      && !op.is_logical()
+      && !op.is_bit_logical()
+      && !op.is_bit_shift()
+      && !matches!(op, BinaryLikeOp::Binary(BinaryOperator::Remainder))
     {
       false
-    } else if parent_kind == NodeKind::ExprStmt || parent_kind == NodeKind::BinExpr {
-      false
     } else {
-      // get if in an argument
-      match parent {
-        Node::ExprOrSpread(expr_or_spread) => !matches!(expr_or_spread.parent().kind(), NodeKind::CallExpr | NodeKind::OptCall | NodeKind::NewExpr),
+      match context.parent() {
+        Node::ExpressionStatement(_) | Node::BinaryExpression(_) | Node::LogicalExpression(_) => false,
+        // a binary expression used directly as a call/new argument (oxc has no
+        // ExprOrSpread wrapper); array elements still allow no-indent as before
+        Node::CallExpression(_) | Node::NewExpression(_) => false,
         _ => true,
       }
     }
   }
 
-  fn get_use_space_surrounding_operator(op: &BinaryOp, context: &Context) -> bool {
+  fn get_use_space_surrounding_operator(op: &BinaryLikeOp, context: &Context) -> bool {
     if op.is_bitwise_or_arithmetic() {
       context.config.binary_expression_space_surrounding_bitwise_and_arithmetic_operator
     } else {
@@ -2142,8 +2141,8 @@ fn gen_binary_expr<'a>(node: &BinExpr<'a>, context: &mut Context<'a>) -> PrintIt
   }
 
   fn should_newline_group_bin_item_expr<'a>(node: Node<'a>, context: &Context<'a>) -> bool {
-    if let Some(node) = node.to::<ParenExpr>() {
-      return should_newline_group_bin_item_expr(node.expr.into(), context);
+    if let Node::ParenthesizedExpression(paren) = node {
+      return should_newline_group_bin_item_expr(expr_to_node(&paren.expression), context);
     }
 
     if is_jsx_paren_expr_handled_node(node, context) {
@@ -9745,39 +9744,56 @@ fn assign_op_sc(assign_op: AssignmentOperator) -> &'static StringContainer {
   sc
 }
 
-fn binary_op_sc(binary_op: BinaryOp) -> &'static StringContainer {
-  use BinaryOp::*;
+fn binary_op_sc(binary_op: BinaryOperator) -> &'static StringContainer {
+  use BinaryOperator::*;
   let sc = match binary_op {
-    EqEq => sc!("=="),
-    NotEq => sc!("!="),
-    EqEqEq => sc!("==="),
-    NotEqEq => sc!("!=="),
-    Lt => sc!("<"),
-    LtEq => sc!("<="),
-    Gt => sc!(">"),
-    GtEq => sc!(">="),
-    LShift => sc!("<<"),
-    RShift => sc!(">>"),
-    ZeroFillRShift => sc!(">>>"),
-    Add => sc!("+"),
-    Sub => sc!("-"),
-    Mul => sc!("*"),
-    Div => sc!("/"),
-    Mod => sc!("%"),
-    BitOr => sc!("|"),
-    BitXor => sc!("^"),
-    BitAnd => sc!("&"),
-    LogicalOr => sc!("||"),
-    LogicalAnd => sc!("&&"),
+    Equality => sc!("=="),
+    Inequality => sc!("!="),
+    StrictEquality => sc!("==="),
+    StrictInequality => sc!("!=="),
+    LessThan => sc!("<"),
+    LessEqualThan => sc!("<="),
+    GreaterThan => sc!(">"),
+    GreaterEqualThan => sc!(">="),
+    ShiftLeft => sc!("<<"),
+    ShiftRight => sc!(">>"),
+    ShiftRightZeroFill => sc!(">>>"),
+    Addition => sc!("+"),
+    Subtraction => sc!("-"),
+    Multiplication => sc!("*"),
+    Division => sc!("/"),
+    Remainder => sc!("%"),
+    BitwiseOR => sc!("|"),
+    BitwiseXOR => sc!("^"),
+    BitwiseAnd => sc!("&"),
     In => sc!("in"),
-    InstanceOf => sc!("instanceof"),
-    Exp => sc!("**"),
-    NullishCoalescing => sc!("??"),
+    Instanceof => sc!("instanceof"),
+    Exponential => sc!("**"),
   };
   if cfg!(debug_assertions) {
     assert_eq!(sc.text, binary_op.as_str());
   }
   sc
+}
+
+fn logical_op_sc(logical_op: LogicalOperator) -> &'static StringContainer {
+  use LogicalOperator::*;
+  let sc = match logical_op {
+    Or => sc!("||"),
+    And => sc!("&&"),
+    Coalesce => sc!("??"),
+  };
+  if cfg!(debug_assertions) {
+    assert_eq!(sc.text, logical_op.as_str());
+  }
+  sc
+}
+
+fn bin_like_op_sc(op: BinaryLikeOp) -> &'static StringContainer {
+  match op {
+    BinaryLikeOp::Binary(op) => binary_op_sc(op),
+    BinaryLikeOp::Logical(op) => logical_op_sc(op),
+  }
 }
 
 /* is/has functions */
