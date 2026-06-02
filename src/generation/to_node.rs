@@ -66,6 +66,25 @@ pub fn array_element_to_node<'a>(e: &'a ArrayExpressionElement<'a>) -> Option<No
   }
 }
 
+pub fn ts_type_name_to_node<'a>(n: &'a TSTypeName<'a>) -> Node<'a> {
+  match n {
+    TSTypeName::IdentifierReference(i) => AstKind::IdentifierReference(i),
+    TSTypeName::QualifiedName(q) => AstKind::TSQualifiedName(q),
+    TSTypeName::ThisExpression(t) => AstKind::ThisExpression(t),
+  }
+}
+
+pub fn ts_literal_to_node<'a>(lit: &'a TSLiteral<'a>) -> Node<'a> {
+  match lit {
+    TSLiteral::BooleanLiteral(n) => AstKind::BooleanLiteral(n),
+    TSLiteral::NumericLiteral(n) => AstKind::NumericLiteral(n),
+    TSLiteral::BigIntLiteral(n) => AstKind::BigIntLiteral(n),
+    TSLiteral::StringLiteral(n) => AstKind::StringLiteral(n),
+    TSLiteral::TemplateLiteral(n) => AstKind::TemplateLiteral(n),
+    TSLiteral::UnaryExpression(n) => AstKind::UnaryExpression(n),
+  }
+}
+
 pub fn module_export_name_to_node<'a>(n: &'a ModuleExportName<'a>) -> Node<'a> {
   match n {
     ModuleExportName::IdentifierName(i) => AstKind::IdentifierName(i),

@@ -5659,9 +5659,9 @@ fn gen_while_stmt<'a>(node: &'a WhileStatement<'a>, context: &mut Context<'a>) -
 
 /* types */
 
-fn gen_array_type<'a>(node: &TsArrayType<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_array_type<'a>(node: &'a TSArrayType<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(gen_node(node.elem_type.into(), context));
+  items.extend(gen_node(ts_type_to_node(&node.element_type), context));
   items.push_sc(sc!("[]"));
   items
 }
@@ -5973,8 +5973,9 @@ fn gen_setter_signature<'a>(node: &TsSetterSignature<'a>, context: &mut Context<
   )
 }
 
-fn gen_keyword_type<'a>(node: &TsKeywordType<'a>, context: &mut Context<'a>) -> PrintItems {
-  // will be a keyword like "any", "unknown", "number", etc...
+fn gen_keyword_type<'a>(node: Node<'a>, context: &mut Context<'a>) -> PrintItems {
+  // oxc has a distinct node per keyword type (TSAnyKeyword, TSNumberKeyword, ...); just
+  // emit its source text ("any", "unknown", "number", etc.).
   node.text_fast(context.program).to_string().into()
 }
 
@@ -6064,11 +6065,11 @@ fn gen_ts_import_call_options<'a>(node: &TsImportCallOptions<'a>, context: &mut 
   )
 }
 
-fn gen_indexed_access_type<'a>(node: &TsIndexedAccessType<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_indexed_access_type<'a>(node: &'a TSIndexedAccessType<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(gen_node(node.obj_type.into(), context));
+  items.extend(gen_node(ts_type_to_node(&node.object_type), context));
   items.extend(gen_computed_prop_like(
-    |context| gen_node(node.index_type.into(), context),
+    |context| gen_node(ts_type_to_node(&node.index_type), context),
     GenComputedPropLikeOptions {
       inner_node_range: node.index_type.range(),
     },
@@ -6077,10 +6078,10 @@ fn gen_indexed_access_type<'a>(node: &TsIndexedAccessType<'a>, context: &mut Con
   items
 }
 
-fn gen_infer_type<'a>(node: &TsInferType<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_infer_type<'a>(node: &'a TSInferType<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_sc(sc!("infer "));
-  items.extend(gen_node(node.type_param.into(), context));
+  items.extend(gen_node(Node::TSTypeParameter(&node.type_parameter), context));
   items
 }
 
@@ -6090,22 +6091,22 @@ fn gen_ts_instantiation<'a>(node: &'a TSInstantiationExpression<'a>, context: &m
   items
 }
 
-fn gen_intersection_type<'a>(node: &TsIntersectionType<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_intersection_type<'a>(node: &'a TSIntersectionType<'a>, context: &mut Context<'a>) -> PrintItems {
   gen_union_or_intersection_type(
     UnionOrIntersectionType {
-      node: node.into(),
-      types: node.types,
+      node: Node::TSIntersectionType(node),
+      types: &node.types,
       is_union: false,
     },
     context,
   )
 }
 
-fn gen_lit_type<'a>(node: &TsLitType<'a>, context: &mut Context<'a>) -> PrintItems {
-  match &node.lit {
+fn gen_lit_type<'a>(node: &'a TSLiteralType<'a>, context: &mut Context<'a>) -> PrintItems {
+  match &node.literal {
     // need to do this in order to support negative numbers
-    TsLit::Number(_) | TsLit::BigInt(_) => node.text_fast(context.program).to_string().into(),
-    _ => gen_node(node.lit.into(), context),
+    TSLiteral::NumericLiteral(_) | TSLiteral::BigIntLiteral(_) => node.text_fast(context.program).to_string().into(),
+    _ => gen_node(ts_literal_to_node(&node.literal), context),
   }
 }
 
@@ -6214,30 +6215,30 @@ fn gen_mapped_type<'a>(node: &TsMappedType<'a>, context: &mut Context<'a>) -> Pr
   items
 }
 
-fn gen_optional_type<'a>(node: &TsOptionalType<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_optional_type<'a>(node: &'a TSOptionalType<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(gen_node(node.type_ann.into(), context));
+  items.extend(gen_node(ts_type_to_node(&node.type_annotation), context));
   items.push_sc(sc!("?"));
   items
 }
 
-fn gen_qualified_name<'a>(node: &TsQualifiedName<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_qualified_name<'a>(node: &'a TSQualifiedName<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(gen_node(node.left.into(), context));
+  items.extend(gen_node(ts_type_name_to_node(&node.left), context));
   items.push_sc(sc!("."));
-  items.extend(gen_node(node.right.into(), context));
+  items.extend(gen_node(Node::IdentifierName(&node.right), context));
   items
 }
 
-fn gen_parenthesized_type<'a>(node: &TsParenthesizedType<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_parenthesized_type<'a>(node: &'a TSParenthesizedType<'a>, context: &mut Context<'a>) -> PrintItems {
   if should_skip_parenthesized_type(node, context) {
-    return gen_node(node.type_ann.into(), context);
+    return gen_node(ts_type_to_node(&node.type_annotation), context);
   }
 
   let generated_type = conditions::with_indent_if_start_of_line_indented(gen_node_in_parens(
-    |context| gen_node(node.type_ann.into(), context),
+    |context| gen_node(ts_type_to_node(&node.type_annotation), context),
     GenNodeInParensOptions {
-      inner_range: node.type_ann.range(),
+      inner_range: node.type_annotation.range(),
       prefer_hanging: true,
       allow_open_paren_trailing_comments: true,
       single_line_space_around: false,
@@ -6246,14 +6247,14 @@ fn gen_parenthesized_type<'a>(node: &TsParenthesizedType<'a>, context: &mut Cont
   ))
   .into();
 
-  return if use_new_line_group(node) {
+  return if use_new_line_group(context) {
     new_line_group(generated_type)
   } else {
     generated_type
   };
 
-  fn use_new_line_group(node: &TsParenthesizedType) -> bool {
-    !matches!(node.parent(), Node::TsTypeAliasDecl(_))
+  fn use_new_line_group(context: &Context) -> bool {
+    !matches!(context.parent(), Node::TSTypeAliasDeclaration(_))
   }
 }
 
@@ -6491,7 +6492,7 @@ fn gen_union_type<'a>(node: &TsUnionType<'a>, context: &mut Context<'a>) -> Prin
 
 struct UnionOrIntersectionType<'a, 'b> {
   pub node: Node<'a>,
-  pub types: &'b [TsType<'a>],
+  pub types: &'b [TSType<'a>],
   pub is_union: bool,
 }
 
@@ -6503,7 +6504,7 @@ fn gen_union_or_intersection_type<'a, 'b>(node: UnionOrIntersectionType<'a, 'b>,
 
   let indent_width = context.config.indent_width;
   let prefer_hanging = context.config.union_and_intersection_type_prefer_hanging;
-  let is_parent_union_or_intersection = matches!(node.node.parent().unwrap().kind(), NodeKind::TsUnionType | NodeKind::TsIntersectionType);
+  let is_parent_union_or_intersection = matches!(context.parent(), Node::TSUnionType(_) | Node::TSIntersectionType(_));
   let multi_line_options = if !is_parent_union_or_intersection {
     if use_surround_newlines(node.node, context) {
       ir_helpers::MultiLineOptions::surround_newlines_indented()
@@ -6521,7 +6522,7 @@ fn gen_union_or_intersection_type<'a, 'b>(node: UnionOrIntersectionType<'a, 'b>,
       for (i, type_node) in node.types.iter().enumerate() {
         let (allow_inline_multi_line, allow_inline_single_line) = {
           let is_last_value = i + 1 == types_count; // allow the last type to be single line
-          (allows_inline_multi_line(type_node.into(), context, types_count > 1), is_last_value)
+          (allows_inline_multi_line(ts_type_to_node(type_node), context, types_count > 1), is_last_value)
         };
         let separator_token = context.token_finder.get_previous_token_if_operator(&type_node.range(), separator.text);
         let start_lc = LineAndColumn::new("start");
@@ -6556,7 +6557,7 @@ fn gen_union_or_intersection_type<'a, 'b>(node: UnionOrIntersectionType<'a, 'b>,
           }),
           Signal::SpaceIfNotTrailing.into(),
         ));
-        items.extend(gen_node(type_node.into(), context));
+        items.extend(gen_node(ts_type_to_node(type_node), context));
 
         generated_nodes.push(ir_helpers::GeneratedValue {
           items,
