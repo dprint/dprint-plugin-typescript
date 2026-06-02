@@ -66,6 +66,16 @@ pub fn array_element_to_node<'a>(e: &'a ArrayExpressionElement<'a>) -> Option<No
   }
 }
 
+pub fn ts_signature_to_node<'a>(s: &'a TSSignature<'a>) -> Node<'a> {
+  match s {
+    TSSignature::TSIndexSignature(n) => AstKind::TSIndexSignature(n),
+    TSSignature::TSPropertySignature(n) => AstKind::TSPropertySignature(n),
+    TSSignature::TSCallSignatureDeclaration(n) => AstKind::TSCallSignatureDeclaration(n),
+    TSSignature::TSConstructSignatureDeclaration(n) => AstKind::TSConstructSignatureDeclaration(n),
+    TSSignature::TSMethodSignature(n) => AstKind::TSMethodSignature(n),
+  }
+}
+
 pub fn ts_enum_member_name_to_node<'a>(n: &'a TSEnumMemberName<'a>) -> Node<'a> {
   match n {
     TSEnumMemberName::Identifier(i) => AstKind::IdentifierName(i),

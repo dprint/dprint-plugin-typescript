@@ -237,6 +237,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       Node::TSCallSignatureDeclaration(node) => gen_call_signature_decl(node, context),
       Node::TSConstructSignatureDeclaration(node) => gen_construct_signature_decl(node, context),
       Node::TSIndexSignature(node) => gen_index_signature(node, context),
+      Node::TSIndexSignatureName(node) => gen_index_signature_name(node, context),
       Node::TSInterfaceBody(node) => gen_interface_body(node, context),
       Node::TSMethodSignature(node) => gen_method_signature(node, context),
       Node::TSPropertySignature(node) => gen_property_signature(node, context),
@@ -1359,30 +1360,30 @@ fn gen_import_equals_decl<'a>(node: &TsImportEqualsDecl<'a>, context: &mut Conte
   items
 }
 
-fn gen_interface_decl<'a>(node: &TsInterfaceDecl<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_interface_decl<'a>(node: &'a TSInterfaceDeclaration<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   let start_header_lsil = LineStartIndentLevel::new("startHeader");
   items.push_info(start_header_lsil);
   context.store_lsil_for_node(node, start_header_lsil);
 
-  if node.declare() {
+  if node.declare {
     items.push_sc(sc!("declare "));
   }
   items.push_sc(sc!("interface "));
-  items.extend(gen_node(node.id.into(), context));
-  if let Some(type_params) = node.type_params {
-    items.extend(gen_node(type_params.into(), context));
+  items.extend(gen_node(Node::BindingIdentifier(&node.id), context));
+  if let Some(type_params) = &node.type_parameters {
+    items.extend(gen_node(Node::TSTypeParameterDeclaration(type_params), context));
   }
   items.extend(gen_extends_or_implements(
     GenExtendsOrImplementsOptions {
       text: sc!("extends"),
-      type_items: node.extends.iter().map(|&x| x.into()).collect(),
+      type_items: node.extends.iter().map(Node::TSInterfaceHeritage).collect(),
       start_header_lsil,
       prefer_hanging: context.config.extends_clause_prefer_hanging,
     },
     context,
   ));
-  items.extend(gen_node(node.body.into(), context));
+  items.extend(gen_node(Node::TSInterfaceBody(&node.body), context));
 
   items
 }
@@ -3373,26 +3374,28 @@ fn gen_external_module_ref<'a>(node: &'a TSExternalModuleReference<'a>, context:
 
 /* interface / type element */
 
-fn gen_call_signature_decl<'a>(node: &TsCallSignatureDecl<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_call_signature_decl<'a>(node: &'a TSCallSignatureDeclaration<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   let start_lsil = LineStartIndentLevel::new("startCallSignature");
 
   items.push_info(start_lsil);
-  if let Some(type_params) = node.type_params {
-    items.extend(gen_node(type_params.into(), context));
+  if let Some(type_params) = &node.type_parameters {
+    items.extend(gen_node(Node::TSTypeParameterDeclaration(type_params), context));
   }
+  let param_nodes = formal_params_to_nodes(&node.params);
+  let param_count = param_nodes.len();
   items.extend(gen_parameters_or_arguments(
     GenParametersOrArgumentsOptions {
-      node: node.into(),
+      node: Node::TSCallSignatureDeclaration(node),
       range: node.get_parameters_range(context),
-      nodes: node.params.iter().map(|node| node.into()).collect(),
+      nodes: param_nodes,
       custom_close_paren: |context| {
         Some(gen_close_paren_with_type(
           GenCloseParenWithTypeOptions {
             start_lsil,
-            type_node: node.type_ann.map(|x| x.into()),
+            type_node: node.return_type.as_deref().map(Node::TSTypeAnnotation),
             type_node_separator: None,
-            param_count: node.params.len(),
+            param_count,
           },
           context,
         ))
@@ -3405,7 +3408,7 @@ fn gen_call_signature_decl<'a>(node: &TsCallSignatureDecl<'a>, context: &mut Con
   items
 }
 
-fn gen_construct_signature_decl<'a>(node: &TsConstructSignatureDecl<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_construct_signature_decl<'a>(node: &'a TSConstructSignatureDeclaration<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   let start_lsil = LineStartIndentLevel::new("startConstructSignature");
 
@@ -3414,21 +3417,23 @@ fn gen_construct_signature_decl<'a>(node: &TsConstructSignatureDecl<'a>, context
   if context.config.construct_signature_space_after_new_keyword {
     items.push_space();
   }
-  if let Some(type_params) = node.type_params {
-    items.extend(gen_node(type_params.into(), context));
+  if let Some(type_params) = &node.type_parameters {
+    items.extend(gen_node(Node::TSTypeParameterDeclaration(type_params), context));
   }
+  let param_nodes = formal_params_to_nodes(&node.params);
+  let param_count = param_nodes.len();
   items.extend(gen_parameters_or_arguments(
     GenParametersOrArgumentsOptions {
-      node: node.into(),
+      node: Node::TSConstructSignatureDeclaration(node),
       range: node.get_parameters_range(context),
-      nodes: node.params.iter().map(|node| node.into()).collect(),
+      nodes: param_nodes,
       custom_close_paren: |context| {
         Some(gen_close_paren_with_type(
           GenCloseParenWithTypeOptions {
             start_lsil,
-            type_node: node.type_ann.map(|x| x.into()),
+            type_node: node.return_type.as_deref().map(Node::TSTypeAnnotation),
             type_node_separator: None,
-            param_count: node.params.len(),
+            param_count,
           },
           context,
         ))
@@ -3441,17 +3446,17 @@ fn gen_construct_signature_decl<'a>(node: &TsConstructSignatureDecl<'a>, context
   items
 }
 
-fn gen_index_signature<'a>(node: &TsIndexSignature<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_index_signature<'a>(node: &'a TSIndexSignature<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
-  if node.is_static() {
+  if node.r#static {
     items.push_sc(sc!("static "));
   }
-  if node.readonly() {
+  if node.readonly {
     items.push_sc(sc!("readonly "));
   }
 
-  let param: Node<'a> = node.params.first().expect("Expected the index signature to have one parameter.").into();
+  let param = Node::TSIndexSignatureName(node.parameters.first().expect("Expected the index signature to have one parameter."));
   items.extend(gen_computed_prop_like(
     |context| gen_node(param, context),
     GenComputedPropLikeOptions {
@@ -3459,27 +3464,39 @@ fn gen_index_signature<'a>(node: &TsIndexSignature<'a>, context: &mut Context<'a
     },
     context,
   ));
-  items.extend(gen_type_ann_with_colon_if_exists(node.type_ann, context));
+  items.extend(gen_type_ann_with_colon_if_exists(Some(&node.type_annotation), context));
 
-  if node.parent().is::<Class>() && context.config.semi_colons.is_true() {
+  if matches!(context.parent(), Node::ClassBody(_)) && context.config.semi_colons.is_true() {
     items.push_sc(sc!(";"));
   }
 
   items
 }
 
-fn gen_method_signature<'a>(node: &TsMethodSignature<'a>, context: &mut Context<'a>) -> PrintItems {
+// `[key: string]` index-signature parameter (oxc surfaces this as TSIndexSignatureName)
+fn gen_index_signature_name<'a>(node: &'a TSIndexSignatureName<'a>, context: &mut Context<'a>) -> PrintItems {
+  let mut items = gen_from_raw_string(node.name.as_str());
+  items.extend(gen_type_ann_with_colon_if_exists(Some(&node.type_annotation), context));
+  items
+}
+
+fn gen_method_signature<'a>(node: &'a TSMethodSignature<'a>, context: &mut Context<'a>) -> PrintItems {
+  let method_kind = match node.kind {
+    TSMethodSignatureKind::Method => MethodSignatureLikeKind::Method,
+    TSMethodSignatureKind::Get => MethodSignatureLikeKind::Getter,
+    TSMethodSignatureKind::Set => MethodSignatureLikeKind::Setter,
+  };
   gen_method_signature_like(
     MethodSignatureLike {
-      node: node.into(),
-      method_kind: MethodSignatureLikeKind::Method,
-      computed: node.computed(),
-      optional: node.optional(),
-      key: node.key.into(),
+      node: Node::TSMethodSignature(node),
+      method_kind,
+      computed: node.computed,
+      optional: node.optional,
+      key: prop_key_to_node(&node.key),
       parameters_range: node.get_parameters_range(context),
-      type_params: node.type_params.map(|p| p.into()),
-      params: node.params.iter().map(|p| p.into()).collect(),
-      type_ann: node.type_ann.map(|p| p.into()),
+      type_params: node.type_parameters.as_deref().map(Node::TSTypeParameterDeclaration),
+      params: formal_params_to_nodes(&node.params),
+      type_ann: node.return_type.as_deref().map(Node::TSTypeAnnotation),
     },
     context,
   )
@@ -3561,28 +3578,28 @@ fn gen_method_signature_like<'a>(node: MethodSignatureLike<'a>, context: &mut Co
   items
 }
 
-fn gen_property_signature<'a>(node: &TsPropertySignature<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_property_signature<'a>(node: &'a TSPropertySignature<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  if node.readonly() {
+  if node.readonly {
     items.push_sc(sc!("readonly "));
   }
 
-  items.extend(if node.computed() {
+  items.extend(if node.computed {
     gen_computed_prop_like(
-      |context| gen_node(node.key.into(), context),
+      |context| gen_node(prop_key_to_node(&node.key), context),
       GenComputedPropLikeOptions {
         inner_node_range: node.key.range(),
       },
       context,
     )
   } else {
-    gen_quotable_prop(node.key.into(), context)
+    gen_quotable_prop(prop_key_to_node(&node.key), context)
   });
 
-  if node.optional() {
+  if node.optional {
     items.push_sc(sc!("?"));
   }
-  items.extend(gen_type_ann_with_colon_if_exists(node.type_ann, context));
+  items.extend(gen_type_ann_with_colon_if_exists(node.type_annotation.as_deref(), context));
 
   items
 }
@@ -3621,17 +3638,17 @@ fn gen_quotable_prop<'a>(node: Node<'a>, context: &mut Context<'a>) -> PrintItem
   }
 }
 
-fn gen_interface_body<'a>(node: &TsInterfaceBody<'a>, context: &mut Context<'a>) -> PrintItems {
-  let start_header_lsil = get_parent_lsil(node, context);
+fn gen_interface_body<'a>(node: &'a TSInterfaceBody<'a>, context: &mut Context<'a>) -> PrintItems {
+  let start_header_lsil = get_parent_lsil(context);
 
   return context.with_maybe_consistent_props(
     node,
-    |node| use_consistent_quotes_for_members(node.body.iter().map(|n| n.into())),
+    |node| use_consistent_quotes_for_members(node.body.iter().map(ts_signature_to_node)),
     |context, node| {
       gen_membered_body(
         GenMemberedBodyOptions {
-          node: node.into(),
-          members: node.body.iter().map(|x| x.into()).collect(),
+          node: Node::TSInterfaceBody(node),
+          members: node.body.iter().map(ts_signature_to_node).collect(),
           start_header_lsil,
           brace_position: context.config.interface_declaration_brace_position,
           should_use_blank_line: move |previous, next, context| node_helpers::has_separating_blank_line(&previous, &next, context.program),
@@ -3642,9 +3659,9 @@ fn gen_interface_body<'a>(node: &TsInterfaceBody<'a>, context: &mut Context<'a>)
     },
   );
 
-  fn get_parent_lsil(node: &TsInterfaceBody, context: &mut Context) -> Option<LineStartIndentLevel> {
-    for ancestor in node.ancestors() {
-      if let Node::TsInterfaceDecl(ancestor) = ancestor {
+  fn get_parent_lsil(context: &mut Context) -> Option<LineStartIndentLevel> {
+    for ancestor in context.parent_stack.iter() {
+      if let Node::TSInterfaceDeclaration(ancestor) = *ancestor {
         return context.get_lsil_for_node(ancestor).map(|x| x.to_owned());
       }
     }
@@ -3653,57 +3670,39 @@ fn gen_interface_body<'a>(node: &TsInterfaceBody<'a>, context: &mut Context<'a>)
 }
 
 fn use_consistent_quotes_for_members<'a>(mut members: impl Iterator<Item = Node<'a>>) -> bool {
-  fn check_expr(expr: Expr) -> bool {
-    match expr {
-      Expr::Ident(ident) => !is_text_valid_identifier(ident.sym()),
-      Expr::Lit(Lit::Str(str)) => match str.value().as_str() {
-        Some(text) => !is_text_valid_identifier(text),
-        None => true,
-      },
-      _ => false,
-    }
-  }
-
-  fn check_prop_name(name: PropName) -> bool {
-    match name {
-      PropName::Ident(ident) => !is_text_valid_identifier(ident.sym()),
-      PropName::Str(str) => match str.value().as_str() {
-        Some(text) => !is_text_valid_identifier(text),
-        None => true,
-      },
+  fn check_prop_key(key: &PropertyKey) -> bool {
+    match key {
+      PropertyKey::StaticIdentifier(ident) => !is_text_valid_identifier(ident.name.as_str()),
+      PropertyKey::StringLiteral(str) => !is_text_valid_identifier(str.value.as_str()),
       _ => false,
     }
   }
 
   members.any(|m| match m {
     // class members
-    // Do not match class properties (Node::ClassProp)
+    // Do not match class properties (Node::PropertyDefinition)
     // With `--strictPropertyInitialization`, TS treats properties
     // with quoted names differently than unquoted ones.
     // See https://github.com/microsoft/TypeScript/pull/20075
-    Node::ClassMethod(method) => check_prop_name(method.key),
-    // interface members
-    Node::TsPropertySignature(signature) => check_expr(signature.key),
-    Node::TsGetterSignature(signature) => check_expr(signature.key),
-    Node::TsSetterSignature(signature) => check_expr(signature.key),
+    Node::MethodDefinition(method) => check_prop_key(&method.key),
+    // interface members (oxc folds getter/setter signatures into TSMethodSignature)
+    Node::TSPropertySignature(signature) => check_prop_key(&signature.key),
+    Node::TSMethodSignature(signature) => check_prop_key(&signature.key),
     // object members
-    Node::KeyValueProp(prop) => check_prop_name(prop.key),
-    Node::GetterProp(prop) => check_prop_name(prop.key),
-    Node::SetterProp(prop) => check_prop_name(prop.key),
-    Node::MethodProp(prop) => check_prop_name(prop.key),
+    Node::ObjectProperty(prop) => check_prop_key(&prop.key),
     _ => false,
   })
 }
 
-fn gen_type_lit<'a>(node: &TsTypeLit<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_type_lit<'a>(node: &'a TSTypeLiteral<'a>, context: &mut Context<'a>) -> PrintItems {
   return context.with_maybe_consistent_props(
     node,
-    |node| use_consistent_quotes_for_members(node.members.iter().map(|n| n.into())),
+    |node| use_consistent_quotes_for_members(node.members.iter().map(ts_signature_to_node)),
     |context, node| {
       gen_object_like_node(
         GenObjectLikeNodeOptions {
-          node: node.into(),
-          members: node.members.iter().map(|m| m.into()).collect(),
+          node: Node::TSTypeLiteral(node),
+          members: node.members.iter().map(ts_signature_to_node).collect(),
           separator: Separator {
             single_line: Some(semi_colon_or_comma_to_separator_value(
               context.config.type_literal_separator_kind_single_line,
