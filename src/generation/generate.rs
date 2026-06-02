@@ -1,16 +1,12 @@
-use deno_ast::swc::common::comments::Comment;
-use deno_ast::swc::common::comments::CommentKind;
-use deno_ast::swc::parser::token::BinOpToken;
-use deno_ast::swc::parser::token::Token;
-use deno_ast::swc::parser::token::TokenAndSpan;
-use deno_ast::view::*;
-use deno_ast::CommentsIterator;
+use deno_ast::oxc::ast::ast::*;
+use deno_ast::oxc::ast::AstKind;
+use deno_ast::oxc::ast::ast::Comment;
+use deno_ast::oxc::ast::ast::CommentKind;
+use deno_ast::oxc::parser::Kind;
+use deno_ast::oxc::parser::Token;
+use deno_ast::oxc::span::GetSpan;
 use deno_ast::MediaType;
 use deno_ast::ParsedSource;
-use deno_ast::SourcePos;
-use deno_ast::SourceRange;
-use deno_ast::SourceRanged;
-use deno_ast::SourceRangedForSpanned;
 use dprint_core::formatting::condition_resolvers;
 use dprint_core::formatting::conditions::*;
 use dprint_core::formatting::ir_helpers::*;
@@ -18,6 +14,8 @@ use dprint_core::formatting::*;
 use dprint_core_macros::sc;
 use std::rc::Rc;
 
+use super::oxc_helpers::*;
+use super::to_node::*;
 use super::sorting::*;
 use super::swc::get_flattened_bin_expr;
 use super::swc::*;
@@ -25,40 +23,37 @@ use super::*;
 use crate::configuration::*;
 use crate::utils;
 
-pub fn generate(parsed_source: &ParsedSource, config: &Configuration, external_formatter: Option<&ExternalFormatter>) -> anyhow::Result<PrintItems> {
-  // eprintln!("Leading: {:?}", parsed_source.comments().leading_map());
-  // eprintln!("Trailing: {:?}", parsed_source.comments().trailing_map());
+pub fn generate<'a>(parsed_source: &'a ParsedSource<'a>, config: &'a Configuration, external_formatter: Option<&'a ExternalFormatter>) -> anyhow::Result<PrintItems> {
+  let program = parsed_source.program();
+  let program_info = ProgramInfo::new(program, parsed_source.text_info_lazy(), parsed_source.tokens(), parsed_source.comments());
+  let program_node = AstKind::Program(program);
+  let mut context = Context::new(
+    parsed_source.media_type(),
+    parsed_source.tokens(),
+    program_node,
+    program_info,
+    config,
+    external_formatter,
+  );
+  let mut items = gen_node(program_node, &mut context);
+  items.push_condition(if_true(
+    "endOfFileNewLine",
+    Rc::new(|context| Some(context.writer_info.column_number > 0 || context.writer_info.line_number > 0)),
+    Signal::NewLine.into(),
+  ));
 
-  parsed_source.with_view(|program| {
-    let program_node = program.into();
-    let mut context = Context::new(
-      parsed_source.media_type(),
-      parsed_source.tokens(),
-      program_node,
-      program,
-      config,
-      external_formatter,
-    );
-    let mut items = gen_node(program_node, &mut context);
-    items.push_condition(if_true(
-      "endOfFileNewLine",
-      Rc::new(|context| Some(context.writer_info.column_number > 0 || context.writer_info.line_number > 0)),
-      Signal::NewLine.into(),
-    ));
+  #[cfg(debug_assertions)]
+  context.assert_end_of_file_state();
 
-    #[cfg(debug_assertions)]
-    context.assert_end_of_file_state();
+  if let Some(diagnostic) = context.diagnostics.pop() {
+    return Err(anyhow::anyhow!(diagnostic.message));
+  }
 
-    if let Some(diagnostic) = context.diagnostics.pop() {
-      return Err(anyhow::anyhow!(diagnostic.message));
-    }
-
-    if config.file_indent_level > 0 {
-      Ok(with_indent_times(items, config.file_indent_level))
-    } else {
-      Ok(items)
-    }
-  })
+  if config.file_indent_level > 0 {
+    Ok(with_indent_times(items, config.file_indent_level))
+  } else {
+    Ok(items)
+  }
 }
 
 fn gen_node<'a>(node: Node<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -66,10 +61,9 @@ fn gen_node<'a>(node: Node<'a>, context: &mut Context<'a>) -> PrintItems {
 }
 
 fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_gen: impl FnOnce(PrintItems, &mut Context<'a>) -> PrintItems) -> PrintItems {
-  let node_kind = node.kind();
-  // eprintln!("Node kind: {:?}", node_kind);
-  // eprintln!("Text: {:?}", node.text());
-  // eprintln!("Range: {:?}", node.range());
+  let is_program = matches!(node, Node::Program(_));
+  let is_jsx_text = matches!(node, Node::JSXText(_));
+  let is_spread_element = matches!(node, Node::SpreadElement(_));
 
   // store info
   let past_current_node = std::mem::replace(&mut context.current_node, node);
@@ -90,7 +84,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
   let mut has_ignore_comment = false;
 
   // do not get the comments for modules as this will be handled in gen_statements
-  if !matches!(node_kind, NodeKind::Module | NodeKind::Script) {
+  if !is_program {
     // get the leading comments
     if does_first_child_own_leading_comments_on_same_line(node, context) {
       // Some block comments should belong to the first child rather than the
@@ -99,7 +93,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       has_ignore_comment = get_has_ignore_comment(&leading_comments, node, context);
       let program = context.program;
       let node_start_line = node.start_line_fast(program);
-      let leading_comments_on_previous_lines = leading_comments.take_while(|c| c.kind == CommentKind::Line || c.start_line_fast(program) < node_start_line);
+      let leading_comments_on_previous_lines = leading_comments.take_while(|c| c.is_line() || c.start_line_fast(program) < node_start_line);
       items.extend(gen_comment_collection(leading_comments_on_previous_lines, None, None, context));
     } else {
       let leading_comments = context.comments.leading_comments_with_previous(node_start);
@@ -111,7 +105,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
   // generate the node
   if has_ignore_comment {
     items.push_force_current_line_indentation();
-    let node_text = if node_kind == NodeKind::JSXText {
+    let node_text = if is_jsx_text {
       // keep the leading text, but leave the trailing text to be formatted if on a separate line
       let node_text = node.text_fast(context.program);
       let end_trim = node_text.trim_end();
@@ -137,7 +131,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
 
   // Get the trailing comments -- This needs to be done based on the parse
   // stack order because certain nodes like binary expressions are flattened
-  if node_end != parent_end || matches!(context.parent().kind(), NodeKind::Module | NodeKind::Script) {
+  if node_end != parent_end || matches!(context.parent(), Node::Program(_)) {
     let trailing_comments = context.comments.trailing_comments_with_previous(node_end);
     items.extend(gen_comments_as_trailing(&node_range, trailing_comments, context));
   }
@@ -157,7 +151,8 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
 
   // need to ensure a jsx spread element's comments are generated within the braces since swc
   // has no representation of a JSX spread attribute and goes straight to the spread element
-  return if node_kind == NodeKind::SpreadElement && node.parent().unwrap().kind() == NodeKind::JSXOpeningElement {
+  // (note: oxc does model JSX spread attributes, so this generally won't trigger)
+  return if is_spread_element && matches!(context.current_node, Node::JSXOpeningElement(_)) {
     gen_as_jsx_expr_container(node, items, context)
   } else {
     items
@@ -165,192 +160,184 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
 
   fn gen_node_inner<'a>(node: Node<'a>, context: &mut Context<'a>) -> PrintItems {
     match node {
+      /* top level */
+      Node::Program(node) => gen_program_node(node, context),
       /* class */
-      Node::ClassMethod(node) => gen_class_method(node, context),
-      Node::ClassProp(node) => gen_class_prop(node, context),
-      Node::Constructor(node) => gen_constructor(node, context),
       Node::Decorator(node) => gen_decorator(node, context),
-      Node::TsParamProp(node) => gen_parameter_prop(node, context),
-      Node::AutoAccessor(node) => gen_auto_accessor(node, context),
-      Node::PrivateMethod(node) => gen_private_method(node, context),
-      Node::PrivateName(node) => gen_private_name(node, context),
-      Node::PrivateProp(node) => gen_private_prop(node, context),
+      Node::MethodDefinition(node) => gen_method_definition(node, context),
+      Node::PropertyDefinition(node) => gen_class_prop(node, context),
+      Node::AccessorProperty(node) => gen_auto_accessor(node, context),
+      Node::PrivateIdentifier(node) => gen_private_name(node, context),
       Node::StaticBlock(node) => gen_static_block(node, context),
+      Node::ClassBody(node) => gen_class_body(node, context),
       /* clauses */
       Node::CatchClause(node) => gen_catch_clause(node, context),
       /* common */
-      Node::ComputedPropName(node) => gen_computed_prop_name(node, context),
-      Node::Ident(node) => gen_identifier(node, context),
-      Node::IdentName(node) => gen_ident_name(node, context),
-      Node::BindingIdent(node) => gen_binding_identifier(node, context),
-      /* declarations */
-      Node::ClassDecl(node) => gen_class_decl(node, context),
-      Node::ExportDecl(node) => gen_export_decl(node, context),
-      Node::ExportDefaultDecl(node) => gen_export_default_decl(node, context),
-      Node::ExportDefaultExpr(node) => gen_export_default_expr(node, context),
-      Node::ExportDefaultSpecifier(node) => gen_export_default_specifier(node, context),
-      Node::FnDecl(node) => gen_function_decl(node, context),
-      Node::ImportDecl(node) => gen_import_decl(node, context),
-      Node::NamedExport(node) => gen_export_named_decl(node, context),
-      Node::Param(node) => gen_param(node, context),
-      Node::TsEnumDecl(node) => gen_enum_decl(node, context),
-      Node::TsEnumMember(node) => gen_enum_member(node, context),
-      Node::TsImportEqualsDecl(node) => gen_import_equals_decl(node, context),
-      Node::TsInterfaceDecl(node) => gen_interface_decl(node, context),
-      Node::TsModuleDecl(node) => gen_module_decl(node, context),
-      Node::TsNamespaceDecl(node) => gen_namespace_decl(node, context),
-      Node::TsTypeAliasDecl(node) => gen_type_alias(node, context),
-      Node::UsingDecl(node) => gen_using_decl(node, context),
+      Node::IdentifierReference(node) => gen_identifier(node, context),
+      Node::IdentifierName(node) => gen_ident_name(node, context),
+      Node::BindingIdentifier(node) => gen_binding_identifier(node, context),
+      Node::LabelIdentifier(node) => gen_from_raw_string(node.text_fast(context.program)),
+      /* declarations (Function/Class handle both decl & expr based on context) */
+      Node::Function(node) => gen_function(node, context),
+      Node::Class(node) => gen_class(node, context),
+      Node::TSImportEqualsDeclaration(node) => gen_import_equals_decl(node, context),
+      Node::TSInterfaceDeclaration(node) => gen_interface_decl(node, context),
+      Node::TSModuleDeclaration(node) => gen_module_decl(node, context),
+      Node::TSTypeAliasDeclaration(node) => gen_type_alias(node, context),
+      Node::VariableDeclaration(node) => gen_var_decl(node, context),
+      Node::VariableDeclarator(node) => gen_var_declarator(node, context),
       /* expressions */
-      Node::ArrayLit(node) => gen_array_expr(node, context),
-      Node::ArrowExpr(node) => gen_arrow_func_expr(node, context),
-      Node::AssignExpr(node) => gen_assignment_expr(node, context),
-      Node::AwaitExpr(node) => gen_await_expr(node, context),
-      Node::BinExpr(node) => gen_binary_expr(node, context),
-      Node::CallExpr(node) => gen_call_or_opt_expr(node.into(), context),
-      Node::OptCall(node) => gen_call_or_opt_expr(node.into(), context),
-      Node::Import(node) => gen_import_callee(node, context),
-      Node::ClassExpr(node) => gen_class_expr(node, context),
-      Node::CondExpr(node) => gen_conditional_expr(node, context),
-      Node::ExprOrSpread(node) => gen_expr_or_spread(node, context),
-      Node::FnExpr(node) => gen_fn_expr(node, context),
-      Node::GetterProp(node) => gen_getter_prop(node, context),
-      Node::KeyValueProp(node) => gen_key_value_prop(node, context),
-      Node::AssignProp(node) => gen_assign_prop(node, context),
-      Node::MemberExpr(node) => gen_member_expr(node, context),
-      Node::MetaPropExpr(node) => gen_meta_prop_expr(node, context),
-      Node::SuperPropExpr(node) => gen_super_prop_expr(node, context),
-      Node::NewExpr(node) => gen_new_expr(node, context),
-      Node::ObjectLit(node) => gen_object_lit(node, context),
-      Node::OptChainExpr(node) => gen_node(node.base.into(), context),
-      Node::ParenExpr(node) => gen_paren_expr(node, context),
-      Node::SeqExpr(node) => gen_sequence_expr(node, context),
-      Node::SetterProp(node) => gen_setter_prop(node, context),
+      Node::ArrayExpression(node) => gen_array_expr(node, context),
+      Node::ArrowFunctionExpression(node) => gen_arrow_func_expr(node, context),
+      Node::AssignmentExpression(node) => gen_assignment_expr(node, context),
+      Node::AwaitExpression(node) => gen_await_expr(node, context),
+      Node::BinaryExpression(node) => gen_binary_expr(BinaryLikeExpr::Binary(node), context),
+      Node::LogicalExpression(node) => gen_binary_expr(BinaryLikeExpr::Logical(node), context),
+      Node::CallExpression(node) => gen_call_or_opt_expr(CallOrOptCallExpr(node), context),
+      Node::ChainExpression(node) => gen_node(chain_element_to_node(&node.expression), context),
+      Node::ConditionalExpression(node) => gen_conditional_expr(node, context),
+      Node::ImportExpression(node) => gen_import_expr(node, context),
+      Node::StaticMemberExpression(node) => gen_member_expr(MemberExpr::Static(node), context),
+      Node::ComputedMemberExpression(node) => gen_member_expr(MemberExpr::Computed(node), context),
+      Node::PrivateFieldExpression(node) => gen_member_expr(MemberExpr::Private(node), context),
+      Node::MetaProperty(node) => gen_meta_prop_expr(node, context),
+      Node::NewExpression(node) => gen_new_expr(node, context),
+      Node::ObjectExpression(node) => gen_object_lit(node, context),
+      Node::ObjectProperty(node) => gen_object_property(node, context),
+      Node::ParenthesizedExpression(node) => gen_paren_expr(node, context),
+      Node::PrivateInExpression(node) => gen_private_in_expr(node, context),
+      Node::SequenceExpression(node) => gen_sequence_expr(node, context),
       Node::SpreadElement(node) => gen_spread_element(node, context),
       Node::Super(_) => "super".into(),
-      Node::TaggedTpl(node) => gen_tagged_tpl(node, context),
-      Node::ThisExpr(_) => "this".into(),
-      Node::Tpl(node) => gen_tpl(node, context),
-      Node::TplElement(node) => gen_tpl_element(node, context),
-      Node::TsAsExpr(node) => gen_as_expr(node, context),
-      Node::TsSatisfiesExpr(node) => gen_satisfies_expr(node, context),
-      Node::TsConstAssertion(node) => gen_const_assertion(node, context),
-      Node::TsExprWithTypeArgs(node) => gen_expr_with_type_args(node, context),
-      Node::TsNonNullExpr(node) => gen_non_null_expr(node, context),
-      Node::TsTypeAssertion(node) => gen_type_assertion(node, context),
-      Node::UnaryExpr(node) => gen_unary_expr(node, context),
-      Node::UpdateExpr(node) => gen_update_expr(node, context),
-      Node::YieldExpr(node) => gen_yield_expr(node, context),
-      /* exports */
-      Node::ExportNamedSpecifier(node) => gen_export_named_specifier(node, context),
-      Node::ExportNamespaceSpecifier(node) => gen_namespace_export_specifier(node, context),
-      /* imports */
-      Node::ImportNamedSpecifier(node) => gen_import_named_specifier(node, context),
-      Node::ImportStarAsSpecifier(node) => gen_import_namespace_specifier(node, context),
-      Node::ImportDefaultSpecifier(node) => gen_node(node.local.into(), context),
-      Node::TsExternalModuleRef(node) => gen_external_module_ref(node, context),
+      Node::TaggedTemplateExpression(node) => gen_tagged_tpl(node, context),
+      Node::ThisExpression(_) => "this".into(),
+      Node::TemplateLiteral(node) => gen_tpl(node, context),
+      Node::TemplateElement(node) => gen_tpl_element(node, context),
+      Node::TSAsExpression(node) => gen_as_expr(node, context),
+      Node::TSSatisfiesExpression(node) => gen_satisfies_expr(node, context),
+      Node::TSNonNullExpression(node) => gen_non_null_expr(node, context),
+      Node::TSTypeAssertion(node) => gen_type_assertion(node, context),
+      Node::TSInstantiationExpression(node) => gen_ts_instantiation(node, context),
+      Node::UnaryExpression(node) => gen_unary_expr(node, context),
+      Node::UpdateExpression(node) => gen_update_expr(node, context),
+      Node::YieldExpression(node) => gen_yield_expr(node, context),
+      /* imports / exports */
+      Node::ImportDeclaration(node) => gen_import_decl(node, context),
+      Node::ImportSpecifier(node) => gen_import_named_specifier(node, context),
+      Node::ImportDefaultSpecifier(node) => gen_node(Node::BindingIdentifier(&node.local), context),
+      Node::ImportNamespaceSpecifier(node) => gen_import_namespace_specifier(node, context),
+      Node::ExportNamedDeclaration(node) => gen_export_named_decl(node, context),
+      Node::ExportDefaultDeclaration(node) => gen_export_default_decl(node, context),
+      Node::ExportAllDeclaration(node) => gen_export_all(node, context),
+      Node::ExportSpecifier(node) => gen_export_named_specifier(node, context),
+      Node::TSExportAssignment(node) => gen_export_assignment(node, context),
+      Node::TSNamespaceExportDeclaration(node) => gen_namespace_export(node, context),
+      Node::TSExternalModuleReference(node) => gen_external_module_ref(node, context),
       /* interface / type element */
-      Node::TsCallSignatureDecl(node) => gen_call_signature_decl(node, context),
-      Node::TsConstructSignatureDecl(node) => gen_construct_signature_decl(node, context),
-      Node::TsIndexSignature(node) => gen_index_signature(node, context),
-      Node::TsInterfaceBody(node) => gen_interface_body(node, context),
-      Node::TsMethodSignature(node) => gen_method_signature(node, context),
-      Node::TsPropertySignature(node) => gen_property_signature(node, context),
-      Node::TsTypeLit(node) => gen_type_lit(node, context),
+      Node::TSCallSignatureDeclaration(node) => gen_call_signature_decl(node, context),
+      Node::TSConstructSignatureDeclaration(node) => gen_construct_signature_decl(node, context),
+      Node::TSIndexSignature(node) => gen_index_signature(node, context),
+      Node::TSInterfaceBody(node) => gen_interface_body(node, context),
+      Node::TSMethodSignature(node) => gen_method_signature(node, context),
+      Node::TSPropertySignature(node) => gen_property_signature(node, context),
+      Node::TSTypeLiteral(node) => gen_type_lit(node, context),
       /* jsx */
-      Node::JSXAttr(node) => gen_jsx_attribute(node, context),
+      Node::JSXAttribute(node) => gen_jsx_attribute(node, context),
       Node::JSXClosingElement(node) => gen_jsx_closing_element(node, context),
       Node::JSXClosingFragment(node) => gen_jsx_closing_fragment(node, context),
       Node::JSXElement(node) => gen_jsx_element(node, context),
-      Node::JSXEmptyExpr(node) => gen_jsx_empty_expr(node, context),
-      Node::JSXExprContainer(node) => gen_jsx_expr_container(node, context),
+      Node::JSXEmptyExpression(node) => gen_jsx_empty_expr(node, context),
+      Node::JSXExpressionContainer(node) => gen_jsx_expr_container(node, context),
       Node::JSXFragment(node) => gen_jsx_fragment(node, context),
-      Node::JSXMemberExpr(node) => gen_jsx_member_expr(node, context),
+      Node::JSXMemberExpression(node) => gen_jsx_member_expr(node, context),
       Node::JSXNamespacedName(node) => gen_jsx_namespaced_name(node, context),
       Node::JSXOpeningElement(node) => gen_jsx_opening_element(node, context),
       Node::JSXOpeningFragment(node) => gen_jsx_opening_fragment(node, context),
+      Node::JSXSpreadAttribute(node) => gen_jsx_spread_attribute(node, context),
       Node::JSXSpreadChild(node) => gen_jsx_spread_child(node, context),
       Node::JSXText(node) => gen_jsx_text(node, context),
+      Node::JSXIdentifier(node) => gen_from_raw_string(node.text_fast(context.program)),
       /* literals */
-      Node::BigInt(node) => gen_big_int_literal(node, context),
-      Node::Bool(node) => gen_bool_literal(node),
-      Node::Null(_) => "null".into(),
-      Node::Number(node) => gen_num_literal(node, context),
-      Node::Regex(node) => gen_reg_exp_literal(node, context),
-      Node::Str(node) => gen_string_literal(node, context),
-      /* top level */
-      Node::Module(node) => gen_module(node, context),
-      Node::Script(node) => gen_script(node, context),
+      Node::BigIntLiteral(node) => gen_big_int_literal(node, context),
+      Node::BooleanLiteral(node) => gen_bool_literal(node),
+      Node::NullLiteral(_) => "null".into(),
+      Node::NumericLiteral(node) => gen_num_literal(node, context),
+      Node::RegExpLiteral(node) => gen_reg_exp_literal(node, context),
+      Node::StringLiteral(node) => gen_string_literal(node, context),
       /* patterns */
-      Node::ArrayPat(node) => gen_array_pat(node, context),
-      Node::AssignPat(node) => gen_assign_pat(node, context),
-      Node::AssignPatProp(node) => gen_assign_pat_prop(node, context),
-      Node::KeyValuePatProp(node) => gen_key_value_pat_prop(node, context),
-      Node::RestPat(node) => gen_rest_pat(node, context),
-      Node::ObjectPat(node) => gen_object_pat(node, context),
-      /* properties */
-      Node::MethodProp(node) => gen_method_prop(node, context),
+      Node::ArrayPattern(node) => gen_array_pat(node, context),
+      Node::AssignmentPattern(node) => gen_assign_pat(node, context),
+      Node::ObjectPattern(node) => gen_object_pat(node, context),
+      Node::BindingProperty(node) => gen_key_value_pat_prop(node, context),
+      Node::BindingRestElement(node) => gen_rest_pat(node, context),
+      Node::FormalParameter(node) => gen_param(node, context),
       /* statements */
-      Node::BlockStmt(node) => gen_block_stmt(node, context),
-      Node::BreakStmt(node) => gen_break_stmt(node, context),
-      Node::ContinueStmt(node) => gen_continue_stmt(node, context),
-      Node::DebuggerStmt(node) => gen_debugger_stmt(node, context),
-      Node::DoWhileStmt(node) => gen_do_while_stmt(node, context),
-      Node::ExportAll(node) => gen_export_all(node, context),
-      Node::ExprStmt(node) => gen_expr_stmt(node, context),
-      Node::EmptyStmt(node) => gen_empty_stmt(node, context),
-      Node::ForInStmt(node) => gen_for_in_stmt(node, context),
-      Node::ForOfStmt(node) => gen_for_of_stmt(node, context),
-      Node::ForStmt(node) => gen_for_stmt(node, context),
-      Node::IfStmt(node) => gen_if_stmt(node, context),
-      Node::LabeledStmt(node) => gen_labeled_stmt(node, context),
-      Node::ReturnStmt(node) => gen_return_stmt(node, context),
-      Node::SwitchStmt(node) => gen_switch_stmt(node, context),
+      Node::BlockStatement(node) => gen_block_stmt(node, context),
+      Node::BreakStatement(node) => gen_break_stmt(node, context),
+      Node::ContinueStatement(node) => gen_continue_stmt(node, context),
+      Node::DebuggerStatement(node) => gen_debugger_stmt(node, context),
+      Node::Directive(node) => gen_directive(node, context),
+      Node::DoWhileStatement(node) => gen_do_while_stmt(node, context),
+      Node::ExpressionStatement(node) => gen_expr_stmt(node, context),
+      Node::EmptyStatement(node) => gen_empty_stmt(node, context),
+      Node::ForInStatement(node) => gen_for_in_stmt(node, context),
+      Node::ForOfStatement(node) => gen_for_of_stmt(node, context),
+      Node::ForStatement(node) => gen_for_stmt(node, context),
+      Node::IfStatement(node) => gen_if_stmt(node, context),
+      Node::LabeledStatement(node) => gen_labeled_stmt(node, context),
+      Node::ReturnStatement(node) => gen_return_stmt(node, context),
+      Node::SwitchStatement(node) => gen_switch_stmt(node, context),
       Node::SwitchCase(node) => gen_switch_case(node, context),
-      Node::ThrowStmt(node) => gen_throw_stmt(node, context),
-      Node::TryStmt(node) => gen_try_stmt(node, context),
-      Node::TsExportAssignment(node) => gen_export_assignment(node, context),
-      Node::TsNamespaceExportDecl(node) => gen_namespace_export(node, context),
-      Node::VarDecl(node) => gen_var_decl(node, context),
-      Node::VarDeclarator(node) => gen_var_declarator(node, context),
-      Node::WhileStmt(node) => gen_while_stmt(node, context),
+      Node::ThrowStatement(node) => gen_throw_stmt(node, context),
+      Node::TryStatement(node) => gen_try_stmt(node, context),
+      Node::WhileStatement(node) => gen_while_stmt(node, context),
+      /* enums / modules */
+      Node::TSEnumDeclaration(node) => gen_enum_decl(node, context),
+      Node::TSEnumMember(node) => gen_enum_member(node, context),
       /* types */
-      Node::TsArrayType(node) => gen_array_type(node, context),
-      Node::TsConditionalType(node) => gen_conditional_type(node, context),
-      Node::TsConstructorType(node) => gen_constructor_type(node, context),
-      Node::TsFnType(node) => gen_function_type(node, context),
-      Node::TsGetterSignature(node) => gen_getter_signature(node, context),
-      Node::TsSetterSignature(node) => gen_setter_signature(node, context),
-      Node::TsKeywordType(node) => gen_keyword_type(node, context),
-      Node::TsImportType(node) => gen_import_type(node, context),
-      Node::TsImportCallOptions(node) => gen_ts_import_call_options(node, context),
-      Node::TsIndexedAccessType(node) => gen_indexed_access_type(node, context),
-      Node::TsInferType(node) => gen_infer_type(node, context),
-      Node::TsInstantiation(node) => gen_ts_instantiation(node, context),
-      Node::TsIntersectionType(node) => gen_intersection_type(node, context),
-      Node::TsLitType(node) => gen_lit_type(node, context),
-      Node::TsMappedType(node) => gen_mapped_type(node, context),
-      Node::TsOptionalType(node) => gen_optional_type(node, context),
-      Node::TsQualifiedName(node) => gen_qualified_name(node, context),
-      Node::TsParenthesizedType(node) => gen_parenthesized_type(node, context),
-      Node::TsRestType(node) => gen_rest_type(node, context),
-      Node::TsThisType(_) => "this".into(),
-      Node::TsTplLitType(node) => gen_tpl_lit_type(node, context),
-      Node::TsTupleType(node) => gen_tuple_type(node, context),
-      Node::TsTupleElement(node) => gen_tuple_element(node, context),
-      Node::TsTypeAnn(node) => gen_type_ann(node, context),
-      Node::TsTypeParam(node) => gen_type_param(node, context),
-      Node::TsTypeParamDecl(node) => gen_type_parameters(TypeParamNode::Decl(node), context),
-      Node::TsTypeParamInstantiation(node) => gen_type_parameters(TypeParamNode::Instantiation(node), context),
-      Node::TsTypeOperator(node) => gen_type_operator(node, context),
-      Node::TsTypePredicate(node) => gen_type_predicate(node, context),
-      Node::TsTypeQuery(node) => gen_type_query(node, context),
-      Node::TsTypeRef(node) => gen_type_reference(node, context),
-      Node::TsUnionType(node) => gen_union_type(node, context),
+      Node::TSArrayType(node) => gen_array_type(node, context),
+      Node::TSConditionalType(node) => gen_conditional_type(node, context),
+      Node::TSConstructorType(node) => gen_constructor_type(node, context),
+      Node::TSFunctionType(node) => gen_function_type(node, context),
+      Node::TSImportType(node) => gen_import_type(node, context),
+      Node::TSIndexedAccessType(node) => gen_indexed_access_type(node, context),
+      Node::TSInferType(node) => gen_infer_type(node, context),
+      Node::TSIntersectionType(node) => gen_intersection_type(node, context),
+      Node::TSLiteralType(node) => gen_lit_type(node, context),
+      Node::TSMappedType(node) => gen_mapped_type(node, context),
+      Node::TSQualifiedName(node) => gen_qualified_name(node, context),
+      Node::TSParenthesizedType(node) => gen_parenthesized_type(node, context),
+      Node::TSThisType(_) => "this".into(),
+      Node::TSTemplateLiteralType(node) => gen_tpl_lit_type(node, context),
+      Node::TSTupleType(node) => gen_tuple_type(node, context),
+      Node::TSNamedTupleMember(node) => gen_tuple_element(node, context),
+      Node::TSTypeAnnotation(node) => gen_type_ann(node, context),
+      Node::TSTypeParameter(node) => gen_type_param(node, context),
+      Node::TSTypeParameterDeclaration(node) => gen_type_parameters(TypeParamNode::Decl(node), context),
+      Node::TSTypeParameterInstantiation(node) => gen_type_parameters(TypeParamNode::Instantiation(node), context),
+      Node::TSTypeOperator(node) => gen_type_operator(node, context),
+      Node::TSTypePredicate(node) => gen_type_predicate(node, context),
+      Node::TSTypeQuery(node) => gen_type_query(node, context),
+      Node::TSTypeReference(node) => gen_type_reference(node, context),
+      Node::TSUnionType(node) => gen_union_type(node, context),
+      /* keyword types */
+      Node::TSAnyKeyword(_)
+      | Node::TSBigIntKeyword(_)
+      | Node::TSBooleanKeyword(_)
+      | Node::TSIntrinsicKeyword(_)
+      | Node::TSNeverKeyword(_)
+      | Node::TSNullKeyword(_)
+      | Node::TSNumberKeyword(_)
+      | Node::TSObjectKeyword(_)
+      | Node::TSStringKeyword(_)
+      | Node::TSSymbolKeyword(_)
+      | Node::TSUndefinedKeyword(_)
+      | Node::TSUnknownKeyword(_)
+      | Node::TSVoidKeyword(_) => gen_keyword_type(node, context),
       /* These should never be matched. Return its text if so */
-      Node::Class(_) | Node::Function(_) | Node::Invalid(_) | Node::WithStmt(_) | Node::TsModuleBlock(_) => {
+      _ => {
         if cfg!(debug_assertions) {
-          panic!("Debug panic! Did not expect to generate IR for node of type {}.", node.kind());
+          panic!("Debug panic! Did not expect to generate IR for this node type.");
         }
 
         gen_from_raw_string(node.text_fast(context.program))
