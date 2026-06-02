@@ -57,6 +57,21 @@ pub fn stmt_to_node<'a>(s: &'a Statement<'a>) -> Node<'a> {
   }
 }
 
+pub fn assign_target_to_node<'a>(t: &'a AssignmentTarget<'a>) -> Node<'a> {
+  match t {
+    AssignmentTarget::AssignmentTargetIdentifier(n) => AstKind::IdentifierReference(n),
+    AssignmentTarget::TSAsExpression(n) => AstKind::TSAsExpression(n),
+    AssignmentTarget::TSSatisfiesExpression(n) => AstKind::TSSatisfiesExpression(n),
+    AssignmentTarget::TSNonNullExpression(n) => AstKind::TSNonNullExpression(n),
+    AssignmentTarget::TSTypeAssertion(n) => AstKind::TSTypeAssertion(n),
+    AssignmentTarget::ComputedMemberExpression(n) => AstKind::ComputedMemberExpression(n),
+    AssignmentTarget::StaticMemberExpression(n) => AstKind::StaticMemberExpression(n),
+    AssignmentTarget::PrivateFieldExpression(n) => AstKind::PrivateFieldExpression(n),
+    AssignmentTarget::ArrayAssignmentTarget(n) => AstKind::ArrayAssignmentTarget(n),
+    AssignmentTarget::ObjectAssignmentTarget(n) => AstKind::ObjectAssignmentTarget(n),
+  }
+}
+
 pub fn ts_type_to_node<'a>(t: &'a TSType<'a>) -> Node<'a> {
   match t {
     TSType::TSAnyKeyword(n) => AstKind::TSAnyKeyword(n),
