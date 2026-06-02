@@ -2495,14 +2495,8 @@ fn indent_if_sol_and_same_indent_as_top_most(items: PrintItems, indent_level: In
   )
 }
 
-fn gen_expr_or_spread<'a>(node: &ExprOrSpread<'a>, context: &mut Context<'a>) -> PrintItems {
-  let mut items = PrintItems::new();
-  if node.spread().is_some() {
-    items.push_sc(sc!("..."));
-  }
-  items.extend(gen_node(node.expr.into(), context));
-  items
-}
+// oxc has no ExprOrSpread wrapper: call/array arguments are either a bare expression or a
+// dedicated SpreadElement node (both handled directly via the dispatch).
 
 // `implements X<T>` on a class (expression is a type name)
 fn gen_class_implements<'a>(node: &'a TSClassImplements<'a>, context: &mut Context<'a>) -> PrintItems {

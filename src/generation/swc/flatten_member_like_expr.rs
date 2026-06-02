@@ -117,7 +117,7 @@ fn push_descendant_nodes_for_call_expr<'a>(call_expr: CallOrOptCallExpr<'a>, nod
   })));
 }
 
-fn chain_element_to_node<'a>(element: &'a ChainElement<'a>) -> Node<'a> {
+pub fn chain_element_to_node<'a>(element: &'a ChainElement<'a>) -> Node<'a> {
   match element {
     ChainElement::CallExpression(node) => Node::CallExpression(node),
     ChainElement::TSNonNullExpression(node) => Node::TSNonNullExpression(node),
