@@ -18,9 +18,11 @@ mod swc;
 #[allow(dead_code)]
 mod sorting;
 
+#[allow(dead_code)]
+mod node_helpers;
+
 // mod generate;
 // mod generate_types;
-// mod node_helpers;
 
 use comments::*;
 use tokens::*;
