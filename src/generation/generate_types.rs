@@ -3,6 +3,8 @@ use deno_ast::oxc::ast::ast::BlockStatement;
 use deno_ast::oxc::ast::ast::CallExpression;
 use deno_ast::oxc::ast::ast::Expression;
 use deno_ast::oxc::ast::ast::Function;
+use deno_ast::oxc::ast::ast::FunctionBody;
+use deno_ast::oxc::ast::ast::ImportExpression;
 use deno_ast::oxc::ast::ast::NewExpression;
 use deno_ast::oxc::ast::ast::ObjectExpression;
 use deno_ast::oxc::ast::ast::ObjectPattern;
