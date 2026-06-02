@@ -1,11 +1,30 @@
-use deno_ast::swc::common::comments::CommentKind;
-use deno_ast::view::*;
-use deno_ast::SourcePos;
-use deno_ast::SourceRange;
-use deno_ast::SourceRanged;
-use deno_ast::SourceRangedForSpanned;
+use deno_ast::oxc::ast::ast::ArrowFunctionExpression;
+use deno_ast::oxc::ast::ast::BlockStatement;
+use deno_ast::oxc::ast::ast::CallExpression;
+use deno_ast::oxc::ast::ast::Expression;
+use deno_ast::oxc::ast::ast::Function;
+use deno_ast::oxc::ast::ast::NewExpression;
+use deno_ast::oxc::ast::ast::ObjectExpression;
+use deno_ast::oxc::ast::ast::ObjectPattern;
+use deno_ast::oxc::ast::ast::TSCallSignatureDeclaration;
+use deno_ast::oxc::ast::ast::TSConstructSignatureDeclaration;
+use deno_ast::oxc::ast::ast::TSConstructorType;
+use deno_ast::oxc::ast::ast::TSFunctionType;
+use deno_ast::oxc::ast::ast::TSMethodSignature;
+use deno_ast::oxc::ast::ast::TSTypeParameterDeclaration;
+use deno_ast::oxc::ast::ast::TSTypeParameterInstantiation;
+use deno_ast::oxc::ast::ast::TSTypeParameterInstantiation as TypeArgs;
+use deno_ast::oxc::span::GetSpan;
+use deno_ast::oxc::span::Span;
 
-use super::*;
+use super::oxc_helpers::CommentExt;
+use super::oxc_helpers::Node;
+use super::oxc_helpers::PosExt;
+use super::oxc_helpers::SourcePos;
+use super::oxc_helpers::SourceRange;
+use super::oxc_helpers::SourceRanged;
+use super::to_node::ts_type_to_node;
+use super::Context;
 
 pub trait RangedExtensions {
   fn start_line_with_comments(&self, context: &mut Context) -> usize;
@@ -27,9 +46,9 @@ where
       self.start_line_fast(context.program)
     } else {
       let lo = self.start();
-      let previous_token = context.token_finder.get_previous_token(&lo);
+      let previous_token = lo.previous_token_fast(context.program);
       if let Some(previous_token) = previous_token {
-        let previous_end_line = previous_token.end_line_fast(context.program);
+        let previous_end_line = previous_token.end().line_fast(context.program);
         let mut past_trailing_comments = false;
         for comment in leading_comments {
           let comment_start_line = comment.start_line_fast(context.program);
@@ -59,10 +78,10 @@ where
       .map(|x| x.end())
       .unwrap_or_else(|| self.end());
     let trailing_comments = search_end.trailing_comments_fast(context.program);
-    let previous_end_line = search_end.end_line_fast(context.program);
+    let previous_end_line = search_end.line_fast(context.program);
     for comment in trailing_comments {
       // optimization
-      if comment.kind == CommentKind::Line {
+      if comment.is_line() {
         break;
       }
 
@@ -84,22 +103,15 @@ where
 /* custom enums */
 
 pub enum TypeParamNode<'a> {
-  Instantiation(&'a TsTypeParamInstantiation<'a>),
-  Decl(&'a TsTypeParamDecl<'a>),
+  Instantiation(&'a TSTypeParameterInstantiation<'a>),
+  Decl(&'a TSTypeParameterDeclaration<'a>),
 }
 
-impl<'a> SourceRanged for TypeParamNode<'a> {
-  fn start(&self) -> SourcePos {
+impl<'a> GetSpan for TypeParamNode<'a> {
+  fn span(&self) -> Span {
     match self {
-      TypeParamNode::Instantiation(node) => node.start(),
-      TypeParamNode::Decl(node) => node.start(),
-    }
-  }
-
-  fn end(&self) -> SourcePos {
-    match self {
-      TypeParamNode::Instantiation(node) => node.end(),
-      TypeParamNode::Decl(node) => node.end(),
+      TypeParamNode::Instantiation(node) => node.span,
+      TypeParamNode::Decl(node) => node.span,
     }
   }
 }
@@ -107,16 +119,15 @@ impl<'a> SourceRanged for TypeParamNode<'a> {
 impl<'a> TypeParamNode<'a> {
   pub fn params(&self) -> Vec<Node<'a>> {
     match self {
-      TypeParamNode::Instantiation(node) => node.params.iter().map(|p| p.into()).collect(),
-      TypeParamNode::Decl(node) => node.params.iter().map(|&p| p.into()).collect(),
+      TypeParamNode::Instantiation(node) => node.params.iter().map(ts_type_to_node).collect(),
+      TypeParamNode::Decl(node) => node.params.iter().map(Node::TSTypeParameter).collect(),
     }
   }
 
-  pub fn parent(&self) -> Node<'a> {
-    match self {
-      TypeParamNode::Instantiation(node) => node.parent(),
-      TypeParamNode::Decl(node) => node.parent(),
-    }
+  /// The parent of a type parameter node is whatever is currently on the
+  /// context's parent stack while it is being generated.
+  pub fn parent(&self, context: &Context<'a>) -> Node<'a> {
+    context.parent()
   }
 }
 
@@ -126,19 +137,19 @@ pub trait InnerRanged {
   fn get_inner_range(&self, context: &mut Context) -> SourceRange;
 }
 
-impl<'a> InnerRanged for &BlockStmt<'a> {
+impl<'a> InnerRanged for &BlockStatement<'a> {
   fn get_inner_range(&self, _: &mut Context) -> SourceRange {
     get_inner_range_for_object_like(&self.range())
   }
 }
 
-impl<'a> InnerRanged for &ObjectLit<'a> {
+impl<'a> InnerRanged for &ObjectExpression<'a> {
   fn get_inner_range(&self, _: &mut Context) -> SourceRange {
     get_inner_range_for_object_like(&self.range())
   }
 }
 
-impl<'a> InnerRanged for &ObjectPat<'a> {
+impl<'a> InnerRanged for &ObjectPattern<'a> {
   fn get_inner_range(&self, _: &mut Context) -> SourceRange {
     get_inner_range_for_object_like(&self.range())
   }
@@ -149,27 +160,23 @@ fn get_inner_range_for_object_like(range: &SourceRange) -> SourceRange {
 }
 
 pub trait NodeExtensions<'a> {
-  fn get_type_parameters(&self) -> Option<&'a TsTypeParamDecl<'a>>;
+  fn get_type_parameters(&self) -> Option<&'a TSTypeParameterDeclaration<'a>>;
 }
 
 impl<'a> NodeExtensions<'a> for Node<'a> {
-  fn get_type_parameters(&self) -> Option<&'a TsTypeParamDecl<'a>> {
+  fn get_type_parameters(&self) -> Option<&'a TSTypeParameterDeclaration<'a>> {
     match self {
-      Node::ClassDecl(node) => node.class.type_params,
-      Node::Class(node) => node.type_params,
-      Node::TsInterfaceDecl(node) => node.type_params,
-      Node::ClassExpr(node) => node.class.type_params,
-      Node::FnDecl(node) => node.function.type_params,
-      Node::Function(node) => node.type_params,
-      Node::ClassMethod(node) => node.function.type_params,
-      Node::TsTypeAliasDecl(node) => node.type_params,
-      Node::ArrowExpr(node) => node.type_params,
-      Node::TsCallSignatureDecl(node) => node.type_params,
-      Node::TsConstructSignatureDecl(node) => node.type_params,
-      Node::TsMethodSignature(node) => node.type_params,
-      Node::MethodProp(node) => node.function.type_params,
-      Node::TsConstructorType(node) => node.type_params,
-      Node::TsFnType(node) => node.type_params,
+      Node::Class(node) => node.type_parameters.as_deref(),
+      Node::TSInterfaceDeclaration(node) => node.type_parameters.as_deref(),
+      Node::Function(node) => node.type_parameters.as_deref(),
+      Node::MethodDefinition(node) => node.value.type_parameters.as_deref(),
+      Node::TSTypeAliasDeclaration(node) => node.type_parameters.as_deref(),
+      Node::ArrowFunctionExpression(node) => node.type_parameters.as_deref(),
+      Node::TSCallSignatureDeclaration(node) => node.type_parameters.as_deref(),
+      Node::TSConstructSignatureDeclaration(node) => node.type_parameters.as_deref(),
+      Node::TSMethodSignature(node) => node.type_parameters.as_deref(),
+      Node::TSConstructorType(node) => node.type_parameters.as_deref(),
+      Node::TSFunctionType(node) => node.type_parameters.as_deref(),
       _ => None,
     }
   }
@@ -181,13 +188,14 @@ pub trait ParametersRanged {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange>;
 }
 
-impl<'a> ParametersRanged for &Function<'a> {
+impl<'a> ParametersRanged for Function<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
     get_params_or_args_range(
       self.start(),
-      self.params.iter().map(|x| x.range()).collect(),
+      self.params.items.iter().map(|x| x.range()).collect(),
       self
         .return_type
+        .as_ref()
         .map(|t| t.start())
         .or_else(|| self.body.as_ref().map(|b| b.start()))
         .unwrap_or_else(|| self.end()),
@@ -196,67 +204,11 @@ impl<'a> ParametersRanged for &Function<'a> {
   }
 }
 
-impl<'a> ParametersRanged for &PrivateMethod<'a> {
-  fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
-    self.function.get_parameters_range(context)
-  }
-}
-
-impl<'a> ParametersRanged for &ClassMethod<'a> {
-  fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
-    self.function.get_parameters_range(context)
-  }
-}
-
-impl<'a> ParametersRanged for &Constructor<'a> {
+impl<'a> ParametersRanged for ArrowFunctionExpression<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
     get_params_or_args_range(
       self.start(),
-      self.params.iter().map(|x| x.range()).collect(),
-      self.body.as_ref().map(|t| t.start()).unwrap_or_else(|| self.end()),
-      context,
-    )
-  }
-}
-
-impl<'a> ParametersRanged for &MethodProp<'a> {
-  fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
-    self.function.get_parameters_range(context)
-  }
-}
-
-impl<'a> ParametersRanged for &GetterProp<'a> {
-  fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
-    get_params_or_args_range(
-      self.start(),
-      vec![],
-      self
-        .type_ann
-        .as_ref()
-        .map(|t| t.start())
-        .or_else(|| self.body.as_ref().map(|t| t.start()))
-        .unwrap_or_else(|| self.end()),
-      context,
-    )
-  }
-}
-
-impl<'a> ParametersRanged for &SetterProp<'a> {
-  fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
-    get_params_or_args_range(
-      self.start(),
-      vec![self.param.range()],
-      self.body.as_ref().map(|t| t.start()).unwrap_or_else(|| self.end()),
-      context,
-    )
-  }
-}
-
-impl<'a> ParametersRanged for &ArrowExpr<'a> {
-  fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
-    get_params_or_args_range(
-      self.start(),
-      self.params.iter().map(|x| x.range()).collect(),
+      self.params.items.iter().map(|x| x.range()).collect(),
       self.return_type.as_ref().map(|t| t.start()).unwrap_or_else(|| self.body.start()),
       context,
     )
@@ -269,76 +221,54 @@ impl<'a> ParametersRanged for CallOrOptCallExpr<'a> {
   }
 }
 
-impl<'a> ParametersRanged for &NewExpr<'a> {
+impl<'a> ParametersRanged for NewExpression<'a> {
+  fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
+    get_params_or_args_range(self.start(), self.arguments.iter().map(|a| a.range()).collect(), self.end(), context)
+  }
+}
+
+impl<'a> ParametersRanged for TSCallSignatureDeclaration<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
     get_params_or_args_range(
       self.start(),
-      self.args.as_ref().map(|args| args.iter().map(|a| a.range()).collect()).unwrap_or_default(),
-      self.end(),
+      self.params.items.iter().map(|x| x.range()).collect(),
+      self.return_type.as_ref().map(|t| t.start()).unwrap_or_else(|| self.end()),
       context,
     )
   }
 }
 
-impl<'a> ParametersRanged for &TsCallSignatureDecl<'a> {
+impl<'a> ParametersRanged for TSConstructSignatureDeclaration<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
     get_params_or_args_range(
       self.start(),
-      self.params.iter().map(|x| x.range()).collect(),
-      self.type_ann.as_ref().map(|t| t.start()).unwrap_or_else(|| self.end()),
+      self.params.items.iter().map(|x| x.range()).collect(),
+      self.return_type.as_ref().map(|t| t.start()).unwrap_or_else(|| self.end()),
       context,
     )
   }
 }
 
-impl<'a> ParametersRanged for &TsConstructSignatureDecl<'a> {
+impl<'a> ParametersRanged for TSMethodSignature<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
     get_params_or_args_range(
       self.start(),
-      self.params.iter().map(|x| x.range()).collect(),
-      self.type_ann.as_ref().map(|t| t.start()).unwrap_or_else(|| self.end()),
+      self.params.items.iter().map(|x| x.range()).collect(),
+      self.return_type.as_ref().map(|t| t.start()).unwrap_or_else(|| self.end()),
       context,
     )
   }
 }
 
-impl<'a> ParametersRanged for &TsGetterSignature<'a> {
+impl<'a> ParametersRanged for TSConstructorType<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
-    get_params_or_args_range(
-      self.start(),
-      Vec::with_capacity(0),
-      self.type_ann.as_ref().map(|t| t.start()).unwrap_or_else(|| self.end()),
-      context,
-    )
+    get_params_or_args_range(self.start(), self.params.items.iter().map(|x| x.range()).collect(), self.return_type.start(), context)
   }
 }
 
-impl<'a> ParametersRanged for &TsSetterSignature<'a> {
+impl<'a> ParametersRanged for TSFunctionType<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
-    get_params_or_args_range(self.start(), vec![self.param.range()], self.end(), context)
-  }
-}
-
-impl<'a> ParametersRanged for &TsMethodSignature<'a> {
-  fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
-    get_params_or_args_range(
-      self.start(),
-      self.params.iter().map(|x| x.range()).collect(),
-      self.type_ann.as_ref().map(|t| t.start()).unwrap_or_else(|| self.end()),
-      context,
-    )
-  }
-}
-
-impl<'a> ParametersRanged for &TsConstructorType<'a> {
-  fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
-    get_params_or_args_range(self.start(), self.params.iter().map(|x| x.range()).collect(), self.type_ann.start(), context)
-  }
-}
-
-impl<'a> ParametersRanged for &TsFnType<'a> {
-  fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
-    get_params_or_args_range(self.start(), self.params.iter().map(|x| x.range()).collect(), self.type_ann.start(), context)
+    get_params_or_args_range(self.start(), self.params.items.iter().map(|x| x.range()).collect(), self.return_type.start(), context)
   }
 }
 
@@ -347,7 +277,7 @@ fn get_params_or_args_range(start_pos: SourcePos, params: Vec<SourceRange>, foll
     let close_paren = if let Some(last_param) = params.last() {
       context.token_finder.get_first_close_paren_after(last_param)
     } else {
-      context.token_finder.get_first_close_paren_before(&following_pos)
+      context.token_finder.get_first_close_paren_before(&SourceRange::new(following_pos, following_pos))
     };
     if let Some(close_paren) = close_paren {
       let end = close_paren.end();
@@ -361,13 +291,12 @@ fn get_params_or_args_range(start_pos: SourcePos, params: Vec<SourceRange>, foll
     }
   }?;
   let close_token_start = {
-    let open_paren = context.token_finder.get_first_open_paren_before(&{
-      if let Some(first_param) = params.first() {
-        first_param.start()
-      } else {
-        close_token_end
-      }
-    });
+    let before_pos = if let Some(first_param) = params.first() {
+      first_param.start()
+    } else {
+      close_token_end
+    };
+    let open_paren = context.token_finder.get_first_open_paren_before(&SourceRange::new(before_pos, before_pos));
 
     if let Some(open_paren) = open_paren {
       let pos = open_paren.start();
@@ -384,76 +313,43 @@ fn get_params_or_args_range(start_pos: SourcePos, params: Vec<SourceRange>, foll
   Some(SourceRange::new(close_token_start, close_token_end))
 }
 
+/// In SWC this distinguished `CallExpr` from `OptCall`. oxc has no separate
+/// optional-call node — optional chaining is represented with a `.optional`
+/// flag and a wrapping `ChainExpression` — so this simply wraps a
+/// `CallExpression`.
 #[derive(Copy, Clone)]
-pub enum CallOrOptCallExpr<'a> {
-  CallExpr(&'a CallExpr<'a>),
-  OptCall(&'a OptCall<'a>),
-}
+pub struct CallOrOptCallExpr<'a>(pub &'a CallExpression<'a>);
 
 impl<'a> CallOrOptCallExpr<'a> {
+  pub fn inner(&self) -> &'a CallExpression<'a> {
+    self.0
+  }
+
   pub fn is_optional(&self) -> bool {
-    let Self::OptCall(opt_call) = self else {
-      return false;
-    };
-    opt_call.parent().optional()
+    self.0.optional
   }
 
-  pub fn type_args(&self) -> Option<&'a TsTypeParamInstantiation<'a>> {
-    match self {
-      Self::CallExpr(node) => node.type_args,
-      Self::OptCall(node) => node.type_args,
-    }
+  pub fn type_args(&self) -> Option<&'a TypeArgs<'a>> {
+    self.0.type_arguments.as_deref()
   }
 
-  pub fn args(&self) -> &[&'a ExprOrSpread<'a>] {
-    match self {
-      Self::CallExpr(node) => node.args,
-      Self::OptCall(node) => node.args,
-    }
+  pub fn args(&self) -> &'a [deno_ast::oxc::ast::ast::Argument<'a>] {
+    &self.0.arguments
   }
 
-  pub fn callee(&self) -> Callee<'a> {
-    match self {
-      Self::CallExpr(node) => node.callee,
-      Self::OptCall(node) => Callee::Expr(node.callee),
-    }
+  pub fn callee(&self) -> &'a Expression<'a> {
+    &self.0.callee
   }
 }
 
-impl<'a> SourceRanged for CallOrOptCallExpr<'a> {
-  fn start(&self) -> SourcePos {
-    match self {
-      Self::CallExpr(node) => node.start(),
-      Self::OptCall(node) => node.start(),
-    }
-  }
-
-  fn end(&self) -> SourcePos {
-    match self {
-      Self::CallExpr(node) => node.end(),
-      Self::OptCall(node) => node.end(),
-    }
+impl<'a> GetSpan for CallOrOptCallExpr<'a> {
+  fn span(&self) -> Span {
+    self.0.span
   }
 }
 
-impl<'a> From<&'a CallExpr<'a>> for CallOrOptCallExpr<'a> {
-  fn from(call_expr: &'a CallExpr<'a>) -> Self {
-    Self::CallExpr(call_expr)
-  }
-}
-
-impl<'a> From<&'a OptCall<'a>> for CallOrOptCallExpr<'a> {
-  fn from(opt_call: &'a OptCall<'a>) -> Self {
-    Self::OptCall(opt_call)
-  }
-}
-
-#[allow(clippy::from_over_into)]
-impl<'a> Into<Node<'a>> for CallOrOptCallExpr<'a> {
-  fn into(self) -> Node<'a> {
-    match self {
-      Self::CallExpr(node) => node.into(),
-      Self::OptCall(node) => node.into(),
-    }
+impl<'a> From<&'a CallExpression<'a>> for CallOrOptCallExpr<'a> {
+  fn from(call_expr: &'a CallExpression<'a>) -> Self {
+    Self(call_expr)
   }
 }
