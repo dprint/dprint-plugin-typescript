@@ -1836,11 +1836,11 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
   }
 }
 
-fn gen_as_expr<'a>(node: &TsAsExpr<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_as_expr<'a>(node: &'a TSAsExpression<'a>, context: &mut Context<'a>) -> PrintItems {
   gen_as_expr_like(
     AsExprLike {
-      expr: node.expr.into(),
-      type_ann: node.type_ann.into(),
+      expr: expr_to_node(&node.expression),
+      type_ann: ts_type_to_node(&node.type_annotation),
     },
     context,
   )
@@ -1869,19 +1869,15 @@ fn gen_as_expr_like<'a>(node: AsExprLike<'a>, context: &mut Context<'a>) -> Prin
   items
 }
 
-fn gen_satisfies_expr<'a>(node: &TsSatisfiesExpr<'a>, context: &mut Context<'a>) -> PrintItems {
-  let mut items = gen_node(node.expr.into(), context);
+fn gen_satisfies_expr<'a>(node: &'a TSSatisfiesExpression<'a>, context: &mut Context<'a>) -> PrintItems {
+  let mut items = gen_node(expr_to_node(&node.expression), context);
   items.push_sc(sc!(" satisfies"));
   items.push_signal(Signal::SpaceIfNotTrailing);
-  items.push_condition(conditions::with_indent_if_start_of_line_indented(gen_node(node.type_ann.into(), context)));
+  items.push_condition(conditions::with_indent_if_start_of_line_indented(gen_node(ts_type_to_node(&node.type_annotation), context)));
   items
 }
 
-fn gen_const_assertion<'a>(node: &TsConstAssertion<'a>, context: &mut Context<'a>) -> PrintItems {
-  let mut items = gen_node(node.expr.into(), context);
-  items.push_sc(sc!(" as const"));
-  items
-}
+// oxc has no TsConstAssertion - `x as const` is a TSAsExpression to a `const` type ref.
 
 fn gen_assignment_expr<'a>(node: &AssignExpr<'a>, context: &mut Context<'a>) -> PrintItems {
   // check for a nested assignment (ex. `a = b = c`)
@@ -3223,15 +3219,15 @@ fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context
   }
 }
 
-fn gen_type_assertion<'a>(node: &TsTypeAssertion<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_type_assertion<'a>(node: &'a TSTypeAssertion<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_sc(sc!("<"));
-  items.extend(gen_node(node.type_ann.into(), context));
+  items.extend(gen_node(ts_type_to_node(&node.type_annotation), context));
   items.push_sc(sc!(">"));
   if context.config.type_assertion_space_before_expression {
     items.push_space();
   }
-  items.extend(gen_node(node.expr.into(), context));
+  items.extend(gen_node(expr_to_node(&node.expression), context));
   items
 }
 
@@ -6037,9 +6033,9 @@ fn gen_infer_type<'a>(node: &TsInferType<'a>, context: &mut Context<'a>) -> Prin
   items
 }
 
-fn gen_ts_instantiation<'a>(node: &TsInstantiation<'a>, context: &mut Context<'a>) -> PrintItems {
-  let mut items = gen_node(node.expr.into(), context);
-  items.extend(gen_node(node.type_args.into(), context));
+fn gen_ts_instantiation<'a>(node: &'a TSInstantiationExpression<'a>, context: &mut Context<'a>) -> PrintItems {
+  let mut items = gen_node(expr_to_node(&node.expression), context);
+  items.extend(gen_node(Node::TSTypeParameterInstantiation(&node.type_arguments), context));
   items
 }
 
