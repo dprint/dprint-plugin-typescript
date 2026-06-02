@@ -1056,23 +1056,41 @@ fn gen_export_named_decl<'a>(node: &NamedExport<'a>, context: &mut Context<'a>) 
   }
 }
 
-fn gen_function_decl<'a>(node: &FnDecl<'a>, context: &mut Context<'a>) -> PrintItems {
-  gen_function_decl_or_expr(
+// oxc unifies SWC's FnDecl + FnExpr into a single `Function` (decl-vs-expr via `.r#type`).
+fn gen_function<'a>(node: &'a Function<'a>, context: &mut Context<'a>) -> PrintItems {
+  let is_func_decl = matches!(node.r#type, FunctionType::FunctionDeclaration | FunctionType::TSDeclareFunction);
+
+  if !is_func_decl && context.config.function_expression_flat_iife && is_iife_fn_expr(node, context) {
+    context.skip_iife_body_indent = true;
+  }
+
+  let items = gen_function_decl_or_expr(
     FunctionDeclOrExprNode {
-      node: node.into(),
-      is_func_decl: true,
-      ident: Some(node.ident),
-      declare: node.declare(),
-      func: node.function,
+      node: Node::Function(node),
+      is_func_decl,
+      ident: node.id.as_ref(),
+      declare: node.declare,
+      func: node,
     },
     context,
-  )
+  );
+
+  // function expressions can require wrapping parens (e.g. an IIFE)
+  if !is_func_decl && should_add_parens_around_expr(Node::Function(node), context) {
+    if context.config.paren_expression_space_around {
+      surround_with_parens(surround_with_spaces(items))
+    } else {
+      surround_with_parens(items)
+    }
+  } else {
+    items
+  }
 }
 
 struct FunctionDeclOrExprNode<'a> {
   node: Node<'a>,
   is_func_decl: bool,
-  ident: Option<&'a Ident<'a>>,
+  ident: Option<&'a BindingIdentifier<'a>>,
   declare: bool,
   func: &'a Function<'a>,
 }
@@ -1087,11 +1105,11 @@ fn gen_function_decl_or_expr<'a>(node: FunctionDeclOrExprNode<'a>, context: &mut
   if node.declare {
     items.push_sc(sc!("declare "));
   }
-  if func.is_async() {
+  if func.r#async {
     items.push_sc(sc!("async "));
   }
   items.push_sc(sc!("function"));
-  if func.is_generator() {
+  if func.generator {
     items.push_sc(sc!("*"));
   }
   if space_after_function_keyword {
@@ -1101,30 +1119,32 @@ fn gen_function_decl_or_expr<'a>(node: FunctionDeclOrExprNode<'a>, context: &mut
     if !space_after_function_keyword {
       items.push_space();
     }
-    items.extend(gen_node(ident.into(), context));
+    items.extend(gen_node(Node::BindingIdentifier(ident), context));
   }
-  if let Some(type_params) = func.type_params {
-    items.extend(gen_node(type_params.into(), context));
+  if let Some(type_params) = &func.type_parameters {
+    items.extend(gen_node(Node::TSTypeParameterDeclaration(type_params), context));
   }
   #[allow(clippy::collapsible_if)]
   if get_use_space_before_parens(node.is_func_decl, context) {
-    if node.ident.is_some() || func.type_params.is_some() || !space_after_function_keyword {
+    if node.ident.is_some() || func.type_parameters.is_some() || !space_after_function_keyword {
       items.push_space();
     }
   }
 
+  let param_nodes = formal_params_to_nodes(&func.params);
+  let param_count = param_nodes.len();
   items.extend(gen_parameters_or_arguments(
     GenParametersOrArgumentsOptions {
       node: node.node,
-      nodes: func.params.iter().map(|&node| node.into()).collect(),
+      nodes: param_nodes,
       range: func.get_parameters_range(context),
       custom_close_paren: |context| {
         Some(gen_close_paren_with_type(
           GenCloseParenWithTypeOptions {
             start_lsil: start_header_lsil,
-            type_node: func.return_type.map(|x| x.into()),
+            type_node: func.return_type.as_deref().map(Node::TSTypeAnnotation),
             type_node_separator: None,
-            param_count: func.params.len(),
+            param_count,
           },
           context,
         ))
@@ -1134,13 +1154,13 @@ fn gen_function_decl_or_expr<'a>(node: FunctionDeclOrExprNode<'a>, context: &mut
     context,
   ));
 
-  if let Some(body) = func.body {
+  if let Some(body) = &func.body {
     let brace_position = if node.is_func_decl {
       context.config.function_declaration_brace_position
     } else {
       context.config.function_expression_brace_position
     };
-    let open_brace_token = context.token_finder.get_first_open_brace_token_within(body);
+    let open_brace_token = context.token_finder.get_first_open_brace_token_within(body.as_ref());
 
     items.extend(gen_brace_separator(
       GenBraceSeparatorOptions {
@@ -1151,7 +1171,7 @@ fn gen_function_decl_or_expr<'a>(node: FunctionDeclOrExprNode<'a>, context: &mut
       context,
     ));
 
-    items.extend(gen_node(body.into(), context));
+    items.extend(gen_node(Node::FunctionBody(body), context));
   } else if context.config.semi_colons.is_true() {
     items.push_sc(sc!(";"));
   }
@@ -2554,47 +2574,20 @@ fn gen_expr_with_type_args<'a>(node: &TsExprWithTypeArgs<'a>, context: &mut Cont
   items
 }
 
-fn is_iife_fn_expr(node: &FnExpr) -> bool {
-  let mut current: Node = node.into();
-  while let Some(parent) = current.parent() {
-    if parent.is::<ParenExpr>() {
-      current = parent;
-      continue;
+fn is_iife_fn_expr(node: &Function, context: &Context) -> bool {
+  let mut current_range = node.range();
+  for ancestor in context.parent_stack.iter() {
+    match *ancestor {
+      Node::ParenthesizedExpression(paren) => {
+        current_range = paren.range();
+        continue;
+      }
+      // oxc has no separate OptCall; optional calls are CallExpression with `.optional`
+      Node::CallExpression(call) => return call.callee.range() == current_range,
+      _ => return false,
     }
-    return match parent {
-      Node::CallExpr(call) => call.callee.range() == current.range(),
-      Node::OptCall(call) => call.callee.range() == current.range(),
-      _ => false,
-    };
   }
   false
-}
-
-fn gen_fn_expr<'a>(node: &FnExpr<'a>, context: &mut Context<'a>) -> PrintItems {
-  if context.config.function_expression_flat_iife && is_iife_fn_expr(node) {
-    context.skip_iife_body_indent = true;
-  }
-
-  let items = gen_function_decl_or_expr(
-    FunctionDeclOrExprNode {
-      node: node.into(),
-      is_func_decl: node.parent().kind() == NodeKind::ExportDefaultDecl && node.ident.is_some(),
-      ident: node.ident,
-      declare: false,
-      func: node.function,
-    },
-    context,
-  );
-
-  if should_add_parens_around_expr(node.into(), context) {
-    if context.config.paren_expression_space_around {
-      surround_with_parens(surround_with_spaces(items))
-    } else {
-      surround_with_parens(items)
-    }
-  } else {
-    items
-  }
 }
 
 fn should_add_parens_around_expr<'a>(node: Node<'a>, context: &Context<'a>) -> bool {
