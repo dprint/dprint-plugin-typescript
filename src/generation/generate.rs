@@ -357,14 +357,18 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
     let mut items = PrintItems::new();
 
     // decorators in these cases will have starts before their parent so they need to be handled specially
-    if let Node::ExportDecl(decl) = node {
-      if let Decl::Class(class_decl) = &decl.decl {
-        items.extend(gen_decorators(class_decl.class.decorators, false, context));
+    match node {
+      Node::ExportNamedDeclaration(decl) => {
+        if let Some(Declaration::ClassDeclaration(class)) = &decl.declaration {
+          items.extend(gen_decorators(&class.decorators, false, context));
+        }
       }
-    } else if let Node::ExportDefaultDecl(decl) = node {
-      if let DefaultDecl::Class(class_expr) = &decl.decl {
-        items.extend(gen_decorators(class_expr.class.decorators, false, context));
+      Node::ExportDefaultDeclaration(decl) => {
+        if let ExportDefaultDeclarationKind::ClassDeclaration(class) = &decl.declaration {
+          items.extend(gen_decorators(&class.decorators, false, context));
+        }
       }
+      _ => {}
     }
 
     items
@@ -373,11 +377,11 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
   #[inline]
   fn does_first_child_own_leading_comments_on_same_line(node: Node, context: &mut Context) -> bool {
     match node {
-      Node::TsUnionType(_) | Node::TsIntersectionType(_) => {
+      Node::TSUnionType(_) | Node::TSIntersectionType(_) => {
         let node_start_line = node.start_line_fast(context.program);
         node
           .leading_comments_fast(context.program)
-          .any(|c| c.kind == CommentKind::Block && c.start_line_fast(context.program) == node_start_line)
+          .any(|c| c.is_block() && c.start_line_fast(context.program) == node_start_line)
       }
       _ => false,
     }
