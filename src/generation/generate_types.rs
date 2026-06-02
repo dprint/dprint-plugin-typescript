@@ -227,6 +227,16 @@ impl<'a> ParametersRanged for NewExpression<'a> {
   }
 }
 
+impl<'a> ParametersRanged for ImportExpression<'a> {
+  fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
+    let mut args = vec![self.source.range()];
+    if let Some(options) = &self.options {
+      args.push(options.range());
+    }
+    get_params_or_args_range(self.start(), args, self.end(), context)
+  }
+}
+
 impl<'a> ParametersRanged for TSCallSignatureDeclaration<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
     get_params_or_args_range(

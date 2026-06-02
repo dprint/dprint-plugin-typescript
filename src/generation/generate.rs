@@ -2768,6 +2768,40 @@ fn gen_non_null_expr<'a>(node: &'a TSNonNullExpression<'a>, context: &mut Contex
   items
 }
 
+// dynamic `import(...)` (oxc models this as a dedicated ImportExpression rather than
+// a call with an `import` callee).
+fn gen_import_expr<'a>(node: &'a ImportExpression<'a>, context: &mut Context<'a>) -> PrintItems {
+  let mut items = PrintItems::new();
+  items.push_sc(sc!("import"));
+  match node.phase {
+    Some(ImportPhase::Source) => items.push_sc(sc!(".source")),
+    Some(ImportPhase::Defer) => items.push_sc(sc!(".defer")),
+    None => {}
+  }
+  let mut args = vec![expr_to_node(&node.source)];
+  if let Some(options) = &node.options {
+    args.push(expr_to_node(options));
+  }
+  items.extend(gen_parameters_or_arguments(
+    GenParametersOrArgumentsOptions {
+      node: Node::ImportExpression(node),
+      range: node.get_parameters_range(context),
+      nodes: args,
+      custom_close_paren: |_| None,
+      is_parameters: false,
+    },
+    context,
+  ));
+  items
+}
+
+fn gen_private_in_expr<'a>(node: &'a PrivateInExpression<'a>, context: &mut Context<'a>) -> PrintItems {
+  let mut items = gen_node(Node::PrivateIdentifier(&node.left), context);
+  items.push_sc(sc!(" in "));
+  items.extend(gen_node(expr_to_node(&node.right), context));
+  items
+}
+
 fn gen_object_lit<'a>(node: &'a ObjectExpression<'a>, context: &mut Context<'a>) -> PrintItems {
   let items = context.with_maybe_consistent_props(
     node,
