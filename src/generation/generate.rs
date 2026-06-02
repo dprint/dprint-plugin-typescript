@@ -4318,24 +4318,28 @@ fn gen_program<'a, 'b>(node: ProgramInfo<'a, 'b>, context: &mut Context<'a>) -> 
 
 /* patterns */
 
-fn gen_array_pat<'a>(node: &ArrayPat<'a>, context: &mut Context<'a>) -> PrintItems {
-  let mut items = PrintItems::new();
-  items.extend(gen_array_like_nodes(
+fn gen_array_pat<'a>(node: &'a ArrayPattern<'a>, context: &mut Context<'a>) -> PrintItems {
+  // oxc keeps a destructuring rest element in a dedicated `rest` field rather than as
+  // the last element, so append it to the element list here.
+  let mut nodes: Vec<Option<Node<'a>>> = node.elements.iter().map(|x| x.as_ref().map(binding_pattern_to_node)).collect();
+  if let Some(rest) = &node.rest {
+    nodes.push(Some(Node::BindingRestElement(rest)));
+  }
+  gen_array_like_nodes(
     GenArrayLikeNodesOptions {
-      node: node.into(),
-      nodes: node.elems.iter().map(|x| x.as_ref().map(|elem| elem.into())).collect(),
+      node: Node::ArrayPattern(node),
+      nodes,
       prefer_hanging: context.config.array_pattern_prefer_hanging,
       prefer_single_line: context.config.array_pattern_prefer_single_line,
-      trailing_commas: context.config.array_pattern_trailing_commas,
+      trailing_commas: if node.rest.is_some() {
+        TrailingCommas::Never
+      } else {
+        context.config.array_pattern_trailing_commas
+      },
       space_around: context.config.array_pattern_space_around,
     },
     context,
-  ));
-  if node.optional() {
-    items.push_sc(sc!("?"));
-  }
-  items.extend(gen_type_ann_with_colon_if_exists(node.type_ann, context));
-  items
+  )
 }
 
 fn gen_assign_pat<'a>(node: &'a AssignmentPattern<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -4345,37 +4349,53 @@ fn gen_assign_pat<'a>(node: &'a AssignmentPattern<'a>, context: &mut Context<'a>
   items
 }
 
-fn gen_assign_pat_prop<'a>(node: &AssignPatProp<'a>, context: &mut Context<'a>) -> PrintItems {
+// oxc unifies SWC's KeyValuePatProp + AssignPatProp into a single `BindingProperty`
+// distinguished by `.shorthand` (the value carries any default via an AssignmentPattern).
+fn gen_key_value_pat_prop<'a>(node: &'a BindingProperty<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(gen_node(node.key.into(), context));
-  if let Some(value) = &node.value {
-    items.extend(gen_assignment(value.into(), sc!("="), context));
+  if node.shorthand {
+    // `{ a }` or `{ a = 1 }` - the value holds the binding (and any default)
+    items.extend(gen_node(binding_pattern_to_node(&node.value), context));
+  } else {
+    if node.computed {
+      items.extend(gen_computed_prop_like(
+        |context| gen_node(prop_key_to_node(&node.key), context),
+        GenComputedPropLikeOptions {
+          inner_node_range: node.key.range(),
+        },
+        context,
+      ));
+    } else {
+      items.extend(gen_node(prop_key_to_node(&node.key), context));
+    }
+    items.extend(gen_assignment(binding_pattern_to_node(&node.value), sc!(":"), context));
   }
   items
 }
 
-fn gen_key_value_pat_prop<'a>(node: &KeyValuePatProp<'a>, context: &mut Context<'a>) -> PrintItems {
-  let mut items = PrintItems::new();
-  items.extend(gen_node(node.key.into(), context));
-  items.extend(gen_assignment(node.value.into(), sc!(":"), context));
-  items
-}
-
-fn gen_rest_pat<'a>(node: &RestPat<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_rest_pat<'a>(node: &'a BindingRestElement<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_sc(sc!("..."));
-  items.extend(gen_node(node.arg.into(), context));
-  items.extend(gen_type_ann_with_colon_if_exists(node.type_ann, context));
+  items.extend(gen_node(binding_pattern_to_node(&node.argument), context));
   items
 }
 
-fn gen_object_pat<'a>(node: &ObjectPat<'a>, context: &mut Context<'a>) -> PrintItems {
-  let mut items = PrintItems::new();
-  items.extend(gen_object_like_node(
+fn gen_object_pat<'a>(node: &'a ObjectPattern<'a>, context: &mut Context<'a>) -> PrintItems {
+  // oxc stores the destructuring rest separately rather than as the last property.
+  let has_rest = node.rest.is_some();
+  let mut members: Vec<Node<'a>> = node.properties.iter().map(Node::BindingProperty).collect();
+  if let Some(rest) = &node.rest {
+    members.push(Node::BindingRestElement(rest));
+  }
+  gen_object_like_node(
     GenObjectLikeNodeOptions {
-      node: node.into(),
-      members: node.props.iter().map(|x| x.into()).collect(),
-      separator: get_trailing_commas(node, context).into(),
+      node: Node::ObjectPattern(node),
+      members,
+      separator: if has_rest {
+        TrailingCommas::Never.into()
+      } else {
+        context.config.object_pattern_trailing_commas.into()
+      },
       prefer_hanging: context.config.object_pattern_prefer_hanging,
       prefer_single_line: context.config.object_pattern_prefer_single_line,
       force_single_line: false,
@@ -4385,21 +4405,7 @@ fn gen_object_pat<'a>(node: &ObjectPat<'a>, context: &mut Context<'a>) -> PrintI
       node_sorter: None,
     },
     context,
-  ));
-  if node.optional() {
-    items.push_sc(sc!("?"));
-  }
-  items.extend(gen_type_ann_with_colon_if_exists(node.type_ann, context));
-  return items;
-
-  fn get_trailing_commas(node: &ObjectPat, context: &Context) -> TrailingCommas {
-    if let Some(last) = node.props.last() {
-      if last.kind() == NodeKind::RestPat {
-        return TrailingCommas::Never;
-      }
-    }
-    context.config.object_pattern_trailing_commas
-  }
+  )
 }
 
 /* properties */
