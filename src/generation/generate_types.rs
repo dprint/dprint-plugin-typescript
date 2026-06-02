@@ -143,6 +143,12 @@ impl<'a> InnerRanged for &BlockStatement<'a> {
   }
 }
 
+impl<'a> InnerRanged for &FunctionBody<'a> {
+  fn get_inner_range(&self, _: &mut Context) -> SourceRange {
+    get_inner_range_for_object_like(&self.range())
+  }
+}
+
 impl<'a> InnerRanged for &ObjectExpression<'a> {
   fn get_inner_range(&self, _: &mut Context) -> SourceRange {
     get_inner_range_for_object_like(&self.range())

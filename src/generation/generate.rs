@@ -274,6 +274,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       Node::FormalParameterRest(node) => gen_formal_parameter_rest(node, context),
       /* statements */
       Node::BlockStatement(node) => gen_block_stmt(node, context),
+      Node::FunctionBody(node) => gen_function_body(node, context),
       Node::BreakStatement(node) => gen_break_stmt(node, context),
       Node::ContinueStatement(node) => gen_continue_stmt(node, context),
       Node::DebuggerStatement(node) => gen_debugger_stmt(node, context),
@@ -1567,15 +1568,15 @@ fn gen_array_expr<'a>(node: &'a ArrayExpression<'a>, context: &mut Context<'a>) 
   )
 }
 
-fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_arrow_func_expr<'a>(node: &'a ArrowFunctionExpression<'a>, context: &mut Context<'a>) -> PrintItems {
   let items = gen_inner(node, context);
-  return if should_add_parens_around_expr(node.into(), context) {
+  return if should_add_parens_around_expr(Node::ArrowFunctionExpression(node), context) {
     surround_with_parens(items)
   } else {
     items
   };
 
-  fn gen_inner<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -> PrintItems {
+  fn gen_inner<'a>(node: &'a ArrowFunctionExpression<'a>, context: &mut Context<'a>) -> PrintItems {
     if let Some(node) = get_curried_arrow_expr(node) {
       // handle arrow functions that are curried differently
       gen_curried_arrow(node, context)
@@ -1654,16 +1655,11 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
     items
   }
 
-  fn gen_inner_arrow<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -> PrintItems {
+  fn gen_inner_arrow<'a>(node: &'a ArrowFunctionExpression<'a>, context: &mut Context<'a>) -> PrintItems {
     let (header_start_lsil, header_items) = gen_arrow_signature(&ArrowSignature::new(node), context);
 
-    let is_arrow_in_test_call_expr = node
-      .parent()
-      .parent()
-      .unwrap()
-      .to::<CallExpr>()
-      .map(|c| node_helpers::is_test_library_call_expr(c, context.program))
-      .unwrap_or(false);
+    // in oxc an arrow is a direct argument of its call (no ExprOrSpread wrapper)
+    let is_arrow_in_test_call_expr = matches!(context.parent(), Node::CallExpression(c) if node_helpers::is_test_library_call_expr(c, context.program));
     let mut items = if is_arrow_in_test_call_expr {
       ir_helpers::with_no_new_lines(header_items)
     } else {
@@ -1675,18 +1671,25 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
     items
   }
 
-  fn gen_arrow_body<'a>(node: &'a ArrowExpr<'a>, header_start_lsil: LineStartIndentLevel, context: &mut Context<'a>) -> PrintItems {
+  fn gen_arrow_body<'a>(node: &'a ArrowFunctionExpression<'a>, header_start_lsil: LineStartIndentLevel, context: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
-    let generated_body = gen_node(node.body.into(), context);
+    // oxc arrow body is always a FunctionBody; `.expression` true means it wraps a
+    // single bare expression (which `get_expression` extracts).
+    let body_node = match node.get_expression() {
+      Some(expr) => expr_to_node(expr),
+      None => Node::FunctionBody(&node.body),
+    };
+    let generated_body = gen_node(body_node, context);
     let generated_body = if use_new_line_group_for_arrow_body(node, context) {
       new_line_group(generated_body)
     } else {
       generated_body
     }
     .into_rc_path();
-    let open_brace_token = match &node.body {
-      BlockStmtOrExpr::BlockStmt(stmt) => context.token_finder.get_first_open_brace_token_within(*stmt),
-      _ => None,
+    let open_brace_token = if node.expression {
+      None
+    } else {
+      context.token_finder.get_first_open_brace_token_within(&node.body)
     };
 
     if open_brace_token.is_some() {
@@ -1705,7 +1708,7 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
       let end_body_ln = LineNumber::new("endBody");
       items.push_info(start_body_ln);
 
-      if should_not_newline_after_arrow(&node.body, context) {
+      if should_not_newline_after_arrow(node, context) {
         items.push_space();
       } else {
         // todo: uncomment this? I was making a lot of changes so didn't want to do it yet
@@ -1741,24 +1744,26 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
       items.push_sc(sc!("async "));
     }
     if let Some(type_params) = node.type_params() {
-      items.extend(gen_node(type_params.into(), context));
+      items.extend(gen_node(Node::TSTypeParameterDeclaration(type_params), context));
     }
 
     if should_use_parens {
       // need to check if there are parens because gen_parameters_or_arguments depends on the parens existing
       if has_parens(node, context.program) {
+        let param_nodes = formal_params_to_nodes(&node.inner.params);
+        let param_count = param_nodes.len();
         items.extend(gen_parameters_or_arguments(
           GenParametersOrArgumentsOptions {
-            node: node.inner.into(),
+            node: Node::ArrowFunctionExpression(node.inner),
             range: node.inner.get_parameters_range(context),
-            nodes: node.params().iter().map(|node| node.into()).collect(),
+            nodes: param_nodes,
             custom_close_paren: |context| {
               Some(gen_close_paren_with_type(
                 GenCloseParenWithTypeOptions {
                   start_lsil: header_start_lsil,
-                  type_node: node.return_type().map(|x| x.into()),
+                  type_node: node.return_type().map(Node::TSTypeAnnotation),
                   type_node_separator: None,
-                  param_count: node.params().len(),
+                  param_count,
                 },
                 context,
               ))
@@ -1770,23 +1775,23 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
       } else {
         // todo: this should probably use more of the same logic as in gen_parameters_or_arguments
         // there will only be one param in this case
-        items.extend(surround_with_parens(gen_node(node.params().first().unwrap().into(), context)));
+        items.extend(surround_with_parens(gen_node(Node::FormalParameter(&node.params()[0]), context)));
       }
     } else {
-      items.extend(gen_node(node.params().first().unwrap().into(), context));
+      items.extend(gen_node(Node::FormalParameter(&node.params()[0]), context));
     }
 
     items.push_sc(sc!(" =>"));
     (header_start_lsil, items)
   }
 
-  fn should_not_newline_after_arrow<'a>(body: &BlockStmtOrExpr<'a>, context: &Context<'a>) -> bool {
-    match body {
-      BlockStmtOrExpr::BlockStmt(_) => true,
-      BlockStmtOrExpr::Expr(expr) => match expr {
-        Expr::Paren(_) | Expr::Array(_) => true,
-        Expr::Tpl(tpl) => tpl.quasis[0].raw().starts_with(['\n', '\r']),
-        _ => is_jsx_paren_expr_handled_node(expr.into(), context),
+  fn should_not_newline_after_arrow<'a>(node: &'a ArrowFunctionExpression<'a>, context: &Context<'a>) -> bool {
+    match node.get_expression() {
+      None => true, // block body
+      Some(expr) => match expr {
+        Expression::ParenthesizedExpression(_) | Expression::ArrayExpression(_) => true,
+        Expression::TemplateLiteral(tpl) => tpl.quasis[0].value.raw.as_str().starts_with(['\n', '\r']),
+        _ => is_jsx_paren_expr_handled_node(expr_to_node(expr), context),
       },
     }
   }
@@ -1800,19 +1805,19 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
       UseParentheses::Maintain => has_parens(node, context.program),
     };
 
-    fn is_first_param_not_identifier_or_has_type_annotation<'a>(params: &[Pat<'a>], arrow: &ArrowSignature<'a>, program: Program<'a>) -> bool {
+    fn is_first_param_not_identifier_or_has_type_annotation<'a>(params: &'a [FormalParameter<'a>], arrow: &ArrowSignature<'a>, program: ProgramInfo<'a>) -> bool {
       match params.first() {
-        Some(Pat::Ident(node)) => {
-          node.type_ann.is_some() || node.id.optional() || param_has_surrounding_comments((*node).into(), program) && has_parens(arrow, program)
+        Some(param) if matches!(param.pattern, BindingPattern::BindingIdentifier(_)) => {
+          param.type_annotation.is_some() || param.optional || param_has_surrounding_comments(Node::FormalParameter(param), program) && has_parens(arrow, program)
         }
         _ => true,
       }
     }
 
-    fn param_has_surrounding_comments<'a>(param: Node<'a>, program: Program<'a>) -> bool {
+    fn param_has_surrounding_comments<'a>(param: Node<'a>, program: ProgramInfo<'a>) -> bool {
       if node_helpers::has_surrounding_comments(param, program) {
         true
-      } else if let Some(comma_token) = param.next_token_fast(program).filter(|t| t.token == Token::Comma) {
+      } else if let Some(comma_token) = param.next_token_fast(program).filter(|t| t.kind() == Kind::Comma) {
         !comma_token.trailing_comments_fast(program).is_empty()
       } else {
         false
@@ -1820,18 +1825,13 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
     }
   }
 
-  fn has_parens<'a>(node: &ArrowSignature<'a>, program: Program<'a>) -> bool {
+  // A single-param arrow has no parens unless the parameter is preceded by `(`
+  // (oxc has no children-with-tokens API; a sole rest param has 0 `params` so needs parens).
+  fn has_parens<'a>(node: &ArrowSignature<'a>, program: ProgramInfo<'a>) -> bool {
     if node.params().len() != 1 {
       true
     } else {
-      for node_or_token in node.inner.children_with_tokens_fast(program) {
-        match node_or_token {
-          NodeOrToken::Node(_) => return false, // first param, so no parens
-          NodeOrToken::Token(TokenAndSpan { token: Token::LParen, .. }) => return true,
-          _ => {}
-        }
-      }
-      false
+      matches!(node.params()[0].previous_token_fast(program).map(|t| t.kind()), Some(Kind::LParen))
     }
   }
 }
@@ -4642,6 +4642,21 @@ fn gen_block_stmt<'a>(node: &'a BlockStatement<'a>, context: &mut Context<'a>) -
     GenBlockOptions {
       range: Some(node.range()),
       children: node.body.iter().map(stmt_to_node).collect(),
+    },
+    context,
+  )
+}
+
+// oxc functions/arrows/methods hold their `{ ... }` block in a FunctionBody
+// (directives + statements) rather than a BlockStatement.
+fn gen_function_body<'a>(node: &'a FunctionBody<'a>, context: &mut Context<'a>) -> PrintItems {
+  let mut children: Vec<Node<'a>> = node.directives.iter().map(Node::Directive).collect();
+  children.extend(node.statements.iter().map(stmt_to_node));
+  gen_block(
+    |stmts, context| gen_statements(node.get_inner_range(context), stmts, context),
+    GenBlockOptions {
+      range: Some(node.range()),
+      children,
     },
     context,
   )
@@ -9689,16 +9704,16 @@ fn assert_has_op(op: &str, op_token: Option<&TokenAndSpan>, context: &mut Contex
   }
 }
 
-fn use_new_line_group_for_arrow_body<'a>(arrow_expr: &'a ArrowExpr<'a>, context: &Context<'a>) -> bool {
-  match &arrow_expr.body {
-    BlockStmtOrExpr::Expr(expr) => match expr {
-      Expr::Paren(paren) => match paren.expr {
-        Expr::Object(_) => false,
-        _ => !is_jsx_paren_expr_handled_node(paren.expr.into(), context),
+fn use_new_line_group_for_arrow_body<'a>(arrow_expr: &'a ArrowFunctionExpression<'a>, context: &Context<'a>) -> bool {
+  match arrow_expr.get_expression() {
+    Some(expr) => match expr {
+      Expression::ParenthesizedExpression(paren) => match &paren.expression {
+        Expression::ObjectExpression(_) => false,
+        inner => !is_jsx_paren_expr_handled_node(expr_to_node(inner), context),
       },
-      _ => !is_jsx_paren_expr_handled_node(expr.into(), context),
+      _ => !is_jsx_paren_expr_handled_node(expr_to_node(expr), context),
     },
-    _ => true,
+    None => true,
   }
 }
 
