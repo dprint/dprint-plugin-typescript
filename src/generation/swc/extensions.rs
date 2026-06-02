@@ -1,4 +1,4 @@
-use deno_ast::view::*;
+use deno_ast::oxc::syntax::operator::BinaryOperator;
 
 pub trait BinaryOpExtensions {
   fn is_add_sub(&self) -> bool;
@@ -10,48 +10,58 @@ pub trait BinaryOpExtensions {
   fn is_equality(&self) -> bool;
 }
 
-impl BinaryOpExtensions for BinaryOp {
+// Note: SWC's `BinaryOp` unified logical and binary operators; oxc splits them
+// into `BinaryOperator` and `LogicalOperator`. Logical operators are therefore
+// handled via `LogicalExpression` nodes, and `is_logical` here is always false.
+impl BinaryOpExtensions for BinaryOperator {
   fn is_add_sub(&self) -> bool {
-    matches!(self, BinaryOp::Add | BinaryOp::Sub)
+    matches!(self, BinaryOperator::Addition | BinaryOperator::Subtraction)
   }
 
   fn is_mul_div(&self) -> bool {
-    matches!(self, BinaryOp::Mul | BinaryOp::Div)
+    matches!(self, BinaryOperator::Multiplication | BinaryOperator::Division)
   }
 
   fn is_bitwise_or_arithmetic(&self) -> bool {
     matches!(
       self,
-      BinaryOp::LShift
-        | BinaryOp::RShift
-        | BinaryOp::ZeroFillRShift
-        | BinaryOp::Add
-        | BinaryOp::Sub
-        | BinaryOp::Mul
-        | BinaryOp::Div
-        | BinaryOp::Mod
-        | BinaryOp::BitOr
-        | BinaryOp::BitXor
-        | BinaryOp::BitAnd
+      BinaryOperator::ShiftLeft
+        | BinaryOperator::ShiftRight
+        | BinaryOperator::ShiftRightZeroFill
+        | BinaryOperator::Addition
+        | BinaryOperator::Subtraction
+        | BinaryOperator::Multiplication
+        | BinaryOperator::Division
+        | BinaryOperator::Remainder
+        | BinaryOperator::BitwiseOR
+        | BinaryOperator::BitwiseXOR
+        | BinaryOperator::BitwiseAnd
     )
   }
 
   fn is_logical(&self) -> bool {
-    matches!(self, BinaryOp::LogicalAnd | BinaryOp::LogicalOr)
+    false
   }
 
   fn is_bit_logical(&self) -> bool {
-    matches!(self, BinaryOp::BitOr | BinaryOp::BitAnd | BinaryOp::BitXor)
+    matches!(self, BinaryOperator::BitwiseOR | BinaryOperator::BitwiseAnd | BinaryOperator::BitwiseXOR)
   }
 
   fn is_bit_shift(&self) -> bool {
-    matches!(self, BinaryOp::LShift | BinaryOp::RShift | BinaryOp::ZeroFillRShift)
+    matches!(self, BinaryOperator::ShiftLeft | BinaryOperator::ShiftRight | BinaryOperator::ShiftRightZeroFill)
   }
 
   fn is_equality(&self) -> bool {
     matches!(
       self,
-      BinaryOp::EqEq | BinaryOp::NotEq | BinaryOp::EqEqEq | BinaryOp::NotEqEq | BinaryOp::Lt | BinaryOp::LtEq | BinaryOp::Gt | BinaryOp::GtEq
+      BinaryOperator::Equality
+        | BinaryOperator::Inequality
+        | BinaryOperator::StrictEquality
+        | BinaryOperator::StrictInequality
+        | BinaryOperator::LessThan
+        | BinaryOperator::LessEqualThan
+        | BinaryOperator::GreaterThan
+        | BinaryOperator::GreaterEqualThan
     )
   }
 }

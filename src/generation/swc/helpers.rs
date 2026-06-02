@@ -1,25 +1,25 @@
-use deno_ast::swc::common::comments::CommentKind;
-use deno_ast::swc::lexer::common::lexer::char::CharExt;
-use deno_ast::view::Node;
-use deno_ast::view::Program;
-use deno_ast::RootNode;
-use deno_ast::SourceRanged;
-use deno_ast::SourceRangedForSpanned;
+use deno_ast::oxc::syntax::identifier::is_identifier_part;
+use deno_ast::oxc::syntax::identifier::is_identifier_start;
+
+use crate::generation::oxc_helpers::CommentExt;
+use crate::generation::oxc_helpers::Node;
+use crate::generation::oxc_helpers::PosExt;
+use crate::generation::oxc_helpers::ProgramInfo;
+use crate::generation::oxc_helpers::SourceRanged;
 
 /** Gets if the node contains a line comment or multi-line block comment */
-pub fn contains_line_or_multiline_comment<'a>(node: Node<'a>, program: Program<'a>) -> bool {
+pub fn contains_line_or_multiline_comment<'a>(node: Node<'a>, program: ProgramInfo<'a>) -> bool {
   let tokens = node.tokens_fast(program);
-  let comments = program.comment_container();
   for (i, token) in tokens.iter().enumerate() {
     if i > 0 {
-      let mut leading_comments = comments.leading_comments(token.start());
-      if leading_comments.any(|c| c.kind == CommentKind::Line || c.text.contains('\n')) {
+      let mut leading_comments = token.start().leading_comments_fast(program);
+      if leading_comments.any(|c| c.is_line() || c.text_fast(program).contains('\n')) {
         return true;
       }
     }
     if i < tokens.len() - 1 {
-      let mut trailing_comments = comments.trailing_comments(token.start());
-      if trailing_comments.any(|c| c.kind == CommentKind::Line || c.text.contains('\n')) {
+      let mut trailing_comments = token.start().trailing_comments_fast(program);
+      if trailing_comments.any(|c| c.is_line() || c.text_fast(program).contains('\n')) {
         return true;
       }
     }
@@ -32,7 +32,7 @@ pub fn is_text_valid_identifier(string_value: &str) -> bool {
     return false;
   }
   for (i, c) in string_value.chars().enumerate() {
-    if (i == 0 && !c.is_ident_start()) || !c.is_ident_part() {
+    if (i == 0 && !is_identifier_start(c)) || !is_identifier_part(c) {
       return false;
     }
   }

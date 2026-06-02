@@ -12,11 +12,13 @@ mod oxc_helpers;
 #[allow(dead_code)]
 mod tokens;
 
+#[allow(dead_code)]
+mod swc;
+
 // mod generate;
 // mod generate_types;
 // mod node_helpers;
 // mod sorting;
-// mod swc;
 
 use comments::*;
 use tokens::*;
