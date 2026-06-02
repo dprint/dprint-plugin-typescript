@@ -8854,13 +8854,13 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
       items
     }));
   } else {
-    items.extend(ir_helpers::with_indent({
+    items.extend(ir_helpers::with_indent(ir_helpers::new_line_group({
       let mut items = PrintItems::new();
       let body_node_range = opts.body_node.range();
       items.extend(gen_node(opts.body_node, context));
       items.extend(gen_trailing_comments(&body_node_range, context));
       items
-    }));
+    })));
   }
 
   items.push_line_and_column(end_statements_lc);
