@@ -463,145 +463,83 @@ fn is_ignore_jsx_expr_container(node: Node, context: &Context) -> bool {
 
 /* class */
 
-fn gen_class_method<'a>(node: &'a ClassMethod<'a>, context: &mut Context<'a>) -> PrintItems {
-  // todo: consolidate with private method
+// oxc unifies SWC's ClassMethod/PrivateMethod/Constructor into a single
+// `MethodDefinition` (distinguished by `.kind`), wrapping a `Function`.
+fn gen_method_definition<'a>(node: &'a MethodDefinition<'a>, context: &mut Context<'a>) -> PrintItems {
+  let func = &node.value;
   gen_class_or_object_method(
     ClassOrObjectMethod {
-      node: node.into(),
-      parameters_range: node.get_parameters_range(context),
-      decorators: Some(node.function.decorators),
-      accessibility: node.accessibility(),
-      is_static: node.is_static(),
-      is_async: node.function.is_async(),
-      is_abstract: node.is_abstract(),
-      kind: node.method_kind().into(),
-      is_generator: node.function.is_generator(),
-      is_optional: node.is_optional(),
-      is_override: node.is_override(),
-      key: node.key.into(),
-      type_params: node.function.type_params.map(|x| x.into()),
-      params: node.function.params.iter().map(|&x| x.into()).collect(),
-      return_type: node.function.return_type.map(|x| x.into()),
-      body: node.function.body.map(|x| x.into()),
+      node: Node::MethodDefinition(node),
+      parameters_range: func.get_parameters_range(context),
+      decorators: Some(&node.decorators),
+      accessibility: node.accessibility,
+      is_static: node.r#static,
+      is_async: func.r#async,
+      is_abstract: matches!(node.r#type, MethodDefinitionType::TSAbstractMethodDefinition),
+      kind: node.kind.into(),
+      is_generator: func.generator,
+      is_optional: node.optional,
+      is_override: node.r#override,
+      key: prop_key_to_node(&node.key),
+      type_params: func.type_parameters.as_deref().map(Node::TSTypeParameterDeclaration),
+      params: func.params.items.iter().map(Node::FormalParameter).collect(),
+      return_type: func.return_type.as_deref().map(Node::TSTypeAnnotation),
+      body: func.body.as_deref().map(Node::FunctionBody),
     },
     context,
   )
 }
 
-fn gen_auto_accessor<'a>(node: &AutoAccessor<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_auto_accessor<'a>(node: &'a AccessorProperty<'a>, context: &mut Context<'a>) -> PrintItems {
   gen_class_prop_common(
     GenClassPropCommon {
-      original: node.into(),
-      key: node.key.into(),
-      value: node.value,
-      type_ann: node.type_ann,
-      is_static: node.is_static(),
-      decorators: node.decorators,
-      computed: false,
+      original: Node::AccessorProperty(node),
+      key: prop_key_to_node(&node.key),
+      value: node.value.as_ref(),
+      type_ann: node.type_annotation.as_deref(),
+      is_static: node.r#static,
+      decorators: &node.decorators,
+      computed: node.computed,
       is_auto_accessor: true,
       is_declare: false,
-      accessibility: node.accessibility(),
-      is_abstract: node.is_abstract(),
+      accessibility: node.accessibility,
+      is_abstract: matches!(node.r#type, AccessorPropertyType::TSAbstractAccessorProperty),
       is_optional: false,
-      is_override: node.is_override(),
+      is_override: node.r#override,
       readonly: false,
-      definite: node.definite(),
+      definite: node.definite,
     },
     context,
   )
 }
 
-fn gen_private_method<'a>(node: &PrivateMethod<'a>, context: &mut Context<'a>) -> PrintItems {
-  gen_class_or_object_method(
-    ClassOrObjectMethod {
-      node: node.into(),
-      parameters_range: node.get_parameters_range(context),
-      decorators: Some(node.function.decorators),
-      accessibility: node.accessibility(),
-      is_static: node.is_static(),
-      is_async: node.function.is_async(),
-      is_abstract: node.is_abstract(),
-      kind: node.method_kind().into(),
-      is_generator: node.function.is_generator(),
-      is_optional: node.is_optional(),
-      is_override: node.is_override(),
-      key: node.key.into(),
-      type_params: node.function.type_params.map(|x| x.into()),
-      params: node.function.params.iter().map(|&x| x.into()).collect(),
-      return_type: node.function.return_type.map(|x| x.into()),
-      body: node.function.body.map(|x| x.into()),
-    },
-    context,
-  )
-}
-
-fn gen_class_prop<'a>(node: &ClassProp<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_class_prop<'a>(node: &'a PropertyDefinition<'a>, context: &mut Context<'a>) -> PrintItems {
   gen_class_prop_common(
     GenClassPropCommon {
-      original: node.into(),
-      key: node.key.into(),
-      value: node.value,
-      type_ann: node.type_ann,
-      is_static: node.is_static(),
-      decorators: node.decorators,
-      computed: matches!(node.key, PropName::Computed(_)),
+      original: Node::PropertyDefinition(node),
+      key: prop_key_to_node(&node.key),
+      value: node.value.as_ref(),
+      type_ann: node.type_annotation.as_deref(),
+      is_static: node.r#static,
+      decorators: &node.decorators,
+      computed: node.computed,
       is_auto_accessor: false,
-      is_declare: node.declare(),
-      accessibility: node.accessibility(),
-      is_abstract: node.is_abstract(),
-      is_optional: node.is_optional(),
-      is_override: node.is_override(),
-      readonly: node.readonly(),
-      definite: node.definite(),
+      is_declare: node.declare,
+      accessibility: node.accessibility,
+      is_abstract: matches!(node.r#type, PropertyDefinitionType::TSAbstractPropertyDefinition),
+      is_optional: node.optional,
+      is_override: node.r#override,
+      readonly: node.readonly,
+      definite: node.definite,
     },
     context,
   )
 }
 
-fn gen_constructor<'a>(node: &Constructor<'a>, context: &mut Context<'a>) -> PrintItems {
-  gen_class_or_object_method(
-    ClassOrObjectMethod {
-      node: node.into(),
-      parameters_range: node.get_parameters_range(context),
-      decorators: None,
-      accessibility: node.accessibility(),
-      is_static: false,
-      is_async: false,
-      is_abstract: false,
-      kind: ClassOrObjectMethodKind::Constructor,
-      is_generator: false,
-      is_optional: node.is_optional(),
-      is_override: false,
-      key: node.key.into(),
-      type_params: None,
-      params: node.params.iter().map(|x| x.into()).collect(),
-      return_type: None,
-      body: node.body.map(|x| x.into()),
-    },
-    context,
-  )
-}
-
-fn gen_decorator<'a>(node: &Decorator<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_decorator<'a>(node: &'a Decorator<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_sc(sc!("@"));
-  items.extend(gen_node(node.expr.into(), context));
-  items
-}
-
-fn gen_parameter_prop<'a>(node: &TsParamProp<'a>, context: &mut Context<'a>) -> PrintItems {
-  let mut items = PrintItems::new();
-  items.extend(gen_decorators(node.decorators, true, context));
-  if let Some(accessibility) = node.accessibility() {
-    items.push_string(format!("{} ", accessibility_to_str(accessibility)));
-  }
-  if node.is_override() {
-    items.push_sc(sc!("override "));
-  }
-  if node.readonly() {
-    items.push_sc(sc!("readonly "));
-  }
-  items.extend(gen_node(node.param.into(), context));
+  items.extend(gen_node(expr_to_node(&node.expression), context));
   items
 }
 
@@ -612,39 +550,16 @@ fn gen_private_name<'a>(node: &PrivateIdentifier<'a>, _context: &mut Context<'a>
   items
 }
 
-fn gen_private_prop<'a>(node: &PrivateProp<'a>, context: &mut Context<'a>) -> PrintItems {
-  gen_class_prop_common(
-    GenClassPropCommon {
-      original: node.into(),
-      key: node.key.into(),
-      value: node.value,
-      type_ann: node.type_ann,
-      is_static: node.is_static(),
-      decorators: node.decorators,
-      computed: false,
-      is_auto_accessor: false,
-      is_declare: false,
-      accessibility: node.accessibility(),
-      is_abstract: false,
-      is_optional: node.is_optional(),
-      is_override: node.is_override(),
-      readonly: node.readonly(),
-      definite: node.definite(),
-    },
-    context,
-  )
-}
-
 struct GenClassPropCommon<'a, 'b> {
   pub original: Node<'a>,
   pub key: Node<'a>,
-  pub value: Option<Expr<'a>>,
-  pub type_ann: Option<&'a TsTypeAnn<'a>>,
+  pub value: Option<&'a Expression<'a>>,
+  pub type_ann: Option<&'a TSTypeAnnotation<'a>>,
   pub is_static: bool,
-  pub decorators: &'b [&'a Decorator<'a>],
+  pub decorators: &'b [Decorator<'a>],
   pub computed: bool,
   pub is_declare: bool,
-  pub accessibility: Option<Accessibility>,
+  pub accessibility: Option<TSAccessibility>,
   pub is_auto_accessor: bool,
   pub is_abstract: bool,
   pub is_optional: bool,
@@ -678,10 +593,8 @@ fn gen_class_prop_common<'a, 'b>(node: GenClassPropCommon<'a, 'b>, context: &mut
     items.push_sc(sc!("accessor "));
   }
   items.extend(if node.computed {
-    let inner_key_node = match node.key {
-      Node::ComputedPropName(prop) => prop.expr.as_node(),
-      _ => node.key,
-    };
+    // oxc has no ComputedPropName wrapper - the key node is the inner expression.
+    let inner_key_node = node.key;
     gen_computed_prop_like(
       |context| gen_node(inner_key_node, context),
       GenComputedPropLikeOptions {
@@ -701,16 +614,13 @@ fn gen_class_prop_common<'a, 'b>(node: GenClassPropCommon<'a, 'b>, context: &mut
   items.extend(gen_type_ann_with_colon_if_exists(node.type_ann, context));
 
   if let Some(value) = node.value {
-    items.extend(gen_assignment(value.into(), sc!("="), context));
+    items.extend(gen_assignment(expr_to_node(value), sc!("="), context));
   }
 
   let should_semi = context.config.semi_colons.is_true()
     || matches!(
-      node.original.next_token_fast(context.program),
-      Some(TokenAndSpan {
-        token: Token::LBracket | Token::BinOp(BinOpToken::Mul),
-        ..
-      })
+      node.original.next_token_fast(context.program).map(|t| t.kind()),
+      Some(Kind::LBrack | Kind::Star)
     );
   if should_semi {
     items.push_sc(sc!(";"));
@@ -719,21 +629,37 @@ fn gen_class_prop_common<'a, 'b>(node: GenClassPropCommon<'a, 'b>, context: &mut
   items
 }
 
-fn gen_static_block<'a>(node: &StaticBlock<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_static_block<'a>(node: &'a StaticBlock<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   let start_header_lsil = LineStartIndentLevel::new("staticBlockStart");
   items.push_info(start_header_lsil);
   items.push_sc(sc!("static"));
 
+  let open_brace_token = context.token_finder.get_first_open_brace_token_within(node);
   items.extend(gen_brace_separator(
     GenBraceSeparatorOptions {
       brace_position: context.config.static_block_brace_position,
-      open_brace_token: context.token_finder.get_first_open_brace_token_within(node.body),
+      open_brace_token,
       start_header_lsil: Some(start_header_lsil),
     },
     context,
   ));
-  items.extend(gen_node(node.body.into(), context));
+
+  // oxc's StaticBlock has no inner BlockStatement; emit the `{ ... }` ourselves.
+  let block_range = open_brace_token.map(|t| SourceRange::new(t.start(), node.end()));
+  items.extend(gen_block(
+    |stmts, context| {
+      let inner_range = block_range
+        .map(|r| SourceRange::new(r.start + 1, r.end - 1))
+        .unwrap_or_else(|| node.range());
+      gen_statements(inner_range, stmts, context)
+    },
+    GenBlockOptions {
+      range: block_range,
+      children: node.body.iter().map(stmt_to_node).collect(),
+    },
+    context,
+  ));
 
   items
 }
@@ -756,7 +682,8 @@ fn gen_catch_clause<'a>(node: &CatchClause<'a>, context: &mut Context<'a>) -> Pr
     if context.config.catch_clause_space_around {
       items.push_space();
     }
-    items.extend(gen_node(param.into(), context));
+    items.extend(gen_node(binding_pattern_to_node(&param.pattern), context));
+    items.extend(gen_type_ann_with_colon_if_exists(param.type_annotation.as_deref(), context));
     if context.config.catch_clause_space_around {
       items.push_space();
     }
@@ -764,8 +691,7 @@ fn gen_catch_clause<'a>(node: &CatchClause<'a>, context: &mut Context<'a>) -> Pr
   }
   items.push_info(end_header_ln);
 
-  let try_stmt = node.parent();
-  let single_body_position = if try_stmt.finalizer.is_some() {
+  let single_body_position = if matches!(context.parent(), Node::TryStatement(try_stmt) if try_stmt.finalizer.is_some()) {
     Some(SameOrNextLinePosition::NextLine)
   } else {
     None
@@ -775,7 +701,7 @@ fn gen_catch_clause<'a>(node: &CatchClause<'a>, context: &mut Context<'a>) -> Pr
   items.extend(
     gen_conditional_brace_body(
       GenConditionalBraceBodyOptions {
-        body_node: node.body.into(),
+        body_node: Node::BlockStatement(&node.body),
         use_braces: UseBraces::Always,
         brace_position: context.config.try_statement_brace_position,
         single_body_position,
@@ -792,16 +718,6 @@ fn gen_catch_clause<'a>(node: &CatchClause<'a>, context: &mut Context<'a>) -> Pr
 }
 
 /* common */
-
-fn gen_computed_prop_name<'a>(node: &ComputedPropName<'a>, context: &mut Context<'a>) -> PrintItems {
-  gen_computed_prop_like(
-    |context| gen_node(node.expr.into(), context),
-    GenComputedPropLikeOptions {
-      inner_node_range: node.expr.range(),
-    },
-    context,
-  )
-}
 
 fn gen_identifier<'a>(node: &IdentifierReference<'a>, _: &mut Context<'a>) -> PrintItems {
   // Note: in oxc, optional (`?`) is a flag on the binding/parameter rather than
@@ -3633,10 +3549,9 @@ fn gen_property_signature<'a>(node: &TsPropertySignature<'a>, context: &mut Cont
 fn gen_quotable_prop<'a>(node: Node<'a>, context: &mut Context<'a>) -> PrintItems {
   match context.config.quote_props {
     QuoteProps::AsNeeded => match node {
-      Node::Str(str_lit) => {
-        if let Some(text) = str_lit.value().as_str()
-          && is_text_valid_identifier(text)
-        {
+      Node::StringLiteral(str_lit) => {
+        let text = str_lit.value.as_str();
+        if is_text_valid_identifier(text) {
           gen_from_raw_string(text)
         } else {
           gen_node(node, context)
@@ -3647,16 +3562,13 @@ fn gen_quotable_prop<'a>(node: Node<'a>, context: &mut Context<'a>) -> PrintItem
     QuoteProps::Consistent => match context.use_consistent_quote_props() {
       Some(true) => match node {
         // add quotes
-        Node::Ident(ident) => string_literal::gen_non_jsx_text(ident.sym(), context),
-        Node::IdentName(ident) => string_literal::gen_non_jsx_text(ident.sym(), context),
+        Node::IdentifierReference(ident) => string_literal::gen_non_jsx_text(ident.name.as_str(), context),
+        Node::IdentifierName(ident) => string_literal::gen_non_jsx_text(ident.name.as_str(), context),
         _ => gen_node(node, context),
       },
       Some(false) => match node {
         // remove quotes
-        Node::Str(str_lit) => match str_lit.value().as_str() {
-          Some(text) => gen_from_raw_string(text),
-          None => gen_node(node, context),
-        },
+        Node::StringLiteral(str_lit) => gen_from_raw_string(str_lit.value.as_str()),
         _ => gen_node(node, context),
       },
       None => {
@@ -4508,8 +4420,8 @@ fn gen_method_prop<'a>(node: &MethodProp<'a>, context: &mut Context<'a>) -> Prin
 struct ClassOrObjectMethod<'a> {
   node: Node<'a>,
   parameters_range: Option<SourceRange>,
-  decorators: Option<&'a [&'a Decorator<'a>]>,
-  accessibility: Option<Accessibility>,
+  decorators: Option<&'a [Decorator<'a>]>,
+  accessibility: Option<TSAccessibility>,
   is_static: bool,
   is_async: bool,
   is_abstract: bool,
@@ -4531,12 +4443,13 @@ enum ClassOrObjectMethodKind {
   Constructor,
 }
 
-impl From<MethodKind> for ClassOrObjectMethodKind {
-  fn from(kind: MethodKind) -> ClassOrObjectMethodKind {
+impl From<MethodDefinitionKind> for ClassOrObjectMethodKind {
+  fn from(kind: MethodDefinitionKind) -> ClassOrObjectMethodKind {
     match kind {
-      MethodKind::Getter => ClassOrObjectMethodKind::Getter,
-      MethodKind::Setter => ClassOrObjectMethodKind::Setter,
-      MethodKind::Method => ClassOrObjectMethodKind::Method,
+      MethodDefinitionKind::Get => ClassOrObjectMethodKind::Getter,
+      MethodDefinitionKind::Set => ClassOrObjectMethodKind::Setter,
+      MethodDefinitionKind::Method => ClassOrObjectMethodKind::Method,
+      MethodDefinitionKind::Constructor => ClassOrObjectMethodKind::Constructor,
     }
   }
 }
@@ -4647,22 +4560,22 @@ fn gen_class_or_object_method<'a>(node: ClassOrObjectMethod<'a>, context: &mut C
   }
 }
 
-fn accessibility_to_str(accessibility: Accessibility) -> &'static str {
+fn accessibility_to_str(accessibility: TSAccessibility) -> &'static str {
   match accessibility {
-    Accessibility::Private => "private",
-    Accessibility::Protected => "protected",
-    Accessibility::Public => "public",
+    TSAccessibility::Private => "private",
+    TSAccessibility::Protected => "protected",
+    TSAccessibility::Public => "public",
   }
 }
 
 /* statements */
 
-fn gen_block_stmt<'a>(node: &BlockStmt<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_block_stmt<'a>(node: &'a BlockStatement<'a>, context: &mut Context<'a>) -> PrintItems {
   gen_block(
     |stmts, context| gen_statements(node.get_inner_range(context), stmts, context),
     GenBlockOptions {
       range: Some(node.range()),
-      children: node.stmts.iter().map(|x| x.into()).collect(),
+      children: node.body.iter().map(stmt_to_node).collect(),
     },
     context,
   )
@@ -8458,7 +8371,7 @@ fn gen_computed_prop_like<'a>(
   }
 }
 
-fn gen_decorators<'a>(decorators: &[&'a Decorator<'a>], is_inline: bool, context: &mut Context<'a>) -> PrintItems {
+fn gen_decorators<'a>(decorators: &'a [Decorator<'a>], is_inline: bool, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   if decorators.is_empty() {
     return items;
@@ -8466,11 +8379,11 @@ fn gen_decorators<'a>(decorators: &[&'a Decorator<'a>], is_inline: bool, context
 
   let force_use_new_lines = !context.config.decorators_prefer_single_line
     && decorators.len() >= 2
-    && node_helpers::get_use_new_lines_for_nodes(decorators[0], decorators[1], context.program);
+    && node_helpers::get_use_new_lines_for_nodes(&decorators[0], &decorators[1], context.program);
 
   let separated_values_result = gen_separated_values_with_result(
     GenSeparatedValuesParams {
-      nodes: decorators.iter().map(|&p| NodeOrSeparator::Node(p.into())).collect(),
+      nodes: decorators.iter().map(|p| NodeOrSeparator::Node(Node::Decorator(p))).collect(),
       prefer_hanging: false, // would need to think about the design because prefer_hanging causes a hanging indent
       force_use_new_lines,
       allow_blank_lines: false,
@@ -8498,7 +8411,7 @@ fn gen_decorators<'a>(decorators: &[&'a Decorator<'a>], is_inline: bool, context
 
   // generate the comments between the last decorator and the next token
   if let Some(last_dec) = decorators.last() {
-    let next_token_pos = context.token_finder.get_next_token_pos_after(*last_dec);
+    let next_token_pos = context.token_finder.get_next_token_pos_after(last_dec);
     items.extend(gen_leading_comments(&next_token_pos.range(), context));
   }
 

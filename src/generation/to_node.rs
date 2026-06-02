@@ -57,6 +57,23 @@ pub fn stmt_to_node<'a>(s: &'a Statement<'a>) -> Node<'a> {
   }
 }
 
+pub fn binding_pattern_to_node<'a>(p: &'a BindingPattern<'a>) -> Node<'a> {
+  match p {
+    BindingPattern::BindingIdentifier(n) => AstKind::BindingIdentifier(n),
+    BindingPattern::ObjectPattern(n) => AstKind::ObjectPattern(n),
+    BindingPattern::ArrayPattern(n) => AstKind::ArrayPattern(n),
+    BindingPattern::AssignmentPattern(n) => AstKind::AssignmentPattern(n),
+  }
+}
+
+pub fn prop_key_to_node<'a>(key: &'a PropertyKey<'a>) -> Node<'a> {
+  match key {
+    PropertyKey::StaticIdentifier(n) => AstKind::IdentifierName(n),
+    PropertyKey::PrivateIdentifier(n) => AstKind::PrivateIdentifier(n),
+    it @ match_expression!(PropertyKey) => expr_to_node(it.to_expression()),
+  }
+}
+
 pub fn assign_target_to_node<'a>(t: &'a AssignmentTarget<'a>) -> Node<'a> {
   match t {
     AssignmentTarget::AssignmentTargetIdentifier(n) => AstKind::IdentifierReference(n),
