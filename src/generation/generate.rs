@@ -2592,47 +2592,49 @@ fn is_iife_fn_expr(node: &Function, context: &Context) -> bool {
 
 fn should_add_parens_around_expr<'a>(node: Node<'a>, context: &Context<'a>) -> bool {
   let original_node = node;
-  for node in node.ancestors() {
-    match node {
-      Node::ParenExpr(paren_expr) => {
+  for ancestor in context.parent_stack.iter() {
+    match *ancestor {
+      Node::ParenthesizedExpression(paren_expr) => {
         if !should_skip_paren_expr(paren_expr, context) {
           return false;
         }
       }
-      Node::CallExpr(call_expr) => {
+      // oxc has no separate OptCall; CallExpression covers optional calls
+      Node::CallExpression(call_expr) => {
         if !call_expr.callee.range().contains(&original_node.range()) {
           // it's in an argument, so don't add parens
           return false;
         }
       }
-      Node::OptCall(call_expr) => {
-        if !call_expr.callee.range().contains(&original_node.range()) {
-          // it's in an argument, so don't add parens
-          return false;
-        }
-      }
-      Node::NewExpr(new_expr) => {
+      Node::NewExpression(new_expr) => {
         if !new_expr.callee.range().contains(&original_node.range()) {
           // it's in an argument, so don't add parens
           return false;
         }
       }
-      Node::ExprStmt(_) => return true,
-      Node::MemberExpr(expr) => {
-        if matches!(expr.prop, MemberProp::Computed(_)) && expr.prop.range().contains(&original_node.range()) {
+      Node::ExpressionStatement(_) => return true,
+      // static / private member access: keep searching up
+      Node::StaticMemberExpression(_) | Node::PrivateFieldExpression(_) => {}
+      Node::ComputedMemberExpression(expr) => {
+        if expr.expression.range().contains(&original_node.range()) {
           return false;
         }
       }
-      Node::CondExpr(cond_expr) => {
+      Node::ConditionalExpression(cond_expr) => {
         return cond_expr.test.range().contains(&original_node.range());
       }
-      Node::BinExpr(bin_expr) => {
-        // we only care to add parens when it's the left most expr
+      // we only care to add parens when it's the left most expr
+      Node::BinaryExpression(bin_expr) => {
         if bin_expr.right.range().contains(&original_node.range()) {
           return false;
         }
       }
-      Node::OptChainExpr(_) => {
+      Node::LogicalExpression(bin_expr) => {
+        if bin_expr.right.range().contains(&original_node.range()) {
+          return false;
+        }
+      }
+      Node::ChainExpression(_) => {
         // continue searching
       }
       _ => {
