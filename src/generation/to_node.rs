@@ -66,6 +66,21 @@ pub fn array_element_to_node<'a>(e: &'a ArrayExpressionElement<'a>) -> Option<No
   }
 }
 
+pub fn ts_module_declaration_name_to_node<'a>(n: &'a TSModuleDeclarationName<'a>) -> Node<'a> {
+  match n {
+    TSModuleDeclarationName::Identifier(i) => AstKind::BindingIdentifier(i),
+    TSModuleDeclarationName::StringLiteral(s) => AstKind::StringLiteral(s),
+  }
+}
+
+pub fn ts_module_reference_to_node<'a>(r: &'a TSModuleReference<'a>) -> Node<'a> {
+  match r {
+    TSModuleReference::ExternalModuleReference(n) => AstKind::TSExternalModuleReference(n),
+    TSModuleReference::IdentifierReference(n) => AstKind::IdentifierReference(n),
+    TSModuleReference::QualifiedName(n) => AstKind::TSQualifiedName(n),
+  }
+}
+
 pub fn ts_signature_to_node<'a>(s: &'a TSSignature<'a>) -> Node<'a> {
   match s {
     TSSignature::TSIndexSignature(n) => AstKind::TSIndexSignature(n),

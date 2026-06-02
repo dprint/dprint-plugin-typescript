@@ -1340,19 +1340,17 @@ fn gen_import_decl<'a>(node: &ImportDecl<'a>, context: &mut Context<'a>) -> Prin
   }
 }
 
-fn gen_import_equals_decl<'a>(node: &TsImportEqualsDecl<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_import_equals_decl<'a>(node: &'a TSImportEqualsDeclaration<'a>, context: &mut Context<'a>) -> PrintItems {
+  // note: a leading `export` (for `export import X = ...`) is emitted by the wrapping
+  // export declaration, not here.
   let mut items = PrintItems::new();
-  if node.is_export() {
-    items.push_sc(sc!("export "));
-  }
-
   items.push_sc(sc!("import "));
-  if node.is_type_only() {
+  if node.import_kind.is_type() {
     items.push_sc(sc!("type "));
   }
-  items.extend(gen_node(node.id.into(), context));
+  items.extend(gen_node(Node::BindingIdentifier(&node.id), context));
   items.push_sc(sc!(" = ")); // keep on one line
-  items.extend(gen_node(node.module_ref.into(), context));
+  items.extend(gen_node(ts_module_reference_to_node(&node.module_reference), context));
 
   if context.config.semi_colons.is_true() {
     items.push_sc(sc!(";"));
@@ -1389,38 +1387,9 @@ fn gen_interface_decl<'a>(node: &'a TSInterfaceDeclaration<'a>, context: &mut Co
   items
 }
 
-fn gen_module_decl<'a>(node: &TsModuleDecl<'a>, context: &mut Context<'a>) -> PrintItems {
-  gen_module_or_namespace_decl(
-    ModuleOrNamespaceDecl {
-      declare: node.declare(),
-      global: node.global(),
-      id: node.id.into(),
-      body: node.body.as_ref(),
-    },
-    context,
-  )
-}
-
-fn gen_namespace_decl<'a>(node: &TsNamespaceDecl<'a>, context: &mut Context<'a>) -> PrintItems {
-  gen_module_or_namespace_decl(
-    ModuleOrNamespaceDecl {
-      declare: node.declare(),
-      global: node.global(),
-      id: node.id.into(),
-      body: Some(&node.body),
-    },
-    context,
-  )
-}
-
-struct ModuleOrNamespaceDecl<'a, 'b> {
-  pub declare: bool,
-  pub global: bool,
-  pub id: Node<'a>,
-  pub body: Option<&'b TsNamespaceBody<'a>>,
-}
-
-fn gen_module_or_namespace_decl<'a, 'b>(node: ModuleOrNamespaceDecl<'a, 'b>, context: &mut Context<'a>) -> PrintItems {
+// oxc unifies SWC's TsModuleDecl + TsNamespaceDecl into a single TSModuleDeclaration
+// (kind distinguishes `module`/`namespace`; nested `a.b {}` recurses via the body).
+fn gen_module_decl<'a>(node: &'a TSModuleDeclaration<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
   let start_header_lsil = LineStartIndentLevel::new("startHeader");
@@ -1429,42 +1398,44 @@ fn gen_module_or_namespace_decl<'a, 'b>(node: ModuleOrNamespaceDecl<'a, 'b>, con
   if node.declare {
     items.push_sc(sc!("declare "));
   }
-  if !node.global {
-    let module_or_namespace_keyword = node.id.previous_token_fast(context.program).unwrap();
-    let has_namespace_keyword = module_or_namespace_keyword.text_fast(context.program).starts_with('n');
-    items.push_sc(if has_namespace_keyword { sc!("namespace ") } else { sc!("module ") });
-  }
+  items.push_sc(match node.kind {
+    TSModuleDeclarationKind::Namespace => sc!("namespace "),
+    TSModuleDeclarationKind::Module => sc!("module "),
+  });
 
-  items.extend(gen_node(node.id, context));
-  items.extend(gen_body(node.body, start_header_lsil, context));
+  items.extend(gen_node(ts_module_declaration_name_to_node(&node.id), context));
+  items.extend(gen_body(node.body.as_ref(), start_header_lsil, context));
 
   return items;
 
-  fn gen_body<'a>(body: Option<&TsNamespaceBody<'a>>, start_header_lsil: LineStartIndentLevel, context: &mut Context<'a>) -> PrintItems {
+  fn gen_body<'a>(body: Option<&'a TSModuleDeclarationBody<'a>>, start_header_lsil: LineStartIndentLevel, context: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
-    if let Some(body) = body {
-      match body {
-        TsNamespaceBody::TsModuleBlock(block) => {
-          items.extend(gen_membered_body(
-            GenMemberedBodyOptions {
-              node: (*block).into(),
-              members: block.body.iter().map(|x| x.into()).collect(),
-              start_header_lsil: Some(start_header_lsil),
-              brace_position: context.config.module_declaration_brace_position,
-              should_use_blank_line: move |previous, next, context| node_helpers::has_separating_blank_line(&previous, &next, context.program),
-              separator: Separator::none(),
-            },
-            context,
-          ));
-        }
-        TsNamespaceBody::TsNamespaceDecl(decl) => {
-          items.push_sc(sc!("."));
-          items.extend(gen_node(decl.id.into(), context));
-          items.extend(gen_body(Some(&decl.body), start_header_lsil, context));
+    match body {
+      Some(TSModuleDeclarationBody::TSModuleBlock(block)) => {
+        let mut members: Vec<Node<'a>> = block.directives.iter().map(Node::Directive).collect();
+        members.extend(block.body.iter().map(stmt_to_node));
+        items.extend(gen_membered_body(
+          GenMemberedBodyOptions {
+            node: Node::TSModuleBlock(block),
+            members,
+            start_header_lsil: Some(start_header_lsil),
+            brace_position: context.config.module_declaration_brace_position,
+            should_use_blank_line: move |previous, next, context| node_helpers::has_separating_blank_line(&previous, &next, context.program),
+            separator: Separator::none(),
+          },
+          context,
+        ));
+      }
+      Some(TSModuleDeclarationBody::TSModuleDeclaration(decl)) => {
+        items.push_sc(sc!("."));
+        items.extend(gen_node(ts_module_declaration_name_to_node(&decl.id), context));
+        items.extend(gen_body(decl.body.as_ref(), start_header_lsil, context));
+      }
+      None => {
+        if context.config.semi_colons.is_true() {
+          items.push_sc(sc!(";"));
         }
       }
-    } else if context.config.semi_colons.is_true() {
-      items.push_sc(sc!(";"));
     }
 
     items
