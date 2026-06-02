@@ -936,28 +936,28 @@ fn gen_export_default_specifier<'a>(node: &ExportDefaultSpecifier<'a>, context: 
   gen_node(node.exported.into(), context)
 }
 
-fn gen_enum_decl<'a>(node: &TsEnumDecl<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_enum_decl<'a>(node: &'a TSEnumDeclaration<'a>, context: &mut Context<'a>) -> PrintItems {
   let start_header_lsil = LineStartIndentLevel::new("startHeader");
   let mut items = PrintItems::new();
 
   // header
   items.push_info(start_header_lsil);
 
-  if node.declare() {
+  if node.declare {
     items.push_sc(sc!("declare "));
   }
-  if node.is_const() {
+  if node.r#const {
     items.push_sc(sc!("const "));
   }
   items.push_sc(sc!("enum "));
-  items.extend(gen_node(node.id.into(), context));
+  items.extend(gen_node(Node::BindingIdentifier(&node.id), context));
 
   // body
   let member_spacing = context.config.enum_declaration_member_spacing;
   items.extend(gen_membered_body(
     GenMemberedBodyOptions {
-      node: node.into(),
-      members: node.members.iter().map(|&x| x.into()).collect(),
+      node: Node::TSEnumDeclaration(node),
+      members: node.body.members.iter().map(Node::TSEnumMember).collect(),
       start_header_lsil: Some(start_header_lsil),
       brace_position: context.config.enum_declaration_brace_position,
       should_use_blank_line: move |previous, next, context| match member_spacing {
@@ -973,12 +973,12 @@ fn gen_enum_decl<'a>(node: &TsEnumDecl<'a>, context: &mut Context<'a>) -> PrintI
   items
 }
 
-fn gen_enum_member<'a>(node: &TsEnumMember<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_enum_member<'a>(node: &'a TSEnumMember<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(gen_node(node.id.into(), context));
+  items.extend(gen_node(ts_enum_member_name_to_node(&node.id), context));
 
-  if let Some(init) = &node.init {
-    items.extend(gen_assignment(init.into(), sc!("="), context));
+  if let Some(init) = &node.initializer {
+    items.extend(gen_assignment(expr_to_node(init), sc!("="), context));
   }
 
   items
@@ -1469,18 +1469,18 @@ fn gen_module_or_namespace_decl<'a, 'b>(node: ModuleOrNamespaceDecl<'a, 'b>, con
   }
 }
 
-fn gen_type_alias<'a>(node: &TsTypeAliasDecl<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_type_alias<'a>(node: &'a TSTypeAliasDeclaration<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  if node.declare() {
+  if node.declare {
     items.push_sc(sc!("declare "));
   }
   items.push_sc(sc!("type "));
-  items.extend(gen_node(node.id.into(), context));
-  if let Some(type_params) = node.type_params {
-    items.extend(gen_node(type_params.into(), context));
+  items.extend(gen_node(Node::BindingIdentifier(&node.id), context));
+  if let Some(type_params) = &node.type_parameters {
+    items.extend(gen_node(Node::TSTypeParameterDeclaration(type_params), context));
   }
 
-  items.extend(gen_assignment(node.type_ann.into(), sc!("="), context));
+  items.extend(gen_assignment(ts_type_to_node(&node.type_annotation), sc!("="), context));
 
   if context.config.semi_colons.is_true() {
     items.push_sc(sc!(";"));

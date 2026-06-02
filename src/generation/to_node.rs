@@ -66,6 +66,15 @@ pub fn array_element_to_node<'a>(e: &'a ArrayExpressionElement<'a>) -> Option<No
   }
 }
 
+pub fn ts_enum_member_name_to_node<'a>(n: &'a TSEnumMemberName<'a>) -> Node<'a> {
+  match n {
+    TSEnumMemberName::Identifier(i) => AstKind::IdentifierName(i),
+    TSEnumMemberName::String(s) => AstKind::StringLiteral(s),
+    TSEnumMemberName::ComputedString(s) => AstKind::StringLiteral(s),
+    TSEnumMemberName::ComputedTemplateString(t) => AstKind::TemplateLiteral(t),
+  }
+}
+
 pub fn ts_type_predicate_name_to_node<'a>(n: &'a TSTypePredicateName<'a>) -> Node<'a> {
   match n {
     TSTypePredicateName::Identifier(i) => AstKind::IdentifierName(i),
