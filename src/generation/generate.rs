@@ -605,10 +605,10 @@ fn gen_parameter_prop<'a>(node: &TsParamProp<'a>, context: &mut Context<'a>) -> 
   items
 }
 
-fn gen_private_name<'a>(node: &PrivateName<'a>, _context: &mut Context<'a>) -> PrintItems {
+fn gen_private_name<'a>(node: &PrivateIdentifier<'a>, _context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_sc(sc!("#"));
-  items.push_string(node.name().to_string());
+  items.push_string(node.name.as_str().to_string());
   items
 }
 
@@ -803,36 +803,21 @@ fn gen_computed_prop_name<'a>(node: &ComputedPropName<'a>, context: &mut Context
   )
 }
 
-fn gen_identifier<'a>(node: &Ident<'a>, _: &mut Context<'a>) -> PrintItems {
-  let mut items = PrintItems::new();
-  items.push_string(node.sym().to_string());
-
-  if node.optional() && !node.parent().is::<ClassProp>() && !node.parent().is::<ClassMethod>() {
-    items.push_sc(sc!("?"));
-  }
-
-  items
+fn gen_identifier<'a>(node: &IdentifierReference<'a>, _: &mut Context<'a>) -> PrintItems {
+  // Note: in oxc, optional (`?`) is a flag on the binding/parameter rather than
+  // on the identifier reference, so it is emitted by those callers.
+  node.name.as_str().to_string().into()
 }
 
-fn gen_ident_name<'a>(node: &IdentName<'a>, _: &mut Context<'a>) -> PrintItems {
-  let mut items = PrintItems::new();
-  items.push_string(node.sym().to_string());
-  items
+fn gen_ident_name<'a>(node: &IdentifierName<'a>, _: &mut Context<'a>) -> PrintItems {
+  node.name.as_str().to_string().into()
 }
 
-fn gen_binding_identifier<'a>(node: &BindingIdent<'a>, context: &mut Context<'a>) -> PrintItems {
-  let mut items = PrintItems::new();
-  items.extend(gen_node(node.id.into(), context));
-
-  if let Node::VarDeclarator(node) = node.parent() {
-    if node.definite() {
-      items.push_sc(sc!("!"));
-    }
-  }
-
-  items.extend(gen_type_ann_with_colon_if_exists(node.type_ann, context));
-
-  items
+fn gen_binding_identifier<'a>(node: &BindingIdentifier<'a>, _context: &mut Context<'a>) -> PrintItems {
+  // In oxc the type annotation, optional (`?`) and definite (`!`) markers live
+  // on the enclosing `BindingPattern` / `VariableDeclarator` / `FormalParameter`
+  // rather than the identifier, so they are emitted by those callers.
+  node.name.as_str().to_string().into()
 }
 
 /* declarations */
@@ -4216,35 +4201,30 @@ fn gen_jsx_text<'a>(node: &JSXText<'a>, context: &mut Context<'a>) -> PrintItems
 
 /* literals */
 
-fn gen_big_int_literal<'a>(node: &BigInt<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_big_int_literal<'a>(node: &BigIntLiteral<'a>, context: &mut Context<'a>) -> PrintItems {
   node.text_fast(context.program).to_string().into()
 }
 
-fn gen_bool_literal(node: &Bool) -> PrintItems {
-  match node.value() {
+fn gen_bool_literal(node: &BooleanLiteral) -> PrintItems {
+  match node.value {
     true => "true",
     false => "false",
   }
   .into()
 }
 
-fn gen_num_literal<'a>(node: &Number<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_num_literal<'a>(node: &NumericLiteral<'a>, context: &mut Context<'a>) -> PrintItems {
   node.text_fast(context.program).to_string().into()
 }
 
-fn gen_reg_exp_literal(node: &Regex, _: &mut Context) -> PrintItems {
-  // the exp and flags should not be nodes so just ignore that (swc issue #511)
-  let mut items = PrintItems::new();
-  items.push_sc(sc!("/"));
-  items.push_string(node.exp().to_string());
-  items.push_sc(sc!("/"));
-  items.push_string(node.flags().to_string());
-  items
+fn gen_reg_exp_literal<'a>(node: &RegExpLiteral<'a>, context: &mut Context<'a>) -> PrintItems {
+  // emit the raw regex literal text (pattern + flags)
+  node.text_fast(context.program).to_string().into()
 }
 
-fn gen_string_literal<'a>(node: &Str<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_string_literal<'a>(node: &StringLiteral<'a>, context: &mut Context<'a>) -> PrintItems {
   let string_value = string_literal::get_value(node, context);
-  if node.parent().is::<JSXAttr>() {
+  if matches!(context.parent(), Node::JSXAttribute(_)) {
     string_literal::gen_jsx_text(&string_value, context)
   } else {
     string_literal::gen_non_jsx_text(&string_value, context)
