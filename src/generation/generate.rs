@@ -8299,15 +8299,17 @@ fn gen_for_member_like_expr_item<'a>(item: &MemberLikeExprItem<'a>, context: &mu
       gen_node_with_inner_gen(*node, context, |node_items, context| {
         // Changing `2 .toString()` to `2.toString()` is a syntax error because `2.` is a numeric
         // literal, so we surround it in parenthesis `(2).toString()`
-        let is_first_and_number = is_first && node.kind() == NodeKind::Number && !node.text_fast(context.program).contains('.');
+        let is_first_and_number = is_first && matches!(node, Node::NumericLiteral(_)) && !node.text_fast(context.program).contains('.');
         let mut items = PrintItems::new();
         if is_first_and_number {
           items.push_sc(sc!("("));
         }
         if !is_first {
+          // computed member accesses are a separate MemberLikeExprItem::Computed variant,
+          // so here a non-first member always uses `.` (or `?.`)
           if is_optional {
             items.push_sc(sc!("?."));
-          } else if node.kind() != NodeKind::ComputedPropName {
+          } else {
             items.push_sc(sc!("."));
           }
         }
