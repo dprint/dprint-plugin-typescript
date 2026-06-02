@@ -1548,16 +1548,16 @@ fn gen_named_import_or_export_specifiers<'a>(opts: GenNamedImportOrExportSpecifi
 
 /* expressions */
 
-fn gen_array_expr<'a>(node: &ArrayLit<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_array_expr<'a>(node: &'a ArrayExpression<'a>, context: &mut Context<'a>) -> PrintItems {
   let prefer_hanging = match context.config.array_expression_prefer_hanging {
     PreferHanging::Never => false,
-    PreferHanging::OnlySingleItem => node.elems.len() == 1,
+    PreferHanging::OnlySingleItem => node.elements.len() == 1,
     PreferHanging::Always => true,
   };
   gen_array_like_nodes(
     GenArrayLikeNodesOptions {
-      node: node.into(),
-      nodes: node.elems.iter().map(|&x| x.map(|elem| elem.into())).collect(),
+      node: Node::ArrayExpression(node),
+      nodes: node.elements.iter().map(array_element_to_node).collect(),
       prefer_hanging,
       prefer_single_line: context.config.array_expression_prefer_single_line,
       trailing_commas: context.config.array_expression_trailing_commas,
@@ -2264,12 +2264,12 @@ fn gen_import_callee<'a>(node: &Import<'a>, _context: &mut Context<'a>) -> Print
   items
 }
 
-fn gen_conditional_expr<'a>(node: &CondExpr<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_conditional_expr<'a>(node: &'a ConditionalExpression<'a>, context: &mut Context<'a>) -> PrintItems {
   let question_token = context.token_finder.get_first_operator_after(&node.test, "?").unwrap();
-  let colon_token = context.token_finder.get_first_operator_after(&node.cons, ":").unwrap();
+  let colon_token = context.token_finder.get_first_operator_after(&node.consequent, ":").unwrap();
   let line_per_expression = context.config.conditional_expression_line_per_expression;
-  let has_newline_test_cons = node_helpers::get_use_new_lines_for_nodes(&node.test, &node.cons, context.program);
-  let has_newline_const_alt = node_helpers::get_use_new_lines_for_nodes(&node.cons, &node.alt, context.program);
+  let has_newline_test_cons = node_helpers::get_use_new_lines_for_nodes(&node.test, &node.consequent, context.program);
+  let has_newline_const_alt = node_helpers::get_use_new_lines_for_nodes(&node.consequent, &node.alternate, context.program);
   let mut force_test_cons_newline = !context.config.conditional_expression_prefer_single_line && has_newline_test_cons;
   let mut force_cons_alt_newline = !context.config.conditional_expression_prefer_single_line && has_newline_const_alt;
   if line_per_expression && (force_test_cons_newline || force_cons_alt_newline) {
@@ -2294,7 +2294,7 @@ fn gen_conditional_expr<'a>(node: &CondExpr<'a>, context: &mut Context<'a>) -> P
   let top_most_il = top_most_data.il;
 
   items.extend(ir_helpers::new_line_group(with_queued_indent({
-    let mut items = gen_node(node.test.into(), context);
+    let mut items = gen_node(expr_to_node(&node.test), context);
     if question_position == OperatorPosition::SameLine {
       items.push_sc(sc!(" ?"));
     }
@@ -2339,7 +2339,7 @@ fn gen_conditional_expr<'a>(node: &CondExpr<'a>, context: &mut Context<'a>) -> P
       if question_position == OperatorPosition::NextLine {
         items.push_sc(sc!("? "));
       }
-      items.extend(gen_node(node.cons.into(), context));
+      items.extend(gen_node(expr_to_node(&node.consequent), context));
       if colon_position == OperatorPosition::SameLine {
         items.push_sc(sc!(" :"));
       }
@@ -2367,7 +2367,7 @@ fn gen_conditional_expr<'a>(node: &CondExpr<'a>, context: &mut Context<'a>) -> P
         items.push_sc(sc!(": "));
       }
       items.push_info(before_alternate_ln);
-      items.extend(gen_node(node.alt.into(), context));
+      items.extend(gen_node(expr_to_node(&node.alternate), context));
       indent_if_sol_and_same_indent_as_top_most(ir_helpers::new_line_group(items), top_most_il)
     });
     items.push_info(end_ln);
@@ -2393,14 +2393,14 @@ fn gen_conditional_expr<'a>(node: &CondExpr<'a>, context: &mut Context<'a>) -> P
     is_top_most: bool,
   }
 
-  fn get_top_most_data<'a>(node: &CondExpr<'a>, context: &mut Context<'a>) -> TopMostData {
+  fn get_top_most_data<'a>(node: &'a ConditionalExpression<'a>, context: &mut Context<'a>) -> TopMostData {
     // The "top most" node in nested conditionals follows the ancestors up through
     // the alternate expressions.
     let mut top_most_node = node;
 
     for ancestor in context.parent_stack.iter() {
-      if let Node::CondExpr(parent) = ancestor {
-        if parent.alt.start() == top_most_node.start() {
+      if let Node::ConditionalExpression(parent) = *ancestor {
+        if parent.alternate.start() == top_most_node.start() {
           top_most_node = parent;
         } else {
           break;
@@ -2436,12 +2436,12 @@ fn gen_conditional_expr<'a>(node: &CondExpr<'a>, context: &mut Context<'a>) -> P
   }
 
   fn get_operator_position(
-    node: &CondExpr,
-    question_token: &TokenAndSpan,
-    colon_token: &TokenAndSpan,
+    node: &ConditionalExpression,
+    question_token: &Token,
+    colon_token: &Token,
     context: &mut Context,
   ) -> (OperatorPosition, OperatorPosition) {
-    fn get_maintain_position(node: &CondExpr, expr: Expr, token: &TokenAndSpan, context: &mut Context) -> OperatorPosition {
+    fn get_maintain_position(node: &ConditionalExpression, expr: &Expression, token: &Token, context: &mut Context) -> OperatorPosition {
       if expr.end_line_fast(context.program) == token.start_line_fast(context.program) {
         if node.start_line_fast(context.program) == node.end_line_fast(context.program) {
           // prefer the dprint default when going from one to multiple lines
@@ -2458,8 +2458,8 @@ fn gen_conditional_expr<'a>(node: &CondExpr<'a>, context: &mut Context<'a>) -> P
       OperatorPosition::NextLine => (OperatorPosition::NextLine, OperatorPosition::NextLine),
       OperatorPosition::SameLine => (OperatorPosition::SameLine, OperatorPosition::SameLine),
       OperatorPosition::Maintain => (
-        get_maintain_position(node, node.test, question_token, context),
-        get_maintain_position(node, node.cons, colon_token, context),
+        get_maintain_position(node, &node.test, question_token, context),
+        get_maintain_position(node, &node.consequent, colon_token, context),
       ),
     }
   }
@@ -2472,7 +2472,7 @@ struct ConditionalTokenComments {
 }
 
 /// Generates the comments used for tokens in conditional expressions and types.
-fn gen_cond_token_comments(token: &TokenAndSpan, context: &mut Context, top_most_il: IndentLevel) -> ConditionalTokenComments {
+fn gen_cond_token_comments(token: &Token, context: &mut Context, top_most_il: IndentLevel) -> ConditionalTokenComments {
   let token_line = token.end_line_fast(context.program);
   let previous_token = token.previous_token_fast(context.program).unwrap();
   let next_token = token.next_token_fast(context.program).unwrap();

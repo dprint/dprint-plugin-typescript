@@ -57,6 +57,15 @@ pub fn stmt_to_node<'a>(s: &'a Statement<'a>) -> Node<'a> {
   }
 }
 
+/// Array literal elements; `Elision` (a sparse hole) maps to `None`.
+pub fn array_element_to_node<'a>(e: &'a ArrayExpressionElement<'a>) -> Option<Node<'a>> {
+  match e {
+    ArrayExpressionElement::SpreadElement(n) => Some(AstKind::SpreadElement(n)),
+    ArrayExpressionElement::Elision(_) => None,
+    it @ match_expression!(ArrayExpressionElement) => Some(expr_to_node(it.to_expression())),
+  }
+}
+
 pub fn arg_to_node<'a>(a: &'a Argument<'a>) -> Node<'a> {
   match a {
     Argument::SpreadElement(n) => AstKind::SpreadElement(n),
