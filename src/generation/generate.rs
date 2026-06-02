@@ -4704,6 +4704,17 @@ fn gen_empty_stmt(_: &EmptyStatement, _: &mut Context) -> PrintItems {
   ";".into()
 }
 
+// oxc surfaces prologue directives (e.g. `"use strict";`) as a dedicated `Directive`
+// node rather than a string-literal expression statement.
+fn gen_directive<'a>(node: &'a Directive<'a>, context: &mut Context<'a>) -> PrintItems {
+  let mut items = PrintItems::new();
+  items.extend(gen_string_literal(&node.expression, context));
+  if context.config.semi_colons.is_true() {
+    items.push_sc(sc!(";"));
+  }
+  items
+}
+
 fn gen_export_assignment<'a>(node: &TsExportAssignment<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
@@ -4728,23 +4739,23 @@ fn gen_namespace_export<'a>(node: &TsNamespaceExportDecl<'a>, context: &mut Cont
   items
 }
 
-fn gen_expr_stmt<'a>(stmt: &ExprStmt<'a>, context: &mut Context<'a>) -> PrintItems {
-  if context.config.semi_colons.is_true() || stmt.parent().is::<DoWhileStmt>() {
+fn gen_expr_stmt<'a>(stmt: &'a ExpressionStatement<'a>, context: &mut Context<'a>) -> PrintItems {
+  if context.config.semi_colons.is_true() || matches!(context.parent(), Node::DoWhileStatement(_)) {
     return gen_inner(stmt, context);
   } else {
     return gen_for_prefix_semi_colon_insertion(stmt, context);
   }
 
-  fn gen_inner<'a>(stmt: &ExprStmt<'a>, context: &mut Context<'a>) -> PrintItems {
+  fn gen_inner<'a>(stmt: &'a ExpressionStatement<'a>, context: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
-    items.extend(gen_node(stmt.expr.into(), context));
+    items.extend(gen_node(expr_to_node(&stmt.expression), context));
     if context.config.semi_colons.is_true() {
       items.push_sc(sc!(";"));
     }
     items
   }
 
-  fn gen_for_prefix_semi_colon_insertion<'a>(stmt: &ExprStmt<'a>, context: &mut Context<'a>) -> PrintItems {
+  fn gen_for_prefix_semi_colon_insertion<'a>(stmt: &'a ExpressionStatement<'a>, context: &mut Context<'a>) -> PrintItems {
     let generated_node = gen_inner(stmt, context);
     let generated_node = generated_node.into_rc_path();
     let brace_condition_ref = context.take_expr_stmt_single_line_parent_brace_ref(); // always clear this
@@ -5164,9 +5175,9 @@ fn gen_if_stmt<'a>(node: &IfStmt<'a>, context: &mut Context<'a>) -> PrintItems {
   items
 }
 
-fn gen_labeled_stmt<'a>(node: &LabeledStmt<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_labeled_stmt<'a>(node: &'a LabeledStatement<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(gen_node(node.label.into(), context));
+  items.extend(gen_node(Node::LabelIdentifier(&node.label), context));
   items.push_sc(sc!(":"));
 
   // not bothering to make this configurable, because who uses labeled statements?
@@ -5178,7 +5189,7 @@ fn gen_labeled_stmt<'a>(node: &LabeledStmt<'a>, context: &mut Context<'a>) -> Pr
     items.push_signal(Signal::NewLine);
   }
 
-  items.extend(gen_node(node.body.into(), context));
+  items.extend(gen_node(stmt_to_node(&node.body), context));
 
   items
 }
