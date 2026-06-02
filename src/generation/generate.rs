@@ -407,21 +407,21 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
 }
 
 fn get_has_ignore_comment<'a>(leading_comments: &CommentsIterator<'a>, node: Node<'a>, context: &mut Context<'a>) -> bool {
-  let comments = match node.parent() {
-    Some(Node::JSXElement(jsx_element)) => get_comments_for_jsx_children(jsx_element.children, &node.start(), context),
-    Some(Node::JSXFragment(jsx_fragment)) => get_comments_for_jsx_children(jsx_fragment.children, &node.start(), context),
+  let comments = match context.parent() {
+    Node::JSXElement(jsx_element) => get_comments_for_jsx_children(&jsx_element.children, &node.start(), context),
+    Node::JSXFragment(jsx_fragment) => get_comments_for_jsx_children(&jsx_fragment.children, &node.start(), context),
     _ => leading_comments.clone(),
   };
 
   for comment in comments {
-    if ir_helpers::text_has_dprint_ignore(&comment.text, &context.config.ignore_node_comment_text) {
+    if ir_helpers::text_has_dprint_ignore(comment.text_fast(context.program), &context.config.ignore_node_comment_text) {
       return true;
     }
   }
 
   return false;
 
-  fn get_comments_for_jsx_children<'a>(children: &[JSXElementChild], node_lo: &SourcePos, context: &mut Context<'a>) -> CommentsIterator<'a> {
+  fn get_comments_for_jsx_children<'a>(children: &'a [JSXChild<'a>], node_lo: &SourcePos, context: &mut Context<'a>) -> CommentsIterator<'a> {
     let mut iterator = CommentsIterator::empty();
     let index = if let Ok(index) = children.binary_search_by_key(node_lo, |child| child.start()) {
       index
@@ -431,15 +431,15 @@ fn get_has_ignore_comment<'a>(leading_comments: &CommentsIterator<'a>, node: Nod
 
     for i in (0..index).rev() {
       match children.get(i).unwrap() {
-        JSXElementChild::JSXExprContainer(expr_container) => {
-          match expr_container.expr {
-            JSXExpr::JSXEmptyExpr(empty_expr) => {
+        JSXChild::ExpressionContainer(expr_container) => {
+          match &expr_container.expression {
+            JSXExpression::EmptyExpression(empty_expr) => {
               iterator.extend(get_jsx_empty_expr_comments(empty_expr, context));
             }
             _ => break,
           };
         }
-        JSXElementChild::JSXText(jsx_text) => {
+        JSXChild::Text(jsx_text) => {
           if !jsx_text.text_fast(context.program).trim().is_empty() {
             break;
           }
@@ -453,10 +453,10 @@ fn get_has_ignore_comment<'a>(leading_comments: &CommentsIterator<'a>, node: Nod
 }
 
 fn is_ignore_jsx_expr_container(node: Node, context: &Context) -> bool {
-  if let Node::JSXExprContainer(expr_container) = node {
-    if let JSXExpr::JSXEmptyExpr(empty_expr) = expr_container.expr {
+  if let Node::JSXExpressionContainer(expr_container) = node {
+    if let JSXExpression::EmptyExpression(empty_expr) = &expr_container.expression {
       for comment in get_jsx_empty_expr_comments(empty_expr, context) {
-        if ir_helpers::text_has_dprint_ignore(&comment.text, &context.config.ignore_node_comment_text) {
+        if ir_helpers::text_has_dprint_ignore(comment.text_fast(context.program), &context.config.ignore_node_comment_text) {
           return true;
         }
       }
@@ -7115,7 +7115,7 @@ fn get_trailing_comments_same_line<'a>(node: &SourceRange, trailing_comments: Co
   trailing_comments_on_same_line
 }
 
-fn get_jsx_empty_expr_comments<'a>(node: &JSXEmptyExpr, context: &Context<'a>) -> CommentsIterator<'a> {
+fn get_jsx_empty_expr_comments<'a>(node: &JSXEmptyExpression, context: &Context<'a>) -> CommentsIterator<'a> {
   node.end().leading_comments_fast(context.program)
 }
 
@@ -9293,8 +9293,8 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
   }
 
   /// If the node has a "JSX space expression" between or text that's only spaces between.
-  fn has_jsx_space_between<'a>(previous_node: Node<'a>, next_node: Node<'a>, program: Program<'a>) -> bool {
-    fn has_jsx_space_expr_between(previous_node: Node, next_node: Node, program: Program) -> bool {
+  fn has_jsx_space_between<'a>(previous_node: Node<'a>, next_node: Node<'a>, program: ProgramInfo<'a>) -> bool {
+    fn has_jsx_space_expr_between(previous_node: Node, next_node: Node, program: ProgramInfo) -> bool {
       let nodes_between = node_helpers::get_siblings_between(previous_node, next_node);
 
       for node_between in nodes_between {
@@ -9311,7 +9311,7 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
 }
 
 fn jsx_space_separator<'a>(previous_node: Node<'a>, current_node: Node<'a>, context: &Context<'a>) -> PrintItems {
-  return if is_ignore_jsx_expr_container(previous_node, context) && current_node.kind() == NodeKind::JSXText {
+  return if is_ignore_jsx_expr_container(previous_node, context) && matches!(current_node, Node::JSXText(_)) {
     PrintItems::new()
   } else if node_should_force_newline_if_multi_line(previous_node) || node_should_force_newline_if_multi_line(current_node) {
     jsx_force_space_with_newline_if_either_node_multi_line(previous_node, current_node, context)
