@@ -1177,9 +1177,9 @@ fn gen_param<'a>(node: &'a FormalParameter<'a>, context: &mut Context<'a>) -> Pr
   if node.readonly {
     items.push_sc(sc!("readonly "));
   }
-  // In this oxc fork a default value wraps the binding in an AssignmentPattern while the
-  // type annotation lives on the FormalParameter, so the annotation must be spliced
-  // between the binding and the `= default`.
+  // In oxc a default value wraps the binding in an AssignmentPattern while the type
+  // annotation lives on the FormalParameter, so the annotation must be spliced between
+  // the binding and the `= default`.
   if let BindingPattern::AssignmentPattern(assign) = &node.pattern {
     items.extend(gen_node(binding_pattern_to_node(&assign.left), context));
     if node.optional {
@@ -5511,8 +5511,8 @@ fn gen_var_declarators<'a>(parent: Node<'a>, decls: &'a [VariableDeclarator<'a>]
 fn gen_var_declarator<'a>(node: &'a VariableDeclarator<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
-  // In this oxc fork the binding's type annotation / definite marker live on the
-  // declarator rather than the pattern, so emit them here.
+  // In oxc the binding's type annotation / definite marker live on the declarator
+  // rather than the pattern, so emit them here.
   items.extend(gen_node(binding_pattern_to_node(&node.id), context));
   if node.definite {
     items.push_sc(sc!("!"));
