@@ -216,6 +216,11 @@ impl<'a> CommentsIterator<'a> {
   pub fn as_slice(&self) -> &[&'a Comment] {
     &self.comments[self.index..]
   }
+
+  /// The last remaining comment without consuming the iterator.
+  pub fn peek_last_comment(&self) -> Option<&'a Comment> {
+    self.comments[self.index..].last().copied()
+  }
 }
 
 impl<'a> Iterator for CommentsIterator<'a> {
@@ -337,8 +342,11 @@ pub trait CommentExt {
   fn end(&self) -> SourcePos;
   fn range(&self) -> SourceRange;
   fn text_fast<'a>(&self, program: ProgramInfo<'a>) -> &'a str;
+  /// The comment's content, excluding the `//` or `/* */` delimiters (matches SWC's `Comment.text`).
+  fn content_fast<'a>(&self, program: ProgramInfo<'a>) -> &'a str;
   fn start_line_fast(&self, program: ProgramInfo) -> usize;
   fn end_line_fast(&self, program: ProgramInfo) -> usize;
+  fn start_column_fast(&self, program: ProgramInfo) -> usize;
   fn is_line(&self) -> bool;
   fn is_block(&self) -> bool;
 }
@@ -363,12 +371,21 @@ impl CommentExt for Comment {
     &program.text()[self.span.start as usize..self.span.end as usize]
   }
 
+  fn content_fast<'a>(&self, program: ProgramInfo<'a>) -> &'a str {
+    let span = self.content_span();
+    &program.text()[span.start as usize..span.end as usize]
+  }
+
   fn start_line_fast(&self, program: ProgramInfo) -> usize {
     program.text_info().line_index(self.span.start as usize)
   }
 
   fn end_line_fast(&self, program: ProgramInfo) -> usize {
     program.text_info().line_index(self.span.end as usize)
+  }
+
+  fn start_column_fast(&self, program: ProgramInfo) -> usize {
+    self.span.start.start_column_fast(program)
   }
 
   #[inline]
@@ -401,6 +418,12 @@ impl RangeContains for SourceRange {
 /// `SourceRanged` because `u32` doesn't implement `GetSpan`.
 pub trait PosExt {
   fn as_source_pos(&self) -> SourcePos;
+  fn range(&self) -> SourceRange;
+  fn start(&self) -> SourcePos;
+  fn end(&self) -> SourcePos;
+  fn start_line_fast(&self, program: ProgramInfo) -> usize;
+  fn end_line_fast(&self, program: ProgramInfo) -> usize;
+  fn start_column_fast(&self, program: ProgramInfo) -> usize;
   fn leading_comments_fast<'a>(&self, program: ProgramInfo<'a>) -> CommentsIterator<'a>;
   fn trailing_comments_fast<'a>(&self, program: ProgramInfo<'a>) -> CommentsIterator<'a>;
   fn previous_token_fast<'a>(&self, program: ProgramInfo<'a>) -> Option<&'a Token>;
@@ -412,6 +435,35 @@ impl PosExt for SourcePos {
   #[inline]
   fn as_source_pos(&self) -> SourcePos {
     *self
+  }
+
+  #[inline]
+  fn range(&self) -> SourceRange {
+    SourceRange::new(*self, *self)
+  }
+
+  #[inline]
+  fn start(&self) -> SourcePos {
+    *self
+  }
+
+  #[inline]
+  fn end(&self) -> SourcePos {
+    *self
+  }
+
+  fn start_line_fast(&self, program: ProgramInfo) -> usize {
+    self.line_fast(program)
+  }
+
+  fn end_line_fast(&self, program: ProgramInfo) -> usize {
+    self.line_fast(program)
+  }
+
+  fn start_column_fast(&self, program: ProgramInfo) -> usize {
+    let start = *self as usize;
+    let line = program.text_info().line_index(start);
+    start - program.text_info().line_start(line)
   }
 
   fn leading_comments_fast<'a>(&self, program: ProgramInfo<'a>) -> CommentsIterator<'a> {
@@ -441,13 +493,55 @@ impl PosExt for SourcePos {
   }
 }
 
-/// Text helper for tokens (which don't implement `GetSpan`).
+/// Helpers for tokens (which don't implement `GetSpan`, so can't use the blanket
+/// `SourceRanged` impl). Delegates position lookups to `PosExt` on the token's bounds.
 pub trait TokenExt {
   fn text_fast<'a>(&self, program: ProgramInfo<'a>) -> &'a str;
+  fn range(&self) -> SourceRange;
+  fn start_line_fast(&self, program: ProgramInfo) -> usize;
+  fn end_line_fast(&self, program: ProgramInfo) -> usize;
+  fn start_column_fast(&self, program: ProgramInfo) -> usize;
+  fn leading_comments_fast<'a>(&self, program: ProgramInfo<'a>) -> CommentsIterator<'a>;
+  fn trailing_comments_fast<'a>(&self, program: ProgramInfo<'a>) -> CommentsIterator<'a>;
+  fn previous_token_fast<'a>(&self, program: ProgramInfo<'a>) -> Option<&'a Token>;
+  fn next_token_fast<'a>(&self, program: ProgramInfo<'a>) -> Option<&'a Token>;
 }
 
 impl TokenExt for Token {
   fn text_fast<'a>(&self, program: ProgramInfo<'a>) -> &'a str {
     &program.text()[self.start() as usize..self.end() as usize]
+  }
+
+  #[inline]
+  fn range(&self) -> SourceRange {
+    SourceRange::new(self.start(), self.end())
+  }
+
+  fn start_line_fast(&self, program: ProgramInfo) -> usize {
+    program.text_info().line_index(self.start() as usize)
+  }
+
+  fn end_line_fast(&self, program: ProgramInfo) -> usize {
+    program.text_info().line_index(self.end() as usize)
+  }
+
+  fn start_column_fast(&self, program: ProgramInfo) -> usize {
+    self.start().start_column_fast(program)
+  }
+
+  fn leading_comments_fast<'a>(&self, program: ProgramInfo<'a>) -> CommentsIterator<'a> {
+    self.start().leading_comments_fast(program)
+  }
+
+  fn trailing_comments_fast<'a>(&self, program: ProgramInfo<'a>) -> CommentsIterator<'a> {
+    self.end().trailing_comments_fast(program)
+  }
+
+  fn previous_token_fast<'a>(&self, program: ProgramInfo<'a>) -> Option<&'a Token> {
+    self.start().previous_token_fast(program)
+  }
+
+  fn next_token_fast<'a>(&self, program: ProgramInfo<'a>) -> Option<&'a Token> {
+    self.end().next_token_fast(program)
   }
 }

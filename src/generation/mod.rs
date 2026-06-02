@@ -25,21 +25,11 @@ mod generate_types;
 #[allow(dead_code)]
 mod node_helpers;
 
-// mod generate;
+mod generate;
 
 use comments::*;
 use context::*;
 use tokens::*;
 
 pub use context::ExternalFormatter;
-
-use deno_ast::ParsedSource;
-use dprint_core::formatting::PrintItems;
-
-use crate::configuration::Configuration;
-
-/// oxc-port stub. Real implementation lives in `generate.rs` and is being
-/// rewritten onto oxc `AstKind`.
-pub fn generate<'a>(_parsed_source: &'a ParsedSource<'a>, _config: &Configuration, _external_formatter: Option<&ExternalFormatter>) -> anyhow::Result<PrintItems> {
-  todo!("oxc-port: generation layer not yet rewritten")
-}
+pub use generate::generate;
