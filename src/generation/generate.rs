@@ -239,6 +239,8 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       Node::TSIndexSignature(node) => gen_index_signature(node, context),
       Node::TSIndexSignatureName(node) => gen_index_signature_name(node, context),
       Node::TSInterfaceBody(node) => gen_interface_body(node, context),
+      Node::TSClassImplements(node) => gen_class_implements(node, context),
+      Node::TSInterfaceHeritage(node) => gen_interface_heritage(node, context),
       Node::TSMethodSignature(node) => gen_method_signature(node, context),
       Node::TSPropertySignature(node) => gen_property_signature(node, context),
       Node::TSTypeLiteral(node) => gen_type_lit(node, context),
@@ -2502,11 +2504,22 @@ fn gen_expr_or_spread<'a>(node: &ExprOrSpread<'a>, context: &mut Context<'a>) ->
   items
 }
 
-fn gen_expr_with_type_args<'a>(node: &TsExprWithTypeArgs<'a>, context: &mut Context<'a>) -> PrintItems {
+// `implements X<T>` on a class (expression is a type name)
+fn gen_class_implements<'a>(node: &'a TSClassImplements<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(gen_node(node.expr.into(), context));
-  if let Some(type_args) = node.type_args {
-    items.extend(gen_node(type_args.into(), context));
+  items.extend(gen_node(ts_type_name_to_node(&node.expression), context));
+  if let Some(type_args) = &node.type_arguments {
+    items.extend(gen_node(Node::TSTypeParameterInstantiation(type_args), context));
+  }
+  items
+}
+
+// `extends X<T>` on an interface (expression is a value expression)
+fn gen_interface_heritage<'a>(node: &'a TSInterfaceHeritage<'a>, context: &mut Context<'a>) -> PrintItems {
+  let mut items = PrintItems::new();
+  items.extend(gen_node(expr_to_node(&node.expression), context));
+  if let Some(type_args) = &node.type_arguments {
+    items.extend(gen_node(Node::TSTypeParameterInstantiation(type_args), context));
   }
   items
 }
@@ -4301,52 +4314,29 @@ mod string_literal {
 
 /* top level */
 
-fn gen_module<'a>(node: &Module<'a>, context: &mut Context<'a>) -> PrintItems {
-  gen_program(
-    ProgramInfo {
-      range: node.range(),
-      shebang: node.shebang(),
-      statements: node.body.iter().map(|x| x.into()).collect(),
-    },
-    context,
-  )
-}
-
-fn gen_script<'a>(node: &Script<'a>, context: &mut Context<'a>) -> PrintItems {
-  gen_program(
-    ProgramInfo {
-      range: node.range(),
-      shebang: node.shebang(),
-      statements: node.body.iter().map(|x| x.into()).collect(),
-    },
-    context,
-  )
-}
-
-struct ProgramInfo<'a, 'b> {
-  range: SourceRange,
-  shebang: &'b Option<deno_ast::swc::atoms::Atom>,
-  statements: Vec<Node<'a>>,
-}
-
-fn gen_program<'a, 'b>(node: ProgramInfo<'a, 'b>, context: &mut Context<'a>) -> PrintItems {
+// oxc unifies SWC's Module + Script into a single `Program` (with `hashbang`/`directives`/`body`).
+fn gen_program_node<'a>(node: &'a Program<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  if let Some(shebang) = node.shebang {
+  let mut statements: Vec<Node<'a>> = node.directives.iter().map(Node::Directive).collect();
+  statements.extend(node.body.iter().map(stmt_to_node));
+  let program_range = node.range();
+
+  if let Some(hashbang) = &node.hashbang {
     items.push_sc(sc!("#!"));
-    items.push_string(shebang.to_string());
+    items.push_string(hashbang.value.as_str().to_string());
     items.push_signal(Signal::ExpectNewLine);
-    if let Some(first_statement) = node.statements.first() {
-      if node_helpers::has_separating_blank_line(&node.range.start, first_statement, context.program) {
+    if let Some(first_statement) = statements.first() {
+      if node_helpers::has_separating_blank_line(&program_range.start, first_statement, context.program) {
         items.push_signal(Signal::NewLine);
         items.push_signal(Signal::NewLine);
       }
     } else {
-      let shebang_end = node.range.start + "#!".len() + shebang.len();
+      let shebang_end = hashbang.end();
       items.extend(gen_trailing_comments_as_statements(&shebang_end.range(), context));
     }
   }
 
-  items.extend(gen_statements(node.range, node.statements, context));
+  items.extend(gen_statements(program_range, statements, context));
 
   items
 }
@@ -5948,39 +5938,8 @@ fn gen_function_type<'a>(node: &'a TSFunctionType<'a>, context: &mut Context<'a>
   items
 }
 
-fn gen_getter_signature<'a>(node: &TsGetterSignature<'a>, context: &mut Context<'a>) -> PrintItems {
-  gen_method_signature_like(
-    MethodSignatureLike {
-      node: node.into(),
-      method_kind: MethodSignatureLikeKind::Getter,
-      computed: node.computed(),
-      optional: false,
-      key: node.key.into(),
-      parameters_range: node.get_parameters_range(context),
-      type_params: None,
-      params: Vec::with_capacity(0),
-      type_ann: node.type_ann.map(|p| p.into()),
-    },
-    context,
-  )
-}
-
-fn gen_setter_signature<'a>(node: &TsSetterSignature<'a>, context: &mut Context<'a>) -> PrintItems {
-  gen_method_signature_like(
-    MethodSignatureLike {
-      node: node.into(),
-      method_kind: MethodSignatureLikeKind::Setter,
-      computed: node.computed(),
-      optional: false,
-      key: node.key.into(),
-      parameters_range: node.get_parameters_range(context),
-      type_params: None,
-      params: vec![node.param.into()],
-      type_ann: None,
-    },
-    context,
-  )
-}
+// oxc folds getter/setter interface signatures into TSMethodSignature (kind Get/Set),
+// handled by gen_method_signature.
 
 fn gen_keyword_type<'a>(node: Node<'a>, context: &mut Context<'a>) -> PrintItems {
   // oxc has a distinct node per keyword type (TSAnyKeyword, TSNumberKeyword, ...); just
