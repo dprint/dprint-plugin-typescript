@@ -9,11 +9,11 @@ use deno_ast::oxc::syntax::operator::LogicalOperator;
 
 use super::super::Context;
 use super::extensions::*;
+use crate::configuration::*;
 use crate::generation::oxc_helpers::Node;
 use crate::generation::oxc_helpers::PosExt;
 use crate::generation::oxc_helpers::SourceRanged;
 use crate::generation::to_node::expr_to_node;
-use crate::configuration::*;
 
 /// SWC unified binary and logical expressions as `BinExpr`; oxc keeps them as
 /// distinct `BinaryExpression` / `LogicalExpression` nodes. This enum recovers

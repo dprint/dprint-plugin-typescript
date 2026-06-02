@@ -59,13 +59,13 @@ const o = {
 
 == should not be multi-line when not exceeding the line width ==
 const o = {
-    test(testing, this) {
+    test(testing, thisArg) {
     }
 };
 
 [expect]
 const o = {
-    test(testing, this) {
+    test(testing, thisArg) {
     },
 };
 

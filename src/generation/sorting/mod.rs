@@ -30,11 +30,7 @@ pub fn get_node_sorter_from_order<'a>(
           cmp_text_case_insensitive(a.text_fast(module), b.text_fast(module))
         })
       };
-      if result == Ordering::Equal {
-        a_index.cmp(&b_index)
-      } else {
-        result
-      }
+      if result == Ordering::Equal { a_index.cmp(&b_index) } else { result }
     })),
     SortOrder::CaseSensitive => Some(Box::new(move |(a_index, a), (b_index, b), program| {
       let result = if is_import_or_export_declaration(&a) {
@@ -46,11 +42,7 @@ pub fn get_node_sorter_from_order<'a>(
           cmp_text_case_sensitive(a.text_fast(module), b.text_fast(module))
         })
       };
-      if result == Ordering::Equal {
-        a_index.cmp(&b_index)
-      } else {
-        result
-      }
+      if result == Ordering::Equal { a_index.cmp(&b_index) } else { result }
     })),
   }
 }
@@ -111,11 +103,7 @@ fn cmp_nodes<'a>(
     }
   }
 
-  if a_nodes.len() < b_nodes.len() {
-    Ordering::Less
-  } else {
-    Ordering::Equal
-  }
+  if a_nodes.len() < b_nodes.len() { Ordering::Less } else { Ordering::Equal }
 }
 
 enum ComparisonNode {
@@ -135,7 +123,11 @@ fn get_comparison_nodes(node: Node) -> Vec<ComparisonNode> {
       // oxc always populates `imported`; aliasing (`import { a as b }`) is
       // detected by the imported/local spans differing.
       if node.imported.start() != node.local.start() {
-        vec![first_node, ComparisonNode::Node(node.imported.range()), ComparisonNode::Node(node.local.range())]
+        vec![
+          first_node,
+          ComparisonNode::Node(node.imported.range()),
+          ComparisonNode::Node(node.local.range()),
+        ]
       } else {
         vec![first_node, ComparisonNode::Node(node.local.range())]
       }
@@ -148,7 +140,11 @@ fn get_comparison_nodes(node: Node) -> Vec<ComparisonNode> {
       };
       // `local` is the original name; aliasing detected via differing spans.
       if node.local.start() != node.exported.start() {
-        vec![first_node, ComparisonNode::Node(node.local.range()), ComparisonNode::Node(node.exported.range())]
+        vec![
+          first_node,
+          ComparisonNode::Node(node.local.range()),
+          ComparisonNode::Node(node.exported.range()),
+        ]
       } else {
         vec![first_node, ComparisonNode::Node(node.local.range())]
       }

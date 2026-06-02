@@ -10,6 +10,8 @@ use super::oxc_helpers::Node;
 use super::oxc_helpers::ProgramInfo;
 use super::oxc_helpers::SourcePos;
 use super::oxc_helpers::SourceRanged;
+use super::oxc_helpers::TokenExt;
+use super::to_node::binding_pattern_to_node;
 
 pub fn is_first_node_on_line(node: &impl SourceRanged, program: ProgramInfo) -> bool {
   let start = node.start() as usize;
@@ -112,15 +114,6 @@ pub fn nodes_have_only_spaces_between<'a>(previous_node: Node<'a>, next_node: No
   }
 }
 
-pub fn get_siblings_between<'a, 'b>(_node_a: Node<'a>, _node_b: Node<'b>) -> Vec<Node<'a>> {
-  // oxc-port interim: the SWC view layer exposed `parent().children()` /
-  // `child_index()`, which oxc has no equivalent for. Only used for JSX child
-  // spacing (detecting `{" "}` space expressions between two children). Returning
-  // empty avoids a panic; the cost is JSX space-expression spacing between children
-  // isn't detected here. TODO: rework to take the parent's concrete child collection.
-  Vec::new()
-}
-
 pub fn has_jsx_space_expr_text(node: Node, program: ProgramInfo) -> bool {
   get_jsx_space_expr_space_count(node, program) > 0
 }
@@ -161,32 +154,107 @@ fn remove_quotes_from_str(text: &str) -> &str {
 }
 
 pub fn count_spaces_between_jsx_children<'a>(previous_node: Node<'a>, next_node: Node<'a>, program: ProgramInfo<'a>) -> usize {
-  let all_siblings_between = get_siblings_between(previous_node, next_node);
-  let siblings_between = all_siblings_between
-    .into_iter()
-    // ignore empty JSXText
-    .filter(|n| !n.text_fast(program).trim().is_empty())
-    .collect::<Vec<_>>();
-
-  let mut count = 0;
-  let mut previous_node = previous_node;
-
-  for node in siblings_between {
-    count += get_jsx_space_expr_space_count(node, program);
-
-    if nodes_have_only_spaces_between(previous_node, node, program) {
-      count += 1;
-    }
-
-    previous_node = node;
-  }
-
-  // check the spaces between the previously looked at node and last node
-  if nodes_have_only_spaces_between(previous_node, next_node, program) {
+  let mut count = count_jsx_space_exprs_in_text(&program.text()[previous_node.end() as usize..next_node.start() as usize]);
+  if jsx_text_has_trailing_space(previous_node, program) {
     count += 1;
   }
-
+  if jsx_text_has_leading_space(next_node, program) {
+    count += 1;
+  }
   count
+}
+
+fn jsx_text_has_trailing_space(node: Node, program: ProgramInfo) -> bool {
+  if let Node::JSXText(text) = node {
+    let text = text.text_fast(program);
+    crate::utils::has_no_new_lines_in_trailing_whitespace(text) && text.ends_with(' ')
+  } else {
+    false
+  }
+}
+
+fn jsx_text_has_leading_space(node: Node, program: ProgramInfo) -> bool {
+  if let Node::JSXText(text) = node {
+    let text = text.text_fast(program);
+    crate::utils::has_no_new_lines_in_leading_whitespace(text) && text.starts_with(' ')
+  } else {
+    false
+  }
+}
+
+fn count_jsx_space_exprs_in_text(text: &str) -> usize {
+  let mut count = 0;
+  let mut current_space_run = String::new();
+  let chars = text.char_indices().collect::<Vec<_>>();
+  let mut i = 0;
+
+  while i < chars.len() {
+    let (char_start, c) = chars[i];
+    if c == '{' {
+      count += count_same_line_space_run(&current_space_run);
+      current_space_run.clear();
+
+      if let Some((space_count, next_byte_index)) = parse_jsx_space_expr(&text[char_start..]) {
+        count += space_count;
+        i = chars.partition_point(|(byte_index, _)| *byte_index < char_start + next_byte_index);
+        continue;
+      }
+    }
+
+    if c.is_whitespace() {
+      current_space_run.push(c);
+    } else {
+      current_space_run.clear();
+    }
+    i += 1;
+  }
+
+  count + count_same_line_space_run(&current_space_run)
+}
+
+fn count_same_line_space_run(text: &str) -> usize {
+  if !text.is_empty() && text.chars().all(|c| c == ' ' || c == '\t') {
+    1
+  } else {
+    0
+  }
+}
+
+fn parse_jsx_space_expr(text: &str) -> Option<(usize, usize)> {
+  let bytes = text.as_bytes();
+  if bytes.first().copied() != Some(b'{') {
+    return None;
+  }
+
+  let mut i = 1;
+  skip_ascii_whitespace(bytes, &mut i);
+  let quote = *bytes.get(i)?;
+  if quote != b'\'' && quote != b'"' {
+    return None;
+  }
+  i += 1;
+
+  let space_start = i;
+  while bytes.get(i).copied() == Some(b' ') {
+    i += 1;
+  }
+  let space_count = i - space_start;
+  if space_count == 0 || bytes.get(i).copied() != Some(quote) {
+    return None;
+  }
+  i += 1;
+  skip_ascii_whitespace(bytes, &mut i);
+  if bytes.get(i).copied() != Some(b'}') {
+    return None;
+  }
+
+  Some((space_count, i + 1))
+}
+
+fn skip_ascii_whitespace(bytes: &[u8], i: &mut usize) {
+  while matches!(bytes.get(*i), Some(b' ' | b'\t' | b'\n' | b'\r')) {
+    *i += 1;
+  }
 }
 
 /// Tests if this is a call expression from common test libraries.
@@ -211,7 +279,13 @@ pub fn is_test_library_call_expr<'a>(node: &CallExpression<'a>, program: Program
       }
       // allow something like `Deno.test("desc", (t) => {})`
       if let Some(param) = arrow_expr.params.items.first() {
-        if has_surrounding_comments(Node::FormalParameter(param), program) {
+        let has_open_paren_comment = param
+          .previous_token_fast(program)
+          .is_some_and(|token| token.text_fast(program) == "(" && !token.trailing_comments_fast(program).is_empty());
+        if has_open_paren_comment
+          || has_surrounding_comments(Node::FormalParameter(param), program)
+          || has_surrounding_comments(binding_pattern_to_node(&param.pattern), program)
+        {
           return false;
         }
       }

@@ -6,7 +6,6 @@ use deno_ast::oxc::ast::ast::TSTypeParameterDeclaration;
 use deno_ast::oxc::parser::Kind;
 
 use crate::generation::context::Context;
-use crate::generation::oxc_helpers::PosExt;
 use crate::generation::oxc_helpers::SourceRange;
 use crate::generation::oxc_helpers::SourceRanged;
 

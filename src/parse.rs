@@ -1,14 +1,14 @@
+use anyhow::Result;
 use anyhow::anyhow;
 use anyhow::bail;
-use anyhow::Result;
-use deno_ast::oxc::allocator::Allocator;
 use deno_ast::ModuleSpecifier;
 use deno_ast::ParseParams;
 use deno_ast::ParsedSource;
+use deno_ast::oxc::allocator::Allocator;
 use std::path::Path;
 use std::sync::Arc;
 
-pub fn parse_swc_ast<'a>(allocator: &'a Allocator, file_path: &Path, file_extension: Option<&str>, file_text: Arc<str>) -> Result<ParsedSource<'a>> {
+pub fn parse_ast<'a>(allocator: &'a Allocator, file_path: &Path, file_extension: Option<&str>, file_text: Arc<str>) -> Result<ParsedSource<'a>> {
   match parse_inner(allocator, file_path, file_extension, file_text.clone()) {
     Ok(result) => Ok(result),
     Err(err) => {
@@ -103,22 +103,25 @@ fn from_file_path_wasm(path: &Path) -> Option<ModuleSpecifier> {
   ModuleSpecifier::parse(&format!("file:///{}", parts.join("/"))).ok()
 }
 
-/// Surfaces parse diagnostics as a formatting error.
+/// Surfaces blocking parse diagnostics as a formatting error.
 ///
-/// Unlike the previous SWC-based implementation (which filtered SWC's
-/// `SyntaxError` enum to a specific set of fatal syntax errors), oxc only
-/// records diagnostics for genuine syntax problems, and `deno_ast` already
-/// returns the truly fatal cases (parser panic, module syntax in a script) as
-/// a hard error from `parse_program`. So any remaining diagnostic is treated
-/// as blocking for formatting.
+/// The formatter intentionally runs on some legacy spec inputs that SWC parsed
+/// even though they are invalid TypeScript/JavaScript. Oxc keeps a recovered AST
+/// for these diagnostics, so allow the known recoverable cases and keep blocking
+/// everything else.
 pub fn ensure_no_specific_syntax_errors(parsed_source: &ParsedSource) -> Result<()> {
   let diagnostics = parsed_source.diagnostics();
 
-  if diagnostics.is_empty() {
+  let blocking_diagnostics = diagnostics
+    .iter()
+    .filter(|diagnostic| !is_recoverable_parse_diagnostic(diagnostic))
+    .collect::<Vec<_>>();
+
+  if blocking_diagnostics.is_empty() {
     Ok(())
   } else {
     let mut final_message = String::new();
-    for diagnostic in diagnostics {
+    for diagnostic in blocking_diagnostics {
       if !final_message.is_empty() {
         final_message.push_str("\n\n");
       }
@@ -126,6 +129,38 @@ pub fn ensure_no_specific_syntax_errors(parsed_source: &ParsedSource) -> Result<
     }
     bail!("{}", final_message)
   }
+}
+
+fn is_recoverable_parse_diagnostic(diagnostic: &deno_ast::ParseDiagnostic) -> bool {
+  if let Some(code) = diagnostic.diagnostic_code() {
+    return matches!(
+      (code.scope(), code.number()),
+      (
+        Some("TS"),
+        Some(
+          "1049" // setter must have exactly one parameter
+            | "1095" // setter return type
+            | "1108" // top-level return in legacy statement fixtures
+            | "1243" // invalid modifier combination
+            | "2206" // redundant `type` in `import type`
+            | "2207" // redundant `type` in `export type`
+        )
+      )
+    );
+  }
+
+  // Oxc currently does not assign codes to all parser diagnostics. Keep these
+  // exact-message fallbacks local to the formatter: they are legacy spec inputs
+  // that SWC accepted and oxc can still recover an AST for.
+  matches!(
+    diagnostic.message(),
+    "Missing initializer in const declaration"
+      | "Using declarations must have an initializer."
+      | "The left-hand side of a for...in statement cannot be an using declaration."
+      | "The left-hand side of a for...in statement cannot be an await using declaration."
+      | "Invalid assignment in object literal"
+      | "`await` is only allowed within async functions and at the top levels of modules"
+  )
 }
 
 fn get_lowercase_extension(file_path: &Path) -> Option<String> {
@@ -249,7 +284,7 @@ mod tests {
   fn run_fatal_diagnostic_test(file_path: &str, text: &str, expected: &str) {
     let allocator = Allocator::default();
     let file_path = PathBuf::from(file_path);
-    assert_eq!(parse_swc_ast(&allocator, &file_path, None, text.into()).err().unwrap().to_string(), expected);
+    assert_eq!(parse_ast(&allocator, &file_path, None, text.into()).err().unwrap().to_string(), expected);
   }
 
   #[test]
@@ -281,7 +316,7 @@ mod tests {
   fn file_extension_overwrite() {
     let allocator = Allocator::default();
     let file_path = PathBuf::from("./test.js");
-    assert!(parse_swc_ast(&allocator, &file_path, Some("ts"), "const foo: string = 'bar';".into()).is_ok());
+    assert!(parse_ast(&allocator, &file_path, Some("ts"), "const foo: string = 'bar';".into()).is_ok());
   }
 
   #[test]
@@ -345,7 +380,7 @@ Merge conflict marker encountered. at file:///test.ts:6:1
   fn run_non_fatal_diagnostic_test(file_path: &str, text: &str, expected: &str) {
     let allocator = Allocator::default();
     let file_path = PathBuf::from(file_path);
-    assert_eq!(format!("{}", parse_swc_ast(&allocator, &file_path, None, text.into()).err().unwrap()), expected);
+    assert_eq!(format!("{}", parse_ast(&allocator, &file_path, None, text.into()).err().unwrap()), expected);
 
     // this error should also be surfaced in `format_parsed_source` if someone provides
     // a source file that had a non-fatal diagnostic

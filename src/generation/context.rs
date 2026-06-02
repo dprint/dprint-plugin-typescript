@@ -1,6 +1,6 @@
+use deno_ast::MediaType;
 use deno_ast::oxc::ast::ast::Comment;
 use deno_ast::oxc::parser::Token;
-use deno_ast::MediaType;
 use dprint_core::formatting::ConditionReference;
 use dprint_core::formatting::IndentLevel;
 use dprint_core::formatting::IsStartOfLine;
@@ -9,14 +9,14 @@ use dprint_core::formatting::LineStartIndentLevel;
 use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
 
+use super::CommentTracker;
+use super::TokenFinder;
 use super::oxc_helpers::CommentExt;
 use super::oxc_helpers::Node;
 use super::oxc_helpers::ProgramInfo;
 use super::oxc_helpers::SourcePos;
 use super::oxc_helpers::SourceRange;
 use super::oxc_helpers::SourceRanged;
-use super::CommentTracker;
-use super::TokenFinder;
 use crate::configuration::*;
 use crate::utils::Stack;
 
@@ -71,6 +71,7 @@ pub struct Context<'a> {
   stored_ln: FxHashMap<(SourcePos, SourcePos), LineNumber>,
   stored_il: FxHashMap<(SourcePos, SourcePos), IndentLevel>,
   pub skip_iife_body_indent: bool,
+  pub suppress_synthetic_expr_parens: bool,
   pub end_statement_or_member_lns: Stack<LineNumber>,
   before_comments_start_info_stack: Stack<(SourceRange, LineNumber, IsStartOfLine)>,
   if_stmt_last_brace_condition_ref: Option<ConditionReference>,
@@ -106,6 +107,7 @@ impl<'a> Context<'a> {
       stored_ln: FxHashMap::default(),
       stored_il: FxHashMap::default(),
       skip_iife_body_indent: false,
+      suppress_synthetic_expr_parens: false,
       end_statement_or_member_lns: Default::default(),
       before_comments_start_info_stack: Default::default(),
       if_stmt_last_brace_condition_ref: None,

@@ -11,8 +11,8 @@ use dprint_core::plugins::SyncFormatRequest;
 use dprint_core::plugins::SyncHostFormatRequest;
 use dprint_core::plugins::SyncPluginHandler;
 
-use super::configuration::resolve_config;
 use super::configuration::Configuration;
+use super::configuration::resolve_config;
 
 struct TypeScriptPluginHandler;
 

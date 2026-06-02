@@ -1,12 +1,11 @@
-use deno_ast::oxc::ast::ast::*;
+use deno_ast::MediaType;
+use deno_ast::ParsedSource;
 use deno_ast::oxc::ast::AstKind;
 use deno_ast::oxc::ast::ast::Comment;
 use deno_ast::oxc::ast::ast::CommentKind;
+use deno_ast::oxc::ast::ast::*;
 use deno_ast::oxc::parser::Kind;
 use deno_ast::oxc::parser::Token;
-use deno_ast::oxc::span::GetSpan;
-use deno_ast::MediaType;
-use deno_ast::ParsedSource;
 use dprint_core::formatting::condition_resolvers;
 use dprint_core::formatting::conditions::*;
 use dprint_core::formatting::ir_helpers::*;
@@ -17,15 +16,19 @@ use std::rc::Rc;
 use super::generate_types::*;
 use super::node_helpers;
 use super::oxc_helpers::*;
-use super::to_node::*;
 use super::sorting::*;
 use super::swc::get_flattened_bin_expr;
 use super::swc::*;
+use super::to_node::*;
 use super::*;
 use crate::configuration::*;
 use crate::utils;
 
-pub fn generate<'a>(parsed_source: &'a ParsedSource<'a>, config: &'a Configuration, external_formatter: Option<&'a ExternalFormatter>) -> anyhow::Result<PrintItems> {
+pub fn generate<'a>(
+  parsed_source: &'a ParsedSource<'a>,
+  config: &'a Configuration,
+  external_formatter: Option<&'a ExternalFormatter>,
+) -> anyhow::Result<PrintItems> {
   let program = parsed_source.program();
   let program_info = ProgramInfo::new(program, parsed_source.text_info_lazy(), parsed_source.tokens(), parsed_source.comments());
   let program_node = AstKind::Program(program);
@@ -91,7 +94,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
     if does_first_child_own_leading_comments_on_same_line(node, context) {
       // Some block comments should belong to the first child rather than the
       // parent node because their first child may end up on the next line.
-      let leading_comments = node_start.leading_comments_fast(context.program);
+      let leading_comments = context.comments.leading_comments_with_previous(node_start);
       has_ignore_comment = get_has_ignore_comment(&leading_comments, node, context);
       let program = context.program;
       let node_start_line = node.start_line_fast(program);
@@ -111,11 +114,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       // keep the leading text, but leave the trailing text to be formatted if on a separate line
       let node_text = node.text_fast(context.program);
       let end_trim = node_text.trim_end();
-      if node_text[end_trim.len()..].contains('\n') {
-        end_trim
-      } else {
-        node_text
-      }
+      if node_text[end_trim.len()..].contains('\n') { end_trim } else { node_text }
     } else {
       node.text_fast(context.program)
     };
@@ -155,7 +154,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
   // has no representation of a JSX spread attribute and goes straight to the spread element
   // (note: oxc does model JSX spread attributes, so this generally won't trigger)
   return if is_spread_element && matches!(context.current_node, Node::JSXOpeningElement(_)) {
-    gen_as_jsx_expr_container(node, items, context)
+    gen_as_jsx_expr_container(node, items, None, context)
   } else {
     items
   };
@@ -184,6 +183,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       Node::Class(node) => gen_class(node, context),
       Node::TSImportEqualsDeclaration(node) => gen_import_equals_decl(node, context),
       Node::TSInterfaceDeclaration(node) => gen_interface_decl(node, context),
+      Node::TSGlobalDeclaration(node) => gen_global_decl(node, context),
       Node::TSModuleDeclaration(node) => gen_module_decl(node, context),
       Node::TSTypeAliasDeclaration(node) => gen_type_alias(node, context),
       Node::VariableDeclaration(node) => gen_var_decl(node, context),
@@ -272,6 +272,12 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       /* patterns */
       Node::ArrayPattern(node) => gen_array_pat(node, context),
       Node::AssignmentPattern(node) => gen_assign_pat(node, context),
+      Node::ArrayAssignmentTarget(node) => gen_array_assignment_target(node, context),
+      Node::AssignmentTargetRest(node) => gen_assignment_target_rest(node, context),
+      Node::AssignmentTargetWithDefault(node) => gen_assignment_target_with_default(node, context),
+      Node::ObjectAssignmentTarget(node) => gen_object_assignment_target(node, context),
+      Node::AssignmentTargetPropertyIdentifier(node) => gen_assignment_target_property_identifier(node, context),
+      Node::AssignmentTargetPropertyProperty(node) => gen_assignment_target_property_property(node, context),
       Node::ObjectPattern(node) => gen_object_pat(node, context),
       Node::BindingProperty(node) => gen_key_value_pat_prop(node, context),
       Node::BindingRestElement(node) => gen_rest_pat(node, context),
@@ -314,8 +320,10 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       Node::TSIntersectionType(node) => gen_intersection_type(node, context),
       Node::TSLiteralType(node) => gen_lit_type(node, context),
       Node::TSMappedType(node) => gen_mapped_type(node, context),
+      Node::TSOptionalType(node) => gen_optional_type(node, context),
       Node::TSQualifiedName(node) => gen_qualified_name(node, context),
       Node::TSParenthesizedType(node) => gen_parenthesized_type(node, context),
+      Node::TSRestType(node) => gen_rest_type(node, context),
       Node::TSThisType(_) => "this".into(),
       Node::TSTemplateLiteralType(node) => gen_tpl_lit_type(node, context),
       Node::TSTupleType(node) => gen_tuple_type(node, context),
@@ -381,9 +389,16 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
     match node {
       Node::TSUnionType(_) | Node::TSIntersectionType(_) => {
         let node_start_line = node.start_line_fast(context.program);
-        node
+        let has_node_leading_block = node
           .leading_comments_fast(context.program)
-          .any(|c| c.is_block() && c.start_line_fast(context.program) == node_start_line)
+          .any(|c| c.is_block() && c.start_line_fast(context.program) == node_start_line);
+        let has_previous_token_trailing_block = context.token_finder.get_previous_token(&node.range()).is_some_and(|token| {
+          token
+            .end()
+            .trailing_comments_fast(context.program)
+            .any(|c| c.is_block() && c.start_line_fast(context.program) == node_start_line)
+        });
+        has_node_leading_block || has_previous_token_trailing_block
       }
       _ => false,
     }
@@ -441,8 +456,8 @@ fn get_has_ignore_comment<'a>(leading_comments: &CommentsIterator<'a>, node: Nod
       match children.get(i).unwrap() {
         JSXChild::ExpressionContainer(expr_container) => {
           match &expr_container.expression {
-            JSXExpression::EmptyExpression(empty_expr) => {
-              iterator.extend(get_jsx_empty_expr_comments(empty_expr, context));
+            JSXExpression::EmptyExpression(_) => {
+              iterator.extend(get_jsx_expr_container_empty_comments(expr_container, context));
             }
             _ => break,
           };
@@ -462,8 +477,8 @@ fn get_has_ignore_comment<'a>(leading_comments: &CommentsIterator<'a>, node: Nod
 
 fn is_ignore_jsx_expr_container(node: Node, context: &Context) -> bool {
   if let Node::JSXExpressionContainer(expr_container) = node {
-    if let JSXExpression::EmptyExpression(empty_expr) = &expr_container.expression {
-      for comment in get_jsx_empty_expr_comments(empty_expr, context) {
+    if let JSXExpression::EmptyExpression(_) = &expr_container.expression {
+      for comment in get_jsx_expr_container_empty_comments(expr_container, context) {
         if ir_helpers::text_has_dprint_ignore(comment.text_fast(context.program), &context.config.ignore_node_comment_text) {
           return true;
         }
@@ -663,9 +678,7 @@ fn gen_static_block<'a>(node: &'a StaticBlock<'a>, context: &mut Context<'a>) ->
   let block_range = open_brace_token.map(|t| SourceRange::new(t.start(), node.end()));
   items.extend(gen_block(
     |stmts, context| {
-      let inner_range = block_range
-        .map(|r| SourceRange::new(r.start + 1, r.end - 1))
-        .unwrap_or_else(|| node.range());
+      let inner_range = block_range.map(|r| SourceRange::new(r.start + 1, r.end - 1)).unwrap_or_else(|| node.range());
       gen_statements(inner_range, stmts, context)
     },
     GenBlockOptions {
@@ -756,10 +769,10 @@ fn gen_binding_identifier<'a>(node: &BindingIdentifier<'a>, _context: &mut Conte
 // is a declaration or expression is recorded in `Class.r#type` (an `export default
 // class C` counts as a declaration, matching SWC's old special case).
 fn gen_class<'a>(node: &'a Class<'a>, context: &mut Context<'a>) -> PrintItems {
-  let is_class_decl = matches!(node.r#type, ClassType::ClassDeclaration);
+  let is_anonymous_default_export = node.id.is_none() && matches!(context.parent(), Node::ExportDefaultDeclaration(_));
+  let is_class_decl = matches!(node.r#type, ClassType::ClassDeclaration) && !is_anonymous_default_export;
   gen_class_decl_or_expr(
     ClassDeclOrExpr {
-      node: Node::Class(node),
       member_node: Node::ClassBody(&node.body),
       decorators: &node.decorators,
       is_class_decl,
@@ -782,7 +795,6 @@ fn gen_class<'a>(node: &'a Class<'a>, context: &mut Context<'a>) -> PrintItems {
 }
 
 struct ClassDeclOrExpr<'a> {
-  node: Node<'a>,
   member_node: Node<'a>,
   decorators: &'a [Decorator<'a>],
   is_class_decl: bool,
@@ -1052,16 +1064,13 @@ fn gen_export_named_decl<'a>(node: &'a ExportNamedDeclaration<'a>, context: &mut
     items.push_sc(sc!(";"));
   }
 
-  if should_single_line {
-    with_no_new_lines(items)
-  } else {
-    items
-  }
+  if should_single_line { with_no_new_lines(items) } else { items }
 }
 
 // oxc unifies SWC's FnDecl + FnExpr into a single `Function` (decl-vs-expr via `.r#type`).
 fn gen_function<'a>(node: &'a Function<'a>, context: &mut Context<'a>) -> PrintItems {
-  let is_func_decl = matches!(node.r#type, FunctionType::FunctionDeclaration | FunctionType::TSDeclareFunction);
+  let is_anonymous_default_export = node.id.is_none() && matches!(context.parent(), Node::ExportDefaultDeclaration(_));
+  let is_func_decl = !is_anonymous_default_export && matches!(node.r#type, FunctionType::FunctionDeclaration | FunctionType::TSDeclareFunction);
 
   if !is_func_decl && context.config.function_expression_flat_iife && is_iife_fn_expr(node, context) {
     context.skip_iife_body_indent = true;
@@ -1078,7 +1087,6 @@ fn gen_function<'a>(node: &'a Function<'a>, context: &mut Context<'a>) -> PrintI
     context,
   );
 
-  // function expressions can require wrapping parens (e.g. an IIFE)
   if !is_func_decl && should_add_parens_around_expr(Node::Function(node), context) {
     if context.config.paren_expression_space_around {
       surround_with_parens(surround_with_spaces(items))
@@ -1223,9 +1231,6 @@ fn gen_param<'a>(node: &'a FormalParameter<'a>, context: &mut Context<'a>) -> Pr
   if node.readonly {
     items.push_sc(sc!("readonly "));
   }
-  // In oxc a default value wraps the binding in an AssignmentPattern while the type
-  // annotation lives on the FormalParameter, so the annotation must be spliced between
-  // the binding and the `= default`.
   if let BindingPattern::AssignmentPattern(assign) = &node.pattern {
     items.extend(gen_node(binding_pattern_to_node(&assign.left), context));
     if node.optional {
@@ -1239,6 +1244,9 @@ fn gen_param<'a>(node: &'a FormalParameter<'a>, context: &mut Context<'a>) -> Pr
       items.push_sc(sc!("?"));
     }
     items.extend(gen_type_ann_with_colon_if_exists(node.type_annotation.as_deref(), context));
+    if let Some(initializer) = &node.initializer {
+      items.extend(gen_assignment(expr_to_node(initializer), sc!("="), context));
+    }
   }
   items
 }
@@ -1328,11 +1336,7 @@ fn gen_import_decl<'a>(node: &'a ImportDeclaration<'a>, context: &mut Context<'a
     items.push_sc(sc!(";"));
   }
 
-  if should_single_line {
-    with_no_new_lines(items)
-  } else {
-    items
-  }
+  if should_single_line { with_no_new_lines(items) } else { items }
 }
 
 fn gen_import_equals_decl<'a>(node: &'a TSImportEqualsDeclaration<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -1437,6 +1441,37 @@ fn gen_module_decl<'a>(node: &'a TSModuleDeclaration<'a>, context: &mut Context<
   }
 }
 
+fn gen_global_decl<'a>(node: &'a TSGlobalDeclaration<'a>, context: &mut Context<'a>) -> PrintItems {
+  let mut items = PrintItems::new();
+
+  let start_header_lsil = LineStartIndentLevel::new("startHeader");
+  items.push_info(start_header_lsil);
+
+  if node.declare {
+    items.push_sc(sc!("declare "));
+  }
+  items.push_sc(sc!("global"));
+  items.extend(gen_ts_module_block(&node.body, start_header_lsil, context));
+
+  items
+}
+
+fn gen_ts_module_block<'a>(block: &'a TSModuleBlock<'a>, start_header_lsil: LineStartIndentLevel, context: &mut Context<'a>) -> PrintItems {
+  let mut members: Vec<Node<'a>> = block.directives.iter().map(Node::Directive).collect();
+  members.extend(block.body.iter().map(stmt_to_node));
+  gen_membered_body(
+    GenMemberedBodyOptions {
+      node: Node::TSModuleBlock(block),
+      members,
+      start_header_lsil: Some(start_header_lsil),
+      brace_position: context.config.module_declaration_brace_position,
+      should_use_blank_line: move |previous, next, context| node_helpers::has_separating_blank_line(&previous, &next, context.program),
+      separator: Separator::none(),
+    },
+    context,
+  )
+}
+
 fn gen_type_alias<'a>(node: &'a TSTypeAliasDeclaration<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   if node.declare {
@@ -1480,6 +1515,7 @@ fn gen_named_import_or_export_specifiers<'a>(opts: GenNamedImportOrExportSpecifi
       force_single_line: opts.force_single_line,
       force_multi_line: opts.force_multi_line_specifiers,
       surround_single_line_with_spaces: get_use_space(opts.parent, context),
+      surround_single_line_with_space_at_end: get_use_space(opts.parent, context),
       allow_blank_lines: false,
       node_sorter: get_node_sorter(opts.parent, context),
     },
@@ -1738,7 +1774,7 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowFunctionExpression<'a>, context: &mut 
 
     if should_use_parens {
       // need to check if there are parens because gen_parameters_or_arguments depends on the parens existing
-      if has_parens(node, context.program) {
+      if has_source_param_parens(node, context.program) {
         let param_nodes = formal_params_to_nodes(&node.inner.params);
         let param_count = param_nodes.len();
         items.extend(gen_parameters_or_arguments(
@@ -1770,8 +1806,36 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowFunctionExpression<'a>, context: &mut 
       items.extend(gen_node(Node::FormalParameter(&node.params()[0]), context));
     }
 
+    if node.return_type().is_none() && has_source_param_parens(node, context.program) {
+      items.extend(gen_recovered_arrow_return_type(node, context));
+    }
+
     items.push_sc(sc!(" =>"));
     (header_start_lsil, items)
+  }
+
+  fn gen_recovered_arrow_return_type<'a>(node: &ArrowSignature<'a>, context: &mut Context<'a>) -> PrintItems {
+    let mut items = PrintItems::new();
+    let Some(arrow_token) = node.inner.body.previous_token_fast(context.program) else {
+      return items;
+    };
+    if arrow_token.kind() != Kind::Arrow {
+      return items;
+    }
+    let arrow_token_index = context.program.tokens().partition_point(|token| token.end() <= arrow_token.start());
+    let Some(close_paren) = context.program.tokens()[..arrow_token_index]
+      .iter()
+      .rev()
+      .find(|token| token.kind() == Kind::RParen)
+    else {
+      return items;
+    };
+    let text = &context.program.text()[close_paren.end() as usize..arrow_token.start() as usize];
+    let text = text.trim();
+    if text.starts_with(':') {
+      items.extend(gen_from_raw_string(text));
+    }
+    items
   }
 
   fn should_not_newline_after_arrow<'a>(node: &'a ArrowFunctionExpression<'a>, context: &Context<'a>) -> bool {
@@ -1791,13 +1855,24 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowFunctionExpression<'a>, context: &mut 
       UseParentheses::PreferNone => {
         node.params().len() != 1 || node.return_type().is_some() || is_first_param_not_identifier_or_has_type_annotation(node.params(), node, context.program)
       }
-      UseParentheses::Maintain => has_parens(node, context.program),
+      UseParentheses::Maintain => {
+        node.type_params().is_some()
+          || node.return_type().is_some()
+          || is_first_param_not_identifier_or_has_type_annotation(node.params(), node, context.program)
+          || has_parens(node, context.program)
+      }
     };
 
-    fn is_first_param_not_identifier_or_has_type_annotation<'a>(params: &'a [FormalParameter<'a>], arrow: &ArrowSignature<'a>, program: ProgramInfo<'a>) -> bool {
+    fn is_first_param_not_identifier_or_has_type_annotation<'a>(
+      params: &'a [FormalParameter<'a>],
+      arrow: &ArrowSignature<'a>,
+      program: ProgramInfo<'a>,
+    ) -> bool {
       match params.first() {
         Some(param) if matches!(param.pattern, BindingPattern::BindingIdentifier(_)) => {
-          param.type_annotation.is_some() || param.optional || param_has_surrounding_comments(Node::FormalParameter(param), program) && has_parens(arrow, program)
+          param.type_annotation.is_some()
+            || param.optional
+            || param_has_surrounding_comments(Node::FormalParameter(param), program) && has_parens(arrow, program)
         }
         _ => true,
       }
@@ -1805,6 +1880,13 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowFunctionExpression<'a>, context: &mut 
 
     fn param_has_surrounding_comments<'a>(param: Node<'a>, program: ProgramInfo<'a>) -> bool {
       if node_helpers::has_surrounding_comments(param, program) {
+        true
+      } else if matches!(param, Node::FormalParameter(param) if node_helpers::has_surrounding_comments(binding_pattern_to_node(&param.pattern), program)) {
+        true
+      } else if param
+        .previous_token_fast(program)
+        .is_some_and(|previous_token| !previous_token.trailing_comments_fast(program).is_empty())
+      {
         true
       } else if let Some(comma_token) = param.next_token_fast(program).filter(|t| t.kind() == Kind::Comma) {
         !comma_token.trailing_comments_fast(program).is_empty()
@@ -1814,25 +1896,46 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowFunctionExpression<'a>, context: &mut 
     }
   }
 
-  // A single-param arrow has no parens unless the parameter is preceded by `(`
-  // (oxc has no children-with-tokens API; a sole rest param has 0 `params` so needs parens).
+  // A single-param arrow has parens when the token immediately before `=>` is
+  // `)`. Looking before the parameter confuses `call(a => {})` with `(a) => {}`.
   fn has_parens<'a>(node: &ArrowSignature<'a>, program: ProgramInfo<'a>) -> bool {
     if node.params().len() != 1 {
       true
     } else {
-      matches!(node.params()[0].previous_token_fast(program).map(|t| t.kind()), Some(Kind::LParen))
+      let Some(arrow_token) = node.inner.body.previous_token_fast(program) else {
+        return false;
+      };
+      debug_assert_eq!(arrow_token.kind(), Kind::Arrow);
+      matches!(arrow_token.previous_token_fast(program).map(|t| t.kind()), Some(Kind::RParen))
+    }
+  }
+
+  fn has_source_param_parens<'a>(node: &ArrowSignature<'a>, program: ProgramInfo<'a>) -> bool {
+    if node.params().len() != 1 {
+      true
+    } else {
+      node
+        .params()
+        .first()
+        .and_then(|param| param.previous_token_fast(program))
+        .is_some_and(|token| token.kind() == Kind::LParen && token.start() >= node.inner.start())
     }
   }
 }
 
 fn gen_as_expr<'a>(node: &'a TSAsExpression<'a>, context: &mut Context<'a>) -> PrintItems {
-  gen_as_expr_like(
+  let items = gen_as_expr_like(
     AsExprLike {
       expr: expr_to_node(&node.expression),
       type_ann: ts_type_to_node(&node.type_annotation),
     },
     context,
-  )
+  );
+  if is_assignment_lhs(node, context) {
+    surround_expr_with_configured_parens(items, context)
+  } else {
+    items
+  }
 }
 
 struct AsExprLike<'a> {
@@ -1862,7 +1965,10 @@ fn gen_satisfies_expr<'a>(node: &'a TSSatisfiesExpression<'a>, context: &mut Con
   let mut items = gen_node(expr_to_node(&node.expression), context);
   items.push_sc(sc!(" satisfies"));
   items.push_signal(Signal::SpaceIfNotTrailing);
-  items.push_condition(conditions::with_indent_if_start_of_line_indented(gen_node(ts_type_to_node(&node.type_annotation), context)));
+  items.push_condition(conditions::with_indent_if_start_of_line_indented(gen_node(
+    ts_type_to_node(&node.type_annotation),
+    context,
+  )));
   items
 }
 
@@ -2041,7 +2147,22 @@ fn gen_binary_expr<'a>(node: BinaryLikeExpr<'a>, context: &mut Context<'a>) -> P
             });
 
             if let Some(op) = post_op {
-              let leading_post_op_comments = gen_leading_comments_same_line(&op.token.range(), context);
+              let leading_post_op_comments = {
+                let comments_between_expr_and_op = context
+                  .program
+                  .comments()
+                  .iter()
+                  .filter(|comment| {
+                    !context.has_handled_comment(comment)
+                      && comment.start() >= bin_expr_item.expr.end()
+                      && comment.end() <= op.token.start()
+                      && comment.start_line_fast(context.program) == op.token.start_line_fast(context.program)
+                  })
+                  .collect::<Vec<_>>();
+                let mut items = gen_comment_collection(comments_between_expr_and_op.into_iter(), None, None, context);
+                items.extend(gen_leading_comments_same_line(&op.token.range(), context));
+                items
+              };
               let trailing_post_op_comments = gen_trailing_comments_same_line(&op.token.range(), context);
               if leading_post_op_comments.is_empty() {
                 if use_space_surrounding_operator {
@@ -2050,6 +2171,7 @@ fn gen_binary_expr<'a>(node: BinaryLikeExpr<'a>, context: &mut Context<'a>) -> P
               } else {
                 items.push_space();
                 items.extend(leading_post_op_comments);
+                items.push_space();
               }
               items.push_sc(bin_like_op_sc(op.op));
               if !trailing_post_op_comments.is_empty() {
@@ -2214,9 +2336,15 @@ fn gen_call_expr_like<'a>(node: CallExprLike<'a>, context: &mut Context<'a>) -> 
     items.push_sc(sc!("?."));
   }
 
+  let call_expr_node = Node::CallExpression(call_expr.inner());
+  let pushed_call_expr = context.current_node.range() != call_expr_node.range();
+  if pushed_call_expr {
+    let past_current_node = std::mem::replace(&mut context.current_node, call_expr_node);
+    context.parent_stack.push(past_current_node);
+  }
   items.push_condition(conditions::with_indent_if_start_of_line_indented(gen_parameters_or_arguments(
     GenParametersOrArgumentsOptions {
-      node: Node::CallExpression(call_expr.inner()),
+      node: call_expr_node,
       range: call_expr.get_parameters_range(context),
       nodes: call_expr.args().iter().map(arg_to_node).collect(),
       custom_close_paren: |_| None,
@@ -2224,6 +2352,9 @@ fn gen_call_expr_like<'a>(node: CallExprLike<'a>, context: &mut Context<'a>) -> 
     },
     context,
   )));
+  if pushed_call_expr {
+    context.current_node = context.parent_stack.pop();
+  }
 
   items
 }
@@ -2541,10 +2672,17 @@ fn is_iife_fn_expr(node: &Function, context: &Context) -> bool {
 }
 
 fn should_add_parens_around_expr<'a>(node: Node<'a>, context: &Context<'a>) -> bool {
+  if context.suppress_synthetic_expr_parens {
+    return false;
+  }
+
   let original_node = node;
   for ancestor in context.parent_stack.iter() {
     match *ancestor {
       Node::ParenthesizedExpression(paren_expr) => {
+        if matches!(paren_expr.expression, Expression::BinaryExpression(_) | Expression::LogicalExpression(_)) {
+          continue;
+        }
         if !should_skip_paren_expr(paren_expr, context) {
           return false;
         }
@@ -2610,9 +2748,22 @@ fn gen_object_property<'a>(node: &'a ObjectProperty<'a>, context: &mut Context<'
     PropertyKind::Init => {}
   }
 
-  // shorthand: `{ a }` (object literals don't allow shorthand defaults)
+  // shorthand: `{ a }`; oxc also uses shorthand plus an assignment expression
+  // for parser-recovered object assignment properties like `{ a = 1 }`.
   if node.shorthand {
-    return gen_node(prop_key_to_node(&node.key), context);
+    if let Expression::AssignmentExpression(assign_expr) = &node.value {
+      let mut items = gen_node(prop_key_to_node(&node.key), context);
+      items.extend(gen_assignment(expr_to_node(&assign_expr.right), sc!(":"), context));
+      return items;
+    } else if let Some(eq_index) = node.text_fast(context.program).find('=') {
+      let mut items = gen_node(prop_key_to_node(&node.key), context);
+      items.push_sc(sc!(":"));
+      items.push_space();
+      items.extend(gen_from_raw_string(node.text_fast(context.program)[eq_index + 1..].trim()));
+      return items;
+    } else {
+      return gen_node(prop_key_to_node(&node.key), context);
+    }
   }
 
   let mut items = PrintItems::new();
@@ -2761,6 +2912,7 @@ fn gen_object_lit<'a>(node: &'a ObjectExpression<'a>, context: &mut Context<'a>)
           force_single_line: false,
           force_multi_line: is_node_definitely_above_line_width(node.range(), context),
           surround_single_line_with_spaces: context.config.object_expression_space_surrounding_properties,
+          surround_single_line_with_space_at_end: context.config.object_expression_space_surrounding_properties,
           allow_blank_lines: true,
           node_sorter: None,
         },
@@ -2786,7 +2938,13 @@ fn gen_paren_expr<'a>(node: &'a ParenthesizedExpression<'a>, context: &mut Conte
   }
 
   let generated_items = conditions::with_indent_if_start_of_line_indented(gen_node_in_parens(
-    |context| gen_node(expr_to_node(&node.expression), context),
+    |context| {
+      let previous_value = context.suppress_synthetic_expr_parens;
+      context.suppress_synthetic_expr_parens = true;
+      let items = gen_node(expr_to_node(&node.expression), context);
+      context.suppress_synthetic_expr_parens = previous_value;
+      items
+    },
     GenNodeInParensOptions {
       inner_range: node.expression.range(),
       prefer_hanging: true,
@@ -2825,6 +2983,18 @@ fn should_skip_paren_expr<'a>(node: &'a ParenthesizedExpression<'a>, context: &C
   if node_helpers::has_surrounding_different_line_comments(expr_to_node(inner), context.program) {
     return false;
   }
+  if let Some(open_paren) = context.token_finder.get_previous_token_if_open_paren(&node.expression.range()) {
+    let trailing_comments = open_paren.trailing_comments_fast(context.program);
+    if trailing_comments
+      .into_iter()
+      .any(|c| c.is_line() && c.start_line_fast(context.program) == open_paren.end_line_fast(context.program))
+    {
+      return false;
+    }
+  }
+  if has_line_comment_before_next_close_paren(node.expression.range(), context) {
+    return false;
+  }
 
   // keep parens around any destructuring assignments
   if let Expression::AssignmentExpression(assign_expr) = inner {
@@ -2844,6 +3014,20 @@ fn should_skip_paren_expr<'a>(node: &'a ParenthesizedExpression<'a>, context: &C
       return false;
     }
   }
+  if let Some(open_paren) = context.token_finder.get_previous_token_if_open_paren(&node.expression.range()) {
+    for c in open_paren.leading_comments_fast(context.program) {
+      if c.is_block() && c.text_fast(context.program).starts_with("/**") {
+        return false;
+      }
+    }
+    if let Some(previous_token) = open_paren.previous_token_fast(context.program) {
+      for c in previous_token.trailing_comments_fast(context.program) {
+        if c.is_block() && c.text_fast(context.program).starts_with("/**") {
+          return false;
+        }
+      }
+    }
+  }
 
   // keep for `(val as number)++` or `(<number>val)++`
   let parent = context.parent();
@@ -2853,6 +3037,15 @@ fn should_skip_paren_expr<'a>(node: &'a ParenthesizedExpression<'a>, context: &C
 
   if matches!(inner, Expression::ArrayExpression(_) | Expression::Identifier(_)) {
     return true;
+  }
+
+  if let Expression::ChainExpression(chain_expr) = inner {
+    if matches!(
+      chain_element_to_node(&chain_expr.expression),
+      Node::CallExpression(_) | Node::StaticMemberExpression(_) | Node::ComputedMemberExpression(_) | Node::PrivateFieldExpression(_)
+    ) {
+      return true;
+    }
   }
 
   if matches!(
@@ -2902,9 +3095,12 @@ fn should_skip_paren_expr<'a>(node: &'a ParenthesizedExpression<'a>, context: &C
 
   // a parenthesized (non-spread) call/new argument or array element: oxc has no
   // ExprOrSpread wrapper, so the call/array is the direct parent (spreads are a
-  // separate SpreadElement node).
-  if matches!(parent, Node::NewExpression(_) | Node::CallExpression(_) | Node::ArrayExpression(_)) {
-    return true;
+  // separate SpreadElement node). Preserve parens when the node is the callee.
+  match parent {
+    Node::CallExpression(call_expr) => return !call_expr.callee.range().contains(&node.range()),
+    Node::NewExpression(new_expr) => return !new_expr.callee.range().contains(&node.range()),
+    Node::ArrayExpression(_) => return true,
+    _ => {}
   }
 
   if let Node::ComputedMemberExpression(member_expr) = parent {
@@ -2975,7 +3171,11 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &'a TaggedTemplateExpr
     Ok(formatted_tpl) => formatted_tpl?.replace("\\", r"\\"),
     Err(err) => {
       context.diagnostics.push(context::GenerateDiagnostic {
-        message: format!("Error formatting tagged template literal at line {}: {}", node.start_line_fast(context.program) + 1, err),
+        message: format!(
+          "Error formatting tagged template literal at line {}: {}",
+          node.start_line_fast(context.program) + 1,
+          err
+        ),
       });
       return None;
     }
@@ -3055,6 +3255,18 @@ fn normalize_embedded_language_type<'a>(node: &'a TaggedTemplateExpression<'a>) 
   }
 }
 
+fn has_line_comment_before_next_close_paren(inner_range: SourceRange, context: &Context) -> bool {
+  let Some(close_paren) = context.token_finder.get_next_token_if_close_paren(&inner_range) else {
+    return false;
+  };
+  close_paren.leading_comments_fast(context.program).any(|c| c.is_line())
+    || context
+      .program
+      .comments()
+      .iter()
+      .any(|c| c.is_line() && c.start() >= inner_range.end() && c.end() <= close_paren.start())
+}
+
 fn gen_tagged_tpl<'a>(node: &'a TaggedTemplateExpression<'a>, context: &mut Context<'a>) -> PrintItems {
   let use_space = context.config.tagged_template_space_before_literal;
   let mut items = gen_node(expr_to_node(&node.tag), context);
@@ -3109,8 +3321,12 @@ fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context
     } else {
       let leading_comment_items = gen_leading_comments_on_previous_lines(&node.range(), context);
       let trailing_comment_items = gen_trailing_comments_as_statements(&node.range(), context);
+      let close_brace_comments = get_template_substitution_close_brace_comments(node, context);
+      for comment in &close_brace_comments {
+        context.mark_comment_handled(comment);
+      }
       let generated_expr = gen_node(node, context);
-      if !leading_comment_items.is_empty() || !trailing_comment_items.is_empty() {
+      if !leading_comment_items.is_empty() || !trailing_comment_items.is_empty() || !close_brace_comments.is_empty() {
         items.push_signal(Signal::StartIndent);
         if !leading_comment_items.is_empty() {
           items.extend(surround_with_new_lines(leading_comment_items));
@@ -3118,6 +3334,13 @@ fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context
         items.extend(generated_expr);
         if !trailing_comment_items.is_empty() {
           items.extend(trailing_comment_items);
+        }
+        if !close_brace_comments.is_empty() {
+          items.extend(gen_comments_as_statements_unchecked(
+            close_brace_comments.into_iter(),
+            Some(&node.range()),
+            context,
+          ));
         }
         items.push_signal(Signal::FinishIndent);
       } else {
@@ -3135,6 +3358,20 @@ fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context
     is_head = false;
   }
   return items;
+
+  fn get_template_substitution_close_brace_comments<'a>(node: Node<'a>, context: &Context<'a>) -> Vec<&'a Comment> {
+    let Some(close_brace) = node
+      .next_tokens_fast(context.program)
+      .iter()
+      .find(|token| token.text_fast(context.program).starts_with('}'))
+    else {
+      return Vec::new();
+    };
+    if close_brace.start_line_fast(context.program) == node.end_line_fast(context.program) {
+      return Vec::new();
+    }
+    get_comments_between(node.end(), close_brace.start(), context)
+  }
 
   fn get_nodes<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>) -> Vec<Node<'a>> {
     let mut quasis = quasis;
@@ -3174,6 +3411,7 @@ fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context
     match node {
       Node::IdentifierReference(_)
       | Node::IdentifierName(_)
+      | Node::Super(_)
       | Node::ThisExpression(_)
       | Node::MetaProperty(_)
       | Node::StringLiteral(_)
@@ -3219,7 +3457,26 @@ fn gen_type_assertion<'a>(node: &'a TSTypeAssertion<'a>, context: &mut Context<'
     items.push_space();
   }
   items.extend(gen_node(expr_to_node(&node.expression), context));
+  if matches!(context.parent(), Node::UpdateExpression(_)) || is_assignment_lhs(node, context) {
+    items = surround_expr_with_configured_parens(items, context);
+  }
   items
+}
+
+fn surround_expr_with_configured_parens(items: PrintItems, context: &Context) -> PrintItems {
+  if context.config.paren_expression_space_around {
+    surround_with_parens(surround_with_spaces(items))
+  } else {
+    surround_with_parens(items)
+  }
+}
+
+fn is_assignment_lhs<'a>(node: &impl SourceRanged, context: &Context<'a>) -> bool {
+  if let Node::AssignmentExpression(assign_expr) = context.parent() {
+    assign_expr.left.range().contains(&node.range())
+  } else {
+    false
+  }
 }
 
 fn gen_unary_expr<'a>(node: &'a UnaryExpression<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -3258,6 +3515,9 @@ fn gen_update_expr<'a>(node: &'a UpdateExpression<'a>, context: &mut Context<'a>
     items.push_sc(operator_text);
   }
   items.extend(gen_node(simple_assignment_target_to_node(&node.argument), context));
+  if matches!(node.argument, SimpleAssignmentTarget::TSAsExpression(_)) {
+    items = surround_expr_with_configured_parens(items, context);
+  }
   if !node.prefix {
     items.push_sc(operator_text);
   }
@@ -3446,7 +3706,7 @@ fn gen_index_signature<'a>(node: &'a TSIndexSignature<'a>, context: &mut Context
   ));
   items.extend(gen_type_ann_with_colon_if_exists(Some(&node.type_annotation), context));
 
-  if matches!(context.parent(), Node::ClassBody(_)) && context.config.semi_colons.is_true() {
+  if matches!(context.parent(), Node::Class(_) | Node::ClassBody(_)) && context.config.semi_colons.is_true() {
     items.push_sc(sc!(";"));
   }
 
@@ -3698,6 +3958,7 @@ fn gen_type_lit<'a>(node: &'a TSTypeLiteral<'a>, context: &mut Context<'a>) -> P
           force_single_line: false,
           force_multi_line: false,
           surround_single_line_with_spaces: context.config.type_literal_space_surrounding_properties,
+          surround_single_line_with_space_at_end: context.config.type_literal_space_surrounding_properties,
           allow_blank_lines: true,
           node_sorter: None,
         },
@@ -3724,7 +3985,7 @@ fn gen_jsx_attribute<'a>(node: &'a JSXAttribute<'a>, context: &mut Context<'a>) 
     let surround_with_braces = context.token_finder.get_previous_token_if_open_brace(value).is_some();
     let inner_items = gen_node(jsx_attribute_value_to_node(value), context);
     items.extend(if surround_with_braces {
-      gen_as_jsx_expr_container(Node::JSXAttribute(node), inner_items, context)
+      gen_as_jsx_expr_container(Node::JSXAttribute(node), inner_items, None, context)
     } else {
       inner_items
     });
@@ -3910,28 +4171,50 @@ fn gen_jsx_empty_expr<'a>(node: &'a JSXEmptyExpression, context: &mut Context<'a
 fn gen_jsx_expr_container<'a>(node: &'a JSXExpressionContainer<'a>, context: &mut Context<'a>) -> PrintItems {
   // Don't send JSX empty expressions to gen_node because it will not handle comments
   // the way they should be specifically handled for empty expressions.
+  let expr_node = jsx_expression_to_node(&node.expression);
   let gen_inner = match &node.expression {
-    JSXExpression::EmptyExpression(expr) => gen_jsx_empty_expr(expr, context),
+    JSXExpression::EmptyExpression(_) => gen_comment_collection(get_jsx_expr_container_empty_comments(node, context), None, None, context),
     expr => gen_node(jsx_expression_to_node(expr), context),
   };
+  let container_range = get_jsx_expression_container_brace_range(expr_node, node.range(), context);
 
-  gen_as_jsx_expr_container(jsx_expression_to_node(&node.expression), gen_inner, context)
+  gen_as_jsx_expr_container(expr_node, gen_inner, Some(container_range), context)
 }
 
-fn gen_as_jsx_expr_container(expr: Node, inner_items: PrintItems, context: &mut Context) -> PrintItems {
+fn gen_as_jsx_expr_container(expr: Node, inner_items: PrintItems, container_range: Option<SourceRange>, context: &mut Context) -> PrintItems {
   let surround_with_space = context.config.jsx_expression_container_space_surrounding_expression;
-  let surround_with_new_lines = should_surround_with_newlines(expr, context.program);
+  let open_token_end = container_range.map(|range| range.start() + 1);
+  let close_token_start = container_range.map(|range| range.end() - 1);
+  let open_token_comments = open_token_end.map(|pos| get_comments_between(pos, expr.start(), context)).unwrap_or_default();
+  let close_token_comments = close_token_start.map(|pos| get_comments_between(expr.end(), pos, context)).unwrap_or_default();
+  let has_open_token_comments = open_token_comments
+    .iter()
+    .any(|c| c.is_line() || c.start_line_fast(context.program) < expr.start_line_fast(context.program));
+  let has_close_token_comments = close_token_comments
+    .iter()
+    .any(|c| c.is_line() || c.end_line_fast(context.program) > expr.end_line_fast(context.program));
+  let surround_with_new_lines = should_surround_with_newlines(expr, context.program) || has_open_token_comments || has_close_token_comments;
   let mut items = PrintItems::new();
   items.push_sc(sc!("{"));
   if surround_with_new_lines {
     items.push_signal(Signal::NewLine);
     items.push_signal(Signal::StartIndent);
+    if !open_token_comments.is_empty() {
+      let comments = gen_comments_as_statements(open_token_comments.into_iter(), None, context);
+      if !comments.is_empty() {
+        items.extend(comments);
+        items.push_signal(Signal::NewLine);
+      }
+    }
   } else if surround_with_space {
     items.push_space();
   }
   items.extend(inner_items);
   if surround_with_new_lines {
     items.extend(gen_trailing_comments_as_statements(&expr.range(), context));
+    if !close_token_comments.is_empty() {
+      items.extend(gen_comments_as_statements(close_token_comments.into_iter(), Some(&expr.range()), context));
+    }
     items.push_signal(Signal::NewLine);
     items.push_signal(Signal::FinishIndent);
   } else if surround_with_space {
@@ -3959,6 +4242,28 @@ fn gen_as_jsx_expr_container(expr: Node, inner_items: PrintItems, context: &mut 
 
     false
   }
+}
+
+fn get_jsx_expression_container_brace_range<'a>(expr: Node<'a>, fallback: SourceRange, context: &Context<'a>) -> SourceRange {
+  let Some(open_brace) = context.token_finder.get_previous_token_if_open_brace(&expr) else {
+    return fallback;
+  };
+  let Some(close_brace) = expr.next_tokens_fast(context.program).iter().find(|token| token.kind() == Kind::RCurly) else {
+    return fallback;
+  };
+  SourceRange::new(open_brace.start(), close_brace.end())
+}
+
+fn get_comments_between<'a>(start: SourcePos, end: SourcePos, context: &Context<'a>) -> Vec<&'a Comment> {
+  if start >= end {
+    return Vec::new();
+  }
+  context
+    .program
+    .comments()
+    .iter()
+    .filter(|comment| comment.start() >= start && comment.end() <= end)
+    .collect()
 }
 
 fn gen_jsx_fragment<'a>(node: &'a JSXFragment<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -3994,8 +4299,20 @@ fn gen_jsx_namespaced_name<'a>(node: &'a JSXNamespacedName<'a>, context: &mut Co
 
 fn gen_jsx_opening_element<'a>(node: &'a JSXOpeningElement<'a>, context: &mut Context<'a>) -> PrintItems {
   let space_before_self_closing_tag_slash = context.config.jsx_self_closing_element_space_before_slash;
-  let force_use_new_lines = get_force_is_multi_line(node, context);
-  let prefer_newline_before_close_bracket = get_should_prefer_newline_before_close_bracket(node, context);
+  let is_self_closing = is_self_closing(node, context);
+  let name_or_type_arg_end = node.type_arguments.as_ref().map(|t| t.end()).unwrap_or_else(|| node.name.end());
+  let last_node_end = node.attributes.last().map(|n| n.end()).unwrap_or(name_or_type_arg_end);
+  let close_token_start = if is_self_closing { node.end() - 2 } else { node.end() - 1 };
+  let comments_before_close_token = get_comments_between(last_node_end, close_token_start, context);
+  let comments_to_generate_before_close_token = comments_before_close_token
+    .iter()
+    .copied()
+    .filter(|c| c.is_line() || c.start_line_fast(context.program) > last_node_end.end_line_fast(context.program))
+    .collect::<Vec<_>>();
+  let has_line_comments_before_close_token = comments_to_generate_before_close_token.iter().any(|c| c.is_line());
+  let force_use_new_lines = get_force_is_multi_line(node, context) || has_line_comments_before_close_token;
+  let prefer_newline_before_close_bracket =
+    get_should_prefer_newline_before_close_bracket(node, is_self_closing, context) || has_line_comments_before_close_token;
   let start_lsil = LineStartIndentLevel::new("openingElementStart");
   let mut items = PrintItems::new();
 
@@ -4029,19 +4346,18 @@ fn gen_jsx_opening_element<'a>(node: &'a JSXOpeningElement<'a>, context: &mut Co
   }
 
   // generate trailing comments on different lines
-  let name_or_type_arg_end = node.type_arguments.as_ref().map(|t| t.end()).unwrap_or_else(|| node.name.end());
-  let last_node_end = node.attributes.last().map(|n| n.end()).unwrap_or(name_or_type_arg_end);
-
-  let generated_comments = gen_comments_as_statements(last_node_end.trailing_comments_fast(context.program), None, context);
+  let last_node_end_range = last_node_end.range();
+  let generated_comments = gen_comments_as_statements_advancing_handled(
+    comments_to_generate_before_close_token.into_iter(),
+    if node.attributes.is_empty() { Some(&last_node_end_range) } else { None },
+    context,
+  );
   if !generated_comments.is_empty() {
-    if node.attributes.is_empty() {
-      items.push_signal(Signal::NewLine);
-    }
     items.extend(with_indent(generated_comments));
     items.push_signal(Signal::NewLine);
   }
 
-  if is_self_closing(node, context) {
+  if is_self_closing {
     if space_before_self_closing_tag_slash {
       items.push_force_current_line_indentation();
       items.extend(space_if_not_start_line());
@@ -4069,8 +4385,8 @@ fn gen_jsx_opening_element<'a>(node: &'a JSXOpeningElement<'a>, context: &mut Co
     }
   }
 
-  fn get_should_prefer_newline_before_close_bracket(node: &JSXOpeningElement, context: &mut Context) -> bool {
-    let bracket_pos_config = match is_self_closing(node, context) {
+  fn get_should_prefer_newline_before_close_bracket(node: &JSXOpeningElement, is_self_closing: bool, context: &mut Context) -> bool {
+    let bracket_pos_config = match is_self_closing {
       true => context.config.jsx_self_closing_element_bracket_position,
       false => context.config.jsx_opening_element_bracket_position,
     };
@@ -4103,7 +4419,16 @@ fn gen_jsx_opening_fragment<'a>(_: &'a JSXOpeningFragment, _: &mut Context<'a>) 
 
 fn gen_jsx_spread_attribute<'a>(node: &'a JSXSpreadAttribute<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.push_sc(sc!("{..."));
+  let spread_token = node.tokens_fast(context.program).iter().find(|token| token.text_fast(context.program) == "...");
+  let comments_before_spread = spread_token
+    .map(|token| get_comments_between(node.start() + 1, token.start(), context))
+    .unwrap_or_default();
+  items.push_sc(sc!("{"));
+  if !comments_before_spread.is_empty() {
+    items.extend(gen_comment_collection(comments_before_spread.into_iter(), None, None, context));
+    items.push_space();
+  }
+  items.push_sc(sc!("..."));
   items.extend(gen_node(expr_to_node(&node.argument), context));
   items.push_sc(sc!("}"));
   items
@@ -4118,6 +4443,7 @@ fn gen_jsx_spread_child<'a>(node: &'a JSXSpreadChild<'a>, context: &mut Context<
       items.extend(gen_node(expr_to_node(&node.expression), context));
       items
     },
+    Some(node.range()),
     context,
   )
 }
@@ -4340,6 +4666,16 @@ fn gen_program_node<'a>(node: &'a Program<'a>, context: &mut Context<'a>) -> Pri
       }
     } else {
       let shebang_end = hashbang.end();
+      if context
+        .program
+        .comments()
+        .iter()
+        .find(|comment| comment.start() >= shebang_end)
+        .is_some_and(|comment| comment.start_line_fast(context.program) > shebang_end.end_line_fast(context.program) + 1)
+      {
+        items.push_signal(Signal::NewLine);
+        items.push_signal(Signal::NewLine);
+      }
       items.extend(gen_trailing_comments_as_statements(&shebang_end.range(), context));
     }
   }
@@ -4434,11 +4770,102 @@ fn gen_object_pat<'a>(node: &'a ObjectPattern<'a>, context: &mut Context<'a>) ->
       force_single_line: false,
       force_multi_line: is_node_definitely_above_line_width(node.range(), context),
       surround_single_line_with_spaces: context.config.object_pattern_space_surrounding_properties,
+      surround_single_line_with_space_at_end: context.config.object_pattern_space_surrounding_properties,
       allow_blank_lines: true,
       node_sorter: None,
     },
     context,
   )
+}
+
+fn gen_array_assignment_target<'a>(node: &'a ArrayAssignmentTarget<'a>, context: &mut Context<'a>) -> PrintItems {
+  let mut nodes: Vec<Option<Node<'a>>> = node.elements.iter().map(|x| x.as_ref().map(assign_target_maybe_default_to_node)).collect();
+  if let Some(rest) = &node.rest {
+    nodes.push(Some(Node::AssignmentTargetRest(rest)));
+  }
+  gen_array_like_nodes(
+    GenArrayLikeNodesOptions {
+      node: Node::ArrayAssignmentTarget(node),
+      nodes,
+      prefer_hanging: context.config.array_pattern_prefer_hanging,
+      prefer_single_line: context.config.array_pattern_prefer_single_line,
+      trailing_commas: if node.rest.is_some() {
+        TrailingCommas::Never
+      } else {
+        context.config.array_pattern_trailing_commas
+      },
+      space_around: context.config.array_pattern_space_around,
+    },
+    context,
+  )
+}
+
+fn gen_object_assignment_target<'a>(node: &'a ObjectAssignmentTarget<'a>, context: &mut Context<'a>) -> PrintItems {
+  let has_rest = node.rest.is_some();
+  let mut members: Vec<Node<'a>> = node.properties.iter().map(assign_target_property_to_node).collect();
+  if let Some(rest) = &node.rest {
+    members.push(Node::AssignmentTargetRest(rest));
+  }
+  gen_object_like_node(
+    GenObjectLikeNodeOptions {
+      node: Node::ObjectAssignmentTarget(node),
+      members,
+      separator: if has_rest {
+        TrailingCommas::Never.into()
+      } else {
+        context.config.object_pattern_trailing_commas.into()
+      },
+      prefer_hanging: context.config.object_pattern_prefer_hanging,
+      prefer_single_line: context.config.object_pattern_prefer_single_line,
+      force_single_line: false,
+      force_multi_line: is_node_definitely_above_line_width(node.range(), context),
+      surround_single_line_with_spaces: context.config.object_pattern_space_surrounding_properties,
+      surround_single_line_with_space_at_end: context.config.object_pattern_space_surrounding_properties,
+      allow_blank_lines: true,
+      node_sorter: None,
+    },
+    context,
+  )
+}
+
+fn gen_assignment_target_rest<'a>(node: &'a AssignmentTargetRest<'a>, context: &mut Context<'a>) -> PrintItems {
+  let mut items = PrintItems::new();
+  items.push_sc(sc!("..."));
+  items.extend(gen_node(assign_target_to_node(&node.target), context));
+  items
+}
+
+fn gen_assignment_target_with_default<'a>(node: &'a AssignmentTargetWithDefault<'a>, context: &mut Context<'a>) -> PrintItems {
+  let mut items = PrintItems::new();
+  items.extend(gen_node(assign_target_to_node(&node.binding), context));
+  items.extend(gen_assignment(expr_to_node(&node.init), sc!("="), context));
+  items
+}
+
+fn gen_assignment_target_property_identifier<'a>(node: &'a AssignmentTargetPropertyIdentifier<'a>, context: &mut Context<'a>) -> PrintItems {
+  let mut items = PrintItems::new();
+  items.extend(gen_node(Node::IdentifierReference(&node.binding), context));
+  if let Some(init) = &node.init {
+    items.extend(gen_assignment(expr_to_node(init), sc!("="), context));
+  }
+  items
+}
+
+fn gen_assignment_target_property_property<'a>(node: &'a AssignmentTargetPropertyProperty<'a>, context: &mut Context<'a>) -> PrintItems {
+  let mut items = PrintItems::new();
+  if node.computed {
+    items.extend(gen_computed_prop_like(
+      |context| gen_node(prop_key_to_node(&node.name), context),
+      GenComputedPropLikeOptions {
+        inner_node_range: node.name.range(),
+      },
+      context,
+    ));
+  } else {
+    items.extend(gen_node(prop_key_to_node(&node.name), context));
+  }
+  items.extend(gen_assignment(assign_target_maybe_default_to_node(&node.binding), sc!(":"), context));
+  items
 }
 
 /* properties */
@@ -4756,7 +5183,11 @@ fn gen_export_all<'a>(node: &'a ExportAllDeclaration<'a>, context: &mut Context<
 
 fn gen_with_clause<'a>(node: &'a WithClause<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.push_sc(if node.keyword == WithClauseKeyword::Assert { sc!(" assert ") } else { sc!(" with ") });
+  items.push_sc(if node.keyword == WithClauseKeyword::Assert {
+    sc!(" assert ")
+  } else {
+    sc!(" with ")
+  });
   items.extend(gen_object_like_node(
     GenObjectLikeNodeOptions {
       node: Node::WithClause(node),
@@ -4767,6 +5198,7 @@ fn gen_with_clause<'a>(node: &'a WithClause<'a>, context: &mut Context<'a>) -> P
       force_single_line: false,
       force_multi_line: false,
       surround_single_line_with_spaces: context.config.object_expression_space_surrounding_properties,
+      surround_single_line_with_space_at_end: context.config.object_expression_space_surrounding_properties,
       allow_blank_lines: false,
       node_sorter: None,
     },
@@ -4980,7 +5412,10 @@ fn gen_for_stmt<'a>(node: &'a ForStatement<'a>, context: &mut Context<'a>) -> Pr
       items
     })
   });
-  let generated_update = node.update.as_ref().map(|update| ir_helpers::new_line_group(gen_node(expr_to_node(update), context)));
+  let generated_update = node
+    .update
+    .as_ref()
+    .map(|update| ir_helpers::new_line_group(gen_node(expr_to_node(update), context)));
 
   items.extend(gen_node_in_parens(
     |context| {
@@ -5320,13 +5755,11 @@ fn gen_switch_stmt<'a>(node: &'a SwitchStatement<'a>, context: &mut Context<'a>)
         // Switch cases have custom rules for where the comments end up (based on their indentation),
         // so for here just check that there is no blank line between either the previous comment
         // or previous node
-        let leading_comment = next.leading_comments_fast(context.program).last().map(|r| r.range());
-        let previous_end_line = if let Some(leading_comment) = leading_comment {
-          leading_comment.end_line_fast(context.program)
+        if let Some(leading_comment) = next.leading_comments_fast(context.program).next() {
+          previous.end_line_fast(context.program) + 1 < leading_comment.start_line_fast(context.program)
         } else {
-          previous.end_line_fast(context.program)
-        };
-        previous_end_line + 1 < next.start_line_fast(context.program)
+          previous.end_line_fast(context.program) + 1 < next.start_line_fast(context.program)
+        }
       },
       separator: Separator::none(),
     },
@@ -5533,13 +5966,13 @@ fn gen_var_decl<'a>(node: &'a VariableDeclaration<'a>, context: &mut Context<'a>
   items
 }
 
-fn requires_semi_colon_for_var_or_using_decl(_node: Node, context: &mut Context) -> bool {
+fn requires_semi_colon_for_var_or_using_decl(node: Node, context: &mut Context) -> bool {
   let use_semi_colons = context.config.semi_colons.is_true();
   use_semi_colons
     && match context.parent() {
-      Node::ForInStatement(node) => node.start() >= node.body.start(),
-      Node::ForOfStatement(node) => node.start() >= node.body.start(),
-      Node::ForStatement(node) => node.start() >= node.body.start(),
+      Node::ForInStatement(parent) => node.start() >= parent.body.start(),
+      Node::ForOfStatement(parent) => node.start() >= parent.body.start(),
+      Node::ForStatement(parent) => node.start() >= parent.body.start(),
       _ => use_semi_colons,
     }
 }
@@ -5968,7 +6401,22 @@ fn gen_import_type<'a>(node: &'a TSImportType<'a>, context: &mut Context<'a>) ->
   items.extend(gen_node(Node::StringLiteral(&node.source), context));
   if let Some(options) = &node.options {
     items.push_sc(sc!(", "));
-    items.extend(gen_node(Node::ObjectExpression(options), context));
+    items.extend(gen_object_like_node(
+      GenObjectLikeNodeOptions {
+        node: Node::ObjectExpression(options),
+        members: options.properties.iter().map(obj_prop_kind_to_node).collect(),
+        separator: context.config.object_expression_trailing_commas.into(),
+        prefer_hanging: context.config.object_expression_prefer_hanging,
+        prefer_single_line: context.config.object_expression_prefer_single_line,
+        force_single_line: false,
+        force_multi_line: is_node_definitely_above_line_width(options.range(), context),
+        surround_single_line_with_spaces: context.config.object_expression_space_surrounding_properties,
+        surround_single_line_with_space_at_end: false,
+        allow_blank_lines: true,
+        node_sorter: None,
+      },
+      context,
+    ));
   }
   items.push_sc(sc!(")"));
 
@@ -5990,7 +6438,6 @@ fn gen_import_type_qualified_name<'a>(node: &'a TSImportTypeQualifiedName<'a>, c
   items.extend(gen_node(Node::IdentifierName(&node.right), context));
   items
 }
-
 
 fn gen_indexed_access_type<'a>(node: &'a TSIndexedAccessType<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
@@ -6112,7 +6559,10 @@ fn gen_mapped_type<'a>(node: &'a TSMappedType<'a>, context: &mut Context<'a>) ->
           });
         }
 
-        items.extend(gen_type_ann_with_colon_if_exists_for_type(node.type_annotation.as_ref().map(ts_type_to_node), context));
+        items.extend(gen_type_ann_with_colon_if_exists_for_type(
+          node.type_annotation.as_ref().map(ts_type_to_node),
+          context,
+        ));
         items.extend(get_generated_semi_colon(context.config.semi_colons, true, &is_different_line_than_start));
         items.extend(generated_semi_colon_comments);
 
@@ -6194,6 +6644,19 @@ fn gen_parenthesized_type<'a>(node: &'a TSParenthesizedType<'a>, context: &mut C
 fn should_skip_parenthesized_type<'a>(node: &'a TSParenthesizedType<'a>, context: &mut Context<'a>) -> bool {
   if node_helpers::has_surrounding_different_line_comments(ts_type_to_node(&node.type_annotation), context.program) {
     return false;
+  }
+  if let Some(open_paren) = context.token_finder.get_previous_token_if_open_paren(&node.type_annotation.range()) {
+    let trailing_comments = open_paren.trailing_comments_fast(context.program);
+    if trailing_comments
+      .into_iter()
+      .any(|c| c.is_line() && c.start_line_fast(context.program) == open_paren.end_line_fast(context.program))
+    {
+      return false;
+    }
+  }
+
+  if context.token_finder.get_previous_token_if_colon(node).is_some() {
+    return true;
   }
 
   matches!(context.parent(), Node::TSTypeAnnotation(_) | Node::TSTypeAliasDeclaration(_))
@@ -6332,7 +6795,14 @@ fn gen_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -
     // the node containing the function/arrow (to exclude default exports)
     let grandparent = context.parent_stack.iter().nth(1).copied();
     let is_ambiguous_jsx_fn_expr = context.is_jsx()
-      && matches!(parent, Node::ArrowFunctionExpression(_) | Node::Function(_))
+      && matches!(
+        parent,
+        Node::ArrowFunctionExpression(_)
+          | Node::Function(Function {
+            r#type: FunctionType::FunctionExpression,
+            ..
+          })
+      )
       // not ambiguous in a default export
       && !matches!(grandparent, Some(Node::ExportDefaultDeclaration(_)));
     // Prevent "This syntax is reserved in files with the .mts or .cts extension." diagnostic.
@@ -6434,9 +6904,18 @@ fn gen_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, context
   let indent_width = context.config.indent_width;
   let prefer_hanging = context.config.union_and_intersection_type_prefer_hanging;
   let is_parent_union_or_intersection = matches!(context.parent(), Node::TSUnionType(_) | Node::TSIntersectionType(_));
+  let should_skip_list_indent = has_first_separator_leading_comment_on_previous_line(&node, separator, context);
   let multi_line_options = if !is_parent_union_or_intersection {
     if use_surround_newlines(node.node, context) {
       ir_helpers::MultiLineOptions::surround_newlines_indented()
+    } else if should_skip_list_indent {
+      ir_helpers::MultiLineOptions {
+        newline_at_start: true,
+        newline_at_end: false,
+        with_indent: false,
+        with_hanging_indent: BoolOrCondition::Bool(false),
+        maintain_line_breaks: false,
+      }
     } else {
       ir_helpers::MultiLineOptions::new_line_start()
     }
@@ -6456,6 +6935,17 @@ fn gen_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, context
         let separator_token = context.token_finder.get_previous_token_if_operator(&type_node.range(), separator.text);
         let start_lc = LineAndColumn::new("start");
         let after_separator_ln = LineNumber::new("afterSeparator");
+        let leading_comments_before_type = if i == 0 {
+          let previous_token_end = separator_token
+            .map(|token| token.end())
+            .unwrap_or_else(|| context.token_finder.get_previous_token_end_before(&type_node.range()));
+          get_comments_between(previous_token_end, type_node.start(), context)
+            .into_iter()
+            .filter(|comment| !context.has_handled_comment(comment))
+            .collect::<Vec<_>>()
+        } else {
+          Vec::new()
+        };
         let mut items = PrintItems::new();
         items.push_line_and_column(start_lc);
         if let Some(separator_token) = separator_token {
@@ -6486,7 +6976,22 @@ fn gen_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, context
           }),
           Signal::SpaceIfNotTrailing.into(),
         ));
-        items.extend(gen_node(ts_type_to_node(type_node), context));
+        let indent_type_after_leading_comments = leading_comments_before_type
+          .last()
+          .is_some_and(|comment| has_newline_between_positions(comment.end(), type_node.start(), context.program));
+        if !leading_comments_before_type.is_empty() {
+          items.extend(gen_comments_as_leading(
+            &type_node.range(),
+            CommentsIterator::new(leading_comments_before_type),
+            context,
+          ));
+        }
+        let generated_type = gen_node(ts_type_to_node(type_node), context);
+        if indent_type_after_leading_comments {
+          items.extend(with_indent(generated_type));
+        } else {
+          items.extend(generated_type);
+        }
 
         generated_nodes.push(ir_helpers::GeneratedValue {
           items,
@@ -6516,10 +7021,53 @@ fn gen_union_or_intersection_type<'a>(node: UnionOrIntersectionType<'a>, context
   fn use_surround_newlines<'a>(_node: Node<'a>, context: &mut Context<'a>) -> bool {
     match context.parent() {
       Node::TSTypeAssertion(_) => true,
-      Node::TSParenthesizedType(paren_type) => !should_skip_parenthesized_type(paren_type, context),
+      Node::TSParenthesizedType(paren_type) => !should_skip_parenthesized_type_for_nested_type(paren_type, context),
       _ => false,
     }
   }
+
+  fn should_skip_parenthesized_type_for_nested_type<'a>(node: &'a TSParenthesizedType<'a>, context: &mut Context<'a>) -> bool {
+    if node_helpers::has_surrounding_different_line_comments(ts_type_to_node(&node.type_annotation), context.program) {
+      return false;
+    }
+    if let Some(open_paren) = context.token_finder.get_previous_token_if_open_paren(&node.type_annotation.range()) {
+      let trailing_comments = open_paren.trailing_comments_fast(context.program);
+      if trailing_comments
+        .into_iter()
+        .any(|c| c.is_line() && c.start_line_fast(context.program) == open_paren.end_line_fast(context.program))
+      {
+        return false;
+      }
+    }
+
+    if context.token_finder.get_previous_token_if_colon(node).is_some() {
+      return true;
+    }
+
+    matches!(
+      context.parent_stack.iter().nth(1).copied(),
+      Some(Node::TSTypeAnnotation(_) | Node::TSTypeAliasDeclaration(_))
+    )
+  }
+
+  fn has_first_separator_leading_comment_on_previous_line(node: &UnionOrIntersectionType, separator: &'static StringContainer, context: &mut Context) -> bool {
+    let Some(first_type) = node.types.first() else {
+      return false;
+    };
+    let Some(separator_token) = context.token_finder.get_previous_token_if_operator(&first_type.range(), separator.text) else {
+      return false;
+    };
+    let separator_start_line = separator_token.start_line_fast(context.program);
+    separator_token
+      .start()
+      .leading_comments_fast(context.program)
+      .any(|comment| comment.start_line_fast(context.program) < separator_start_line || comment.is_line())
+  }
+}
+
+fn has_newline_between_positions(start: SourcePos, end: SourcePos, program: ProgramInfo) -> bool {
+  let text = program.text();
+  text.get(start as usize..end as usize).is_some_and(|text| text.as_bytes().contains(&b'\n'))
 }
 
 /* comments */
@@ -6648,6 +7196,62 @@ fn gen_comments_as_statements<'a>(comments: impl Iterator<Item = &'a Comment>, l
       last_node = Some(comment.range());
       was_last_block_comment = comment.is_block();
     }
+  }
+  if was_last_block_comment {
+    items.push_signal(Signal::ExpectNewLine);
+  }
+  items
+}
+
+fn gen_comments_as_statements_advancing_handled<'a>(
+  comments: impl Iterator<Item = &'a Comment>,
+  last_node: Option<&SourceRange>,
+  context: &mut Context<'a>,
+) -> PrintItems {
+  let mut last_node = last_node.map(|l| l.range());
+  let mut items = PrintItems::new();
+  let mut was_last_block_comment = false;
+  for comment in comments {
+    if context.has_handled_comment(comment) {
+      if last_node.is_some() {
+        last_node = Some(comment.range());
+        was_last_block_comment = comment.is_block();
+      }
+      continue;
+    }
+
+    items.extend(gen_comment_based_on_last_node(
+      comment,
+      &last_node,
+      GenCommentBasedOnLastNodeOptions { separate_with_newlines: true },
+      context,
+    ));
+    last_node = Some(comment.range());
+    was_last_block_comment = comment.is_block();
+  }
+  if was_last_block_comment {
+    items.push_signal(Signal::ExpectNewLine);
+  }
+  items
+}
+
+fn gen_comments_as_statements_unchecked<'a>(
+  comments: impl Iterator<Item = &'a Comment>,
+  last_node: Option<&SourceRange>,
+  context: &mut Context<'a>,
+) -> PrintItems {
+  let mut last_node = last_node.map(|l| l.range());
+  let mut items = PrintItems::new();
+  let mut was_last_block_comment = false;
+  for comment in comments {
+    items.extend(gen_comment_based_on_last_node_unchecked(
+      comment,
+      &last_node,
+      GenCommentBasedOnLastNodeOptions { separate_with_newlines: true },
+      context,
+    ));
+    last_node = Some(comment.range());
+    was_last_block_comment = comment.is_block();
   }
   if was_last_block_comment {
     items.push_signal(Signal::ExpectNewLine);
@@ -6829,6 +7433,43 @@ fn gen_comment_based_on_last_node(
   items
 }
 
+fn gen_comment_based_on_last_node_unchecked(
+  comment: &Comment,
+  last_node: &Option<SourceRange>,
+  opts: GenCommentBasedOnLastNodeOptions,
+  context: &mut Context,
+) -> PrintItems {
+  let mut items = PrintItems::new();
+  let mut pushed_ignore_new_lines = false;
+
+  if let Some(last_node) = last_node {
+    let comment_start_line = comment.start_line_fast(context.program);
+    let last_node_end_line = last_node.end_line_fast(context.program);
+
+    if opts.separate_with_newlines || comment_start_line > last_node_end_line {
+      items.push_signal(Signal::NewLine);
+
+      if comment_start_line > last_node_end_line + 1 {
+        items.push_signal(Signal::NewLine);
+      }
+    } else if comment.kind == CommentKind::Line {
+      items.push_signal(Signal::StartForceNoNewLines);
+      items.push_space();
+      pushed_ignore_new_lines = true;
+    } else if last_node.text_fast(context.program).starts_with("/*") {
+      items.push_space();
+    }
+  }
+
+  items.extend(gen_comment_inner(comment, context));
+
+  if pushed_ignore_new_lines {
+    items.push_signal(Signal::FinishForceNoNewLines);
+  }
+
+  items
+}
+
 fn gen_comment(comment: &Comment, context: &mut Context) -> Option<PrintItems> {
   // only generate if handled
   if context.has_handled_comment(comment) {
@@ -6837,8 +7478,11 @@ fn gen_comment(comment: &Comment, context: &mut Context) -> Option<PrintItems> {
 
   // mark handled and generate
   context.mark_comment_handled(comment);
+  Some(gen_comment_inner(comment, context))
+}
 
-  return Some(if comment.is_block() {
+fn gen_comment_inner(comment: &Comment, context: &mut Context) -> PrintItems {
+  return if comment.is_block() {
     if has_leading_astrisk_each_line(comment.content_fast(context.program)) {
       gen_js_doc_or_multiline_block(comment, context)
     } else {
@@ -6847,7 +7491,7 @@ fn gen_comment(comment: &Comment, context: &mut Context) -> Option<PrintItems> {
     }
   } else {
     ir_helpers::gen_js_like_comment_line(comment.content_fast(context.program), context.config.comment_line_force_space_after_slashes)
-  });
+  };
 
   fn has_leading_astrisk_each_line(text: &str) -> bool {
     if !text.contains('\n') {
@@ -7009,6 +7653,19 @@ fn get_trailing_comments_same_line<'a>(node: &SourceRange, trailing_comments: Co
 
 fn get_jsx_empty_expr_comments<'a>(node: &JSXEmptyExpression, context: &Context<'a>) -> CommentsIterator<'a> {
   node.end().leading_comments_fast(context.program)
+}
+
+fn get_jsx_expr_container_empty_comments<'a>(node: &JSXExpressionContainer<'a>, context: &Context<'a>) -> CommentsIterator<'a> {
+  let start = node.start() + 1;
+  let end = node.end().saturating_sub(1);
+  CommentsIterator::new(
+    context
+      .program
+      .comments()
+      .iter()
+      .filter(|comment| comment.start() >= start && comment.end() <= end)
+      .collect(),
+  )
 }
 
 /* helpers */
@@ -7233,18 +7890,7 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
 
         last_node = Some(node.range());
       } else {
-        let mut items = PrintItems::new();
-        let leading_comments = node.leading_comments_fast(context.program);
-        items.extend(gen_comments_as_statements(leading_comments.clone(), None, context));
-        let trailing_comments = get_trailing_comments_same_line(&node.range(), node.trailing_comments_fast(context.program), context);
-        if !trailing_comments.is_empty() {
-          if !leading_comments.is_empty() {
-            items.push_signal(Signal::NewLine);
-          }
-          items.extend(gen_comment_collection(trailing_comments.into_iter(), None, None, context));
-        }
-
-        generated_nodes.push(items);
+        generated_nodes.push(gen_empty_stmt_comments(node, context));
 
         // ensure if this is last that it generates the trailing comment statements
         if stmt_group_index == stmt_group_len - 1 && i == nodes_len - 1 {
@@ -7269,7 +7915,26 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
   }
 
   if let Some(last_node) = &last_node {
-    items.extend(gen_trailing_comments_as_statements(last_node, context));
+    let trailing_comment_range = context
+      .token_finder
+      .get_first_semi_colon_after(last_node)
+      .map(|token| token.range())
+      .unwrap_or_else(|| last_node.range());
+    items.extend(gen_trailing_comments_as_statements(&trailing_comment_range, context));
+    let close_token_leading_comments = get_comments_between(trailing_comment_range.end(), inner_range.end(), context);
+    items.extend(gen_comments_as_statements(
+      close_token_leading_comments.into_iter(),
+      Some(&trailing_comment_range),
+      context,
+    ));
+    if matches!(context.current_node, Node::Program(_)) && trailing_comment_range.next_token_fast(context.program).is_none() {
+      let eof_comments = context
+        .program
+        .comments()
+        .iter()
+        .filter(|comment| comment.start() >= trailing_comment_range.end);
+      items.extend(gen_comments_as_statements(eof_comments, Some(&trailing_comment_range), context));
+    }
   }
 
   if stmt_group_len == 0 {
@@ -7295,6 +7960,9 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
 }
 
 fn gen_member_or_member_expr_stmt_comments(node: Node, context: &mut Context) -> PrintItems {
+  if matches!(node, Node::EmptyStatement(_)) {
+    return gen_empty_stmt_comments(node, context);
+  }
   let mut items = PrintItems::new();
   let leading_comments = node.leading_comments_fast(context.program);
   items.extend(gen_comments_as_statements(leading_comments.clone(), None, context));
@@ -7307,6 +7975,63 @@ fn gen_member_or_member_expr_stmt_comments(node: Node, context: &mut Context) ->
   }
 
   items
+}
+
+fn gen_switch_case_leading_comments<'a>(previous: Node<'a>, node: Node<'a>, context: &mut Context<'a>) -> PrintItems {
+  let (Node::SwitchCase(previous_case), Node::SwitchCase(_)) = (previous, node) else {
+    return PrintItems::new();
+  };
+  let Some(case_token) = node
+    .tokens_fast(context.program)
+    .iter()
+    .find(|token| matches!(token.text_fast(context.program), "case" | "default"))
+  else {
+    return PrintItems::new();
+  };
+  let comments = get_comments_between(previous.end(), case_token.start(), context)
+    .into_iter()
+    .filter(|comment| !context.has_handled_comment(comment))
+    .collect::<Vec<_>>();
+  if comments.is_empty() {
+    return PrintItems::new();
+  }
+
+  let case_column = case_token.start_column_fast(context.program);
+  let case_start_line = case_token.start_line_fast(context.program);
+  let previous_case_has_block_body = previous_case
+    .consequent
+    .first()
+    .is_some_and(|stmt| matches!(stmt, Statement::BlockStatement(_)));
+  let mut items = PrintItems::new();
+  let mut last_range: Option<SourceRange> = None;
+  let mut use_case_level_for_rest = false;
+
+  for comment in &comments {
+    let is_case_level_comment = previous_case_has_block_body || use_case_level_for_rest || comment.start_column_fast(context.program) <= case_column;
+    use_case_level_for_rest |= is_case_level_comment;
+    let generated_comment = gen_comment_based_on_last_node(comment, &last_range, GenCommentBasedOnLastNodeOptions { separate_with_newlines: true }, context);
+    if is_case_level_comment {
+      items.extend(generated_comment);
+    } else {
+      items.extend(ir_helpers::with_indent(generated_comment));
+    }
+    last_range = Some(comment.range());
+  }
+
+  if let Some(last_range) = last_range {
+    if last_range.end_line_fast(context.program) + 1 < case_start_line {
+      items.push_signal(Signal::NewLine);
+      items.push_signal(Signal::NewLine);
+    }
+  }
+
+  items
+}
+
+fn gen_empty_stmt_comments(node: Node, context: &mut Context) -> PrintItems {
+  let leading_comments = node.leading_comments_fast(context.program);
+  let trailing_comments = node.trailing_comments_fast(context.program);
+  gen_comments_as_statements(leading_comments.chain(trailing_comments), None, context)
 }
 
 #[derive(PartialEq, Debug)]
@@ -7416,6 +8141,12 @@ where
       let next_node = member_items.peek().map(|(_, (n, _))| n);
       let end_ln = LineNumber::new("endMember");
       context.end_statement_or_member_lns.push(end_ln);
+      let switch_case_leading_comments = if let Some(last_node) = last_node {
+        gen_switch_case_leading_comments(last_node, node, context)
+      } else {
+        PrintItems::new()
+      };
+      items.extend(switch_case_leading_comments);
       items.extend(if let Some(print_items) = optional_print_items {
         print_items
       } else if opts.separator.is_none() || is_ignore_jsx_expr_container(node, context) && next_node.map(|n| matches!(n, Node::JSXText(_))).unwrap_or(false) {
@@ -7439,7 +8170,15 @@ where
   }
 
   if let Some(last_node) = &last_node {
-    items.extend(gen_trailing_comments_as_statements(&last_node.range(), context));
+    let last_node_range = last_node.range();
+    items.extend(gen_trailing_comments_as_statements(&last_node_range, context));
+    let close_token_leading_comments = get_comments_between(last_node_range.end(), opts.inner_range.end(), context);
+    let close_token_leading_comments = gen_comments_as_statements(close_token_leading_comments.into_iter(), Some(&last_node_range), context);
+    if matches!(last_node, Node::SwitchCase(case) if !case.consequent.is_empty()) {
+      items.extend(ir_helpers::with_indent(close_token_leading_comments));
+    } else {
+      items.extend(close_token_leading_comments);
+    }
   }
 
   if children_len == 0 {
@@ -7496,8 +8235,9 @@ where
   let prefer_single_item_hanging = prefer_hanging_config == PreferHanging::OnlySingleItem && prefer_hanging;
   let prefer_single_line = prefer_single_item_hanging
     || (is_parameters && context.config.parameters_prefer_single_line || !is_parameters && context.config.arguments_prefer_single_line);
-  let force_use_new_lines = get_use_new_lines_for_nodes_with_preceeding_token("(", &nodes, prefer_single_line, context);
   let range = opts.range;
+  let force_use_new_lines =
+    get_use_new_lines_for_nodes_with_preceeding_token("(", &nodes, prefer_single_line, context) || has_close_paren_leading_line_comment(&nodes, context);
   let custom_close_paren = opts.custom_close_paren;
   let first_member_range = nodes.iter().map(|n| n.range()).next();
   let nodes_length = nodes.len();
@@ -7622,9 +8362,38 @@ where
     }
     // search after the trailing comma if it exists
     match child.next_token_fast(program) {
-      Some(t) if t.kind() == Kind::Comma => t.trailing_comments_fast(program).is_empty(),
+      Some(t) if t.kind() == Kind::Comma => {
+        if !t.trailing_comments_fast(program).is_empty() {
+          return false;
+        }
+        let close_paren = child.next_tokens_fast(program).iter().find(|token| token.kind() == Kind::RParen);
+        !close_paren.is_some_and(|token| {
+          program
+            .comments()
+            .iter()
+            .any(|comment| comment.is_line() && comment.start() > child.end() && comment.start() < token.start())
+        })
+      }
       _ => true,
     }
+  }
+
+  fn has_close_paren_leading_line_comment<'a>(nodes: &[Node<'a>], context: &mut Context<'a>) -> bool {
+    let Some(last_node) = nodes.last() else {
+      return false;
+    };
+    context
+      .token_finder
+      .get_next_token_if_comma(last_node)
+      .is_some_and(|token| token.trailing_comments_fast(context.program).any(|c| c.is_line()))
+      || context.token_finder.get_first_close_paren_after(last_node).is_some_and(|token| {
+        token.leading_comments_fast(context.program).any(|c| c.is_line())
+          || context
+            .program
+            .comments()
+            .iter()
+            .any(|c| c.is_line() && c.start() > last_node.end() && c.start() < token.start())
+      })
   }
 }
 
@@ -7696,11 +8465,7 @@ fn gen_close_paren_with_type<'a>(opts: GenCloseParenWithTypeOptions<'a>, context
       items.extend(generated_type_node);
       items.push_info(type_node_end_ln);
 
-      if use_new_line_group {
-        new_line_group(items)
-      } else {
-        items
-      }
+      if use_new_line_group { new_line_group(items) } else { items }
     } else {
       items
     };
@@ -8003,7 +8768,7 @@ fn gen_type_ann_with_colon_if_exists<'a>(type_ann: Option<&'a TSTypeAnnotation<'
     let colon_token = context.token_finder.get_first_colon_token_within(type_ann);
     #[cfg(debug_assertions)]
     assert_has_op(":", colon_token, context);
-    items.extend(gen_type_ann_with_colon(Node::TSTypeAnnotation(type_ann), colon_token, context));
+    items.extend(gen_type_ann_with_colon(ts_type_to_node(&type_ann.type_annotation), colon_token, context));
   }
   items
 }
@@ -8098,6 +8863,10 @@ fn gen_node_in_parens<'a>(gen_node: impl FnOnce(&mut Context<'a>) -> PrintItems,
     }
 
     has_any_node_comment_on_different_line(&[inner_range], context)
+      || context
+        .token_finder
+        .get_next_token_if_close_paren(&inner_range)
+        .is_some_and(|token| token.leading_comments_fast(context.program).any(|c| c.is_line()))
   }
 }
 
@@ -8168,6 +8937,7 @@ struct GenObjectLikeNodeOptions<'a> {
   force_single_line: bool,
   force_multi_line: bool,
   surround_single_line_with_spaces: bool,
+  surround_single_line_with_space_at_end: bool,
   allow_blank_lines: bool,
   node_sorter: Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), ProgramInfo<'a>) -> std::cmp::Ordering>>,
 }
@@ -8202,7 +8972,7 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
             separator: opts.separator,
             single_line_options: ir_helpers::SingleLineOptions {
               space_at_start: opts.surround_single_line_with_spaces,
-              space_at_end: opts.surround_single_line_with_spaces,
+              space_at_end: opts.surround_single_line_with_space_at_end,
               separator: Signal::SpaceOrNewLine.into(),
             },
             multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(),
@@ -8233,7 +9003,7 @@ fn gen_for_member_like_expr_item<'a>(item: &MemberLikeExprItem<'a>, context: &mu
   let is_first = index == 0;
   let is_last = index == item_count - 1;
   match item {
-    MemberLikeExprItem::Node(node) => {
+    MemberLikeExprItem::Node { node, .. } => {
       let is_optional = item.is_optional();
       gen_node_with_inner_gen(*node, context, |node_items, context| {
         // Changing `2 .toString()` to `2.toString()` is a syntax error because `2.` is a numeric
@@ -8259,7 +9029,7 @@ fn gen_for_member_like_expr_item<'a>(item: &MemberLikeExprItem<'a>, context: &mu
         items
       })
     }
-    MemberLikeExprItem::Computed(node) => {
+    MemberLikeExprItem::Computed { node, .. } => {
       // a computed member access `[expr]` (oxc keeps this as its own item variant)
       let is_optional = item.is_optional();
       let mut items = PrintItems::new();
@@ -8273,6 +9043,9 @@ fn gen_for_member_like_expr_item<'a>(item: &MemberLikeExprItem<'a>, context: &mu
         },
         context,
       ));
+      if !is_last {
+        items.extend(gen_trailing_comments(&item.range(), context));
+      }
       items
     }
     MemberLikeExprItem::Token(token) => {
@@ -8620,6 +9393,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
   let start_statements_lc = LineAndColumn::new("startStatements");
   let end_statements_lc = LineAndColumn::new("endStatements");
   let header_trailing_comments = get_header_trailing_comments(opts.body_node, context);
+  let has_header_trailing_comments = !header_trailing_comments.is_empty();
   let body_should_be_multi_line = get_body_should_be_multi_line(opts.body_node, &header_trailing_comments, context);
   let should_use_new_line = get_should_use_new_line(opts.body_node, body_should_be_multi_line, &opts.single_body_position, context);
   let open_brace_token = get_open_brace_token(opts.body_node, context);
@@ -8686,6 +9460,9 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
           UseBraces::PreferNone => {
             if force_braces || body_should_be_multi_line {
               return Some(true);
+            }
+            if has_header_trailing_comments {
+              return Some(false);
             }
             if let Some(start_header_ln) = start_header_ln {
               if let Some(end_header_ln) = end_header_ln {
@@ -8770,7 +9547,10 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
         items.extend(gen_comments_same_line(trailing_comments_same_line, context));
         // treat the remaining unhandled comments as statements
         items.extend(gen_comments_as_statements(
-          inner_range.start().trailing_comments_fast(context.program),
+          inner_range
+            .start()
+            .trailing_comments_fast(context.program)
+            .chain(inner_range.end().leading_comments_fast(context.program)),
           None,
           context,
         ));
@@ -8911,16 +9691,23 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
   fn get_header_trailing_comments<'a>(body_node: Node<'a>, context: &mut Context<'a>) -> Vec<&'a Comment> {
     let mut comments = Vec::new();
     if let Node::BlockStatement(block_stmt) = body_node {
+      let open_brace_token = context
+        .token_finder
+        .get_first_open_brace_token_within(block_stmt)
+        .expect("Expected to find an open brace token.");
+      let last_header_token_end = context.token_finder.get_previous_token_end_before(block_stmt);
+      if let Some(comment) = get_comments_between(last_header_token_end, open_brace_token.start(), context)
+        .into_iter()
+        .find(|c| c.kind == CommentKind::Line)
+      {
+        comments.push(comment);
+        return comments;
+      }
       let comment_line = body_node.leading_comments_fast(context.program).find(|c| c.kind == CommentKind::Line);
       if let Some(comment) = comment_line {
         comments.push(comment);
         return comments;
       }
-
-      let open_brace_token = context
-        .token_finder
-        .get_first_open_brace_token_within(block_stmt)
-        .expect("Expected to find an open brace token.");
       let body_node_start_line = body_node.start_line_fast(context.program);
       comments.extend(
         open_brace_token
@@ -8928,6 +9715,16 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
           .take_while(|c| c.start_line_fast(context.program) == body_node_start_line && c.kind == CommentKind::Line),
       );
     } else {
+      if let Some(previous_token) = body_node.previous_token_fast(context.program) {
+        comments.extend(
+          previous_token
+            .trailing_comments_fast(context.program)
+            .take_while(|c| c.start_line_fast(context.program) == previous_token.end_line_fast(context.program) && c.kind == CommentKind::Line),
+        );
+        if !comments.is_empty() {
+          return comments;
+        }
+      }
       let leading_comments = body_node.leading_comments_fast(context.program);
       let last_header_token_end = context.token_finder.get_previous_token_end_before(&body_node);
       let last_header_token_end_line = last_header_token_end.end_line_fast(context.program);
@@ -9202,19 +9999,7 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
 
   /// If the node has a "JSX space expression" between or text that's only spaces between.
   fn has_jsx_space_between<'a>(previous_node: Node<'a>, next_node: Node<'a>, program: ProgramInfo<'a>) -> bool {
-    fn has_jsx_space_expr_between(previous_node: Node, next_node: Node, program: ProgramInfo) -> bool {
-      let nodes_between = node_helpers::get_siblings_between(previous_node, next_node);
-
-      for node_between in nodes_between {
-        if node_helpers::has_jsx_space_expr_text(node_between, program) {
-          return true;
-        }
-      }
-
-      false
-    }
-
-    node_helpers::nodes_have_only_spaces_between(previous_node, next_node, program) || has_jsx_space_expr_between(previous_node, next_node, program)
+    node_helpers::count_spaces_between_jsx_children(previous_node, next_node, program) > 0
   }
 }
 
@@ -9365,13 +10150,26 @@ fn gen_assignment_like_with_token<'a>(expr: Node<'a>, op: &'static StringContain
   let op_end = op_token
     .map(|x| x.end())
     .unwrap_or_else(|| context.token_finder.get_previous_token_end_before(&expr));
-  let op_trailing_comments = gen_comments_between_lines_indented(op_end, context);
-  let had_op_trailing_comments = !op_trailing_comments.is_empty();
+  let defer_op_trailing_comments_to_expr = should_defer_op_trailing_comments_to_expr(expr, op_end, context);
+  let op_trailing_comments = if defer_op_trailing_comments_to_expr {
+    PrintItems::new()
+  } else {
+    gen_comments_between_lines_indented(op_end, context)
+  };
+  let has_expr_leading_comments_on_previous_line = expr
+    .leading_comments_fast(context.program)
+    .any(|comment| comment.start_line_fast(context.program) < expr.start_line_fast(context.program));
+  let has_op_trailing_comments = !op_trailing_comments.is_empty();
+  let had_op_trailing_comments = has_op_trailing_comments || (!defer_op_trailing_comments_to_expr && has_expr_leading_comments_on_previous_line);
+  let defer_expr_leading_comments_on_previous_line = defer_op_trailing_comments_to_expr && has_expr_leading_comments_on_previous_line;
   items.extend(op_trailing_comments);
+  if !has_op_trailing_comments && has_expr_leading_comments_on_previous_line {
+    items.push_signal(Signal::NewLine);
+  }
 
   let generated_assignment = {
     let mut items = PrintItems::new();
-    if !had_op_trailing_comments {
+    if !had_op_trailing_comments && !defer_expr_leading_comments_on_previous_line {
       items.push_condition(conditions::if_above_width_or(
         context.config.indent_width,
         {
@@ -9414,6 +10212,40 @@ fn gen_assignment_like_with_token<'a>(expr: Node<'a>, op: &'static StringContain
       Node::StaticMemberExpression(_) | Node::ComputedMemberExpression(_) | Node::PrivateFieldExpression(_)
     )
   }
+
+  fn should_defer_op_trailing_comments_to_expr<'a>(expr: Node<'a>, op_end: SourcePos, context: &mut Context<'a>) -> bool {
+    match expr {
+      Node::TSUnionType(node) => should_defer_union_or_intersection_op_trailing_comments(&node.types, sc!("|"), op_end, context),
+      Node::TSIntersectionType(node) => should_defer_union_or_intersection_op_trailing_comments(&node.types, sc!("&"), op_end, context),
+      Node::TSParenthesizedType(node) if should_skip_parenthesized_type(node, context) => match &node.type_annotation {
+        TSType::TSUnionType(union_type) => should_defer_union_or_intersection_op_trailing_comments(&union_type.types, sc!("|"), op_end, context),
+        TSType::TSIntersectionType(intersection_type) => {
+          should_defer_union_or_intersection_op_trailing_comments(&intersection_type.types, sc!("&"), op_end, context)
+        }
+        _ => false,
+      },
+      _ => false,
+    }
+  }
+
+  fn should_defer_union_or_intersection_op_trailing_comments<'a>(
+    types: &'a [TSType<'a>],
+    separator: &'static StringContainer,
+    op_end: SourcePos,
+    context: &mut Context<'a>,
+  ) -> bool {
+    let Some(first_type) = types.first() else {
+      return true;
+    };
+    if context
+      .token_finder
+      .get_previous_token_if_operator(&first_type.range(), separator.text)
+      .is_some()
+    {
+      return true;
+    }
+    !has_newline_between_positions(op_end, first_type.start(), context.program)
+  }
 }
 
 struct GenBlockOptions<'a> {
@@ -9426,8 +10258,17 @@ fn gen_block<'a>(gen_inner: impl FnOnce(Vec<Node<'a>>, &mut Context<'a>) -> Prin
   let skip_indent = context.skip_iife_body_indent;
   context.skip_iife_body_indent = false;
   let before_open_token_ln = LineNumber::new("after_open_token_info");
-  let first_member_range = opts.children.first().map(|x| x.range());
   let range = opts.range;
+  let first_member_range = opts.children.first().map(|x| x.range()).or_else(|| {
+    let range = range?;
+    if range.start_line_fast(context.program) == range.end_line_fast(context.program) {
+      return None;
+    }
+    get_comments_between(range.start() + 1, range.end() - 1, context)
+      .into_iter()
+      .find(|comment| comment.start_line_fast(context.program) != range.start_line_fast(context.program))
+      .map(|comment| comment.range())
+  });
   items.push_info(before_open_token_ln);
   items.extend(gen_surrounded_by_tokens(
     |context| {
@@ -9443,7 +10284,23 @@ fn gen_block<'a>(gen_inner: impl FnOnce(Vec<Node<'a>>, &mut Context<'a>) -> Prin
         items.push_signal(Signal::NewLine);
       }
       items.push_line_and_column(start_inner_lc);
-      let inner = gen_inner(opts.children, context);
+      let inner_comments = if opts.children.is_empty() && !is_tokens_same_line_and_empty {
+        range
+          .map(|range| {
+            get_comments_between(range.start() + 1, range.end() - 1, context)
+              .into_iter()
+              .filter(|comment| comment.start_line_fast(context.program) != range.start_line_fast(context.program))
+              .collect::<Vec<_>>()
+          })
+          .unwrap_or_default()
+      } else {
+        Vec::new()
+      };
+      let inner = if inner_comments.is_empty() {
+        gen_inner(opts.children, context)
+      } else {
+        gen_comments_as_statements(inner_comments.into_iter(), None, context)
+      };
       items.extend(if skip_indent { inner } else { ir_helpers::with_indent(inner) });
       items.push_line_and_column(end_inner_lc);
 
@@ -9546,27 +10403,31 @@ fn gen_surrounded_by_tokens<'a>(
       ));
     } else {
       let comments = open_token_end.trailing_comments_fast(context.program);
+      let close_token_leading_comments = close_token_start.leading_comments_fast(context.program);
       is_single_line = open_token_start_line == close_token_start.start_line_fast(context.program);
-
       if is_single_line && opts.single_line_space_around {
         items.push_space();
       }
 
-      if !comments.is_empty() {
+      if !comments.is_empty() || !close_token_leading_comments.is_empty() {
         // generate the trailing comment on the first line only if multi-line and if a comment line
         if !is_single_line {
           items.extend(gen_first_line_trailing_comment(open_token_start_line, comments.clone(), context));
         }
 
         // generate the comments
-        if comments.clone().any(|c| !context.has_handled_comment(c)) {
+        if comments
+          .clone()
+          .chain(close_token_leading_comments.clone())
+          .any(|c| !context.has_handled_comment(c))
+        {
           if is_single_line {
             let indent_width = context.config.indent_width;
             items.extend(
               ir_helpers::gen_separated_values(
                 |_| {
                   let mut generated_comments = Vec::new();
-                  for c in comments {
+                  for c in comments.chain(close_token_leading_comments) {
                     let start_line = c.start_line_fast(context.program);
                     let end_line = c.end_line_fast(context.program);
                     if let Some(items) = gen_comment(c, context) {
@@ -9598,7 +10459,11 @@ fn gen_surrounded_by_tokens<'a>(
             );
           } else {
             items.push_signal(Signal::NewLine);
-            items.extend(with_indent(gen_comments_as_statements(comments, None, context)));
+            items.extend(with_indent(gen_comments_as_statements(
+              comments.chain(close_token_leading_comments),
+              None,
+              context,
+            )));
             items.push_signal(Signal::NewLine);
           }
         }
@@ -9771,6 +10636,10 @@ fn allows_inline_multi_line<'a>(node: Node<'a>, context: &Context<'a>, has_sibli
           .type_annotation
           .as_ref()
           .is_some_and(|t| allows_inline_multi_line(ts_type_to_node(&t.type_annotation), context, has_siblings))
+        || param
+          .initializer
+          .as_ref()
+          .is_some_and(|expr| allows_inline_multi_line(expr_to_node(expr), context, has_siblings))
     }
     Node::TSAsExpression(as_expr) => {
       allows_inline_multi_line(expr_to_node(&as_expr.expression), context, has_siblings)
@@ -9880,6 +10749,12 @@ fn has_any_node_comment_on_different_line(nodes: &[impl SourceRanged], context: 
       return true;
     } else if let Some(comma) = context.token_finder.get_next_token_if_comma(&node_end.range()) {
       if check_pos_has_trailing_comments(comma.end(), next_node_pos, context) {
+        return true;
+      } else if next_node_pos.is_some_and(|next_node_pos| {
+        get_comments_between(comma.end(), next_node_pos, context)
+          .iter()
+          .any(|c| c.kind == CommentKind::Line)
+      }) {
         return true;
       }
     }

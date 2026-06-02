@@ -105,20 +105,12 @@ impl<'a> TokenFinder<'a> {
 
   pub fn get_previous_token_end_before(&self, node: &impl SourceRanged) -> SourcePos {
     let previous_token = self.get_previous_token(node);
-    if let Some(token) = previous_token {
-      token.end()
-    } else {
-      self.program.lo()
-    }
+    if let Some(token) = previous_token { token.end() } else { self.program.lo() }
   }
 
   pub fn get_next_token_pos_after(&self, node: &impl SourceRanged) -> SourcePos {
     let next_token = self.get_next_token(node);
-    if let Some(token) = next_token {
-      token.start()
-    } else {
-      self.program.hi()
-    }
+    if let Some(token) = next_token { token.start() } else { self.program.hi() }
   }
 
   #[inline]

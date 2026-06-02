@@ -7,8 +7,8 @@
 // Each arm relies on `Deref` coercion from `&'a Box<'a, T>` (oxc's arena box)
 // to `&'a T`, the same trick oxc's own `from_expression` uses.
 
-use deno_ast::oxc::ast::ast::*;
 use deno_ast::oxc::ast::AstKind;
+use deno_ast::oxc::ast::ast::*;
 
 use super::oxc_helpers::Node;
 
@@ -322,6 +322,20 @@ pub fn assign_target_to_node<'a>(t: &'a AssignmentTarget<'a>) -> Node<'a> {
     AssignmentTarget::PrivateFieldExpression(n) => AstKind::PrivateFieldExpression(n),
     AssignmentTarget::ArrayAssignmentTarget(n) => AstKind::ArrayAssignmentTarget(n),
     AssignmentTarget::ObjectAssignmentTarget(n) => AstKind::ObjectAssignmentTarget(n),
+  }
+}
+
+pub fn assign_target_maybe_default_to_node<'a>(t: &'a AssignmentTargetMaybeDefault<'a>) -> Node<'a> {
+  match t {
+    AssignmentTargetMaybeDefault::AssignmentTargetWithDefault(n) => AstKind::AssignmentTargetWithDefault(n),
+    it @ match_assignment_target!(AssignmentTargetMaybeDefault) => assign_target_to_node(it.to_assignment_target()),
+  }
+}
+
+pub fn assign_target_property_to_node<'a>(p: &'a AssignmentTargetProperty<'a>) -> Node<'a> {
+  match p {
+    AssignmentTargetProperty::AssignmentTargetPropertyIdentifier(n) => AstKind::AssignmentTargetPropertyIdentifier(n),
+    AssignmentTargetProperty::AssignmentTargetPropertyProperty(n) => AstKind::AssignmentTargetPropertyProperty(n),
   }
 }
 

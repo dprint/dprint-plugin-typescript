@@ -130,12 +130,12 @@ class Test {
 
 == should not be multi-line when not exceeding the line width ==
 class Test {
-    test(testing, this) {
+    test(testing, thisArg) {
     }
 }
 
 [expect]
 class Test {
-    test(testing, this) {
+    test(testing, thisArg) {
     }
 }

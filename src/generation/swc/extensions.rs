@@ -48,7 +48,10 @@ impl BinaryOpExtensions for BinaryOperator {
   }
 
   fn is_bit_shift(&self) -> bool {
-    matches!(self, BinaryOperator::ShiftLeft | BinaryOperator::ShiftRight | BinaryOperator::ShiftRightZeroFill)
+    matches!(
+      self,
+      BinaryOperator::ShiftLeft | BinaryOperator::ShiftRight | BinaryOperator::ShiftRightZeroFill
+    )
   }
 
   fn is_equality(&self) -> bool {

@@ -19,6 +19,7 @@ use deno_ast::oxc::ast::ast::TSTypeParameterInstantiation as TypeArgs;
 use deno_ast::oxc::span::GetSpan;
 use deno_ast::oxc::span::Span;
 
+use super::Context;
 use super::oxc_helpers::CommentExt;
 use super::oxc_helpers::Node;
 use super::oxc_helpers::PosExt;
@@ -26,7 +27,6 @@ use super::oxc_helpers::SourcePos;
 use super::oxc_helpers::SourceRange;
 use super::oxc_helpers::SourceRanged;
 use super::to_node::ts_type_to_node;
-use super::Context;
 
 pub trait RangedExtensions {
   fn start_line_with_comments(&self, context: &mut Context) -> usize;
@@ -280,13 +280,23 @@ impl<'a> ParametersRanged for TSMethodSignature<'a> {
 
 impl<'a> ParametersRanged for TSConstructorType<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
-    get_params_or_args_range(self.start(), self.params.items.iter().map(|x| x.range()).collect(), self.return_type.start(), context)
+    get_params_or_args_range(
+      self.start(),
+      self.params.items.iter().map(|x| x.range()).collect(),
+      self.return_type.start(),
+      context,
+    )
   }
 }
 
 impl<'a> ParametersRanged for TSFunctionType<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
-    get_params_or_args_range(self.start(), self.params.items.iter().map(|x| x.range()).collect(), self.return_type.start(), context)
+    get_params_or_args_range(
+      self.start(),
+      self.params.items.iter().map(|x| x.range()).collect(),
+      self.return_type.start(),
+      context,
+    )
   }
 }
 
@@ -295,15 +305,13 @@ fn get_params_or_args_range(start_pos: SourcePos, params: Vec<SourceRange>, foll
     let close_paren = if let Some(last_param) = params.last() {
       context.token_finder.get_first_close_paren_after(last_param)
     } else {
-      context.token_finder.get_first_close_paren_before(&SourceRange::new(following_pos, following_pos))
+      context
+        .token_finder
+        .get_first_close_paren_before(&SourceRange::new(following_pos, following_pos))
     };
     if let Some(close_paren) = close_paren {
       let end = close_paren.end();
-      if end > start_pos {
-        Some(end)
-      } else {
-        None
-      }
+      if end > start_pos { Some(end) } else { None }
     } else {
       None
     }
@@ -318,11 +326,7 @@ fn get_params_or_args_range(start_pos: SourcePos, params: Vec<SourceRange>, foll
 
     if let Some(open_paren) = open_paren {
       let pos = open_paren.start();
-      if pos >= start_pos {
-        Some(pos)
-      } else {
-        None
-      }
+      if pos >= start_pos { Some(pos) } else { None }
     } else {
       None
     }

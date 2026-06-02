@@ -22,14 +22,14 @@
 // the preceding token when there is no line break between that token and the
 // comment, otherwise it is *leading* of the following token.
 
+use deno_ast::SourceTextInfo;
+use deno_ast::oxc::ast::AstKind;
 use deno_ast::oxc::ast::ast::Comment;
 use deno_ast::oxc::ast::ast::CommentKind;
 use deno_ast::oxc::ast::ast::Program;
-use deno_ast::oxc::ast::AstKind;
 use deno_ast::oxc::parser::Token;
 use deno_ast::oxc::span::GetSpan;
 use deno_ast::oxc::span::Span;
-use deno_ast::SourceTextInfo;
 
 pub type SourcePos = u32;
 pub type SourceRange = Span;
@@ -116,22 +116,14 @@ impl<'a> ProgramInfo<'a> {
   /// when there is none).
   fn prev_token_end(&self, pos: SourcePos) -> SourcePos {
     let idx = self.tokens.partition_point(|t| t.end() <= pos);
-    if idx > 0 {
-      self.tokens[idx - 1].end()
-    } else {
-      self.lo()
-    }
+    if idx > 0 { self.tokens[idx - 1].end() } else { self.lo() }
   }
 
   /// Start offset of the first token at or after `pos` (or the program end when
   /// there is none).
   fn next_token_start(&self, pos: SourcePos) -> SourcePos {
     let idx = self.tokens.partition_point(|t| t.start() < pos);
-    if idx < self.tokens.len() {
-      self.tokens[idx].start()
-    } else {
-      self.hi()
-    }
+    if idx < self.tokens.len() { self.tokens[idx].start() } else { self.hi() }
   }
 
   fn has_newline_between(&self, start: SourcePos, end: SourcePos) -> bool {
@@ -239,11 +231,7 @@ impl<'a> Iterator for CommentsIterator<'a> {
 
 impl<'a> DoubleEndedIterator for CommentsIterator<'a> {
   fn next_back(&mut self) -> Option<Self::Item> {
-    if self.index < self.comments.len() {
-      self.comments.pop()
-    } else {
-      None
-    }
+    if self.index < self.comments.len() { self.comments.pop() } else { None }
   }
 }
 
@@ -288,11 +276,7 @@ pub trait SourceRanged {
   fn previous_token_fast<'a>(&self, program: ProgramInfo<'a>) -> Option<&'a Token> {
     let pos = self.start();
     let idx = program.tokens.partition_point(|t| t.end() <= pos);
-    if idx > 0 {
-      Some(&program.tokens[idx - 1])
-    } else {
-      None
-    }
+    if idx > 0 { Some(&program.tokens[idx - 1]) } else { None }
   }
 
   fn next_token_fast<'a>(&self, program: ProgramInfo<'a>) -> Option<&'a Token> {
@@ -476,11 +460,7 @@ impl PosExt for SourcePos {
 
   fn previous_token_fast<'a>(&self, program: ProgramInfo<'a>) -> Option<&'a Token> {
     let idx = program.tokens.partition_point(|t| t.end() <= *self);
-    if idx > 0 {
-      Some(&program.tokens[idx - 1])
-    } else {
-      None
-    }
+    if idx > 0 { Some(&program.tokens[idx - 1]) } else { None }
   }
 
   fn next_token_fast<'a>(&self, program: ProgramInfo<'a>) -> Option<&'a Token> {
