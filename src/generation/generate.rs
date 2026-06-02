@@ -3172,33 +3172,41 @@ fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context
   // handle this on a case by case basis for now
   fn get_keep_on_one_line(node: Node) -> bool {
     match node {
-      Node::Ident(_) | Node::IdentName(_) | Node::ThisExpr(_) | Node::SuperPropExpr(_) | Node::MetaPropExpr(_) | Node::Str(_) | Node::PrivateName(_) => true,
-      Node::OptChainExpr(expr) => get_keep_on_one_line(expr.base.as_node()),
-      Node::MemberExpr(expr) => keep_member_expr_on_one_line(expr),
-      Node::CallExpr(expr) => keep_call_expr_on_one_line(expr.into()),
-      Node::OptCall(expr) => keep_call_expr_on_one_line(expr.into()),
+      Node::IdentifierReference(_)
+      | Node::IdentifierName(_)
+      | Node::ThisExpression(_)
+      | Node::MetaProperty(_)
+      | Node::StringLiteral(_)
+      | Node::PrivateIdentifier(_) => true,
+      Node::ChainExpression(expr) => get_keep_on_one_line(chain_element_to_node(&expr.expression)),
+      Node::StaticMemberExpression(_) | Node::ComputedMemberExpression(_) | Node::PrivateFieldExpression(_) => keep_member_expr_on_one_line(node),
+      Node::CallExpression(expr) => keep_call_expr_on_one_line(CallOrOptCallExpr(expr)),
       _ => false,
     }
   }
 
   fn get_possible_surround_newlines(node: Node) -> bool {
     match node {
-      Node::OptChainExpr(expr) => get_possible_surround_newlines(expr.base.as_node()),
-      Node::CondExpr(_) => true,
-      Node::BinExpr(_) => true,
-      Node::MemberExpr(expr) => !keep_member_expr_on_one_line(expr),
-      Node::CallExpr(expr) => !keep_call_expr_on_one_line(expr.into()),
-      Node::OptCall(expr) => !keep_call_expr_on_one_line(expr.into()),
+      Node::ChainExpression(expr) => get_possible_surround_newlines(chain_element_to_node(&expr.expression)),
+      Node::ConditionalExpression(_) => true,
+      Node::BinaryExpression(_) | Node::LogicalExpression(_) => true,
+      Node::StaticMemberExpression(_) | Node::ComputedMemberExpression(_) | Node::PrivateFieldExpression(_) => !keep_member_expr_on_one_line(node),
+      Node::CallExpression(expr) => !keep_call_expr_on_one_line(CallOrOptCallExpr(expr)),
       _ => false,
     }
   }
 
-  fn keep_member_expr_on_one_line(expr: &MemberExpr) -> bool {
-    get_keep_on_one_line(expr.obj.into()) && get_keep_on_one_line(expr.prop.into()) && !matches!(expr.prop, MemberProp::Computed(_))
+  fn keep_member_expr_on_one_line(node: Node) -> bool {
+    match node {
+      Node::StaticMemberExpression(expr) => get_keep_on_one_line(expr_to_node(&expr.object)) && get_keep_on_one_line(Node::IdentifierName(&expr.property)),
+      Node::PrivateFieldExpression(expr) => get_keep_on_one_line(expr_to_node(&expr.object)) && get_keep_on_one_line(Node::PrivateIdentifier(&expr.field)),
+      // computed member accesses (`a[b]`) are not kept on one line
+      _ => false,
+    }
   }
 
   fn keep_call_expr_on_one_line(expr: CallOrOptCallExpr) -> bool {
-    expr.args().is_empty() && get_keep_on_one_line(expr.callee().into())
+    expr.args().is_empty() && get_keep_on_one_line(expr_to_node(expr.callee()))
   }
 }
 
@@ -7656,13 +7664,8 @@ where
     };
 
     fn is_dynamic_import(node: Node) -> bool {
-      if let Node::CallExpr(call_expr) = &node {
-        if let Callee::Import(_) = &call_expr.callee {
-          return true;
-        }
-      }
-
-      false
+      // oxc models dynamic `import(...)` as a dedicated ImportExpression
+      matches!(node, Node::ImportExpression(_))
     }
 
     fn is_param_rest_pat(param: Node) -> bool {
@@ -7773,8 +7776,8 @@ fn gen_close_paren_with_type<'a>(opts: GenCloseParenWithTypeOptions<'a>, context
         // This was done to prevent the second argument becoming hanging, which doesn't
         // look good especially when the return type then becomes multi-line.
         match type_node {
-          Node::TsUnionType(_) | Node::TsIntersectionType(_) => false,
-          Node::TsTypeAnn(type_ann) => !matches!(type_ann.type_ann, TsType::TsUnionOrIntersectionType(_)),
+          Node::TSUnionType(_) | Node::TSIntersectionType(_) => false,
+          Node::TSTypeAnnotation(type_ann) => !matches!(type_ann.type_annotation, TSType::TSUnionType(_) | TSType::TSIntersectionType(_)),
           _ => true,
         }
       } else {
@@ -7939,7 +7942,7 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
           // Prefer going inline multi-line for certain expressions in arguments
           // when initially single line.
           // Example: call({\n}) instead of call(\n  {\n  }\n)
-          NodeOrSeparator::Node(Node::ExprOrSpread(expr_or_spread)) => !matches!(expr_or_spread.expr, Expr::Object(_) | Expr::Array(_)),
+          NodeOrSeparator::Node(n) => !matches!(n, Node::ObjectExpression(_) | Node::ArrayExpression(_)),
           _ => true,
         };
 
