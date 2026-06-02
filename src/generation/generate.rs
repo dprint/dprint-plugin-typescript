@@ -1164,10 +1164,36 @@ fn gen_function_decl_or_expr<'a>(node: FunctionDeclOrExprNode<'a>, context: &mut
   }
 }
 
-fn gen_param<'a>(node: &Param<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_param<'a>(node: &'a FormalParameter<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(gen_decorators(node.decorators, true, context));
-  items.extend(gen_node(node.pat.into(), context));
+  items.extend(gen_decorators(&node.decorators, true, context));
+  // parameter-property modifiers (SWC's TsParamProp is folded into FormalParameter here)
+  if let Some(accessibility) = node.accessibility {
+    items.push_string(format!("{} ", accessibility_to_str(accessibility)));
+  }
+  if node.r#override {
+    items.push_sc(sc!("override "));
+  }
+  if node.readonly {
+    items.push_sc(sc!("readonly "));
+  }
+  // In this oxc fork a default value wraps the binding in an AssignmentPattern while the
+  // type annotation lives on the FormalParameter, so the annotation must be spliced
+  // between the binding and the `= default`.
+  if let BindingPattern::AssignmentPattern(assign) = &node.pattern {
+    items.extend(gen_node(binding_pattern_to_node(&assign.left), context));
+    if node.optional {
+      items.push_sc(sc!("?"));
+    }
+    items.extend(gen_type_ann_with_colon_if_exists(node.type_annotation.as_deref(), context));
+    items.extend(gen_assignment(expr_to_node(&assign.right), sc!("="), context));
+  } else {
+    items.extend(gen_node(binding_pattern_to_node(&node.pattern), context));
+    if node.optional {
+      items.push_sc(sc!("?"));
+    }
+    items.extend(gen_type_ann_with_colon_if_exists(node.type_annotation.as_deref(), context));
+  }
   items
 }
 
@@ -1419,21 +1445,8 @@ fn gen_type_alias<'a>(node: &TsTypeAliasDecl<'a>, context: &mut Context<'a>) -> 
   items
 }
 
-fn gen_using_decl<'a>(node: &UsingDecl<'a>, context: &mut Context<'a>) -> PrintItems {
-  let mut items = PrintItems::new();
-  if node.is_await() {
-    items.push_sc(sc!("await "));
-  }
-  items.push_sc(sc!("using "));
-
-  items.extend(gen_var_declarators(node.into(), node.decls, context));
-
-  if requires_semi_colon_for_var_or_using_decl(node.into(), context) {
-    items.push_sc(sc!(";"));
-  }
-
-  items
-}
+// oxc has no separate UsingDecl - `using` / `await using` are VariableDeclarationKind
+// variants handled directly in gen_var_decl.
 
 /* exports */
 
@@ -4325,10 +4338,10 @@ fn gen_array_pat<'a>(node: &ArrayPat<'a>, context: &mut Context<'a>) -> PrintIte
   items
 }
 
-fn gen_assign_pat<'a>(node: &AssignPat<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_assign_pat<'a>(node: &'a AssignmentPattern<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(gen_node(node.left.into(), context));
-  items.extend(gen_assignment(node.right.into(), sc!("="), context));
+  items.extend(gen_node(binding_pattern_to_node(&node.left), context));
+  items.extend(gen_assignment(expr_to_node(&node.right), sc!("="), context));
   items
 }
 
@@ -5426,39 +5439,42 @@ fn gen_try_stmt<'a>(node: &TryStmt<'a>, context: &mut Context<'a>) -> PrintItems
   items
 }
 
-fn gen_var_decl<'a>(node: &VarDecl<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_var_decl<'a>(node: &'a VariableDeclaration<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  if node.declare() {
+  if node.declare {
     items.push_sc(sc!("declare "));
   }
-  items.push_sc(match node.decl_kind() {
-    VarDeclKind::Const => sc!("const "),
-    VarDeclKind::Let => sc!("let "),
-    VarDeclKind::Var => sc!("var "),
+  // oxc folds `using` / `await using` declarations into VariableDeclaration.
+  items.push_sc(match node.kind {
+    VariableDeclarationKind::Const => sc!("const "),
+    VariableDeclarationKind::Let => sc!("let "),
+    VariableDeclarationKind::Var => sc!("var "),
+    VariableDeclarationKind::Using => sc!("using "),
+    VariableDeclarationKind::AwaitUsing => sc!("await using "),
   });
 
-  items.extend(gen_var_declarators(node.into(), node.decls, context));
+  items.extend(gen_var_declarators(Node::VariableDeclaration(node), &node.declarations, context));
 
-  if requires_semi_colon_for_var_or_using_decl(node.into(), context) {
+  if requires_semi_colon_for_var_or_using_decl(Node::VariableDeclaration(node), context) {
     items.push_sc(sc!(";"));
   }
 
   items
 }
 
-fn requires_semi_colon_for_var_or_using_decl(node: Node, context: &mut Context) -> bool {
+fn requires_semi_colon_for_var_or_using_decl(_node: Node, context: &mut Context) -> bool {
   let use_semi_colons = context.config.semi_colons.is_true();
   use_semi_colons
-    && match node.parent() {
-      Some(Node::ForInStmt(node)) => node.start() >= node.body.start(),
-      Some(Node::ForOfStmt(node)) => node.start() >= node.body.start(),
-      Some(Node::ForStmt(node)) => node.start() >= node.body.start(),
+    && match context.parent() {
+      Node::ForInStatement(node) => node.start() >= node.body.start(),
+      Node::ForOfStatement(node) => node.start() >= node.body.start(),
+      Node::ForStatement(node) => node.start() >= node.body.start(),
       _ => use_semi_colons,
     }
 }
 
-fn gen_var_declarators<'a>(parent: Node<'a>, decls: &[&'a VarDeclarator<'a>], context: &mut Context<'a>) -> PrintItems {
-  fn get_use_new_lines<'a>(parent: Node<'a>, decls: &[&'a VarDeclarator<'a>], context: &mut Context<'a>) -> bool {
+fn gen_var_declarators<'a>(parent: Node<'a>, decls: &'a [VariableDeclarator<'a>], context: &mut Context<'a>) -> PrintItems {
+  fn get_use_new_lines<'a>(parent: Node<'a>, decls: &'a [VariableDeclarator<'a>], context: &mut Context<'a>) -> bool {
     if get_use_new_lines_for_nodes(decls, context.config.variable_statement_prefer_single_line, context) {
       true
     } else {
@@ -5470,12 +5486,12 @@ fn gen_var_declarators<'a>(parent: Node<'a>, decls: &[&'a VarDeclarator<'a>], co
   let decls_len = decls.len();
   if decls_len == 1 {
     // be lightweight by default
-    gen_node(decls[0].into(), context)
+    gen_node(Node::VariableDeclarator(&decls[0]), context)
   } else if decls_len > 1 {
     let force_use_new_lines = get_use_new_lines(parent, decls, context);
     gen_separated_values(
       GenSeparatedValuesParams {
-        nodes: decls.iter().map(|&p| NodeOrSeparator::Node(p.into())).collect(),
+        nodes: decls.iter().map(|p| NodeOrSeparator::Node(Node::VariableDeclarator(p))).collect(),
         prefer_hanging: context.config.variable_statement_prefer_hanging,
         force_use_new_lines,
         allow_blank_lines: false,
@@ -5492,22 +5508,27 @@ fn gen_var_declarators<'a>(parent: Node<'a>, decls: &[&'a VarDeclarator<'a>], co
   }
 }
 
-fn gen_var_declarator<'a>(node: &VarDeclarator<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_var_declarator<'a>(node: &'a VariableDeclarator<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
-  items.extend(gen_node(node.name.into(), context));
+  // In this oxc fork the binding's type annotation / definite marker live on the
+  // declarator rather than the pattern, so emit them here.
+  items.extend(gen_node(binding_pattern_to_node(&node.id), context));
+  if node.definite {
+    items.push_sc(sc!("!"));
+  }
+  items.extend(gen_type_ann_with_colon_if_exists(node.type_annotation.as_deref(), context));
 
   if let Some(init) = &node.init {
-    items.extend(gen_assignment(init.into(), sc!("="), context));
+    items.extend(gen_assignment(expr_to_node(init), sc!("="), context));
   }
 
   // Indent the first variable declarator when there are multiple.
   // Not ideal, but doing this here because of the abstraction used in
   // `gen_var_decl`. In the future this should probably be moved away.
 
-  let parent_decls = match node.parent() {
-    Node::VarDecl(parent) => Some(&parent.decls),
-    Node::UsingDecl(parent) => Some(&parent.decls),
+  let parent_decls = match context.parent() {
+    Node::VariableDeclaration(parent) => Some(&parent.declarations),
     _ => None,
   };
   if let Some(var_decls) = parent_decls {
