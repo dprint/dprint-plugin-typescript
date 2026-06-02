@@ -738,22 +738,30 @@ fn gen_binding_identifier<'a>(node: &BindingIdentifier<'a>, _context: &mut Conte
 
 /* declarations */
 
-fn gen_class_decl<'a>(node: &ClassDecl<'a>, context: &mut Context<'a>) -> PrintItems {
+// oxc unifies SWC's ClassDecl + ClassExpr into a single `Class` node; whether it
+// is a declaration or expression is recorded in `Class.r#type` (an `export default
+// class C` counts as a declaration, matching SWC's old special case).
+fn gen_class<'a>(node: &'a Class<'a>, context: &mut Context<'a>) -> PrintItems {
+  let is_class_decl = matches!(node.r#type, ClassType::ClassDeclaration);
   gen_class_decl_or_expr(
     ClassDeclOrExpr {
-      node: node.into(),
-      member_node: node.class.into(),
-      decorators: node.class.decorators,
-      is_class_decl: true,
-      is_declare: node.declare(),
-      is_abstract: node.class.is_abstract(),
-      ident: Some(node.ident.into()),
-      type_params: node.class.type_params.map(|x| x.into()),
-      super_class: node.class.super_class.map(|x| x.into()),
-      super_type_params: node.class.super_type_params.map(|x| x.into()),
-      implements: node.class.implements.iter().map(|&x| x.into()).collect(),
-      members: node.class.body.iter().map(|x| x.into()).collect(),
-      brace_position: context.config.class_declaration_brace_position,
+      node: Node::Class(node),
+      member_node: Node::ClassBody(&node.body),
+      decorators: &node.decorators,
+      is_class_decl,
+      is_declare: node.declare,
+      is_abstract: node.r#abstract,
+      ident: node.id.as_ref().map(Node::BindingIdentifier),
+      type_params: node.type_parameters.as_deref().map(Node::TSTypeParameterDeclaration),
+      super_class: node.super_class.as_ref().map(expr_to_node),
+      super_type_params: node.super_type_arguments.as_deref().map(Node::TSTypeParameterInstantiation),
+      implements: node.implements.iter().map(Node::TSClassImplements).collect(),
+      members: node.body.body.iter().map(class_element_to_node).collect(),
+      brace_position: if is_class_decl {
+        context.config.class_declaration_brace_position
+      } else {
+        context.config.class_expression_brace_position
+      },
     },
     context,
   )
@@ -762,7 +770,7 @@ fn gen_class_decl<'a>(node: &ClassDecl<'a>, context: &mut Context<'a>) -> PrintI
 struct ClassDeclOrExpr<'a> {
   node: Node<'a>,
   member_node: Node<'a>,
-  decorators: &'a [&'a Decorator<'a>],
+  decorators: &'a [Decorator<'a>],
   is_class_decl: bool,
   is_declare: bool,
   is_abstract: bool,
@@ -779,9 +787,10 @@ fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'
   let mut items = PrintItems::new();
   let (start_before_owned_comments_ln, start_before_owned_comments_isol) = context.get_or_create_current_before_comments_start_info();
 
-  // generate decorators
-  let parent_kind = node.node.parent().unwrap().kind();
-  if parent_kind != NodeKind::ExportDecl && parent_kind != NodeKind::ExportDefaultDecl {
+  // generate decorators (export wrappers emit the class's decorators themselves
+  // since in those cases the decorators start before their parent)
+  let parent_handles_decorators = matches!(context.parent(), Node::ExportNamedDeclaration(_) | Node::ExportDefaultDeclaration(_));
+  if !parent_handles_decorators {
     let is_inline = !node.is_class_decl;
     items.extend(gen_decorators(node.decorators, is_inline, context));
   }
@@ -878,12 +887,27 @@ fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'
   }
 }
 
-fn gen_export_decl<'a>(node: &ExportDecl<'a>, context: &mut Context<'a>) -> PrintItems {
-  let mut items = PrintItems::new();
-  // decorators are handled in gen_node because their starts come before the ExportDecl
-  items.push_sc(sc!("export "));
-  items.extend(gen_node(node.decl.into(), context));
-  items
+// The class body's members are normally generated inline by `gen_class`; this
+// standalone handler exists for completeness when a `ClassBody` is visited directly.
+fn gen_class_body<'a>(node: &'a ClassBody<'a>, context: &mut Context<'a>) -> PrintItems {
+  let members: Vec<Node<'a>> = node.body.iter().map(class_element_to_node).collect();
+  context.with_maybe_consistent_props(
+    members,
+    |members| use_consistent_quotes_for_members(members.iter().copied()),
+    |context, members| {
+      gen_membered_body(
+        GenMemberedBodyOptions {
+          node: Node::ClassBody(node),
+          members,
+          start_header_lsil: None,
+          brace_position: context.config.class_declaration_brace_position,
+          should_use_blank_line: move |previous, next, context| node_helpers::has_separating_blank_line(&previous, &next, context.program),
+          separator: Separator::none(),
+        },
+        context,
+      )
+    },
+  )
 }
 
 fn gen_export_default_decl<'a>(node: &ExportDefaultDecl<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -2207,32 +2231,6 @@ fn gen_import_callee<'a>(node: &Import<'a>, _context: &mut Context<'a>) -> Print
     }
   }
   items
-}
-
-fn gen_class_expr<'a>(node: &ClassExpr<'a>, context: &mut Context<'a>) -> PrintItems {
-  let is_class_decl = node.parent().kind() == NodeKind::ExportDefaultDecl && node.ident.is_some();
-  gen_class_decl_or_expr(
-    ClassDeclOrExpr {
-      node: node.into(),
-      member_node: node.class.into(),
-      decorators: node.class.decorators,
-      is_class_decl,
-      is_declare: false,
-      is_abstract: node.class.is_abstract(),
-      ident: node.ident.map(|x| x.into()),
-      type_params: node.class.type_params.map(|x| x.into()),
-      super_class: node.class.super_class.map(|x| x.into()),
-      super_type_params: node.class.super_type_params.map(|x| x.into()),
-      implements: node.class.implements.iter().map(|&x| x.into()).collect(),
-      members: node.class.body.iter().map(|x| x.into()).collect(),
-      brace_position: if is_class_decl {
-        context.config.class_declaration_brace_position
-      } else {
-        context.config.class_expression_brace_position
-      },
-    },
-    context,
-  )
 }
 
 fn gen_conditional_expr<'a>(node: &CondExpr<'a>, context: &mut Context<'a>) -> PrintItems {

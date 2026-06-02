@@ -57,6 +57,16 @@ pub fn stmt_to_node<'a>(s: &'a Statement<'a>) -> Node<'a> {
   }
 }
 
+pub fn class_element_to_node<'a>(e: &'a ClassElement<'a>) -> Node<'a> {
+  match e {
+    ClassElement::StaticBlock(n) => AstKind::StaticBlock(n),
+    ClassElement::MethodDefinition(n) => AstKind::MethodDefinition(n),
+    ClassElement::PropertyDefinition(n) => AstKind::PropertyDefinition(n),
+    ClassElement::AccessorProperty(n) => AstKind::AccessorProperty(n),
+    ClassElement::TSIndexSignature(n) => AstKind::TSIndexSignature(n),
+  }
+}
+
 pub fn binding_pattern_to_node<'a>(p: &'a BindingPattern<'a>) -> Node<'a> {
   match p {
     BindingPattern::BindingIdentifier(n) => AstKind::BindingIdentifier(n),
