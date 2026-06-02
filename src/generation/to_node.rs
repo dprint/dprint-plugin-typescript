@@ -202,6 +202,29 @@ pub fn ts_literal_to_node<'a>(lit: &'a TSLiteral<'a>) -> Node<'a> {
   }
 }
 
+pub fn decl_to_node<'a>(d: &'a Declaration<'a>) -> Node<'a> {
+  match d {
+    Declaration::VariableDeclaration(n) => AstKind::VariableDeclaration(n),
+    Declaration::FunctionDeclaration(n) => AstKind::Function(n),
+    Declaration::ClassDeclaration(n) => AstKind::Class(n),
+    Declaration::TSTypeAliasDeclaration(n) => AstKind::TSTypeAliasDeclaration(n),
+    Declaration::TSInterfaceDeclaration(n) => AstKind::TSInterfaceDeclaration(n),
+    Declaration::TSEnumDeclaration(n) => AstKind::TSEnumDeclaration(n),
+    Declaration::TSModuleDeclaration(n) => AstKind::TSModuleDeclaration(n),
+    Declaration::TSGlobalDeclaration(n) => AstKind::TSGlobalDeclaration(n),
+    Declaration::TSImportEqualsDeclaration(n) => AstKind::TSImportEqualsDeclaration(n),
+  }
+}
+
+pub fn export_default_decl_kind_to_node<'a>(d: &'a ExportDefaultDeclarationKind<'a>) -> Node<'a> {
+  match d {
+    ExportDefaultDeclarationKind::FunctionDeclaration(n) => AstKind::Function(n),
+    ExportDefaultDeclarationKind::ClassDeclaration(n) => AstKind::Class(n),
+    ExportDefaultDeclarationKind::TSInterfaceDeclaration(n) => AstKind::TSInterfaceDeclaration(n),
+    it @ match_expression!(ExportDefaultDeclarationKind) => expr_to_node(it.to_expression()),
+  }
+}
+
 pub fn module_export_name_to_node<'a>(n: &'a ModuleExportName<'a>) -> Node<'a> {
   match n {
     ModuleExportName::IdentifierName(i) => AstKind::IdentifierName(i),

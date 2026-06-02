@@ -916,26 +916,22 @@ fn gen_class_body<'a>(node: &'a ClassBody<'a>, context: &mut Context<'a>) -> Pri
   )
 }
 
-fn gen_export_default_decl<'a>(node: &ExportDefaultDecl<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_export_default_decl<'a>(node: &'a ExportDefaultDeclaration<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  // decorators are handled in gen_node because their starts come before the ExportDefaultDecl
+  // decorators are handled in gen_node because their starts come before the export
   items.push_sc(sc!("export default "));
-  items.extend(gen_node(node.decl.into(), context));
-  items
-}
-
-fn gen_export_default_expr<'a>(node: &ExportDefaultExpr<'a>, context: &mut Context<'a>) -> PrintItems {
-  let mut items = PrintItems::new();
-  items.push_sc(sc!("export default "));
-  items.extend(gen_node(node.expr.into(), context));
-  if context.config.semi_colons.is_true() {
+  items.extend(gen_node(export_default_decl_kind_to_node(&node.declaration), context));
+  // `export default <expr>` needs a trailing semicolon; function/class/interface declarations do not
+  let is_expr = !matches!(
+    node.declaration,
+    ExportDefaultDeclarationKind::FunctionDeclaration(_)
+      | ExportDefaultDeclarationKind::ClassDeclaration(_)
+      | ExportDefaultDeclarationKind::TSInterfaceDeclaration(_)
+  );
+  if is_expr && context.config.semi_colons.is_true() {
     items.push_sc(sc!(";"));
   }
   items
-}
-
-fn gen_export_default_specifier<'a>(node: &ExportDefaultSpecifier<'a>, context: &mut Context<'a>) -> PrintItems {
-  gen_node(node.exported.into(), context)
 }
 
 fn gen_enum_decl<'a>(node: &'a TSEnumDeclaration<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -986,30 +982,30 @@ fn gen_enum_member<'a>(node: &'a TSEnumMember<'a>, context: &mut Context<'a>) ->
   items
 }
 
-fn gen_export_named_decl<'a>(node: &NamedExport<'a>, context: &mut Context<'a>) -> PrintItems {
-  // fill specifiers
-  let mut default_export: Option<&ExportDefaultSpecifier> = None;
-  let mut namespace_export: Option<&ExportNamespaceSpecifier> = None;
-  let mut named_exports: Vec<&ExportNamedSpecifier> = Vec::new();
-
-  for specifier in node.specifiers {
-    match specifier {
-      ExportSpecifier::Default(node) => default_export = Some(node),
-      ExportSpecifier::Namespace(node) => namespace_export = Some(node),
-      ExportSpecifier::Named(node) => named_exports.push(node),
-    }
+fn gen_export_named_decl<'a>(node: &'a ExportNamedDeclaration<'a>, context: &mut Context<'a>) -> PrintItems {
+  // oxc folds `export <declaration>` (e.g. `export const x = 1`, `export function`/`class`)
+  // into ExportNamedDeclaration.declaration.
+  if let Some(declaration) = &node.declaration {
+    let mut items = PrintItems::new();
+    // decorators of an exported class are emitted in gen_node (they start before `export`)
+    items.push_sc(sc!("export "));
+    items.extend(gen_node(decl_to_node(declaration), context));
+    return items;
   }
 
-  let force_single_line = context.config.export_declaration_force_single_line && !contains_line_or_multiline_comment(node.into(), context.program);
+  // `export { ... } [from '...']` form (specifiers are all named in oxc; default exports are
+  // ExportDefaultDeclaration and `export * as ns` is ExportAllDeclaration)
+  let named_exports: Vec<&ExportSpecifier> = node.specifiers.iter().collect();
+
+  let force_single_line =
+    context.config.export_declaration_force_single_line && !contains_line_or_multiline_comment(Node::ExportNamedDeclaration(node), context.program);
 
   let force_multi_line = !force_single_line
     && ((context.config.export_declaration_force_multi_line == ForceMultiLine::Always)
       || (named_exports.len() > 1 && context.config.export_declaration_force_multi_line == ForceMultiLine::WhenMultiple));
 
   let should_single_line = force_single_line
-    || (default_export.is_none()
-      && namespace_export.is_none()
-      && !force_multi_line
+    || (!force_multi_line
       && (named_exports.len() <= 1 && context.config.export_declaration_force_multi_line == ForceMultiLine::Never)
       && node.start_line_fast(context.program) == node.end_line_fast(context.program));
 
@@ -1017,34 +1013,30 @@ fn gen_export_named_decl<'a>(node: &NamedExport<'a>, context: &mut Context<'a>) 
   let mut items = PrintItems::new();
 
   items.push_sc(sc!("export "));
-  if node.type_only() {
+  if node.export_kind.is_type() {
     items.push_sc(sc!("type "));
   }
 
-  if let Some(default_export) = default_export {
-    items.extend(gen_node(default_export.into(), context));
-  } else if !named_exports.is_empty() {
+  if !named_exports.is_empty() {
     items.extend(gen_named_import_or_export_specifiers(
       GenNamedImportOrExportSpecifierOptions {
-        parent: node.into(),
-        specifiers: named_exports.into_iter().map(|x| x.into()).collect(),
+        parent: Node::ExportNamedDeclaration(node),
+        specifiers: named_exports.into_iter().map(Node::ExportSpecifier).collect(),
         force_single_line,
         force_multi_line_specifiers: force_multi_line,
       },
       context,
     ));
-  } else if let Some(namespace_export) = namespace_export {
-    items.extend(gen_node(namespace_export.into(), context));
   } else {
     items.push_sc(sc!("{}"));
   }
 
-  if let Some(src) = node.src {
+  if let Some(src) = &node.source {
     items.push_sc(sc!(" from "));
-    items.extend(gen_node(src.into(), context));
+    items.extend(gen_node(Node::StringLiteral(src), context));
   }
 
-  if let Some(with_clause) = node.with {
+  if let Some(with_clause) = &node.with_clause {
     items.extend(gen_with_clause(with_clause, context));
   }
 
@@ -1243,21 +1235,22 @@ fn gen_param<'a>(node: &'a FormalParameter<'a>, context: &mut Context<'a>) -> Pr
   items
 }
 
-fn gen_import_decl<'a>(node: &ImportDecl<'a>, context: &mut Context<'a>) -> PrintItems {
-  // fill specifiers
+fn gen_import_decl<'a>(node: &'a ImportDeclaration<'a>, context: &mut Context<'a>) -> PrintItems {
+  // fill specifiers (oxc keeps them in a single Option<Vec<ImportDeclarationSpecifier>>)
   let mut default_import: Option<&ImportDefaultSpecifier> = None;
-  let mut namespace_import: Option<&ImportStarAsSpecifier> = None;
-  let mut named_imports: Vec<&ImportNamedSpecifier> = Vec::new();
+  let mut namespace_import: Option<&ImportNamespaceSpecifier> = None;
+  let mut named_imports: Vec<&ImportSpecifier> = Vec::new();
 
-  for specifier in node.specifiers {
+  for specifier in node.specifiers.iter().flatten() {
     match specifier {
-      ImportSpecifier::Default(node) => default_import = Some(node),
-      ImportSpecifier::Namespace(node) => namespace_import = Some(node),
-      ImportSpecifier::Named(node) => named_imports.push(node),
+      ImportDeclarationSpecifier::ImportDefaultSpecifier(node) => default_import = Some(node),
+      ImportDeclarationSpecifier::ImportNamespaceSpecifier(node) => namespace_import = Some(node),
+      ImportDeclarationSpecifier::ImportSpecifier(node) => named_imports.push(node),
     }
   }
 
-  let force_single_line = context.config.import_declaration_force_single_line && !contains_line_or_multiline_comment(node.into(), context.program);
+  let force_single_line =
+    context.config.import_declaration_force_single_line && !contains_line_or_multiline_comment(Node::ImportDeclaration(node), context.program);
 
   let force_multi_line = context.config.import_declaration_force_multi_line == ForceMultiLine::Always
     || (named_imports.len() > 1 && context.config.import_declaration_force_multi_line == ForceMultiLine::WhenMultiple);
@@ -1270,7 +1263,7 @@ fn gen_import_decl<'a>(node: &ImportDecl<'a>, context: &mut Context<'a>) -> Prin
       && node.start_line_fast(context.program) == node.end_line_fast(context.program));
 
   let has_named_imports = !named_imports.is_empty() || {
-    let from_keyword = context.token_finder.get_previous_token_if_from_keyword(node.src);
+    let from_keyword = context.token_finder.get_previous_token_if_from_keyword(&node.source);
     if let Some(from_keyword) = from_keyword {
       context.token_finder.get_previous_token_if_close_brace(&from_keyword.range()).is_some()
     } else {
@@ -1281,37 +1274,31 @@ fn gen_import_decl<'a>(node: &ImportDecl<'a>, context: &mut Context<'a>) -> Prin
   let mut items = PrintItems::new();
 
   items.push_sc(sc!("import "));
-  if node.type_only() {
+  if node.import_kind.is_type() {
     items.push_sc(sc!("type "));
   }
 
-  match node.phase() {
-    ImportPhase::Evaluation => {
-      // ignore
-    }
-    ImportPhase::Source => {
-      items.push_sc(sc!("source "));
-    }
-    ImportPhase::Defer => {
-      items.push_sc(sc!("defer "));
-    }
+  match node.phase {
+    Some(ImportPhase::Source) => items.push_sc(sc!("source ")),
+    Some(ImportPhase::Defer) => items.push_sc(sc!("defer ")),
+    None => {}
   }
 
   if let Some(default_import) = default_import {
-    items.extend(gen_node(default_import.into(), context));
+    items.extend(gen_node(Node::ImportDefaultSpecifier(default_import), context));
     if namespace_import.is_some() || has_named_imports {
       items.push_sc(sc!(", "));
     }
   }
   if let Some(namespace_import) = namespace_import {
-    items.extend(gen_node(namespace_import.into(), context));
+    items.extend(gen_node(Node::ImportNamespaceSpecifier(namespace_import), context));
   }
 
   if has_named_imports {
     items.extend(gen_named_import_or_export_specifiers(
       GenNamedImportOrExportSpecifierOptions {
-        parent: node.into(),
-        specifiers: named_imports.into_iter().map(|x| x.into()).collect(),
+        parent: Node::ImportDeclaration(node),
+        specifiers: named_imports.into_iter().map(Node::ImportSpecifier).collect(),
         force_single_line,
         force_multi_line_specifiers: force_multi_line,
       },
@@ -1323,9 +1310,9 @@ fn gen_import_decl<'a>(node: &ImportDecl<'a>, context: &mut Context<'a>) -> Prin
     items.push_sc(sc!(" from "));
   }
 
-  items.extend(gen_node(node.src.into(), context));
+  items.extend(gen_node(Node::StringLiteral(&node.source), context));
 
-  if let Some(with_clause) = node.with {
+  if let Some(with_clause) = &node.with_clause {
     items.extend(gen_with_clause(with_clause, context));
   }
 
