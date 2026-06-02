@@ -113,12 +113,12 @@ pub fn nodes_have_only_spaces_between<'a>(previous_node: Node<'a>, next_node: No
 }
 
 pub fn get_siblings_between<'a, 'b>(_node_a: Node<'a>, _node_b: Node<'b>) -> Vec<Node<'a>> {
-  // oxc-port todo: the SWC view layer exposed `parent().children()` and
-  // `child_index()`, which oxc has no equivalent for. This is only used for JSX
-  // child spacing; it needs to be reworked to take the parent's concrete child
-  // collection (e.g. a `JSXElement`'s `.children`). Will be revisited when JSX
-  // generation is ported.
-  todo!("oxc-port: get_siblings_between needs parent child access")
+  // oxc-port interim: the SWC view layer exposed `parent().children()` /
+  // `child_index()`, which oxc has no equivalent for. Only used for JSX child
+  // spacing (detecting `{" "}` space expressions between two children). Returning
+  // empty avoids a panic; the cost is JSX space-expression spacing between children
+  // isn't detected here. TODO: rework to take the parent's concrete child collection.
+  Vec::new()
 }
 
 pub fn has_jsx_space_expr_text(node: Node, program: ProgramInfo) -> bool {
