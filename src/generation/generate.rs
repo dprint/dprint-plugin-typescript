@@ -9801,70 +9801,60 @@ fn bin_like_op_sc(op: BinaryLikeOp) -> &'static StringContainer {
 /* is/has functions */
 
 fn is_arrow_function_with_expr_body(node: Node) -> bool {
-  match node {
-    Node::ExprOrSpread(expr_or_spread) => match expr_or_spread.expr {
-      Expr::Arrow(arrow) => matches!(&arrow.body, BlockStmtOrExpr::Expr(_)),
-      _ => false,
-    },
-    _ => false,
-  }
+  matches!(node, Node::ArrowFunctionExpression(arrow) if arrow.expression)
 }
 
 fn allows_inline_multi_line<'a>(node: Node<'a>, context: &Context<'a>, has_siblings: bool) -> bool {
   return match node {
-    Node::Param(param) => allows_inline_multi_line(param.pat.into(), context, has_siblings),
-    Node::TsAsExpr(as_expr) => {
-      allows_inline_multi_line(as_expr.expr.into(), context, has_siblings)
-        && match as_expr.type_ann {
-          TsType::TsTypeRef(_) | TsType::TsKeywordType(_) => true,
-          _ => allows_inline_multi_line(as_expr.type_ann.into(), context, has_siblings),
-        }
+    Node::FormalParameter(param) => {
+      allows_inline_multi_line(binding_pattern_to_node(&param.pattern), context, has_siblings)
+        || param
+          .type_annotation
+          .as_ref()
+          .is_some_and(|t| allows_inline_multi_line(ts_type_to_node(&t.type_annotation), context, has_siblings))
     }
-    Node::FnExpr(_)
-    | Node::ArrowExpr(_)
-    | Node::ObjectLit(_)
-    | Node::ArrayLit(_)
-    | Node::ObjectPat(_)
-    | Node::ArrayPat(_)
-    | Node::TsTypeLit(_)
-    | Node::TsTupleType(_)
-    | Node::TsArrayType(_) => true,
-    Node::ExprOrSpread(node) => allows_inline_multi_line(node.expr.into(), context, has_siblings),
-    Node::ParenExpr(node) => should_skip_paren_expr(node, context) && allows_inline_multi_line(node.expr.into(), context, has_siblings),
-    Node::TaggedTpl(_) | Node::Tpl(_) => !has_siblings,
-    Node::CallExpr(node) => !has_siblings && allow_inline_for_call_expr(node.into()),
-    Node::OptCall(node) => !has_siblings && allow_inline_for_call_expr(node.into()),
-    Node::BindingIdent(node) => match &node.type_ann {
-      Some(type_ann) => allows_inline_multi_line(type_ann.type_ann.into(), context, has_siblings),
-      None => false,
-    },
-    Node::AssignPat(node) => {
-      allows_inline_multi_line(node.left.into(), context, has_siblings) || allows_inline_multi_line(node.right.into(), context, has_siblings)
+    Node::TSAsExpression(as_expr) => {
+      allows_inline_multi_line(expr_to_node(&as_expr.expression), context, has_siblings)
+        && (matches!(as_expr.type_annotation, TSType::TSTypeReference(_))
+          || as_expr.type_annotation.is_keyword()
+          || allows_inline_multi_line(ts_type_to_node(&as_expr.type_annotation), context, has_siblings))
     }
-    Node::TsTypeAnn(type_ann) => allows_inline_multi_line(type_ann.type_ann.into(), context, has_siblings),
-    Node::TsTupleElement(tuple_element) => allows_inline_multi_line(tuple_element.ty.into(), context, has_siblings),
+    Node::Function(_)
+    | Node::ArrowFunctionExpression(_)
+    | Node::ObjectExpression(_)
+    | Node::ArrayExpression(_)
+    | Node::ObjectPattern(_)
+    | Node::ArrayPattern(_)
+    | Node::TSTypeLiteral(_)
+    | Node::TSTupleType(_)
+    | Node::TSArrayType(_) => true,
+    Node::SpreadElement(node) => allows_inline_multi_line(expr_to_node(&node.argument), context, has_siblings),
+    Node::ParenthesizedExpression(node) => {
+      should_skip_paren_expr(node, context) && allows_inline_multi_line(expr_to_node(&node.expression), context, has_siblings)
+    }
+    Node::TaggedTemplateExpression(_) | Node::TemplateLiteral(_) => !has_siblings,
+    Node::CallExpression(node) => !has_siblings && allow_inline_for_call_expr(CallOrOptCallExpr(node)),
+    Node::AssignmentPattern(node) => {
+      allows_inline_multi_line(binding_pattern_to_node(&node.left), context, has_siblings)
+        || allows_inline_multi_line(expr_to_node(&node.right), context, has_siblings)
+    }
+    Node::TSTypeAnnotation(type_ann) => allows_inline_multi_line(ts_type_to_node(&type_ann.type_annotation), context, has_siblings),
+    Node::TSNamedTupleMember(member) => allows_inline_multi_line(ts_tuple_element_to_node(&member.element_type), context, has_siblings),
     _ => false,
   };
 
   fn allow_inline_for_call_expr(node: CallOrOptCallExpr) -> bool {
     // do not allow call exprs with nested call exprs in the member expr to be inline
-    return allow_for_callee(&node.callee());
+    return allow_for_expr(node.callee());
 
-    fn allow_for_callee(callee: &Callee) -> bool {
-      match callee {
-        Callee::Expr(expr) => allow_for_expr(expr),
-        Callee::Import(_) => false,
-        Callee::Super(_) => true,
-      }
-    }
-
-    fn allow_for_expr(expr: &Expr) -> bool {
+    fn allow_for_expr(expr: &Expression) -> bool {
       match expr {
-        Expr::Member(member_expr) => allow_for_expr(&member_expr.obj),
-        Expr::Call(_)
-        | Expr::OptChain(OptChainExpr {
-          base: OptChainBase::Call(_), ..
-        }) => false,
+        Expression::Super(_) => true,
+        Expression::StaticMemberExpression(m) => allow_for_expr(&m.object),
+        Expression::ComputedMemberExpression(m) => allow_for_expr(&m.object),
+        Expression::PrivateFieldExpression(m) => allow_for_expr(&m.object),
+        Expression::CallExpression(_) => false,
+        Expression::ChainExpression(c) => !matches!(c.expression, ChainElement::CallExpression(_)),
         _ => true,
       }
     }
