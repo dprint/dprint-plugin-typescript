@@ -57,6 +57,26 @@ pub fn stmt_to_node<'a>(s: &'a Statement<'a>) -> Node<'a> {
   }
 }
 
+pub fn arg_to_node<'a>(a: &'a Argument<'a>) -> Node<'a> {
+  match a {
+    Argument::SpreadElement(n) => AstKind::SpreadElement(n),
+    it @ match_expression!(Argument) => expr_to_node(it.to_expression()),
+  }
+}
+
+pub fn simple_assignment_target_to_node<'a>(t: &'a SimpleAssignmentTarget<'a>) -> Node<'a> {
+  match t {
+    SimpleAssignmentTarget::AssignmentTargetIdentifier(n) => AstKind::IdentifierReference(n),
+    SimpleAssignmentTarget::TSAsExpression(n) => AstKind::TSAsExpression(n),
+    SimpleAssignmentTarget::TSSatisfiesExpression(n) => AstKind::TSSatisfiesExpression(n),
+    SimpleAssignmentTarget::TSNonNullExpression(n) => AstKind::TSNonNullExpression(n),
+    SimpleAssignmentTarget::TSTypeAssertion(n) => AstKind::TSTypeAssertion(n),
+    SimpleAssignmentTarget::ComputedMemberExpression(n) => AstKind::ComputedMemberExpression(n),
+    SimpleAssignmentTarget::StaticMemberExpression(n) => AstKind::StaticMemberExpression(n),
+    SimpleAssignmentTarget::PrivateFieldExpression(n) => AstKind::PrivateFieldExpression(n),
+  }
+}
+
 pub fn obj_prop_kind_to_node<'a>(p: &'a ObjectPropertyKind<'a>) -> Node<'a> {
   match p {
     ObjectPropertyKind::ObjectProperty(n) => AstKind::ObjectProperty(n),

@@ -1942,10 +1942,10 @@ fn gen_assignment_expr<'a>(node: &AssignExpr<'a>, context: &mut Context<'a>) -> 
   items
 }
 
-fn gen_await_expr<'a>(node: &AwaitExpr<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_await_expr<'a>(node: &'a AwaitExpression<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_sc(sc!("await "));
-  items.extend(gen_node(node.arg.into(), context));
+  items.extend(gen_node(expr_to_node(&node.argument), context));
   items
 }
 
@@ -2716,35 +2716,45 @@ fn gen_object_method<'a>(node: &'a ObjectProperty<'a>, func: &'a Function<'a>, k
   )
 }
 
-fn gen_member_expr<'a>(node: &MemberExpr<'a>, context: &mut Context<'a>) -> PrintItems {
-  let flattened_member_expr = flatten_member_like_expr(node.into(), context.program);
+// oxc splits SWC's `MemberExpr` into three distinct nodes; this enum recovers a
+// unified view for the dispatch and flattening logic.
+enum MemberExpr<'a> {
+  Static(&'a StaticMemberExpression<'a>),
+  Computed(&'a ComputedMemberExpression<'a>),
+  Private(&'a PrivateFieldExpression<'a>),
+}
+
+impl<'a> MemberExpr<'a> {
+  fn as_node(&self) -> Node<'a> {
+    match self {
+      MemberExpr::Static(n) => Node::StaticMemberExpression(n),
+      MemberExpr::Computed(n) => Node::ComputedMemberExpression(n),
+      MemberExpr::Private(n) => Node::PrivateFieldExpression(n),
+    }
+  }
+}
+
+fn gen_member_expr<'a>(node: MemberExpr<'a>, context: &mut Context<'a>) -> PrintItems {
+  let flattened_member_expr = flatten_member_like_expr(node.as_node(), context.program);
   gen_for_flattened_member_like_expr(flattened_member_expr, context)
 }
 
-fn gen_meta_prop_expr<'a>(node: &MetaPropExpr<'a>, context: &mut Context<'a>) -> PrintItems {
-  let flattened_meta_prop_expr = flatten_member_like_expr(node.into(), context.program);
+fn gen_meta_prop_expr<'a>(node: &'a MetaProperty<'a>, context: &mut Context<'a>) -> PrintItems {
+  let flattened_meta_prop_expr = flatten_member_like_expr(Node::MetaProperty(node), context.program);
   gen_for_flattened_member_like_expr(flattened_meta_prop_expr, context)
 }
 
-fn gen_super_prop_expr<'a>(node: &SuperPropExpr<'a>, context: &mut Context<'a>) -> PrintItems {
-  let flattened_member_expr = flatten_member_like_expr(node.into(), context.program);
-  gen_for_flattened_member_like_expr(flattened_member_expr, context)
-}
-
-fn gen_new_expr<'a>(node: &NewExpr<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_new_expr<'a>(node: &'a NewExpression<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_sc(sc!("new "));
-  items.extend(gen_node(node.callee.into(), context));
-  if let Some(type_args) = node.type_args {
-    items.extend(gen_node(type_args.into(), context));
+  items.extend(gen_node(expr_to_node(&node.callee), context));
+  if let Some(type_args) = &node.type_arguments {
+    items.extend(gen_node(Node::TSTypeParameterInstantiation(type_args), context));
   }
-  let args = match node.args.as_ref() {
-    Some(args) => args.iter().map(|&node| node.into()).collect(),
-    None => Vec::new(),
-  };
+  let args = node.arguments.iter().map(arg_to_node).collect();
   items.extend(gen_parameters_or_arguments(
     GenParametersOrArgumentsOptions {
-      node: node.into(),
+      node: Node::NewExpression(node),
       range: node.get_parameters_range(context),
       nodes: args,
       custom_close_paren: |_| None,
@@ -2755,9 +2765,9 @@ fn gen_new_expr<'a>(node: &NewExpr<'a>, context: &mut Context<'a>) -> PrintItems
   items
 }
 
-fn gen_non_null_expr<'a>(node: &TsNonNullExpr<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_non_null_expr<'a>(node: &'a TSNonNullExpression<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(gen_node(node.expr.into(), context));
+  items.extend(gen_node(expr_to_node(&node.expression), context));
   items.push_sc(sc!("!"));
   items
 }
@@ -2927,10 +2937,10 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
   false
 }
 
-fn gen_sequence_expr<'a>(node: &SeqExpr<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_sequence_expr<'a>(node: &'a SequenceExpression<'a>, context: &mut Context<'a>) -> PrintItems {
   gen_separated_values(
     GenSeparatedValuesParams {
-      nodes: node.exprs.iter().map(|x| NodeOrSeparator::Node(x.into())).collect(),
+      nodes: node.expressions.iter().map(|x| NodeOrSeparator::Node(expr_to_node(x))).collect(),
       prefer_hanging: context.config.sequence_expression_prefer_hanging,
       force_use_new_lines: is_node_definitely_above_line_width(node.range(), context),
       allow_blank_lines: false,
@@ -3225,66 +3235,64 @@ fn gen_type_assertion<'a>(node: &TsTypeAssertion<'a>, context: &mut Context<'a>)
   items
 }
 
-fn gen_unary_expr<'a>(node: &UnaryExpr<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_unary_expr<'a>(node: &'a UnaryExpression<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.push_sc(get_operator_text(node.op()));
-  items.extend(gen_node(node.arg.into(), context));
+  items.push_sc(get_operator_text(node.operator));
+  items.extend(gen_node(expr_to_node(&node.argument), context));
 
-  if get_should_use_parens(node) {
+  // wrap in parens when the parent is an `in` / `instanceof` binary expression
+  let should_use_parens = matches!(
+    context.parent(),
+    Node::BinaryExpression(parent) if matches!(parent.operator, BinaryOperator::In | BinaryOperator::Instanceof)
+  );
+  if should_use_parens {
     items = surround_with_parens(items);
   }
 
   return items;
 
-  fn get_operator_text(op: UnaryOp) -> &'static StringContainer {
+  fn get_operator_text(op: UnaryOperator) -> &'static StringContainer {
     match op {
-      UnaryOp::Void => sc!("void "),
-      UnaryOp::TypeOf => sc!("typeof "),
-      UnaryOp::Delete => sc!("delete "),
-      UnaryOp::Bang => sc!("!"),
-      UnaryOp::Plus => sc!("+"),
-      UnaryOp::Minus => sc!("-"),
-      UnaryOp::Tilde => sc!("~"),
+      UnaryOperator::Void => sc!("void "),
+      UnaryOperator::Typeof => sc!("typeof "),
+      UnaryOperator::Delete => sc!("delete "),
+      UnaryOperator::LogicalNot => sc!("!"),
+      UnaryOperator::UnaryPlus => sc!("+"),
+      UnaryOperator::UnaryNegation => sc!("-"),
+      UnaryOperator::BitwiseNot => sc!("~"),
     }
-  }
-
-  fn get_should_use_parens(node: &UnaryExpr) -> bool {
-    if let Node::BinExpr(parent) = node.parent() {
-      return matches!(parent.op(), BinaryOp::In | BinaryOp::InstanceOf);
-    }
-    false
   }
 }
 
-fn gen_update_expr<'a>(node: &UpdateExpr<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_update_expr<'a>(node: &'a UpdateExpression<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  let operator_text = get_operator_text(node.op());
-  if node.prefix() {
+  let operator_text = get_operator_text(node.operator);
+  if node.prefix {
     items.push_sc(operator_text);
   }
-  items.extend(gen_node(node.arg.into(), context));
-  if !node.prefix() {
+  items.extend(gen_node(simple_assignment_target_to_node(&node.argument), context));
+  if !node.prefix {
     items.push_sc(operator_text);
   }
   return items;
 
-  fn get_operator_text(operator: UpdateOp) -> &'static StringContainer {
+  fn get_operator_text(operator: UpdateOperator) -> &'static StringContainer {
     match operator {
-      UpdateOp::MinusMinus => sc!("--"),
-      UpdateOp::PlusPlus => sc!("++"),
+      UpdateOperator::Decrement => sc!("--"),
+      UpdateOperator::Increment => sc!("++"),
     }
   }
 }
 
-fn gen_yield_expr<'a>(node: &YieldExpr<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_yield_expr<'a>(node: &'a YieldExpression<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_sc(sc!("yield"));
-  if node.delegate() {
+  if node.delegate {
     items.push_sc(sc!("*"));
   }
-  if let Some(arg) = &node.arg {
+  if let Some(arg) = &node.argument {
     items.push_space();
-    items.extend(gen_node(arg.into(), context));
+    items.extend(gen_node(expr_to_node(arg), context));
   }
   items
 }
