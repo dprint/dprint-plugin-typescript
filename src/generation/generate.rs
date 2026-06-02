@@ -6358,7 +6358,7 @@ fn gen_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -
       prefer_hanging,
       force_use_new_lines,
       allow_blank_lines: false,
-      separator: get_trailing_commas(node, context).into(),
+      separator: get_trailing_commas(&node, context).into(),
       single_line_options: ir_helpers::SingleLineOptions::same_line_maybe_space_separated(),
       multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(),
       force_possible_newline_at_start: false,
@@ -6370,44 +6370,41 @@ fn gen_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -
 
   return items;
 
-  fn get_trailing_commas<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -> TrailingCommas {
+  fn get_trailing_commas<'a>(node: &TypeParamNode<'a>, context: &mut Context<'a>) -> TrailingCommas {
     let trailing_commas = context.config.type_parameters_trailing_commas;
     if trailing_commas == TrailingCommas::Never {
       return trailing_commas;
     }
 
-    // trailing commas should be allowed in type parameters only—not arguments
-    if let Some(type_params) = node.parent().get_type_parameters() {
-      if type_params.start() == node.start() {
-        // Use trailing commas for function expressions in a JSX file
-        // if the absence of one would lead to a parsing ambiguity.
-        let parent = node.parent();
-        let is_ambiguous_jsx_fn_expr = context.is_jsx()
-          && (parent.kind() == NodeKind::ArrowExpr || parent.parent().unwrap().kind() == NodeKind::FnExpr)
-          // not ambiguous in a default export
-          && !matches!(
-            parent.parent().and_then(|p| p.parent()).map(|p| p.kind()),
-            Some(NodeKind::ExportDefaultExpr | NodeKind::ExportDefaultDecl)
-          );
-        // Prevent "This syntax is reserved in files with the .mts or .cts extension." diagnostic.
-        let is_cts_mts_arrow_fn = matches!(context.media_type, MediaType::Cts | MediaType::Mts) && parent.kind() == NodeKind::ArrowExpr;
-        if is_ambiguous_jsx_fn_expr || is_cts_mts_arrow_fn {
-          let children = type_params.children();
-          // It is not ambiguous if there are multiple type parameters.
-          if children.len() == 1 && children[0].kind() == NodeKind::TsTypeParam {
-            let type_param = children[0];
-            let children = type_param.children();
-            // We have a possible ambiguity iff this type parameter is just an identifier.
-            if children.len() == 1 && matches!(children[0].kind(), NodeKind::Ident | NodeKind::IdentName) {
-              return TrailingCommas::Always;
-            }
-          }
+    // trailing commas are allowed in type parameter *declarations* only, not type arguments
+    let type_params = match node {
+      TypeParamNode::Decl(decl) => *decl,
+      TypeParamNode::Instantiation(_) => return TrailingCommas::Never,
+    };
+
+    // Use trailing commas for arrow/function expressions in a JSX (or .cts/.mts) file
+    // if the absence of one would lead to a parsing ambiguity (`<T,>() => ...`).
+    let parent = node.parent(context);
+    // the node containing the function/arrow (to exclude default exports)
+    let grandparent = context.parent_stack.iter().nth(1).copied();
+    let is_ambiguous_jsx_fn_expr = context.is_jsx()
+      && matches!(parent, Node::ArrowFunctionExpression(_) | Node::Function(_))
+      // not ambiguous in a default export
+      && !matches!(grandparent, Some(Node::ExportDefaultDeclaration(_)));
+    // Prevent "This syntax is reserved in files with the .mts or .cts extension." diagnostic.
+    let is_cts_mts_arrow_fn = matches!(context.media_type, MediaType::Cts | MediaType::Mts) && matches!(parent, Node::ArrowFunctionExpression(_));
+    if is_ambiguous_jsx_fn_expr || is_cts_mts_arrow_fn {
+      // ambiguous iff there's a single type parameter that is just an identifier
+      // (no constraint or default)
+      if type_params.params.len() == 1 {
+        let type_param = &type_params.params[0];
+        if type_param.constraint.is_none() && type_param.default.is_none() {
+          return TrailingCommas::Always;
         }
-        return trailing_commas;
       }
     }
 
-    TrailingCommas::Never
+    trailing_commas
   }
 
   fn get_use_new_lines(node: &TypeParamNode, params: &[Node], context: &mut Context) -> bool {
@@ -6572,11 +6569,10 @@ fn gen_union_or_intersection_type<'a, 'b>(node: UnionOrIntersectionType<'a, 'b>,
 
   return items;
 
-  fn use_surround_newlines<'a>(node: Node<'a>, context: &mut Context<'a>) -> bool {
-    let parent = node.parent().unwrap();
-    match parent {
-      Node::TsTypeAssertion(_) => true,
-      Node::TsParenthesizedType(paren_type) => !should_skip_parenthesized_type(paren_type, context),
+  fn use_surround_newlines<'a>(_node: Node<'a>, context: &mut Context<'a>) -> bool {
+    match context.parent() {
+      Node::TSTypeAssertion(_) => true,
+      Node::TSParenthesizedType(paren_type) => !should_skip_parenthesized_type(paren_type, context),
       _ => false,
     }
   }
