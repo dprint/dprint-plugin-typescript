@@ -1480,32 +1480,32 @@ fn gen_named_import_or_export_specifiers<'a>(opts: GenNamedImportOrExportSpecifi
 
   fn get_trailing_commas(parent_decl: Node, context: &Context) -> TrailingCommas {
     match parent_decl {
-      Node::NamedExport(_) => context.config.export_declaration_trailing_commas,
-      Node::ImportDecl(_) => context.config.import_declaration_trailing_commas,
+      Node::ExportNamedDeclaration(_) => context.config.export_declaration_trailing_commas,
+      Node::ImportDeclaration(_) => context.config.import_declaration_trailing_commas,
       _ => unreachable!(),
     }
   }
 
   fn get_use_space(parent_decl: Node, context: &Context) -> bool {
     match parent_decl {
-      Node::NamedExport(_) => context.config.export_declaration_space_surrounding_named_exports,
-      Node::ImportDecl(_) => context.config.import_declaration_space_surrounding_named_imports,
+      Node::ExportNamedDeclaration(_) => context.config.export_declaration_space_surrounding_named_exports,
+      Node::ImportDeclaration(_) => context.config.import_declaration_space_surrounding_named_imports,
       _ => unreachable!(),
     }
   }
 
   fn get_prefer_hanging(parent_decl: Node, context: &Context) -> bool {
     match parent_decl {
-      Node::NamedExport(_) => context.config.export_declaration_prefer_hanging,
-      Node::ImportDecl(_) => context.config.import_declaration_prefer_hanging,
+      Node::ExportNamedDeclaration(_) => context.config.export_declaration_prefer_hanging,
+      Node::ImportDeclaration(_) => context.config.import_declaration_prefer_hanging,
       _ => unreachable!(),
     }
   }
 
   fn get_prefer_single_line(parent_decl: Node, context: &Context) -> bool {
     match parent_decl {
-      Node::NamedExport(_) => context.config.export_declaration_prefer_single_line,
-      Node::ImportDecl(_) => context.config.import_declaration_prefer_single_line,
+      Node::ExportNamedDeclaration(_) => context.config.export_declaration_prefer_single_line,
+      Node::ImportDeclaration(_) => context.config.import_declaration_prefer_single_line,
       _ => unreachable!(),
     }
   }
@@ -1513,13 +1513,13 @@ fn gen_named_import_or_export_specifiers<'a>(opts: GenNamedImportOrExportSpecifi
   fn get_node_sorter<'a>(
     parent_decl: Node,
     context: &Context<'a>,
-  ) -> Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), Program<'a>) -> std::cmp::Ordering>> {
+  ) -> Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), ProgramInfo<'a>) -> std::cmp::Ordering>> {
     match parent_decl {
-      Node::NamedExport(_) => get_node_sorter_from_order(
+      Node::ExportNamedDeclaration(_) => get_node_sorter_from_order(
         context.config.export_declaration_sort_named_exports,
         context.config.export_declaration_sort_type_only_exports,
       ),
-      Node::ImportDecl(_) => get_node_sorter_from_order(
+      Node::ImportDeclaration(_) => get_node_sorter_from_order(
         context.config.import_declaration_sort_named_imports,
         context.config.import_declaration_sort_type_only_imports,
       ),
