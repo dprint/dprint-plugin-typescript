@@ -2175,57 +2175,51 @@ fn gen_binary_expr<'a>(node: BinaryLikeExpr<'a>, context: &mut Context<'a>) -> P
 }
 
 fn gen_call_or_opt_expr<'a>(node: CallOrOptCallExpr<'a>, context: &mut Context<'a>) -> PrintItems {
-  if let CallOrOptCallExpr::CallExpr(node) = node {
-    if node_helpers::is_test_library_call_expr(node, context.program) {
-      return gen_test_library_call_expr(node, context);
-    }
+  if node_helpers::is_test_library_call_expr(node.inner(), context.program) {
+    return gen_test_library_call_expr(node.inner(), context);
   }
 
   // flatten the call expression and check if it should be generated as a flattened member like expression
-  let flattened_call_expr = flatten_member_like_expr(node.into(), context.program);
+  let flattened_call_expr = flatten_member_like_expr(Node::CallExpression(node.inner()), context.program);
   return if flattened_call_expr.nodes.len() > 1 {
     gen_for_flattened_member_like_expr(flattened_call_expr, context)
   } else {
     gen_call_expr_like(
       CallExprLike {
         original_call_expr: node,
-        generated_callee: gen_node(node.callee().into(), context),
+        generated_callee: gen_node(expr_to_node(node.callee()), context),
       },
       context,
     )
   };
 
-  fn gen_test_library_call_expr<'a>(node: &CallExpr<'a>, context: &mut Context<'a>) -> PrintItems {
+  fn gen_test_library_call_expr<'a>(node: &'a CallExpression<'a>, context: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
     items.extend(gen_test_library_callee(&node.callee, context));
-    items.extend(gen_test_library_arguments(node.args, context));
+    items.extend(gen_test_library_arguments(&node.arguments, context));
     return items;
 
-    fn gen_test_library_callee<'a, 'b>(callee: &'b Callee<'a>, context: &mut Context<'a>) -> PrintItems {
+    fn gen_test_library_callee<'a>(callee: &'a Expression<'a>, context: &mut Context<'a>) -> PrintItems {
       match callee {
-        Callee::Expr(expr) => match expr {
-          Expr::Member(member_expr) => {
-            let mut items = PrintItems::new();
-            items.extend(gen_node(member_expr.obj.into(), context));
-            items.push_sc(sc!("."));
-            items.extend(gen_node(member_expr.prop.into(), context));
-            items
-          }
-          _ => gen_node(expr.into(), context),
-        },
-        _ => gen_node(callee.into(), context),
+        Expression::StaticMemberExpression(member_expr) => {
+          let mut items = gen_node(expr_to_node(&member_expr.object), context);
+          items.push_sc(sc!("."));
+          items.extend(gen_node(Node::IdentifierName(&member_expr.property), context));
+          items
+        }
+        _ => gen_node(expr_to_node(callee), context),
       }
     }
 
-    fn gen_test_library_arguments<'a>(args: &[&'a ExprOrSpread<'a>], context: &mut Context<'a>) -> PrintItems {
+    fn gen_test_library_arguments<'a>(args: &'a [Argument<'a>], context: &mut Context<'a>) -> PrintItems {
       let mut items = PrintItems::new();
-      items.extend(gen_node_with_inner_gen(args[0].into(), context, |items, _| {
+      items.extend(gen_node_with_inner_gen(arg_to_node(&args[0]), context, |items, _| {
         let mut new_items = ir_helpers::with_no_new_lines(items);
         new_items.push_sc(sc!(","));
         new_items
       }));
       items.push_space();
-      items.extend(gen_node(args[1].into(), context));
+      items.extend(gen_node(arg_to_node(&args[1]), context));
 
       surround_with_parens(items)
     }
@@ -2244,7 +2238,7 @@ fn gen_call_expr_like<'a>(node: CallExprLike<'a>, context: &mut Context<'a>) -> 
   items.extend(node.generated_callee);
 
   if let Some(type_args) = call_expr.type_args() {
-    items.extend(gen_node(type_args.into(), context));
+    items.extend(gen_node(Node::TSTypeParameterInstantiation(type_args), context));
   }
 
   if call_expr.is_optional() {
@@ -2253,33 +2247,15 @@ fn gen_call_expr_like<'a>(node: CallExprLike<'a>, context: &mut Context<'a>) -> 
 
   items.push_condition(conditions::with_indent_if_start_of_line_indented(gen_parameters_or_arguments(
     GenParametersOrArgumentsOptions {
-      node: call_expr.into(),
+      node: Node::CallExpression(call_expr.inner()),
       range: call_expr.get_parameters_range(context),
-      nodes: call_expr.args().iter().map(|&node| node.into()).collect(),
+      nodes: call_expr.args().iter().map(arg_to_node).collect(),
       custom_close_paren: |_| None,
       is_parameters: false,
     },
     context,
   )));
 
-  items
-}
-
-fn gen_import_callee<'a>(node: &Import<'a>, _context: &mut Context<'a>) -> PrintItems {
-  let mut items = PrintItems::new();
-  items.push_sc(sc!("import"));
-  // for now, just be simple and force this on one line
-  match node.phase() {
-    ImportPhase::Evaluation => {
-      // nothing to do
-    }
-    ImportPhase::Source => {
-      items.push_sc(sc!(".source"));
-    }
-    ImportPhase::Defer => {
-      items.push_sc(sc!(".defer"));
-    }
-  }
   items
 }
 
