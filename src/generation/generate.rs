@@ -6093,9 +6093,12 @@ fn gen_lit_type<'a>(node: &'a TSLiteralType<'a>, context: &mut Context<'a>) -> P
   }
 }
 
-fn gen_mapped_type<'a>(node: &TsMappedType<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_mapped_type<'a>(node: &'a TSMappedType<'a>, context: &mut Context<'a>) -> PrintItems {
+  // oxc splits SWC's mapped-type `type_param` into separate `key` (P) + `constraint` (K),
+  // and exposes optional/readonly as Option<TSMappedTypeModifierOperator>.
+  let type_param_range = SourceRange::new(node.key.start(), node.constraint.end());
   let force_use_new_lines =
-    !context.config.mapped_type_prefer_single_line && node_helpers::get_use_new_lines_for_nodes(&node.start(), node.type_param, context.program);
+    !context.config.mapped_type_prefer_single_line && node_helpers::get_use_new_lines_for_nodes(&node.start(), &node.key, context.program);
 
   let range = node.range();
   let mut items = PrintItems::new();
@@ -6120,31 +6123,34 @@ fn gen_mapped_type<'a>(node: &TsMappedType<'a>, context: &mut Context<'a>) -> Pr
           gen_trailing_comments(&node_tokens[node_tokens.len() - 2].range(), context)
         };
 
-        if let Some(readonly) = node.readonly() {
+        if let Some(readonly) = node.readonly {
           items.push_sc(match readonly {
-            TruePlusMinus::True => sc!("readonly "),
-            TruePlusMinus::Plus => sc!("+readonly "),
-            TruePlusMinus::Minus => sc!("-readonly "),
+            TSMappedTypeModifierOperator::True => sc!("readonly "),
+            TSMappedTypeModifierOperator::Plus => sc!("+readonly "),
+            TSMappedTypeModifierOperator::Minus => sc!("-readonly "),
           });
         }
 
         let computed_inner_range = SourceRange::new(
-          node.type_param.start(),
-          node.name_type.map(|t| t.end()).unwrap_or_else(|| node.type_param.end()),
+          type_param_range.start,
+          node.name_type.as_ref().map(|t| t.end()).unwrap_or_else(|| type_param_range.end),
         );
         items.extend(gen_computed_prop_like(
           |context| {
-            let mut items = PrintItems::new();
-            if let Some(name_type) = node.name_type {
-              items.extend(gen_as_expr_like(
-                AsExprLike {
-                  expr: node.type_param.into(),
-                  type_ann: name_type.into(),
-                },
-                context,
-              ));
-            } else {
-              items.extend(gen_node(node.type_param.into(), context));
+            // `P in K` (and optionally `as NameType`)
+            let mut items = gen_node(Node::BindingIdentifier(&node.key), context);
+            items.push_signal(Signal::SpaceOrNewLine);
+            items.push_condition(conditions::indent_if_start_of_line({
+              let mut items = PrintItems::new();
+              items.push_sc(sc!("in"));
+              items.push_signal(Signal::SpaceIfNotTrailing);
+              items.extend(gen_node(ts_type_to_node(&node.constraint), context));
+              items
+            }));
+            if let Some(name_type) = &node.name_type {
+              items.push_sc(sc!(" as"));
+              items.push_signal(Signal::SpaceIfNotTrailing);
+              items.extend(gen_node(ts_type_to_node(name_type), context));
             }
             items
           },
@@ -6154,15 +6160,15 @@ fn gen_mapped_type<'a>(node: &TsMappedType<'a>, context: &mut Context<'a>) -> Pr
           context,
         ));
 
-        if let Some(optional) = node.optional() {
+        if let Some(optional) = node.optional {
           items.push_sc(match optional {
-            TruePlusMinus::True => sc!("?"),
-            TruePlusMinus::Plus => sc!("+?"),
-            TruePlusMinus::Minus => sc!("-?"),
+            TSMappedTypeModifierOperator::True => sc!("?"),
+            TSMappedTypeModifierOperator::Plus => sc!("+?"),
+            TSMappedTypeModifierOperator::Minus => sc!("-?"),
           });
         }
 
-        items.extend(gen_type_ann_with_colon_if_exists_for_type(node.type_ann, context));
+        items.extend(gen_type_ann_with_colon_if_exists_for_type(node.type_annotation.as_ref().map(ts_type_to_node), context));
         items.extend(get_generated_semi_colon(context.config.semi_colons, true, &is_different_line_than_start));
         items.extend(generated_semi_colon_comments);
 
@@ -6188,7 +6194,7 @@ fn gen_mapped_type<'a>(node: &TsMappedType<'a>, context: &mut Context<'a>) -> Pr
       open_token: sc!("{"),
       close_token: sc!("}"),
       range: Some(range),
-      first_member: Some(node.type_param.range()),
+      first_member: Some(type_param_range),
       prefer_single_line_when_empty: false,
       allow_open_token_trailing_comments: true,
       single_line_space_around: false,
