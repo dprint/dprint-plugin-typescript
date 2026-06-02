@@ -66,6 +66,14 @@ pub fn array_element_to_node<'a>(e: &'a ArrayExpressionElement<'a>) -> Option<No
   }
 }
 
+pub fn module_export_name_to_node<'a>(n: &'a ModuleExportName<'a>) -> Node<'a> {
+  match n {
+    ModuleExportName::IdentifierName(i) => AstKind::IdentifierName(i),
+    ModuleExportName::IdentifierReference(i) => AstKind::IdentifierReference(i),
+    ModuleExportName::StringLiteral(s) => AstKind::StringLiteral(s),
+  }
+}
+
 pub fn for_stmt_init_to_node<'a>(init: &'a ForStatementInit<'a>) -> Node<'a> {
   match init {
     ForStatementInit::VariableDeclaration(n) => AstKind::VariableDeclaration(n),

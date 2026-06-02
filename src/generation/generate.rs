@@ -272,6 +272,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       Node::BindingRestElement(node) => gen_rest_pat(node, context),
       Node::FormalParameter(node) => gen_param(node, context),
       Node::FormalParameterRest(node) => gen_formal_parameter_rest(node, context),
+      Node::ImportAttribute(node) => gen_import_attribute(node, context),
       /* statements */
       Node::BlockStatement(node) => gen_block_stmt(node, context),
       Node::FunctionBody(node) => gen_function_body(node, context),
@@ -3304,71 +3305,68 @@ fn gen_yield_expr<'a>(node: &'a YieldExpression<'a>, context: &mut Context<'a>) 
 
 /* exports */
 
-fn gen_export_named_specifier<'a>(node: &ExportNamedSpecifier<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_export_named_specifier<'a>(node: &'a ExportSpecifier<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
-  if node.is_type_only() && !node.parent().type_only() {
+  let parent_type_only = matches!(context.parent(), Node::ExportNamedDeclaration(p) if p.export_kind.is_type());
+  if node.export_kind.is_type() && !parent_type_only {
     items.push_sc(sc!("type "));
   }
 
-  items.extend(gen_node(node.orig.into(), context));
-  if let Some(exported) = node.exported {
+  items.extend(gen_node(module_export_name_to_node(&node.local), context));
+  // oxc always populates `exported`; an alias is present when it differs from `local`.
+  if node.local.range() != node.exported.range() {
     items.push_signal(Signal::SpaceOrNewLine);
     items.push_condition(conditions::indent_if_start_of_line({
       let mut items = PrintItems::new();
       items.push_sc(sc!("as "));
-      items.extend(gen_node(exported.into(), context));
+      items.extend(gen_node(module_export_name_to_node(&node.exported), context));
       items
     }));
   }
 
-  items
-}
-
-fn gen_namespace_export_specifier<'a>(node: &ExportNamespaceSpecifier<'a>, context: &mut Context<'a>) -> PrintItems {
-  let mut items = PrintItems::new();
-  items.push_sc(sc!("* as "));
-  items.extend(gen_node(node.name.into(), context));
   items
 }
 
 /* imports */
 
-fn gen_import_named_specifier<'a>(node: &ImportNamedSpecifier<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_import_named_specifier<'a>(node: &'a ImportSpecifier<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
-  if node.is_type_only() && !node.parent().type_only() {
+  let parent_type_only = matches!(context.parent(), Node::ImportDeclaration(p) if p.import_kind.is_type());
+  if node.import_kind.is_type() && !parent_type_only {
     items.push_sc(sc!("type "));
   }
 
-  if let Some(imported) = node.imported {
-    items.extend(gen_node(imported.into(), context));
+  // oxc always populates `imported`; an alias is present when it differs from `local`.
+  if node.imported.range() != node.local.range() {
+    items.extend(gen_node(module_export_name_to_node(&node.imported), context));
     items.push_signal(Signal::SpaceOrNewLine);
     items.push_condition(conditions::indent_if_start_of_line({
       let mut items = PrintItems::new();
       items.push_sc(sc!("as "));
-      items.extend(gen_node(node.local.into(), context));
+      items.extend(gen_node(Node::BindingIdentifier(&node.local), context));
       items
     }));
   } else {
-    items.extend(gen_node(node.local.into(), context));
+    items.extend(gen_node(Node::BindingIdentifier(&node.local), context));
   }
 
   items
 }
 
-fn gen_import_namespace_specifier<'a>(node: &ImportStarAsSpecifier<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_import_namespace_specifier<'a>(node: &'a ImportNamespaceSpecifier<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_sc(sc!("* as "));
-  items.extend(gen_node(node.local.into(), context));
+  items.extend(gen_node(Node::BindingIdentifier(&node.local), context));
   items
 }
 
-fn gen_external_module_ref<'a>(node: &TsExternalModuleRef<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_external_module_ref<'a>(node: &'a TSExternalModuleReference<'a>, context: &mut Context<'a>) -> PrintItems {
   // force everything on a single line
   let mut items = PrintItems::new();
   items.push_sc(sc!("require("));
-  items.extend(gen_node(node.expr.into(), context));
+  items.extend(gen_node(Node::StringLiteral(&node.expression), context));
   items.push_sc(sc!(")"));
   items
 }
@@ -4726,16 +4724,23 @@ fn gen_do_while_stmt<'a>(node: &'a DoWhileStatement<'a>, context: &mut Context<'
   items
 }
 
-fn gen_export_all<'a>(node: &ExportAll<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_export_all<'a>(node: &'a ExportAllDeclaration<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  if node.type_only() {
-    items.push_sc(sc!("export type * from "));
+  if node.export_kind.is_type() {
+    items.push_sc(sc!("export type * "));
   } else {
-    items.push_sc(sc!("export * from "));
+    items.push_sc(sc!("export * "));
   }
-  items.extend(gen_node(node.src.into(), context));
+  // oxc folds `export * as ns from` into ExportAllDeclaration.exported
+  if let Some(exported) = &node.exported {
+    items.push_sc(sc!("as "));
+    items.extend(gen_node(module_export_name_to_node(exported), context));
+    items.push_space();
+  }
+  items.push_sc(sc!("from "));
+  items.extend(gen_node(Node::StringLiteral(&node.source), context));
 
-  if let Some(with_clause) = node.with {
+  if let Some(with_clause) = &node.with_clause {
     items.extend(gen_with_clause(with_clause, context));
   }
 
@@ -4746,11 +4751,35 @@ fn gen_export_all<'a>(node: &ExportAll<'a>, context: &mut Context<'a>) -> PrintI
   items
 }
 
-fn gen_with_clause<'a>(node: &ObjectLit<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_with_clause<'a>(node: &'a WithClause<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  let previous_token_text = node.previous_token_fast(context.program).text_fast(context.program);
-  items.push_sc(if previous_token_text == "assert" { sc!(" assert ") } else { sc!(" with ") });
-  items.extend(gen_node(node.into(), context));
+  items.push_sc(if node.keyword == WithClauseKeyword::Assert { sc!(" assert ") } else { sc!(" with ") });
+  items.extend(gen_object_like_node(
+    GenObjectLikeNodeOptions {
+      node: Node::WithClause(node),
+      members: node.with_entries.iter().map(Node::ImportAttribute).collect(),
+      separator: context.config.object_expression_trailing_commas.into(),
+      prefer_hanging: context.config.object_expression_prefer_hanging,
+      prefer_single_line: context.config.object_expression_prefer_single_line,
+      force_single_line: false,
+      force_multi_line: false,
+      surround_single_line_with_spaces: context.config.object_expression_space_surrounding_properties,
+      allow_blank_lines: false,
+      node_sorter: None,
+    },
+    context,
+  ));
+  items
+}
+
+fn gen_import_attribute<'a>(node: &'a ImportAttribute<'a>, context: &mut Context<'a>) -> PrintItems {
+  let mut items = PrintItems::new();
+  let key = match &node.key {
+    ImportAttributeKey::Identifier(ident) => Node::IdentifierName(ident),
+    ImportAttributeKey::StringLiteral(s) => Node::StringLiteral(s),
+  };
+  items.extend(gen_node(key, context));
+  items.extend(gen_assignment(Node::StringLiteral(&node.value), sc!(":"), context));
   items
 }
 
@@ -4769,11 +4798,11 @@ fn gen_directive<'a>(node: &'a Directive<'a>, context: &mut Context<'a>) -> Prin
   items
 }
 
-fn gen_export_assignment<'a>(node: &TsExportAssignment<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_export_assignment<'a>(node: &'a TSExportAssignment<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
   items.push_sc(sc!("export"));
-  items.extend(gen_assignment(node.expr.into(), sc!("="), context));
+  items.extend(gen_assignment(expr_to_node(&node.expression), sc!("="), context));
   if context.config.semi_colons.is_true() {
     items.push_sc(sc!(";"));
   }
@@ -4781,10 +4810,10 @@ fn gen_export_assignment<'a>(node: &TsExportAssignment<'a>, context: &mut Contex
   items
 }
 
-fn gen_namespace_export<'a>(node: &TsNamespaceExportDecl<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_namespace_export<'a>(node: &'a TSNamespaceExportDeclaration<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_sc(sc!("export as namespace "));
-  items.extend(gen_node(node.id.into(), context));
+  items.extend(gen_node(Node::IdentifierName(&node.id), context));
 
   if context.config.semi_colons.is_true() {
     items.push_sc(sc!(";"));
