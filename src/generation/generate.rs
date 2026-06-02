@@ -1879,11 +1879,11 @@ fn gen_satisfies_expr<'a>(node: &'a TSSatisfiesExpression<'a>, context: &mut Con
 
 // oxc has no TsConstAssertion - `x as const` is a TSAsExpression to a `const` type ref.
 
-fn gen_assignment_expr<'a>(node: &AssignExpr<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_assignment_expr<'a>(node: &'a AssignmentExpression<'a>, context: &mut Context<'a>) -> PrintItems {
   // check for a nested assignment (ex. `a = b = c`)
-  if node.op() == AssignOp::Assign {
-    if let Expr::Assign(right) = node.right {
-      if right.op() == AssignOp::Assign {
+  if node.operator == AssignmentOperator::Assign {
+    if let Expression::AssignmentExpression(right) = &node.right {
+      if right.operator == AssignmentOperator::Assign {
         let flattened_items = get_flattened_assign_expr(node, context);
         // if the number of assignments chained is excessive, then it's probably minified
         // so force using newlines to optimize formatting
@@ -1933,8 +1933,8 @@ fn gen_assignment_expr<'a>(node: &AssignExpr<'a>, context: &mut Context<'a>) -> 
 
   // parse a single assignment (ex. `a = b` and not `a = b = c`)
   let mut items = PrintItems::new();
-  items.extend(gen_node(node.left.into(), context));
-  items.extend(gen_assignment(node.right.into(), assign_op_sc(node.op()), context));
+  items.extend(gen_node(assign_target_to_node(&node.left), context));
+  items.extend(gen_assignment(expr_to_node(&node.right), assign_op_sc(node.operator), context));
   items
 }
 
@@ -2959,7 +2959,7 @@ fn gen_spread_element<'a>(node: &'a SpreadElement<'a>, context: &mut Context<'a>
 
 /// Formats the tagged template literal using an external formatter.
 /// Detects the type of embedded language automatically.
-fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> Option<PrintItems> {
+fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &'a TaggedTemplateExpression<'a>, context: &mut Context<'a>) -> Option<PrintItems> {
   let external_formatter = context.external_formatter.as_ref()?;
   let embedded_lang = normalize_embedded_language_type(node)?;
 
@@ -2971,9 +2971,9 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
     _ => placeholder_other,
   };
   let text = capacity_builder::StringBuilder::<String>::build(|builder| {
-    let expr_len = node.tpl.exprs.len();
-    for (i, quasi) in node.tpl.quasis.iter().enumerate() {
-      builder.append(quasi.raw().as_str());
+    let expr_len = node.quasi.expressions.len();
+    for (i, quasi) in node.quasi.quasis.iter().enumerate() {
+      builder.append(quasi.value.raw.as_str());
       if i < expr_len {
         builder.append(placeholder_text);
         if i < 10 {
@@ -2992,7 +2992,7 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
     Ok(formatted_tpl) => formatted_tpl?.replace("\\", r"\\"),
     Err(err) => {
       context.diagnostics.push(context::GenerateDiagnostic {
-        message: format!("Error formatting tagged template literal at line {}: {}", node.start_line() + 1, err),
+        message: format!("Error formatting tagged template literal at line {}: {}", node.start_line_fast(context.program) + 1, err),
       });
       return None;
     }
@@ -3031,7 +3031,7 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
       }
       if parts.peek().is_some() {
         items.push_sc(sc!("${"));
-        items.extend(gen_node(node.tpl.exprs[index].into(), context));
+        items.extend(gen_node(expr_to_node(&node.quasi.expressions[index]), context));
         items.push_sc(sc!("}"));
         pos = end + placeholder_text.len();
         index += 1;
@@ -3049,20 +3049,20 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
 }
 
 /// Normalizes the type of embedded language in a tagged template literal.
-fn normalize_embedded_language_type<'a>(node: &TaggedTpl<'a>) -> Option<&'a str> {
-  match node.tag {
-    Expr::Ident(ident) => return Some(ident.sym().as_str()),
-    Expr::Member(member_expr) => {
-      if let Expr::Ident(ident) = member_expr.obj {
-        if ident.sym().as_str() == "styled" {
+fn normalize_embedded_language_type<'a>(node: &'a TaggedTemplateExpression<'a>) -> Option<&'a str> {
+  match &node.tag {
+    Expression::Identifier(ident) => Some(ident.name.as_str()),
+    Expression::StaticMemberExpression(member_expr) => {
+      if let Expression::Identifier(ident) = &member_expr.object {
+        if ident.name.as_str() == "styled" {
           return Some("css"); // styled.foo`...`
         }
       }
       None
     }
-    Expr::Call(call_expr) => {
-      if let Callee::Expr(Expr::Ident(ident)) = call_expr.callee {
-        if ident.sym().as_str() == "styled" {
+    Expression::CallExpression(call_expr) => {
+      if let Expression::Identifier(ident) = &call_expr.callee {
+        if ident.name.as_str() == "styled" {
           return Some("css"); // styled(Button)`...`
         }
       }
@@ -3072,11 +3072,11 @@ fn normalize_embedded_language_type<'a>(node: &TaggedTpl<'a>) -> Option<&'a str>
   }
 }
 
-fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_tagged_tpl<'a>(node: &'a TaggedTemplateExpression<'a>, context: &mut Context<'a>) -> PrintItems {
   let use_space = context.config.tagged_template_space_before_literal;
-  let mut items = gen_node(node.tag.into(), context);
-  if let Some(type_params) = node.type_params {
-    items.extend(gen_node(type_params.into(), context));
+  let mut items = gen_node(expr_to_node(&node.tag), context);
+  if let Some(type_params) = &node.type_arguments {
+    items.extend(gen_node(Node::TSTypeParameterInstantiation(type_params), context));
   }
 
   let generated_between_comments = gen_comments_between_lines_indented(node.tag.end(), context);
@@ -3093,19 +3093,19 @@ fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintI
     return items;
   }
 
-  items.push_condition(conditions::indent_if_start_of_line(gen_node(node.tpl.into(), context)));
+  items.push_condition(conditions::indent_if_start_of_line(gen_node(Node::TemplateLiteral(&node.quasi), context)));
   items
 }
 
-fn gen_tpl<'a>(node: &Tpl<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_tpl<'a>(node: &'a TemplateLiteral<'a>, context: &mut Context<'a>) -> PrintItems {
   gen_template_literal(
-    node.quasis.iter().map(|&n| n.into()).collect(),
-    node.exprs.iter().map(|x| x.into()).collect(),
+    node.quasis.iter().map(Node::TemplateElement).collect(),
+    node.expressions.iter().map(expr_to_node).collect(),
     context,
   )
 }
 
-fn gen_tpl_element<'a>(node: &TplElement<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_tpl_element<'a>(node: &TemplateElement<'a>, context: &mut Context<'a>) -> PrintItems {
   gen_from_raw_string(node.text_fast(context.program))
 }
 
@@ -3119,7 +3119,7 @@ fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context
         items.push_sc(if is_head { sc!("`") } else { sc!("}") });
         items.push_signal(Signal::StartIgnoringIndent);
         items.extend(node_items);
-        items.push_sc(if node_tpl.tail() { sc!("`") } else { sc!("${") });
+        items.push_sc(if node_tpl.tail { sc!("`") } else { sc!("${") });
         items.push_signal(Signal::FinishIgnoringIndent);
         items
       }));
@@ -9680,25 +9680,25 @@ fn surround_with_spaces(items: PrintItems) -> PrintItems {
   new_items
 }
 
-fn assign_op_sc(assign_op: AssignOp) -> &'static StringContainer {
-  use AssignOp::*;
+fn assign_op_sc(assign_op: AssignmentOperator) -> &'static StringContainer {
+  use AssignmentOperator::*;
   let sc = match assign_op {
     Assign => sc!("="),
-    AddAssign => sc!("+="),
-    SubAssign => sc!("-="),
-    MulAssign => sc!("*="),
-    DivAssign => sc!("/="),
-    ModAssign => sc!("%="),
-    LShiftAssign => sc!("<<="),
-    RShiftAssign => sc!(">>="),
-    ZeroFillRShiftAssign => sc!(">>>="),
-    BitOrAssign => sc!("|="),
-    BitXorAssign => sc!("^="),
-    BitAndAssign => sc!("&="),
-    ExpAssign => sc!("**="),
-    AndAssign => sc!("&&="),
-    OrAssign => sc!("||="),
-    NullishAssign => sc!("??="),
+    Addition => sc!("+="),
+    Subtraction => sc!("-="),
+    Multiplication => sc!("*="),
+    Division => sc!("/="),
+    Remainder => sc!("%="),
+    ShiftLeft => sc!("<<="),
+    ShiftRight => sc!(">>="),
+    ShiftRightZeroFill => sc!(">>>="),
+    BitwiseOR => sc!("|="),
+    BitwiseXOR => sc!("^="),
+    BitwiseAnd => sc!("&="),
+    Exponential => sc!("**="),
+    LogicalAnd => sc!("&&="),
+    LogicalOr => sc!("||="),
+    LogicalNullish => sc!("??="),
   };
   if cfg!(debug_assertions) {
     assert_eq!(sc.text, assign_op.as_str());
