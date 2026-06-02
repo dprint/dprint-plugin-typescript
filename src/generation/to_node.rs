@@ -66,6 +66,65 @@ pub fn array_element_to_node<'a>(e: &'a ArrayExpressionElement<'a>) -> Option<No
   }
 }
 
+pub fn jsx_child_to_node<'a>(c: &'a JSXChild<'a>) -> Node<'a> {
+  match c {
+    JSXChild::Text(n) => AstKind::JSXText(n),
+    JSXChild::Element(n) => AstKind::JSXElement(n),
+    JSXChild::Fragment(n) => AstKind::JSXFragment(n),
+    JSXChild::ExpressionContainer(n) => AstKind::JSXExpressionContainer(n),
+    JSXChild::Spread(n) => AstKind::JSXSpreadChild(n),
+  }
+}
+
+pub fn jsx_element_name_to_node<'a>(n: &'a JSXElementName<'a>) -> Node<'a> {
+  match n {
+    JSXElementName::Identifier(i) => AstKind::JSXIdentifier(i),
+    JSXElementName::IdentifierReference(i) => AstKind::IdentifierReference(i),
+    JSXElementName::NamespacedName(i) => AstKind::JSXNamespacedName(i),
+    JSXElementName::MemberExpression(i) => AstKind::JSXMemberExpression(i),
+    JSXElementName::ThisExpression(i) => AstKind::ThisExpression(i),
+  }
+}
+
+pub fn jsx_attribute_item_to_node<'a>(i: &'a JSXAttributeItem<'a>) -> Node<'a> {
+  match i {
+    JSXAttributeItem::Attribute(n) => AstKind::JSXAttribute(n),
+    JSXAttributeItem::SpreadAttribute(n) => AstKind::JSXSpreadAttribute(n),
+  }
+}
+
+pub fn jsx_attribute_name_to_node<'a>(n: &'a JSXAttributeName<'a>) -> Node<'a> {
+  match n {
+    JSXAttributeName::Identifier(i) => AstKind::JSXIdentifier(i),
+    JSXAttributeName::NamespacedName(i) => AstKind::JSXNamespacedName(i),
+  }
+}
+
+pub fn jsx_attribute_value_to_node<'a>(v: &'a JSXAttributeValue<'a>) -> Node<'a> {
+  match v {
+    JSXAttributeValue::StringLiteral(n) => AstKind::StringLiteral(n),
+    JSXAttributeValue::ExpressionContainer(n) => AstKind::JSXExpressionContainer(n),
+    JSXAttributeValue::Element(n) => AstKind::JSXElement(n),
+    JSXAttributeValue::Fragment(n) => AstKind::JSXFragment(n),
+  }
+}
+
+pub fn jsx_member_expr_object_to_node<'a>(o: &'a JSXMemberExpressionObject<'a>) -> Node<'a> {
+  match o {
+    JSXMemberExpressionObject::IdentifierReference(i) => AstKind::IdentifierReference(i),
+    JSXMemberExpressionObject::MemberExpression(i) => AstKind::JSXMemberExpression(i),
+    JSXMemberExpressionObject::ThisExpression(i) => AstKind::ThisExpression(i),
+  }
+}
+
+/// The expression inside a JSX `{...}` container; `EmptyExpression` is `{}` / `{/*comment*/}`.
+pub fn jsx_expression_to_node<'a>(e: &'a JSXExpression<'a>) -> Node<'a> {
+  match e {
+    JSXExpression::EmptyExpression(n) => AstKind::JSXEmptyExpression(n),
+    it @ match_expression!(JSXExpression) => expr_to_node(it.to_expression()),
+  }
+}
+
 pub fn ts_module_declaration_name_to_node<'a>(n: &'a TSModuleDeclarationName<'a>) -> Node<'a> {
   match n {
     TSModuleDeclarationName::Identifier(i) => AstKind::BindingIdentifier(i),

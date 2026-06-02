@@ -3708,15 +3708,15 @@ fn gen_type_lit<'a>(node: &'a TSTypeLiteral<'a>, context: &mut Context<'a>) -> P
 
 /* jsx */
 
-fn gen_jsx_attribute<'a>(node: &JSXAttr<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_jsx_attribute<'a>(node: &'a JSXAttribute<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(gen_node(node.name.into(), context));
+  items.extend(gen_node(jsx_attribute_name_to_node(&node.name), context));
   if let Some(value) = &node.value {
     items.push_sc(sc!("="));
     let surround_with_braces = context.token_finder.get_previous_token_if_open_brace(value).is_some();
-    let inner_items = gen_node(value.into(), context);
+    let inner_items = gen_node(jsx_attribute_value_to_node(value), context);
     items.extend(if surround_with_braces {
-      gen_as_jsx_expr_container(node.into(), inner_items, context)
+      gen_as_jsx_expr_container(Node::JSXAttribute(node), inner_items, context)
     } else {
       inner_items
     });
@@ -3724,16 +3724,28 @@ fn gen_jsx_attribute<'a>(node: &JSXAttr<'a>, context: &mut Context<'a>) -> Print
   items
 }
 
-fn gen_jsx_closing_element<'a>(node: &JSXClosingElement<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_jsx_closing_element<'a>(node: &'a JSXClosingElement<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_sc(sc!("</"));
-  items.extend(gen_node(node.name.into(), context));
+  items.extend(gen_node(jsx_element_name_to_node(&node.name), context));
   items.push_sc(sc!(">"));
   items
 }
 
 fn gen_jsx_closing_fragment<'a>(_: &'a JSXClosingFragment, _: &mut Context<'a>) -> PrintItems {
   "</>".into()
+}
+
+// oxc has no parent pointers; reconstruct a node's ancestor chain (immediate parent
+// first). If `node` isn't the node currently being generated, it is a direct child of
+// the current node, so the current node is its immediate parent.
+fn ancestors_of<'a>(node: Node<'a>, context: &Context<'a>) -> Vec<Node<'a>> {
+  let mut result = Vec::new();
+  if node.range() != context.current_node.range() {
+    result.push(context.current_node);
+  }
+  result.extend(context.parent_stack.iter().copied());
+  result
 }
 
 fn handle_jsx_surrounding_parens(inner_items: PrintItems, context: &mut Context<'_>) -> PrintItems {
@@ -3745,7 +3757,7 @@ fn handle_jsx_surrounding_parens(inner_items: PrintItems, context: &mut Context<
     }
   }
 
-  if context.parent().is::<JSXExprContainer>() && context.config.jsx_multi_line_parens != JsxMultiLineParens::Always {
+  if matches!(context.parent(), Node::JSXExpressionContainer(_)) && context.config.jsx_multi_line_parens != JsxMultiLineParens::Always {
     return surround_with_newlines_indented_if_multi_line(inner_items, context.config.indent_width);
   }
 
@@ -3775,15 +3787,22 @@ fn handle_jsx_surrounding_parens(inner_items: PrintItems, context: &mut Context<
   return items;
 
   fn should_jsx_surround_newlines<'a>(node: Node<'a>, context: &Context<'a>) -> bool {
-    let mut parent = node.parent().unwrap();
-    while let Some(paren_expr) = parent.to::<ParenExpr>() {
-      if node_helpers::has_surrounding_comments(paren_expr.expr.into(), context.program) {
+    let mut iter = ancestors_of(node, context).into_iter();
+    let mut parent = match iter.next() {
+      Some(p) => p,
+      None => return false,
+    };
+    while let Node::ParenthesizedExpression(paren_expr) = parent {
+      if node_helpers::has_surrounding_comments(expr_to_node(&paren_expr.expression), context.program) {
         return false;
       }
-      parent = parent.parent().unwrap();
+      parent = match iter.next() {
+        Some(p) => p,
+        None => return false,
+      };
     }
 
-    parent.is::<JSXExprContainer>()
+    matches!(parent, Node::JSXExpressionContainer(_))
   }
 }
 
@@ -3792,13 +3811,17 @@ fn is_jsx_paren_expr_handled_node<'a>(node: Node<'a>, context: &Context<'a>) -> 
     return false;
   }
 
-  if !matches!(node.kind(), NodeKind::JSXElement | NodeKind::JSXFragment) {
+  if !matches!(node, Node::JSXElement(_) | Node::JSXFragment(_)) {
     return false;
   }
 
-  let mut parent = node.parent().unwrap();
+  let mut iter = ancestors_of(node, context).into_iter();
+  let mut parent = match iter.next() {
+    Some(p) => p,
+    None => return false,
+  };
   // Only wrap the top-level JSX element in parens
-  if matches!(parent.kind(), NodeKind::JSXElement | NodeKind::JSXFragment) {
+  if matches!(parent, Node::JSXElement(_) | Node::JSXFragment(_)) {
     return false;
   }
 
@@ -3806,39 +3829,50 @@ fn is_jsx_paren_expr_handled_node<'a>(node: Node<'a>, context: &Context<'a>) -> 
     return false;
   }
 
-  while parent.is::<ParenExpr>() {
+  while matches!(parent, Node::ParenthesizedExpression(_)) {
     if node_helpers::has_surrounding_comments(parent, context.program) {
       return false;
     }
-    parent = parent.parent().unwrap();
+    parent = match iter.next() {
+      Some(p) => p,
+      None => return false,
+    };
   }
 
   if context.config.jsx_multi_line_parens == JsxMultiLineParens::Always {
     return true;
   }
 
-  // do not allow in expr statement, argument, attributes, jsx exprs, or member exprs
+  // do not allow in expr statement, argument (call/new/array - oxc has no ExprOrSpread),
+  // jsx exprs, or member exprs
   !matches!(
-    parent.kind(),
-    NodeKind::ExprStmt | NodeKind::ExprOrSpread | NodeKind::JSXExprContainer | NodeKind::MemberExpr
+    parent,
+    Node::ExpressionStatement(_)
+      | Node::CallExpression(_)
+      | Node::NewExpression(_)
+      | Node::ArrayExpression(_)
+      | Node::JSXExpressionContainer(_)
+      | Node::StaticMemberExpression(_)
+      | Node::ComputedMemberExpression(_)
+      | Node::PrivateFieldExpression(_)
   )
 }
 
-fn gen_jsx_element<'a>(node: &JSXElement<'a>, context: &mut Context<'a>) -> PrintItems {
-  let items = if let Some(closing) = node.closing {
+fn gen_jsx_element<'a>(node: &'a JSXElement<'a>, context: &mut Context<'a>) -> PrintItems {
+  let items = if let Some(closing) = &node.closing_element {
     // pre element bodies should be formatted as-is
-    if node.opening.name.text_fast(context.program) == "pre" {
-      let mut items = gen_node(node.opening.into(), context);
-      let in_between_range = SourceRange::new(node.opening.end(), closing.start());
+    if node.opening_element.name.text_fast(context.program) == "pre" {
+      let mut items = gen_node(Node::JSXOpeningElement(&node.opening_element), context);
+      let in_between_range = SourceRange::new(node.opening_element.end(), closing.start());
       items.extend(ir_helpers::gen_from_raw_string_trim_line_ends(in_between_range.text_fast(context.program)));
-      items.extend(gen_node(closing.into(), context));
+      items.extend(gen_node(Node::JSXClosingElement(closing), context));
       items
     } else {
       let result = gen_jsx_with_opening_and_closing(
         GenJsxWithOpeningAndClosingOptions {
-          opening_element: node.opening.into(),
-          closing_element: closing.into(),
-          children: node.children.iter().map(|x| x.into()).collect(),
+          opening_element: Node::JSXOpeningElement(&node.opening_element),
+          closing_element: Node::JSXClosingElement(closing),
+          children: node.children.iter().map(jsx_child_to_node).collect(),
         },
         context,
       );
@@ -3853,7 +3887,7 @@ fn gen_jsx_element<'a>(node: &JSXElement<'a>, context: &mut Context<'a>) -> Prin
     context.store_info_range_for_node(node, (start_ln, end_ln));
 
     items.push_info(start_ln);
-    items.extend(gen_node(node.opening.into(), context));
+    items.extend(gen_node(Node::JSXOpeningElement(&node.opening_element), context));
     items.push_info(end_ln);
     items
   };
@@ -3861,19 +3895,19 @@ fn gen_jsx_element<'a>(node: &JSXElement<'a>, context: &mut Context<'a>) -> Prin
   handle_jsx_surrounding_parens(items, context)
 }
 
-fn gen_jsx_empty_expr<'a>(node: &JSXEmptyExpr<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_jsx_empty_expr<'a>(node: &'a JSXEmptyExpression, context: &mut Context<'a>) -> PrintItems {
   gen_comment_collection(get_jsx_empty_expr_comments(node, context), None, None, context)
 }
 
-fn gen_jsx_expr_container<'a>(node: &JSXExprContainer<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_jsx_expr_container<'a>(node: &'a JSXExpressionContainer<'a>, context: &mut Context<'a>) -> PrintItems {
   // Don't send JSX empty expressions to gen_node because it will not handle comments
   // the way they should be specifically handled for empty expressions.
-  let gen_inner = match &node.expr {
-    JSXExpr::JSXEmptyExpr(expr) => gen_jsx_empty_expr(expr, context),
-    JSXExpr::Expr(expr) => gen_node(expr.into(), context),
+  let gen_inner = match &node.expression {
+    JSXExpression::EmptyExpression(expr) => gen_jsx_empty_expr(expr, context),
+    expr => gen_node(jsx_expression_to_node(expr), context),
   };
 
-  gen_as_jsx_expr_container(node.expr.into(), gen_inner, context)
+  gen_as_jsx_expr_container(jsx_expression_to_node(&node.expression), gen_inner, context)
 }
 
 fn gen_as_jsx_expr_container(expr: Node, inner_items: PrintItems, context: &mut Context) -> PrintItems {
@@ -3899,7 +3933,7 @@ fn gen_as_jsx_expr_container(expr: Node, inner_items: PrintItems, context: &mut 
 
   return items;
 
-  fn should_surround_with_newlines(expr: Node, program: Program) -> bool {
+  fn should_surround_with_newlines(expr: Node, program: ProgramInfo) -> bool {
     let expr_start_line = expr.start_line_fast(program);
     for comment in expr.leading_comments_fast(program) {
       if comment.kind == CommentKind::Line {
@@ -3919,12 +3953,12 @@ fn gen_as_jsx_expr_container(expr: Node, inner_items: PrintItems, context: &mut 
   }
 }
 
-fn gen_jsx_fragment<'a>(node: &JSXFragment<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_jsx_fragment<'a>(node: &'a JSXFragment<'a>, context: &mut Context<'a>) -> PrintItems {
   let result = gen_jsx_with_opening_and_closing(
     GenJsxWithOpeningAndClosingOptions {
-      opening_element: node.opening.into(),
-      closing_element: node.closing.into(),
-      children: node.children.iter().map(|x| x.into()).collect(),
+      opening_element: Node::JSXOpeningFragment(&node.opening_fragment),
+      closing_element: Node::JSXClosingFragment(&node.closing_fragment),
+      children: node.children.iter().map(jsx_child_to_node).collect(),
     },
     context,
   );
@@ -3934,19 +3968,19 @@ fn gen_jsx_fragment<'a>(node: &JSXFragment<'a>, context: &mut Context<'a>) -> Pr
   handle_jsx_surrounding_parens(result.items, context)
 }
 
-fn gen_jsx_member_expr<'a>(node: &JSXMemberExpr<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_jsx_member_expr<'a>(node: &'a JSXMemberExpression<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(gen_node(node.obj.into(), context));
+  items.extend(gen_node(jsx_member_expr_object_to_node(&node.object), context));
   items.push_sc(sc!("."));
-  items.extend(gen_node(node.prop.into(), context));
+  items.extend(gen_node(Node::JSXIdentifier(&node.property), context));
   items
 }
 
-fn gen_jsx_namespaced_name<'a>(node: &JSXNamespacedName<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_jsx_namespaced_name<'a>(node: &'a JSXNamespacedName<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(gen_node(node.ns.into(), context));
+  items.extend(gen_node(Node::JSXIdentifier(&node.namespace), context));
   items.push_sc(sc!(":"));
-  items.extend(gen_node(node.name.into(), context));
+  items.extend(gen_node(Node::JSXIdentifier(&node.name), context));
   items
 }
 
@@ -3959,20 +3993,20 @@ fn gen_jsx_opening_element<'a>(node: &JSXOpeningElement<'a>, context: &mut Conte
 
   items.push_info(start_lsil);
   items.push_sc(sc!("<"));
-  items.extend(gen_node(node.name.into(), context));
-  if let Some(type_args) = node.type_args {
-    items.extend(gen_node(type_args.into(), context));
+  items.extend(gen_node(jsx_element_name_to_node(&node.name), context));
+  if let Some(type_args) = &node.type_arguments {
+    items.extend(gen_node(Node::TSTypeParameterInstantiation(type_args), context));
   }
 
-  if node.attrs.len() == 1 && node.type_args.is_none() && is_jsx_attr_with_string(&node.attrs[0]) {
+  if node.attributes.len() == 1 && node.type_arguments.is_none() && is_jsx_attr_with_string(&node.attributes[0]) {
     items.push_space();
-    items.extend(gen_node(node.attrs[0].into(), context));
-  } else if !node.attrs.is_empty() {
+    items.extend(gen_node(jsx_attribute_item_to_node(&node.attributes[0]), context));
+  } else if !node.attributes.is_empty() {
     let mut multi_line_options = ir_helpers::MultiLineOptions::surround_newlines_indented();
     multi_line_options.newline_at_end = prefer_newline_before_close_bracket;
     items.extend(gen_separated_values(
       GenSeparatedValuesParams {
-        nodes: node.attrs.iter().map(|p| NodeOrSeparator::Node(p.into())).collect(),
+        nodes: node.attributes.iter().map(|p| NodeOrSeparator::Node(jsx_attribute_item_to_node(p))).collect(),
         prefer_hanging: context.config.jsx_attributes_prefer_hanging,
         force_use_new_lines,
         allow_blank_lines: false,
@@ -3987,19 +4021,19 @@ fn gen_jsx_opening_element<'a>(node: &JSXOpeningElement<'a>, context: &mut Conte
   }
 
   // generate trailing comments on different lines
-  let name_or_type_arg_end = node.type_args.map(|t| t.end()).unwrap_or_else(|| node.name.end());
-  let last_node_end = node.attrs.last().map(|n| n.end()).unwrap_or(name_or_type_arg_end);
+  let name_or_type_arg_end = node.type_arguments.as_ref().map(|t| t.end()).unwrap_or_else(|| node.name.end());
+  let last_node_end = node.attributes.last().map(|n| n.end()).unwrap_or(name_or_type_arg_end);
 
   let generated_comments = gen_comments_as_statements(last_node_end.trailing_comments_fast(context.program), None, context);
   if !generated_comments.is_empty() {
-    if node.attrs.is_empty() {
+    if node.attributes.is_empty() {
       items.push_signal(Signal::NewLine);
     }
     items.extend(with_indent(generated_comments));
     items.push_signal(Signal::NewLine);
   }
 
-  if node.self_closing() {
+  if is_self_closing(node, context) {
     if space_before_self_closing_tag_slash {
       items.push_force_current_line_indentation();
       items.extend(space_if_not_start_line());
@@ -4012,10 +4046,15 @@ fn gen_jsx_opening_element<'a>(node: &JSXOpeningElement<'a>, context: &mut Conte
 
   return items;
 
+  // oxc's JSXOpeningElement has no self_closing flag; detect it from the source text.
+  fn is_self_closing(node: &JSXOpeningElement, context: &Context) -> bool {
+    node.text_fast(context.program).trim_end().ends_with("/>")
+  }
+
   fn get_force_is_multi_line(node: &JSXOpeningElement, context: &mut Context) -> bool {
     if context.config.jsx_attributes_prefer_single_line {
       false
-    } else if let Some(first_attrib) = node.attrs.first() {
+    } else if let Some(first_attrib) = node.attributes.first() {
       node_helpers::get_use_new_lines_for_nodes(&node.name, first_attrib, context.program)
     } else {
       false
@@ -4023,13 +4062,13 @@ fn gen_jsx_opening_element<'a>(node: &JSXOpeningElement<'a>, context: &mut Conte
   }
 
   fn get_should_prefer_newline_before_close_bracket(node: &JSXOpeningElement, context: &mut Context) -> bool {
-    let bracket_pos_config = match node.self_closing() {
+    let bracket_pos_config = match is_self_closing(node, context) {
       true => context.config.jsx_self_closing_element_bracket_position,
       false => context.config.jsx_opening_element_bracket_position,
     };
     match bracket_pos_config {
       SameOrNextLinePosition::Maintain => {
-        if let Some(last_attr) = node.attrs.last() {
+        if let Some(last_attr) = node.attributes.last() {
           last_attr.end_line_fast(context.program) < node.end_line_fast(context.program)
         } else {
           false
@@ -4040,10 +4079,10 @@ fn gen_jsx_opening_element<'a>(node: &JSXOpeningElement<'a>, context: &mut Conte
     }
   }
 
-  fn is_jsx_attr_with_string(node: &JSXAttrOrSpread) -> bool {
-    if let JSXAttrOrSpread::JSXAttr(attrib) = node {
-      if let Some(value) = attrib.value {
-        return value.kind() == NodeKind::Str;
+  fn is_jsx_attr_with_string(node: &JSXAttributeItem) -> bool {
+    if let JSXAttributeItem::Attribute(attrib) = node {
+      if let Some(value) = &attrib.value {
+        return matches!(value, JSXAttributeValue::StringLiteral(_));
       }
     }
     false
@@ -4054,20 +4093,28 @@ fn gen_jsx_opening_fragment<'a>(_: &'a JSXOpeningFragment, _: &mut Context<'a>) 
   "<>".into()
 }
 
-fn gen_jsx_spread_child<'a>(node: &JSXSpreadChild<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_jsx_spread_attribute<'a>(node: &'a JSXSpreadAttribute<'a>, context: &mut Context<'a>) -> PrintItems {
+  let mut items = PrintItems::new();
+  items.push_sc(sc!("{..."));
+  items.extend(gen_node(expr_to_node(&node.argument), context));
+  items.push_sc(sc!("}"));
+  items
+}
+
+fn gen_jsx_spread_child<'a>(node: &'a JSXSpreadChild<'a>, context: &mut Context<'a>) -> PrintItems {
   gen_as_jsx_expr_container(
-    node.into(),
+    Node::JSXSpreadChild(node),
     {
       let mut items = PrintItems::new();
       items.push_sc(sc!("..."));
-      items.extend(gen_node(node.expr.into(), context));
+      items.extend(gen_node(expr_to_node(&node.expression), context));
       items
     },
     context,
   )
 }
 
-fn gen_jsx_text<'a>(node: &JSXText<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_jsx_text<'a>(node: &'a JSXText<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
 
   for (i, line) in get_lines(node.text_fast(context.program)).into_iter().enumerate() {
