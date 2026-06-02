@@ -6258,39 +6258,39 @@ fn gen_parenthesized_type<'a>(node: &'a TSParenthesizedType<'a>, context: &mut C
   }
 }
 
-fn should_skip_parenthesized_type<'a>(node: &TsParenthesizedType<'a>, context: &mut Context<'a>) -> bool {
-  if node_helpers::has_surrounding_different_line_comments(node.type_ann.into(), context.program) {
+fn should_skip_parenthesized_type<'a>(node: &'a TSParenthesizedType<'a>, context: &mut Context<'a>) -> bool {
+  if node_helpers::has_surrounding_different_line_comments(ts_type_to_node(&node.type_annotation), context.program) {
     return false;
   }
 
-  matches!(node.parent().kind(), NodeKind::TsTypeAnn | NodeKind::TsTypeAliasDecl)
+  matches!(context.parent(), Node::TSTypeAnnotation(_) | Node::TSTypeAliasDeclaration(_))
 }
 
-fn gen_rest_type<'a>(node: &TsRestType<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_rest_type<'a>(node: &'a TSRestType<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   items.push_sc(sc!("..."));
-  items.extend(gen_node(node.type_ann.into(), context));
+  items.extend(gen_node(ts_type_to_node(&node.type_annotation), context));
   items
 }
 
-fn gen_tpl_lit_type<'a>(node: &TsTplLitType<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_tpl_lit_type<'a>(node: &'a TSTemplateLiteralType<'a>, context: &mut Context<'a>) -> PrintItems {
   gen_template_literal(
-    node.quasis.iter().map(|&x| x.into()).collect(),
-    node.types.iter().map(|x| x.into()).collect(),
+    node.quasis.iter().map(Node::TemplateElement).collect(),
+    node.types.iter().map(ts_type_to_node).collect(),
     context,
   )
 }
 
-fn gen_tuple_type<'a>(node: &TsTupleType<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_tuple_type<'a>(node: &'a TSTupleType<'a>, context: &mut Context<'a>) -> PrintItems {
   let prefer_hanging = match context.config.tuple_type_prefer_hanging {
     PreferHanging::Never => false,
-    PreferHanging::OnlySingleItem => node.elem_types.len() == 1,
+    PreferHanging::OnlySingleItem => node.element_types.len() == 1,
     PreferHanging::Always => true,
   };
   gen_array_like_nodes(
     GenArrayLikeNodesOptions {
-      node: node.into(),
-      nodes: node.elem_types.iter().map(|&x| Some(x.into())).collect(),
+      node: Node::TSTupleType(node),
+      nodes: node.element_types.iter().map(|x| Some(ts_tuple_element_to_node(x))).collect(),
       prefer_hanging,
       prefer_single_line: context.config.tuple_type_prefer_single_line,
       trailing_commas: context.config.tuple_type_trailing_commas,
@@ -6300,15 +6300,14 @@ fn gen_tuple_type<'a>(node: &TsTupleType<'a>, context: &mut Context<'a>) -> Prin
   )
 }
 
-fn gen_tuple_element<'a>(node: &TsTupleElement<'a>, context: &mut Context<'a>) -> PrintItems {
-  if let Some(label) = &node.label {
-    let mut items = PrintItems::new();
-    items.extend(gen_node(label.into(), context));
-    items.extend(gen_type_ann_with_colon_for_type(node.ty, context));
-    items
-  } else {
-    gen_node(node.ty.into(), context)
+fn gen_tuple_element<'a>(node: &'a TSNamedTupleMember<'a>, context: &mut Context<'a>) -> PrintItems {
+  let mut items = PrintItems::new();
+  items.extend(gen_node(Node::IdentifierName(&node.label), context));
+  if node.optional {
+    items.push_sc(sc!("?"));
   }
+  items.extend(gen_type_ann_with_colon_for_type(ts_tuple_element_to_node(&node.element_type), context));
+  items
 }
 
 fn gen_type_ann<'a>(node: &TsTypeAnn<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -8054,7 +8053,7 @@ fn gen_node_with_separator<'a>(value: Node<'a>, generated_separator: PrintItems,
 }
 
 /// Some nodes don't have a TsTypeAnn, but instead a Box<TsType>
-fn gen_type_ann_with_colon_if_exists_for_type<'a>(type_ann: Option<TsType<'a>>, context: &mut Context<'a>) -> PrintItems {
+fn gen_type_ann_with_colon_if_exists_for_type<'a>(type_ann: Option<Node<'a>>, context: &mut Context<'a>) -> PrintItems {
   if let Some(type_ann) = type_ann {
     gen_type_ann_with_colon_for_type(type_ann, context)
   } else {
@@ -8062,7 +8061,7 @@ fn gen_type_ann_with_colon_if_exists_for_type<'a>(type_ann: Option<TsType<'a>>, 
   }
 }
 
-fn gen_type_ann_with_colon_for_type<'a>(type_ann: TsType<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_type_ann_with_colon_for_type<'a>(type_ann: Node<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   if context.config.type_annotation_space_before_colon {
     items.push_space();
@@ -8070,11 +8069,11 @@ fn gen_type_ann_with_colon_for_type<'a>(type_ann: TsType<'a>, context: &mut Cont
   let colon_token = context.token_finder.get_previous_token_if_colon(&type_ann);
   #[cfg(debug_assertions)]
   assert_has_op(":", colon_token, context);
-  items.extend(gen_type_ann_with_colon(type_ann.into(), colon_token, context));
+  items.extend(gen_type_ann_with_colon(type_ann, colon_token, context));
   items
 }
 
-fn gen_type_ann_with_colon_if_exists<'a>(type_ann: Option<&TsTypeAnn<'a>>, context: &mut Context<'a>) -> PrintItems {
+fn gen_type_ann_with_colon_if_exists<'a>(type_ann: Option<&'a TSTypeAnnotation<'a>>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
   if let Some(type_ann) = type_ann {
     if context.config.type_annotation_space_before_colon {
@@ -8083,12 +8082,12 @@ fn gen_type_ann_with_colon_if_exists<'a>(type_ann: Option<&TsTypeAnn<'a>>, conte
     let colon_token = context.token_finder.get_first_colon_token_within(type_ann);
     #[cfg(debug_assertions)]
     assert_has_op(":", colon_token, context);
-    items.extend(gen_type_ann_with_colon(type_ann.into(), colon_token, context));
+    items.extend(gen_type_ann_with_colon(Node::TSTypeAnnotation(type_ann), colon_token, context));
   }
   items
 }
 
-fn gen_type_ann_with_colon<'a>(type_ann: Node<'a>, colon_token: Option<&TokenAndSpan>, context: &mut Context<'a>) -> PrintItems {
+fn gen_type_ann_with_colon<'a>(type_ann: Node<'a>, colon_token: Option<&Token>, context: &mut Context<'a>) -> PrintItems {
   gen_assignment_like_with_token(type_ann, sc!(":"), colon_token, context)
 }
 

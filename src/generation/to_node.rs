@@ -66,6 +66,14 @@ pub fn array_element_to_node<'a>(e: &'a ArrayExpressionElement<'a>) -> Option<No
   }
 }
 
+pub fn ts_tuple_element_to_node<'a>(e: &'a TSTupleElement<'a>) -> Node<'a> {
+  match e {
+    TSTupleElement::TSOptionalType(n) => AstKind::TSOptionalType(n),
+    TSTupleElement::TSRestType(n) => AstKind::TSRestType(n),
+    it @ match_ts_type!(TSTupleElement) => ts_type_to_node(it.to_ts_type()),
+  }
+}
+
 pub fn ts_type_name_to_node<'a>(n: &'a TSTypeName<'a>) -> Node<'a> {
   match n {
     TSTypeName::IdentifierReference(i) => AstKind::IdentifierReference(i),
