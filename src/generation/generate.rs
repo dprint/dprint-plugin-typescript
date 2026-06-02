@@ -2802,15 +2802,15 @@ fn gen_object_lit<'a>(node: &'a ObjectExpression<'a>, context: &mut Context<'a>)
   }
 }
 
-fn gen_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &mut Context<'a>) -> PrintItems {
+fn gen_paren_expr<'a>(node: &'a ParenthesizedExpression<'a>, context: &mut Context<'a>) -> PrintItems {
   if should_skip_paren_expr(node, context) {
-    return gen_node(node.expr.into(), context);
+    return gen_node(expr_to_node(&node.expression), context);
   }
 
   let generated_items = conditions::with_indent_if_start_of_line_indented(gen_node_in_parens(
-    |context| gen_node(node.expr.into(), context),
+    |context| gen_node(expr_to_node(&node.expression), context),
     GenNodeInParensOptions {
-      inner_range: node.expr.range(),
+      inner_range: node.expression.range(),
       prefer_hanging: true,
       allow_open_paren_trailing_comments: true,
       single_line_space_around: context.config.paren_expression_space_around,
@@ -2825,8 +2825,8 @@ fn gen_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &mut Context<'a>) -> Pri
     generated_items
   };
 
-  fn get_use_new_line_group<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) -> bool {
-    if let Node::ArrowExpr(arrow_expr) = node.parent() {
+  fn get_use_new_line_group<'a>(node: &'a ParenthesizedExpression<'a>, context: &Context<'a>) -> bool {
+    if let Node::ArrowFunctionExpression(arrow_expr) = context.parent() {
       debug_assert!(arrow_expr.body.start() == node.start());
       use_new_line_group_for_arrow_body(arrow_expr, context)
     } else {
@@ -2835,75 +2835,86 @@ fn gen_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &mut Context<'a>) -> Pri
   }
 }
 
-fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) -> bool {
-  if node_helpers::has_surrounding_different_line_comments(node.expr.into(), context.program) {
+fn is_member_expr(expr: &Expression) -> bool {
+  matches!(
+    expr,
+    Expression::StaticMemberExpression(_) | Expression::ComputedMemberExpression(_) | Expression::PrivateFieldExpression(_)
+  )
+}
+
+fn should_skip_paren_expr<'a>(node: &'a ParenthesizedExpression<'a>, context: &Context<'a>) -> bool {
+  let inner = &node.expression;
+  if node_helpers::has_surrounding_different_line_comments(expr_to_node(inner), context.program) {
     return false;
   }
 
   // keep parens around any destructuring assignments
-  if let Node::AssignExpr(assign_expr) = node.expr.as_node() {
-    let left_kind = assign_expr.left.kind();
-    if matches!(left_kind, NodeKind::ObjectPat) {
+  if let Expression::AssignmentExpression(assign_expr) = inner {
+    if matches!(assign_expr.left, AssignmentTarget::ObjectAssignmentTarget(_)) {
       return false;
     }
   }
 
-  if matches!(node.expr.kind(), NodeKind::SeqExpr) {
+  if matches!(inner, Expression::SequenceExpression(_)) {
     // don't care about extra logic for sequence expressions
     return false;
   }
 
   // keep when there is a JSDoc because it could be a type assertion or satisfies
   for c in node.leading_comments_fast(context.program) {
-    if c.kind == CommentKind::Block && c.text.starts_with('*') {
+    if c.is_block() && c.text_fast(context.program).starts_with("/**") {
       return false;
     }
   }
 
   // keep for `(val as number)++` or `(<number>val)++`
-  let parent = node.parent();
-  if parent.kind() == NodeKind::UpdateExpr && matches!(node.expr.kind(), NodeKind::TsAsExpr | NodeKind::TsTypeAssertion) {
+  let parent = context.parent();
+  if matches!(parent, Node::UpdateExpression(_)) && matches!(inner, Expression::TSAsExpression(_) | Expression::TSTypeAssertion(_)) {
     return false;
   }
 
-  if matches!(node.expr.kind(), NodeKind::ArrayLit) || matches!(node.expr, Expr::Ident(_)) {
+  if matches!(inner, Expression::ArrayExpression(_) | Expression::Identifier(_)) {
     return true;
   }
 
-  if parent.kind() == NodeKind::MemberExpr && node.expr.kind() == NodeKind::MemberExpr {
+  if matches!(
+    parent,
+    Node::StaticMemberExpression(_) | Node::ComputedMemberExpression(_) | Node::PrivateFieldExpression(_)
+  ) && is_member_expr(inner)
+  {
     return true;
   }
 
   // skip over any paren exprs within paren exprs and needless paren exprs
+  // (ComputedPropName / KeyValueProp are both ObjectProperty in oxc)
   if matches!(
-    parent.kind(),
-    NodeKind::ParenExpr
-      | NodeKind::ExprStmt
-      | NodeKind::JSXElement
-      | NodeKind::JSXFragment
-      | NodeKind::JSXExprContainer
-      | NodeKind::UpdateExpr
-      | NodeKind::ComputedPropName
-      | NodeKind::KeyValueProp
+    parent,
+    Node::ParenthesizedExpression(_)
+      | Node::ExpressionStatement(_)
+      | Node::JSXElement(_)
+      | Node::JSXFragment(_)
+      | Node::JSXExpressionContainer(_)
+      | Node::UpdateExpression(_)
+      | Node::ObjectProperty(_)
   ) {
     return true;
   }
 
   // skip explicitly parsing this as a paren expr as that will be handled
   // in the JSX element/fragment and it might collapse back to not having a paren expr
-  if matches!(node.expr.kind(), NodeKind::JSXElement | NodeKind::JSXFragment) {
-    return is_jsx_paren_expr_handled_node(node.expr.into(), context);
+  if matches!(inner, Expression::JSXElement(_) | Expression::JSXFragment(_)) {
+    return is_jsx_paren_expr_handled_node(expr_to_node(inner), context);
   }
 
-  if let Node::AssignExpr(assign_expr) = parent {
+  if let Node::AssignmentExpression(assign_expr) = parent {
     if assign_expr.right.range().contains(&node.range()) {
       return true;
     }
   }
 
-  if let Node::VarDeclarator(var_decl) = parent {
-    if node.expr.kind() != NodeKind::AssignExpr {
-      if let Some(init) = var_decl.init {
+  if let Node::VariableDeclarator(var_decl) = parent {
+    if !matches!(inner, Expression::AssignmentExpression(_)) {
+      if let Some(init) = &var_decl.init {
         if init.range().contains(&node.range()) {
           return true;
         }
@@ -2911,21 +2922,15 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     }
   }
 
-  // skip over an expr or spread if not a spread
-  if let Some(expr_or_spread) = parent.to::<ExprOrSpread>() {
-    // these should only appear in these nodes
-    let is_known_parent = matches!(
-      expr_or_spread.parent().kind(),
-      NodeKind::NewExpr | NodeKind::ArrayLit | NodeKind::CallExpr | NodeKind::OptCall
-    );
-    debug_assert!(is_known_parent);
-    if is_known_parent && expr_or_spread.spread().is_none() {
-      return true;
-    }
+  // a parenthesized (non-spread) call/new argument or array element: oxc has no
+  // ExprOrSpread wrapper, so the call/array is the direct parent (spreads are a
+  // separate SpreadElement node).
+  if matches!(parent, Node::NewExpression(_) | Node::CallExpression(_) | Node::ArrayExpression(_)) {
+    return true;
   }
 
-  if let Node::MemberExpr(member_expr) = parent {
-    if matches!(member_expr.prop, MemberProp::Computed(_)) && member_expr.prop.range().contains(&node.range()) {
+  if let Node::ComputedMemberExpression(member_expr) = parent {
+    if member_expr.expression.range().contains(&node.range()) {
       return true;
     }
   }

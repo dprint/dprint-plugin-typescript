@@ -382,6 +382,19 @@ impl CommentExt for Comment {
   }
 }
 
+/// oxc's `Span` has no containment check, but the old `SourceRange` did; this
+/// restores `range.contains(&other)` (true when `self` fully covers `other`).
+pub trait RangeContains {
+  fn contains(&self, other: &SourceRange) -> bool;
+}
+
+impl RangeContains for SourceRange {
+  #[inline]
+  fn contains(&self, other: &SourceRange) -> bool {
+    self.start <= other.start && other.end <= self.end
+  }
+}
+
 /// Position helpers. A bare byte offset (`SourcePos`) can't use the blanket
 /// `SourceRanged` impl (it isn't a `GetSpan` type), so the lookups that the old
 /// code invoked directly on positions live here. There's no ambiguity with
