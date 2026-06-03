@@ -3,15 +3,16 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use deno_ast::ParsedSource;
+use deno_ast::oxc::allocator::Allocator;
 use dprint_core::configuration::resolve_new_line_kind;
 use dprint_core::formatting::*;
 
-use crate::swc::ensure_no_specific_syntax_errors;
+use crate::parse::ensure_no_specific_syntax_errors;
 
 use super::configuration::Configuration;
-use super::generation::generate;
 pub use super::generation::ExternalFormatter;
-use super::swc::parse_swc_ast;
+use super::generation::generate;
+use super::parse::parse_ast;
 
 pub struct FormatTextOptions<'a> {
   pub path: &'a Path,
@@ -68,7 +69,8 @@ pub fn format_text(options: FormatTextOptions) -> Result<Option<String>> {
     let had_bom = file_text.starts_with("\u{FEFF}");
     let file_text = if had_bom { file_text[3..].to_string() } else { file_text };
     let file_text: Arc<str> = file_text.into();
-    let parsed_source = parse_swc_ast(file_path, file_extension, file_text)?;
+    let allocator = Allocator::default();
+    let parsed_source = parse_ast(&allocator, file_path, file_extension, file_text)?;
     match inner_format(&parsed_source, config, external_formatter)? {
       Some(new_text) => Ok(Some(new_text)),
       None => {
@@ -83,7 +85,11 @@ pub fn format_text(options: FormatTextOptions) -> Result<Option<String>> {
 }
 
 /// Formats an already parsed source. This is useful as a performance optimization.
-pub fn format_parsed_source(source: &ParsedSource, config: &Configuration, external_formatter: Option<&ExternalFormatter>) -> Result<Option<String>> {
+pub fn format_parsed_source<'a>(
+  source: &'a ParsedSource<'a>,
+  config: &Configuration,
+  external_formatter: Option<&ExternalFormatter>,
+) -> Result<Option<String>> {
   if super::utils::file_text_has_ignore_comment(source.text(), &config.ignore_file_comment_text) {
     Ok(None)
   } else {
@@ -92,7 +98,7 @@ pub fn format_parsed_source(source: &ParsedSource, config: &Configuration, exter
   }
 }
 
-fn inner_format(parsed_source: &ParsedSource, config: &Configuration, external_formatter: Option<&ExternalFormatter>) -> Result<Option<String>> {
+fn inner_format<'a>(parsed_source: &'a ParsedSource<'a>, config: &Configuration, external_formatter: Option<&ExternalFormatter>) -> Result<Option<String>> {
   let mut maybe_err: Box<Option<anyhow::Error>> = Box::new(None);
   let result = dprint_core::formatting::format(
     || match generate(parsed_source, config, external_formatter) {
@@ -116,7 +122,8 @@ fn inner_format(parsed_source: &ParsedSource, config: &Configuration, external_f
 
 #[cfg(feature = "tracing")]
 pub fn trace_file(file_path: &Path, file_text: &str, config: &Configuration) -> dprint_core::formatting::TracingResult {
-  let parsed_source = parse_swc_ast(file_path, None, file_text.into()).unwrap();
+  let allocator = Allocator::default();
+  let parsed_source = parse_ast(&allocator, file_path, None, file_text.into()).unwrap();
   ensure_no_specific_syntax_errors(&parsed_source).unwrap();
   dprint_core::formatting::trace_printing(|| generate(&parsed_source, config, None).unwrap(), config_to_print_options(file_text, config))
 }

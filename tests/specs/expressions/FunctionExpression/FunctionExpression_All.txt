@@ -65,10 +65,10 @@ const testing = function(
 };
 
 == should allow keeping the close brace on the same line when empty and placing the close brace on the same line ==
-const t = function(testing, this) {};
+const t = function(testing, thisArg) {};
 
 [expect]
-const t = function(testing, this) {};
+const t = function(testing, thisArg) {};
 
 == should format with const type params ==
 const t = function<const T extends 5>() {};

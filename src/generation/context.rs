@@ -1,11 +1,6 @@
-use deno_ast::swc::common::comments::Comment;
-use deno_ast::swc::parser::token::TokenAndSpan;
-use deno_ast::view::*;
 use deno_ast::MediaType;
-use deno_ast::SourcePos;
-use deno_ast::SourceRange;
-use deno_ast::SourceRanged;
-use deno_ast::SourceRangedForSpanned;
+use deno_ast::oxc::ast::ast::Comment;
+use deno_ast::oxc::parser::Token;
 use dprint_core::formatting::ConditionReference;
 use dprint_core::formatting::IndentLevel;
 use dprint_core::formatting::IsStartOfLine;
@@ -14,7 +9,14 @@ use dprint_core::formatting::LineStartIndentLevel;
 use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
 
-use super::*;
+use super::CommentTracker;
+use super::TokenFinder;
+use super::oxc_helpers::CommentExt;
+use super::oxc_helpers::Node;
+use super::oxc_helpers::ProgramInfo;
+use super::oxc_helpers::SourcePos;
+use super::oxc_helpers::SourceRange;
+use super::oxc_helpers::SourceRanged;
 use crate::configuration::*;
 use crate::utils::Stack;
 
@@ -54,7 +56,7 @@ pub(crate) struct GenerateDiagnostic {
 
 pub struct Context<'a> {
   pub media_type: MediaType,
-  pub program: Program<'a>,
+  pub program: ProgramInfo<'a>,
   pub config: &'a Configuration,
   pub comments: CommentTracker<'a>,
   pub external_formatter: Option<&'a ExternalFormatter>,
@@ -69,6 +71,7 @@ pub struct Context<'a> {
   stored_ln: FxHashMap<(SourcePos, SourcePos), LineNumber>,
   stored_il: FxHashMap<(SourcePos, SourcePos), IndentLevel>,
   pub skip_iife_body_indent: bool,
+  pub suppress_synthetic_expr_parens: bool,
   pub end_statement_or_member_lns: Stack<LineNumber>,
   before_comments_start_info_stack: Stack<(SourceRange, LineNumber, IsStartOfLine)>,
   if_stmt_last_brace_condition_ref: Option<ConditionReference>,
@@ -82,9 +85,9 @@ pub struct Context<'a> {
 impl<'a> Context<'a> {
   pub fn new(
     media_type: MediaType,
-    tokens: &'a [TokenAndSpan],
+    tokens: &'a [Token],
     current_node: Node<'a>,
-    program: Program<'a>,
+    program: ProgramInfo<'a>,
     config: &'a Configuration,
     external_formatter: Option<&'a ExternalFormatter>,
   ) -> Context<'a> {
@@ -104,12 +107,13 @@ impl<'a> Context<'a> {
       stored_ln: FxHashMap::default(),
       stored_il: FxHashMap::default(),
       skip_iife_body_indent: false,
+      suppress_synthetic_expr_parens: false,
       end_statement_or_member_lns: Default::default(),
       before_comments_start_info_stack: Default::default(),
       if_stmt_last_brace_condition_ref: None,
       expr_stmt_single_line_parent_brace_ref: None,
       #[cfg(debug_assertions)]
-      last_generated_node_pos: deno_ast::SourceTextInfoProvider::text_info(&program).range().start.into(),
+      last_generated_node_pos: program.lo(),
       diagnostics: Vec::new(),
     }
   }

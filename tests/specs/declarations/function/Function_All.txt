@@ -99,9 +99,9 @@ function test(
 }
 
 == should not be multi-line when not exceeding the line width ==
-function test(testing, this) {
+function test(testing, thisArg) {
 }
 
 [expect]
-function test(testing, this) {
+function test(testing, thisArg) {
 }

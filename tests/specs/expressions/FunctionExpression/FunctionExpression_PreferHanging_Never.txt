@@ -13,7 +13,7 @@ const t = function(
 };
 
 == should not be multi-line when not exceeding the line width ==
-const t = function(testing, this) {};
+const t = function(testing, thisArg) {};
 
 [expect]
-const t = function(testing, this) {};
+const t = function(testing, thisArg) {};

@@ -1,20 +1,19 @@
-use deno_ast::swc::parser::token::Token;
-use deno_ast::swc::parser::token::TokenAndSpan;
-use deno_ast::view::*;
-use deno_ast::CommentsIterator;
-use deno_ast::SourcePos;
-use deno_ast::SourceRanged;
-use deno_ast::SourceRangedForSpanned;
-use deno_ast::SourceTextInfoProvider;
+use deno_ast::oxc::parser::Kind;
+use deno_ast::oxc::parser::Token;
+
+use super::oxc_helpers::CommentsIterator;
+use super::oxc_helpers::PosExt;
+use super::oxc_helpers::ProgramInfo;
+use super::oxc_helpers::SourcePos;
 
 pub struct CommentTracker<'a> {
-  program: Program<'a>,
-  tokens: &'a [TokenAndSpan],
+  program: ProgramInfo<'a>,
+  tokens: &'a [Token],
   token_index: usize,
 }
 
 impl<'a> CommentTracker<'a> {
-  pub fn new(program: Program<'a>, tokens: &'a [TokenAndSpan]) -> CommentTracker<'a> {
+  pub fn new(program: ProgramInfo<'a>, tokens: &'a [Token]) -> CommentTracker<'a> {
     CommentTracker {
       program,
       tokens,
@@ -24,12 +23,12 @@ impl<'a> CommentTracker<'a> {
 
   /// Gets the leading comments and all previously unhandled comments.
   pub fn leading_comments_with_previous(&mut self, pos: SourcePos) -> CommentsIterator<'a> {
-    let mut iterator = CommentsIterator::new(Vec::new());
+    let mut iterator = CommentsIterator::empty();
 
     if self.token_index == 0 {
       // get any comments stored at the beginning of the file
       // todo: investigate what's required here
-      let file_start = self.program.text_info().range().start.as_source_pos();
+      let file_start = self.program.lo();
       iterator.extend(file_start.leading_comments_fast(self.program));
       iterator.extend(file_start.trailing_comments_fast(self.program));
     } else if let Some(previous_token) = self.tokens.get(self.token_index - 1) {
@@ -53,12 +52,12 @@ impl<'a> CommentTracker<'a> {
 
   /// Gets the trailing comments and all previously unhandled comments
   pub fn trailing_comments_with_previous(&mut self, end: SourcePos) -> CommentsIterator<'a> {
-    let mut iterator = CommentsIterator::new(Vec::new());
+    let mut iterator = CommentsIterator::empty();
 
     while let Some(token) = self.tokens.get(self.token_index) {
       iterator.extend(token.start().leading_comments_fast(self.program));
 
-      let is_comma = token.token == Token::Comma;
+      let is_comma = token.kind() == Kind::Comma;
       if !is_comma && token.start() >= end {
         break;
       }
