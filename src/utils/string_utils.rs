@@ -66,20 +66,6 @@ pub fn has_no_new_lines_in_trailing_whitespace(text: &str) -> bool {
   true
 }
 
-pub fn is_not_empty_and_only_spaces(text: &str) -> bool {
-  if text.is_empty() {
-    return false;
-  }
-
-  for c in text.chars() {
-    if c != ' ' {
-      return false;
-    }
-  }
-
-  true
-}
-
 #[derive(Debug, PartialEq, Eq)]
 pub struct SplitLinesItem<'a> {
   pub text: &'a str,

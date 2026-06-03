@@ -1,5 +1,4 @@
 use deno_ast::oxc::ast::ast::ChainElement;
-use deno_ast::oxc::parser::Token;
 use deno_ast::oxc::span::GetSpan;
 use deno_ast::oxc::span::Span;
 
@@ -27,7 +26,6 @@ pub enum MemberLikeExprItem<'a> {
     range: Span,
     is_optional: bool,
   },
-  Token(&'a Token),
   CallExpr(Box<MemberLikeExprItemCallExpr<'a>>),
 }
 
@@ -36,7 +34,6 @@ impl<'a> GetSpan for MemberLikeExprItem<'a> {
     match self {
       MemberLikeExprItem::Node { node, .. } => node.span(),
       MemberLikeExprItem::Computed { range, .. } => *range,
-      MemberLikeExprItem::Token(token) => Span::new(token.start(), token.end()),
       MemberLikeExprItem::CallExpr(call_expr) => Span::new(call_expr.callee.span().start, call_expr.original_call_expr.end()),
     }
   }
@@ -51,15 +48,6 @@ impl<'a> MemberLikeExprItem<'a> {
     match self {
       MemberLikeExprItem::Node { is_optional, .. } | MemberLikeExprItem::Computed { is_optional, .. } => *is_optional,
       MemberLikeExprItem::CallExpr(call_expr) => call_expr.original_call_expr.is_optional(),
-      MemberLikeExprItem::Token(_) => false,
-    }
-  }
-
-  fn get_top_node(&self) -> Option<Node<'a>> {
-    match self {
-      MemberLikeExprItem::Node { node, .. } | MemberLikeExprItem::Computed { node, .. } => Some(*node),
-      MemberLikeExprItem::Token(_) => None,
-      MemberLikeExprItem::CallExpr(call_expr) => Some(Node::CallExpression(call_expr.original_call_expr.inner())),
     }
   }
 }

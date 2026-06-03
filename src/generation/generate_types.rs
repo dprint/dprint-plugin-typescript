@@ -167,29 +167,6 @@ fn get_inner_range_for_object_like(range: &SourceRange) -> SourceRange {
   SourceRange::new(range.start + 1, range.end - 1)
 }
 
-pub trait NodeExtensions<'a> {
-  fn get_type_parameters(&self) -> Option<&'a TSTypeParameterDeclaration<'a>>;
-}
-
-impl<'a> NodeExtensions<'a> for Node<'a> {
-  fn get_type_parameters(&self) -> Option<&'a TSTypeParameterDeclaration<'a>> {
-    match self {
-      Node::Class(node) => node.type_parameters.as_deref(),
-      Node::TSInterfaceDeclaration(node) => node.type_parameters.as_deref(),
-      Node::Function(node) => node.type_parameters.as_deref(),
-      Node::MethodDefinition(node) => node.value.type_parameters.as_deref(),
-      Node::TSTypeAliasDeclaration(node) => node.type_parameters.as_deref(),
-      Node::ArrowFunctionExpression(node) => node.type_parameters.as_deref(),
-      Node::TSCallSignatureDeclaration(node) => node.type_parameters.as_deref(),
-      Node::TSConstructSignatureDeclaration(node) => node.type_parameters.as_deref(),
-      Node::TSMethodSignature(node) => node.type_parameters.as_deref(),
-      Node::TSConstructorType(node) => node.type_parameters.as_deref(),
-      Node::TSFunctionType(node) => node.type_parameters.as_deref(),
-      _ => None,
-    }
-  }
-}
-
 /* ParametersRanged */
 
 pub trait ParametersRanged {

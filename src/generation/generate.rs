@@ -9048,15 +9048,6 @@ fn gen_for_member_like_expr_item<'a>(item: &MemberLikeExprItem<'a>, context: &mu
       }
       items
     }
-    MemberLikeExprItem::Token(token) => {
-      // don't bother with intertwined comments as its too much trouble
-      let mut items = PrintItems::new();
-      if !is_first {
-        items.push_sc(sc!("."));
-      }
-      items.push_string(token.text_fast(context.program).to_string());
-      items
-    }
     MemberLikeExprItem::CallExpr(node) => {
       let mut items = PrintItems::new();
 

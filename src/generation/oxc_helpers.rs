@@ -70,11 +70,6 @@ impl<'a> ProgramInfo<'a> {
   }
 
   #[inline]
-  pub fn program(&self) -> &'a Program<'a> {
-    self.program
-  }
-
-  #[inline]
   pub fn text_info(&self) -> &'a SourceTextInfo {
     self.text_info
   }
@@ -202,11 +197,6 @@ impl<'a> CommentsIterator<'a> {
 
   pub fn extend(&mut self, other: impl IntoIterator<Item = &'a Comment>) {
     self.comments.extend(other);
-  }
-
-  /// Remaining comments without consuming the iterator.
-  pub fn as_slice(&self) -> &[&'a Comment] {
-    &self.comments[self.index..]
   }
 
   /// The last remaining comment without consuming the iterator.
@@ -401,10 +391,8 @@ impl RangeContains for SourceRange {
 /// code invoked directly on positions live here. There's no ambiguity with
 /// `SourceRanged` because `u32` doesn't implement `GetSpan`.
 pub trait PosExt {
-  fn as_source_pos(&self) -> SourcePos;
   fn range(&self) -> SourceRange;
   fn start(&self) -> SourcePos;
-  fn end(&self) -> SourcePos;
   fn start_line_fast(&self, program: ProgramInfo) -> usize;
   fn end_line_fast(&self, program: ProgramInfo) -> usize;
   fn start_column_fast(&self, program: ProgramInfo) -> usize;
@@ -417,22 +405,12 @@ pub trait PosExt {
 
 impl PosExt for SourcePos {
   #[inline]
-  fn as_source_pos(&self) -> SourcePos {
-    *self
-  }
-
-  #[inline]
   fn range(&self) -> SourceRange {
     SourceRange::new(*self, *self)
   }
 
   #[inline]
   fn start(&self) -> SourcePos {
-    *self
-  }
-
-  #[inline]
-  fn end(&self) -> SourcePos {
     *self
   }
 

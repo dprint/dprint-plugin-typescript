@@ -101,19 +101,6 @@ pub fn has_surrounding_different_line_comments<'a>(node: Node<'a>, program: Prog
   false
 }
 
-pub fn nodes_have_only_spaces_between<'a>(previous_node: Node<'a>, next_node: Node<'a>, program: ProgramInfo<'a>) -> bool {
-  if let Node::JSXText(previous_node) = previous_node {
-    let previous_node_text = previous_node.text_fast(program);
-    crate::utils::has_no_new_lines_in_trailing_whitespace(previous_node_text) && previous_node_text.ends_with(' ')
-  } else if let Node::JSXText(next_node) = next_node {
-    let next_node_text = next_node.text_fast(program);
-    crate::utils::has_no_new_lines_in_leading_whitespace(next_node_text) && next_node_text.starts_with(' ')
-  } else {
-    let between_text = &program.text()[previous_node.end() as usize..next_node.start() as usize];
-    crate::utils::is_not_empty_and_only_spaces(between_text)
-  }
-}
-
 pub fn has_jsx_space_expr_text(node: Node, program: ProgramInfo) -> bool {
   get_jsx_space_expr_space_count(node, program) > 0
 }
