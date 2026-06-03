@@ -12,3 +12,27 @@ type Test = test | (string | number | other)[ ];
 type Test =
     | test
     | (string | number | other)[];
+
+== should keep parens for array of union return type ==
+const test = ({
+    ref,
+}): (
+    | Builder<number>
+    | "revision_id"
+    | Builder<string>
+)[] => [
+    ref("iteration"),
+    "revision_id",
+];
+
+[expect]
+const test = ({
+    ref,
+}): (
+    | Builder<number>
+    | "revision_id"
+    | Builder<string>
+)[] => [
+    ref("iteration"),
+    "revision_id",
+];

@@ -6655,6 +6655,10 @@ fn should_skip_parenthesized_type<'a>(node: &'a TSParenthesizedType<'a>, context
     }
   }
 
+  if matches!(context.parent(), Node::TSArrayType(_)) {
+    return false;
+  }
+
   if context.token_finder.get_previous_token_if_colon(node).is_some() {
     return true;
   }
