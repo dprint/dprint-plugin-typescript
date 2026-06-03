@@ -20,3 +20,37 @@ if (true) { /*0*/
 if (true) {
     /*0*/
 }
+
+== should keep line comments before the close brace ==
+if (true) {
+    call();
+    // process already exited
+}
+
+[expect]
+if (true) {
+    call();
+    // process already exited
+}
+
+== should keep line comments before the close brace before else if ==
+if (runtime.mode === "server") {
+    return {};
+    // If the mode is static, set if the cwd is specified, and optionally spa if specified and valid
+} else if (
+    runtime.mode === "static"
+    || runtime.cwd === "string"
+) {
+    return {};
+}
+
+[expect]
+if (runtime.mode === "server") {
+    return {};
+    // If the mode is static, set if the cwd is specified, and optionally spa if specified and valid
+} else if (
+    runtime.mode === "static"
+    || runtime.cwd === "string"
+) {
+    return {};
+}

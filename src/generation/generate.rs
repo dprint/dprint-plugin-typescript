@@ -7918,6 +7918,7 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
     let trailing_comment_range = context
       .token_finder
       .get_first_semi_colon_after(last_node)
+      .filter(|token| token.start() < inner_range.end())
       .map(|token| token.range())
       .unwrap_or_else(|| last_node.range());
     items.extend(gen_trailing_comments_as_statements(&trailing_comment_range, context));
@@ -9388,6 +9389,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
   let body_should_be_multi_line = get_body_should_be_multi_line(opts.body_node, &header_trailing_comments, context);
   let should_use_new_line = get_should_use_new_line(opts.body_node, body_should_be_multi_line, &opts.single_body_position, context);
   let open_brace_token = get_open_brace_token(opts.body_node, context);
+  let close_brace_token = get_close_brace_token(opts.body_node, context);
   let use_braces = opts.use_braces;
   let is_body_empty_stmt = matches!(opts.body_node, Node::EmptyStatement(_));
   let mut inner_brace_space_condition = if_true(
@@ -9532,7 +9534,10 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
       // generate the remaining trailing comments inside because some of them are generated already
       // by parsing the header trailing comments
       items.extend(gen_leading_comments(&body_node.range(), context));
-      let inner_range = body_node.get_inner_range(context);
+      let inner_range = match (open_brace_token, close_brace_token) {
+        (Some(open_brace_token), Some(close_brace_token)) => SourceRange::new(open_brace_token.end(), close_brace_token.start()),
+        _ => body_node.get_inner_range(context),
+      };
       if body_node.body.is_empty() {
         let trailing_comments_same_line = get_trailing_comments_on_same_line(&inner_range.start().range(), context);
         items.extend(gen_comments_same_line(trailing_comments_same_line, context));
@@ -9728,6 +9733,14 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
   fn get_open_brace_token<'a>(body_node: Node<'a>, context: &mut Context<'a>) -> Option<&'a Token> {
     if let Node::BlockStatement(block_stmt) = body_node {
       context.token_finder.get_first_open_brace_token_within(block_stmt)
+    } else {
+      None
+    }
+  }
+
+  fn get_close_brace_token<'a>(body_node: Node<'a>, context: &mut Context<'a>) -> Option<&'a Token> {
+    if let Node::BlockStatement(block_stmt) = body_node {
+      context.token_finder.get_last_close_brace_token_within(block_stmt)
     } else {
       None
     }

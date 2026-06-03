@@ -67,6 +67,10 @@ impl<'a> TokenFinder<'a> {
     self.get_first_token_within(node, |token| token.kind() == Kind::LCurly)
   }
 
+  pub fn get_last_close_brace_token_within(&self, node: &impl SourceRanged) -> Option<&'a Token> {
+    self.get_last_token_within_if(node, |token| token.kind() == Kind::RCurly)
+  }
+
   pub fn get_last_token_within_if_comma(&self, node: &impl SourceRanged) -> Option<&'a Token> {
     self.get_last_token_within_if(node, |token| token.kind() == Kind::Comma)
   }

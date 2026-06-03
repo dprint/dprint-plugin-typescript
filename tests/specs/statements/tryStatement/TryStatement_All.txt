@@ -71,3 +71,21 @@ try {
 } catch {
 } finally {
 }
+
+== should keep line comments before close braces ==
+try {
+    await process.status;
+    // process already exited
+} catch {
+    console.log("Failed to wait");
+    // process group already exited
+}
+
+[expect]
+try {
+    await process.status;
+    // process already exited
+} catch {
+    console.log("Failed to wait");
+    // process group already exited
+}
