@@ -1,0 +1,14 @@
+~~ deno: true ~~
+== should preserve markdown hard line breaks in jsdoc ==
+/**
+ * abc  
+ * def
+ */
+export function example() {}
+
+[expect]
+/**
+ * abc\
+ * def
+ */
+export function example() {}
