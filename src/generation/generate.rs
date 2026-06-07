@@ -3064,8 +3064,23 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
   .unwrap();
 
   // Then formats the text with the external formatter.
-  let formatted_tpl = match external_formatter(embedded_lang, text.replace(r"\\", "\\"), context.config) {
-    Ok(formatted_tpl) => formatted_tpl?.replace("\\", r"\\"),
+  //
+  // Only CSS needs the `\\` -> `\` round-trip, so the CSS parser sees escapes
+  // like Tailwind's `\\[\\#86efac\\]` as `\[\#86efac\]`. For other embedded
+  // languages the raw text must be passed through verbatim; unescaping there
+  // doubles lone escape sequences such as `\n` or `` \` `` (see
+  // denoland/deno#30103 and #30948).
+  let needs_unescape = embedded_lang == "css";
+  let input = if needs_unescape { text.replace(r"\\", "\\") } else { text };
+  let formatted_tpl = match external_formatter(embedded_lang, input, context.config) {
+    Ok(formatted_tpl) => {
+      let formatted = formatted_tpl?;
+      if needs_unescape {
+        formatted.replace("\\", r"\\")
+      } else {
+        formatted
+      }
+    }
     Err(err) => {
       context.diagnostics.push(context::GenerateDiagnostic {
         message: format!("Error formatting tagged template literal at line {}: {}", node.start_line() + 1, err),
