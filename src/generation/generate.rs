@@ -1584,10 +1584,7 @@ fn gen_named_import_or_export_specifiers<'a>(opts: GenNamedImportOrExportSpecifi
     }
   }
 
-  fn get_node_sorter<'a>(
-    parent_decl: Node,
-    context: &Context<'a>,
-  ) -> Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), Program<'a>) -> std::cmp::Ordering>> {
+  fn get_node_sorter(parent_decl: Node, context: &Context) -> Option<NodeSorter> {
     match parent_decl {
       Node::NamedExport(_) => get_node_sorter_from_order(
         context.config.export_declaration_sort_named_exports,
@@ -7349,21 +7346,19 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
     let nodes_len = stmt_group.nodes.len();
     let mut generated_nodes = Vec::with_capacity(nodes_len);
     let mut generated_line_separators = utils::VecMap::with_capacity(nodes_len);
-    let sorter = if stmt_group.subgroup_boundaries.is_some() {
+    let has_subgroup_boundaries = stmt_group.subgroup_boundaries.is_some();
+    let sorter = if has_subgroup_boundaries {
       None
     } else {
       get_node_sorter(stmt_group.kind, context)
     };
-    let sorted_indexes = match sorter {
-      Some(sorter) => Some(get_sorted_indexes(stmt_group.nodes.iter().map(|n| Some(*n)), sorter, context)),
-      None => None,
-    };
+    let sorted_indexes =
+      sorter.map(|sorter| sorter.get_sorted_indexes(stmt_group.nodes.iter().map(|n| Some(*n)), context.program));
     let subgroup_boundary_set: rustc_hash::FxHashSet<usize> = stmt_group
       .subgroup_boundaries
       .as_ref()
       .map(|bs| bs.iter().copied().collect())
       .unwrap_or_default();
-    let has_subgroup_boundaries = stmt_group.subgroup_boundaries.is_some();
     #[cfg(debug_assertions)]
     let max_node_pos = stmt_group.nodes.iter().map(|n| n.start()).max();
     #[cfg(debug_assertions)]
@@ -7469,10 +7464,7 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
 
   return items;
 
-  fn get_node_sorter<'a>(
-    group_kind: StmtGroupKind,
-    context: &Context<'a>,
-  ) -> Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), Program<'a>) -> std::cmp::Ordering>> {
+  fn get_node_sorter(group_kind: StmtGroupKind, context: &Context) -> Option<NodeSorter> {
     match group_kind {
       StmtGroupKind::Imports => get_node_sorter_from_order(context.config.module_sort_import_declarations, NamedTypeImportsExportsOrder::None),
       StmtGroupKind::Exports => get_node_sorter_from_order(context.config.module_sort_export_declarations, NamedTypeImportsExportsOrder::None),
@@ -7517,15 +7509,6 @@ struct StmtGroup<'a> {
   /// header / license). These stay pinned to the file start and are emitted
   /// before the per-node loop.
   captured_detached_header: Vec<&'a Comment>,
-}
-
-fn node_src_with_quotes<'a>(node: &Node<'a>, context: &Context<'a>) -> String {
-  if let Node::ImportDecl(d) = node {
-    // cmp_module_specifiers wants text including surrounding quotes.
-    d.src.text_fast(context.program).to_string()
-  } else {
-    String::new()
-  }
 }
 
 fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<StmtGroup<'a>> {
@@ -7604,23 +7587,17 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<S
           (idx, i)
         })
         .collect();
-      // Pre-collect source strings to avoid borrowing g.nodes inside the closure.
-      let node_srcs: Vec<String> = g.nodes.iter().map(|n| node_src_with_quotes(n, context)).collect();
-
-      let sort = context.config.module_sort_import_declarations;
+      let sorter = get_node_sorter_from_order(context.config.module_sort_import_declarations, NamedTypeImportsExportsOrder::None);
+      let sort_keys =
+        sorter.map(|sorter| (sorter, g.nodes.iter().map(|node| sorter.get_node_sort_key(*node, context.program)).collect::<Vec<_>>()));
       let (ordered, boundaries) = crate::generation::imports::partition::partition_indices(
         &classified,
         resolved.groups.len(),
         |a_orig: usize, b_orig: usize| -> std::cmp::Ordering {
-          use crate::configuration::SortOrder;
-          use crate::generation::sorting::module_specifiers::cmp_module_specifiers;
-          if matches!(sort, SortOrder::Maintain) {
-            return a_orig.cmp(&b_orig);
-          }
-          match sort {
-            SortOrder::CaseSensitive => cmp_module_specifiers(&node_srcs[a_orig], &node_srcs[b_orig], |x, y| x.cmp(y)),
-            SortOrder::CaseInsensitive => cmp_module_specifiers(&node_srcs[a_orig], &node_srcs[b_orig], crate::generation::sorting::cmp_text_case_insensitive),
-            SortOrder::Maintain => unreachable!(),
+          if let Some((sorter, sort_keys)) = &sort_keys {
+            sorter.cmp_node_sort_keys(&sort_keys[a_orig], &sort_keys[b_orig])
+          } else {
+            a_orig.cmp(&b_orig)
           }
         },
       );
@@ -8105,7 +8082,7 @@ struct GenSeparatedValuesParams<'a> {
   single_line_options: ir_helpers::SingleLineOptions,
   multi_line_options: ir_helpers::MultiLineOptions,
   force_possible_newline_at_start: bool,
-  node_sorter: Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), Program<'a>) -> std::cmp::Ordering>>,
+  node_sorter: Option<NodeSorter>,
 }
 
 enum NodeOrSeparator<'a> {
@@ -8155,7 +8132,7 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
   if node_sorter.is_some() && compute_lines_span {
     panic!("Not implemented scenario. Cannot computed lines span and allow blank lines");
   }
-  let sorted_indexes = node_sorter.map(|sorter| get_sorted_indexes(nodes.iter().map(|d| d.as_node()), sorter, context));
+  let sorted_indexes = node_sorter.map(|sorter| sorter.get_sorted_indexes(nodes.iter().map(|d| d.as_node()), context.program));
 
   ir_helpers::gen_separated_values(
     |is_multi_line_or_hanging_ref| {
@@ -8236,22 +8213,6 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
       force_possible_newline_at_start: opts.force_possible_newline_at_start,
     },
   )
-}
-
-fn get_sorted_indexes<'a: 'b, 'b>(
-  nodes: impl Iterator<Item = Option<Node<'a>>>,
-  sorter: Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), Program<'a>) -> std::cmp::Ordering>,
-  context: &mut Context<'a>,
-) -> utils::VecMap<usize> {
-  let mut nodes_with_indexes = nodes.enumerate().collect::<Vec<_>>();
-  nodes_with_indexes.sort_unstable_by(|a, b| sorter((a.0, a.1), (b.0, b.1), context.program));
-  let mut old_to_new_index = utils::VecMap::with_capacity(nodes_with_indexes.len());
-
-  for (new_index, old_index) in nodes_with_indexes.into_iter().map(|(index, _)| index).enumerate() {
-    old_to_new_index.insert(old_index, new_index);
-  }
-
-  old_to_new_index
 }
 
 fn sort_by_sorted_indexes<T>(items: Vec<T>, sorted_indexes: utils::VecMap<usize>) -> Vec<T> {
@@ -8500,7 +8461,7 @@ struct GenObjectLikeNodeOptions<'a> {
   force_multi_line: bool,
   surround_single_line_with_spaces: bool,
   allow_blank_lines: bool,
-  node_sorter: Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), Program<'a>) -> std::cmp::Ordering>>,
+  node_sorter: Option<NodeSorter>,
 }
 
 fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Context<'a>) -> PrintItems {
