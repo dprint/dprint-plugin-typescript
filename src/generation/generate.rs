@@ -7233,11 +7233,18 @@ where
     .iter()
     .find(|t| t.token == Token::LBrace)
     .expect("Expected to find an open brace token.");
-  let close_brace_token = child_tokens
-    .iter()
-    .rev()
-    .find(|t| t.token == Token::RBrace)
-    .expect("Expected to find a close brace token.");
+  let close_brace_token = match child_tokens.iter().rev().find(|t| t.token == Token::RBrace) {
+    Some(close_brace_token) => close_brace_token,
+    None => {
+      context.diagnostics.push(context::GenerateDiagnostic {
+        message: format!(
+          "Unexpected end of file. Expected a close brace token for the block starting on line {}.",
+          open_brace_token.start_line_fast(context.program) + 1
+        ),
+      });
+      return items;
+    }
+  };
 
   items.extend(gen_brace_separator(
     GenBraceSeparatorOptions {

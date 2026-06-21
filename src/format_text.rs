@@ -170,4 +170,59 @@ mod test {
       "Error formatting tagged template literal at line 1: Syntax error from external formatter"
     );
   }
+
+  fn format_for_test(text: &str) -> Result<Option<String>> {
+    let config = crate::configuration::ConfigurationBuilder::new().build();
+    format_text(FormatTextOptions {
+      path: &std::path::PathBuf::from("test.ts"),
+      extension: None,
+      text: text.into(),
+      config: &config,
+      external_formatter: None,
+    })
+  }
+
+  #[test]
+  fn unclosed_exported_namespace_surfaces_error() {
+    // unclosed `export namespace`/`export module` is recovered by swc without a diagnostic,
+    // so it reaches code generation. https://github.com/dprint/dprint-plugin-typescript/issues/802
+    for text in [
+      "export namespace Foo {\n  const x = 1;\n",
+      "export module Foo {\n  const x = 1;\n",
+      // unclosed empty body
+      "export namespace Foo {\n",
+      // nested: the single close brace belongs to the inner block, so the outer is unclosed
+      "export namespace Foo {\n  export namespace Bar {\n    const x = 1;\n}\n",
+      // unclosed outer containing a complete inner construct
+      "export namespace Foo {\n  function bar() {}\n",
+      // dotted name desugars to a nested namespace declaration
+      "export namespace Foo.Bar {\n  const x = 1;\n",
+    ] {
+      let err = format_for_test(text).err().unwrap_or_else(|| panic!("expected an error for {text:?}"));
+      let message = err.to_string();
+      let expected_prefix = "Unexpected end of file. Expected a close brace token for the block starting on line ";
+      assert!(message.starts_with(expected_prefix), "unexpected message for {text:?}: {message}");
+    }
+
+    // pin the full message, including the (1-based) line of the unclosed block's open brace
+    assert_eq!(
+      format_for_test("export namespace Foo {\n  const x = 1;\n").unwrap_err().to_string(),
+      "Unexpected end of file. Expected a close brace token for the block starting on line 1."
+    );
+    assert_eq!(
+      format_for_test("\nexport namespace Foo {\n  const x = 1;\n").unwrap_err().to_string(),
+      "Unexpected end of file. Expected a close brace token for the block starting on line 2."
+    );
+  }
+
+  #[test]
+  fn closed_namespaces_still_format() {
+    // regression: well-formed module/namespace declarations must still format.
+    assert_eq!(format_for_test("export namespace Foo {}\n").unwrap(), None);
+    assert_eq!(format_for_test("export namespace Foo {\n  const x = 1;\n}\n").unwrap(), None);
+    assert_eq!(
+      format_for_test("export namespace Foo {\n  export namespace Bar {\n    const x = 1;\n  }\n}\n").unwrap(),
+      None
+    );
+  }
 }
