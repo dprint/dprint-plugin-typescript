@@ -1,12 +1,13 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use anyhow::Result;
 use deno_ast::ParsedSource;
 use dprint_core::configuration::resolve_new_line_kind;
 use dprint_core::formatting::*;
 
 use crate::swc::ensure_no_specific_syntax_errors;
+use crate::FormatError;
+use crate::Result;
 
 use super::configuration::Configuration;
 use super::generation::generate;
@@ -93,7 +94,7 @@ pub fn format_parsed_source(source: &ParsedSource, config: &Configuration, exter
 }
 
 fn inner_format(parsed_source: &ParsedSource, config: &Configuration, external_formatter: Option<&ExternalFormatter>) -> Result<Option<String>> {
-  let mut maybe_err: Box<Option<anyhow::Error>> = Box::new(None);
+  let mut maybe_err: Box<Option<FormatError>> = Box::new(None);
   let result = dprint_core::formatting::format(
     || match generate(parsed_source, config, external_formatter) {
       Ok(print_items) => print_items,
@@ -161,7 +162,7 @@ mod test {
       config: &config,
       external_formatter: Some(&|lang, _text, _config| {
         assert!(matches!(lang, "html"));
-        Err(anyhow::anyhow!("Syntax error from external formatter"))
+        Err("Syntax error from external formatter".into())
       }),
     });
     assert!(result.is_err());

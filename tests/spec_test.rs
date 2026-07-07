@@ -1,11 +1,12 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use anyhow::Result;
 use dprint_core::configuration::*;
 use dprint_development::*;
 use dprint_plugin_typescript::configuration::*;
 use dprint_plugin_typescript::*;
+
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync + 'static>>;
 
 fn external_formatter(lang: &str, text: String, config: &Configuration) -> Result<Option<String>> {
   match lang {
@@ -69,7 +70,7 @@ fn format_sql(text: &str, config: &Configuration) -> Result<Option<String>> {
   let options = dprint_plugin_sql::configuration::ConfigurationBuilder::new()
     .indent_width(config.indent_width)
     .build();
-  dprint_plugin_sql::format_text(Path::new("_path.sql"), text, &options)
+  dprint_plugin_sql::format_text(Path::new("_path.sql"), text, &options).map_err(Into::into)
 }
 
 fn main() {
@@ -94,13 +95,17 @@ fn main() {
         let config_result = resolve_config(spec_config, &global_config);
         ensure_no_diagnostics(&config_result.diagnostics);
 
-        format_text(FormatTextOptions {
+        // dprint-development's callback wants an `anyhow::Result`, so bridge the
+        // crate's boxed error through `std::io::Error` to avoid depending on anyhow
+        let result = format_text(FormatTextOptions {
           path: file_name,
           extension: None,
           text: file_text.into(),
           config: &config_result.config,
           external_formatter: Some(&external_formatter),
         })
+        .map_err(std::io::Error::other)?;
+        Ok(result)
       })
     },
     Arc::new(move |_file_name, _file_text, _spec_config| {
