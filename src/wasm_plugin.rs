@@ -4,6 +4,7 @@ use dprint_core::generate_plugin_code;
 use dprint_core::plugins::CheckConfigUpdatesMessage;
 use dprint_core::plugins::ConfigChange;
 use dprint_core::plugins::FileMatchingInfo;
+use dprint_core::plugins::FormatError;
 use dprint_core::plugins::FormatResult;
 use dprint_core::plugins::PluginInfo;
 use dprint_core::plugins::PluginResolveConfigurationResult;
@@ -38,7 +39,7 @@ impl SyncPluginHandler<Configuration> for TypeScriptPluginHandler {
     }
   }
 
-  fn check_config_updates(&self, _message: CheckConfigUpdatesMessage) -> Result<Vec<ConfigChange>, anyhow::Error> {
+  fn check_config_updates(&self, _message: CheckConfigUpdatesMessage) -> Result<Vec<ConfigChange>, FormatError> {
     Ok(Vec::new())
   }
 
@@ -60,7 +61,7 @@ impl SyncPluginHandler<Configuration> for TypeScriptPluginHandler {
 
   fn format(&mut self, request: SyncFormatRequest<Configuration>, _format_with_host: impl FnMut(SyncHostFormatRequest) -> FormatResult) -> FormatResult {
     let file_text = String::from_utf8(request.file_bytes)?;
-    super::format_text(super::FormatTextOptions {
+    let maybe_text = super::format_text(super::FormatTextOptions {
       path: request.file_path,
       extension: None,
       text: file_text,
@@ -68,7 +69,8 @@ impl SyncPluginHandler<Configuration> for TypeScriptPluginHandler {
       // todo: support this in Wasm
       external_formatter: None,
     })
-    .map(|maybe_text| maybe_text.map(|t| t.into_bytes()))
+    .map_err(FormatError::new)?;
+    Ok(maybe_text.map(|t| t.into_bytes()))
   }
 }
 

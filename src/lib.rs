@@ -11,10 +11,16 @@
 #![deny(clippy::print_stdout)]
 
 pub mod configuration;
+mod error;
 mod format_text;
 mod generation;
 mod swc;
 mod utils;
+
+pub use error::FormatError;
+
+/// Result type used throughout the crate.
+pub(crate) type Result<T> = std::result::Result<T, FormatError>;
 
 pub use format_text::format_parsed_source;
 pub use format_text::format_text;

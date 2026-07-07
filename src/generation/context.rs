@@ -46,7 +46,7 @@ use crate::utils::Stack;
 /// cases the templates will be left as they are.
 ///
 /// Only templates with no interpolation are supported.
-pub type ExternalFormatter = dyn Fn(&str, String, &Configuration) -> anyhow::Result<Option<String>>;
+pub type ExternalFormatter = dyn Fn(&str, String, &Configuration) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync + 'static>>;
 
 pub(crate) struct GenerateDiagnostic {
   pub message: String,
