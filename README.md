@@ -20,6 +20,20 @@ dprint add npm:@dprint/typescript
 
 See https://dprint.dev/plugins/typescript/ for more information.
 
+## Configuration
+
+Set `jsx.sortClassNames` to `tailwind` to sort JSX `class` and `className` values using Tailwind CSS ordering.
+Helper calls and tagged templates are sorted only when their leading identifier is listed in `jsx.sortClassNames.functions`.
+
+```json
+{
+  "typescript": {
+    "jsx.sortClassNames": "tailwind",
+    "jsx.sortClassNames.functions": ["cn", "classnames", "tw"]
+  }
+}
+```
+
 ## Development
 
 The tests are in the `./tests/specs` folder. To run the tests, run `cargo test`.

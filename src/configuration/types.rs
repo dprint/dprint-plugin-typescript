@@ -265,6 +265,18 @@ pub enum JsxMultiLineParens {
 
 generate_str_to_from![JsxMultiLineParens, [Never, "never"], [Prefer, "prefer"], [Always, "always"]];
 
+/// How to sort JSX class attribute values.
+#[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum JsxClassNamesSortOrder {
+  /// Maintains the current class name ordering.
+  Maintain,
+  /// Sorts class names using Tailwind CSS ordering.
+  Tailwind,
+}
+
+generate_str_to_from![JsxClassNamesSortOrder, [Maintain, "maintain"], [Tailwind, "tailwind"]];
+
 /// Whether to use semi-colons or commas.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -329,6 +341,10 @@ pub struct Configuration {
   pub jsx_quote_style: JsxQuoteStyle,
   #[serde(rename = "jsx.multiLineParens")]
   pub jsx_multi_line_parens: JsxMultiLineParens,
+  #[serde(rename = "jsx.sortClassNames")]
+  pub jsx_sort_class_names: JsxClassNamesSortOrder,
+  #[serde(rename = "jsx.sortClassNames.functions")]
+  pub jsx_sort_class_names_functions: Vec<String>,
   #[serde(rename = "jsx.forceNewLinesSurroundingContent")]
   pub jsx_force_new_lines_surrounding_content: bool,
   #[serde(rename = "jsxOpeningElement.bracketPosition")]

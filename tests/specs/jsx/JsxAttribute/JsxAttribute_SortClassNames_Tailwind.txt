@@ -1,0 +1,33 @@
+-- file.jsx --
+~~ jsx.sortClassNames: tailwind ~~
+== should sort className values using Tailwind order ==
+const value = <div className="p-4 flex bg-red-500 text-white" />;
+
+[expect]
+const value = <div className="flex bg-red-500 p-4 text-white" />;
+
+== should sort class attribute values ==
+const value = <div class="p-4 flex" />;
+
+[expect]
+const value = <div class="flex p-4" />;
+
+== should match Prettier public sorter examples ==
+const first = <div className="sm:bg-tomato bg-red-500" />;
+const second = <div className="p-4 m-2" />;
+
+[expect]
+const first = <div className="bg-red-500 sm:bg-tomato" />;
+const second = <div className="m-2 p-4" />;
+
+== should keep custom classes first in their original order ==
+const value = <div className="px-2 foo p-4 bar" />;
+
+[expect]
+const value = <div className="foo bar p-4 px-2" />;
+
+== should collapse whitespace and remove duplicate classes ==
+const value = <div className="  p-4  flex p-4  " />;
+
+[expect]
+const value = <div className="flex p-4" />;
