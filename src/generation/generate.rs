@@ -5137,12 +5137,13 @@ fn gen_for_of_stmt<'a>(node: &ForOfStmt<'a>, context: &mut Context<'a>) -> Print
   items.push_info(start_header_ln);
   items.push_info(start_header_lsil);
   items.push_sc(sc!("for"));
-  if context.config.for_of_statement_space_after_for_keyword {
-    items.push_space();
-  }
   if node.is_await() {
     // todo: generate comments around await token range
-    items.push_sc(sc!("await "));
+    items.push_space();
+    items.push_sc(sc!("await"));
+  }
+  if context.config.for_of_statement_space_after_for_keyword {
+    items.push_space();
   }
   let inner_header_range = SourceRange::new(node.left.start(), node.right.end());
   items.extend(gen_node_in_parens(
