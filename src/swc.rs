@@ -1,12 +1,11 @@
-use anyhow::anyhow;
-use anyhow::bail;
-use anyhow::Result;
 use deno_ast::swc::parser::error::SyntaxError;
 use deno_ast::swc::parser::Syntax;
 use deno_ast::ModuleSpecifier;
 use deno_ast::ParsedSource;
 use std::path::Path;
 use std::sync::Arc;
+
+use crate::Result;
 
 pub fn parse_swc_ast(file_path: &Path, file_extension: Option<&str>, file_text: Arc<str>) -> Result<ParsedSource> {
   match parse_inner(file_path, file_extension, file_text.clone()) {
@@ -53,7 +52,7 @@ fn parse_inner_no_diagnostic_check(file_path: &Path, file_extension: Option<&str
     scope_analysis: false,
     text,
   })
-  .map_err(|diagnostic| anyhow!("{:#}", &diagnostic))
+  .map_err(Into::into)
 }
 
 fn path_to_specifier(path: &Path) -> Result<ModuleSpecifier> {
@@ -62,10 +61,10 @@ fn path_to_specifier(path: &Path) -> Result<ModuleSpecifier> {
   } else if let Some(file_name) = path.file_name() {
     match ModuleSpecifier::parse(&format!("file:///{}", file_name.to_string_lossy())) {
       Ok(specifier) => Ok(specifier),
-      Err(err) => bail!("could not convert path to specifier: '{}', error: {:#}", path.display(), err),
+      Err(err) => Err(format!("could not convert path to specifier: '{}', error: {:#}", path.display(), err).into()),
     }
   } else {
-    bail!("could not convert path to specifier: '{}'", path.display())
+    Err(format!("could not convert path to specifier: '{}'", path.display()).into())
   }
 }
 
@@ -140,19 +139,13 @@ pub fn ensure_no_specific_syntax_errors(parsed_source: &ParsedSource) -> Result<
         SyntaxError::TS1185
       )
     })
+    .cloned()
     .collect::<Vec<_>>();
 
   if diagnostics.is_empty() {
     Ok(())
   } else {
-    let mut final_message = String::new();
-    for diagnostic in diagnostics {
-      if !final_message.is_empty() {
-        final_message.push_str("\n\n");
-      }
-      final_message.push_str(&format!("{diagnostic}"));
-    }
-    bail!("{}", final_message)
+    Err(deno_ast::ParseDiagnosticsError(diagnostics).into())
   }
 }
 

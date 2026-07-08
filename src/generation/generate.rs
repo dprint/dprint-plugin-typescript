@@ -25,7 +25,7 @@ use super::*;
 use crate::configuration::*;
 use crate::utils;
 
-pub fn generate(parsed_source: &ParsedSource, config: &Configuration, external_formatter: Option<&ExternalFormatter>) -> anyhow::Result<PrintItems> {
+pub fn generate(parsed_source: &ParsedSource, config: &Configuration, external_formatter: Option<&ExternalFormatter>) -> crate::Result<PrintItems> {
   // eprintln!("Leading: {:?}", parsed_source.comments().leading_map());
   // eprintln!("Trailing: {:?}", parsed_source.comments().trailing_map());
 
@@ -50,7 +50,7 @@ pub fn generate(parsed_source: &ParsedSource, config: &Configuration, external_f
     context.assert_end_of_file_state();
 
     if let Some(diagnostic) = context.diagnostics.pop() {
-      return Err(anyhow::anyhow!(diagnostic.message));
+      return Err(diagnostic.message.into());
     }
 
     if config.file_indent_level > 0 {

@@ -8,7 +8,17 @@ This uses the [swc](https://github.com/swc-project/swc) parser for TypeScript wr
 
 ## Install
 
-See the GitHub [releases](https://github.com/dprint/dprint-plugin-typescript/releases).
+[Install](https://dprint.dev/install/) and [setup](https://dprint.dev/setup/) dprint.
+
+Then in your project's directory with a dprint.json file, run:
+
+```shellsession
+dprint add typescript
+# or install from npm
+dprint add npm:@dprint/typescript
+```
+
+See https://dprint.dev/plugins/typescript/ for more information.
 
 ## Development
 
