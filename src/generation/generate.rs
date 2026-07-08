@@ -7912,6 +7912,23 @@ fn gen_separated_values<'a>(opts: GenSeparatedValuesParams<'a>, context: &mut Co
   gen_separated_values_with_result(opts, context).items
 }
 
+/// Arrow / function expression (possibly wrapped) — kept inline-multi-line even with other siblings.
+fn is_function_hugging_candidate(value: &NodeOrSeparator) -> bool {
+  fn is_arrow_or_fn(expr: Expr) -> bool {
+    match expr {
+      Expr::Arrow(_) | Expr::Fn(_) => true,
+      Expr::Paren(paren) => is_arrow_or_fn(paren.expr),
+      _ => false,
+    }
+  }
+  match value {
+    NodeOrSeparator::Node(Node::ArrowExpr(_)) | NodeOrSeparator::Node(Node::FnExpr(_)) => true,
+    NodeOrSeparator::Node(Node::ExprOrSpread(e)) => is_arrow_or_fn(e.expr),
+    NodeOrSeparator::Node(Node::ParenExpr(p)) => is_arrow_or_fn(p.expr),
+    _ => false,
+  }
+}
+
 fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, context: &mut Context<'a>) -> GenSeparatedValuesResult {
   let nodes = opts.nodes;
   let separator = opts.separator;
@@ -7931,15 +7948,30 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
       let is_multi_line_or_hanging = is_multi_line_or_hanging_ref.create_resolver();
       let mut generated_nodes = Vec::new();
       let nodes_count = nodes.len();
+      let inline_multi_line_flags: Vec<bool> = nodes
+        .iter()
+        .map(|value| match value {
+          NodeOrSeparator::Node(v) => allows_inline_multi_line(*v, context, nodes_count > 1),
+          _ => false,
+        })
+        .collect();
+      // If 2+ non-arrow siblings would each take the inline-multi-line slot,
+      // break the container instead of expanding only one (issue #641).
+      let inline_multi_line_count = nodes
+        .iter()
+        .zip(inline_multi_line_flags.iter())
+        .filter(|(value, flag)| **flag && !is_function_hugging_candidate(value))
+        .count();
+      let allow_any_inline_multi_line = inline_multi_line_count <= 1;
 
       for (i, value) in nodes.into_iter().enumerate() {
         let node_index = match &sorted_indexes {
           Some(old_to_new_index) => *old_to_new_index.get(i).unwrap(),
           None => i,
         };
-        let (allow_inline_multi_line, allow_inline_single_line) = if let NodeOrSeparator::Node(value) = value {
-          let is_last_value = node_index + 1 == nodes_count; // allow the last node to be single line
-          (allows_inline_multi_line(value, context, nodes_count > 1), is_last_value)
+        let (allow_inline_multi_line, allow_inline_single_line) = if let NodeOrSeparator::Node(_) = value {
+          let is_last_value = node_index + 1 == nodes_count;
+          (allow_any_inline_multi_line && inline_multi_line_flags[i], is_last_value)
         } else {
           (false, false)
         };
