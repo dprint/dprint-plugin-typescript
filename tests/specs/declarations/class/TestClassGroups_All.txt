@@ -1,0 +1,32 @@
+~~ classDeclaration.alignProperties: true, indentWidth: 2 ~~
+== should align class properties in groups ==
+class ServerConfig {
+// Connection settings
+host = "localhost";
+port = 3000;
+
+// Security settings
+tls = true;
+tlsCertificate = "/path/to/cert.pem";
+tlsPrivateKey = "/path/to/key.pem";
+
+// Timeouts
+readTimeout = 5000;
+writeTimeoutDuration = 30000;
+}
+
+[expect]
+class ServerConfig {
+  // Connection settings
+  host = "localhost";
+  port = 3000;
+
+  // Security settings
+  tls            = true;
+  tlsCertificate = "/path/to/cert.pem";
+  tlsPrivateKey  = "/path/to/key.pem";
+
+  // Timeouts
+  readTimeout          = 5000;
+  writeTimeoutDuration = 30000;
+}

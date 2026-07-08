@@ -1,0 +1,10 @@
+~~ variableStatement.alignAssignments: false ~~
+== should not align when disabled ==
+const foo = 12;
+const bar = 21;
+const foobar = 22;
+
+[expect]
+const foo = 12;
+const bar = 21;
+const foobar = 22;

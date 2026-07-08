@@ -1,0 +1,14 @@
+~~ enumDeclaration.alignMembers: true, indentWidth: 2 ~~
+== should align enum members ==
+enum TestEnum {
+A = 1,
+longEnumMemberName = "value",
+B = true
+}
+
+[expect]
+enum TestEnum {
+  A                  = 1,
+  longEnumMemberName = "value",
+  B                  = true,
+}

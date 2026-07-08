@@ -1,0 +1,12 @@
+~~ interfaceDeclaration.alignProperties: false, indentWidth: 2 ~~
+== should not align when disabled ==
+interface User {
+name: string;
+age: number;
+}
+
+[expect]
+interface User {
+  name: string;
+  age: number;
+}

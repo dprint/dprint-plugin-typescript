@@ -1,0 +1,12 @@
+~~ typeLiteral.alignProperties: true, indentWidth: 2 ~~
+== should align type literal properties ==
+type User = {
+name: string;
+age: number;
+};
+
+[expect]
+type User = {
+  name: string;
+  age:  number;
+};
