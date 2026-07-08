@@ -9235,21 +9235,56 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
     if children.is_empty() {
       items.push_signal(Signal::PossibleNewLine);
     } else {
-      let mut previous_child = None;
+      // `gen_jsx_text` trims boundary whitespace so multi-line JSX text doesn't keep source indentation.
+      // Restore meaningful same-line edge spaces here when the first or last rendered child is JSX text.
+      let children_len = children.len();
+      let mut previous_child: Option<Node<'a>> = None;
+      let mut before_last_child: Option<Node<'a>> = None;
       for (index, (child, generated_child)) in children.into_iter().enumerate() {
         if index > 0 && should_use_space(*previous_child.as_ref().unwrap(), child, context) {
           items.extend(jsx_space_separator(*previous_child.as_ref().unwrap(), child, context));
+        } else if index == 0 && has_jsx_leading_space(child, context) {
+          items.push_signal(Signal::SpaceOrNewLine);
         } else {
           items.push_signal(Signal::PossibleNewLine);
         }
 
         items.extend(generated_child.into());
 
+        if children_len >= 2 && index == children_len - 2 {
+          before_last_child = Some(child);
+        }
         previous_child = Some(child);
       }
-      items.push_signal(Signal::PossibleNewLine);
+      if has_jsx_trailing_space(*previous_child.as_ref().unwrap(), before_last_child, context) {
+        items.push_signal(Signal::SpaceOrNewLine);
+      } else {
+        items.push_signal(Signal::PossibleNewLine);
+      }
     }
     items
+  }
+
+  fn has_jsx_leading_space<'a>(current_node: Node<'a>, context: &Context<'a>) -> bool {
+    if let Node::JSXText(text) = current_node {
+      let text = text.text_fast(context.program);
+      text.starts_with(' ') && utils::has_no_new_lines_in_leading_whitespace(text)
+    } else {
+      false
+    }
+  }
+
+  fn has_jsx_trailing_space<'a>(current_node: Node<'a>, previous_node: Option<Node<'a>>, context: &Context<'a>) -> bool {
+    if let Node::JSXText(text) = current_node {
+      if matches!(previous_node, Some(previous_node) if is_ignore_jsx_expr_container(previous_node, context)) {
+        return false;
+      }
+
+      let text = text.text_fast(context.program);
+      text.ends_with(' ') && utils::has_no_new_lines_in_trailing_whitespace(text)
+    } else {
+      false
+    }
   }
 
   fn should_use_space<'a>(previous_child: Node<'a>, current: Node<'a>, context: &mut Context<'a>) -> bool {
