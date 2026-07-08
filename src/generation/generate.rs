@@ -6961,21 +6961,50 @@ fn gen_comment(comment: &Comment, context: &mut Context) -> Option<PrintItems> {
 fn gen_js_doc_or_multiline_block(comment: &Comment, _context: &mut Context) -> PrintItems {
   debug_assert_eq!(comment.kind, CommentKind::Block);
   let is_js_doc = comment.text.starts_with('*');
-  return lines_to_print_items(is_js_doc, build_lines(comment));
+  return lines_to_print_items(is_js_doc, build_lines(comment, is_js_doc));
 
-  fn build_lines(comment: &Comment) -> Vec<&str> {
-    let mut lines: Vec<&str> = Vec::new();
+  fn build_lines(comment: &Comment, is_js_doc: bool) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
+    let raw_lines = utils::split_lines(&comment.text)
+      .map(|line| {
+        let text = if line.line_index == 0 && !line.text.starts_with('*') {
+          line.text
+        } else {
+          &line.text[get_line_start_index(line.text)..]
+        };
+        (text, line.is_last)
+      })
+      .collect::<Vec<_>>();
+    let mut fence_marker = None;
 
-    for line in utils::split_lines(&comment.text) {
-      let text = if line.line_index == 0 && !line.text.starts_with('*') {
-        line.text
+    for (index, (text, is_last)) in raw_lines.iter().enumerate() {
+      let has_following_non_empty_line = raw_lines
+        .iter()
+        .skip(index + 1)
+        .any(|(text, _)| !text.trim().is_empty());
+      let line_fence_marker = get_markdown_fence_marker(text);
+      let preserve_hard_break = is_js_doc
+        && fence_marker.is_none()
+        && line_fence_marker.is_none()
+        && has_following_non_empty_line
+        && !is_markdown_indented_code_line(text);
+      let text = *text;
+      let text = if *is_last && !text.trim().is_empty() {
+        text.to_string()
       } else {
-        &line.text[get_line_start_index(line.text)..]
+        trim_end_preserving_markdown_hard_break(text, preserve_hard_break)
       };
-      let text = if line.is_last && !text.trim().is_empty() { text } else { text.trim_end() };
 
       if !text.is_empty() || !lines.last().map(|l| l.is_empty()).unwrap_or(false) {
         lines.push(text);
+      }
+
+      if let Some(marker) = line_fence_marker {
+        fence_marker = match fence_marker {
+          Some(current_marker) if current_marker == marker => None,
+          Some(current_marker) => Some(current_marker),
+          None => Some(marker),
+        };
       }
     }
 
@@ -6994,7 +7023,40 @@ fn gen_js_doc_or_multiline_block(comment: &Comment, _context: &mut Context) -> P
     0
   }
 
-  fn lines_to_print_items(is_js_doc: bool, lines: Vec<&str>) -> PrintItems {
+  fn get_markdown_fence_marker(text: &str) -> Option<char> {
+    let text = text.trim_start();
+    let marker = text.chars().next()?;
+    if marker != '`' && marker != '~' {
+      return None;
+    }
+    if text.chars().take_while(|&c| c == marker).count() >= 3 {
+      Some(marker)
+    } else {
+      None
+    }
+  }
+
+  fn is_markdown_indented_code_line(text: &str) -> bool {
+    let text = text.strip_prefix(' ').unwrap_or(text);
+    text.starts_with("    ") || text.starts_with('\t')
+  }
+
+  fn trim_end_preserving_markdown_hard_break(text: &str, preserve_hard_break: bool) -> String {
+    let trimmed = text.trim_end();
+    let trailing_space_count = text
+      .as_bytes()
+      .iter()
+      .rev()
+      .take_while(|&&byte| byte == b' ')
+      .count();
+    if preserve_hard_break && trailing_space_count >= 2 && !trimmed.is_empty() {
+      format!("{trimmed}\\")
+    } else {
+      trimmed.to_string()
+    }
+  }
+
+  fn lines_to_print_items(is_js_doc: bool, lines: Vec<String>) -> PrintItems {
     let mut items = PrintItems::new();
 
     items.push_sc(sc!("/*"));

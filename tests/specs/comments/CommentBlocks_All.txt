@@ -87,6 +87,20 @@ const t;
  */
 const t;
 
+== should not convert markdown hard line breaks in non-jsdoc block comments ==
+/*
+ * Does something.  
+ * Details here.
+ */
+const t;
+
+[expect]
+/*
+ * Does something.
+ * Details here.
+ */
+const t;
+
 == should format comments in arguments ==
 call(/* test */5);
 
