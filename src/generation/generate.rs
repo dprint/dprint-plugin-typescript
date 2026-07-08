@@ -3935,6 +3935,15 @@ fn gen_jsx_element<'a>(node: &JSXElement<'a>, context: &mut Context<'a>) -> Prin
       let mut items = gen_node(node.opening.into(), context);
       let in_between_range = SourceRange::new(node.opening.end(), closing.start());
       items.extend(ir_helpers::gen_from_raw_string_trim_line_ends(in_between_range.text_fast(context.program)));
+      // The body is emitted verbatim, so advance the comment tracker past it
+      // and mark any comments it contains as handled. Otherwise, comments
+      // inside the <pre> body will be picked up as leading comments of the
+      // closing tag and emitted again, causing unstable formatting.
+      for comment in context.comments.trailing_comments_with_previous(closing.start()) {
+        if comment.start() < closing.start() {
+          context.mark_comment_handled(comment);
+        }
+      }
       items.extend(gen_node(closing.into(), context));
       items
     } else {
