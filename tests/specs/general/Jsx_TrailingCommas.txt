@@ -6,12 +6,12 @@ const Test2 = function<T,>() {};
 const Test1 = <T>() => false;
 const Test2 = function<T>() {};
 
-== should keep trailing comma in expression type parameters in file parsed as jsx since there is no parsing ambiguity ==
+== should keep trailing comma in expression type parameters in file parsed as jsx since there is parsing ambiguity ==
 const Test1 = <T,>() => false;
-const Test2 = function<T,>() {};
-const Test3 = <div></div>;
+const Test2 = <div></div>;
 
-// not for declarations though
+// not for function declarations or expressions though
+const Test3 = function<T,>() {};
 function test<T,>() {
 }
 
@@ -27,10 +27,10 @@ const Test5 = <P extends R<S, T>>() => {};
 
 [expect]
 const Test1 = <T,>() => false;
-const Test2 = function<T,>() {};
-const Test3 = <div></div>;
+const Test2 = <div></div>;
 
-// not for declarations though
+// not for function declarations or expressions though
+const Test3 = function<T>() {};
 function test<T>() {
 }
 
