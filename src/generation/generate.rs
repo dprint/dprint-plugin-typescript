@@ -8047,6 +8047,15 @@ fn gen_node_with_separator<'a>(value: Node<'a>, generated_separator: PrintItems,
     PrintItems::new()
   };
 
+  // comments that sit between the node and the comma on a subsequent line —
+  // the default trailing-comments path only emits same-line comments, so these
+  // would otherwise be dropped (issue #684).
+  let between_node_and_comma = if let Some(comma_token) = comma_token {
+    gen_comments_between_node_and_comma(value, comma_token, context)
+  } else {
+    PrintItems::new()
+  };
+
   // if the current node is ignored and already has a semi-colon, then skip adding a separator
   let is_ignored_with_semi_colon =
     value.text_fast(context.program).ends_with(';') && get_has_ignore_comment(&value.leading_comments_fast(context.program), value, context);
@@ -8054,9 +8063,11 @@ fn gen_node_with_separator<'a>(value: Node<'a>, generated_separator: PrintItems,
     items.extend(gen_node(value, context));
   } else {
     let generated_separator = generated_separator.into_rc_path();
+    let between_node_and_comma = between_node_and_comma.into_rc_path();
     items.extend(gen_node_with_inner_gen(value, context, move |mut items, _| {
       // this Rc clone is necessary because we can't move the captured generated_separator out of this closure
       items.push_optional_path(generated_separator);
+      items.push_optional_path(between_node_and_comma);
       items
     }));
   }
@@ -8071,6 +8082,38 @@ fn gen_node_with_separator<'a>(value: Node<'a>, generated_separator: PrintItems,
       None => context.token_finder.get_last_token_within_if_comma(&element), // may occur for type literals
     }
   }
+}
+
+fn gen_comments_between_node_and_comma<'a>(value: Node<'a>, comma_token: &TokenAndSpan, context: &mut Context<'a>) -> PrintItems {
+  // collect comments between the node end and the comma — these would be classified
+  // as trailing comments of the node, but the existing path only emits ones on the
+  // same line, dropping anything that sits on a subsequent line.
+  let node_end = value.range().end;
+  let node_end_line = node_end.end_line_fast(context.program);
+  let mut comments_to_emit = Vec::new();
+  for comment in comma_token.range().start.leading_comments_fast(context.program) {
+    if context.has_handled_comment(&comment) {
+      continue;
+    }
+    if comment.start() < node_end {
+      continue;
+    }
+    // skip same-line trailing comments — those flow through the regular trailing path
+    if comment.start_line_fast(context.program) <= node_end_line {
+      continue;
+    }
+    comments_to_emit.push(comment);
+  }
+
+  if comments_to_emit.is_empty() {
+    return PrintItems::new();
+  }
+
+  let comma_range = comma_token.range();
+  let mut items = PrintItems::new();
+  items.push_signal(Signal::NewLine);
+  items.extend(gen_comment_collection(comments_to_emit.into_iter(), None, Some(&comma_range), context));
+  items
 }
 
 /// Some nodes don't have a TsTypeAnn, but instead a Box<TsType>
