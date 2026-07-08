@@ -76,7 +76,10 @@ pub struct Context<'a> {
   /// Used for ensuring nodes are parsed in order.
   #[cfg(debug_assertions)]
   pub last_generated_node_pos: SourcePos,
+  #[cfg(debug_assertions)]
+  pub bypass_node_order_check: bool,
   pub diagnostics: Vec<GenerateDiagnostic>,
+  pub resolved_import_groups: Option<crate::generation::imports::resolved::ResolvedGroups>,
 }
 
 impl<'a> Context<'a> {
@@ -88,6 +91,8 @@ impl<'a> Context<'a> {
     config: &'a Configuration,
     external_formatter: Option<&'a ExternalFormatter>,
   ) -> Context<'a> {
+    let mut _import_group_diags: Vec<String> = Vec::new();
+    let resolved_import_groups = crate::generation::imports::resolved::compile(config, &mut _import_group_diags);
     Context {
       media_type,
       program,
@@ -110,7 +115,10 @@ impl<'a> Context<'a> {
       expr_stmt_single_line_parent_brace_ref: None,
       #[cfg(debug_assertions)]
       last_generated_node_pos: deno_ast::SourceTextInfoProvider::text_info(&program).range().start.into(),
+      #[cfg(debug_assertions)]
+      bypass_node_order_check: false,
       diagnostics: Vec::new(),
+      resolved_import_groups,
     }
   }
 

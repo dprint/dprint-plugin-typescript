@@ -1027,6 +1027,52 @@
     "module.sortExportDeclarations": {
       "$ref": "#/definitions/sortOrder"
     },
+    "module.importGroups": {
+      "description": "Ordered list of import groups, separated by blank lines. Empty disables the feature.",
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "object",
+        "properties": {
+          "match": {
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": ["builtin", "external", "parent", "sibling", "index", "type", "unknown"]
+              },
+              {
+                "type": "object",
+                "required": ["pattern"],
+                "properties": {
+                  "pattern": { "type": "string" }
+                }
+              },
+              {
+                "type": "array",
+                "items": {
+                  "oneOf": [
+                    { "type": "string", "enum": ["builtin", "external", "parent", "sibling", "index", "type", "unknown"] },
+                    { "type": "object", "required": ["pattern"], "properties": { "pattern": { "type": "string" } } }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "module.typeImports": {
+      "description": "How type-only imports are classified by module.importGroups.",
+      "type": "string",
+      "default": "separate",
+      "enum": ["separate", "interleave"]
+    },
+    "module.builtinsRuntime": {
+      "description": "Which runtime's built-in modules count as `builtin`.",
+      "type": "string",
+      "default": "node",
+      "enum": ["node", "deno", "bun", "none"]
+    },
     "exportDeclaration.sortNamedExports": {
       "$ref": "#/definitions/sortOrder"
     },

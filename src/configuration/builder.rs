@@ -576,6 +576,29 @@ impl ConfigurationBuilder {
     self.insert("exportDeclaration.sortTypeOnlyExports", value.to_string().into())
   }
 
+  /// Ordered groups for `module.importGroups`. Empty = feature disabled.
+  ///
+  /// Default: `[]`
+  pub fn module_import_groups(&mut self, value: Vec<ImportGroup>) -> &mut Self {
+    let json = serde_json::to_value(value).unwrap();
+    let cfg_val: dprint_core::configuration::ConfigKeyValue = serde_json::from_value(json).unwrap();
+    self.insert("module.importGroups", cfg_val)
+  }
+
+  /// How type-only imports are classified.
+  ///
+  /// Default: `Separate`
+  pub fn module_type_imports(&mut self, value: TypeImportsMode) -> &mut Self {
+    self.insert("module.typeImports", value.to_string().into())
+  }
+
+  /// Which runtime's built-in modules count as `builtin`.
+  ///
+  /// Default: `Node`
+  pub fn module_builtins_runtime(&mut self, value: BuiltinsRuntime) -> &mut Self {
+    self.insert("module.builtinsRuntime", value.to_string().into())
+  }
+
   /* ignore comments */
 
   /// The text to use for an ignore comment (ex. `// dprint-ignore`).
