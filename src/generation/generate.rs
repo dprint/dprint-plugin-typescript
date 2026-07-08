@@ -3036,8 +3036,16 @@ fn gen_spread_element<'a>(node: &SpreadElement<'a>, context: &mut Context<'a>) -
 /// Formats the tagged template literal using an external formatter.
 /// Detects the type of embedded language automatically.
 fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> Option<PrintItems> {
-  let external_formatter = context.external_formatter.as_ref()?;
   let embedded_lang = normalize_embedded_language_type(node)?;
+  maybe_gen_tpl_with_external_formatter(node.tpl, embedded_lang, context)
+}
+
+/// Shared backbone for embedded-language formatting. Substitutes `${expr}` with
+/// placeholders, sends the resulting text to the host's external formatter, and
+/// stitches expressions back in at the placeholder positions. Used by both the
+/// tagged-template path and the `graphql(\`...\`)` call-argument path.
+fn maybe_gen_tpl_with_external_formatter<'a>(tpl: &Tpl<'a>, embedded_lang: &str, context: &mut Context<'a>) -> Option<PrintItems> {
+  let external_formatter = context.external_formatter.as_ref()?;
 
   let placeholder_css = "@dpr1nt_";
   let placeholder_other = "dpr1nt_";
@@ -3047,8 +3055,8 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
     _ => placeholder_other,
   };
   let text = capacity_builder::StringBuilder::<String>::build(|builder| {
-    let expr_len = node.tpl.exprs.len();
-    for (i, quasi) in node.tpl.quasis.iter().enumerate() {
+    let expr_len = tpl.exprs.len();
+    for (i, quasi) in tpl.quasis.iter().enumerate() {
       builder.append(quasi.raw().as_str());
       if i < expr_len {
         builder.append(placeholder_text);
@@ -3068,7 +3076,7 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
     Ok(formatted_tpl) => formatted_tpl?.replace("\\", r"\\"),
     Err(err) => {
       context.diagnostics.push(context::GenerateDiagnostic {
-        message: format!("Error formatting tagged template literal at line {}: {}", node.start_line() + 1, err),
+        message: format!("Error formatting tagged template literal at line {}: {}", tpl.start_line() + 1, err),
       });
       return None;
     }
@@ -3107,7 +3115,7 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
       }
       if parts.peek().is_some() {
         items.push_sc(sc!("${"));
-        items.extend(gen_node(node.tpl.exprs[index].into(), context));
+        items.extend(gen_node(tpl.exprs[index].into(), context));
         items.push_sc(sc!("}"));
         pos = end + placeholder_text.len();
         index += 1;
@@ -3124,28 +3132,174 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
   Some(items)
 }
 
-/// Normalizes the type of embedded language in a tagged template literal.
-fn normalize_embedded_language_type<'a>(node: &TaggedTpl<'a>) -> Option<&'a str> {
-  match node.tag {
-    Expr::Ident(ident) => return Some(ident.sym().as_str()),
-    Expr::Member(member_expr) => {
-      if let Expr::Ident(ident) = member_expr.obj {
-        if ident.sym().as_str() == "styled" {
-          return Some("css"); // styled.foo`...`
+/// Detects whether a bare template literal is in a position where the host should
+/// format its contents (currently only `graphql(\`...\`)` — direct call argument
+/// to a `graphql` identifier), and returns the language key if so.
+/// Walks the parent chain of a bare template literal looking for surrounding
+/// context that selects an embedded language (e.g. JSX `css` prop, styled-jsx
+/// `<style jsx>{`...`}</style>`, Angular `@Component({ template/styles })`,
+/// `graphql(`...`)` call argument).
+fn detect_embedded_lang_for_tpl<'a>(tpl: &Tpl<'a>) -> Option<&'a str> {
+  if let Some(lang) = detect_embedded_lang_for_call_arg_tpl(tpl) {
+    return Some(lang);
+  }
+  if let Some(lang) = detect_embedded_lang_for_jsx_tpl(tpl) {
+    return Some(lang);
+  }
+  if let Some(lang) = detect_embedded_lang_for_angular_component_tpl(tpl) {
+    return Some(lang);
+  }
+  None
+}
+
+fn detect_embedded_lang_for_call_arg_tpl<'a>(tpl: &Tpl<'a>) -> Option<&'a str> {
+  // template literal arguments live inside an `ExprOrSpread` wrapper.
+  let expr_or_spread = tpl.parent().to::<ExprOrSpread>()?;
+  if expr_or_spread.spread().is_some() {
+    return None;
+  }
+  let call_expr = expr_or_spread.parent().to::<CallExpr>()?;
+  match call_expr.callee {
+    Callee::Expr(Expr::Ident(ident)) if ident.sym().as_str() == "graphql" => Some("graphql"),
+    _ => None,
+  }
+}
+
+/// Detects:
+/// - `<div css={`...`} />`   -> css   (emotion / theme-ui style prop)
+/// - `<style jsx>{`...`}</style>` and `<style jsx global>` -> css (styled-jsx)
+fn detect_embedded_lang_for_jsx_tpl<'a>(tpl: &Tpl<'a>) -> Option<&'a str> {
+  let container = tpl.parent().to::<JSXExprContainer>()?;
+  match container.parent() {
+    // css prop: `<X css={`...`}>`
+    Node::JSXAttr(attr) => {
+      if let JSXAttrName::Ident(name) = attr.name {
+        if name.sym().as_str() == "css" {
+          return Some("css");
         }
       }
       None
     }
-    Expr::Call(call_expr) => {
-      if let Callee::Expr(Expr::Ident(ident)) = call_expr.callee {
-        if ident.sym().as_str() == "styled" {
-          return Some("css"); // styled(Button)`...`
-        }
+    // styled-jsx: `<style jsx>{`...`}</style>`
+    Node::JSXElement(element) => {
+      let opening = element.opening;
+      let JSXElementName::Ident(name) = opening.name else { return None };
+      if name.sym().as_str() != "style" {
+        return None;
       }
-      None
+      let has_jsx_attr = opening.attrs.iter().any(|attr_or_spread| match attr_or_spread {
+        JSXAttrOrSpread::JSXAttr(attr) => matches!(attr.name, JSXAttrName::Ident(ident) if ident.sym().as_str() == "jsx"),
+        _ => false,
+      });
+      if has_jsx_attr { Some("css") } else { None }
     }
     _ => None,
   }
+}
+
+/// Detects template literal in an Angular `@Component({ … })` decorator argument:
+/// - `template: `...`` -> html
+/// - `styles: `...`` and `styles: [`...`]` -> css
+fn detect_embedded_lang_for_angular_component_tpl<'a>(tpl: &Tpl<'a>) -> Option<&'a str> {
+  // walk up through an optional array literal (for the `styles: [`...`]` form),
+  // then to the KeyValueProp whose key tells us the language.
+  let (kv_prop, is_in_array) = {
+    let parent = tpl.parent();
+    if let Some(array_elem) = parent.to::<ExprOrSpread>() {
+      // array element form
+      if array_elem.spread().is_some() {
+        return None;
+      }
+      let array = array_elem.parent().to::<ArrayLit>()?;
+      let array_parent = array.parent();
+      let kv = array_parent.to::<KeyValueProp>()?;
+      (kv, true)
+    } else {
+      let kv = parent.to::<KeyValueProp>()?;
+      (kv, false)
+    }
+  };
+
+  let key = match kv_prop.key {
+    PropName::Ident(ident) => ident.sym().as_str(),
+    _ => return None,
+  };
+  let lang = match (key, is_in_array) {
+    ("template", false) => "html",
+    ("styles", _) => "css",
+    _ => return None,
+  };
+
+  // ensure we are inside `@Component({ … })`
+  let object_lit = kv_prop.parent();
+  let expr_or_spread = object_lit.parent().to::<ExprOrSpread>()?;
+  if expr_or_spread.spread().is_some() {
+    return None;
+  }
+  let call_expr = expr_or_spread.parent().to::<CallExpr>()?;
+  match call_expr.callee {
+    Callee::Expr(Expr::Ident(ident)) if ident.sym().as_str() == "Component" => Some(lang),
+    _ => None,
+  }
+}
+
+/// Normalizes the type of embedded language in a tagged template literal.
+fn normalize_embedded_language_type<'a>(node: &TaggedTpl<'a>) -> Option<&'a str> {
+  normalize_tag_expr(node.tag)
+}
+
+fn normalize_tag_expr<'a>(tag: Expr<'a>) -> Option<&'a str> {
+  match tag {
+    Expr::Ident(ident) => {
+      // alias `gql` to `graphql` so external formatters only need to handle one key
+      if ident.sym().as_str() == "gql" {
+        Some("graphql")
+      } else {
+        Some(ident.sym().as_str())
+      }
+    }
+    Expr::Member(member_expr) => normalize_member_tag(member_expr),
+    Expr::Call(call_expr) => match call_expr.callee {
+      // styled(Button)`...`
+      Callee::Expr(Expr::Ident(ident)) if ident.sym().as_str() == "styled" => Some("css"),
+      // styled.foo.attrs({})`...`, styled(Component).attrs({})`...`, Component.extend.attrs({})`...`
+      Callee::Expr(Expr::Member(member_expr)) => normalize_member_tag(member_expr),
+      _ => None,
+    },
+    _ => None,
+  }
+}
+
+fn normalize_member_tag<'a>(member_expr: &MemberExpr<'a>) -> Option<&'a str> {
+  match member_expr.obj {
+    // styled.foo`...`, styled["a"]`...`
+    Expr::Ident(ident) if ident.sym().as_str() == "styled" => Some("css"),
+    // css.global`...`, css.<anything>`...`  (matches emotion's `css.global` and similar)
+    Expr::Ident(ident) if ident.sym().as_str() == "css" => Some("css"),
+    // graphql.experimental`...`
+    Expr::Ident(ident) if ident.sym().as_str() == "graphql" => Some("graphql"),
+    // <UpperCaseIdent>.extend`...`  e.g. `Button.extend`
+    Expr::Ident(ident) if member_prop_name(&member_expr.prop) == Some("extend") && starts_with_uppercase(ident.sym().as_str()) => Some("css"),
+    // styled.foo.attrs({})`...`, styled(Component).attrs({})`...`, Component.extend.attrs({})`...`
+    Expr::Member(inner_member) => normalize_member_tag(inner_member),
+    Expr::Call(call_expr) => match call_expr.callee {
+      Callee::Expr(Expr::Ident(ident)) if ident.sym().as_str() == "styled" => Some("css"),
+      Callee::Expr(Expr::Member(inner_member)) => normalize_member_tag(inner_member),
+      _ => None,
+    },
+    _ => None,
+  }
+}
+
+fn member_prop_name<'a>(prop: &MemberProp<'a>) -> Option<&'a str> {
+  match prop {
+    MemberProp::Ident(ident) => Some(ident.sym().as_str()),
+    _ => None,
+  }
+}
+
+fn starts_with_uppercase(name: &str) -> bool {
+  name.chars().next().map(|c| c.is_ascii_uppercase()).unwrap_or(false)
 }
 
 fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -3174,6 +3328,14 @@ fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintI
 }
 
 fn gen_tpl<'a>(node: &Tpl<'a>, context: &mut Context<'a>) -> PrintItems {
+  // Route through the external formatter when the surrounding context selects an
+  // embedded language for this bare template literal (graphql(`...`), JSX `css`
+  // prop, styled-jsx `<style jsx>`, Angular `@Component({ template/styles })`).
+  if let Some(lang) = detect_embedded_lang_for_tpl(node) {
+    if let Some(formatted) = maybe_gen_tpl_with_external_formatter(node, lang, context) {
+      return formatted;
+    }
+  }
   gen_template_literal(
     node.quasis.iter().map(|&n| n.into()).collect(),
     node.exprs.iter().map(|x| x.into()).collect(),

@@ -156,3 +156,145 @@ css`
         background-color: #86efac;
     }
 `;
+
+== should format css in styled.tag.attrs({})`...` ==
+styled.button.attrs({})`color : #222 ; background-color: #ccc ;`;
+[expect]
+styled.button.attrs({})`
+    color: #222;
+    background-color: #ccc;
+`;
+
+== should format css in styled(Component).attrs({})`...` ==
+styled(Button).attrs({})`color : #222 ;`;
+[expect]
+styled(Button).attrs({})`
+    color: #222;
+`;
+
+== should format css in <UpperIdent>.extend`...` (styled-components extend) ==
+const Tomato = Button.extend`color : tomato ; border-color: tomato ;`;
+[expect]
+const Tomato = Button.extend`
+    color: tomato;
+    border-color: tomato;
+`;
+
+== should format css in <UpperIdent>.extend.attrs({})`...` ==
+Button.extend.attrs({})`border-color : black ;`;
+[expect]
+Button.extend.attrs({})`
+    border-color: black;
+`;
+
+== should not treat lowercase ident with .extend as css ==
+foo.extend`color: red;`;
+[expect]
+foo.extend`color: red;`;
+
+== should format css in css.global`...` (emotion-style member) ==
+const reset = css.global`.reset { margin : 0 ; padding : 0 ; }`;
+[expect]
+const reset = css.global`
+    .reset {
+        margin: 0;
+        padding: 0;
+    }
+`;
+
+== should format css in styled["a"]`...` (computed member) ==
+const Anchor = styled["a"]`text-decoration : none ; color: #007bff ;`;
+[expect]
+const Anchor = styled["a"]`
+    text-decoration: none;
+    color: #007bff;
+`;
+
+== should format css in JSX css prop ==
+const x = <div css={`display:flex ; align-items:center ;`}>x</div>;
+[expect]
+const x = (
+    <div
+        css={`
+            display: flex;
+            align-items: center;
+        `}
+    >
+        x
+    </div>
+);
+
+== should not treat non-css JSX attribute template as css ==
+const x = <div data={`raw template`}>x</div>;
+[expect]
+const x = <div data={`raw template`}>x</div>;
+
+== should format css in styled-jsx `<style jsx>{`...`}</style>` ==
+const x = <style jsx>{`display:flex ; align-items:center ;`}</style>;
+[expect]
+const x = (
+    <style jsx>
+        {`
+            display: flex;
+            align-items: center;
+        `}
+    </style>
+);
+
+== should format css in styled-jsx `<style jsx global>{`...`}</style>` ==
+const x = <style jsx global>{`html { color: red; }`}</style>;
+[expect]
+const x = (
+    <style jsx global>
+        {`
+            html {
+                color: red;
+            }
+        `}
+    </style>
+);
+
+== should not treat `<style>{`...`}</style>` without jsx attribute as css ==
+const x = <style>{`html { color: red; }`}</style>;
+[expect]
+const x = <style>{`html { color: red; }`}</style>;
+
+== should format css in Angular @Component({ styles: `...` }) ==
+@Component({ selector: 'app', styles: `h1 { color : blue }` })
+export class A {}
+[expect]
+@Component({
+    selector: "app",
+    styles: `
+        h1 {
+            color: blue;
+        }
+    `,
+})
+export class A {}
+
+== should format css in Angular @Component({ styles: [`...`] }) ==
+@Component({ selector: 'app', styles: [`h1 { color : blue }`] })
+export class A {}
+[expect]
+@Component({
+    selector: "app",
+    styles: [`
+        h1 {
+            color: blue;
+        }
+    `],
+})
+export class A {}
+
+== should not treat non-Component decorator template as css/html ==
+decorate({ styles: `h1 { color: red }` });
+[expect]
+decorate({ styles: `h1 { color: red }` });
+
+== should not treat Angular @Component with computed `[styles]` key ==
+@Component({ [stylesKey]: `h1 { color : blue }` })
+export class A {}
+[expect]
+@Component({ [stylesKey]: `h1 { color : blue }` })
+export class A {}
