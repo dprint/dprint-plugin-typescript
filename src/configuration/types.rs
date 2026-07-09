@@ -454,6 +454,9 @@ pub struct Configuration {
   /* member spacing */
   #[serde(rename = "enumDeclaration.memberSpacing")]
   pub enum_declaration_member_spacing: MemberSpacing,
+  /* padding line between statements */
+  #[serde(rename = "paddingLineBetweenStatements")]
+  pub padding_line_between_statements: bool,
   /* next control flow position */
   #[serde(rename = "ifStatement.nextControlFlowPosition")]
   pub if_statement_next_control_flow_position: NextControlFlowPosition,
