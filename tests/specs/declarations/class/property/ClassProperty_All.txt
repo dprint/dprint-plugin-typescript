@@ -33,8 +33,7 @@ abstract class Test extends Base {
         | number
         | stringg
         | number;
-    @dec
-    readonly propReadonly = 3;
+    @dec readonly propReadonly = 3;
 }
 
 == should wrap an assignment that goes over the line width when sufficient ==
