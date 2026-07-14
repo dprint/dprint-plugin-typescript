@@ -5,3 +5,193 @@ const t = <test other={   4  } />;
 
 [expect]
 const t = <test other={ 4 } />;
+
+== should not add extra space before closing brace in nested JSX ==
+<OuterComponent
+    menuTarget={
+        <InnerComponent
+            item={ content }
+            className={ styles.someClass }
+        />
+    }
+/>;
+
+[expect]
+<OuterComponent
+    menuTarget={
+        <InnerComponent
+            item={ content }
+            className={ styles.someClass }
+        />
+    }
+/>;
+
+== should not add extra space in similar nested JSX pattern ==
+<OuterComponent
+    prop={
+        <InnerComponent
+            attr={ value }
+            className={ styles.someClass }
+        />
+    }
+    otherProp="value"
+/>;
+
+[expect]
+<OuterComponent
+    prop={
+        <InnerComponent
+            attr={ value }
+            className={ styles.someClass }
+        />
+    }
+    otherProp="value"
+/>;
+
+== should handle deeply nested JSX without extra spaces ==
+<OuterComponent
+    complexProp={
+        <MiddleComponent
+            nestedProp={
+                <InnerComponent
+                    innerAttr={ someValue }
+                />
+            }
+        />
+    }
+/>;
+
+[expect]
+<OuterComponent
+    complexProp={
+        <MiddleComponent
+            nestedProp={
+                <InnerComponent
+                    innerAttr={ someValue }
+                />
+            }
+        />
+    }
+/>;
+
+== expression braces on the same line as a component ==
+<Component>{contents}</Component>;
+
+[expect]
+<Component>{ contents }</Component>;
+
+== expression braces on the same line ==
+return (<Component>
+{contents}</Component>);
+
+[expect]
+return (
+    <Component>
+        { contents }
+    </Component>
+);
+
+== expression braces across multiple lines ==
+return <Component>{<div><div /></div>}</Component>;
+
+[expect]
+return (
+    <Component>
+        {
+            <div>
+                <div />
+            </div>
+        }
+    </Component>
+);
+
+== open braces followed by open braces ==
+return (
+<Component            style={{
+              color: "blue",
+            }} />
+);
+
+[expect]
+return (
+    <Component
+        style={ {
+            color: "blue",
+        } }
+    />
+);
+
+== open braces with compound expressions ==
+<>
+      {groups.length === 0 && (
+        <div className={ styles.Group }>
+          <p>text</p>
+        </div>
+      )}
+</>;
+
+[expect]
+<>
+    { groups.length === 0 && (
+        <div className={ styles.Group }>
+            <p>text</p>
+        </div>
+    ) }
+</>;
+
+== open braces with arrow function ==
+<>
+            {data.map((data, index) => (
+              <div key={ index } className={ styles.item }>
+                <strong>{ data.label }:</strong> { data.text }
+              </div>
+            ))}
+</>;
+
+[expect]
+<>
+    { data.map((data, index) => (
+        <div key={ index } className={ styles.item }>
+            <strong>{ data.label }:</strong> { data.text }
+        </div>
+    )) }
+</>;
+
+== more varied formatting ==
+              <OuterComponent
+	    inner={
+  	    <InnerComponent item={content  }
+            className={styles.someClass}
+            foo={a }
+                    bar={        b}
+          />
+		}
+            />
+
+[expect]
+<OuterComponent
+    inner={ <InnerComponent item={ content } className={ styles.someClass } foo={ a } bar={ b } /> }
+/>;
+
+== more varied formatting across lines ==
+              <OuterComponent
+        inner={
+          <InnerComponent item={content  }
+            className={styles.someClass}
+            foo={areallylongidentifier}
+                    bar={        anotherreallylongidentifier}
+          />
+		 }
+            />
+
+[expect]
+<OuterComponent
+    inner={
+        <InnerComponent
+            item={ content }
+            className={ styles.someClass }
+            foo={ areallylongidentifier }
+            bar={ anotherreallylongidentifier }
+        />
+    }
+/>;
