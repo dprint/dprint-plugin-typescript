@@ -46,7 +46,7 @@ use crate::utils::Stack;
 /// cases the templates will be left as they are.
 ///
 /// Only templates with no interpolation are supported.
-pub type ExternalFormatter = dyn Fn(&str, String, &Configuration) -> anyhow::Result<Option<String>>;
+pub type ExternalFormatter = dyn Fn(&str, String, &Configuration) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync + 'static>>;
 
 pub(crate) struct GenerateDiagnostic {
   pub message: String,
@@ -68,6 +68,7 @@ pub struct Context<'a> {
   stored_lsil: FxHashMap<(SourcePos, SourcePos), LineStartIndentLevel>,
   stored_ln: FxHashMap<(SourcePos, SourcePos), LineNumber>,
   stored_il: FxHashMap<(SourcePos, SourcePos), IndentLevel>,
+  pub skip_iife_body_indent: bool,
   pub end_statement_or_member_lns: Stack<LineNumber>,
   before_comments_start_info_stack: Stack<(SourceRange, LineNumber, IsStartOfLine)>,
   if_stmt_last_brace_condition_ref: Option<ConditionReference>,
@@ -102,6 +103,7 @@ impl<'a> Context<'a> {
       stored_lsil: FxHashMap::default(),
       stored_ln: FxHashMap::default(),
       stored_il: FxHashMap::default(),
+      skip_iife_body_indent: false,
       end_statement_or_member_lns: Default::default(),
       before_comments_start_info_stack: Default::default(),
       if_stmt_last_brace_condition_ref: None,

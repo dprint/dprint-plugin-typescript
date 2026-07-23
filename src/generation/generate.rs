@@ -25,7 +25,7 @@ use super::*;
 use crate::configuration::*;
 use crate::utils;
 
-pub fn generate(parsed_source: &ParsedSource, config: &Configuration, external_formatter: Option<&ExternalFormatter>) -> anyhow::Result<PrintItems> {
+pub fn generate(parsed_source: &ParsedSource, config: &Configuration, external_formatter: Option<&ExternalFormatter>) -> crate::Result<PrintItems> {
   // eprintln!("Leading: {:?}", parsed_source.comments().leading_map());
   // eprintln!("Trailing: {:?}", parsed_source.comments().trailing_map());
 
@@ -50,7 +50,7 @@ pub fn generate(parsed_source: &ParsedSource, config: &Configuration, external_f
     context.assert_end_of_file_state();
 
     if let Some(diagnostic) = context.diagnostics.pop() {
-      return Err(anyhow::anyhow!(diagnostic.message));
+      return Err(diagnostic.message.into());
     }
 
     if config.file_indent_level > 0 {
@@ -2638,7 +2638,27 @@ fn gen_expr_with_type_args<'a>(node: &TsExprWithTypeArgs<'a>, context: &mut Cont
   items
 }
 
+fn is_iife_fn_expr(node: &FnExpr) -> bool {
+  let mut current: Node = node.into();
+  while let Some(parent) = current.parent() {
+    if parent.is::<ParenExpr>() {
+      current = parent;
+      continue;
+    }
+    return match parent {
+      Node::CallExpr(call) => call.callee.range() == current.range(),
+      Node::OptCall(call) => call.callee.range() == current.range(),
+      _ => false,
+    };
+  }
+  false
+}
+
 fn gen_fn_expr<'a>(node: &FnExpr<'a>, context: &mut Context<'a>) -> PrintItems {
+  if context.config.function_expression_flat_iife && is_iife_fn_expr(node) {
+    context.skip_iife_body_indent = true;
+  }
+
   let items = gen_function_decl_or_expr(
     FunctionDeclOrExprNode {
       node: node.into(),
@@ -2916,6 +2936,7 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
       | NodeKind::JSXExprContainer
       | NodeKind::UpdateExpr
       | NodeKind::ComputedPropName
+      | NodeKind::KeyValueProp
   ) {
     return true;
   }
@@ -3066,12 +3087,13 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
     // count indent characters
     let mut pos = line.chars().take_while(|ch| *ch == indent_char).count();
     let indent_level = if indent_width == 0 { 0 } else { pos / indent_width as usize };
-    if indent_level > current_indent_level {
+    while indent_level > current_indent_level {
       items.push_signal(Signal::StartIndent);
-      current_indent_level = indent_level;
-    } else if indent_level < current_indent_level {
+      current_indent_level += 1;
+    }
+    while indent_level < current_indent_level {
       items.push_signal(Signal::FinishIndent);
-      current_indent_level = indent_level;
+      current_indent_level -= 1;
     }
     let mut parts = line[pos..].split(placeholder_text).enumerate().peekable();
     while let Some((i, part)) = parts.next() {
@@ -9481,6 +9503,8 @@ struct GenBlockOptions<'a> {
 
 fn gen_block<'a>(gen_inner: impl FnOnce(Vec<Node<'a>>, &mut Context<'a>) -> PrintItems, opts: GenBlockOptions<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
+  let skip_indent = context.skip_iife_body_indent;
+  context.skip_iife_body_indent = false;
   let before_open_token_ln = LineNumber::new("after_open_token_info");
   let first_member_range = opts.children.first().map(|x| x.range());
   let range = opts.range;
@@ -9499,7 +9523,8 @@ fn gen_block<'a>(gen_inner: impl FnOnce(Vec<Node<'a>>, &mut Context<'a>) -> Prin
         items.push_signal(Signal::NewLine);
       }
       items.push_line_and_column(start_inner_lc);
-      items.extend(ir_helpers::with_indent(gen_inner(opts.children, context)));
+      let inner = gen_inner(opts.children, context);
+      items.extend(if skip_indent { inner } else { ir_helpers::with_indent(inner) });
       items.push_line_and_column(end_inner_lc);
 
       if is_tokens_same_line_and_empty {
