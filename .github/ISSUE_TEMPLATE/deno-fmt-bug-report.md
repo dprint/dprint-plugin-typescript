@@ -4,7 +4,6 @@ about: Create a report about a bug with the `deno fmt` command
 title: ''
 labels: ''
 assignees: ''
-
 ---
 
 **Describe the bug**

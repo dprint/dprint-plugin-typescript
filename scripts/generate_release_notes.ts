@@ -26,7 +26,7 @@ Then in your project's dprint configuration file:
        "**/node_modules"
      ],
      "plugins": [
-       "https://plugins.dprint.dev/typescript-${version}.wasm"
+       "npm:@dprint/typescript@${version}"
      ]
    }
    \`\`\`

@@ -14,8 +14,6 @@ Then in your project's directory with a dprint.json file, run:
 
 ```shellsession
 dprint add typescript
-# or install from npm
-dprint add npm:@dprint/typescript
 ```
 
 See https://dprint.dev/plugins/typescript/ for more information.
