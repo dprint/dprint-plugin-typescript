@@ -24,7 +24,7 @@ use super::ParseDiagnostic;
 /// Implements [`ProgramInfoProvider`], so it can be handed to
 /// [`format_parsed_source`](crate::format_parsed_source).
 pub struct ParsedSource {
-  pub(super) specifier: String,
+  pub(super) specifier: Arc<str>,
   pub(super) text: Arc<str>,
   pub(super) syntax: Syntax,
   pub(super) text_info: OnceLock<SourceTextInfo>,

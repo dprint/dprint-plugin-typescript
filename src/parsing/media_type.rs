@@ -31,41 +31,44 @@ impl MediaType {
     let Some(extension) = path.extension().and_then(|e| e.to_str()) else {
       return MediaType::Unknown;
     };
+    // a declaration file is one like `file.d.ts`
     let is_declaration = || {
       path
         .file_stem()
         .and_then(|s| s.to_str())
-        .map(|s| s.to_lowercase().ends_with(".d"))
+        .map(|s| s.len() >= 2 && s.as_bytes()[s.len() - 2] == b'.' && s.as_bytes()[s.len() - 1].eq_ignore_ascii_case(&b'd'))
         .unwrap_or(false)
     };
-    match extension.to_lowercase().as_str() {
-      "js" => MediaType::JavaScript,
-      "jsx" => MediaType::Jsx,
-      "mjs" => MediaType::Mjs,
-      "cjs" => MediaType::Cjs,
-      "tsx" => MediaType::Tsx,
-      "ts" => {
-        if is_declaration() {
-          MediaType::Dts
-        } else {
-          MediaType::TypeScript
-        }
+    if extension.eq_ignore_ascii_case("js") {
+      MediaType::JavaScript
+    } else if extension.eq_ignore_ascii_case("jsx") {
+      MediaType::Jsx
+    } else if extension.eq_ignore_ascii_case("mjs") {
+      MediaType::Mjs
+    } else if extension.eq_ignore_ascii_case("cjs") {
+      MediaType::Cjs
+    } else if extension.eq_ignore_ascii_case("tsx") {
+      MediaType::Tsx
+    } else if extension.eq_ignore_ascii_case("ts") {
+      if is_declaration() {
+        MediaType::Dts
+      } else {
+        MediaType::TypeScript
       }
-      "mts" => {
-        if is_declaration() {
-          MediaType::Dmts
-        } else {
-          MediaType::Mts
-        }
+    } else if extension.eq_ignore_ascii_case("mts") {
+      if is_declaration() {
+        MediaType::Dmts
+      } else {
+        MediaType::Mts
       }
-      "cts" => {
-        if is_declaration() {
-          MediaType::Dcts
-        } else {
-          MediaType::Cts
-        }
+    } else if extension.eq_ignore_ascii_case("cts") {
+      if is_declaration() {
+        MediaType::Dcts
+      } else {
+        MediaType::Cts
       }
-      _ => MediaType::Unknown,
+    } else {
+      MediaType::Unknown
     }
   }
 
@@ -129,6 +132,7 @@ mod test {
 
     run_test("test.js", MediaType::JavaScript);
     run_test("test.JS", MediaType::JavaScript);
+    run_test("test.D.TS", MediaType::Dts);
     run_test("test.jsx", MediaType::Jsx);
     run_test("test.mjs", MediaType::Mjs);
     run_test("test.cjs", MediaType::Cjs);

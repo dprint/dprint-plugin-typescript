@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::fmt;
+use std::sync::Arc;
 
 use dprint_swc_ext::common::LineAndColumnDisplay;
 use dprint_swc_ext::common::SourceRange;
@@ -14,17 +15,17 @@ pub struct ParseDiagnostic(Box<ParseDiagnosticInner>);
 
 #[derive(Debug, Clone)]
 struct ParseDiagnosticInner {
-  specifier: String,
+  specifier: Arc<str>,
   range: SourceRange,
   kind: SyntaxError,
   text_info: SourceTextInfo,
 }
 
 impl ParseDiagnostic {
-  pub(crate) fn from_swc_error(err: SwcError, specifier: &str, text_info: SourceTextInfo) -> ParseDiagnostic {
+  pub(crate) fn from_swc_error(err: SwcError, specifier: &Arc<str>, text_info: SourceTextInfo) -> ParseDiagnostic {
     ParseDiagnostic(Box::new(ParseDiagnosticInner {
       range: err.range(),
-      specifier: specifier.to_string(),
+      specifier: specifier.clone(),
       kind: err.into_kind(),
       text_info,
     }))
@@ -364,7 +365,7 @@ test",
     let text_info = text_info("const t = 5;");
     let out_of_range = SourceRange::new(text_info.range().end + 100, text_info.range().end + 200);
     let diagnostic = ParseDiagnostic(Box::new(ParseDiagnosticInner {
-      specifier: "file:///test.ts".to_string(),
+      specifier: "file:///test.ts".into(),
       range: out_of_range,
       kind: SyntaxError::Eof,
       text_info,

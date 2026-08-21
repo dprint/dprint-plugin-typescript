@@ -30,11 +30,14 @@ fn parse_swc_ast(file_path: &Path, file_extension: Option<&str>, file_text: Arc<
   match parse_inner(file_path, file_extension, file_text.clone()) {
     Ok(result) => Ok(result),
     Err(err) => {
-      let lowercase_ext = file_extension.map(|ext| ext.to_string()).or_else(|| get_lowercase_extension(file_path));
-      let new_file_path = match lowercase_ext.as_deref() {
-        Some("ts") | Some("cts") | Some("mts") => file_path.with_extension("tsx"),
-        Some("js") | Some("cjs") | Some("mjs") => file_path.with_extension("jsx"),
-        _ => return Err(err),
+      let extension = file_extension.or_else(|| file_path.extension().and_then(|e| e.to_str()));
+      let matches = |candidates: &[&str]| candidates.iter().any(|c| extension.is_some_and(|e| e.eq_ignore_ascii_case(c)));
+      let new_file_path = if matches(&["ts", "cts", "mts"]) {
+        file_path.with_extension("tsx")
+      } else if matches(&["js", "cjs", "mjs"]) {
+        file_path.with_extension("jsx")
+      } else {
+        return Err(err);
       };
       // try to parse as jsx
       match parse_inner(&new_file_path, None, file_text) {
@@ -57,34 +60,33 @@ fn parse_inner(file_path: &Path, file_extension: Option<&str>, text: Arc<str>) -
 
 /// Creates a `file:` url for the path, which is only used for display
 /// purposes in diagnostics.
-fn path_to_specifier(path: &Path) -> String {
-  fn encode(text: &str) -> String {
-    percent_encoding::utf8_percent_encode(text, percent_encoding::CONTROLS).to_string()
-  }
+fn path_to_specifier(path: &Path) -> Arc<str> {
+  use std::fmt::Write;
 
-  let mut parts = Vec::new();
+  let mut specifier = String::from("file:///");
+  let start_len = specifier.len();
   for component in path.components() {
-    match component {
-      std::path::Component::Prefix(prefix) => {
-        parts.push(encode(prefix.as_os_str().to_string_lossy().as_ref()));
-      }
-      std::path::Component::RootDir => {
-        // ignore
-      }
+    let part = match component {
+      std::path::Component::Prefix(prefix) => prefix.as_os_str().to_string_lossy(),
+      std::path::Component::Normal(part) => part.to_string_lossy(),
+      std::path::Component::RootDir => continue,
       std::path::Component::CurDir | std::path::Component::ParentDir => {
         // being lazy because this doesn't need to be exactly correct
-        parts.clear();
+        specifier.truncate(start_len);
+        continue;
       }
-      std::path::Component::Normal(part) => {
-        parts.push(encode(part.to_string_lossy().as_ref()));
-      }
+    };
+    if specifier.len() > start_len {
+      specifier.push('/');
     }
+    // ignore the error because writing to a string can't fail
+    let _ = write!(
+      specifier,
+      "{}",
+      percent_encoding::utf8_percent_encode(part.as_ref(), percent_encoding::CONTROLS)
+    );
   }
-  format!("file:///{}", parts.join("/"))
-}
-
-fn get_lowercase_extension(file_path: &Path) -> Option<String> {
-  file_path.extension().and_then(|e| e.to_str()).map(|f| f.to_lowercase())
+  specifier.into()
 }
 
 #[cfg(test)]
@@ -97,7 +99,7 @@ mod tests {
   #[test]
   fn test_path_to_specifier() {
     fn run_test(path: &str, expected: &str) {
-      assert_eq!(path_to_specifier(&PathBuf::from(path)), expected);
+      assert_eq!(path_to_specifier(&PathBuf::from(path)).as_ref(), expected);
     }
 
     #[cfg(windows)]

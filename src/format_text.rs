@@ -69,9 +69,13 @@ pub fn format_text(options: FormatTextOptions) -> Result<Option<String>> {
   if super::utils::file_text_has_ignore_comment(&file_text, &config.ignore_file_comment_text) {
     Ok(None)
   } else {
-    let had_bom = file_text.starts_with("\u{FEFF}");
-    let file_text = if had_bom { file_text[3..].to_string() } else { file_text };
-    let file_text: Arc<str> = file_text.into();
+    // strip the byte order mark here so that the text is only copied once
+    let had_bom = file_text.starts_with('\u{FEFF}');
+    let file_text: Arc<str> = if had_bom {
+      file_text['\u{FEFF}'.len_utf8()..].into()
+    } else {
+      file_text.into()
+    };
     let parsed_source = parse_program(ParseOptions {
       path: file_path,
       extension: file_extension,

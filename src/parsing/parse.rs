@@ -31,7 +31,7 @@ pub(super) enum ParseMode {
 }
 
 /// Parses the provided text with the given syntax.
-pub(super) fn parse_syntax(specifier: String, text: Arc<str>, syntax: Syntax, mode: ParseMode) -> Result<ParsedSource> {
+pub(super) fn parse_syntax(specifier: Arc<str>, text: Arc<str>, syntax: Syntax, mode: ParseMode) -> Result<ParsedSource> {
   // swc's positions would all be offset by the byte order mark, so strip it. This
   // only reallocates in the rare case that one is actually present.
   let text: Arc<str> = match text.strip_prefix('\u{FEFF}') {
@@ -56,12 +56,17 @@ pub(super) fn parse_syntax(specifier: String, text: Arc<str>, syntax: Syntax, mo
     let diagnostics = errors
       .into_iter()
       .map(|err| ParseDiagnostic::from_swc_error(err, &specifier, source_text_info.clone()))
-      .collect();
+      .collect::<Vec<_>>();
     let _ = text_info.set(source_text_info);
+    // these ones mean the ast no longer represents the original text
+    let (unsupported, diagnostics) = diagnostics.into_iter().partition::<Vec<_>, _>(|d| is_unsupported_syntax_error(d.kind()));
+    if !unsupported.is_empty() {
+      return Err(ParseDiagnosticsError(unsupported).into());
+    }
     diagnostics
   };
 
-  let parsed_source = ParsedSource {
+  Ok(ParsedSource {
     specifier,
     text,
     syntax,
@@ -70,9 +75,7 @@ pub(super) fn parse_syntax(specifier: String, text: Arc<str>, syntax: Syntax, mo
     comments: ParsedComments::from_single_threaded(comments),
     tokens,
     diagnostics,
-  };
-  ensure_no_unsupported_syntax_errors(&parsed_source)?;
-  Ok(parsed_source)
+  })
 }
 
 /// Gets whether the provided syntax error stops the AST from representing the
@@ -110,21 +113,6 @@ pub fn is_unsupported_syntax_error(kind: &SyntaxError) -> bool {
     // Merge conflict marker
     SyntaxError::TS1185
   )
-}
-
-fn ensure_no_unsupported_syntax_errors(parsed_source: &ParsedSource) -> Result<()> {
-  let diagnostics = parsed_source
-    .diagnostics()
-    .iter()
-    .filter(|e| is_unsupported_syntax_error(e.kind()))
-    .cloned()
-    .collect::<Vec<_>>();
-
-  if diagnostics.is_empty() {
-    Ok(())
-  } else {
-    Err(ParseDiagnosticsError(diagnostics).into())
-  }
 }
 
 #[allow(clippy::type_complexity)]
@@ -261,6 +249,6 @@ as#;",
   }
 
   fn parse_media_type(text: &str, media_type: MediaType) -> Result<ParsedSource> {
-    parse_syntax("file:///my_file.ts".to_string(), text.into(), media_type.syntax(), media_type.parse_mode())
+    parse_syntax("file:///my_file.ts".into(), text.into(), media_type.syntax(), media_type.parse_mode())
   }
 }
