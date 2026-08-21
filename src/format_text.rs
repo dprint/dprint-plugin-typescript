@@ -4,17 +4,18 @@ use std::sync::Arc;
 use dprint_core::configuration::resolve_new_line_kind;
 use dprint_core::formatting::*;
 use dprint_swc_ext::common::SourceTextInfoProvider;
+use dprint_swc_ext::swc::parser::Syntax;
 use dprint_swc_ext::view::Program;
 use dprint_swc_ext::view::ProgramInfoProvider;
 
 use crate::FormatError;
-use crate::MediaType;
 use crate::Result;
 
 use super::configuration::Configuration;
 use super::generation::generate;
 pub use super::generation::ExternalFormatter;
-use super::parsing::parse_swc_ast;
+use super::parsing::parse_program;
+use super::parsing::ParseOptions;
 
 pub struct FormatTextOptions<'a> {
   pub path: &'a Path,
@@ -71,8 +72,13 @@ pub fn format_text(options: FormatTextOptions) -> Result<Option<String>> {
     let had_bom = file_text.starts_with("\u{FEFF}");
     let file_text = if had_bom { file_text[3..].to_string() } else { file_text };
     let file_text: Arc<str> = file_text.into();
-    let (parsed_source, media_type) = parse_swc_ast(file_path, file_extension, file_text)?;
-    let formatted = parsed_source.with_view(|program| inner_format_program(program, media_type, config, external_formatter))?;
+    let parsed_source = parse_program(ParseOptions {
+      path: file_path,
+      extension: file_extension,
+      text: file_text,
+    })?;
+    let syntax = parsed_source.syntax();
+    let formatted = parsed_source.with_view(|program| inner_format_program(program, syntax, config, external_formatter))?;
     match formatted {
       Some(new_text) => Ok(Some(new_text)),
       None => {
@@ -88,7 +94,9 @@ pub fn format_text(options: FormatTextOptions) -> Result<Option<String>> {
 
 pub struct FormatParsedSourceOptions<'a, TSource: ProgramInfoProvider> {
   pub source: &'a TSource,
-  pub media_type: MediaType,
+  /// Syntax the program was parsed with. For a source parsed by this crate
+  /// use [`ParsedSource::syntax`](crate::parsing::ParsedSource::syntax).
+  pub syntax: Syntax,
   pub config: &'a Configuration,
   pub external_formatter: Option<&'a ExternalFormatter>,
 }
@@ -104,14 +112,14 @@ pub struct FormatParsedSourceOptions<'a, TSource: ProgramInfoProvider> {
 pub fn format_parsed_source<TSource: ProgramInfoProvider>(options: FormatParsedSourceOptions<TSource>) -> Result<Option<String>> {
   let FormatParsedSourceOptions {
     source,
-    media_type,
+    syntax,
     config,
     external_formatter,
   } = options;
   source.with_view(|program| {
     format_program(FormatProgramOptions {
       program,
-      media_type,
+      syntax,
       config,
       external_formatter,
     })
@@ -120,7 +128,9 @@ pub fn format_parsed_source<TSource: ProgramInfoProvider>(options: FormatParsedS
 
 pub struct FormatProgramOptions<'a> {
   pub program: Program<'a>,
-  pub media_type: MediaType,
+  /// Syntax the program was parsed with. For a source parsed by this crate
+  /// use [`ParsedSource::syntax`](crate::parsing::ParsedSource::syntax).
+  pub syntax: Syntax,
   pub config: &'a Configuration,
   pub external_formatter: Option<&'a ExternalFormatter>,
 }
@@ -140,7 +150,7 @@ pub struct FormatProgramOptions<'a> {
 /// parsed_source.with_view(|program| {
 ///   format_program(FormatProgramOptions {
 ///     program,
-///     media_type: MediaType::TypeScript,
+///     syntax: parsed_source.syntax(),
 ///     config: &config,
 ///     external_formatter: None,
 ///   })
@@ -149,7 +159,7 @@ pub struct FormatProgramOptions<'a> {
 pub fn format_program(options: FormatProgramOptions) -> Result<Option<String>> {
   let FormatProgramOptions {
     program,
-    media_type,
+    syntax,
     config,
     external_formatter,
   } = options;
@@ -157,28 +167,34 @@ pub fn format_program(options: FormatProgramOptions) -> Result<Option<String>> {
   if super::utils::file_text_has_ignore_comment(file_text, &config.ignore_file_comment_text) {
     return Ok(None);
   }
-  inner_format_program(program, media_type, config, external_formatter)
+  inner_format_program(program, syntax, config, external_formatter)
 }
 
 #[cfg(feature = "tracing")]
 pub fn trace_file(file_path: &Path, file_text: &str, config: &Configuration) -> dprint_core::formatting::TracingResult {
-  let (parsed_source, media_type) = parse_swc_ast(file_path, None, file_text.into()).unwrap();
+  let parsed_source = parse_program(ParseOptions {
+    path: file_path,
+    extension: None,
+    text: file_text.into(),
+  })
+  .unwrap();
+  let syntax = parsed_source.syntax();
   dprint_core::formatting::trace_printing(
-    || parsed_source.with_view(|program| generate(program, media_type, config, None)).unwrap(),
+    || parsed_source.with_view(|program| generate(program, syntax, config, None)).unwrap(),
     config_to_print_options(file_text, config),
   )
 }
 
 fn inner_format_program<'a>(
   program: Program<'a>,
-  media_type: MediaType,
+  syntax: Syntax,
   config: &'a Configuration,
   external_formatter: Option<&'a ExternalFormatter>,
 ) -> Result<Option<String>> {
   let file_text = program.text_info().text_str();
   let mut maybe_err: Box<Option<FormatError>> = Box::new(None);
   let result = dprint_core::formatting::format(
-    || match generate(program, media_type, config, external_formatter) {
+    || match generate(program, syntax, config, external_formatter) {
       Ok(print_items) => print_items,
       Err(e) => {
         maybe_err.replace(e);
@@ -250,12 +266,18 @@ mod test {
   #[test]
   fn format_program_from_ast_view() {
     let config = crate::configuration::ConfigurationBuilder::new().build();
-    let (parsed_source, media_type) = crate::parsing::parse_swc_ast(&std::path::PathBuf::from("test.ts"), None, "const  t  =  5 ;".into()).unwrap();
+    let parsed_source = parse_program(ParseOptions {
+      path: &std::path::PathBuf::from("test.ts"),
+      extension: None,
+      text: "const  t  =  5 ;".into(),
+    })
+    .unwrap();
+    let syntax = parsed_source.syntax();
     let result = parsed_source
       .with_view(|program| {
         format_program(FormatProgramOptions {
           program,
-          media_type,
+          syntax,
           config: &config,
           external_formatter: None,
         })

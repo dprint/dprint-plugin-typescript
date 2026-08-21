@@ -1,15 +1,12 @@
 use std::path::Path;
 
-use crate::parsing::ParseMode;
+use super::ParseMode;
 use dprint_swc_ext::swc::parser::EsSyntax;
 use dprint_swc_ext::swc::parser::Syntax;
 use dprint_swc_ext::swc::parser::TsSyntax;
 
-/// The kind of file being formatted.
-///
-/// This mirrors `deno_ast::MediaType` for the media types this
-/// formatter understands, so that a `deno_ast` user can map over
-/// to it without any loss of information.
+/// The kind of file being parsed, which is only used to resolve the
+/// syntax and parse mode from a file path.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MediaType {
   JavaScript,

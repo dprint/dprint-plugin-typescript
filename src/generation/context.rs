@@ -9,6 +9,7 @@ use dprint_swc_ext::common::SourceRanged;
 use dprint_swc_ext::common::SourceRangedForSpanned;
 use dprint_swc_ext::swc::common::comments::Comment;
 use dprint_swc_ext::swc::parser::token::TokenAndSpan;
+use dprint_swc_ext::swc::parser::Syntax;
 use dprint_swc_ext::view::*;
 use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
@@ -16,7 +17,6 @@ use rustc_hash::FxHashSet;
 use super::*;
 use crate::configuration::*;
 use crate::utils::Stack;
-use crate::MediaType;
 
 /// A callback that will be called when encountering tagged templates.
 ///
@@ -53,7 +53,7 @@ pub(crate) struct GenerateDiagnostic {
 }
 
 pub struct Context<'a> {
-  pub media_type: MediaType,
+  pub syntax: Syntax,
   pub program: Program<'a>,
   pub config: &'a Configuration,
   pub comments: CommentTracker<'a>,
@@ -81,7 +81,7 @@ pub struct Context<'a> {
 
 impl<'a> Context<'a> {
   pub fn new(
-    media_type: MediaType,
+    syntax: Syntax,
     tokens: &'a [TokenAndSpan],
     current_node: Node<'a>,
     program: Program<'a>,
@@ -89,7 +89,7 @@ impl<'a> Context<'a> {
     external_formatter: Option<&'a ExternalFormatter>,
   ) -> Context<'a> {
     Context {
-      media_type,
+      syntax,
       program,
       config,
       comments: CommentTracker::new(program, tokens),
@@ -114,8 +114,22 @@ impl<'a> Context<'a> {
     }
   }
 
+  /// Whether the file was parsed with jsx enabled, which makes `<T>() => {}`
+  /// ambiguous with a jsx element.
   pub fn is_jsx(&self) -> bool {
-    matches!(self.media_type, MediaType::Tsx | MediaType::Jsx | MediaType::JavaScript)
+    match self.syntax {
+      Syntax::Typescript(syntax) => syntax.tsx,
+      Syntax::Es(syntax) => syntax.jsx,
+    }
+  }
+
+  /// Whether jsx-like syntax is reserved, which is the case for `.cts` and
+  /// `.mts` files.
+  pub fn disallows_ambiguous_jsx_like(&self) -> bool {
+    match self.syntax {
+      Syntax::Typescript(syntax) => syntax.disallow_ambiguous_jsx_like,
+      Syntax::Es(_) => false,
+    }
   }
 
   pub fn parent(&self) -> Node<'a> {

@@ -14,6 +14,7 @@ use dprint_swc_ext::swc::common::comments::CommentKind;
 use dprint_swc_ext::swc::parser::token::BinOpToken;
 use dprint_swc_ext::swc::parser::token::Token;
 use dprint_swc_ext::swc::parser::token::TokenAndSpan;
+use dprint_swc_ext::swc::parser::Syntax;
 use dprint_swc_ext::view::*;
 use std::rc::Rc;
 
@@ -21,18 +22,17 @@ use super::sorting::*;
 use super::swc::get_flattened_bin_expr;
 use super::swc::*;
 use super::*;
-use crate::MediaType;
 use crate::configuration::*;
 use crate::utils;
 
 pub fn generate<'a>(
   program: Program<'a>,
-  media_type: MediaType,
+  syntax: Syntax,
   config: &'a Configuration,
   external_formatter: Option<&'a ExternalFormatter>,
 ) -> crate::Result<PrintItems> {
   let program_node = program.into();
-  let mut context = Context::new(media_type, program.token_container().tokens, program_node, program, config, external_formatter);
+  let mut context = Context::new(syntax, program.token_container().tokens, program_node, program, config, external_formatter);
   let mut items = gen_node(program_node, &mut context);
   items.push_condition(if_true(
     "endOfFileNewLine",
@@ -6405,7 +6405,7 @@ fn gen_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -
             Some(NodeKind::ExportDefaultExpr | NodeKind::ExportDefaultDecl)
           );
         // Prevent "This syntax is reserved in files with the .mts or .cts extension." diagnostic.
-        let is_cts_mts_arrow_fn = matches!(context.media_type, MediaType::Cts | MediaType::Mts) && parent.kind() == NodeKind::ArrowExpr;
+        let is_cts_mts_arrow_fn = context.disallows_ambiguous_jsx_like() && parent.kind() == NodeKind::ArrowExpr;
         if is_ambiguous_jsx_fn_expr || is_cts_mts_arrow_fn {
           let children = type_params.children();
           // It is not ambiguous if there are multiple type parameters.

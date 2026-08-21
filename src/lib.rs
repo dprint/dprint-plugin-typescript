@@ -14,7 +14,6 @@ pub mod configuration;
 mod error;
 mod format_text;
 mod generation;
-mod media_type;
 pub mod parsing;
 mod utils;
 
@@ -23,7 +22,6 @@ mod utils;
 pub use dprint_swc_ext;
 
 pub use error::FormatError;
-pub use media_type::MediaType;
 pub use parsing::is_unsupported_syntax_error;
 
 /// Result type used throughout the crate.

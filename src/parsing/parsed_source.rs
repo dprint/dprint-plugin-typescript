@@ -11,6 +11,7 @@ use dprint_swc_ext::swc::ast::Program;
 use dprint_swc_ext::swc::common::comments::SingleThreadedComments;
 use dprint_swc_ext::swc::common::comments::SingleThreadedCommentsMapInner;
 use dprint_swc_ext::swc::parser::token::TokenAndSpan;
+use dprint_swc_ext::swc::parser::Syntax;
 use dprint_swc_ext::view::Comments;
 use dprint_swc_ext::view::ProgramInfo;
 use dprint_swc_ext::view::ProgramInfoProvider;
@@ -25,6 +26,7 @@ use super::ParseDiagnostic;
 pub struct ParsedSource {
   pub(super) specifier: String,
   pub(super) text: Arc<str>,
+  pub(super) syntax: Syntax,
   pub(super) text_info: OnceLock<SourceTextInfo>,
   pub(super) program: Program,
   pub(super) comments: ParsedComments,
@@ -41,6 +43,12 @@ impl ParsedSource {
   /// Text of the source that was parsed, with any byte order mark stripped.
   pub fn text(&self) -> &Arc<str> {
     &self.text
+  }
+
+  /// Syntax the source was parsed with, which is what the formatter needs in
+  /// order to know whether some syntax would be ambiguous.
+  pub fn syntax(&self) -> Syntax {
+    self.syntax
   }
 
   /// Gets an object with pre-computed positions for lines and indexes of

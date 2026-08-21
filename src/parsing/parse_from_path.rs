@@ -1,13 +1,32 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use crate::parsing::parse_program;
-use crate::parsing::ParseOptions;
-use crate::parsing::ParsedSource;
-use crate::MediaType;
+use super::parse_syntax;
+use super::MediaType;
+use super::ParsedSource;
 use crate::Result;
 
-pub fn parse_swc_ast(file_path: &Path, file_extension: Option<&str>, file_text: Arc<str>) -> Result<(ParsedSource, MediaType)> {
+pub struct ParseOptions<'a> {
+  /// Path of the file, which determines the syntax used when parsing.
+  pub path: &'a Path,
+  /// Extension to use instead of the one on the path, if any.
+  pub extension: Option<&'a str>,
+  /// Text of the file. Any byte order mark is stripped before parsing.
+  pub text: Arc<str>,
+}
+
+/// Parses a file for formatting.
+///
+/// Errors when the text could not be parsed at all, and also when swc recovered
+/// from a syntax error that would stop the AST from representing the original
+/// text (see [`is_unsupported_syntax_error`](super::is_unsupported_syntax_error)).
+/// Any remaining recovered errors are available on [`ParsedSource::diagnostics`].
+pub fn parse_program(options: ParseOptions) -> Result<ParsedSource> {
+  let ParseOptions { path, extension, text } = options;
+  parse_swc_ast(path, extension, text)
+}
+
+fn parse_swc_ast(file_path: &Path, file_extension: Option<&str>, file_text: Arc<str>) -> Result<ParsedSource> {
   match parse_inner(file_path, file_extension, file_text.clone()) {
     Ok(result) => Ok(result),
     Err(err) => {
@@ -26,19 +45,14 @@ pub fn parse_swc_ast(file_path: &Path, file_extension: Option<&str>, file_text: 
   }
 }
 
-fn parse_inner(file_path: &Path, file_extension: Option<&str>, text: Arc<str>) -> Result<(ParsedSource, MediaType)> {
+fn parse_inner(file_path: &Path, file_extension: Option<&str>, text: Arc<str>) -> Result<ParsedSource> {
   let media_type = if let Some(file_extension) = file_extension {
     MediaType::from_path(&file_path.with_extension(file_extension))
   } else {
     MediaType::from_path(file_path)
   };
 
-  let parsed_source = parse_program(ParseOptions {
-    specifier: path_to_specifier(file_path),
-    text,
-    media_type,
-  })?;
-  Ok((parsed_source, media_type))
+  parse_syntax(path_to_specifier(file_path), text, media_type.syntax(), media_type.parse_mode())
 }
 
 /// Creates a `file:` url for the path, which is only used for display

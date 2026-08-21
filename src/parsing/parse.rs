@@ -17,7 +17,6 @@ use super::ParseDiagnostic;
 use super::ParseDiagnosticsError;
 use super::ParsedComments;
 use super::ParsedSource;
-use crate::MediaType;
 use crate::Result;
 
 /// Ecmascript version used for lexing and parsing.
@@ -25,30 +24,14 @@ const ES_VERSION: EsVersion = EsVersion::Es2021;
 
 /// Whether to parse the source as a module, a script, or let swc decide.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ParseMode {
+pub(super) enum ParseMode {
   Program,
   Module,
   Script,
 }
 
-pub struct ParseOptions {
-  /// Specifier of the source text. This is only used for display
-  /// purposes in diagnostics.
-  pub specifier: String,
-  /// Source text. Any byte order mark is stripped before parsing.
-  pub text: Arc<str>,
-  /// Media type, which determines the syntax used when parsing.
-  pub media_type: MediaType,
-}
-
-/// Parses the provided text for formatting.
-///
-/// Errors when the text could not be parsed at all, and also when swc recovered
-/// from a syntax error that would stop the AST from representing the original
-/// text (see [`is_unsupported_syntax_error`]). Any remaining recovered errors
-/// are available on [`ParsedSource::diagnostics`].
-pub fn parse_program(options: ParseOptions) -> Result<ParsedSource> {
-  let ParseOptions { specifier, text, media_type } = options;
+/// Parses the provided text with the given syntax.
+pub(super) fn parse_syntax(specifier: String, text: Arc<str>, syntax: Syntax, mode: ParseMode) -> Result<ParsedSource> {
   // swc's positions would all be offset by the byte order mark, so strip it. This
   // only reallocates in the rare case that one is actually present.
   let text: Arc<str> = match text.strip_prefix('\u{FEFF}') {
@@ -60,7 +43,7 @@ pub fn parse_program(options: ParseOptions) -> Result<ParsedSource> {
     StartSourcePos::START_SOURCE_POS.as_byte_pos(),
     (StartSourcePos::START_SOURCE_POS + text.len()).as_byte_pos(),
   );
-  let (comments, program, tokens, errors) = parse_string_input(input, media_type.syntax(), media_type.parse_mode()).map_err(|err| {
+  let (comments, program, tokens, errors) = parse_string_input(input, syntax, mode).map_err(|err| {
     let text_info = SourceTextInfo::new(text.clone());
     ParseDiagnostic::from_swc_error(err, &specifier, text_info)
   })?;
@@ -81,6 +64,7 @@ pub fn parse_program(options: ParseOptions) -> Result<ParsedSource> {
   let parsed_source = ParsedSource {
     specifier,
     text,
+    syntax,
     text_info,
     program,
     comments: ParsedComments::from_single_threaded(comments),
@@ -172,6 +156,7 @@ mod test {
   use dprint_swc_ext::view::ProgramInfoProvider;
   use pretty_assertions::assert_eq;
 
+  use super::super::MediaType;
   use super::*;
 
   #[test]
@@ -276,10 +261,6 @@ as#;",
   }
 
   fn parse_media_type(text: &str, media_type: MediaType) -> Result<ParsedSource> {
-    parse_program(ParseOptions {
-      specifier: "file:///my_file.ts".to_string(),
-      text: text.into(),
-      media_type,
-    })
+    parse_syntax("file:///my_file.ts".to_string(), text.into(), media_type.syntax(), media_type.parse_mode())
   }
 }
