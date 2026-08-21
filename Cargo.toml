@@ -31,16 +31,23 @@ harness = false
 
 [dependencies]
 capacity_builder = "0.5.0"
-deno_ast = { version = "0.53.0", features = ["view"] }
 dprint-core = { version = "0.69.1", features = ["formatting"] }
 dprint-core-macros = "0.1.0"
+dprint-swc-ext = { version = "0.26.1", features = ["view"] }
 percent-encoding = "2.3.1"
 rustc-hash = "2.1.1"
 serde = { version = "1.0.144", features = ["derive"] }
 serde_json = { version = "1.0", optional = true }
 thiserror = "2.0.18"
 
+# todo: remove once dprint-swc-ext 0.26.1 is published
+# https://github.com/dprint/dprint-swc-ext/pull/78
+[patch.crates-io]
+dprint-swc-ext = { git = "https://github.com/dprint/dprint-swc-ext", branch = "feat_parsing" }
+
 [dev-dependencies]
+# only used to verify a deno_ast user can provide an ast to this crate
+deno_ast = { version = "0.53.1", features = ["view"] }
 dprint-development = "0.10.1"
 dprint-plugin-sql = "0.2.0"
 malva = "0.11.2"

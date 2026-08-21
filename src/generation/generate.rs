@@ -1,64 +1,57 @@
-use deno_ast::swc::common::comments::Comment;
-use deno_ast::swc::common::comments::CommentKind;
-use deno_ast::swc::parser::token::BinOpToken;
-use deno_ast::swc::parser::token::Token;
-use deno_ast::swc::parser::token::TokenAndSpan;
-use deno_ast::view::*;
-use deno_ast::CommentsIterator;
-use deno_ast::MediaType;
-use deno_ast::ParsedSource;
-use deno_ast::SourcePos;
-use deno_ast::SourceRange;
-use deno_ast::SourceRanged;
-use deno_ast::SourceRangedForSpanned;
 use dprint_core::formatting::condition_resolvers;
 use dprint_core::formatting::conditions::*;
 use dprint_core::formatting::ir_helpers::*;
 use dprint_core::formatting::*;
 use dprint_core_macros::sc;
+use dprint_swc_ext::common::CommentsIterator;
+use dprint_swc_ext::common::RootNode;
+use dprint_swc_ext::common::SourcePos;
+use dprint_swc_ext::common::SourceRange;
+use dprint_swc_ext::common::SourceRanged;
+use dprint_swc_ext::common::SourceRangedForSpanned;
+use dprint_swc_ext::swc::common::comments::Comment;
+use dprint_swc_ext::swc::common::comments::CommentKind;
+use dprint_swc_ext::swc::parser::token::BinOpToken;
+use dprint_swc_ext::swc::parser::token::Token;
+use dprint_swc_ext::swc::parser::token::TokenAndSpan;
+use dprint_swc_ext::view::*;
 use std::rc::Rc;
 
 use super::sorting::*;
 use super::swc::get_flattened_bin_expr;
 use super::swc::*;
 use super::*;
+use crate::MediaType;
 use crate::configuration::*;
 use crate::utils;
 
-pub fn generate(parsed_source: &ParsedSource, config: &Configuration, external_formatter: Option<&ExternalFormatter>) -> crate::Result<PrintItems> {
-  // eprintln!("Leading: {:?}", parsed_source.comments().leading_map());
-  // eprintln!("Trailing: {:?}", parsed_source.comments().trailing_map());
+pub fn generate<'a>(
+  program: Program<'a>,
+  media_type: MediaType,
+  config: &'a Configuration,
+  external_formatter: Option<&'a ExternalFormatter>,
+) -> crate::Result<PrintItems> {
+  let program_node = program.into();
+  let mut context = Context::new(media_type, program.token_container().tokens, program_node, program, config, external_formatter);
+  let mut items = gen_node(program_node, &mut context);
+  items.push_condition(if_true(
+    "endOfFileNewLine",
+    Rc::new(|context| Some(context.writer_info.column_number > 0 || context.writer_info.line_number > 0)),
+    Signal::NewLine.into(),
+  ));
 
-  parsed_source.with_view(|program| {
-    let program_node = program.into();
-    let mut context = Context::new(
-      parsed_source.media_type(),
-      parsed_source.tokens(),
-      program_node,
-      program,
-      config,
-      external_formatter,
-    );
-    let mut items = gen_node(program_node, &mut context);
-    items.push_condition(if_true(
-      "endOfFileNewLine",
-      Rc::new(|context| Some(context.writer_info.column_number > 0 || context.writer_info.line_number > 0)),
-      Signal::NewLine.into(),
-    ));
+  #[cfg(debug_assertions)]
+  context.assert_end_of_file_state();
 
-    #[cfg(debug_assertions)]
-    context.assert_end_of_file_state();
+  if let Some(diagnostic) = context.diagnostics.pop() {
+    return Err(diagnostic.message.into());
+  }
 
-    if let Some(diagnostic) = context.diagnostics.pop() {
-      return Err(diagnostic.message.into());
-    }
-
-    if config.file_indent_level > 0 {
-      Ok(with_indent_times(items, config.file_indent_level))
-    } else {
-      Ok(items)
-    }
-  })
+  if config.file_indent_level > 0 {
+    Ok(with_indent_times(items, config.file_indent_level))
+  } else {
+    Ok(items)
+  }
 }
 
 fn gen_node<'a>(node: Node<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -115,11 +108,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       // keep the leading text, but leave the trailing text to be formatted if on a separate line
       let node_text = node.text_fast(context.program);
       let end_trim = node_text.trim_end();
-      if node_text[end_trim.len()..].contains('\n') {
-        end_trim
-      } else {
-        node_text
-      }
+      if node_text[end_trim.len()..].contains('\n') { end_trim } else { node_text }
     } else {
       node.text_fast(context.program)
     };
@@ -1134,11 +1123,7 @@ fn gen_export_named_decl<'a>(node: &NamedExport<'a>, context: &mut Context<'a>) 
     items.push_sc(sc!(";"));
   }
 
-  if should_single_line {
-    with_no_new_lines(items)
-  } else {
-    items
-  }
+  if should_single_line { with_no_new_lines(items) } else { items }
 }
 
 fn gen_function_decl<'a>(node: &FnDecl<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -1349,11 +1334,7 @@ fn gen_import_decl<'a>(node: &ImportDecl<'a>, context: &mut Context<'a>) -> Prin
     items.push_sc(sc!(";"));
   }
 
-  if should_single_line {
-    with_no_new_lines(items)
-  } else {
-    items
-  }
+  if should_single_line { with_no_new_lines(items) } else { items }
 }
 
 fn gen_import_equals_decl<'a>(node: &TsImportEqualsDecl<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -4402,7 +4383,7 @@ fn gen_script<'a>(node: &Script<'a>, context: &mut Context<'a>) -> PrintItems {
 
 struct ProgramInfo<'a, 'b> {
   range: SourceRange,
-  shebang: &'b Option<deno_ast::swc::atoms::Atom>,
+  shebang: &'b Option<dprint_swc_ext::swc::atoms::Atom>,
   statements: Vec<Node<'a>>,
 }
 
@@ -7799,11 +7780,7 @@ fn gen_close_paren_with_type<'a>(opts: GenCloseParenWithTypeOptions<'a>, context
       items.extend(generated_type_node);
       items.push_info(type_node_end_ln);
 
-      if use_new_line_group {
-        new_line_group(items)
-      } else {
-        items
-      }
+      if use_new_line_group { new_line_group(items) } else { items }
     } else {
       items
     };
@@ -9263,7 +9240,7 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
 
     let past_token = context.token_finder.get_previous_token(&current);
     if let Some(TokenAndSpan {
-      token: deno_ast::swc::parser::token::Token::JSXText { .. },
+      token: dprint_swc_ext::swc::parser::token::Token::JSXText { .. },
       span,
       had_line_break,
     }) = past_token

@@ -1,11 +1,11 @@
-use deno_ast::swc::parser::token::Token;
-use deno_ast::swc::parser::token::TokenAndSpan;
-use deno_ast::view::*;
-use deno_ast::CommentsIterator;
-use deno_ast::SourcePos;
-use deno_ast::SourceRanged;
-use deno_ast::SourceRangedForSpanned;
-use deno_ast::SourceTextInfoProvider;
+use dprint_swc_ext::common::CommentsIterator;
+use dprint_swc_ext::common::SourcePos;
+use dprint_swc_ext::common::SourceRanged;
+use dprint_swc_ext::common::SourceRangedForSpanned;
+use dprint_swc_ext::common::SourceTextInfoProvider;
+use dprint_swc_ext::swc::parser::token::Token;
+use dprint_swc_ext::swc::parser::token::TokenAndSpan;
+use dprint_swc_ext::view::*;
 
 pub struct CommentTracker<'a> {
   program: Program<'a>,

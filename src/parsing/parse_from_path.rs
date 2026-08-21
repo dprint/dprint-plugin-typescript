@@ -1,13 +1,13 @@
-use deno_ast::swc::parser::error::SyntaxError;
-use deno_ast::swc::parser::Syntax;
-use deno_ast::ModuleSpecifier;
-use deno_ast::ParsedSource;
 use std::path::Path;
 use std::sync::Arc;
 
+use crate::parsing::parse_program;
+use crate::parsing::ParseOptions;
+use crate::parsing::ParsedSource;
+use crate::MediaType;
 use crate::Result;
 
-pub fn parse_swc_ast(file_path: &Path, file_extension: Option<&str>, file_text: Arc<str>) -> Result<ParsedSource> {
+pub fn parse_swc_ast(file_path: &Path, file_extension: Option<&str>, file_text: Arc<str>) -> Result<(ParsedSource, MediaType)> {
   match parse_inner(file_path, file_extension, file_text.clone()) {
     Ok(result) => Ok(result),
     Err(err) => {
@@ -26,127 +26,47 @@ pub fn parse_swc_ast(file_path: &Path, file_extension: Option<&str>, file_text: 
   }
 }
 
-fn parse_inner(file_path: &Path, file_extension: Option<&str>, text: Arc<str>) -> Result<ParsedSource> {
-  let parsed_source = parse_inner_no_diagnostic_check(file_path, file_extension, text)?;
-  ensure_no_specific_syntax_errors(&parsed_source)?;
-  Ok(parsed_source)
-}
-
-fn parse_inner_no_diagnostic_check(file_path: &Path, file_extension: Option<&str>, text: Arc<str>) -> Result<ParsedSource> {
+fn parse_inner(file_path: &Path, file_extension: Option<&str>, text: Arc<str>) -> Result<(ParsedSource, MediaType)> {
   let media_type = if let Some(file_extension) = file_extension {
-    deno_ast::MediaType::from_path(&file_path.with_extension(file_extension))
+    MediaType::from_path(&file_path.with_extension(file_extension))
   } else {
-    deno_ast::MediaType::from_path(file_path)
+    MediaType::from_path(file_path)
   };
 
-  let mut syntax = deno_ast::get_syntax(media_type);
-  if let Syntax::Es(es) = &mut syntax {
-    // support decorators in js
-    es.decorators = true;
-  }
-  deno_ast::parse_program(deno_ast::ParseParams {
-    specifier: path_to_specifier(file_path)?,
-    capture_tokens: true,
-    maybe_syntax: Some(syntax),
-    media_type,
-    scope_analysis: false,
+  let parsed_source = parse_program(ParseOptions {
+    specifier: path_to_specifier(file_path),
     text,
-  })
-  .map_err(Into::into)
+    media_type,
+  })?;
+  Ok((parsed_source, media_type))
 }
 
-fn path_to_specifier(path: &Path) -> Result<ModuleSpecifier> {
-  if let Some(specifier) = from_file_path(path) {
-    Ok(specifier)
-  } else if let Some(file_name) = path.file_name() {
-    match ModuleSpecifier::parse(&format!("file:///{}", file_name.to_string_lossy())) {
-      Ok(specifier) => Ok(specifier),
-      Err(err) => Err(format!("could not convert path to specifier: '{}', error: {:#}", path.display(), err).into()),
-    }
-  } else {
-    Err(format!("could not convert path to specifier: '{}'", path.display()).into())
+/// Creates a `file:` url for the path, which is only used for display
+/// purposes in diagnostics.
+fn path_to_specifier(path: &Path) -> String {
+  fn encode(text: &str) -> String {
+    percent_encoding::utf8_percent_encode(text, percent_encoding::CONTROLS).to_string()
   }
-}
 
-fn from_file_path(path: &Path) -> Option<ModuleSpecifier> {
-  #[cfg(target_arch = "wasm32")]
-  {
-    from_file_path_wasm(path)
-  }
-  #[cfg(not(target_arch = "wasm32"))]
-  {
-    ModuleSpecifier::from_file_path(path).ok()
-  }
-}
-
-#[allow(unused)]
-#[cfg(any(target_arch = "wasm32", test))]
-fn from_file_path_wasm(path: &Path) -> Option<ModuleSpecifier> {
-  // being lazy because this doesn't need to be exactly correct
   let mut parts = Vec::new();
   for component in path.components() {
     match component {
       std::path::Component::Prefix(prefix) => {
-        let prefix = prefix.as_os_str().to_string_lossy();
-        parts.push(percent_encoding::utf8_percent_encode(prefix.as_ref(), percent_encoding::CONTROLS).to_string());
+        parts.push(encode(prefix.as_os_str().to_string_lossy().as_ref()));
       }
       std::path::Component::RootDir => {
         // ignore
       }
       std::path::Component::CurDir | std::path::Component::ParentDir => {
-        return None;
+        // being lazy because this doesn't need to be exactly correct
+        parts.clear();
       }
       std::path::Component::Normal(part) => {
-        parts.push(percent_encoding::percent_encode(part.as_encoded_bytes(), percent_encoding::CONTROLS).to_string());
+        parts.push(encode(part.to_string_lossy().as_ref()));
       }
     }
   }
-  ModuleSpecifier::parse(&format!("file:///{}", parts.join("/"))).ok()
-}
-
-pub fn ensure_no_specific_syntax_errors(parsed_source: &ParsedSource) -> Result<()> {
-  let diagnostics = parsed_source
-    .diagnostics()
-    .iter()
-    .filter(|e| {
-      matches!(
-        e.kind(),
-        // unexpected eof
-        SyntaxError::Eof |
-        // expected identifier
-        SyntaxError::TS1003 |
-        SyntaxError::ExpectedIdent |
-        // expected semi-colon
-        SyntaxError::TS1005 |
-        SyntaxError::ExpectedSemi |
-        // expected expression
-        SyntaxError::TS1109 |
-        // expected token
-        SyntaxError::Expected(_, _) |
-        // various expected
-        SyntaxError::ExpectedDigit { .. } |
-        SyntaxError::ExpectedSemiForExprStmt { .. } |
-        SyntaxError::ExpectedUnicodeEscape |
-        // various unterminated
-        SyntaxError::UnterminatedStrLit |
-        SyntaxError::UnterminatedBlockComment |
-        SyntaxError::UnterminatedJSXContents |
-        SyntaxError::UnterminatedRegExp |
-        SyntaxError::UnterminatedTpl |
-        // unexpected token
-        SyntaxError::Unexpected { .. } |
-        // Merge conflict marker
-        SyntaxError::TS1185
-      )
-    })
-    .cloned()
-    .collect::<Vec<_>>();
-
-  if diagnostics.is_empty() {
-    Ok(())
-  } else {
-    Err(deno_ast::ParseDiagnosticsError(diagnostics).into())
-  }
+  format!("file:///{}", parts.join("/"))
 }
 
 fn get_lowercase_extension(file_path: &Path) -> Option<String> {
@@ -155,21 +75,21 @@ fn get_lowercase_extension(file_path: &Path) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-  use crate::configuration::ConfigurationBuilder;
   use pretty_assertions::assert_eq;
 
   use super::*;
   use std::path::PathBuf;
 
   #[test]
-  fn test_from_file_path_wasm() {
-    fn run_test(path: &str, expected: Option<&str>) {
-      let actual = from_file_path_wasm(&PathBuf::from(path));
-      assert_eq!(actual.as_ref().map(|d| d.as_str()), expected);
+  fn test_path_to_specifier() {
+    fn run_test(path: &str, expected: &str) {
+      assert_eq!(path_to_specifier(&PathBuf::from(path)), expected);
     }
 
-    run_test("C:\\Users\\user\\file.ts", Some("file:///C:/Users/user/file.ts"));
-    run_test("/file/other.ts", Some("file:///file/other.ts"));
+    #[cfg(windows)]
+    run_test("C:\\Users\\user\\file.ts", "file:///C:/Users/user/file.ts");
+    run_test("/file/other.ts", "file:///file/other.ts");
+    run_test("./test.ts", "file:///test.ts");
   }
 
   #[test]
@@ -345,15 +265,11 @@ Merge conflict marker encountered. at file:///test.ts:6:1
     );
   }
 
+  /// These are syntax errors that swc recovers from, but which stop the ast
+  /// from representing the original text, so formatting is refused.
   #[track_caller]
   fn run_non_fatal_diagnostic_test(file_path: &str, text: &str, expected: &str) {
     let file_path = PathBuf::from(file_path);
     assert_eq!(format!("{}", parse_swc_ast(&file_path, None, text.into()).err().unwrap()), expected);
-
-    // this error should also be surfaced in `format_parsed_source` if someone provides
-    // a source file that had a non-fatal diagnostic
-    let parsed_source = parse_inner_no_diagnostic_check(&file_path, None, text.into()).unwrap();
-    let config = ConfigurationBuilder::new().build();
-    assert_eq!(crate::format_parsed_source(&parsed_source, &config, None).err().unwrap().to_string(), expected);
   }
 }

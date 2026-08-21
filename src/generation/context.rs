@@ -1,22 +1,22 @@
-use deno_ast::swc::common::comments::Comment;
-use deno_ast::swc::parser::token::TokenAndSpan;
-use deno_ast::view::*;
-use deno_ast::MediaType;
-use deno_ast::SourcePos;
-use deno_ast::SourceRange;
-use deno_ast::SourceRanged;
-use deno_ast::SourceRangedForSpanned;
 use dprint_core::formatting::ConditionReference;
 use dprint_core::formatting::IndentLevel;
 use dprint_core::formatting::IsStartOfLine;
 use dprint_core::formatting::LineNumber;
 use dprint_core::formatting::LineStartIndentLevel;
+use dprint_swc_ext::common::SourcePos;
+use dprint_swc_ext::common::SourceRange;
+use dprint_swc_ext::common::SourceRanged;
+use dprint_swc_ext::common::SourceRangedForSpanned;
+use dprint_swc_ext::swc::common::comments::Comment;
+use dprint_swc_ext::swc::parser::token::TokenAndSpan;
+use dprint_swc_ext::view::*;
 use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
 
 use super::*;
 use crate::configuration::*;
 use crate::utils::Stack;
+use crate::MediaType;
 
 /// A callback that will be called when encountering tagged templates.
 ///
@@ -109,7 +109,7 @@ impl<'a> Context<'a> {
       if_stmt_last_brace_condition_ref: None,
       expr_stmt_single_line_parent_brace_ref: None,
       #[cfg(debug_assertions)]
-      last_generated_node_pos: deno_ast::SourceTextInfoProvider::text_info(&program).range().start.into(),
+      last_generated_node_pos: dprint_swc_ext::common::SourceTextInfoProvider::text_info(&program).range().start.into(),
       diagnostics: Vec::new(),
     }
   }

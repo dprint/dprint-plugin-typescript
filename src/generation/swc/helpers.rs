@@ -1,10 +1,10 @@
-use deno_ast::swc::common::comments::CommentKind;
-use deno_ast::swc::lexer::common::lexer::char::CharExt;
-use deno_ast::view::Node;
-use deno_ast::view::Program;
-use deno_ast::RootNode;
-use deno_ast::SourceRanged;
-use deno_ast::SourceRangedForSpanned;
+use dprint_swc_ext::common::RootNode;
+use dprint_swc_ext::common::SourceRanged;
+use dprint_swc_ext::common::SourceRangedForSpanned;
+use dprint_swc_ext::swc::common::comments::CommentKind;
+use dprint_swc_ext::swc::lexer::common::lexer::char::CharExt;
+use dprint_swc_ext::view::Node;
+use dprint_swc_ext::view::Program;
 
 /** Gets if the node contains a line comment or multi-line block comment */
 pub fn contains_line_or_multiline_comment<'a>(node: Node<'a>, program: Program<'a>) -> bool {

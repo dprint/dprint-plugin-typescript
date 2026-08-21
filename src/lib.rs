@@ -14,17 +14,27 @@ pub mod configuration;
 mod error;
 mod format_text;
 mod generation;
-mod swc;
+mod media_type;
+pub mod parsing;
 mod utils;
 
+/// Re-export of the crate used for the AST in order to
+/// help consumers ensure they're using the same version.
+pub use dprint_swc_ext;
+
 pub use error::FormatError;
+pub use media_type::MediaType;
+pub use parsing::is_unsupported_syntax_error;
 
 /// Result type used throughout the crate.
 pub(crate) type Result<T> = std::result::Result<T, FormatError>;
 
 pub use format_text::format_parsed_source;
+pub use format_text::format_program;
 pub use format_text::format_text;
 pub use format_text::ExternalFormatter;
+pub use format_text::FormatParsedSourceOptions;
+pub use format_text::FormatProgramOptions;
 pub use format_text::FormatTextOptions;
 
 #[cfg(feature = "tracing")]

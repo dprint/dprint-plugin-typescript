@@ -1,9 +1,9 @@
 mod module_specifiers;
 use module_specifiers::*;
 
-use deno_ast::view::*;
-use deno_ast::SourceRange;
-use deno_ast::SourceRanged;
+use dprint_swc_ext::common::SourceRange;
+use dprint_swc_ext::common::SourceRanged;
+use dprint_swc_ext::view::*;
 use std::cmp::Ordering;
 
 use crate::configuration::*;

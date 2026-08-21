@@ -1,11 +1,11 @@
-use deno_ast::swc::common::comments::Comment;
-use deno_ast::swc::common::comments::CommentKind;
-use deno_ast::view::*;
-use deno_ast::SourcePos;
-use deno_ast::SourceRange;
-use deno_ast::SourceRanged;
-use deno_ast::SourceRangedForSpanned;
-use deno_ast::SourceTextInfoProvider;
+use dprint_swc_ext::common::SourcePos;
+use dprint_swc_ext::common::SourceRange;
+use dprint_swc_ext::common::SourceRanged;
+use dprint_swc_ext::common::SourceRangedForSpanned;
+use dprint_swc_ext::common::SourceTextInfoProvider;
+use dprint_swc_ext::swc::common::comments::Comment;
+use dprint_swc_ext::swc::common::comments::CommentKind;
+use dprint_swc_ext::view::*;
 
 pub fn is_first_node_on_line(node: &impl SourceRanged, program: Program) -> bool {
   let text_info = program.text_info();

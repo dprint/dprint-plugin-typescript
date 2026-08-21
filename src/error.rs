@@ -1,5 +1,5 @@
-use deno_ast::ParseDiagnostic;
-use deno_ast::ParseDiagnosticsError;
+use crate::parsing::ParseDiagnostic;
+use crate::parsing::ParseDiagnosticsError;
 
 /// An error that occurred while formatting a file.
 #[derive(Debug, thiserror::Error)]

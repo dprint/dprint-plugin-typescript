@@ -169,14 +169,14 @@ checksum = "be1e0bca6c3637f992fc1cc7cbc52a78c1ef6db076dbf1059c4323d6a2048376"
 
 [[package]]
 name = "deno_ast"
-version = "0.53.0"
+version = "0.53.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ac5df28715465cff3f03294564f38c9cd3c24c4cfb965a32fd1327efa111b02"
+checksum = "6f7c1384d87fc0a6439a065312fbef8f6ac6128689dbc2831b28b3a1d4f3a4e6"
 dependencies = [
  "capacity_builder",
  "deno_error",
  "deno_media_type",
- "deno_terminal 0.2.2",
+ "deno_terminal 0.2.3",
  "dprint-swc-ext",
  "percent-encoding",
  "serde",
@@ -194,9 +194,9 @@ dependencies = [
 
 [[package]]
 name = "deno_error"
-version = "0.7.0"
+version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dde60bd153886964234c5012d3d9caf788287f28d81fb24a884436904101ef10"
+checksum = "3007d3f1ea92ea503324ae15883aac0c2de2b8cf6fead62203ff6a67161007ab"
 dependencies = [
  "deno_error_macro",
  "libc",
@@ -204,9 +204,9 @@ dependencies = [
 
 [[package]]
 name = "deno_error_macro"
-version = "0.7.0"
+version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "409f265785bd946d3006756955aaf40b0e4deb25752eae6a990afe54a31cfd83"
+checksum = "9b565e60a9685cdf312c888665b5f8647ac692a7da7e058a5e2268a466da8eaf"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -236,9 +236,9 @@ dependencies = [
 
 [[package]]
 name = "deno_terminal"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23f71c27009e0141dedd315f1dfa3ebb0a6ca4acce7c080fac576ea415a465f6"
+checksum = "f3ba8041ae7319b3ca6a64c399df4112badcbbe0868b4517637647614bede4be"
 dependencies = [
  "once_cell",
  "termcolor",
@@ -336,6 +336,7 @@ dependencies = [
  "dprint-core-macros",
  "dprint-development",
  "dprint-plugin-sql",
+ "dprint-swc-ext",
  "malva",
  "markup_fmt",
  "percent-encoding",
@@ -348,9 +349,8 @@ dependencies = [
 
 [[package]]
 name = "dprint-swc-ext"
-version = "0.26.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33175ddb7a6d418589cab2966bd14a710b3b1139459d3d5ca9edf783c4833f4c"
+version = "0.26.1"
+source = "git+https://github.com/dprint/dprint-swc-ext?branch=feat_parsing#a1cd3c4e45ac32000141482506fa4a4c8dd8fb67"
 dependencies = [
  "allocator-api2",
  "bumpalo",
