@@ -1,5 +1,5 @@
+use std::cell::OnceCell;
 use std::sync::Arc;
-use std::sync::OnceLock;
 
 use dprint_swc_ext::common::SourcePos;
 use dprint_swc_ext::common::SourceRange;
@@ -27,7 +27,7 @@ pub struct ParsedSource {
   pub(super) specifier: Arc<str>,
   pub(super) text: Arc<str>,
   pub(super) syntax: Syntax,
-  pub(super) text_info: OnceLock<SourceTextInfo>,
+  pub(super) text_info: OnceCell<SourceTextInfo>,
   pub(super) program: Program,
   pub(super) comments: ParsedComments,
   pub(super) tokens: Vec<TokenAndSpan>,

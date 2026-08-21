@@ -1,5 +1,5 @@
+use std::cell::OnceCell;
 use std::sync::Arc;
-use std::sync::OnceLock;
 
 use dprint_swc_ext::common::SourceTextInfo;
 use dprint_swc_ext::common::StartSourcePos;
@@ -48,7 +48,7 @@ pub(super) fn parse_syntax(specifier: Arc<str>, text: Arc<str>, syntax: Syntax, 
     ParseDiagnostic::from_swc_error(err, &specifier, text_info)
   })?;
   // pre-populate the text info when it had to be created for diagnostics anyway
-  let text_info: OnceLock<SourceTextInfo> = Default::default();
+  let text_info: OnceCell<SourceTextInfo> = Default::default();
   let diagnostics = if errors.is_empty() {
     Vec::new()
   } else {
@@ -140,11 +140,9 @@ fn parse_string_input(
 #[cfg(test)]
 mod test {
   use dprint_swc_ext::common::SourceRanged;
-  use dprint_swc_ext::view::NodeTrait;
   use dprint_swc_ext::view::ProgramInfoProvider;
   use pretty_assertions::assert_eq;
 
-  use super::super::MediaType;
   use super::*;
 
   #[test]
@@ -235,20 +233,12 @@ as#;",
     }
   }
 
-  #[test]
-  fn parses_cjs_as_script_and_cts_as_module() {
-    assert!(matches!(
-      parse_media_type("require('test')", MediaType::Cjs).unwrap().program(),
-      Program::Script(_)
-    ));
-    assert!(parse_media_type("export = 5;", MediaType::Cts).is_ok());
-  }
-
   fn parse_ts(text: &str) -> Result<ParsedSource> {
-    parse_media_type(text, MediaType::TypeScript)
-  }
-
-  fn parse_media_type(text: &str, media_type: MediaType) -> Result<ParsedSource> {
-    parse_syntax("file:///my_file.ts".into(), text.into(), media_type.syntax(), media_type.parse_mode())
+    parse_syntax(
+      "file:///my_file.ts".into(),
+      text.into(),
+      Syntax::Typescript(Default::default()),
+      ParseMode::Program,
+    )
   }
 }

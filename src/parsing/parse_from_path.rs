@@ -1,8 +1,12 @@
 use std::path::Path;
 use std::sync::Arc;
 
+use dprint_swc_ext::swc::parser::EsSyntax;
+use dprint_swc_ext::swc::parser::Syntax;
+use dprint_swc_ext::swc::parser::TsSyntax;
+
 use super::parse_syntax;
-use super::MediaType;
+use super::ParseMode;
 use super::ParsedSource;
 use crate::Result;
 
@@ -23,24 +27,16 @@ pub struct ParseOptions<'a> {
 /// Any remaining recovered errors are available on [`ParsedSource::diagnostics`].
 pub fn parse_program(options: ParseOptions) -> Result<ParsedSource> {
   let ParseOptions { path, extension, text } = options;
-  parse_swc_ast(path, extension, text)
-}
-
-fn parse_swc_ast(file_path: &Path, file_extension: Option<&str>, file_text: Arc<str>) -> Result<ParsedSource> {
-  match parse_inner(file_path, file_extension, file_text.clone()) {
+  match parse_inner(path, extension, text.clone()) {
     Ok(result) => Ok(result),
     Err(err) => {
-      let extension = file_extension.or_else(|| file_path.extension().and_then(|e| e.to_str()));
-      let matches = |candidates: &[&str]| candidates.iter().any(|c| extension.is_some_and(|e| e.eq_ignore_ascii_case(c)));
-      let new_file_path = if matches(&["ts", "cts", "mts"]) {
-        file_path.with_extension("tsx")
-      } else if matches(&["js", "cjs", "mjs"]) {
-        file_path.with_extension("jsx")
-      } else {
-        return Err(err);
+      // a file may contain jsx despite its extension, so try again as jsx
+      let jsx_extension = match normalize_extension(resolve_extension(path, extension)) {
+        "ts" | "cts" | "mts" => "tsx",
+        "js" | "cjs" | "mjs" => "jsx",
+        _ => return Err(err),
       };
-      // try to parse as jsx
-      match parse_inner(&new_file_path, None, file_text) {
+      match parse_inner(path, Some(jsx_extension), text) {
         Ok(result) => Ok(result),
         Err(_) => Err(err), // return the original error
       }
@@ -49,13 +45,82 @@ fn parse_swc_ast(file_path: &Path, file_extension: Option<&str>, file_text: Arc<
 }
 
 fn parse_inner(file_path: &Path, file_extension: Option<&str>, text: Arc<str>) -> Result<ParsedSource> {
-  let media_type = if let Some(file_extension) = file_extension {
-    MediaType::from_path(&file_path.with_extension(file_extension))
-  } else {
-    MediaType::from_path(file_path)
-  };
+  let (syntax, mode) = resolve_syntax(file_path, file_extension);
+  parse_syntax(path_to_specifier(file_path), text, syntax, mode)
+}
 
-  parse_syntax(path_to_specifier(file_path), text, media_type.syntax(), media_type.parse_mode())
+/// Resolves the syntax and parse mode to use for a file.
+///
+/// This matches what `deno_ast` resolves for the media types this crate formats.
+fn resolve_syntax(file_path: &Path, file_extension: Option<&str>) -> (Syntax, ParseMode) {
+  match normalize_extension(resolve_extension(file_path, file_extension)) {
+    extension @ ("ts" | "tsx" | "mts" | "cts") => {
+      // ex. `file.d.ts`. Note that `with_extension` never changes the file stem,
+      // so this is still correct when the extension was overwritten.
+      let is_declaration = extension != "tsx" && has_declaration_file_stem(file_path);
+      // jsx-like syntax is reserved in .mts and .cts files:
+      // https://babeljs.io/docs/babel-preset-typescript#disallowambiguousjsxlike
+      let is_module_only = matches!(extension, "mts" | "cts");
+      let syntax = Syntax::Typescript(TsSyntax {
+        decorators: true,
+        disallow_ambiguous_jsx_like: is_module_only,
+        dts: is_declaration,
+        tsx: extension == "tsx",
+        no_early_errors: false,
+      });
+      // cts files can contain module declarations like
+      // `import x = require("./x.ts");` or `export = 5;`, so they need to be
+      // parsed as modules (this may change in the future once
+      // https://github.com/swc-project/swc/issues/9694 is resolved)
+      let mode = if is_module_only && !is_declaration {
+        ParseMode::Module
+      } else {
+        ParseMode::Program
+      };
+      (syntax, mode)
+    }
+    // anything else is parsed as javascript
+    extension => {
+      let syntax = Syntax::Es(EsSyntax {
+        allow_return_outside_function: true,
+        allow_super_outside_method: true,
+        auto_accessors: true,
+        decorators: true,
+        decorators_before_export: false,
+        export_default_from: true,
+        fn_bind: false,
+        import_attributes: true,
+        jsx: extension == "jsx",
+        explicit_resource_management: true,
+      });
+      let mode = match extension {
+        "mjs" => ParseMode::Module,
+        "cjs" => ParseMode::Script,
+        _ => ParseMode::Program,
+      };
+      (syntax, mode)
+    }
+  }
+}
+
+fn resolve_extension<'a>(file_path: &'a Path, file_extension: Option<&'a str>) -> &'a str {
+  file_extension.or_else(|| file_path.extension().and_then(|e| e.to_str())).unwrap_or_default()
+}
+
+/// Matches the extension against the ones this crate knows about, so that the
+/// rest of the resolving can compare with `==` and stay case insensitive.
+fn normalize_extension(extension: &str) -> &'static str {
+  const EXTENSIONS: [&str; 8] = ["js", "jsx", "mjs", "cjs", "ts", "tsx", "mts", "cts"];
+  EXTENSIONS.iter().copied().find(|e| extension.eq_ignore_ascii_case(e)).unwrap_or("")
+}
+
+/// Gets whether the file stem ends with `.d`, as in a `file.d.ts` declaration file.
+fn has_declaration_file_stem(file_path: &Path) -> bool {
+  let Some(stem) = file_path.file_stem().and_then(|s| s.to_str()) else {
+    return false;
+  };
+  let bytes = stem.as_bytes();
+  bytes.len() >= 2 && bytes[bytes.len() - 2] == b'.' && bytes[bytes.len() - 1].eq_ignore_ascii_case(&b'd')
 }
 
 /// Creates a `file:` url for the path, which is only used for display
@@ -195,7 +260,7 @@ mod tests {
   #[track_caller]
   fn run_fatal_diagnostic_test(file_path: &str, text: &str, expected: &str) {
     let file_path = PathBuf::from(file_path);
-    assert_eq!(parse_swc_ast(&file_path, None, text.into()).err().unwrap().to_string(), expected);
+    assert_eq!(parse_file(&file_path, None, text).err().unwrap().to_string(), expected);
   }
 
   #[test]
@@ -224,7 +289,7 @@ mod tests {
   #[test]
   fn file_extension_overwrite() {
     let file_path = PathBuf::from("./test.js");
-    assert!(parse_swc_ast(&file_path, Some("ts"), "const foo: string = 'bar';".into()).is_ok());
+    assert!(parse_file(&file_path, Some("ts"), "const foo: string = 'bar';").is_ok());
   }
 
   #[test]
@@ -286,6 +351,73 @@ Merge conflict marker encountered. at file:///test.ts:6:1
   #[track_caller]
   fn run_non_fatal_diagnostic_test(file_path: &str, text: &str, expected: &str) {
     let file_path = PathBuf::from(file_path);
-    assert_eq!(format!("{}", parse_swc_ast(&file_path, None, text.into()).err().unwrap()), expected);
+    assert_eq!(format!("{}", parse_file(&file_path, None, text).err().unwrap()), expected);
+  }
+
+  #[track_caller]
+  fn parse_file(path: &Path, extension: Option<&str>, text: &str) -> Result<ParsedSource> {
+    parse_program(ParseOptions {
+      path,
+      extension,
+      text: text.into(),
+    })
+  }
+
+  #[test]
+  fn resolves_syntax_from_the_extension() {
+    #[track_caller]
+    fn run_test(path: &str, expected: (Syntax, ParseMode)) {
+      assert_eq!(resolve_syntax(&PathBuf::from(path), None), expected, "path: {}", path);
+    }
+
+    fn es(jsx: bool) -> Syntax {
+      Syntax::Es(EsSyntax {
+        allow_return_outside_function: true,
+        allow_super_outside_method: true,
+        auto_accessors: true,
+        decorators: true,
+        decorators_before_export: false,
+        export_default_from: true,
+        fn_bind: false,
+        import_attributes: true,
+        jsx,
+        explicit_resource_management: true,
+      })
+    }
+
+    fn ts(tsx: bool, dts: bool, disallow_ambiguous_jsx_like: bool) -> Syntax {
+      Syntax::Typescript(TsSyntax {
+        decorators: true,
+        disallow_ambiguous_jsx_like,
+        dts,
+        tsx,
+        no_early_errors: false,
+      })
+    }
+
+    run_test("t.js", (es(false), ParseMode::Program));
+    run_test("t.jsx", (es(true), ParseMode::Program));
+    run_test("t.mjs", (es(false), ParseMode::Module));
+    run_test("t.cjs", (es(false), ParseMode::Script));
+    run_test("t.json", (es(false), ParseMode::Program));
+    run_test("t", (es(false), ParseMode::Program));
+
+    run_test("t.ts", (ts(false, false, false), ParseMode::Program));
+    run_test("t.TS", (ts(false, false, false), ParseMode::Program));
+    run_test("t.tsx", (ts(true, false, false), ParseMode::Program));
+    run_test("t.mts", (ts(false, false, true), ParseMode::Module));
+    run_test("t.cts", (ts(false, false, true), ParseMode::Module));
+    run_test("t.d.ts", (ts(false, true, false), ParseMode::Program));
+    run_test("t.D.TS", (ts(false, true, false), ParseMode::Program));
+    run_test("t.d.mts", (ts(false, true, true), ParseMode::Program));
+    run_test("t.d.cts", (ts(false, true, true), ParseMode::Program));
+    // the .d only counts when it is its own part of the file name
+    run_test("td.ts", (ts(false, false, false), ParseMode::Program));
+  }
+
+  #[test]
+  fn extension_overwrites_the_one_on_the_path() {
+    let path = PathBuf::from("t.d.js");
+    assert_eq!(resolve_syntax(&path, Some("ts")), resolve_syntax(&PathBuf::from("t.d.ts"), None));
   }
 }
