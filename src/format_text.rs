@@ -20,7 +20,11 @@ use super::parsing::ParseOptions;
 pub struct FormatTextOptions<'a> {
   pub path: &'a Path,
   pub extension: Option<&'a str>,
-  pub text: String,
+  /// Text of the file. Any byte order mark is stripped before parsing.
+  ///
+  /// This is an `Arc<str>` because the text has to end up in one in order to
+  /// be shared with the ast view, so a caller that already has one saves a copy.
+  pub text: Arc<str>,
   pub config: &'a Configuration,
   pub external_formatter: Option<&'a ExternalFormatter>,
 }
@@ -69,13 +73,9 @@ pub fn format_text(options: FormatTextOptions) -> Result<Option<String>> {
   if super::utils::file_text_has_ignore_comment(&file_text, &config.ignore_file_comment_text) {
     Ok(None)
   } else {
-    // strip the byte order mark here so that the text is only copied once
+    // stripping the byte order mark is the only thing that copies the text here
     let had_bom = file_text.starts_with('\u{FEFF}');
-    let file_text: Arc<str> = if had_bom {
-      file_text['\u{FEFF}'.len_utf8()..].into()
-    } else {
-      file_text.into()
-    };
+    let file_text = if had_bom { file_text['\u{FEFF}'.len_utf8()..].into() } else { file_text };
     let parsed_source = parse_program(ParseOptions {
       path: file_path,
       extension: file_extension,

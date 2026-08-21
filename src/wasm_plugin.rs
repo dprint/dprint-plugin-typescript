@@ -60,11 +60,13 @@ impl SyncPluginHandler<Configuration> for TypeScriptPluginHandler {
   }
 
   fn format(&mut self, request: SyncFormatRequest<Configuration>, _format_with_host: impl FnMut(SyncHostFormatRequest) -> FormatResult) -> FormatResult {
+    // `String::from_utf8` reuses the buffer, but going to an `Arc<str>` has to
+    // copy because the allocation needs room for the reference count
     let file_text = String::from_utf8(request.file_bytes)?;
     let maybe_text = super::format_text(super::FormatTextOptions {
       path: request.file_path,
       extension: None,
-      text: file_text,
+      text: file_text.into(),
       config: request.config,
       // todo: support this in Wasm
       external_formatter: None,
