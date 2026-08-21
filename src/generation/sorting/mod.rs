@@ -1,6 +1,9 @@
 mod module_specifiers;
 use module_specifiers::*;
 
+mod sorter;
+use sorter::*;
+
 use deno_ast::view::*;
 use deno_ast::SourceRange;
 use deno_ast::SourceRanged;
@@ -8,48 +11,16 @@ use std::cmp::Ordering;
 
 use crate::configuration::*;
 
+pub use sorter::NodeSorter;
+
 // very rough... this should be improved to not allocate so much
 // and be cleaner
 
-pub fn get_node_sorter_from_order<'a>(
-  order: SortOrder,
-  named_type_imports_exports_order: NamedTypeImportsExportsOrder,
-) -> Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), Program<'a>) -> Ordering>> {
-  // todo: how to reduce code duplication here?
+pub fn get_node_sorter_from_order(order: SortOrder, named_type_imports_exports_order: NamedTypeImportsExportsOrder) -> Option<NodeSorter> {
   match order {
     SortOrder::Maintain => None,
-    SortOrder::CaseInsensitive => Some(Box::new(move |(a_index, a), (b_index, b), program| {
-      let result = if is_import_or_export_declaration(&a) {
-        cmp_optional_nodes(a, b, program, named_type_imports_exports_order, |a, b, module| {
-          cmp_module_specifiers(a.text_fast(module), b.text_fast(module), cmp_text_case_insensitive)
-        })
-      } else {
-        cmp_optional_nodes(a, b, program, named_type_imports_exports_order, |a, b, module| {
-          cmp_text_case_insensitive(a.text_fast(module), b.text_fast(module))
-        })
-      };
-      if result == Ordering::Equal {
-        a_index.cmp(&b_index)
-      } else {
-        result
-      }
-    })),
-    SortOrder::CaseSensitive => Some(Box::new(move |(a_index, a), (b_index, b), program| {
-      let result = if is_import_or_export_declaration(&a) {
-        cmp_optional_nodes(a, b, program, named_type_imports_exports_order, |a, b, module| {
-          cmp_module_specifiers(a.text_fast(module), b.text_fast(module), cmp_text_case_sensitive)
-        })
-      } else {
-        cmp_optional_nodes(a, b, program, named_type_imports_exports_order, |a, b, module| {
-          cmp_text_case_sensitive(a.text_fast(module), b.text_fast(module))
-        })
-      };
-      if result == Ordering::Equal {
-        a_index.cmp(&b_index)
-      } else {
-        result
-      }
-    })),
+    SortOrder::CaseSensitive => Some(NodeSorter::new(NodeSorterMode::CaseSensitive, named_type_imports_exports_order)),
+    SortOrder::CaseInsensitive => Some(NodeSorter::new(NodeSorterMode::CaseInsensitive, named_type_imports_exports_order)),
   }
 }
 
@@ -170,19 +141,6 @@ fn get_comparison_nodes(node: Node) -> Vec<ComparisonNode> {
         vec![ComparisonNode::Node(node.range())]
       }
     }
-  }
-}
-
-fn cmp_text_case_sensitive(a: &str, b: &str) -> Ordering {
-  a.cmp(b)
-}
-
-fn cmp_text_case_insensitive(a: &str, b: &str) -> Ordering {
-  let case_insensitive_result = a.to_lowercase().cmp(&b.to_lowercase());
-  if case_insensitive_result == Ordering::Equal {
-    cmp_text_case_sensitive(a, b)
-  } else {
-    case_insensitive_result
   }
 }
 

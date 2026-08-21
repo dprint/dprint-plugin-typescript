@@ -1,12 +1,14 @@
 use std::cmp::Ordering;
 
-pub fn cmp_module_specifiers(a: &str, b: &str, cmp_text: impl Fn(&str, &str) -> Ordering) -> Ordering {
+use super::CompareText;
+
+pub fn cmp_module_specifiers(a: &str, b: &str, cmp: impl CompareText) -> Ordering {
   let a_info = get_module_specifier_info(a);
   let b_info = get_module_specifier_info(b);
 
   match &a_info {
     ModuleSpecifierInfo::Absolute { text: a_text } => match b_info {
-      ModuleSpecifierInfo::Absolute { text: b_text } => cmp_text(a_text, b_text),
+      ModuleSpecifierInfo::Absolute { text: b_text } => cmp.cmp_text(a_text, b_text),
       ModuleSpecifierInfo::Relative { .. } => Ordering::Less,
     },
     ModuleSpecifierInfo::Relative {
@@ -20,7 +22,7 @@ pub fn cmp_module_specifiers(a: &str, b: &str, cmp_text: impl Fn(&str, &str) -> 
       } => match a_relative_count.cmp(b_relative_count) {
         Ordering::Greater => Ordering::Less,
         Ordering::Less => Ordering::Greater,
-        Ordering::Equal => cmp_text(a_folder_text, b_folder_text),
+        Ordering::Equal => cmp.cmp_text(a_folder_text, b_folder_text),
       },
     },
   }
@@ -66,18 +68,18 @@ mod test {
 
   #[test]
   fn it_should_compare_module_specifiers() {
-    assert_eq!(cmp_module_specifiers("''", "'test'", |a, b| a.cmp(b)), Ordering::Less);
-    assert_eq!(cmp_module_specifiers("'a'", "'b'", |a, b| a.cmp(b)), Ordering::Less);
-    assert_eq!(cmp_module_specifiers("'b'", "'a'", |a, b| a.cmp(b)), Ordering::Greater);
-    assert_eq!(cmp_module_specifiers("'a'", "'a'", |a, b| a.cmp(b)), Ordering::Equal);
-    assert_eq!(cmp_module_specifiers("'a'", "'./a'", |a, b| a.cmp(b)), Ordering::Less);
-    assert_eq!(cmp_module_specifiers("'./a'", "'a'", |a, b| a.cmp(b)), Ordering::Greater);
-    assert_eq!(cmp_module_specifiers("'./a'", "'./a'", |a, b| a.cmp(b)), Ordering::Equal);
-    assert_eq!(cmp_module_specifiers("'../a'", "'./a'", |a, b| a.cmp(b)), Ordering::Less);
-    assert_eq!(cmp_module_specifiers("'./a'", "'../a'", |a, b| a.cmp(b)), Ordering::Greater);
-    assert_eq!(cmp_module_specifiers("'../../a'", "'../a'", |a, b| a.cmp(b)), Ordering::Less);
-    assert_eq!(cmp_module_specifiers("'../a'", "'../../a'", |a, b| a.cmp(b)), Ordering::Greater);
-    assert_eq!(cmp_module_specifiers("'..'", "'test'", |a, b| a.cmp(b)), Ordering::Greater);
+    assert_eq!(cmp_module_specifiers("''", "'test'", str::cmp), Ordering::Less);
+    assert_eq!(cmp_module_specifiers("'a'", "'b'", str::cmp), Ordering::Less);
+    assert_eq!(cmp_module_specifiers("'b'", "'a'", str::cmp), Ordering::Greater);
+    assert_eq!(cmp_module_specifiers("'a'", "'a'", str::cmp), Ordering::Equal);
+    assert_eq!(cmp_module_specifiers("'a'", "'./a'", str::cmp), Ordering::Less);
+    assert_eq!(cmp_module_specifiers("'./a'", "'a'", str::cmp), Ordering::Greater);
+    assert_eq!(cmp_module_specifiers("'./a'", "'./a'", str::cmp), Ordering::Equal);
+    assert_eq!(cmp_module_specifiers("'../a'", "'./a'", str::cmp), Ordering::Less);
+    assert_eq!(cmp_module_specifiers("'./a'", "'../a'", str::cmp), Ordering::Greater);
+    assert_eq!(cmp_module_specifiers("'../../a'", "'../a'", str::cmp), Ordering::Less);
+    assert_eq!(cmp_module_specifiers("'../a'", "'../../a'", str::cmp), Ordering::Greater);
+    assert_eq!(cmp_module_specifiers("'..'", "'test'", str::cmp), Ordering::Greater);
   }
 
   #[test]
