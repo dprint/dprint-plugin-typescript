@@ -1968,6 +1968,7 @@ fn gen_assignment_expr<'a>(node: &AssignExpr<'a>, context: &mut Context<'a>) -> 
                 lines_span,
                 allow_inline_multi_line: true,
                 allow_inline_single_line: true,
+                is_known_multi_line: false,
               });
             }
 
@@ -2144,6 +2145,7 @@ fn gen_binary_expr<'a>(node: &BinExpr<'a>, context: &mut Context<'a>) -> PrintIt
             lines_span,
             allow_inline_multi_line: true,
             allow_inline_single_line: true,
+            is_known_multi_line: false,
           });
         }
 
@@ -6584,6 +6586,7 @@ fn gen_union_or_intersection_type<'a, 'b>(node: UnionOrIntersectionType<'a, 'b>,
           lines_span: None,
           allow_inline_multi_line,
           allow_inline_single_line,
+          is_known_multi_line: false,
         });
       }
 
@@ -7987,6 +7990,7 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
           lines_span,
           allow_inline_multi_line,
           allow_inline_single_line,
+          is_known_multi_line: false,
         });
       }
 
@@ -9648,6 +9652,7 @@ fn gen_surrounded_by_tokens<'a>(
                         lines_span: Some(ir_helpers::LinesSpan { start_line, end_line }),
                         allow_inline_multi_line: false,
                         allow_inline_single_line: false,
+                        is_known_multi_line: false,
                       });
                     }
                   }
