@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use dprint_core::configuration::resolve_new_line_kind;
 use dprint_core::formatting::*;
+use dprint_swc_ext::common::RootNode;
 use dprint_swc_ext::common::SourceTextInfoProvider;
 use dprint_swc_ext::swc::parser::Syntax;
 use dprint_swc_ext::view::Program;
@@ -110,9 +111,12 @@ pub struct FormatParsedSourceOptions<'a, TSource: ProgramInfoProvider> {
 /// Any parsed source implementing `ProgramInfoProvider` works here, including
 /// `deno_ast::ParsedSource`, so that the text does not need to be parsed twice.
 ///
-/// Note that for a source this crate did not parse, it's up to the caller to first
-/// check the parse diagnostics with
+/// Note that for a source this crate did not parse, it's up to the caller to
+/// first check its parse diagnostics with
 /// [`is_unsupported_syntax_error`](crate::is_unsupported_syntax_error).
+/// Formatting a program that swc recovered text-losing errors from will mangle
+/// the file. A [`ParsedSource`](crate::parsing::ParsedSource) from this crate is
+/// already checked at parse time.
 pub fn format_parsed_source<TSource: ProgramInfoProvider>(options: FormatParsedSourceOptions<TSource>) -> Result<Option<String>> {
   let FormatParsedSourceOptions {
     source,
@@ -144,9 +148,14 @@ pub struct FormatProgramOptions<'a> {
 /// Use this when the source was parsed elsewhere (ex. with `deno_ast`). The
 /// program must have been parsed with tokens and comments captured.
 ///
-/// Note that unlike the other entrypoints, this does not check for syntax
-/// errors that swc recovered from. Use [`is_unsupported_syntax_error`](crate::is_unsupported_syntax_error)
-/// on the parse diagnostics beforehand in order to do that.
+/// The program must have been parsed with the text info, tokens, and comments
+/// all captured, otherwise this errors.
+///
+/// Note that unlike [`format_text`] this does not check for syntax errors that
+/// swc recovered from, because it has no diagnostics to check. Use
+/// [`is_unsupported_syntax_error`](crate::is_unsupported_syntax_error) on the
+/// parse diagnostics beforehand in order to do that — formatting a program that
+/// swc recovered text-losing errors from will mangle the file.
 ///
 /// # Example
 ///
@@ -167,6 +176,15 @@ pub fn format_program(options: FormatProgramOptions) -> Result<Option<String>> {
     config,
     external_formatter,
   } = options;
+  if program.maybe_text_info().is_none() {
+    return Err("The text info must be provided in order to format a program.".into());
+  }
+  if program.maybe_token_container().is_none() {
+    return Err("The tokens must be captured in order to format a program.".into());
+  }
+  if program.maybe_comment_container().is_none() {
+    return Err("The comments must be captured in order to format a program.".into());
+  }
   let file_text = program.text_info().text_str();
   if super::utils::file_text_has_ignore_comment(file_text, &config.ignore_file_comment_text) {
     return Ok(None);

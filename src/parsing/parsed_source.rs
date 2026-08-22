@@ -23,6 +23,9 @@ use super::ParseDiagnostic;
 ///
 /// Implements [`ProgramInfoProvider`], so it can be handed to
 /// [`format_parsed_source`](crate::format_parsed_source).
+///
+/// This is `Send` but not `Sync`, so it can be parsed on one thread and
+/// formatted on another, but not shared between threads by reference.
 pub struct ParsedSource {
   pub(super) specifier: Arc<str>,
   pub(super) text: Arc<str>,

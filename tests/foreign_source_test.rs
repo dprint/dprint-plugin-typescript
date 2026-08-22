@@ -53,6 +53,33 @@ fn respects_the_ignore_file_comment() {
   assert_eq!(result, None);
 }
 
+#[test]
+fn errors_when_the_provider_does_not_capture_everything() {
+  struct MissingTokens(OtherCrateParsedSource);
+
+  impl ProgramInfoProvider for MissingTokens {
+    fn program_info(&self) -> ProgramInfo<'_> {
+      ProgramInfo {
+        tokens: None,
+        comments: None,
+        ..self.0.program_info()
+      }
+    }
+  }
+
+  let source = MissingTokens(OtherCrateParsedSource::parse("const t = 5;"));
+  let config = ConfigurationBuilder::new().build();
+  let err = dprint_plugin_typescript::format_parsed_source(FormatParsedSourceOptions {
+    source: &source,
+    syntax: source.0.syntax,
+    config: &config,
+    external_formatter: None,
+  })
+  .err()
+  .unwrap();
+  assert_eq!(err.to_string(), "The tokens must be captured in order to format a program.");
+}
+
 /// Stands in for a parsed source owned by another crate.
 struct OtherCrateParsedSource {
   syntax: Syntax,

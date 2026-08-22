@@ -7,5 +7,3 @@ pub use diagnostics::*;
 pub use parse::*;
 pub use parse_from_path::*;
 pub use parsed_source::*;
-
-use parse::ParseMode;
