@@ -1,0 +1,36 @@
+~~ typeLiteral.alignProperties: true ~~
+== should align type literal properties ==
+type Config = {
+host: string;
+port: number;
+database: string;
+username: string;
+password: string;
+maxConnections: number;
+};
+
+type UserPermissions = {
+read: boolean;
+write: boolean;
+admin: boolean;
+deleteUsers: boolean;
+manageRoles: boolean;
+};
+
+[expect]
+type Config = {
+    host:           string;
+    port:           number;
+    database:       string;
+    username:       string;
+    password:       string;
+    maxConnections: number;
+};
+
+type UserPermissions = {
+    read:        boolean;
+    write:       boolean;
+    admin:       boolean;
+    deleteUsers: boolean;
+    manageRoles: boolean;
+};
