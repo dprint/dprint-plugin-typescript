@@ -10,3 +10,33 @@ for(const t of test) {
     a;
     b;
 }
+
+== should keep space between `for` and `await` (issue #692) ==
+for await (const t of test) {
+    a;
+}
+
+[expect]
+for await(const t of test) {
+    a;
+}
+
+== should handle for await with binding identifier ==
+async function foo() {
+    for await (num of asyncIterable) {
+        console.log(num);
+    }
+}
+
+[expect]
+async function foo() {
+    for await(num of asyncIterable) {
+        console.log(num);
+    }
+}
+
+== should handle for await with empty body ==
+for await (const x of arr);
+
+[expect]
+for await(const x of arr);
