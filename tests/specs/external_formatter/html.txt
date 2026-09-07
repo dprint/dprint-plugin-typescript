@@ -1,3 +1,27 @@
+== should format html in Angular @Component({ template: `...` }) ==
+@Component({ selector: 'app', template: `<h1>{{title}}</h1>` })
+export class A {}
+[expect]
+@Component({
+    selector: "app",
+    template: `
+        <h1>{{title}}</h1>
+    `,
+})
+export class A {}
+
+== should not treat Angular @Component({ template }) with computed key as html ==
+@Component({ [templateKey]: `<h1>x</h1>` })
+export class A {}
+[expect]
+@Component({ [templateKey]: `<h1>x</h1>` })
+export class A {}
+
+== should not treat non-Component decorator template as html ==
+decorate({ template: `<h1>x</h1>` });
+[expect]
+decorate({ template: `<h1>x</h1>` });
+
 == should format html in html`...` ==
 let htmlString = html`<body><header>HEADER</header><main>Hello there!</main><footer>FOOTER</footer></body>`;
 [expect]
