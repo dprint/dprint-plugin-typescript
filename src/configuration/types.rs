@@ -1,7 +1,13 @@
+use std::sync::Arc;
+use std::sync::OnceLock;
+
 use dprint_core::configuration::*;
 use dprint_core::generate_str_to_from;
 use serde::Deserialize;
 use serde::Serialize;
+
+use crate::generation::imports::resolved::compile_import_groups;
+use crate::generation::imports::resolved::ResolvedGroups;
 
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -307,6 +313,132 @@ pub enum NamedTypeImportsExportsOrder {
 
 generate_str_to_from![NamedTypeImportsExportsOrder, [First, "first"], [Last, "last"], [None, "none"]];
 
+/// How type-only imports are classified by `module.importGroups`.
+#[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TypeImportsMode {
+  /// Type-only imports form a distinct implicit category `type`.
+  Separate,
+  /// Type-only imports are classified by source path like value imports.
+  Interleave,
+}
+
+generate_str_to_from![TypeImportsMode, [Separate, "separate"], [Interleave, "interleave"]];
+
+/// How blank lines are handled between imports when `module.importGroups` is
+/// enabled. Mirrors ESLint `import/order`'s `newlines-between`.
+#[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum NewlinesBetween {
+  /// Exactly one blank line between groups, none inside a group.
+  Always,
+  /// One blank line between groups; blank lines inside a group are kept.
+  AlwaysAndInsideGroups,
+  /// No blank lines anywhere in the import block.
+  Never,
+  /// Blank lines are neither added nor removed.
+  Ignore,
+}
+
+generate_str_to_from![
+  NewlinesBetween,
+  [Always, "always"],
+  [AlwaysAndInsideGroups, "alwaysAndInsideGroups"],
+  [Never, "never"],
+  [Ignore, "ignore"]
+];
+
+/// Which runtime's built-in modules count as `builtin` for grouping.
+#[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BuiltinsRuntime {
+  /// `node:` prefix or Node core module list (default).
+  Node,
+  /// `node:` prefix only.
+  Deno,
+  /// `node:` prefix, `bun:` prefix, or Node core module list.
+  Bun,
+  /// Nothing matches `builtin`.
+  None,
+}
+
+generate_str_to_from![
+  BuiltinsRuntime,
+  [Node, "node"],
+  [Deno, "deno"],
+  [Bun, "bun"],
+  [None, "none"]
+];
+
+/// Built-in category strings allowed in `module.importGroups[].match`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BuiltinCategory {
+  Builtin,
+  External,
+  Parent,
+  Sibling,
+  Index,
+  Type,
+  Unknown,
+}
+
+generate_str_to_from![
+  BuiltinCategory,
+  [Builtin, "builtin"],
+  [External, "external"],
+  [Parent, "parent"],
+  [Sibling, "sibling"],
+  [Index, "index"],
+  [Type, "type"],
+  [Unknown, "unknown"]
+];
+
+/// A single matcher inside a group's `match` value.
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ImportMatcher {
+  Category(BuiltinCategory),
+  /// Raw glob pattern string. Compiled lazily by resolve_config into a globset.
+  Pattern { pattern: String },
+}
+
+/// Either a single matcher or a list (list = merged into one group).
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ImportGroupMatch {
+  Single(ImportMatcher),
+  Multiple(Vec<ImportMatcher>),
+}
+
+/// One resolved import group, in user-listed order.
+#[derive(Clone, Serialize, Deserialize)]
+pub struct ImportGroup {
+  #[serde(rename = "match")]
+  pub matchers: ImportGroupMatch,
+}
+
+/// Holds `module.importGroups` in the form the formatter matches against.
+///
+/// Compiling it means building a glob set, which is expensive enough that
+/// doing it per file shows up in a profile, so it happens once per resolved
+/// configuration and is shared from there. Not part of the serialized
+/// configuration — it is derived from `module.importGroups`.
+#[derive(Clone, Default)]
+pub struct ImportGroupsCache(Arc<OnceLock<Option<ResolvedGroups>>>);
+
+impl ImportGroupsCache {
+  pub(crate) fn set(&self, groups: Option<ResolvedGroups>) {
+    let _ = self.0.set(groups);
+  }
+
+  /// Compiles on first use, in case this configuration was built without
+  /// going through `resolve_config`.
+  pub(crate) fn get_or_compile(&self, config: &Configuration) -> Option<&ResolvedGroups> {
+    self.0.get_or_init(|| compile_import_groups(config).0).as_ref()
+  }
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Configuration {
@@ -354,6 +486,16 @@ pub struct Configuration {
   pub export_declaration_sort_named_exports: SortOrder,
   #[serde(rename = "exportDeclaration.sortTypeOnlyExports")]
   pub export_declaration_sort_type_only_exports: NamedTypeImportsExportsOrder,
+  #[serde(rename = "module.importGroups", default, skip_serializing_if = "Vec::is_empty")]
+  pub module_import_groups: Vec<ImportGroup>,
+  #[serde(rename = "module.typeImports", default = "default_type_imports_mode")]
+  pub module_type_imports: TypeImportsMode,
+  #[serde(rename = "module.builtinsRuntime", default = "default_builtins_runtime")]
+  pub module_builtins_runtime: BuiltinsRuntime,
+  #[serde(rename = "module.importGroupsNewlinesBetween", default = "default_newlines_between")]
+  pub module_import_groups_newlines_between: NewlinesBetween,
+  #[serde(skip)]
+  pub module_import_groups_cache: ImportGroupsCache,
   /* ignore comments */
   pub ignore_node_comment_text: String,
   pub ignore_file_comment_text: String,
@@ -664,4 +806,57 @@ pub struct Configuration {
   pub tuple_type_space_around: bool,
   #[serde(rename = "whileStatement.spaceAround")]
   pub while_statement_space_around: bool,
+}
+
+fn default_type_imports_mode() -> TypeImportsMode {
+  TypeImportsMode::Separate
+}
+
+fn default_newlines_between() -> NewlinesBetween {
+  NewlinesBetween::Always
+}
+
+fn default_builtins_runtime() -> BuiltinsRuntime {
+  BuiltinsRuntime::Node
+}
+
+#[cfg(test)]
+mod import_group_enum_tests {
+  use super::*;
+  use std::str::FromStr;
+
+  #[test]
+  fn type_imports_mode_round_trip() {
+    assert!(matches!(TypeImportsMode::from_str("separate"), Ok(TypeImportsMode::Separate)));
+    assert!(matches!(TypeImportsMode::from_str("interleave"), Ok(TypeImportsMode::Interleave)));
+    assert_eq!(TypeImportsMode::Separate.to_string(), "separate");
+  }
+
+  #[test]
+  fn builtins_runtime_round_trip() {
+    assert!(matches!(BuiltinsRuntime::from_str("node"), Ok(BuiltinsRuntime::Node)));
+    assert!(matches!(BuiltinsRuntime::from_str("deno"), Ok(BuiltinsRuntime::Deno)));
+    assert!(matches!(BuiltinsRuntime::from_str("bun"), Ok(BuiltinsRuntime::Bun)));
+    assert!(matches!(BuiltinsRuntime::from_str("none"), Ok(BuiltinsRuntime::None)));
+    assert_eq!(BuiltinsRuntime::Node.to_string(), "node");
+  }
+
+  #[test]
+  fn import_matcher_variants() {
+    let c = ImportMatcher::Category(BuiltinCategory::External);
+    let p = ImportMatcher::Pattern { pattern: "foo/*".to_string() };
+    assert!(matches!(c, ImportMatcher::Category(BuiltinCategory::External)));
+    assert!(matches!(p, ImportMatcher::Pattern { pattern: _ }));
+  }
+
+  #[test]
+  fn builtin_category_round_trip() {
+    assert!(matches!(BuiltinCategory::from_str("builtin"), Ok(BuiltinCategory::Builtin)));
+    assert!(matches!(BuiltinCategory::from_str("external"), Ok(BuiltinCategory::External)));
+    assert!(matches!(BuiltinCategory::from_str("parent"), Ok(BuiltinCategory::Parent)));
+    assert!(matches!(BuiltinCategory::from_str("sibling"), Ok(BuiltinCategory::Sibling)));
+    assert!(matches!(BuiltinCategory::from_str("index"), Ok(BuiltinCategory::Index)));
+    assert!(matches!(BuiltinCategory::from_str("type"), Ok(BuiltinCategory::Type)));
+    assert!(matches!(BuiltinCategory::from_str("unknown"), Ok(BuiltinCategory::Unknown)));
+  }
 }

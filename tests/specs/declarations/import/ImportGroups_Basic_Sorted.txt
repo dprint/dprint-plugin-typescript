@@ -1,0 +1,20 @@
+~~ {
+  "lineWidth": 80,
+  "module.sortImportDeclarations": "caseInsensitive",
+  "module.importGroups": [
+    { "match": "external" },
+    { "match": ["sibling", "index"] }
+  ]
+} ~~
+== with caseInsensitive sort within each group ==
+import { B } from "./b";
+import { z } from "zlib2";
+import { a } from "./a";
+import { Alpha } from "alpha";
+
+[expect]
+import { Alpha } from "alpha";
+import { z } from "zlib2";
+
+import { a } from "./a";
+import { B } from "./b";

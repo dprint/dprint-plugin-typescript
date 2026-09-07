@@ -1,0 +1,22 @@
+~~ {
+  "lineWidth": 80,
+  "module.builtinsRuntime": "none",
+  "module.sortImportDeclarations": "caseInsensitive",
+  "module.importGroups": [
+    { "match": "builtin" },
+    { "match": "external" }
+  ]
+} ~~
+== none runtime: nothing classifies as builtin ==
+import fs from "fs";
+import { test } from "bun:test";
+import { x } from "node:path";
+import { y } from "npm:react";
+import { z } from "react";
+
+[expect]
+import { test } from "bun:test";
+import fs from "fs";
+import { x } from "node:path";
+import { y } from "npm:react";
+import { z } from "react";

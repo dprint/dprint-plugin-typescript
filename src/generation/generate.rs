@@ -18,6 +18,8 @@ use dprint_swc_ext::swc::parser::Syntax;
 use dprint_swc_ext::view::*;
 use std::rc::Rc;
 
+use super::imports::classify::classify_import;
+use super::imports::partition::partition_indices;
 use super::sorting::*;
 use super::swc::get_flattened_bin_expr;
 use super::swc::*;
@@ -1562,10 +1564,7 @@ fn gen_named_import_or_export_specifiers<'a>(opts: GenNamedImportOrExportSpecifi
     }
   }
 
-  fn get_node_sorter<'a>(
-    parent_decl: Node,
-    context: &Context<'a>,
-  ) -> Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), Program<'a>) -> std::cmp::Ordering>> {
+  fn get_node_sorter(parent_decl: Node, context: &Context) -> Option<NodeSorter> {
     match parent_decl {
       Node::NamedExport(_) => get_node_sorter_from_order(
         context.config.export_declaration_sort_named_exports,
@@ -6731,6 +6730,20 @@ fn gen_comments_as_statements<'a>(comments: impl Iterator<Item = &'a Comment>, l
   items
 }
 
+/// How many of an import block's leading comments are *detached* from the
+/// first import, meaning a blank line separates them from it (e.g. a file
+/// header). Those stay pinned to the top of the block; the rest are attached
+/// to the first import and travel with it when the block gets reordered.
+fn detached_preamble_len(comments: &[&Comment], node: Node, context: &mut Context) -> usize {
+  let mut next_line = node.start_line_fast(context.program);
+  for (i, comment) in comments.iter().enumerate().rev() {
+    if next_line > comment.end_line_fast(context.program) + 1 {
+      return i + 1;
+    }
+    next_line = comment.start_line_fast(context.program);
+  }
+  0
+}
 fn gen_comments_between_lines_indented(start_between_pos: SourcePos, context: &mut Context) -> PrintItems {
   let trailing_comments = get_comments_between_lines(start_between_pos, context);
   let mut items = PrintItems::new();
@@ -6913,8 +6926,14 @@ fn gen_comment(comment: &Comment, context: &mut Context) -> Option<PrintItems> {
 
   // mark handled and generate
   context.mark_comment_handled(comment);
+  Some(render_comment(comment, context))
+}
 
-  return Some(match comment.kind {
+/// Render a comment's text without consulting the handled-set. Callers use
+/// this when they need to emit a comment that is already marked handled
+/// (e.g. when the import-groups feature pre-captures comments).
+fn render_comment(comment: &Comment, context: &mut Context) -> PrintItems {
+  match comment.kind {
     CommentKind::Block => {
       if has_leading_astrisk_each_line(&comment.text) {
         gen_js_doc_or_multiline_block(comment, context)
@@ -6924,22 +6943,22 @@ fn gen_comment(comment: &Comment, context: &mut Context) -> Option<PrintItems> {
       }
     }
     CommentKind::Line => ir_helpers::gen_js_like_comment_line(&comment.text, context.config.comment_line_force_space_after_slashes),
-  });
+  }
+}
 
-  fn has_leading_astrisk_each_line(text: &str) -> bool {
-    if !text.contains('\n') {
+fn has_leading_astrisk_each_line(text: &str) -> bool {
+  if !text.contains('\n') {
+    return false;
+  }
+
+  for line in text.trim().split('\n') {
+    let first_non_whitespace = line.trim_start().chars().next();
+    if !matches!(first_non_whitespace, Some('*')) {
       return false;
     }
-
-    for line in text.trim().split('\n') {
-      let first_non_whitespace = line.trim_start().chars().next();
-      if !matches!(first_non_whitespace, Some('*')) {
-        return false;
-      }
-    }
-
-    true
   }
+
+  true
 }
 
 fn gen_js_doc_or_multiline_block(comment: &Comment, _context: &mut Context) -> PrintItems {
@@ -7269,7 +7288,15 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
   for (stmt_group_index, stmt_group) in stmt_groups.into_iter().enumerate() {
     if stmt_group.kind == StmtGroupKind::Imports || stmt_group.kind == StmtGroupKind::Exports {
       // keep the leading comments of the stmt group on the same line
-      let comments = get_leading_comments_on_previous_lines(&stmt_group.nodes.first().as_ref().unwrap().start().range(), context);
+      let first_node = *stmt_group.nodes.first().unwrap();
+      let mut comments = get_leading_comments_on_previous_lines(&first_node.start().range(), context);
+      if stmt_group.subgroup_boundaries.is_some() {
+        // Imports get reordered, so only the detached portion of the preamble
+        // (e.g. a file header separated by a blank line) stays pinned here.
+        // The attached portion is left for `gen_node` to emit inside the
+        // import's own items so that it travels with it.
+        comments.truncate(detached_preamble_len(&comments, first_node, context));
+      }
       let last_comment = comments.iter().filter(|c| !context.has_handled_comment(c)).last().map(|c| c.range());
       items.extend(gen_comments_as_statements(
         comments.into_iter(),
@@ -7282,10 +7309,31 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
     let nodes_len = stmt_group.nodes.len();
     let mut generated_nodes = Vec::with_capacity(nodes_len);
     let mut generated_line_separators = utils::VecMap::with_capacity(nodes_len);
-    let sorter = get_node_sorter(stmt_group.kind, context);
-    let sorted_indexes = match sorter {
-      Some(sorter) => Some(get_sorted_indexes(stmt_group.nodes.iter().map(|n| Some(*n)), sorter, context)),
-      None => None,
+    let has_subgroup_boundaries = stmt_group.subgroup_boundaries.is_some();
+    let sorted_indexes = match stmt_group.sorted_indexes {
+      Some(indexes) => Some(indexes),
+      None => get_node_sorter(stmt_group.kind, context)
+        .map(|sorter| sorter.get_sorted_indexes(stmt_group.nodes.iter().map(|n| Some(*n)), context.program)),
+    };
+    let subgroup_boundaries = stmt_group.subgroup_boundaries.unwrap_or_default();
+    // The separator computed at index i ends up before the node at OUTPUT
+    // position i once `sort_by_sorted_indexes` runs, so the modes that keep
+    // source blank lines have to look them up between output-adjacent nodes.
+    let source_blank_by_output_slot: Vec<bool> = if has_subgroup_boundaries
+      && matches!(
+        context.config.module_import_groups_newlines_between,
+        NewlinesBetween::AlwaysAndInsideGroups | NewlinesBetween::Ignore
+      ) {
+      let indexes = sorted_indexes.as_ref().unwrap();
+      let mut by_slot: Vec<Option<Node>> = vec![None; nodes_len];
+      for (src_index, node) in stmt_group.nodes.iter().enumerate() {
+        by_slot[*indexes.get(src_index).unwrap_or(&src_index)] = Some(*node);
+      }
+      (0..nodes_len)
+        .map(|slot| slot > 0 && node_helpers::has_separating_blank_line(&by_slot[slot - 1].unwrap(), &by_slot[slot].unwrap(), context.program))
+        .collect()
+    } else {
+      Vec::new()
     };
     for (i, node) in stmt_group.nodes.into_iter().enumerate() {
       let is_empty_stmt = node.is::<EmptyStmt>();
@@ -7293,7 +7341,28 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
         let mut separator_items = PrintItems::new();
         if let Some(last_node) = &last_node {
           separator_items.push_signal(Signal::NewLine);
-          if node_helpers::has_separating_blank_line(&last_node, &node, context.program) {
+          let blank_line = if has_subgroup_boundaries && i > 0 {
+            let at_boundary = subgroup_boundaries.binary_search(&i).is_ok();
+            match context.config.module_import_groups_newlines_between {
+              NewlinesBetween::Always => at_boundary,
+              NewlinesBetween::AlwaysAndInsideGroups => at_boundary || source_blank_by_output_slot[i],
+              NewlinesBetween::Never => false,
+              NewlinesBetween::Ignore => source_blank_by_output_slot[i],
+            }
+          } else if has_subgroup_boundaries {
+            // i == 0 separates the run from whatever precedes it (a statement,
+            // a pinned import), which the modes above do not govern. `always`
+            // keeps forcing a blank line there like it always has; the rest
+            // leave it to the source. The node here is the FIRST IN SOURCE,
+            // which is the right pair for that gap.
+            match context.config.module_import_groups_newlines_between {
+              NewlinesBetween::Always | NewlinesBetween::AlwaysAndInsideGroups => true,
+              NewlinesBetween::Never | NewlinesBetween::Ignore => node_helpers::has_separating_blank_line(&last_node, &node, context.program),
+            }
+          } else {
+            node_helpers::has_separating_blank_line(&last_node, &node, context.program)
+          };
+          if blank_line {
             separator_items.push_signal(Signal::NewLine);
           }
           generated_line_separators.insert(i, separator_items);
@@ -7328,7 +7397,6 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
         }
       }
     }
-
     // Get the generated statements/members sorted
     let generated_nodes = match sorted_indexes {
       Some(sorted_indexes) => sort_by_sorted_indexes(generated_nodes, sorted_indexes),
@@ -7358,10 +7426,7 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
 
   return items;
 
-  fn get_node_sorter<'a>(
-    group_kind: StmtGroupKind,
-    context: &Context<'a>,
-  ) -> Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), Program<'a>) -> std::cmp::Ordering>> {
+  fn get_node_sorter(group_kind: StmtGroupKind, context: &Context) -> Option<NodeSorter> {
     match group_kind {
       StmtGroupKind::Imports => get_node_sorter_from_order(context.config.module_sort_import_declarations, NamedTypeImportsExportsOrder::None),
       StmtGroupKind::Exports => get_node_sorter_from_order(context.config.module_sort_export_declarations, NamedTypeImportsExportsOrder::None),
@@ -7395,6 +7460,20 @@ enum StmtGroupKind {
 struct StmtGroup<'a> {
   kind: StmtGroupKind,
   nodes: Vec<Node<'a>>,
+  /// Output positions marking the start of each subgroup, which is where a
+  /// blank line gets forced. Only Some for `StmtGroupKind::Imports` when
+  /// `module.importGroups` is non-empty.
+  subgroup_boundaries: Option<Vec<usize>>,
+  /// Source index -> output index for the import-group reordering. Takes the
+  /// place of the sorter that `gen_statements` would otherwise resolve.
+  sorted_indexes: Option<utils::VecMap<usize>>,
+}
+
+/// Whether one of the declaration's leading comments asks for it to be ignored.
+fn has_dprint_ignore_comment(node: Node, context: &Context) -> bool {
+  node
+    .leading_comments_fast(context.program)
+    .any(|comment| ir_helpers::text_has_dprint_ignore(&comment.text, &context.config.ignore_node_comment_text))
 }
 
 fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<StmtGroup<'a>> {
@@ -7404,11 +7483,17 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<S
 
   for stmt in stmts {
     let last_end_line = previous_last_end_line.take();
-    let stmt_group_kind = match stmt {
-      Node::ImportDecl(decl) if !decl.specifiers.is_empty() => StmtGroupKind::Imports,
-      Node::ExportAll(_) => StmtGroupKind::Exports,
-      Node::NamedExport(NamedExport { src: Some(_), .. }) => StmtGroupKind::Exports,
-      _ => StmtGroupKind::Other,
+    let stmt_group_kind = if has_dprint_ignore_comment(stmt, context) {
+      // an ignored declaration is a barrier: it stays where it is and ends the
+      // run around it, the same way a side-effect import does
+      StmtGroupKind::Other
+    } else {
+      match stmt {
+        Node::ImportDecl(decl) if !decl.specifiers.is_empty() => StmtGroupKind::Imports,
+        Node::ExportAll(_) => StmtGroupKind::Exports,
+        Node::NamedExport(NamedExport { src: Some(_), .. }) => StmtGroupKind::Exports,
+        _ => StmtGroupKind::Other,
+      }
     };
     previous_last_end_line = match stmt_group_kind {
       StmtGroupKind::Imports | StmtGroupKind::Exports => Some(stmt.end_line_fast(context.program)),
@@ -7417,7 +7502,19 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<S
 
     if let Some(group) = current_group.as_mut() {
       let is_same_group = group.kind == stmt_group_kind
-        && (stmt_group_kind == StmtGroupKind::Other || last_end_line.is_none() || last_end_line.unwrap() + 1 >= stmt.start_line_fast(context.program));
+        && match last_end_line {
+          _ if stmt_group_kind == StmtGroupKind::Other => true,
+          None => true,
+          Some(last_end_line) if stmt_group_kind == StmtGroupKind::Imports && context.resolved_import_groups.is_some() => {
+            // when grouping, blank lines between imports are style rather than
+            // structure, so the run only ends at a comment on its own line
+            // (those stay anchored where they are)
+            !stmt
+              .leading_comments_fast(context.program)
+              .any(|comment| comment.start_line_fast(context.program) > last_end_line)
+          }
+          Some(last_end_line) => last_end_line + 1 >= stmt.start_line_fast(context.program),
+        };
       if is_same_group {
         group.nodes.push(stmt);
       } else {
@@ -7425,12 +7522,16 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<S
         current_group = Some(StmtGroup {
           kind: stmt_group_kind,
           nodes: vec![stmt],
+          subgroup_boundaries: None,
+          sorted_indexes: None,
         })
       }
     } else {
       current_group = Some(StmtGroup {
         kind: stmt_group_kind,
         nodes: vec![stmt],
+        subgroup_boundaries: None,
+        sorted_indexes: None,
       });
     }
   }
@@ -7439,6 +7540,54 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<S
     groups.push(current_group);
   }
 
+  if let Some(resolved) = context.resolved_import_groups {
+    for g in groups.iter_mut() {
+      if g.kind != StmtGroupKind::Imports {
+        continue;
+      }
+      let classified: Vec<(usize, usize)> = g
+        .nodes
+        .iter()
+        .enumerate()
+        .map(|(i, node)| {
+          // an Imports group only ever holds import declarations
+          let Node::ImportDecl(d) = node else { unreachable!() };
+          let idx = classify_import(
+            d.src.value().as_str().unwrap_or(""),
+            d.type_only(),
+            context.config.module_type_imports,
+            context.config.module_builtins_runtime,
+            resolved,
+          );
+          (idx, i)
+        })
+        .collect();
+      let sorter = get_node_sorter_from_order(context.config.module_sort_import_declarations, NamedTypeImportsExportsOrder::None);
+      let sort_keys =
+        sorter.map(|sorter| (sorter, g.nodes.iter().map(|node| sorter.get_node_sort_key(*node, context.program)).collect::<Vec<_>>()));
+      let (ordered, boundaries) = partition_indices(
+        &classified,
+        resolved.groups.len(),
+        |a_orig: usize, b_orig: usize| -> std::cmp::Ordering {
+          if let Some((sorter, sort_keys)) = &sort_keys {
+            sorter.cmp_node_sort_keys(&sort_keys[a_orig], &sort_keys[b_orig])
+          } else {
+            a_orig.cmp(&b_orig)
+          }
+        },
+      );
+
+      // Hand the reordering to the same mechanism the plain sorter uses: it
+      // permutes the *generated* items, so each import keeps the comments it
+      // owns and nodes are still generated in source order.
+      let mut sorted_indexes = utils::VecMap::with_capacity(ordered.len());
+      for (new_index, old_index) in ordered.into_iter().enumerate() {
+        sorted_indexes.insert(old_index, new_index);
+      }
+      g.subgroup_boundaries = Some(boundaries);
+      g.sorted_indexes = Some(sorted_indexes);
+    }
+  }
   groups
 }
 
@@ -7854,7 +8003,7 @@ struct GenSeparatedValuesParams<'a> {
   single_line_options: ir_helpers::SingleLineOptions,
   multi_line_options: ir_helpers::MultiLineOptions,
   force_possible_newline_at_start: bool,
-  node_sorter: Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), Program<'a>) -> std::cmp::Ordering>>,
+  node_sorter: Option<NodeSorter>,
 }
 
 enum NodeOrSeparator<'a> {
@@ -7904,7 +8053,7 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
   if node_sorter.is_some() && compute_lines_span {
     panic!("Not implemented scenario. Cannot computed lines span and allow blank lines");
   }
-  let sorted_indexes = node_sorter.map(|sorter| get_sorted_indexes(nodes.iter().map(|d| d.as_node()), sorter, context));
+  let sorted_indexes = node_sorter.map(|sorter| sorter.get_sorted_indexes(nodes.iter().map(|d| d.as_node()), context.program));
 
   ir_helpers::gen_separated_values(
     |is_multi_line_or_hanging_ref| {
@@ -7986,22 +8135,6 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
       force_possible_newline_at_start: opts.force_possible_newline_at_start,
     },
   )
-}
-
-fn get_sorted_indexes<'a: 'b, 'b>(
-  nodes: impl Iterator<Item = Option<Node<'a>>>,
-  sorter: Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), Program<'a>) -> std::cmp::Ordering>,
-  context: &mut Context<'a>,
-) -> utils::VecMap<usize> {
-  let mut nodes_with_indexes = nodes.enumerate().collect::<Vec<_>>();
-  nodes_with_indexes.sort_unstable_by(|a, b| sorter((a.0, a.1), (b.0, b.1), context.program));
-  let mut old_to_new_index = utils::VecMap::with_capacity(nodes_with_indexes.len());
-
-  for (new_index, old_index) in nodes_with_indexes.into_iter().map(|(index, _)| index).enumerate() {
-    old_to_new_index.insert(old_index, new_index);
-  }
-
-  old_to_new_index
 }
 
 fn sort_by_sorted_indexes<T>(items: Vec<T>, sorted_indexes: utils::VecMap<usize>) -> Vec<T> {
@@ -8250,7 +8383,7 @@ struct GenObjectLikeNodeOptions<'a> {
   force_multi_line: bool,
   surround_single_line_with_spaces: bool,
   allow_blank_lines: bool,
-  node_sorter: Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), Program<'a>) -> std::cmp::Ordering>>,
+  node_sorter: Option<NodeSorter>,
 }
 
 fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Context<'a>) -> PrintItems {

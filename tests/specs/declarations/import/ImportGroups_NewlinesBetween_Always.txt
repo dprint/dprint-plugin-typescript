@@ -1,0 +1,34 @@
+~~ {
+  "lineWidth": 80,
+  "module.sortImportDeclarations": "maintain",
+  "module.importGroups": [
+    { "match": "builtin" },
+    { "match": "external" },
+    { "match": ["sibling", "index"] }
+  ]
+} ~~
+== blank-line separated sections merge and regroup as one block ==
+import { a } from "react";
+
+
+import { b } from "./b";
+import { fs } from "node:fs";
+
+import { c } from "lodash";
+
+[expect]
+import { fs } from "node:fs";
+
+import { a } from "react";
+import { c } from "lodash";
+
+import { b } from "./b";
+
+== blank lines inside a group are removed ==
+import { a } from "react";
+
+import { c } from "lodash";
+
+[expect]
+import { a } from "react";
+import { c } from "lodash";

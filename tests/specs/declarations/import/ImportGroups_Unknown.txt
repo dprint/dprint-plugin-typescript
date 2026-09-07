@@ -1,0 +1,15 @@
+~~ {
+  "lineWidth": 80,
+  "module.importGroups": [{ "match": "builtin" }],
+  "module.sortImportDeclarations": "caseInsensitive"
+} ~~
+== implicit catch-all places unmatched imports at end ==
+import { x } from "react";
+import { fs } from "node:fs";
+import { c } from "./c";
+
+[expect]
+import { fs } from "node:fs";
+
+import { x } from "react";
+import { c } from "./c";

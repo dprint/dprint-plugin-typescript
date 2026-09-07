@@ -1,0 +1,11 @@
+~~ {
+  "lineWidth": 80,
+  "module.importGroups": [{ "match": "external" }],
+  "module.sortImportDeclarations": "caseInsensitive",
+  "importDeclaration.sortNamedImports": "caseInsensitive"
+} ~~
+== specifier sort still applies under grouping ==
+import { b, a, C } from "react";
+
+[expect]
+import { a, b, C } from "react";

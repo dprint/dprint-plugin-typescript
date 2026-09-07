@@ -1,0 +1,37 @@
+~~ {
+  "lineWidth": 80,
+  "module.sortImportDeclarations": "caseSensitive",
+  "module.importGroupsNewlinesBetween": "ignore",
+  "module.importGroups": [
+    { "match": "builtin" },
+    { "match": "external" }
+  ]
+} ~~
+== no blank lines forced at group boundaries ==
+import { a } from "react";
+import { fs } from "node:fs";
+
+[expect]
+import { fs } from "node:fs";
+import { a } from "react";
+
+== a source blank line survives when its imports stay next to each other ==
+import { c } from "ccc";
+import { a } from "aaa";
+
+import { b } from "bbb";
+
+[expect]
+import { a } from "aaa";
+
+import { b } from "bbb";
+import { c } from "ccc";
+
+== a source blank line between imports that end up reversed is dropped ==
+import { b } from "bbb";
+
+import { a } from "aaa";
+
+[expect]
+import { a } from "aaa";
+import { b } from "bbb";

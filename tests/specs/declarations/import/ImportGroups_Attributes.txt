@@ -1,0 +1,15 @@
+~~ {
+  "lineWidth": 80,
+  "module.importGroups": [{ "match": "external" }, { "match": ["sibling", "index"] }],
+  "module.sortImportDeclarations": "caseInsensitive"
+} ~~
+== import attributes passthrough during reorder ==
+import { c } from "./c";
+import config from "./config.json" with { type: "json" };
+import { x } from "react";
+
+[expect]
+import { x } from "react";
+
+import { c } from "./c";
+import config from "./config.json" with { type: "json" };

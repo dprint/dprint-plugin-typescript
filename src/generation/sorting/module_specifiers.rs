@@ -1,10 +1,19 @@
 use std::cmp::Ordering;
 
+#[cfg(test)]
 pub fn cmp_module_specifiers(a: &str, b: &str, cmp_text: impl Fn(&str, &str) -> Ordering) -> Ordering {
   let a_info = get_module_specifier_info(a);
   let b_info = get_module_specifier_info(b);
 
-  match &a_info {
+  cmp_module_specifier_infos(&a_info, &b_info, cmp_text)
+}
+
+pub(super) fn cmp_module_specifier_infos(
+  a_info: &ModuleSpecifierInfo,
+  b_info: &ModuleSpecifierInfo,
+  cmp_text: impl Fn(&str, &str) -> Ordering,
+) -> Ordering {
+  match a_info {
     ModuleSpecifierInfo::Absolute { text: a_text } => match b_info {
       ModuleSpecifierInfo::Absolute { text: b_text } => cmp_text(a_text, b_text),
       ModuleSpecifierInfo::Relative { .. } => Ordering::Less,
@@ -27,30 +36,39 @@ pub fn cmp_module_specifiers(a: &str, b: &str, cmp_text: impl Fn(&str, &str) -> 
 }
 
 #[derive(Debug, PartialEq)]
-enum ModuleSpecifierInfo<'a> {
+pub(super) enum ModuleSpecifierInfo<'a> {
   Absolute { text: &'a str },
   Relative { relative_count: usize, folder_text: &'a str },
 }
 
-fn get_module_specifier_info(text: &str) -> ModuleSpecifierInfo<'_> {
+pub(super) fn get_module_specifier_info(text: &str) -> ModuleSpecifierInfo<'_> {
   let no_quotes_text = &text[1..text.len() - 1];
-  let parts = no_quotes_text.split('/').collect::<Vec<_>>();
-  if parts[0] == "." || parts[0] == ".." {
-    let mut relative_count = 0;
-    let mut start_index = 0;
-    let parts_len = parts.len();
-    for (i, part) in parts.into_iter().enumerate() {
-      if part == ".." {
-        relative_count += 1;
-      } else if part != "." {
+  let mut relative_count = 0;
+  let mut start_index = 0;
+  loop {
+    let remaining_text = &no_quotes_text[start_index..];
+    match remaining_text {
+      "." => {
+        start_index += 1;
         break;
       }
-
-      // use 0 for last part since it does not have a slash after it
-      let next_slash_width = if i == parts_len - 1 { 0 } else { 1 };
-      start_index += part.len() + next_slash_width;
+      ".." => {
+        relative_count += 1;
+        start_index += 2;
+        break;
+      }
+      _ if remaining_text.starts_with("./") => {
+        start_index += 2;
+      }
+      _ if remaining_text.starts_with("../") => {
+        relative_count += 1;
+        start_index += 3;
+      }
+      _ => break,
     }
+  }
 
+  if start_index > 0 {
     ModuleSpecifierInfo::Relative {
       relative_count,
       folder_text: &no_quotes_text[start_index..],

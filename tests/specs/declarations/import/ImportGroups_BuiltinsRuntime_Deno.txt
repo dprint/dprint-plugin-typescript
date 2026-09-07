@@ -1,0 +1,23 @@
+~~ {
+  "lineWidth": 80,
+  "module.builtinsRuntime": "deno",
+  "module.sortImportDeclarations": "caseInsensitive",
+  "module.importGroups": [
+    { "match": "builtin" },
+    { "match": "external" }
+  ]
+} ~~
+== deno runtime: only node prefix is builtin ==
+import fs from "fs";
+import { test } from "bun:test";
+import { x } from "node:path";
+import { y } from "npm:react";
+import { z } from "react";
+
+[expect]
+import { x } from "node:path";
+
+import { test } from "bun:test";
+import fs from "fs";
+import { y } from "npm:react";
+import { z } from "react";
