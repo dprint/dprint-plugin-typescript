@@ -1,0 +1,34 @@
+~~ lineWidth: 60, trailingCommas: always ~~
+== should add trailing comma after arrow expression body when call breaks across lines (issue #696) ==
+const test = ["a","b","c"].map(value =>
+    value == "a quite long paragraph with many words")
+
+[expect]
+const test = ["a", "b", "c",].map(value =>
+    value == "a quite long paragraph with many words",
+);
+
+== should add trailing comma after nested expression body that wraps ==
+longCallExpression(value =>
+    someVeryLongCondition && anotherCondition)
+
+[expect]
+longCallExpression(value =>
+    someVeryLongCondition && anotherCondition,
+);
+
+== should not add trailing comma when arrow body stays on the same line ==
+foo(v => v);
+
+[expect]
+foo(v => v);
+
+== should keep dynamic import without trailing comma ==
+import(
+    "myreallylongdynamicallyloadedmodulename"
+);
+
+[expect]
+import(
+    "myreallylongdynamicallyloadedmodulename"
+);
