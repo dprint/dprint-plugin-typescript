@@ -1,0 +1,71 @@
+== should preserve comment between argument and following comma (issue #684) ==
+const x = useMemo(() =>
+    doSomething()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    , [dep]);
+
+[expect]
+const x = useMemo(
+    () => doSomething(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dep],
+);
+
+== should preserve multiple comments between argument and comma ==
+foo(
+    a
+    // c1
+    /* c2 */
+    // c3
+    , b);
+
+[expect]
+foo(
+    a,
+    // c1
+    /* c2 */
+    // c3
+    b,
+);
+
+== should preserve comment before comma in array literal ==
+[
+    1
+    // c
+    , 2
+];
+
+[expect]
+[
+    1,
+    // c
+    2,
+];
+
+== should preserve comment before comma in object literal ==
+({
+    a: 1
+    // c
+    , b: 2
+});
+
+[expect]
+({
+    a: 1,
+    // c
+    b: 2,
+});
+
+== should preserve comment before comma in function parameters ==
+function f(
+    a
+    // c
+    , b
+) {}
+
+[expect]
+function f(
+    a,
+    // c
+    b,
+) {}
