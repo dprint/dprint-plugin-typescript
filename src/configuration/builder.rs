@@ -87,6 +87,14 @@ impl ConfigurationBuilder {
     self.insert("useTabs", value.into())
   }
 
+  /// Set the padding line between statements.
+  ///
+  /// When true, adds blank lines between statements. When false, maintains existing spacing.
+  /// Default: `false`
+  pub fn padding_line_between_statements(&mut self, value: bool) -> &mut Self {
+    self.insert("paddingLineBetweenStatements", value.into())
+  }
+
   /// The number of columns for an indent.
   ///
   /// Default: `4`
