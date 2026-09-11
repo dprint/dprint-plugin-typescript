@@ -164,3 +164,45 @@ const test = 5;
  * Testing
  * **UNSTABLE** test */
 const test = 5;
+
+== should convert markdown hard line breaks in js doc ==
+/**
+ * Does something.  
+ * Details here.
+ */
+const test = 5;
+
+[expect]
+/**
+ * Does something.\
+ * Details here.
+ */
+const test = 5;
+
+== should not convert markdown hard line breaks on the last js doc content line ==
+/**
+ * Does something.  
+ */
+const test = 5;
+
+[expect]
+/**
+ * Does something.
+ */
+const test = 5;
+
+== should not convert trailing spaces in js doc fenced code blocks ==
+/**
+ * ```ts
+ * const value = "x";  
+ * ```
+ */
+const test = 5;
+
+[expect]
+/**
+ * ```ts
+ * const value = "x";
+ * ```
+ */
+const test = 5;
