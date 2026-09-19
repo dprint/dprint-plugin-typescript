@@ -1,0 +1,11 @@
+== should keep parens when starting with an explicit newline ==
+const mathResult = (
+    1 + 2);
+const mathResult = (1 + 2
+);
+
+[expect]
+const mathResult = (
+    1 + 2
+);
+const mathResult = 1 + 2;
