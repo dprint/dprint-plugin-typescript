@@ -3166,12 +3166,11 @@ fn gen_tpl<'a>(node: &Tpl<'a>, context: &mut Context<'a>) -> PrintItems {
 
 fn gen_tpl_element<'a>(node: &TplElement<'a>, context: &mut Context<'a>) -> PrintItems {
   let text = node.text_fast(context.program);
-  let text = if should_sort_template_literal_class_names(node, context) {
-    sort_tailwind_class_names(text)
+  if should_sort_template_literal_class_names(node, context) {
+    gen_from_raw_string(&sort_tailwind_class_names(text))
   } else {
-    text.to_string()
-  };
-  gen_from_raw_string(&text)
+    gen_from_raw_string(text)
+  }
 }
 
 fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context: &mut Context<'a>) -> PrintItems {
