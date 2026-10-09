@@ -1,8 +1,5 @@
 mod module_specifiers;
-mod tailwind_class_names;
 use module_specifiers::*;
-
-pub use tailwind_class_names::*;
 
 use dprint_swc_ext::common::SourceRange;
 use dprint_swc_ext::common::SourceRanged;

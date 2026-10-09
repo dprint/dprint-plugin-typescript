@@ -16,6 +16,7 @@ use dprint_swc_ext::swc::parser::token::Token;
 use dprint_swc_ext::swc::parser::token::TokenAndSpan;
 use dprint_swc_ext::swc::parser::Syntax;
 use dprint_swc_ext::view::*;
+use std::borrow::Cow;
 use std::rc::Rc;
 
 use super::sorting::*;
@@ -23,6 +24,7 @@ use super::swc::get_flattened_bin_expr;
 use super::swc::*;
 use super::*;
 use crate::configuration::*;
+use crate::tailwind;
 use crate::utils;
 
 pub fn generate<'a>(
@@ -3166,10 +3168,9 @@ fn gen_tpl<'a>(node: &Tpl<'a>, context: &mut Context<'a>) -> PrintItems {
 
 fn gen_tpl_element<'a>(node: &TplElement<'a>, context: &mut Context<'a>) -> PrintItems {
   let text = node.text_fast(context.program);
-  if should_sort_template_literal_class_names(node, context) {
-    gen_from_raw_string(&sort_tailwind_class_names(text))
-  } else {
-    gen_from_raw_string(text)
+  match get_tpl_element_class_names_sort_options(node, context) {
+    Some(options) => gen_from_raw_string(&tailwind::sort_class_names(text, &options)),
+    None => gen_from_raw_string(text),
   }
 }
 
@@ -4244,12 +4245,16 @@ fn gen_reg_exp_literal(node: &Regex, _: &mut Context) -> PrintItems {
 }
 
 fn gen_string_literal<'a>(node: &Str<'a>, context: &mut Context<'a>) -> PrintItems {
-  let string_value = string_literal::get_value(node, context);
-  let string_value = if should_sort_string_literal_class_names(node, context) {
-    sort_tailwind_class_names(&string_value)
-  } else {
-    string_value
-  };
+  let mut string_value = string_literal::get_value(node, context);
+  if let Some(options) = get_class_names_sort_options(node.into(), context) {
+    let sorted_value = match tailwind::sort_class_names(&string_value, &options) {
+      Cow::Owned(sorted_value) => Some(sorted_value),
+      Cow::Borrowed(_) => None,
+    };
+    if let Some(sorted_value) = sorted_value {
+      string_value = sorted_value;
+    }
+  }
   if node.parent().is::<JSXAttr>() {
     string_literal::gen_jsx_text(&string_value, context)
   } else {
@@ -4257,93 +4262,112 @@ fn gen_string_literal<'a>(node: &Str<'a>, context: &mut Context<'a>) -> PrintIte
   }
 }
 
-fn should_sort_string_literal_class_names(node: &Str, context: &Context) -> bool {
-  should_sort_tailwind_class_names(context)
-    && (has_sortable_jsx_class_attr_ancestor(context) || has_sortable_class_name_function_ancestor(node.range(), context))
+fn get_tpl_element_class_names_sort_options(node: &TplElement, context: &Context) -> Option<tailwind::SortOptions> {
+  let Some(Node::Tpl(tpl)) = node.as_node().parent() else {
+    return None;
+  };
+  let mut options = get_class_names_sort_options(tpl.into(), context)?;
+  let index = tpl.quasis.iter().position(|quasi| quasi.start() == node.start())?;
+  let is_last = index >= tpl.exprs.len();
+  let text = node.text_fast(context.program);
+  // the class at an end is only part of a class name when the text
+  // isn't separated from the neighbouring expression by whitespace
+  options.ignore_first = index > 0 && !text.starts_with(char::is_whitespace);
+  options.ignore_last = !is_last && !text.ends_with(char::is_whitespace);
+  options.collapse_start &= index == 0;
+  options.collapse_end &= is_last;
+  Some(options)
 }
 
-fn should_sort_template_literal_class_names(node: &TplElement, context: &Context) -> bool {
-  should_sort_tailwind_class_names(context)
-    && (has_sortable_jsx_class_attr_ancestor(context) || has_sortable_tagged_template_ancestor(context))
-    && !node.text_fast(context.program).contains("${")
-}
-
-fn should_sort_tailwind_class_names(context: &Context) -> bool {
-  context.config.jsx_sort_class_names == JsxClassNamesSortOrder::Tailwind
-}
-
-fn has_sortable_jsx_class_attr_ancestor(context: &Context) -> bool {
-  context
-    .parent_stack
-    .iter()
-    .any(|ancestor| ancestor.to::<JSXAttr>().is_some_and(|attr| should_sort_jsx_class_names(attr, context)))
-}
-
-fn should_sort_jsx_class_names(attr: &JSXAttr, context: &Context) -> bool {
-  context.config.jsx_sort_class_names == JsxClassNamesSortOrder::Tailwind && matches!(attr.name.text_fast(context.program), "class" | "className")
-}
-
-fn has_sortable_class_name_function_ancestor(node_range: SourceRange, context: &Context) -> bool {
-  if context.config.jsx_sort_class_names_functions.is_empty() {
-    return false;
-  }
-
-  context.parent_stack.iter().any(|ancestor| match ancestor {
-    Node::CallExpr(call_expr) => is_range_in_args(node_range, call_expr.args) && is_sortable_class_name_callee(call_expr.callee, context),
-    Node::OptCall(call_expr) => is_range_in_args(node_range, call_expr.args) && is_sortable_class_name_callee(Callee::Expr(call_expr.callee), context),
-    _ => false,
-  })
-}
-
-fn has_sortable_tagged_template_ancestor(context: &Context) -> bool {
-  if context.config.jsx_sort_class_names_functions.is_empty() {
-    return false;
-  }
-
-  context.parent_stack.iter().any(|ancestor| match ancestor {
-    Node::TaggedTpl(tagged_tpl) => is_sortable_class_name_expression(tagged_tpl.tag.text_fast(context.program), context),
-    _ => false,
-  })
-}
-
-fn is_range_in_args(node_range: SourceRange, args: &[&ExprOrSpread]) -> bool {
-  args.iter().any(|arg| contains_range(arg.range(), node_range))
-}
-
-fn contains_range(outer: SourceRange, inner: SourceRange) -> bool {
-  outer.start <= inner.start && inner.end <= outer.end
-}
-
-fn is_sortable_class_name_callee(callee: Callee, context: &Context) -> bool {
-  match callee {
-    Callee::Expr(expr) => is_sortable_class_name_expression(expr.text_fast(context.program), context),
-    _ => false,
-  }
-}
-
-fn is_sortable_class_name_expression(text: &str, context: &Context) -> bool {
-  get_leading_identifier(text)
-    .map(|name| context.config.jsx_sort_class_names_functions.iter().any(|function_name| function_name == name))
-    .unwrap_or(false)
-}
-
-fn get_leading_identifier(text: &str) -> Option<&str> {
-  let text = text.trim_start();
-  let mut chars = text.char_indices();
-  let (_, first_char) = chars.next()?;
-  if !is_identifier_start(first_char) {
+/// Gets how to sort the class names in the provided string or template literal, or
+/// `None` when it's not somewhere that's known to have class names. This looks for
+/// the same places as prettier-plugin-tailwindcss.
+fn get_class_names_sort_options(node: Node, context: &Context) -> Option<tailwind::SortOptions> {
+  if context.config.jsx_sort_class_names != JsxClassNamesSortOrder::Tailwind {
     return None;
   }
-  let end = chars.find(|(_, c)| !is_identifier_continue(*c)).map(|(index, _)| index).unwrap_or(text.len());
-  Some(&text[..end])
+
+  let mut options = tailwind::SortOptions::default();
+  let mut child = node;
+  while let Some(parent) = child.parent() {
+    match parent {
+      Node::JSXAttr(attr) => return is_class_names_jsx_attr(attr, context).then_some(options),
+      Node::CallExpr(call_expr) => {
+        if let Callee::Expr(callee) = call_expr.callee
+          && child.start() >= callee.end()
+          && is_class_names_function(callee, context)
+        {
+          return Some(options);
+        }
+      }
+      Node::OptCall(call_expr) => {
+        if child.start() >= call_expr.callee.end() && is_class_names_function(call_expr.callee, context) {
+          return Some(options);
+        }
+      }
+      Node::TaggedTpl(tagged_tpl) => {
+        // only the text of the template has class names, not the strings in its expressions
+        if child.kind() == node.kind() && child.range() == node.range() && is_class_names_function(tagged_tpl.tag, context) {
+          return Some(options);
+        }
+      }
+      Node::BinExpr(bin_expr) if bin_expr.op() == BinaryOp::Add => {
+        // the whitespace between concatenated strings separates their class names
+        if child.start() == bin_expr.left.start() {
+          options.collapse_end = false;
+        } else {
+          options.collapse_start = false;
+        }
+      }
+      Node::Tpl(tpl) => {
+        // this is an expression in a template literal, so follow Prettier's
+        // plugin on when the whitespace next to the expression may be removed
+        for quasi in tpl.quasis.iter() {
+          let quasi_text = quasi.text_fast(context.program);
+          if quasi.end() + 2 >= child.start() {
+            options.collapse_start &= quasi_text.starts_with(char::is_whitespace);
+          }
+          if quasi.start() + 2 >= child.end() {
+            options.collapse_end &= quasi_text.ends_with(char::is_whitespace);
+          }
+        }
+      }
+      _ => {}
+    }
+    child = parent;
+  }
+  None
 }
 
-fn is_identifier_start(c: char) -> bool {
-  c == '_' || c == '$' || c.is_ascii_alphabetic()
+fn is_class_names_jsx_attr(attr: &JSXAttr, context: &Context) -> bool {
+  matches!(attr.name.text_fast(context.program), "class" | "className")
 }
 
-fn is_identifier_continue(c: char) -> bool {
-  is_identifier_start(c) || c.is_ascii_digit()
+/// Gets if the expression starts with one of the configured function names (ex. `cn` in `cn.foo("")`).
+fn is_class_names_function(expr: Expr, context: &Context) -> bool {
+  if context.config.jsx_sort_class_names_functions.is_empty() {
+    return false;
+  }
+
+  let mut expr = expr;
+  loop {
+    expr = match expr {
+      Expr::Ident(ident) => {
+        let name = ident.text_fast(context.program);
+        return context.config.jsx_sort_class_names_functions.iter().any(|function_name| function_name == name);
+      }
+      Expr::Member(member_expr) => member_expr.obj,
+      Expr::Call(call_expr) => match call_expr.callee {
+        Callee::Expr(callee) => callee,
+        _ => return false,
+      },
+      Expr::OptChain(opt_chain_expr) => match opt_chain_expr.base {
+        OptChainBase::Member(member_expr) => member_expr.obj,
+        OptChainBase::Call(call_expr) => call_expr.callee,
+      },
+      _ => return false,
+    };
+  }
 }
 
 mod string_literal {

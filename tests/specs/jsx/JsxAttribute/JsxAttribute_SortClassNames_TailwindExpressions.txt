@@ -17,3 +17,19 @@ const value = <div className={`p-4 flex`} />;
 
 [expect]
 const value = <div className={`flex p-4`} />;
+
+== should keep the whitespace between a string and what it's concatenated with ==
+const a = <div className={"p-4 flex " + extra} />;
+const b = <div className={first + " " + second} />;
+const c = <div className={first + "  p-4 flex  " + second} />;
+
+[expect]
+const a = <div className={"flex p-4 " + extra} />;
+const b = <div className={first + " " + second} />;
+const c = <div className={first + " flex p-4 " + second} />;
+
+== should not sort the other attributes of an element in a className expression ==
+const value = <Outer className={<Inner title="p-4 flex" className="p-4 flex" />} />;
+
+[expect]
+const value = <Outer className={<Inner title="p-4 flex" className="flex p-4" />} />;

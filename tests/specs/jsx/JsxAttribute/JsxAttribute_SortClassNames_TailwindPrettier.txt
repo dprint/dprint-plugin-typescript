@@ -1,0 +1,198 @@
+-- file.jsx --
+~~ jsx.sortClassNames: tailwind, lineWidth: 200 ~~
+== should sort a class attribute ==
+const value = <div class="sm:p-0 p-0" />;
+
+[expect]
+const value = <div class="p-0 sm:p-0" />;
+
+== should sort a className attribute ==
+const value = <div className="sm:p-0 p-0" />;
+
+[expect]
+const value = <div className="p-0 sm:p-0" />;
+
+== should not sort a namespaced class attribute ==
+const value = <div ns:class="sm:p-0 p-0" />;
+
+[expect]
+const value = <div ns:class="sm:p-0 p-0" />;
+
+== should not sort in comments ==
+/* <div class="sm:p-0 p-0" /> */
+// <div class="sm:p-0 p-0" />
+const value = 1;
+
+[expect]
+/* <div class="sm:p-0 p-0" /> */
+// <div class="sm:p-0 p-0" />
+const value = 1;
+
+== should not sort other attributes ==
+const value = <div not-class="sm:p-0 p-0" />;
+
+[expect]
+const value = <div not-class="sm:p-0 p-0" />;
+
+== should sort a template literal ==
+const value = <div class={`sm:p-0 p-0`} />;
+
+[expect]
+const value = <div class={`p-0 sm:p-0`} />;
+
+== should sort strings in template literal expressions ==
+const value = <div class={`sm:p-0 p-0 ${"sm:p-0 p-0"} ${"sm:p-0 p-0" ? "sm:p-0 p-0" : "sm:p-0 p-0"}`} />;
+
+[expect]
+const value = <div class={`p-0 sm:p-0 ${"p-0 sm:p-0"} ${"p-0 sm:p-0" ? "p-0 sm:p-0" : "p-0 sm:p-0"}`} />;
+
+== should sort a string in an expression ==
+const value = <div class={"sm:p-0 p-0"} />;
+
+[expect]
+const value = <div class={"p-0 sm:p-0"} />;
+
+== should sort concatenated strings ==
+const value = <div class={"sm:p-0 p-0" + "sm:p-0 p-0"} />;
+
+[expect]
+const value = <div class={"p-0 sm:p-0" + "p-0 sm:p-0"} />;
+
+== should sort strings in a conditional expression ==
+const value = <div class={"sm:p-0 p-0" ? "sm:p-0 p-0" + "sm:p-0 p-0" : "sm:p-0 p-0"} />;
+
+[expect]
+const value = <div class={"p-0 sm:p-0" ? "p-0 sm:p-0" + "p-0 sm:p-0" : "p-0 sm:p-0"} />;
+
+== should sort strings in call arguments and arrays ==
+const value = <div class={clsx("sm:p-0 p-0", ["sm:p-0 p-0"])} />;
+
+[expect]
+const value = <div class={clsx("p-0 sm:p-0", ["p-0 sm:p-0"])} />;
+
+== should sort object keys and values ==
+const value = <div class={clsx({ "sm:p-0 p-0": "sm:p-0 p-0" })} />;
+
+[expect]
+const value = <div class={clsx({ "p-0 sm:p-0": "p-0 sm:p-0" })} />;
+
+== should sort strings in a member expression ==
+const value = <div class={{ "sm:p-0 p-0": "sm:p-0 p-0" }["sm:p-0 p-0"]} />;
+
+[expect]
+const value = <div class={{ "p-0 sm:p-0": "p-0 sm:p-0" }["p-0 sm:p-0"]} />;
+
+== should handle a class attribute without a value ==
+const value = <div class />;
+
+[expect]
+const value = <div class />;
+
+== should handle an empty class attribute ==
+const value = <div class="" />;
+
+[expect]
+const value = <div class="" />;
+
+== should keep the class before an expression in place ==
+const value = <div class={`sm:block inline flex${someVar}`} />;
+
+[expect]
+const value = <div class={`inline sm:block flex${someVar}`} />;
+
+== should keep the class after an expression in place ==
+const value = <div class={`${someVar}sm:block md:inline flex`} />;
+
+[expect]
+const value = <div class={`${someVar}sm:block flex md:inline`} />;
+
+== should sort the text on each side of an expression ==
+const value = <div class={`sm:p-0 p-0 ${someVar}sm:block md:inline flex`} />;
+
+[expect]
+const value = <div class={`p-0 sm:p-0 ${someVar}sm:block flex md:inline`} />;
+
+== should only separate class names on ASCII whitespace ==
+const value = <div class="block px-1　py-2" />;
+
+[expect]
+const value = <div class="px-1　py-2 block" />;
+
+== should collapse whitespace in an attribute ==
+const value = <div class="   m-0  sm:p-0  p-0   " />;
+
+[expect]
+const value = <div class="m-0 p-0 sm:p-0" />;
+
+== should collapse whitespace in a string ==
+const value = <div class={"   m-0  sm:p-0  p-0   "} />;
+
+[expect]
+const value = <div class={"m-0 p-0 sm:p-0"} />;
+
+== should collapse whitespace in a template literal ==
+const value = <div class={` sm:p-0
+  p-0   `} />;
+
+[expect]
+const value = <div class={`p-0 sm:p-0`} />;
+
+== should remove duplicates in an attribute ==
+const value = <div class="flex flex" />;
+
+[expect]
+const value = <div class="flex" />;
+
+== should remove duplicates in a template literal ==
+const value = <div class={`   flex  flex `} />;
+
+[expect]
+const value = <div class={`flex`} />;
+
+== should not remove a duplicate that is next to an expression ==
+const value = <div class={`   flex  flex flex${someVar}block block`} />;
+
+[expect]
+const value = <div class={`flex flex${someVar}block block`} />;
+
+== should keep the whitespace between concatenated template literals ==
+const value = <div class={`flex ` + `text-red-500`} />;
+
+[expect]
+const value = <div class={`flex ` + `text-red-500`} />;
+
+== should collapse a concatenated template literal with only whitespace ==
+const value = <div class={`flex ` + `  ` + `text-red-500`} />;
+
+[expect]
+const value = <div class={`flex ` + ` ` + `text-red-500`} />;
+
+== should keep escapes in a string ==
+const value = <div class={"before:content-['\\2248']"} />;
+
+[expect]
+const value = <div class={"before:content-['\\2248']"} />;
+
+== should keep escapes in a template literal ==
+const value = <div class={`before:content-['\\2248']`} />;
+
+[expect]
+const value = <div class={`before:content-['\\2248']`} />;
+
+== should keep escapes in an attribute ==
+const value = <div class="before:content-['\\2248']" />;
+
+[expect]
+const value = <div class="before:content-['\\2248']" />;
+
+== should keep the whitespace between a string and a concatenated conditional ==
+const value = <div class={"object-cover" + (standalone ? " aspect-square w-full" : " min-h-0 grow basis-0")}></div>;
+
+[expect]
+const value = <div class={"object-cover" + (standalone ? " aspect-square w-full" : " min-h-0 grow basis-0")}></div>;
+
+== should sort by arbitrary variants ==
+const value = <div class="[&>.a\_p]:after:content-['\2'] [&>.a\_p]:z-0"></div>;
+
+[expect]
+const value = <div class="[&>.a\_p]:z-0 [&>.a\_p]:after:content-['\2']"></div>;

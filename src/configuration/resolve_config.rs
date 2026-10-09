@@ -100,8 +100,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     jsx_quote_style: get_value(&mut config, "jsx.quoteStyle", quote_style.to_jsx_quote_style(), &mut diagnostics),
     jsx_multi_line_parens: get_value(&mut config, "jsx.multiLineParens", JsxMultiLineParens::Prefer, &mut diagnostics),
     jsx_sort_class_names: get_value(&mut config, "jsx.sortClassNames", JsxClassNamesSortOrder::Maintain, &mut diagnostics),
-    jsx_sort_class_names_functions: get_nullable_vec(&mut config, "jsx.sortClassNames.functions", get_string_config_value, &mut diagnostics)
-      .unwrap_or_default(),
+    jsx_sort_class_names_functions: get_string_vec(&mut config, "jsx.sortClassNames.functions", &mut diagnostics),
     jsx_force_new_lines_surrounding_content: get_value(&mut config, "jsx.forceNewLinesSurroundingContent", false, &mut diagnostics),
     jsx_opening_element_bracket_position: get_value(&mut config, "jsxOpeningElement.bracketPosition", jsx_bracket_position, &mut diagnostics),
     jsx_self_closing_element_bracket_position: get_value(&mut config, "jsxSelfClosingElement.bracketPosition", jsx_bracket_position, &mut diagnostics),
@@ -355,17 +354,23 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
   }
 }
 
-fn get_string_config_value(value: ConfigKeyValue, index: usize, diagnostics: &mut Vec<ConfigurationDiagnostic>) -> Option<String> {
-  match value {
-    ConfigKeyValue::String(value) => Some(value),
-    _ => {
-      diagnostics.push(ConfigurationDiagnostic {
-        property_name: format!("jsx.sortClassNames.functions[{}]", index),
-        message: "Expected a string.".to_string(),
-      });
-      None
-    }
-  }
+fn get_string_vec(config: &mut ConfigKeyMap, key: &str, diagnostics: &mut Vec<ConfigurationDiagnostic>) -> Vec<String> {
+  get_nullable_vec(
+    config,
+    key,
+    |value, index, diagnostics| match value {
+      ConfigKeyValue::String(value) => Some(value),
+      _ => {
+        diagnostics.push(ConfigurationDiagnostic {
+          property_name: format!("{}[{}]", key, index),
+          message: "Expected a string.".to_string(),
+        });
+        None
+      }
+    },
+    diagnostics,
+  )
+  .unwrap_or_default()
 }
 
 #[cfg(test)]
