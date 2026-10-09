@@ -1,0 +1,13 @@
+-- file.jsx --
+~~ { "jsx.sortClassNames": "tailwind", "jsx.sortClassNames.attributes": ["classList", "data-classes"], "jsx.sortClassNames.preserveWhitespace": true, "jsx.sortClassNames.preserveDuplicates": true } ~~
+== should sort the configured attributes ==
+const value = <div classList="p-4 flex" data-classes="p-4 flex" other="p-4 flex" className="p-4 flex" />;
+
+[expect]
+const value = <div classList="flex p-4" data-classes="flex p-4" other="p-4 flex" className="flex p-4" />;
+
+== should keep whitespace and duplicates when configured to ==
+const value = <div className="  p-4   flex p-4 " />;
+
+[expect]
+const value = <div className="  flex   p-4 p-4 " />;

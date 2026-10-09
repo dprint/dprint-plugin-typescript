@@ -28,8 +28,8 @@ const a = <div className={"flex p-4 " + extra} />;
 const b = <div className={first + " " + second} />;
 const c = <div className={first + " flex p-4 " + second} />;
 
-== should not sort the other attributes of an element in a className expression ==
+== should sort every string in a className expression like Prettier's plugin does ==
 const value = <Outer className={<Inner title="p-4 flex" className="p-4 flex" />} />;
 
 [expect]
-const value = <Outer className={<Inner title="p-4 flex" className="flex p-4" />} />;
+const value = <Outer className={<Inner title="flex p-4" className="flex p-4" />} />;

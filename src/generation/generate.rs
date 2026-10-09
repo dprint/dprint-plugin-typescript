@@ -3169,7 +3169,7 @@ fn gen_tpl<'a>(node: &Tpl<'a>, context: &mut Context<'a>) -> PrintItems {
 fn gen_tpl_element<'a>(node: &TplElement<'a>, context: &mut Context<'a>) -> PrintItems {
   let text = node.text_fast(context.program);
   match get_tpl_element_class_names_sort_options(node, context) {
-    Some(options) => gen_from_raw_string(&tailwind::sort_class_names(text, &options)),
+    Some(options) => gen_from_raw_string(&tailwind::sort_class_names(text, &options, &get_tailwind_project(context))),
     None => gen_from_raw_string(text),
   }
 }
@@ -4247,7 +4247,7 @@ fn gen_reg_exp_literal(node: &Regex, _: &mut Context) -> PrintItems {
 fn gen_string_literal<'a>(node: &Str<'a>, context: &mut Context<'a>) -> PrintItems {
   let mut string_value = string_literal::get_value(node, context);
   if let Some(options) = get_class_names_sort_options(node.into(), context) {
-    let sorted_value = match tailwind::sort_class_names(&string_value, &options) {
+    let sorted_value = match tailwind::sort_class_names(&string_value, &options, &get_tailwind_project(context)) {
       Cow::Owned(sorted_value) => Some(sorted_value),
       Cow::Borrowed(_) => None,
     };
@@ -4287,11 +4287,15 @@ fn get_class_names_sort_options(node: Node, context: &Context) -> Option<tailwin
     return None;
   }
 
-  let mut options = tailwind::SortOptions::default();
+  let mut options = tailwind::SortOptions {
+    preserve_whitespace: context.config.jsx_sort_class_names_preserve_whitespace,
+    preserve_duplicates: context.config.jsx_sort_class_names_preserve_duplicates,
+    ..Default::default()
+  };
   let mut child = node;
   while let Some(parent) = child.parent() {
     match parent {
-      Node::JSXAttr(attr) => return is_class_names_jsx_attr(attr, context).then_some(options),
+      Node::JSXAttr(attr) if is_class_names_jsx_attr(attr, context) => return Some(options),
       Node::CallExpr(call_expr) => {
         if let Callee::Expr(callee) = call_expr.callee
           && child.start() >= callee.end()
@@ -4340,7 +4344,18 @@ fn get_class_names_sort_options(node: Node, context: &Context) -> Option<tailwin
 }
 
 fn is_class_names_jsx_attr(attr: &JSXAttr, context: &Context) -> bool {
-  matches!(attr.name.text_fast(context.program), "class" | "className")
+  let name = attr.name.text_fast(context.program);
+  matches!(name, "class" | "className") || context.config.jsx_sort_class_names_attributes.iter().any(|attribute_name| attribute_name == name)
+}
+
+fn get_tailwind_project<'a>(context: &Context<'a>) -> tailwind::Project<'a> {
+  let config = context.config;
+  tailwind::Project {
+    prefix: config.jsx_sort_class_names_tailwind_prefix.as_deref(),
+    theme: &config.jsx_sort_class_names_tailwind_theme,
+    variants: &config.jsx_sort_class_names_tailwind_variants,
+    utilities: &config.jsx_sort_class_names_tailwind_utilities,
+  }
 }
 
 /// Gets if the expression starts with one of the configured function names (ex. `cn` in `cn.foo("")`).

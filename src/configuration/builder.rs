@@ -143,6 +143,75 @@ impl ConfigurationBuilder {
     )
   }
 
+  /// Attributes whose values should be sorted as class names in addition to `class` and `className`.
+  ///
+  /// Default: `[]`
+  pub fn jsx_sort_class_names_attributes(&mut self, value: Vec<String>) -> &mut Self {
+    self.insert(
+      "jsx.sortClassNames.attributes",
+      ConfigKeyValue::Array(value.into_iter().map(ConfigKeyValue::String).collect()),
+    )
+  }
+
+  /// Whether to keep the whitespace between class names as is when sorting them.
+  ///
+  /// Default: `false`
+  pub fn jsx_sort_class_names_preserve_whitespace(&mut self, value: bool) -> &mut Self {
+    self.insert("jsx.sortClassNames.preserveWhitespace", value.into())
+  }
+
+  /// Whether to keep duplicate class names when sorting them.
+  ///
+  /// Default: `false`
+  pub fn jsx_sort_class_names_preserve_duplicates(&mut self, value: bool) -> &mut Self {
+    self.insert("jsx.sortClassNames.preserveDuplicates", value.into())
+  }
+
+  /// The prefix the project's Tailwind classes have (ex. `tw` when classes look like `tw:flex`).
+  ///
+  /// Default: none
+  pub fn jsx_sort_class_names_tailwind_prefix(&mut self, value: &str) -> &mut Self {
+    self.insert("jsx.sortClassNames.tailwind.prefix", value.into())
+  }
+
+  /// The theme variables the project adds to Tailwind's default theme and their
+  /// values (ex. `--breakpoint-3xl` and `120rem`), which is what's in `@theme` in its CSS.
+  ///
+  /// Default: none
+  pub fn jsx_sort_class_names_tailwind_theme(&mut self, value: Vec<(String, String)>) -> &mut Self {
+    self.insert(
+      "jsx.sortClassNames.tailwind.theme",
+      ConfigKeyValue::Object(value.into_iter().map(|(name, value)| (name, ConfigKeyValue::String(value))).collect()),
+    )
+  }
+
+  /// The names of the project's custom variants in the order they're defined,
+  /// which is what it has an `@custom-variant` for in its CSS.
+  ///
+  /// Default: `[]`
+  pub fn jsx_sort_class_names_tailwind_variants(&mut self, value: Vec<String>) -> &mut Self {
+    self.insert(
+      "jsx.sortClassNames.tailwind.variants",
+      ConfigKeyValue::Array(value.into_iter().map(ConfigKeyValue::String).collect()),
+    )
+  }
+
+  /// The names of the project's custom utilities (ex. `btn` or `tab-*` for one that has a value)
+  /// along with the CSS properties each sets, which is what it has an `@utility` for in its CSS.
+  ///
+  /// Default: none
+  pub fn jsx_sort_class_names_tailwind_utilities(&mut self, value: Vec<(String, Vec<String>)>) -> &mut Self {
+    self.insert(
+      "jsx.sortClassNames.tailwind.utilities",
+      ConfigKeyValue::Object(
+        value
+          .into_iter()
+          .map(|(name, properties)| (name, ConfigKeyValue::Array(properties.into_iter().map(ConfigKeyValue::String).collect())))
+          .collect(),
+      ),
+    )
+  }
+
   /// Forces newlines surrounding the content of JSX elements.
   ///
   /// Default: `false`
@@ -1134,6 +1203,13 @@ mod tests {
       .jsx_multi_line_parens(JsxMultiLineParens::Never)
       .jsx_sort_class_names(JsxClassNamesSortOrder::Tailwind)
       .jsx_sort_class_names_functions(vec!["cn".to_string()])
+      .jsx_sort_class_names_attributes(vec!["classList".to_string()])
+      .jsx_sort_class_names_preserve_whitespace(true)
+      .jsx_sort_class_names_preserve_duplicates(true)
+      .jsx_sort_class_names_tailwind_prefix("tw")
+      .jsx_sort_class_names_tailwind_theme(vec![("--breakpoint-3xl".to_string(), "120rem".to_string())])
+      .jsx_sort_class_names_tailwind_variants(vec!["hocus".to_string()])
+      .jsx_sort_class_names_tailwind_utilities(vec![("btn".to_string(), vec!["display".to_string()])])
       .jsx_force_new_lines_surrounding_content(true)
       .jsx_bracket_position(SameOrNextLinePosition::Maintain)
       .jsx_opening_element_bracket_position(SameOrNextLinePosition::Maintain)
@@ -1327,7 +1403,7 @@ mod tests {
       .while_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 184);
+    assert_eq!(inner_config.len(), 191);
     let diagnostics = resolve_config(inner_config, &Default::default()).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

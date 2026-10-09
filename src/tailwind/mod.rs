@@ -8,17 +8,17 @@
 //! are ported from Tailwind and `tables.rs` is generated from it. Both projects are
 //! MIT licensed (see `LICENSE.prettier-plugin-tailwindcss` and `LICENSE.tailwindcss`).
 //!
-//! Unlike the Prettier plugin, this doesn't load Tailwind or a project's configuration,
-//! so it only knows about Tailwind's default theme:
-//!
-//! - A value that's not in the default theme (ex. `text-brand`) gets the position
-//!   that most values of its utility have (a color for `text-`).
-//! - A variant that's not in Tailwind (ex. `custom:flex`) goes after the ones that are.
+//! Unlike the Prettier plugin, this doesn't load Tailwind or a project's CSS, so it
+//! only knows about Tailwind's default theme and what it's told with a `Project`.
+//! A value that's in neither (ex. `text-brand`) gets the position that most values
+//! of its utility have (a color for `text-`).
 
 mod tables;
 
 use std::borrow::Cow;
 use std::cmp::Ordering;
+use std::collections::BTreeMap;
+use std::ops::Bound;
 
 use tables::*;
 
@@ -36,6 +36,11 @@ pub struct SortOptions {
   pub collapse_start: bool,
   /// Removes the trailing whitespace instead of collapsing it to a single space.
   pub collapse_end: bool,
+  /// Keeps the whitespace between the classes as is, which makes the other
+  /// options for whitespace not do anything.
+  pub preserve_whitespace: bool,
+  /// Keeps duplicate classes.
+  pub preserve_duplicates: bool,
 }
 
 impl Default for SortOptions {
@@ -45,6 +50,35 @@ impl Default for SortOptions {
       ignore_last: false,
       collapse_start: true,
       collapse_end: true,
+      preserve_whitespace: false,
+      preserve_duplicates: false,
+    }
+  }
+}
+
+/// How a project customizes Tailwind, which is what it has in its CSS file.
+#[derive(Debug, Clone, Copy)]
+pub struct Project<'a> {
+  /// The prefix of every class (ex. `tw` when classes look like `tw:flex`).
+  pub prefix: Option<&'a str>,
+  /// The theme variables and their values (ex. `--breakpoint-3xl` and `120rem`).
+  pub theme: &'a BTreeMap<String, String>,
+  /// The names of the custom variants in the order they're defined.
+  pub variants: &'a [String],
+  /// The names of the custom utilities (ex. `btn` or `tab-*` for one that has
+  /// a value) along with the CSS properties each one sets.
+  pub utilities: &'a BTreeMap<String, Vec<String>>,
+}
+
+impl Default for Project<'_> {
+  fn default() -> Self {
+    static THEME: BTreeMap<String, String> = BTreeMap::new();
+    static UTILITIES: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    Self {
+      prefix: None,
+      theme: &THEME,
+      variants: &[],
+      utilities: &UTILITIES,
     }
   }
 }
@@ -53,22 +87,25 @@ impl Default for SortOptions {
 ///
 /// Unknown classes go first in their original order, whitespace is collapsed, and
 /// duplicate Tailwind classes are removed. Borrows the text when it doesn't change.
-pub fn sort_class_names<'a>(text: &'a str, options: &SortOptions) -> Cow<'a, str> {
+pub fn sort_class_names<'a>(text: &'a str, options: &SortOptions, project: &Project) -> Cow<'a, str> {
   // matches what Prettier does for class attributes containing a template
   if text.is_empty() || text.contains("{{") {
     return Cow::Borrowed(text);
+  }
+  if options.preserve_whitespace {
+    return sort_class_names_preserving_whitespace(text, options, project);
   }
   let mut class_names = text.split(is_class_separator).filter(|class_name| !class_name.is_empty());
   let Some(first) = class_names.next() else {
     return if text == " " { Cow::Borrowed(text) } else { Cow::Borrowed(" ") };
   };
-  let (prefix, first) = if options.ignore_first { (Some(first), None) } else { (None, Some(first)) };
-  let suffix = if options.ignore_last { class_names.next_back() } else { None };
+  let (ignored_first, first) = if options.ignore_first { (Some(first), None) } else { (None, Some(first)) };
+  let ignored_last = if options.ignore_last { class_names.next_back() } else { None };
   let class_names = first.into_iter().chain(class_names);
   let has_leading_space = !options.collapse_start && text.starts_with(is_class_separator);
   let has_trailing_space = !options.collapse_end && text.ends_with(is_class_separator);
 
-  if !has_extra_whitespace(text, options) && is_sorted(class_names.clone()) {
+  if !has_extra_whitespace(text, options) && is_sorted(class_names.clone(), options, project) {
     return Cow::Borrowed(text);
   }
 
@@ -76,30 +113,63 @@ pub fn sort_class_names<'a>(text: &'a str, options: &SortOptions) -> Cow<'a, str
   if has_leading_space {
     result.push(' ');
   }
-  if let Some(prefix) = prefix {
-    push_class_name(&mut result, prefix);
+  if let Some(class_name) = ignored_first {
+    push_class_name(&mut result, class_name);
   }
-  let mut tailwind_classes = Vec::new();
-  let mut ellipses = Vec::new();
-  for class_name in class_names {
-    if is_ellipsis(class_name) {
-      ellipses.push(class_name);
-    } else if let Some(class_info) = ClassInfo::from_class_name(class_name) {
-      tailwind_classes.push(class_info);
-    } else {
-      push_class_name(&mut result, class_name);
-    }
+  let mut sorted_classes = SortedClasses::new(class_names, project);
+  if !options.preserve_duplicates {
+    sorted_classes.tailwind.dedup_by(|a, b| a.text == b.text);
   }
-  tailwind_classes.sort_unstable_by(compare_classes);
-  // duplicates are next to each other because the comparison ends with the text
-  tailwind_classes.dedup_by(|a, b| a.text == b.text);
-  for class_name in tailwind_classes.iter().map(|class_info| class_info.text).chain(ellipses).chain(suffix) {
+  for class_name in sorted_classes.iter().chain(ignored_last) {
     push_class_name(&mut result, class_name);
   }
   if has_trailing_space {
     result.push(' ');
   }
   Cow::Owned(result)
+}
+
+fn sort_class_names_preserving_whitespace<'a>(text: &'a str, options: &SortOptions, project: &Project) -> Cow<'a, str> {
+  // split the text into its leading whitespace then each class with the whitespace after it
+  let leading_whitespace_len = text.len() - text.trim_start_matches(is_class_separator).len();
+  let mut items = Vec::new();
+  let mut rest = &text[leading_whitespace_len..];
+  while !rest.is_empty() {
+    let (class_name, after) = rest.split_at(rest.find(is_class_separator).unwrap_or(rest.len()));
+    let (whitespace, after) = after.split_at(after.len() - after.trim_start_matches(is_class_separator).len());
+    items.push((class_name, whitespace));
+    rest = after;
+  }
+  let start = (options.ignore_first as usize).min(items.len());
+  let end = items.len() - (options.ignore_last as usize).min(items.len() - start);
+  let sorted_classes = SortedClasses::new(items[start..end].iter().map(|(class_name, _)| *class_name), project);
+
+  // the whitespace stays where it is and the classes get moved around it
+  let mut result = String::with_capacity(text.len());
+  result.push_str(&text[..leading_whitespace_len]);
+  let mut previous: Option<&str> = None;
+  let mut pending_whitespace = "";
+  let class_names = items[..start].iter().map(|(class_name, _)| *class_name);
+  let class_names = class_names
+    .chain(sorted_classes.iter())
+    .chain(items[end..].iter().map(|(class_name, _)| *class_name));
+  for (index, class_name) in class_names.enumerate() {
+    let is_sorted_class = index >= start && index < end;
+    let is_duplicate = is_sorted_class && !options.preserve_duplicates && previous == Some(class_name) && sorted_classes.is_tailwind(class_name);
+    // the whitespace before a removed duplicate is removed with it
+    if !is_duplicate {
+      result.push_str(pending_whitespace);
+      result.push_str(class_name);
+    }
+    pending_whitespace = items[index].1;
+    previous = is_sorted_class.then_some(class_name);
+  }
+  result.push_str(pending_whitespace);
+  if result == text {
+    Cow::Borrowed(text)
+  } else {
+    Cow::Owned(result)
+  }
 }
 
 fn is_class_separator(c: char) -> bool {
@@ -114,7 +184,7 @@ fn has_extra_whitespace(text: &str, options: &SortOptions) -> bool {
     || options.collapse_end && text.ends_with(' ')
 }
 
-fn is_sorted<'a>(class_names: impl Iterator<Item = &'a str>) -> bool {
+fn is_sorted<'a>(class_names: impl Iterator<Item = &'a str>, options: &SortOptions, project: &Project) -> bool {
   let mut previous: Option<ClassInfo> = None;
   let mut has_ellipsis = false;
   for class_name in class_names {
@@ -125,9 +195,14 @@ fn is_sorted<'a>(class_names: impl Iterator<Item = &'a str>) -> bool {
     if has_ellipsis {
       return false;
     }
-    match ClassInfo::from_class_name(class_name) {
+    match ClassInfo::from_class_name(class_name, project) {
       Some(class_info) => {
-        if previous.is_some_and(|previous| compare_classes(&previous, &class_info) != Ordering::Less) {
+        let is_in_order = previous.is_none_or(|previous| match compare_classes(&previous, &class_info, project) {
+          Ordering::Less => true,
+          Ordering::Equal => options.preserve_duplicates,
+          Ordering::Greater => false,
+        });
+        if !is_in_order {
           return false;
         }
         previous = Some(class_info);
@@ -154,10 +229,49 @@ fn is_ellipsis(class_name: &str) -> bool {
   matches!(class_name, "..." | "…")
 }
 
+/// Class names in the order they get output in, which is the ones that aren't
+/// Tailwind classes in their original order, then the Tailwind ones, then ellipses.
+struct SortedClasses<'a> {
+  unknown: Vec<&'a str>,
+  tailwind: Vec<ClassInfo<'a>>,
+  ellipses: Vec<&'a str>,
+}
+
+impl<'a> SortedClasses<'a> {
+  fn new(class_names: impl Iterator<Item = &'a str>, project: &Project) -> Self {
+    let mut result = SortedClasses {
+      unknown: Vec::new(),
+      tailwind: Vec::new(),
+      ellipses: Vec::new(),
+    };
+    for class_name in class_names {
+      if is_ellipsis(class_name) {
+        result.ellipses.push(class_name);
+      } else if let Some(class_info) = ClassInfo::from_class_name(class_name, project) {
+        result.tailwind.push(class_info);
+      } else {
+        result.unknown.push(class_name);
+      }
+    }
+    // duplicates end up next to each other because the comparison ends with the text
+    result.tailwind.sort_unstable_by(|a, b| compare_classes(a, b, project));
+    result
+  }
+
+  fn iter(&self) -> impl Iterator<Item = &'a str> + '_ {
+    let tailwind = self.tailwind.iter().map(|class_info| class_info.text);
+    self.unknown.iter().copied().chain(tailwind).chain(self.ellipses.iter().copied())
+  }
+
+  fn is_tailwind(&self, class_name: &str) -> bool {
+    self.tailwind.iter().any(|class_info| class_info.text == class_name)
+  }
+}
+
 /// Compares the same way as Tailwind does when it sorts the CSS it generates.
-fn compare_classes(a: &ClassInfo, b: &ClassInfo) -> Ordering {
+fn compare_classes(a: &ClassInfo, b: &ClassInfo, project: &Project) -> Ordering {
   a.variants
-    .cmp(&b.variants)
+    .cmp(&b.variants, project)
     .then_with(|| a.position.cmp(&b.position))
     .then_with(|| compare_text(a.text, b.text))
 }
@@ -201,17 +315,21 @@ struct ClassInfo<'a> {
 
 impl<'a> ClassInfo<'a> {
   /// Gets the info for a class name or `None` when it's not a known Tailwind class.
-  fn from_class_name(class_name: &'a str) -> Option<ClassInfo<'a>> {
+  fn from_class_name(class_name: &'a str, project: &Project) -> Option<ClassInfo<'a>> {
     // class names are only separated on ASCII whitespace like in HTML, but
     // no Tailwind class has another kind of whitespace in it
     if class_name.contains(char::is_whitespace) {
       return None;
     }
-    let (variants_text, utility) = split_utility(class_name)?;
-    let position = get_utility_position(utility)?;
+    let class_name_without_prefix = match project.prefix {
+      Some(prefix) => class_name.strip_prefix(prefix)?.strip_prefix(':')?,
+      None => class_name,
+    };
+    let (variants_text, utility) = split_utility(class_name_without_prefix)?;
+    let position = get_utility_position(utility, project)?;
     let mut variants = ClassVariants::default();
     for variant in split_top_level(variants_text, ':').filter(|variant| !variant.is_empty()) {
-      variants.insert(variant)?;
+      variants.insert(variant, project)?;
     }
 
     Some(ClassInfo {
@@ -267,39 +385,109 @@ fn split_modifier(text: &str) -> (&str, Option<&str>) {
   }
 }
 
-/// Gets the indexes of the dashes that may separate a root from its value starting from the last one.
-fn value_separator_indexes(text: &str) -> impl Iterator<Item = usize> + '_ {
+/// Gets the roots and values the text may be made of starting from the longest
+/// root (ex. `border-x` and `2` then `border` and `x-2` for `border-x-2`).
+fn roots_and_values(text: &str) -> impl Iterator<Item = (&str, &str)> {
   let end = text.find(['[', '(']).unwrap_or(text.len());
-  text[..end].rmatch_indices('-').map(|(index, _)| index).filter(|index| index + 1 < text.len())
+  text[..end]
+    .rmatch_indices('-')
+    .filter(|(index, _)| index + 1 < text.len())
+    .map(|(index, _)| (&text[..index], &text[index + 1..]))
 }
 
-fn get_utility_position(utility: &str) -> Option<u16> {
+fn get_utility_position(utility: &str, project: &Project) -> Option<u16> {
   // the important modifier goes at the start in Tailwind 3 and at the end in Tailwind 4
   let utility = utility.strip_prefix('!').or_else(|| utility.strip_suffix('!')).unwrap_or(utility);
   if let Some(declaration) = utility.strip_prefix('[') {
     // an arbitrary property (ex. `[color:red]`)
     let (property, _) = declaration.split_once(':')?;
-    return Some(
-      find(PROPERTIES, property, |entry| entry.0)
-        .map(|entry| entry.1)
-        .unwrap_or(UNKNOWN_PROPERTY_POSITION),
-    );
+    return Some(get_properties_position(std::iter::once(property), 1));
   }
   // negative utilities have the position of the positive one
   let utility = utility.strip_prefix('-').unwrap_or(utility);
   let (utility_without_modifier, _) = split_modifier(utility);
+  if let Some(position) = get_custom_utility_position(utility_without_modifier, project) {
+    return Some(position);
+  }
   if let Some(entry) = find(UTILITIES, utility, |entry| entry.0).or_else(|| find(UTILITIES, utility_without_modifier, |entry| entry.0)) {
     return Some(entry.1);
   }
-  let utility = utility_without_modifier;
-  value_separator_indexes(utility).find_map(|index| {
-    let (_, default_position, length_position, color_position) = find(UTILITY_ROOTS, &utility[..index], |entry| entry.0)?;
-    Some(match get_arbitrary_value_kind(&utility[index + 1..]) {
+  roots_and_values(utility_without_modifier).find_map(|(root, value)| {
+    let (_, default_position, length_position, color_position) = find(UTILITY_ROOTS, root, |entry| entry.0)?;
+    Some(match get_arbitrary_value_kind(value) {
       Some(ArbitraryValueKind::Length) => *length_position,
       Some(ArbitraryValueKind::Color) => *color_position,
-      None => *default_position,
+      None => get_theme_position(root, value, project).unwrap_or(*default_position),
     })
   })
+}
+
+/// Gets the position of a utility that the project defines.
+fn get_custom_utility_position(utility: &str, project: &Project) -> Option<u16> {
+  if project.utilities.is_empty() {
+    return None;
+  }
+  let properties = project.utilities.get(utility).or_else(|| {
+    // ones that have a value are named like `tab-*`
+    roots_and_values(utility).find_map(|(root, _)| {
+      let mut names_and_properties = project.utilities.range::<str, _>((Bound::Included(root), Bound::Unbounded));
+      names_and_properties.find_map(|(name, properties)| (name.strip_prefix(root)? == "-*").then_some(properties))
+    })
+  })?;
+  Some(get_properties_position(properties.iter().map(|property| property.as_str()), properties.len()))
+}
+
+/// Gets the position of a utility whose value is the name of one of the project's
+/// theme variables (ex. `text-huge` for `--text-huge`) when that's not the default one.
+fn get_theme_position(root: &str, value: &str, project: &Project) -> Option<u16> {
+  if project.theme.is_empty() {
+    return None;
+  }
+  UTILITY_THEME_POSITIONS
+    .iter()
+    .find(|(entry_root, namespace, _)| *entry_root == root && project.theme_value(namespace, value).is_some())
+    .map(|entry| entry.2)
+}
+
+/// Gets the position of a utility that sets the provided CSS properties.
+fn get_properties_position<'a>(properties: impl Iterator<Item = &'a str>, declaration_count: usize) -> u16 {
+  // the indexes of the properties in Tailwind's property order from lowest to highest
+  let mut order = [0; 32];
+  let mut len = 0;
+  for index in properties
+    .filter_map(|property| find(PROPERTIES, property, |entry| entry.0))
+    .map(|entry| entry.1)
+  {
+    let insert_index = order[..len].partition_point(|other| *other < index);
+    let is_new = insert_index == len || order[insert_index] != index;
+    if is_new && len < order.len() {
+      order.copy_within(insert_index..len, insert_index + 1);
+      order[insert_index] = index;
+      len += 1;
+    }
+  }
+  let order = &order[..len];
+  let result = SORT_KEYS.binary_search_by(|(other_order, other_count)| {
+    // orders are compared by their first difference, where one that ends sooner goes after
+    let other_order_then_end = other_order.iter().map(Some).chain(std::iter::once(None));
+    let order_then_end = order.iter().map(Some).chain(std::iter::once(None));
+    let ordering = other_order_then_end
+      .zip(order_then_end)
+      .map(|(other_index, index)| match (other_index, index) {
+        (Some(other_index), Some(index)) => other_index.cmp(index),
+        (None, Some(_)) => Ordering::Greater,
+        (Some(_), None) => Ordering::Less,
+        (None, None) => Ordering::Equal,
+      })
+      .find(|ordering| *ordering != Ordering::Equal)
+      .unwrap_or(Ordering::Equal);
+    // then the one with more declarations goes first
+    ordering.then_with(|| declaration_count.cmp(&(*other_count as usize)))
+  });
+  match result {
+    Ok(index) => index as u16 * 2 + 1,
+    Err(index) => index as u16 * 2,
+  }
 }
 
 enum ArbitraryValueKind {
@@ -310,7 +498,8 @@ enum ArbitraryValueKind {
 /// Guesses what an arbitrary value is for the roots that are for more than one
 /// CSS property (ex. `text-[14px]` sets the font size and `text-[#fff]` the color).
 fn get_arbitrary_value_kind(value: &str) -> Option<ArbitraryValueKind> {
-  let value = value.strip_prefix('[')?;
+  let is_variable = value.starts_with('(');
+  let value = value.strip_prefix(['[', '('])?;
   if let Some((data_type, _)) = value.split_once(':') {
     return match data_type {
       "length" | "percentage" | "number" | "absolute-size" | "relative-size" => Some(ArbitraryValueKind::Length),
@@ -319,7 +508,9 @@ fn get_arbitrary_value_kind(value: &str) -> Option<ArbitraryValueKind> {
     };
   }
   let is_number = value.trim_start_matches(['-', '+', '.']).starts_with(|c: char| c.is_ascii_digit());
-  if is_number || value.starts_with("calc(") {
+  if is_variable {
+    None
+  } else if is_number || value.starts_with("calc(") {
     Some(ArbitraryValueKind::Length)
   } else if ["#", "rgb", "hsl", "hwb", "lab(", "lch(", "oklab(", "oklch(", "color("]
     .iter()
@@ -336,6 +527,19 @@ fn find<'a, T>(table: &'a [T], name: &str, get_name: impl Fn(&T) -> &'static str
   table.binary_search_by(|entry| get_name(entry).cmp(name)).ok().map(|index| &table[index])
 }
 
+impl<'a> Project<'a> {
+  /// Gets the value of the theme variable with the provided prefix and name
+  /// (ex. `--breakpoint-` and `3xl` for `--breakpoint-3xl`).
+  fn theme_value(&self, namespace: &str, name: &str) -> Option<&'a str> {
+    self
+      .theme
+      .range::<str, _>((Bound::Included(namespace), Bound::Unbounded))
+      .take_while(|(key, _)| key.starts_with(namespace))
+      .find(|(key, _)| &key[namespace.len()..] == name)
+      .map(|(_, value)| value.as_str())
+  }
+}
+
 /// The most variants a class may have, where classes with more are not sorted.
 const MAX_VARIANTS: usize = 8;
 
@@ -350,10 +554,14 @@ struct ClassVariants<'a> {
 }
 
 impl<'a> ClassVariants<'a> {
-  fn insert(&mut self, variant: &'a str) -> Option<()> {
+  /// Adds a variant, returning `None` when the variant isn't known or there are too many.
+  fn insert(&mut self, variant: &'a str, project: &Project) -> Option<()> {
+    if !is_known_variant(variant, project) {
+      return None;
+    }
     let mut index = 0;
     while index < self.len {
-      match compare_variants(variant, self.items[index]) {
+      match compare_variants(variant, self.items[index], project) {
         Ordering::Greater => break,
         Ordering::Equal => return Some(()),
         Ordering::Less => index += 1,
@@ -368,9 +576,9 @@ impl<'a> ClassVariants<'a> {
     Some(())
   }
 
-  fn cmp(&self, other: &ClassVariants) -> Ordering {
+  fn cmp(&self, other: &ClassVariants, project: &Project) -> Ordering {
     for (a, b) in self.items[..self.len].iter().zip(&other.items[..other.len]) {
-      let ordering = compare_variants(a, b);
+      let ordering = compare_variants(a, b, project);
       if ordering != Ordering::Equal {
         return ordering;
       }
@@ -379,8 +587,20 @@ impl<'a> ClassVariants<'a> {
   }
 }
 
+fn is_known_variant(variant: &str, project: &Project) -> bool {
+  if variant.starts_with('[') {
+    return true;
+  }
+  let variant = VariantInfo::parse(variant, project);
+  match variant.kind {
+    Some(VariantKind::Compound) => variant.value.is_some_and(|value| is_known_variant(value, project)),
+    Some(VariantKind::Static | VariantKind::Functional) => true,
+    None => false,
+  }
+}
+
 /// Compares the same way as Tailwind's `Variants#compare`.
-fn compare_variants(a: &str, b: &str) -> Ordering {
+fn compare_variants(a: &str, b: &str, project: &Project) -> Ordering {
   // arbitrary variants (ex. `[&>*]`) go last
   match (a.starts_with('['), b.starts_with('[')) {
     (true, true) => return a.cmp(b),
@@ -389,17 +609,17 @@ fn compare_variants(a: &str, b: &str) -> Ordering {
     (false, false) => {}
   }
 
-  let (a, b) = (VariantInfo::parse(a), VariantInfo::parse(b));
+  let (a, b) = (VariantInfo::parse(a, project), VariantInfo::parse(b, project));
   let ordering = a.order.cmp(&b.order);
   if ordering != Ordering::Equal {
     return ordering;
   }
   if a.kind == Some(VariantKind::Compound) && b.kind == Some(VariantKind::Compound) {
-    return compare_variants(a.value.unwrap_or(""), b.value.unwrap_or("")).then_with(|| a.modifier.cmp(&b.modifier));
+    return compare_variants(a.value.unwrap_or(""), b.value.unwrap_or(""), project).then_with(|| a.modifier.cmp(&b.modifier));
   }
   if a.value_order != VariantValueOrder::None {
     let is_ascending = a.value_order == VariantValueOrder::Ascending;
-    let ordering = match (a.breakpoint_value(), b.breakpoint_value()) {
+    let ordering = match (a.breakpoint_value(project), b.breakpoint_value(project)) {
       (Some(a_value), Some(b_value)) => return compare_breakpoints(a_value, b_value, is_ascending),
       (Some(_), None) => Ordering::Greater,
       (None, Some(_)) => Ordering::Less,
@@ -440,8 +660,9 @@ fn compare_breakpoints(a: &str, b: &str, is_ascending: bool) -> Ordering {
   })
 }
 
-/// The order of variants that aren't in `VARIANTS`, which are ones from a project's
-/// configuration or a newer Tailwind. These go after the known variants.
+/// The order of the first of a project's custom variants, which go after Tailwind's in the order they're defined.
+const CUSTOM_VARIANT_ORDER_START: u16 = 10_000;
+/// The order of variants that aren't known, which classes with a known utility never have.
 const UNKNOWN_VARIANT_ORDER: u16 = u16::MAX;
 
 struct VariantInfo<'a> {
@@ -450,53 +671,71 @@ struct VariantInfo<'a> {
   root: &'a str,
   value: Option<&'a str>,
   modifier: Option<&'a str>,
+  /// The kind of variant or `None` when the variant isn't known.
   kind: Option<VariantKind>,
   order: u16,
   value_order: VariantValueOrder,
 }
 
 impl<'a> VariantInfo<'a> {
-  fn parse(variant: &'a str) -> VariantInfo<'a> {
+  fn parse(variant: &'a str, project: &Project) -> VariantInfo<'a> {
     let (text, modifier) = split_modifier(variant);
     let found = find(VARIANTS, text, |entry| entry.0).map(|entry| (entry, None)).or_else(|| {
       // container query variants don't have a dash before their value (ex. `@md`)
       let container_value = text.strip_prefix('@').filter(|value| !value.starts_with("max-") && !value.starts_with("min-"));
-      let mut roots_and_values = value_separator_indexes(text)
-        .map(|index| (&text[..index], &text[index + 1..]))
-        .chain(container_value.map(|value| ("@", value)));
+      let mut roots_and_values = roots_and_values(text).chain(container_value.map(|value| ("@", value)));
       roots_and_values.find_map(|(root, value)| {
         let entry = find(VARIANTS, root, |entry| entry.0).filter(|entry| entry.1 != VariantKind::Static)?;
         Some((entry, Some(value)))
       })
     });
-    match found {
-      Some(((root, kind, order, value_order), value)) => VariantInfo {
-        text,
+    let unknown = VariantInfo {
+      text,
+      root: text,
+      value: None,
+      modifier,
+      kind: None,
+      order: UNKNOWN_VARIANT_ORDER,
+      value_order: VariantValueOrder::None,
+    };
+    if let Some(((root, kind, order, value_order), value)) = found {
+      VariantInfo {
         root,
         value,
-        modifier,
         kind: Some(*kind),
         order: *order,
         value_order: *value_order,
-      },
-      None => VariantInfo {
-        text,
-        root: text,
-        value: None,
-        modifier,
-        kind: None,
-        order: UNKNOWN_VARIANT_ORDER,
-        value_order: VariantValueOrder::None,
-      },
+        ..unknown
+      }
+    } else if let Some(index) = project.variants.iter().position(|name| name == text) {
+      VariantInfo {
+        kind: Some(VariantKind::Static),
+        order: CUSTOM_VARIANT_ORDER_START + index as u16,
+        ..unknown
+      }
+    } else if project.theme_value("--breakpoint-", text).is_some() {
+      // a breakpoint the project adds is ordered with Tailwind's
+      let breakpoint = find(VARIANTS, "sm", |entry| entry.0);
+      VariantInfo {
+        kind: breakpoint.map(|entry| entry.1),
+        order: breakpoint.map(|entry| entry.2).unwrap_or(UNKNOWN_VARIANT_ORDER),
+        value_order: breakpoint.map(|entry| entry.3).unwrap_or(VariantValueOrder::None),
+        ..unknown
+      }
+    } else {
+      unknown
     }
   }
 
   /// Gets the value of a variant that's ordered by its value (ex. `48rem` for `md` or `min-[48rem]`).
-  fn breakpoint_value(&self) -> Option<&'a str> {
-    match self.value.and_then(|value| value.strip_prefix('[')) {
-      Some(value) => value.strip_suffix(']').filter(|value| !value.contains("var(")),
-      None => find(VARIANT_VALUES, self.text, |entry| entry.0).map(|entry| entry.1),
+  fn breakpoint_value<'b>(&'b self, project: &Project<'b>) -> Option<&'b str> {
+    if let Some(value) = self.value.and_then(|value| value.strip_prefix('[')) {
+      return value.strip_suffix(']').filter(|value| !value.contains("var("));
     }
+    let namespace = if self.root.starts_with('@') { "--container-" } else { "--breakpoint-" };
+    project
+      .theme_value(namespace, self.value.unwrap_or(self.text))
+      .or_else(|| find(VARIANT_VALUES, self.text, |entry| entry.0).map(|entry| entry.1))
   }
 }
 
@@ -515,33 +754,61 @@ mod test {
 
   #[test]
   fn sorts_the_same_as_tailwind() {
+    assert_sorts_the_same_as_tailwind(include_str!("sort_tests.txt"), &Project::default());
+  }
+
+  #[test]
+  fn sorts_the_same_as_tailwind_for_a_project() {
+    // this is what the project that the file is for has in its CSS
+    let theme = [
+      ("--breakpoint-3xl", "120rem"),
+      ("--breakpoint-xs", "30rem"),
+      ("--container-8xl", "90rem"),
+      ("--color-brand", "#f00"),
+      ("--color-brand-dark", "#900"),
+      ("--text-huge", "4rem"),
+      ("--font-display", "\"Display\""),
+      ("--font-weight-heavy", "950"),
+      ("--shadow-glow", "0 0 8px #fff"),
+      ("--radius-blob", "3rem"),
+      ("--spacing-gutter", "1.5rem"),
+      ("--ease-snappy", "cubic-bezier(0.2, 0, 0, 1)"),
+    ];
+    let theme = theme.into_iter().map(|(name, value)| (name.to_string(), value.to_string())).collect();
+    let variants = ["theme-midnight".to_string(), "hocus".to_string()];
+    let utilities = [("btn", vec!["display", "padding"]), ("tab-*", vec!["tab-size"])];
+    let utilities = utilities
+      .into_iter()
+      .map(|(name, properties)| (name.to_string(), properties.into_iter().map(|property| property.to_string()).collect()))
+      .collect();
+    let project = Project {
+      prefix: Some("tw"),
+      theme: &theme,
+      variants: &variants,
+      utilities: &utilities,
+    };
+    assert_sorts_the_same_as_tailwind(include_str!("sort_tests_project.txt"), &project);
+  }
+
+  #[track_caller]
+  fn assert_sorts_the_same_as_tailwind(tests: &str, project: &Project) {
     let mut failures = Vec::new();
     let mut count = 0;
-    for line in include_str!("sort_tests.txt").lines().filter(|line| !line.starts_with('#')) {
+    for line in tests.lines().filter(|line| !line.starts_with('#')) {
       let (text, expected) = line.split_once(" => ").unwrap();
-      let actual = sort_class_names(text, &Default::default());
+      let actual = sort_class_names(text, &Default::default(), project);
       count += 1;
       if actual != expected {
-        failures.push(format!(
-          "   input: {}
-expected: {}
-  actual: {}",
-          text, expected, actual
-        ));
+        failures.push(format!("   input: {}\nexpected: {}\n  actual: {}", text, expected, actual));
       }
     }
+    assert!(count > 0);
     assert!(
       failures.is_empty(),
-      "{} of {} failed:
-
-{}",
+      "{} of {} failed:\n\n{}",
       failures.len(),
       count,
-      failures[..failures.len().min(10)].join(
-        "
-
-"
-      )
+      failures[..failures.len().min(10)].join("\n\n")
     );
   }
 
@@ -562,6 +829,13 @@ expected: {}
   }
 
   #[test]
+  fn treats_classes_with_unknown_variants_as_unknown() {
+    assert_sorts("p-4 custom:flex", "custom:flex p-4");
+    assert_sorts("m-2 small:p-4 hover:flex hoverable:p-4", "small:p-4 hoverable:p-4 m-2 hover:flex");
+    assert_sorts("m-2 group-custom:p-4 not-hover:p-4", "group-custom:p-4 m-2 not-hover:p-4");
+  }
+
+  #[test]
   fn sorts_important_utilities_with_their_utility() {
     assert_sorts("flex !p-4 m-2", "m-2 flex !p-4");
     assert_sorts("flex p-4! m-2", "m-2 flex p-4!");
@@ -569,21 +843,42 @@ expected: {}
   }
 
   #[test]
-  fn sorts_unknown_variants_after_known_variants() {
-    assert_sorts("custom:flex p-4", "p-4 custom:flex");
-    assert_sorts("small:p-4 hover:flex hoverable:p-4 m-2", "m-2 hover:flex hoverable:p-4 small:p-4");
-    assert_sorts(
-      "custom:hover:p-4 [&>*]:p-4 hover:focus:p-4 custom:m-2",
-      "hover:focus:p-4 custom:m-2 custom:hover:p-4 [&>*]:p-4",
-    );
-    assert_sorts("group-hover/item:p-4 peer-checked:m-2 m-2", "m-2 group-hover/item:p-4 peer-checked:m-2");
+  fn preserves_whitespace() {
+    let options = SortOptions {
+      preserve_whitespace: true,
+      ..Default::default()
+    };
+    let sort = |text| sort_class_names(text, &options, &Project::default());
+    assert_eq!(sort("  sm:bg-tomato   bg-red-500  "), "  bg-red-500   sm:bg-tomato  ");
+    assert_eq!(sort("sm:p-0\n   p-0"), "p-0\n   sm:p-0");
+    assert_eq!(sort("sm:p-0  p-0 \t p-0\nfoo"), "foo  p-0\nsm:p-0");
+    assert_eq!(sort("  "), "  ");
+    assert!(matches!(sort(" p-0  sm:p-0 "), Cow::Borrowed(_)));
+    let options = SortOptions {
+      ignore_first: true,
+      ignore_last: true,
+      ..options
+    };
+    assert_eq!(sort_class_names("z  sm:p-0 \t p-0\na", &options, &Project::default()), "z  p-0 \t sm:p-0\na");
+  }
+
+  #[test]
+  fn preserves_duplicates() {
+    let options = SortOptions {
+      preserve_duplicates: true,
+      ..Default::default()
+    };
+    let sort = |text| sort_class_names(text, &options, &Project::default());
+    assert_eq!(sort("bg-red-500 sm:bg-tomato bg-red-500"), "bg-red-500 bg-red-500 sm:bg-tomato");
+    assert_eq!(sort("sm:p-0 p-0 p-0"), "p-0 p-0 sm:p-0");
+    assert!(matches!(sort("p-0 p-0 sm:p-0"), Cow::Borrowed(_)));
   }
 
   #[test]
   fn borrows_when_already_sorted() {
     for text in ["", " ", "foo", "foo bar foo", "flex p-4", "foo bar p-4 px-2 hover:px-2 ...", "{{ 'p-4 flex' }}"] {
       assert!(
-        matches!(sort_class_names(text, &Default::default()), Cow::Borrowed(result) if result == text),
+        matches!(sort_class_names(text, &Default::default(), &Project::default()), Cow::Borrowed(result) if result == text),
         "{}",
         text
       );
@@ -593,7 +888,7 @@ expected: {}
       collapse_end: false,
       ..Default::default()
     };
-    assert!(matches!(sort_class_names(" flex p-4 ", &options), Cow::Borrowed(_)));
+    assert!(matches!(sort_class_names(" flex p-4 ", &options, &Project::default()), Cow::Borrowed(_)));
   }
 
   // The tests below are ported from prettier-plugin-tailwindcss.
@@ -668,14 +963,21 @@ expected: {}
       ignore_last: true,
       collapse_start: false,
       collapse_end: false,
+      ..Default::default()
     };
-    assert_eq!(sort_class_names("sm:block inline flex", &ignore_last), "inline sm:block flex");
-    assert_eq!(sort_class_names("sm:block md:inline flex", &ignore_first), "sm:block flex md:inline");
-    assert_eq!(sort_class_names("   flex  flex flex", &ignore_last), "flex flex");
-    assert_eq!(sort_class_names("block block", &ignore_first), "block block");
-    assert_eq!(sort_class_names("a sm:p-0 p-0 b", &ignore_both), "a p-0 sm:p-0 b");
-    assert_eq!(sort_class_names("a", &ignore_both), "a");
-    assert_eq!(sort_class_names("a b", &ignore_both), "a b");
+    assert_eq!(
+      sort_class_names("sm:block inline flex", &ignore_last, &Project::default()),
+      "inline sm:block flex"
+    );
+    assert_eq!(
+      sort_class_names("sm:block md:inline flex", &ignore_first, &Project::default()),
+      "sm:block flex md:inline"
+    );
+    assert_eq!(sort_class_names("   flex  flex flex", &ignore_last, &Project::default()), "flex flex");
+    assert_eq!(sort_class_names("block block", &ignore_first, &Project::default()), "block block");
+    assert_eq!(sort_class_names("a sm:p-0 p-0 b", &ignore_both, &Project::default()), "a p-0 sm:p-0 b");
+    assert_eq!(sort_class_names("a", &ignore_both, &Project::default()), "a");
+    assert_eq!(sort_class_names("a b", &ignore_both, &Project::default()), "a b");
   }
 
   #[test]
@@ -688,16 +990,22 @@ expected: {}
       collapse_start: false,
       ..Default::default()
     };
-    assert_eq!(sort_class_names("sm:p-0 p-0  ", &keep_end), "p-0 sm:p-0 ");
-    assert_eq!(sort_class_names("  sm:p-0 p-0  ", &keep_end), "p-0 sm:p-0 ");
-    assert_eq!(sort_class_names("  sm:p-0 p-0  ", &keep_start), " p-0 sm:p-0");
-    assert_eq!(sort_class_names(" aspect-square w-full", &keep_start), " aspect-square w-full");
-    assert_eq!(sort_class_names(" min-h-0 grow basis-0", &keep_start), " min-h-0 grow basis-0");
-    assert_eq!(sort_class_names("flex ", &keep_end), "flex ");
+    assert_eq!(sort_class_names("sm:p-0 p-0  ", &keep_end, &Project::default()), "p-0 sm:p-0 ");
+    assert_eq!(sort_class_names("  sm:p-0 p-0  ", &keep_end, &Project::default()), "p-0 sm:p-0 ");
+    assert_eq!(sort_class_names("  sm:p-0 p-0  ", &keep_start, &Project::default()), " p-0 sm:p-0");
+    assert_eq!(
+      sort_class_names(" aspect-square w-full", &keep_start, &Project::default()),
+      " aspect-square w-full"
+    );
+    assert_eq!(
+      sort_class_names(" min-h-0 grow basis-0", &keep_start, &Project::default()),
+      " min-h-0 grow basis-0"
+    );
+    assert_eq!(sort_class_names("flex ", &keep_end, &Project::default()), "flex ");
   }
 
   #[track_caller]
   fn assert_sorts(text: &str, expected: &str) {
-    assert_eq!(sort_class_names(text, &Default::default()), expected);
+    assert_eq!(sort_class_names(text, &Default::default(), &Project::default()), expected);
   }
 }

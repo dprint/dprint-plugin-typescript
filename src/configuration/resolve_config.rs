@@ -1,6 +1,7 @@
 use super::builder::*;
 use super::types::*;
 use dprint_core::configuration::*;
+use std::collections::BTreeMap;
 
 /// Resolves configuration from a collection of key value strings.
 ///
@@ -101,6 +102,26 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     jsx_multi_line_parens: get_value(&mut config, "jsx.multiLineParens", JsxMultiLineParens::Prefer, &mut diagnostics),
     jsx_sort_class_names: get_value(&mut config, "jsx.sortClassNames", JsxClassNamesSortOrder::Maintain, &mut diagnostics),
     jsx_sort_class_names_functions: get_string_vec(&mut config, "jsx.sortClassNames.functions", &mut diagnostics),
+    jsx_sort_class_names_attributes: get_string_vec(&mut config, "jsx.sortClassNames.attributes", &mut diagnostics),
+    jsx_sort_class_names_preserve_whitespace: get_value(&mut config, "jsx.sortClassNames.preserveWhitespace", false, &mut diagnostics),
+    jsx_sort_class_names_preserve_duplicates: get_value(&mut config, "jsx.sortClassNames.preserveDuplicates", false, &mut diagnostics),
+    jsx_sort_class_names_tailwind_prefix: get_nullable_value(&mut config, "jsx.sortClassNames.tailwind.prefix", &mut diagnostics),
+    jsx_sort_class_names_tailwind_theme: get_map(&mut config, "jsx.sortClassNames.tailwind.theme", &mut diagnostics, |value| match value {
+      ConfigKeyValue::String(value) => Ok(value),
+      ConfigKeyValue::Number(value) => Ok(value.to_string()),
+      _ => Err("Expected a string."),
+    }),
+    jsx_sort_class_names_tailwind_variants: get_string_vec(&mut config, "jsx.sortClassNames.tailwind.variants", &mut diagnostics),
+    jsx_sort_class_names_tailwind_utilities: get_map(&mut config, "jsx.sortClassNames.tailwind.utilities", &mut diagnostics, |value| match value {
+      ConfigKeyValue::Array(values) => values
+        .into_iter()
+        .map(|value| match value {
+          ConfigKeyValue::String(value) => Ok(value),
+          _ => Err("Expected an array of strings."),
+        })
+        .collect(),
+      _ => Err("Expected an array of strings."),
+    }),
     jsx_force_new_lines_surrounding_content: get_value(&mut config, "jsx.forceNewLinesSurroundingContent", false, &mut diagnostics),
     jsx_opening_element_bracket_position: get_value(&mut config, "jsxOpeningElement.bracketPosition", jsx_bracket_position, &mut diagnostics),
     jsx_self_closing_element_bracket_position: get_value(&mut config, "jsxSelfClosingElement.bracketPosition", jsx_bracket_position, &mut diagnostics),
@@ -373,10 +394,40 @@ fn get_string_vec(config: &mut ConfigKeyMap, key: &str, diagnostics: &mut Vec<Co
   .unwrap_or_default()
 }
 
+fn get_map<T>(
+  config: &mut ConfigKeyMap,
+  key: &str,
+  diagnostics: &mut Vec<ConfigurationDiagnostic>,
+  get_value: impl Fn(ConfigKeyValue) -> Result<T, &'static str>,
+) -> BTreeMap<String, T> {
+  let mut result = BTreeMap::new();
+  match config.shift_remove(key) {
+    Some(ConfigKeyValue::Object(values)) => {
+      for (name, value) in values {
+        match get_value(value) {
+          Ok(value) => {
+            result.insert(name, value);
+          }
+          Err(message) => diagnostics.push(ConfigurationDiagnostic {
+            property_name: format!("{}.{}", key, name),
+            message: message.to_string(),
+          }),
+        }
+      }
+    }
+    Some(ConfigKeyValue::Null) | None => {}
+    Some(_) => diagnostics.push(ConfigurationDiagnostic {
+      property_name: key.to_string(),
+      message: "Expected an object.".to_string(),
+    }),
+  }
+  result
+}
+
 #[cfg(test)]
 mod tests {
-  use dprint_core::configuration::NewLineKind;
   use dprint_core::configuration::resolve_global_config;
+  use dprint_core::configuration::NewLineKind;
 
   use super::super::builder::ConfigurationBuilder;
   use super::*;

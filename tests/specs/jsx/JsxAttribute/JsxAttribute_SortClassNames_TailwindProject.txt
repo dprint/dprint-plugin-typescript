@@ -1,0 +1,31 @@
+-- file.jsx --
+~~ { "jsx.sortClassNames": "tailwind", "jsx.sortClassNames.tailwind.prefix": "tw", "jsx.sortClassNames.tailwind.theme": { "--breakpoint-3xl": "120rem", "--text-huge": "4rem", "--color-brand": "#f00" }, "jsx.sortClassNames.tailwind.variants": ["hocus"], "jsx.sortClassNames.tailwind.utilities": { "btn": ["display", "padding"], "tab-*": ["tab-size"] } } ~~
+== should only sort the classes that have the prefix ==
+const value = <div className="tw:p-4 flex tw:flex p-4" />;
+
+[expect]
+const value = <div className="flex p-4 tw:flex tw:p-4" />;
+
+== should sort by the kind of theme variable a value is for ==
+const value = <div className="tw:text-brand tw:text-huge tw:text-red-500 tw:text-sm" />;
+
+[expect]
+const value = <div className="tw:text-sm tw:text-huge tw:text-brand tw:text-red-500" />;
+
+== should sort the breakpoints in the theme by their size ==
+const value = <div className="tw:3xl:flex tw:2xl:flex tw:md:flex tw:flex" />;
+
+[expect]
+const value = <div className="tw:flex tw:md:flex tw:2xl:flex tw:3xl:flex" />;
+
+== should sort custom variants after Tailwind's ==
+const value = <div className="tw:hocus:flex tw:dark:flex tw:unknown:flex tw:flex" />;
+
+[expect]
+const value = <div className="tw:unknown:flex tw:flex tw:dark:flex tw:hocus:flex" />;
+
+== should sort custom utilities by the properties they set ==
+const value = <div className="tw:p-4 tw:tab-4 tw:btn tw:flex tw:hidden" />;
+
+[expect]
+const value = <div className="tw:btn tw:flex tw:hidden tw:p-4 tw:tab-4" />;

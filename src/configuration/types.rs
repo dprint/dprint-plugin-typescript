@@ -2,6 +2,7 @@ use dprint_core::configuration::*;
 use dprint_core::generate_str_to_from;
 use serde::Deserialize;
 use serde::Serialize;
+use std::collections::BTreeMap;
 
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -345,6 +346,20 @@ pub struct Configuration {
   pub jsx_sort_class_names: JsxClassNamesSortOrder,
   #[serde(rename = "jsx.sortClassNames.functions")]
   pub jsx_sort_class_names_functions: Vec<String>,
+  #[serde(rename = "jsx.sortClassNames.attributes")]
+  pub jsx_sort_class_names_attributes: Vec<String>,
+  #[serde(rename = "jsx.sortClassNames.preserveWhitespace")]
+  pub jsx_sort_class_names_preserve_whitespace: bool,
+  #[serde(rename = "jsx.sortClassNames.preserveDuplicates")]
+  pub jsx_sort_class_names_preserve_duplicates: bool,
+  #[serde(rename = "jsx.sortClassNames.tailwind.prefix")]
+  pub jsx_sort_class_names_tailwind_prefix: Option<String>,
+  #[serde(rename = "jsx.sortClassNames.tailwind.theme")]
+  pub jsx_sort_class_names_tailwind_theme: BTreeMap<String, String>,
+  #[serde(rename = "jsx.sortClassNames.tailwind.variants")]
+  pub jsx_sort_class_names_tailwind_variants: Vec<String>,
+  #[serde(rename = "jsx.sortClassNames.tailwind.utilities")]
+  pub jsx_sort_class_names_tailwind_utilities: BTreeMap<String, Vec<String>>,
   #[serde(rename = "jsx.forceNewLinesSurroundingContent")]
   pub jsx_force_new_lines_surrounding_content: bool,
   #[serde(rename = "jsxOpeningElement.bracketPosition")]
