@@ -172,7 +172,8 @@ fn sort_class_names_preserving_whitespace<'a>(text: &'a str, options: &SortOptio
   }
 }
 
-fn is_class_separator(c: char) -> bool {
+/// Gets if the character separates class names, which is only ASCII whitespace like in HTML.
+pub fn is_class_separator(c: char) -> bool {
   matches!(c, ' ' | '\t' | '\r' | '\n' | '\x0C')
 }
 
@@ -343,22 +344,14 @@ impl<'a> ClassInfo<'a> {
 /// Splits a class name into the text of its variants and its utility
 /// (ex. `hover:focus:p-4` to `hover:focus:` and `p-4`).
 fn split_utility(class_name: &str) -> Option<(&str, &str)> {
-  let mut arbitrary_block_depth = 0;
+  let mut arbitrary_blocks = ArbitraryBlocks::default();
   let mut utility_start = 0;
-  for (index, byte) in class_name.bytes().enumerate() {
-    match byte {
-      b'[' | b'(' => arbitrary_block_depth += 1,
-      b']' | b')' => {
-        if arbitrary_block_depth == 0 {
-          return None;
-        }
-        arbitrary_block_depth -= 1;
-      }
-      b':' if arbitrary_block_depth == 0 => utility_start = index + 1,
-      _ => {}
+  for (index, c) in class_name.char_indices() {
+    if arbitrary_blocks.is_outside(c) && c == ':' {
+      utility_start = index + 1;
     }
   }
-  if arbitrary_block_depth != 0 || utility_start == class_name.len() {
+  if !arbitrary_blocks.is_balanced() || utility_start == class_name.len() {
     return None;
   }
   Some(class_name.split_at(utility_start))
@@ -366,15 +359,49 @@ fn split_utility(class_name: &str) -> Option<(&str, &str)> {
 
 /// Splits on the separators that aren't in an arbitrary value (ex. not the colon in `[&:hover]:`).
 fn split_top_level(text: &str, separator: char) -> impl Iterator<Item = &str> {
-  let mut arbitrary_block_depth = 0;
-  text.split(move |c| {
-    match c {
-      '[' | '(' => arbitrary_block_depth += 1,
-      ']' | ')' => arbitrary_block_depth -= 1,
-      _ => return c == separator && arbitrary_block_depth == 0,
+  let mut arbitrary_blocks = ArbitraryBlocks::default();
+  text.split(move |c| arbitrary_blocks.is_outside(c) && c == separator)
+}
+
+/// Keeps track of being in an arbitrary value while going over the characters of a
+/// class name (ex. the `&:hover` in `[&:hover]:flex`). The brackets that are in quotes
+/// or escaped are part of the value like they are in Tailwind (ex. `content-[')']`).
+#[derive(Default)]
+struct ArbitraryBlocks {
+  depth: usize,
+  quote: Option<char>,
+  is_escaped: bool,
+  has_unopened_close: bool,
+}
+
+impl ArbitraryBlocks {
+  /// Moves past the character and gets if it's outside of the arbitrary values.
+  fn is_outside(&mut self, c: char) -> bool {
+    if self.is_escaped {
+      self.is_escaped = false;
+      return false;
+    }
+    match (self.quote, c) {
+      (_, '\\') => self.is_escaped = true,
+      (Some(quote), _) => {
+        if c == quote {
+          self.quote = None;
+        }
+      }
+      (None, '"' | '\'') => self.quote = Some(c),
+      (None, '[' | '(') => self.depth += 1,
+      (None, ']' | ')') => match self.depth.checked_sub(1) {
+        Some(depth) => self.depth = depth,
+        None => self.has_unopened_close = true,
+      },
+      (None, _) => return self.depth == 0,
     }
     false
-  })
+  }
+
+  fn is_balanced(&self) -> bool {
+    self.depth == 0 && !self.has_unopened_close
+  }
 }
 
 /// Splits off what follows the last slash (ex. `bg-red-500/50` to `bg-red-500` and `50`).
@@ -914,6 +941,19 @@ mod test {
   #[test]
   fn only_separates_on_ascii_whitespace() {
     assert_sorts("block px-1\u{3000}py-2", "px-1\u{3000}py-2 block");
+  }
+
+  #[test]
+  fn handles_quotes_and_escapes_in_arbitrary_values() {
+    // these are what Tailwind sorts them to
+    assert_sorts("p-4 before:content-[')'] flex", "flex p-4 before:content-[')']");
+    assert_sorts("p-4 content-[']'] flex", "flex p-4 content-[']']");
+    assert_sorts("p-4 content-['['] flex", "flex p-4 content-['[']");
+    assert_sorts("p-4 content-['a:b'] flex", "flex p-4 content-['a:b']");
+    assert_sorts("p-4 [&:is(a,'b:c')]:flex hover:flex m-2", "m-2 p-4 hover:flex [&:is(a,'b:c')]:flex");
+    assert_sorts("p-4 bg-[url('a/b.png')] flex", "flex bg-[url('a/b.png')] p-4");
+    assert_sorts("p-4 content-[\\]] flex", "flex p-4 content-[\\]]");
+    assert_sorts("p-4 content-[]] flex", "content-[]] flex p-4");
   }
 
   #[test]

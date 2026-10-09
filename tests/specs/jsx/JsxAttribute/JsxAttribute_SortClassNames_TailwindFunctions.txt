@@ -1,5 +1,5 @@
 -- file.jsx --
-~~ { "jsx.sortClassNames": "tailwind", "jsx.sortClassNames.functions": ["cn", "classnames", "tw"] } ~~
+~~ { "jsx.sortClassNames": { "kind": "tailwind", "functions": ["cn", "classnames", "tw"] } } ~~
 == should sort configured function call string arguments ==
 const value = cn("p-4 flex", classnames("p-2 inline"));
 

@@ -33,3 +33,23 @@ const value = <Outer className={<Inner title="p-4 flex" className="p-4 flex" />}
 
 [expect]
 const value = <Outer className={<Inner title="flex p-4" className="flex p-4" />} />;
+
+== should only remove the whitespace at the ends of a string in a template literal when the text beside it has whitespace ==
+const a = <div className={`foo ${"  p-4 flex  "} bar`} />;
+const b = <div className={`a${"  p-4 flex  "}b`} />;
+const c = <div className={`a${"  p-4 flex  "} b`} />;
+const d = <div className={`${"  p-4 flex  "} a ${"  p-4 flex  "}`} />;
+
+[expect]
+const a = <div className={`foo ${"flex p-4"} bar`} />;
+const b = <div className={`a${" flex p-4 "}b`} />;
+const c = <div className={`a${" flex p-4"} b`} />;
+const d = <div className={`${" flex p-4"} a ${"flex p-4 "}`} />;
+
+== should only treat ASCII whitespace as separating the classes in a template literal from an expression ==
+const a = <div className={`p-4 flex　${value}`} />;
+const b = <div className={`${value}　p-4 flex`} />;
+
+[expect]
+const a = <div className={`p-4 flex　${value}`} />;
+const b = <div className={`${value}　p-4 flex`} />;

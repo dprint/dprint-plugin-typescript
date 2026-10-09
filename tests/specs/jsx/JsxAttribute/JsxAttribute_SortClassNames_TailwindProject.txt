@@ -1,5 +1,5 @@
 -- file.jsx --
-~~ { "jsx.sortClassNames": "tailwind", "jsx.sortClassNames.tailwind.prefix": "tw", "jsx.sortClassNames.tailwind.theme": { "--breakpoint-3xl": "120rem", "--text-huge": "4rem", "--color-brand": "#f00" }, "jsx.sortClassNames.tailwind.variants": ["hocus"], "jsx.sortClassNames.tailwind.utilities": { "btn": ["display", "padding"], "tab-*": ["tab-size"] } } ~~
+~~ { "jsx.sortClassNames": { "kind": "tailwind", "prefix": "tw", "theme": { "--breakpoint-3xl": "120rem", "--text-huge": "4rem", "--color-brand": "#f00" }, "variants": ["hocus"], "utilities": { "btn": ["display", "padding"], "tab-*": ["tab-size"] } } } ~~
 == should only sort the classes that have the prefix ==
 const value = <div className="tw:p-4 flex tw:flex p-4" />;
 

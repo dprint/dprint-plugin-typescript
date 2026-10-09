@@ -1,5 +1,5 @@
 -- file.jsx --
-~~ { "jsx.sortClassNames": "tailwind", "jsx.sortClassNames.attributes": ["classList", "data-classes"], "jsx.sortClassNames.preserveWhitespace": true, "jsx.sortClassNames.preserveDuplicates": true } ~~
+~~ { "jsx.sortClassNames": { "kind": "tailwind", "attributes": ["classList", "data-classes"], "preserveWhitespace": true, "preserveDuplicates": true } } ~~
 == should sort the configured attributes ==
 const value = <div classList="p-4 flex" data-classes="p-4 flex" other="p-4 flex" className="p-4 flex" />;
 

@@ -4272,8 +4272,8 @@ fn get_tpl_element_class_names_sort_options(node: &TplElement, context: &Context
   let text = node.text_fast(context.program);
   // the class at an end is only part of a class name when the text
   // isn't separated from the neighbouring expression by whitespace
-  options.ignore_first = index > 0 && !text.starts_with(char::is_whitespace);
-  options.ignore_last = !is_last && !text.ends_with(char::is_whitespace);
+  options.ignore_first = index > 0 && !text.starts_with(tailwind::is_class_separator);
+  options.ignore_last = !is_last && !text.ends_with(tailwind::is_class_separator);
   options.collapse_start &= index == 0;
   options.collapse_end &= is_last;
   Some(options)
@@ -4283,13 +4283,13 @@ fn get_tpl_element_class_names_sort_options(node: &TplElement, context: &Context
 /// `None` when it's not somewhere that's known to have class names. This looks for
 /// the same places as prettier-plugin-tailwindcss.
 fn get_class_names_sort_options(node: Node, context: &Context) -> Option<tailwind::SortOptions> {
-  if context.config.jsx_sort_class_names != JsxClassNamesSortOrder::Tailwind {
+  if context.config.jsx_sort_class_names.kind != JsxClassNamesSortOrder::Tailwind {
     return None;
   }
 
   let mut options = tailwind::SortOptions {
-    preserve_whitespace: context.config.jsx_sort_class_names_preserve_whitespace,
-    preserve_duplicates: context.config.jsx_sort_class_names_preserve_duplicates,
+    preserve_whitespace: context.config.jsx_sort_class_names.preserve_whitespace,
+    preserve_duplicates: context.config.jsx_sort_class_names.preserve_duplicates,
     ..Default::default()
   };
   let mut child = node;
@@ -4324,16 +4324,11 @@ fn get_class_names_sort_options(node: Node, context: &Context) -> Option<tailwin
         }
       }
       Node::Tpl(tpl) => {
-        // this is an expression in a template literal, so follow Prettier's
-        // plugin on when the whitespace next to the expression may be removed
-        for quasi in tpl.quasis.iter() {
-          let quasi_text = quasi.text_fast(context.program);
-          if quasi.end() + 2 >= child.start() {
-            options.collapse_start &= quasi_text.starts_with(char::is_whitespace);
-          }
-          if quasi.start() + 2 >= child.end() {
-            options.collapse_end &= quasi_text.ends_with(char::is_whitespace);
-          }
+        // this is an expression in a template literal, so the whitespace at an end may
+        // only be removed when the text next to it has whitespace to separate the classes
+        if let Some(index) = tpl.exprs.iter().position(|expr| expr.start() == child.start()) {
+          options.collapse_start &= tpl.quasis[index].text_fast(context.program).ends_with(tailwind::is_class_separator);
+          options.collapse_end &= tpl.quasis[index + 1].text_fast(context.program).starts_with(tailwind::is_class_separator);
         }
       }
       _ => {}
@@ -4345,22 +4340,22 @@ fn get_class_names_sort_options(node: Node, context: &Context) -> Option<tailwin
 
 fn is_class_names_jsx_attr(attr: &JSXAttr, context: &Context) -> bool {
   let name = attr.name.text_fast(context.program);
-  matches!(name, "class" | "className") || context.config.jsx_sort_class_names_attributes.iter().any(|attribute_name| attribute_name == name)
+  matches!(name, "class" | "className") || context.config.jsx_sort_class_names.attributes.iter().any(|attribute_name| attribute_name == name)
 }
 
 fn get_tailwind_project<'a>(context: &Context<'a>) -> tailwind::Project<'a> {
-  let config = context.config;
+  let config = &context.config.jsx_sort_class_names;
   tailwind::Project {
-    prefix: config.jsx_sort_class_names_tailwind_prefix.as_deref(),
-    theme: &config.jsx_sort_class_names_tailwind_theme,
-    variants: &config.jsx_sort_class_names_tailwind_variants,
-    utilities: &config.jsx_sort_class_names_tailwind_utilities,
+    prefix: config.prefix.as_deref(),
+    theme: &config.theme,
+    variants: &config.variants,
+    utilities: &config.utilities,
   }
 }
 
 /// Gets if the expression starts with one of the configured function names (ex. `cn` in `cn.foo("")`).
 fn is_class_names_function(expr: Expr, context: &Context) -> bool {
-  if context.config.jsx_sort_class_names_functions.is_empty() {
+  if context.config.jsx_sort_class_names.functions.is_empty() {
     return false;
   }
 
@@ -4369,7 +4364,7 @@ fn is_class_names_function(expr: Expr, context: &Context) -> bool {
     expr = match expr {
       Expr::Ident(ident) => {
         let name = ident.text_fast(context.program);
-        return context.config.jsx_sort_class_names_functions.iter().any(|function_name| function_name == name);
+        return context.config.jsx_sort_class_names.functions.iter().any(|function_name| function_name == name);
       }
       Expr::Member(member_expr) => member_expr.obj,
       Expr::Call(call_expr) => match call_expr.callee {
