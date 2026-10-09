@@ -4301,8 +4301,16 @@ fn get_class_names_sort_options<'a>(node: Node<'a>, context: &Context<'a>) -> Op
     preserve_duplicates: context.config.jsx_sort_class_names.preserve_duplicates,
     ..Default::default()
   };
+  let text = get_class_names_text(node, context);
+  let starts_with_separator = text.starts_with(tailwind::is_class_separator);
+  let ends_with_separator = text.ends_with(tailwind::is_class_separator);
+  // if the text is at the start and the end of the string the child evaluates to, which is when what's
+  // beside the child is beside the text and so needs whitespace to not be part of the class at that end
+  let mut is_at_start = true;
+  let mut is_at_end = true;
   let mut child = node;
   while let Some(parent) = child.parent() {
+    let mut keeps_ends = false;
     match parent {
       Node::JSXAttr(attr) if is_class_names_jsx_attr(attr, context) => return Some(options),
       Node::CallExpr(call_expr) => {
@@ -4325,29 +4333,46 @@ fn get_class_names_sort_options<'a>(node: Node<'a>, context: &Context<'a>) -> Op
         }
       }
       Node::BinExpr(bin_expr) if bin_expr.op() == BinaryOp::Add => {
-        // the whitespace between concatenated strings separates their class names and
-        // without it the class at that end may only be part of a class name
+        // the whitespace between concatenated strings separates their class names
+        keeps_ends = true;
         if child.start() == bin_expr.left.start() {
           options.collapse_end = false;
-          options.ignore_last |= node.end() == bin_expr.left.end()
-            && !get_class_names_text(node, context).ends_with(tailwind::is_class_separator)
-            && !get_class_names_text(bin_expr.right.into(), context).starts_with(tailwind::is_class_separator);
+          let is_separated = ends_with_separator || get_class_names_text(bin_expr.right.into(), context).starts_with(tailwind::is_class_separator);
+          options.ignore_last |= is_at_end && !is_separated;
+          is_at_end = false;
         } else {
           options.collapse_start = false;
-          options.ignore_first |= node.start() == bin_expr.right.start()
-            && !get_class_names_text(node, context).starts_with(tailwind::is_class_separator)
-            && !get_class_names_text(bin_expr.left.into(), context).ends_with(tailwind::is_class_separator);
+          let is_separated = starts_with_separator || get_class_names_text(bin_expr.left.into(), context).ends_with(tailwind::is_class_separator);
+          options.ignore_first |= is_at_start && !is_separated;
+          is_at_start = false;
         }
       }
       Node::Tpl(tpl) => {
         // this is an expression in a template literal, so the whitespace at an end may
         // only be removed when the text next to it has whitespace to separate the classes
         if let Some(index) = tpl.exprs.iter().position(|expr| expr.start() == child.start()) {
-          options.collapse_start &= tpl.quasis[index].text_fast(context.program).ends_with(tailwind::is_class_separator);
-          options.collapse_end &= tpl.quasis[index + 1].text_fast(context.program).starts_with(tailwind::is_class_separator);
+          keeps_ends = true;
+          let text_before = tpl.quasis[index].text_fast(context.program);
+          let text_after = tpl.quasis[index + 1].text_fast(context.program);
+          let is_separated_before = text_before.ends_with(tailwind::is_class_separator);
+          let is_separated_after = text_after.starts_with(tailwind::is_class_separator);
+          options.collapse_start &= is_separated_before;
+          options.collapse_end &= is_separated_after;
+          // nothing is before the first expression or after the last one when there's no text there
+          let is_first = index == 0 && text_before.is_empty();
+          let is_last = index + 1 == tpl.exprs.len() && text_after.is_empty();
+          options.ignore_first |= is_at_start && !is_first && !is_separated_before && !starts_with_separator;
+          options.ignore_last |= is_at_end && !is_last && !is_separated_after && !ends_with_separator;
+          is_at_start &= is_first;
+          is_at_end &= is_last;
         }
       }
+      Node::ParenExpr(_) | Node::CondExpr(_) => keeps_ends = true,
       _ => {}
+    }
+    if !keeps_ends {
+      is_at_start = false;
+      is_at_end = false;
     }
     child = parent;
   }

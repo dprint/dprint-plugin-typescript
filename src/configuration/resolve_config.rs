@@ -384,7 +384,7 @@ fn get_jsx_sort_class_names(config: &mut ConfigKeyMap, diagnostics: &mut Vec<Con
     theme: get_map(&mut values, "theme", &mut object_diagnostics, |value| match value {
       ConfigKeyValue::String(value) => Ok(value),
       ConfigKeyValue::Number(value) => Ok(value.to_string()),
-      _ => Err("Expected a string."),
+      _ => Err("Expected a string or number."),
     }),
     variants: get_string_vec(&mut values, "variants", &mut object_diagnostics),
     utilities: get_map(&mut values, "utilities", &mut object_diagnostics, |value| match value {
