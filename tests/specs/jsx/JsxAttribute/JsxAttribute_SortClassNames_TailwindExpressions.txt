@@ -65,3 +65,23 @@ const a = <div className={" "} />;
 const b = <div className=" " />;
 const c = <div className={` `} />;
 const d = <div className={""} />;
+
+== should keep the class beside what a string is concatenated with when there's no whitespace between them ==
+const a = <div className={"sm:block inline flex" + suffix} />;
+const b = <div className={prefix + "sm:block inline flex"} />;
+const c = <div className={prefix + "sm:block inline flex" + suffix} />;
+const d = <div className={"p-4 flex p-" + size} />;
+const e = <div className={`sm:block inline flex` + suffix} />;
+const f = <div className={prefix + `sm:block ${value} inline flex`} />;
+const g = <div className={"sm:block inline flex" + " p-4 m-2"} />;
+const h = <div className={"sm:block inline flex " + "p-4 m-2"} />;
+
+[expect]
+const a = <div className={"inline sm:block flex" + suffix} />;
+const b = <div className={prefix + "sm:block flex inline"} />;
+const c = <div className={prefix + "sm:block inline flex" + suffix} />;
+const d = <div className={"flex p-4 p-" + size} />;
+const e = <div className={`inline sm:block flex` + suffix} />;
+const f = <div className={prefix + `sm:block ${value} flex inline`} />;
+const g = <div className={"flex inline sm:block" + " m-2 p-4"} />;
+const h = <div className={"flex inline sm:block " + "m-2 p-4"} />;

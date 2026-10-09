@@ -4263,7 +4263,7 @@ fn gen_string_literal<'a>(node: &Str<'a>, context: &mut Context<'a>) -> PrintIte
   }
 }
 
-fn get_tpl_element_class_names_sort_options(node: &TplElement, context: &Context) -> Option<tailwind::SortOptions> {
+fn get_tpl_element_class_names_sort_options<'a>(node: &TplElement<'a>, context: &Context<'a>) -> Option<tailwind::SortOptions> {
   let Some(Node::Tpl(tpl)) = node.as_node().parent() else {
     return None;
   };
@@ -4273,8 +4273,16 @@ fn get_tpl_element_class_names_sort_options(node: &TplElement, context: &Context
   let text = node.text_fast(context.program);
   // the class at an end is only part of a class name when the text
   // isn't separated from the neighbouring expression by whitespace
-  options.ignore_first = index > 0 && !text.starts_with(tailwind::is_class_separator);
-  options.ignore_last = !is_last && !text.ends_with(tailwind::is_class_separator);
+  options.ignore_first = if index > 0 {
+    !text.starts_with(tailwind::is_class_separator)
+  } else {
+    options.ignore_first
+  };
+  options.ignore_last = if is_last {
+    options.ignore_last
+  } else {
+    !text.ends_with(tailwind::is_class_separator)
+  };
   options.collapse_start &= index == 0;
   options.collapse_end &= is_last;
   Some(options)
@@ -4283,7 +4291,7 @@ fn get_tpl_element_class_names_sort_options(node: &TplElement, context: &Context
 /// Gets how to sort the class names in the provided string or template literal, or
 /// `None` when it's not somewhere that's known to have class names. This looks for
 /// the same places as prettier-plugin-tailwindcss.
-fn get_class_names_sort_options(node: Node, context: &Context) -> Option<tailwind::SortOptions> {
+fn get_class_names_sort_options<'a>(node: Node<'a>, context: &Context<'a>) -> Option<tailwind::SortOptions> {
   if context.config.jsx_sort_class_names.kind != JsxClassNamesSortOrder::Tailwind {
     return None;
   }
@@ -4317,11 +4325,18 @@ fn get_class_names_sort_options(node: Node, context: &Context) -> Option<tailwin
         }
       }
       Node::BinExpr(bin_expr) if bin_expr.op() == BinaryOp::Add => {
-        // the whitespace between concatenated strings separates their class names
+        // the whitespace between concatenated strings separates their class names and
+        // without it the class at that end may only be part of a class name
         if child.start() == bin_expr.left.start() {
           options.collapse_end = false;
+          options.ignore_last |= node.end() == bin_expr.left.end()
+            && !get_class_names_text(node, context).ends_with(tailwind::is_class_separator)
+            && !get_class_names_text(bin_expr.right.into(), context).starts_with(tailwind::is_class_separator);
         } else {
           options.collapse_start = false;
+          options.ignore_first |= node.start() == bin_expr.right.start()
+            && !get_class_names_text(node, context).starts_with(tailwind::is_class_separator)
+            && !get_class_names_text(bin_expr.left.into(), context).ends_with(tailwind::is_class_separator);
         }
       }
       Node::Tpl(tpl) => {
@@ -4337,6 +4352,17 @@ fn get_class_names_sort_options(node: Node, context: &Context) -> Option<tailwin
     child = parent;
   }
   None
+}
+
+/// Gets the text within the quotes of a string or template literal and otherwise an empty string.
+fn get_class_names_text<'a>(node: Node<'a>, context: &Context<'a>) -> &'a str {
+  match node {
+    Node::Str(_) | Node::Tpl(_) => {
+      let text = node.text_fast(context.program);
+      &text[1..text.len() - 1]
+    }
+    _ => "",
+  }
 }
 
 fn is_class_names_jsx_attr(attr: &JSXAttr, context: &Context) -> bool {

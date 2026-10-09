@@ -53,16 +53,16 @@ const value = <div class={"sm:p-0 p-0"} />;
 const value = <div class={"p-0 sm:p-0"} />;
 
 == should sort concatenated strings ==
-const value = <div class={"sm:p-0 p-0" + "sm:p-0 p-0"} />;
+const value = <div class={"sm:p-0 p-0 " + "sm:p-0 p-0"} />;
 
 [expect]
-const value = <div class={"p-0 sm:p-0" + "p-0 sm:p-0"} />;
+const value = <div class={"p-0 sm:p-0 " + "p-0 sm:p-0"} />;
 
 == should sort strings in a conditional expression ==
-const value = <div class={"sm:p-0 p-0" ? "sm:p-0 p-0" + "sm:p-0 p-0" : "sm:p-0 p-0"} />;
+const value = <div class={"sm:p-0 p-0" ? "sm:p-0 p-0 " + "sm:p-0 p-0" : "sm:p-0 p-0"} />;
 
 [expect]
-const value = <div class={"p-0 sm:p-0" ? "p-0 sm:p-0" + "p-0 sm:p-0" : "p-0 sm:p-0"} />;
+const value = <div class={"p-0 sm:p-0" ? "p-0 sm:p-0 " + "p-0 sm:p-0" : "p-0 sm:p-0"} />;
 
 == should sort strings in call arguments and arrays ==
 const value = <div class={clsx("sm:p-0 p-0", ["sm:p-0 p-0"])} />;
