@@ -53,3 +53,15 @@ const b = <div className={`${value}　p-4 flex`} />;
 [expect]
 const a = <div className={`p-4 flex　${value}`} />;
 const b = <div className={`${value}　p-4 flex`} />;
+
+== should collapse a string that only has whitespace ==
+const a = <div className={"   "} />;
+const b = <div className="   " />;
+const c = <div className={`   `} />;
+const d = <div className={""} />;
+
+[expect]
+const a = <div className={" "} />;
+const b = <div className=" " />;
+const c = <div className={` `} />;
+const d = <div className={""} />;

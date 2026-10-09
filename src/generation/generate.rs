@@ -4249,7 +4249,8 @@ fn gen_string_literal<'a>(node: &Str<'a>, context: &mut Context<'a>) -> PrintIte
   if let Some(options) = get_class_names_sort_options(node.into(), context) {
     let sorted_value = match tailwind::sort_class_names(&string_value, &options, &get_tailwind_project(context)) {
       Cow::Owned(sorted_value) => Some(sorted_value),
-      Cow::Borrowed(_) => None,
+      // it's only borrowed and different when there's only whitespace
+      Cow::Borrowed(sorted_value) => (sorted_value != string_value).then(|| sorted_value.to_string()),
     };
     if let Some(sorted_value) = sorted_value {
       string_value = sorted_value;

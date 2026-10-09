@@ -477,9 +477,17 @@ fn get_theme_position(root: &str, value: &str, project: &Project) -> Option<u16>
 }
 
 /// Gets the position of a utility that sets the provided CSS properties.
-fn get_properties_position<'a>(properties: impl Iterator<Item = &'a str>, declaration_count: usize) -> u16 {
-  // the indexes of the properties in Tailwind's property order from lowest to highest
-  let mut order = [0; 32];
+fn get_properties_position<'a>(properties: impl ExactSizeIterator<Item = &'a str>, declaration_count: usize) -> u16 {
+  // the indexes of the properties in Tailwind's property order from lowest to highest,
+  // which only needs to allocate for a utility that sets a lot of properties
+  let mut small_order = [0; 32];
+  let mut large_order;
+  let order: &mut [u16] = if properties.len() <= small_order.len() {
+    &mut small_order
+  } else {
+    large_order = vec![0; properties.len()];
+    &mut large_order
+  };
   let mut len = 0;
   for index in properties
     .filter_map(|property| find(PROPERTIES, property, |entry| entry.0))
@@ -487,7 +495,7 @@ fn get_properties_position<'a>(properties: impl Iterator<Item = &'a str>, declar
   {
     let insert_index = order[..len].partition_point(|other| *other < index);
     let is_new = insert_index == len || order[insert_index] != index;
-    if is_new && len < order.len() {
+    if is_new {
       order.copy_within(insert_index..len, insert_index + 1);
       order[insert_index] = index;
       len += 1;
@@ -941,6 +949,53 @@ mod test {
   #[test]
   fn only_separates_on_ascii_whitespace() {
     assert_sorts("block px-1\u{3000}py-2", "px-1\u{3000}py-2 block");
+  }
+
+  #[test]
+  fn sorts_custom_utilities_with_many_properties() {
+    // this is where Tailwind puts a utility that sets these properties
+    let properties = [
+      "text-transform",
+      "font-style",
+      "font-stretch",
+      "font-variant-numeric",
+      "text-decoration-line",
+      "text-decoration-color",
+      "text-decoration-style",
+      "text-decoration-thickness",
+      "text-underline-offset",
+      "-webkit-font-smoothing",
+      "caret-color",
+      "accent-color",
+      "color-scheme",
+      "opacity",
+      "background-blend-mode",
+      "mix-blend-mode",
+      "box-shadow",
+      "outline",
+      "outline-width",
+      "outline-offset",
+      "outline-color",
+      "filter",
+      "backdrop-filter",
+      "transition-property",
+      "transition-behavior",
+      "transition-delay",
+      "transition-duration",
+      "transition-timing-function",
+      "will-change",
+      "contain",
+      "content",
+      "forced-color-adjust",
+      "display",
+    ];
+    let utilities = BTreeMap::from([("big".to_string(), properties.iter().map(|property| property.to_string()).collect())]);
+    let project = Project {
+      utilities: &utilities,
+      ..Default::default()
+    };
+    let actual = sort_class_names("p-4 big flex opacity-50 m-2", &Default::default(), &project);
+    assert_eq!(actual, "m-2 big flex p-4 opacity-50");
   }
 
   #[test]
