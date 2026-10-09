@@ -123,6 +123,37 @@ impl ConfigurationBuilder {
     self.insert("jsx.multiLineParens", value.to_string().into())
   }
 
+  /// How to sort JSX class attribute values, which is either only the kind of sorting
+  /// (ex. `JsxClassNamesSortOrder::Tailwind`) or a `JsxClassNamesSortConfig` with its options.
+  ///
+  /// Default: `JsxClassNamesSortOrder::Maintain`
+  pub fn jsx_sort_class_names(&mut self, value: impl Into<JsxClassNamesSortConfig>) -> &mut Self {
+    fn to_array(values: Vec<String>) -> ConfigKeyValue {
+      ConfigKeyValue::Array(values.into_iter().map(ConfigKeyValue::String).collect())
+    }
+
+    let value = value.into();
+    let mut values = ConfigKeyMap::new();
+    values.insert("kind".to_string(), value.kind.to_string().into());
+    values.insert("functions".to_string(), to_array(value.functions));
+    values.insert("attributes".to_string(), to_array(value.attributes));
+    values.insert("preserveWhitespace".to_string(), value.preserve_whitespace.into());
+    values.insert("preserveDuplicates".to_string(), value.preserve_duplicates.into());
+    if let Some(prefix) = value.prefix {
+      values.insert("prefix".to_string(), prefix.into());
+    }
+    values.insert(
+      "theme".to_string(),
+      ConfigKeyValue::Object(value.theme.into_iter().map(|(name, value)| (name, value.into())).collect()),
+    );
+    values.insert("variants".to_string(), to_array(value.variants));
+    values.insert(
+      "utilities".to_string(),
+      ConfigKeyValue::Object(value.utilities.into_iter().map(|(name, properties)| (name, to_array(properties))).collect()),
+    );
+    self.insert("jsx.sortClassNames", ConfigKeyValue::Object(values))
+  }
+
   /// Forces newlines surrounding the content of JSX elements.
   ///
   /// Default: `false`
@@ -1112,6 +1143,11 @@ mod tests {
       .quote_style(QuoteStyle::AlwaysDouble)
       .jsx_quote_style(JsxQuoteStyle::PreferSingle)
       .jsx_multi_line_parens(JsxMultiLineParens::Never)
+      .jsx_sort_class_names(JsxClassNamesSortConfig {
+        functions: vec!["cn".to_string()],
+        prefix: Some("tw".to_string()),
+        ..JsxClassNamesSortOrder::Tailwind.into()
+      })
       .jsx_force_new_lines_surrounding_content(true)
       .jsx_bracket_position(SameOrNextLinePosition::Maintain)
       .jsx_opening_element_bracket_position(SameOrNextLinePosition::Maintain)
@@ -1305,7 +1341,7 @@ mod tests {
       .while_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 182);
+    assert_eq!(inner_config.len(), 183);
     let diagnostics = resolve_config(inner_config, &Default::default()).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

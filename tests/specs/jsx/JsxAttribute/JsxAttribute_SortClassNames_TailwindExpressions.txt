@@ -1,0 +1,121 @@
+-- file.jsx --
+~~ jsx.sortClassNames: tailwind ~~
+== should sort string literals inside className expression containers ==
+const value = <div className={cn("p-4 flex", active && "p-2 inline")} />;
+
+[expect]
+const value = <div className={cn("flex p-4", active && "inline p-2")} />;
+
+== should sort object keys inside className expression containers ==
+const value = <div className={cn({ "px-2 p-4": active })} />;
+
+[expect]
+const value = <div className={cn({ "p-4 px-2": active })} />;
+
+== should sort template literals inside className expression containers ==
+const value = <div className={`p-4 flex`} />;
+
+[expect]
+const value = <div className={`flex p-4`} />;
+
+== should keep the whitespace between a string and what it's concatenated with ==
+const a = <div className={"p-4 flex " + extra} />;
+const b = <div className={first + " " + second} />;
+const c = <div className={first + "  p-4 flex  " + second} />;
+
+[expect]
+const a = <div className={"flex p-4 " + extra} />;
+const b = <div className={first + " " + second} />;
+const c = <div className={first + " flex p-4 " + second} />;
+
+== should sort every string in a className expression like Prettier's plugin does ==
+const value = <Outer className={<Inner title="p-4 flex" className="p-4 flex" />} />;
+
+[expect]
+const value = <Outer className={<Inner title="flex p-4" className="flex p-4" />} />;
+
+== should only remove the whitespace at the ends of a string in a template literal when the text beside it has whitespace ==
+const a = <div className={`foo ${"  p-4 flex  "} bar`} />;
+const b = <div className={`a${"  p-4 flex  "}b`} />;
+const c = <div className={`a${"  p-4 flex  "} b`} />;
+const d = <div className={`${"  p-4 flex  "} a ${"  p-4 flex  "}`} />;
+
+[expect]
+const a = <div className={`foo ${"flex p-4"} bar`} />;
+const b = <div className={`a${" flex p-4 "}b`} />;
+const c = <div className={`a${" flex p-4"} b`} />;
+const d = <div className={`${" flex p-4"} a ${"flex p-4 "}`} />;
+
+== should only treat ASCII whitespace as separating the classes in a template literal from an expression ==
+const a = <div className={`p-4 flex　${value}`} />;
+const b = <div className={`${value}　p-4 flex`} />;
+
+[expect]
+const a = <div className={`p-4 flex　${value}`} />;
+const b = <div className={`${value}　p-4 flex`} />;
+
+== should collapse a string that only has whitespace ==
+const a = <div className={"   "} />;
+const b = <div className="   " />;
+const c = <div className={`   `} />;
+const d = <div className={""} />;
+
+[expect]
+const a = <div className={" "} />;
+const b = <div className=" " />;
+const c = <div className={` `} />;
+const d = <div className={""} />;
+
+== should keep the class beside what a string is concatenated with when there's no whitespace between them ==
+const a = <div className={"sm:block inline flex" + suffix} />;
+const b = <div className={prefix + "sm:block inline flex"} />;
+const c = <div className={prefix + "sm:block inline flex" + suffix} />;
+const d = <div className={"p-4 flex p-" + size} />;
+const e = <div className={`sm:block inline flex` + suffix} />;
+const f = <div className={prefix + `sm:block ${value} inline flex`} />;
+const g = <div className={"sm:block inline flex" + " p-4 m-2"} />;
+const h = <div className={"sm:block inline flex " + "p-4 m-2"} />;
+
+[expect]
+const a = <div className={"inline sm:block flex" + suffix} />;
+const b = <div className={prefix + "sm:block flex inline"} />;
+const c = <div className={prefix + "sm:block inline flex" + suffix} />;
+const d = <div className={"flex p-4 p-" + size} />;
+const e = <div className={`inline sm:block flex` + suffix} />;
+const f = <div className={prefix + `sm:block ${value} flex inline`} />;
+const g = <div className={"flex inline sm:block" + " m-2 p-4"} />;
+const h = <div className={"flex inline sm:block " + "m-2 p-4"} />;
+
+== should keep the class beside the text of a template literal when there's no whitespace between them ==
+const a = <div className={`x${"p-4 flex"}y`} />;
+const b = <div className={`x ${"p-4 flex"}y`} />;
+const c = <div className={`x${"p-4 flex"} y`} />;
+const d = <div className={`${"p-4 flex m-2"}${"p-4 flex m-2"}`} />;
+const e = <div className={`${"p-4 flex"}`} />;
+const f = <div className={`x${cond ? "p-4 flex m-2" : "p-4 flex m-2 "}y`} />;
+const g = <div className={`x${cn("p-4 flex")}y`} />;
+const h = <div className={(cond ? "p-4 flex m-2" : " p-4 flex m-2") + suffix} />;
+const i = <div className={`${"p-4 flex m-2"}` + suffix} />;
+
+[expect]
+const a = <div className={`x${"p-4 flex"}y`} />;
+const b = <div className={`x ${"p-4 flex"}y`} />;
+const c = <div className={`x${"p-4 flex"} y`} />;
+const d = <div className={`${"flex p-4 m-2"}${"p-4 m-2 flex"}`} />;
+const e = <div className={`${"flex p-4"}`} />;
+const f = <div className={`x${cond ? "p-4 flex m-2" : "p-4 m-2 flex "}y`} />;
+const g = <div className={`x${cn("flex p-4")}y`} />;
+const h = <div className={(cond ? "flex p-4 m-2" : "flex p-4 m-2") + suffix} />;
+const i = <div className={`${"flex p-4 m-2"}` + suffix} />;
+
+== should keep the class beside what's concatenated with a logical expression when there's no whitespace between them ==
+const a = <div className={prefix + (active && "sm:block inline flex")} />;
+const b = <div className={(value ?? "sm:block inline flex") + suffix} />;
+const c = <div className={`x${active || "sm:block inline flex"}y`} />;
+const d = <div className={prefix + (active && " sm:block inline flex")} />;
+
+[expect]
+const a = <div className={prefix + (active && "sm:block flex inline")} />;
+const b = <div className={(value ?? "inline sm:block flex") + suffix} />;
+const c = <div className={`x${active || "sm:block inline flex"}y`} />;
+const d = <div className={prefix + (active && " flex inline sm:block")} />;

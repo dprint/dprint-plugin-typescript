@@ -16,6 +16,7 @@ use dprint_swc_ext::swc::parser::token::Token;
 use dprint_swc_ext::swc::parser::token::TokenAndSpan;
 use dprint_swc_ext::swc::parser::Syntax;
 use dprint_swc_ext::view::*;
+use std::borrow::Cow;
 use std::rc::Rc;
 
 use super::sorting::*;
@@ -23,6 +24,7 @@ use super::swc::get_flattened_bin_expr;
 use super::swc::*;
 use super::*;
 use crate::configuration::*;
+use crate::tailwind;
 use crate::utils;
 
 pub fn generate<'a>(
@@ -3165,7 +3167,11 @@ fn gen_tpl<'a>(node: &Tpl<'a>, context: &mut Context<'a>) -> PrintItems {
 }
 
 fn gen_tpl_element<'a>(node: &TplElement<'a>, context: &mut Context<'a>) -> PrintItems {
-  gen_from_raw_string(node.text_fast(context.program))
+  let text = node.text_fast(context.program);
+  match get_tpl_element_class_names_sort_options(node, context) {
+    Some(options) => gen_from_raw_string(&tailwind::sort_class_names(text, &options, &get_tailwind_project(context))),
+    None => gen_from_raw_string(text),
+  }
 }
 
 fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context: &mut Context<'a>) -> PrintItems {
@@ -4239,11 +4245,194 @@ fn gen_reg_exp_literal(node: &Regex, _: &mut Context) -> PrintItems {
 }
 
 fn gen_string_literal<'a>(node: &Str<'a>, context: &mut Context<'a>) -> PrintItems {
-  let string_value = string_literal::get_value(node, context);
+  let mut string_value = string_literal::get_value(node, context);
+  if let Some(options) = get_class_names_sort_options(node.into(), context) {
+    let sorted_value = match tailwind::sort_class_names(&string_value, &options, &get_tailwind_project(context)) {
+      Cow::Owned(sorted_value) => Some(sorted_value),
+      // it's only borrowed and different when there's only whitespace
+      Cow::Borrowed(sorted_value) => (sorted_value != string_value).then(|| sorted_value.to_string()),
+    };
+    if let Some(sorted_value) = sorted_value {
+      string_value = sorted_value;
+    }
+  }
   if node.parent().is::<JSXAttr>() {
     string_literal::gen_jsx_text(&string_value, context)
   } else {
     string_literal::gen_non_jsx_text(&string_value, context)
+  }
+}
+
+fn get_tpl_element_class_names_sort_options<'a>(node: &TplElement<'a>, context: &Context<'a>) -> Option<tailwind::SortOptions> {
+  let Some(Node::Tpl(tpl)) = node.as_node().parent() else {
+    return None;
+  };
+  let mut options = get_class_names_sort_options(tpl.into(), context)?;
+  let index = tpl.quasis.iter().position(|quasi| quasi.start() == node.start())?;
+  let is_last = index >= tpl.exprs.len();
+  let text = node.text_fast(context.program);
+  // the class at an end is only part of a class name when the text
+  // isn't separated from the neighbouring expression by whitespace
+  options.ignore_first = if index > 0 {
+    !text.starts_with(tailwind::is_class_separator)
+  } else {
+    options.ignore_first
+  };
+  options.ignore_last = if is_last {
+    options.ignore_last
+  } else {
+    !text.ends_with(tailwind::is_class_separator)
+  };
+  options.collapse_start &= index == 0;
+  options.collapse_end &= is_last;
+  Some(options)
+}
+
+/// Gets how to sort the class names in the provided string or template literal, or
+/// `None` when it's not somewhere that's known to have class names. This looks for
+/// the same places as prettier-plugin-tailwindcss.
+fn get_class_names_sort_options<'a>(node: Node<'a>, context: &Context<'a>) -> Option<tailwind::SortOptions> {
+  if context.config.jsx_sort_class_names.kind != JsxClassNamesSortOrder::Tailwind {
+    return None;
+  }
+
+  let mut options = tailwind::SortOptions {
+    preserve_whitespace: context.config.jsx_sort_class_names.preserve_whitespace,
+    preserve_duplicates: context.config.jsx_sort_class_names.preserve_duplicates,
+    ..Default::default()
+  };
+  let text = get_class_names_text(node, context);
+  let starts_with_separator = text.starts_with(tailwind::is_class_separator);
+  let ends_with_separator = text.ends_with(tailwind::is_class_separator);
+  // if the text is at the start and the end of the string the child evaluates to, which is when what's
+  // beside the child is beside the text and so needs whitespace to not be part of the class at that end
+  let mut is_at_start = true;
+  let mut is_at_end = true;
+  let mut child = node;
+  while let Some(parent) = child.parent() {
+    let mut keeps_ends = false;
+    match parent {
+      Node::JSXAttr(attr) if is_class_names_jsx_attr(attr, context) => return Some(options),
+      Node::CallExpr(call_expr) => {
+        if let Callee::Expr(callee) = call_expr.callee
+          && child.start() >= callee.end()
+          && is_class_names_function(callee, context)
+        {
+          return Some(options);
+        }
+      }
+      Node::OptCall(call_expr) => {
+        if child.start() >= call_expr.callee.end() && is_class_names_function(call_expr.callee, context) {
+          return Some(options);
+        }
+      }
+      Node::TaggedTpl(tagged_tpl) => {
+        // only the text of the template has class names, not the strings in its expressions
+        if child.kind() == node.kind() && child.range() == node.range() && is_class_names_function(tagged_tpl.tag, context) {
+          return Some(options);
+        }
+      }
+      Node::BinExpr(bin_expr) if bin_expr.op() == BinaryOp::Add => {
+        // the whitespace between concatenated strings separates their class names
+        keeps_ends = true;
+        if child.start() == bin_expr.left.start() {
+          options.collapse_end = false;
+          let is_separated = ends_with_separator || get_class_names_text(bin_expr.right.into(), context).starts_with(tailwind::is_class_separator);
+          options.ignore_last |= is_at_end && !is_separated;
+          is_at_end = false;
+        } else {
+          options.collapse_start = false;
+          let is_separated = starts_with_separator || get_class_names_text(bin_expr.left.into(), context).ends_with(tailwind::is_class_separator);
+          options.ignore_first |= is_at_start && !is_separated;
+          is_at_start = false;
+        }
+      }
+      Node::Tpl(tpl) => {
+        // this is an expression in a template literal, so the whitespace at an end may
+        // only be removed when the text next to it has whitespace to separate the classes
+        if let Some(index) = tpl.exprs.iter().position(|expr| expr.start() == child.start()) {
+          keeps_ends = true;
+          let text_before = tpl.quasis[index].text_fast(context.program);
+          let text_after = tpl.quasis[index + 1].text_fast(context.program);
+          let is_separated_before = text_before.ends_with(tailwind::is_class_separator);
+          let is_separated_after = text_after.starts_with(tailwind::is_class_separator);
+          options.collapse_start &= is_separated_before;
+          options.collapse_end &= is_separated_after;
+          // nothing is before the first expression or after the last one when there's no text there
+          let is_first = index == 0 && text_before.is_empty();
+          let is_last = index + 1 == tpl.exprs.len() && text_after.is_empty();
+          options.ignore_first |= is_at_start && !is_first && !is_separated_before && !starts_with_separator;
+          options.ignore_last |= is_at_end && !is_last && !is_separated_after && !ends_with_separator;
+          is_at_start &= is_first;
+          is_at_end &= is_last;
+        }
+      }
+      // these evaluate to one of their operands
+      Node::BinExpr(bin_expr) if matches!(bin_expr.op(), BinaryOp::LogicalAnd | BinaryOp::LogicalOr | BinaryOp::NullishCoalescing) => keeps_ends = true,
+      Node::ParenExpr(_) | Node::CondExpr(_) | Node::TsAsExpr(_) | Node::TsSatisfiesExpr(_) | Node::TsNonNullExpr(_) | Node::TsConstAssertion(_) => {
+        keeps_ends = true
+      }
+      _ => {}
+    }
+    if !keeps_ends {
+      is_at_start = false;
+      is_at_end = false;
+    }
+    child = parent;
+  }
+  None
+}
+
+/// Gets the text within the quotes of a string or template literal and otherwise an empty string.
+fn get_class_names_text<'a>(node: Node<'a>, context: &Context<'a>) -> &'a str {
+  match node {
+    Node::Str(_) | Node::Tpl(_) => {
+      let text = node.text_fast(context.program);
+      &text[1..text.len() - 1]
+    }
+    _ => "",
+  }
+}
+
+fn is_class_names_jsx_attr(attr: &JSXAttr, context: &Context) -> bool {
+  let name = attr.name.text_fast(context.program);
+  matches!(name, "class" | "className") || context.config.jsx_sort_class_names.attributes.iter().any(|attribute_name| attribute_name == name)
+}
+
+fn get_tailwind_project<'a>(context: &Context<'a>) -> tailwind::Project<'a> {
+  let config = &context.config.jsx_sort_class_names;
+  tailwind::Project {
+    prefix: config.prefix.as_deref(),
+    theme: &config.theme,
+    variants: &config.variants,
+    utilities: &config.utilities,
+  }
+}
+
+/// Gets if the expression starts with one of the configured function names (ex. `cn` in `cn.foo("")`).
+fn is_class_names_function(expr: Expr, context: &Context) -> bool {
+  if context.config.jsx_sort_class_names.functions.is_empty() {
+    return false;
+  }
+
+  let mut expr = expr;
+  loop {
+    expr = match expr {
+      Expr::Ident(ident) => {
+        let name = ident.text_fast(context.program);
+        return context.config.jsx_sort_class_names.functions.iter().any(|function_name| function_name == name);
+      }
+      Expr::Member(member_expr) => member_expr.obj,
+      Expr::Call(call_expr) => match call_expr.callee {
+        Callee::Expr(callee) => callee,
+        _ => return false,
+      },
+      Expr::OptChain(opt_chain_expr) => match opt_chain_expr.base {
+        OptChainBase::Member(member_expr) => member_expr.obj,
+        OptChainBase::Call(call_expr) => call_expr.callee,
+      },
+      _ => return false,
+    };
   }
 }
 

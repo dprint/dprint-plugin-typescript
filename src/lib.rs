@@ -15,6 +15,7 @@ mod error;
 mod format_text;
 mod generation;
 pub mod parsing;
+mod tailwind;
 mod utils;
 
 /// Re-export of the crate used for the AST in order to

@@ -1,0 +1,7 @@
+-- file.jsx --
+~~ jsx.sortClassNames: tailwind ~~
+== should not sort helper calls by default ==
+const value = cn("p-4 flex");
+
+[expect]
+const value = cn("p-4 flex");
