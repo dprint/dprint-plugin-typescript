@@ -425,28 +425,105 @@ fn roots_and_values(text: &str) -> impl Iterator<Item = (&str, &str)> {
 fn get_utility_position(utility: &str, project: &Project) -> Option<u16> {
   // the important modifier goes at the start in Tailwind 3 and at the end in Tailwind 4
   let utility = utility.strip_prefix('!').or_else(|| utility.strip_suffix('!')).unwrap_or(utility);
-  if let Some(declaration) = utility.strip_prefix('[') {
-    // an arbitrary property (ex. `[color:red]`)
-    let (property, _) = declaration.split_once(':')?;
-    return Some(get_properties_position(std::iter::once(property), 1));
-  }
-  // negative utilities have the position of the positive one
-  let utility = utility.strip_prefix('-').unwrap_or(utility);
-  let (utility_without_modifier, _) = split_modifier(utility);
-  if let Some(position) = get_custom_utility_position(utility_without_modifier, project) {
+  let (utility_without_modifier, modifier) = split_modifier(utility);
+  let Some(modifier) = modifier else {
+    return find_utility(utility, project).map(|(position, _)| position);
+  };
+  // what's after the slash is part of the value when it's a fraction (ex. `w-1/2`)
+  if let Some((position, _)) = find_tailwind_utility(utility, project) {
     return Some(position);
   }
-  if let Some(entry) = find(UTILITIES, utility, |entry| entry.0).or_else(|| find(UTILITIES, utility_without_modifier, |entry| entry.0)) {
-    return Some(entry.1);
+  let (position, modifier_kind) = find_utility(utility_without_modifier, project)?;
+  is_valid_modifier(modifier, modifier_kind, project).then_some(position)
+}
+
+/// Gets the position of a utility that doesn't have a modifier and the
+/// modifier it may have, or `None` when it's not a utility.
+fn find_utility(utility: &str, project: &Project) -> Option<(u16, Modifier)> {
+  if let Some(declaration) = utility.strip_prefix('[') {
+    // an arbitrary property (ex. `[color:red]`)
+    let (property, _) = declaration.strip_suffix(']')?.split_once(':')?;
+    return Some((get_properties_position(std::iter::once(property), 1), Modifier::Opacity));
   }
-  roots_and_values(utility_without_modifier).find_map(|(root, value)| {
-    let (_, default_position, length_position, color_position) = find(UTILITY_ROOTS, root, |entry| entry.0)?;
-    Some(match get_arbitrary_value_kind(value) {
-      Some(ArbitraryValueKind::Length) => *length_position,
-      Some(ArbitraryValueKind::Color) => *color_position,
-      None => get_theme_position(root, value, project).unwrap_or(*default_position),
-    })
+  if let Some(position) = get_custom_utility_position(utility, project) {
+    return Some((position, Modifier::None));
+  }
+  find_tailwind_utility(utility, project)
+}
+
+/// Finds a utility that's one of Tailwind's.
+fn find_tailwind_utility(utility: &str, project: &Project) -> Option<(u16, Modifier)> {
+  if let Some(entry) = find(UTILITIES, utility, |entry| entry.0) {
+    return Some((entry.1, entry.2));
+  }
+  roots_and_values(utility).find_map(|(root, value)| {
+    let root = find(UTILITY_ROOTS, root, |root| root.name)?;
+    if value.starts_with(['[', '(']) {
+      let is_arbitrary = root.value_kinds & VALUE_ARBITRARY != 0 && is_arbitrary_value(value);
+      return is_arbitrary.then(|| match get_arbitrary_value_kind(value) {
+        Some(ArbitraryValueKind::Length) => root.arbitrary_length,
+        Some(ArbitraryValueKind::Color) => root.arbitrary_color,
+        None => root.default,
+      });
+    }
+    let has_kind = |kind: u8, is_kind: fn(&str) -> bool| root.value_kinds & kind != 0 && is_kind(value);
+    let is_number = has_kind(VALUE_INTEGER, is_integer)
+      || has_kind(VALUE_QUARTER, is_quarter)
+      || has_kind(VALUE_DECIMAL, is_decimal)
+      || has_kind(VALUE_FRACTION, is_fraction)
+      || has_kind(VALUE_PERCENTAGE, is_percentage);
+    if is_number {
+      return Some(root.number);
+    }
+    let is_named = has_kind(VALUE_COLOR, |value| COLORS.binary_search(&value).is_ok()) || root.values.binary_search(&value).is_ok();
+    get_theme_value_utility(root.name, value, project).or(is_named.then_some(root.default))
   })
+}
+
+/// Gets if the text is an arbitrary value (ex. `[3px]` or `(--my-variable)`).
+fn is_arbitrary_value(text: &str) -> bool {
+  text.len() > 2 && (text.starts_with('[') && text.ends_with(']') || text.starts_with('(') && text.ends_with(')'))
+}
+
+/// Gets if the text is a whole number the way Tailwind accepts one, which is without leading zeros.
+fn is_integer(text: &str) -> bool {
+  !text.is_empty() && text.bytes().all(|byte| byte.is_ascii_digit()) && (text.len() == 1 || !text.starts_with('0'))
+}
+
+/// Gets if the text is a number with a decimal that doesn't have trailing zeros.
+fn is_decimal(text: &str) -> bool {
+  text
+    .split_once('.')
+    .is_some_and(|(whole, decimal)| is_integer(whole) && !decimal.ends_with('0') && is_integer(decimal.trim_start_matches('0')))
+}
+
+/// Gets if the text is a number with a decimal that's a multiple of 0.25.
+fn is_quarter(text: &str) -> bool {
+  text
+    .split_once('.')
+    .is_some_and(|(whole, decimal)| is_integer(whole) && matches!(decimal, "25" | "5" | "75"))
+}
+
+fn is_fraction(text: &str) -> bool {
+  text
+    .split_once('/')
+    .is_some_and(|(numerator, denominator)| is_integer(numerator) && is_integer(denominator))
+}
+
+fn is_percentage(text: &str) -> bool {
+  text.strip_suffix('%').is_some_and(is_integer)
+}
+
+/// Gets if the modifier may follow a utility that has the provided kind of modifier.
+fn is_valid_modifier(modifier: &str, kind: Modifier, project: &Project) -> bool {
+  let is_number = || is_arbitrary_value(modifier) || is_integer(modifier) || is_quarter(modifier);
+  match kind {
+    Modifier::None => false,
+    Modifier::Arbitrary => is_arbitrary_value(modifier),
+    Modifier::Opacity => is_number(),
+    Modifier::LineHeight => is_number() || LINE_HEIGHTS.binary_search(&modifier).is_ok() || project.theme_value("--leading-", modifier).is_some(),
+    Modifier::Any => !modifier.is_empty(),
+  }
 }
 
 /// Gets the position of a utility that the project defines.
@@ -464,16 +541,16 @@ fn get_custom_utility_position(utility: &str, project: &Project) -> Option<u16> 
   Some(get_properties_position(properties.iter().map(|property| property.as_str()), properties.len()))
 }
 
-/// Gets the position of a utility whose value is the name of one of the project's
-/// theme variables (ex. `text-huge` for `--text-huge`) when that's not the default one.
-fn get_theme_position(root: &str, value: &str, project: &Project) -> Option<u16> {
+/// Gets the position and modifier of a utility whose value is the name of
+/// one of the project's theme variables (ex. `text-huge` for `--text-huge`).
+fn get_theme_value_utility(root: &str, value: &str, project: &Project) -> Option<(u16, Modifier)> {
   if project.theme.is_empty() {
     return None;
   }
-  UTILITY_THEME_POSITIONS
+  UTILITY_THEME_VALUES
     .iter()
-    .find(|(entry_root, namespace, _)| *entry_root == root && project.theme_value(namespace, value).is_some())
-    .map(|entry| entry.2)
+    .find(|(entry_root, namespace, _, _)| *entry_root == root && project.theme_value(namespace, value).is_some())
+    .map(|entry| (entry.2, entry.3))
 }
 
 /// Gets the position of a utility that sets the provided CSS properties.
@@ -627,10 +704,21 @@ fn is_known_variant(variant: &str, project: &Project) -> bool {
     return true;
   }
   let variant = VariantInfo::parse(variant, project);
-  match variant.kind {
-    Some(VariantKind::Compound) => variant.value.is_some_and(|value| is_known_variant(value, project)),
-    Some(VariantKind::Static | VariantKind::Functional) => true,
-    None => false,
+  if variant.modifier.is_some() && !variant.has_modifier {
+    return false;
+  }
+  match (variant.kind, variant.value) {
+    (Some(VariantKind::Static), _) => true,
+    (Some(VariantKind::Compound), Some(value)) => is_known_variant(value, project),
+    (Some(VariantKind::Functional), Some(value)) => {
+      is_arbitrary_value(value)
+        || match variant.values {
+          VariantValues::Any => true,
+          VariantValues::Integer => is_integer(value),
+          VariantValues::Known => variant.breakpoint_value(project).is_some(),
+        }
+    }
+    _ => false,
   }
 }
 
@@ -710,6 +798,10 @@ struct VariantInfo<'a> {
   kind: Option<VariantKind>,
   order: u16,
   value_order: VariantValueOrder,
+  /// What the value may be.
+  values: VariantValues,
+  /// If the variant may have a modifier.
+  has_modifier: bool,
 }
 
 impl<'a> VariantInfo<'a> {
@@ -732,14 +824,18 @@ impl<'a> VariantInfo<'a> {
       kind: None,
       order: UNKNOWN_VARIANT_ORDER,
       value_order: VariantValueOrder::None,
+      values: VariantValues::Known,
+      has_modifier: false,
     };
-    if let Some(((root, kind, order, value_order), value)) = found {
+    if let Some(((root, kind, order, value_order, values, has_modifier), value)) = found {
       VariantInfo {
         root,
         value,
         kind: Some(*kind),
         order: *order,
         value_order: *value_order,
+        values: *values,
+        has_modifier: *has_modifier,
         ..unknown
       }
     } else if let Some(index) = project.variants.iter().position(|name| name == text) {
@@ -781,7 +877,10 @@ mod test {
   #[test]
   fn tables_are_sorted_for_searching() {
     assert!(UTILITIES.is_sorted_by(|a, b| a.0 < b.0));
-    assert!(UTILITY_ROOTS.is_sorted_by(|a, b| a.0 < b.0));
+    assert!(UTILITY_ROOTS.is_sorted_by(|a, b| a.name < b.name));
+    assert!(UTILITY_ROOTS.iter().all(|root| root.values.is_sorted_by(|a, b| a < b)));
+    assert!(COLORS.is_sorted_by(|a, b| a < b));
+    assert!(LINE_HEIGHTS.is_sorted_by(|a, b| a < b));
     assert!(PROPERTIES.is_sorted_by(|a, b| a.0 < b.0));
     assert!(VARIANTS.is_sorted_by(|a, b| a.0 < b.0));
     assert!(VARIANT_VALUES.is_sorted_by(|a, b| a.0 < b.0));
@@ -871,6 +970,20 @@ mod test {
   }
 
   #[test]
+  fn treats_classes_with_values_tailwind_does_not_have_as_unknown() {
+    assert_sorts("flex p-banana", "p-banana flex");
+    assert_sorts("flex p-1.3 p-1.5", "p-1.3 flex p-1.5");
+    assert_sorts("flex -p-4 -m-4", "-p-4 -m-4 flex");
+    assert_sorts("flex p-4/foo", "p-4/foo flex");
+    assert_sorts("flex p-4/50", "p-4/50 flex");
+    assert_sorts("flex bg-red-500/foo bg-red-500/50", "bg-red-500/foo flex bg-red-500/50");
+    assert_sorts("flex text-sm/foo text-sm/tight", "text-sm/foo flex text-sm/tight");
+    assert_sorts("p-4 max-foo:flex max-md:flex", "max-foo:flex p-4 max-md:flex");
+    assert_sorts("p-4 nth-foo:flex nth-3:flex", "nth-foo:flex p-4 nth-3:flex");
+    assert_sorts("p-4 hover/foo:flex group-hover/foo:flex", "hover/foo:flex p-4 group-hover/foo:flex");
+  }
+
+  #[test]
   fn sorts_important_utilities_with_their_utility() {
     assert_sorts("flex !p-4 m-2", "m-2 flex !p-4");
     assert_sorts("flex p-4! m-2", "m-2 flex p-4!");
@@ -884,7 +997,7 @@ mod test {
       ..Default::default()
     };
     let sort = |text| sort_class_names(text, &options, &Project::default());
-    assert_eq!(sort("  sm:bg-tomato   bg-red-500  "), "  bg-red-500   sm:bg-tomato  ");
+    assert_eq!(sort("  sm:bg-black   bg-red-500  "), "  bg-red-500   sm:bg-black  ");
     assert_eq!(sort("sm:p-0\n   p-0"), "p-0\n   sm:p-0");
     assert_eq!(sort("sm:p-0  p-0 \t p-0\nfoo"), "foo  p-0\nsm:p-0");
     assert_eq!(sort("  "), "  ");
@@ -904,7 +1017,7 @@ mod test {
       ..Default::default()
     };
     let sort = |text| sort_class_names(text, &options, &Project::default());
-    assert_eq!(sort("bg-red-500 sm:bg-tomato bg-red-500"), "bg-red-500 bg-red-500 sm:bg-tomato");
+    assert_eq!(sort("bg-red-500 sm:bg-black bg-red-500"), "bg-red-500 bg-red-500 sm:bg-black");
     assert_eq!(sort("sm:p-0 p-0 p-0"), "p-0 p-0 sm:p-0");
     assert!(matches!(sort("p-0 p-0 sm:p-0"), Cow::Borrowed(_)));
   }
@@ -1101,6 +1214,12 @@ mod test {
 
   #[track_caller]
   fn assert_sorts(text: &str, expected: &str) {
-    assert_eq!(sort_class_names(text, &Default::default(), &Project::default()), expected);
+    // the tests from Prettier's plugin are for a project that has this color
+    let theme = BTreeMap::from([("--color-tomato".to_string(), "tomato".to_string())]);
+    let project = Project {
+      theme: &theme,
+      ..Default::default()
+    };
+    assert_eq!(sort_class_names(text, &Default::default(), &project), expected);
   }
 }

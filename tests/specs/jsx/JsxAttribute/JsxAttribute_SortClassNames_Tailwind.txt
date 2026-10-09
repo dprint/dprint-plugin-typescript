@@ -1,5 +1,5 @@
 -- file.jsx --
-~~ jsx.sortClassNames: tailwind ~~
+~~ { "jsx.sortClassNames": { "kind": "tailwind", "theme": { "--color-tomato": "tomato" } } } ~~
 == should sort className values using Tailwind order ==
 const value = <div className="p-4 flex bg-red-500 text-white" />;
 
