@@ -329,8 +329,10 @@ impl<'a> ClassInfo<'a> {
     let (variants_text, utility) = split_utility(class_name_without_prefix)?;
     let position = get_utility_position(utility, project)?;
     let mut variants = ClassVariants::default();
-    for variant in split_top_level(variants_text, ':').filter(|variant| !variant.is_empty()) {
-      variants.insert(variant, project)?;
+    if let Some(variants_text) = variants_text.strip_suffix(':') {
+      for variant in split_top_level(variants_text, ':') {
+        variants.insert(variant, project)?;
+      }
     }
 
     Some(ClassInfo {
@@ -701,7 +703,7 @@ impl<'a> ClassVariants<'a> {
 
 fn is_known_variant(variant: &str, project: &Project) -> bool {
   if variant.starts_with('[') {
-    return true;
+    return is_arbitrary_value(variant);
   }
   let variant = VariantInfo::parse(variant, project);
   if variant.modifier.is_some() && !variant.has_modifier {
@@ -981,6 +983,8 @@ mod test {
     assert_sorts("p-4 max-foo:flex max-md:flex", "max-foo:flex p-4 max-md:flex");
     assert_sorts("p-4 nth-foo:flex nth-3:flex", "nth-foo:flex p-4 nth-3:flex");
     assert_sorts("p-4 hover/foo:flex group-hover/foo:flex", "hover/foo:flex p-4 group-hover/foo:flex");
+    assert_sorts("p-4 hover::flex :flex hover:flex", "hover::flex :flex p-4 hover:flex");
+    assert_sorts("p-4 [&]oops:flex [&]:flex", "[&]oops:flex p-4 [&]:flex");
   }
 
   #[test]

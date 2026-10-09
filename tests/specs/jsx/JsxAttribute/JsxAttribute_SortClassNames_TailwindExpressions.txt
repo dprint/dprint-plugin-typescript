@@ -107,3 +107,15 @@ const f = <div className={`x${cond ? "p-4 flex m-2" : "p-4 m-2 flex "}y`} />;
 const g = <div className={`x${cn("flex p-4")}y`} />;
 const h = <div className={(cond ? "flex p-4 m-2" : "flex p-4 m-2") + suffix} />;
 const i = <div className={`${"flex p-4 m-2"}` + suffix} />;
+
+== should keep the class beside what's concatenated with a logical expression when there's no whitespace between them ==
+const a = <div className={prefix + (active && "sm:block inline flex")} />;
+const b = <div className={(value ?? "sm:block inline flex") + suffix} />;
+const c = <div className={`x${active || "sm:block inline flex"}y`} />;
+const d = <div className={prefix + (active && " sm:block inline flex")} />;
+
+[expect]
+const a = <div className={prefix + (active && "sm:block flex inline")} />;
+const b = <div className={(value ?? "inline sm:block flex") + suffix} />;
+const c = <div className={`x${active || "sm:block inline flex"}y`} />;
+const d = <div className={prefix + (active && " flex inline sm:block")} />;

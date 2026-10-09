@@ -680,6 +680,7 @@ function createSortTestsText(
     ...["max-foo", "min-foo", "@foo", "has-foo", "group-foo", "not-foo", "in-foo", "peer-banana", "nth-foo"],
     ...["nth-7", "supports-foo", "data-foo", "aria-foo", "hover/foo", "sm/foo", "group-hover/foo", "@sm/foo"],
     ...["max-md/foo", "data-active/foo", "not-hover/foo", "data", "group", "min", "nth-[2n]", "min-7", "@7"],
+    ...["", "[&]oops", "[&>*]/foo", "oops[&]", "[]"],
   ];
   const pickMaybeClassName = () =>
     random() < 0.5

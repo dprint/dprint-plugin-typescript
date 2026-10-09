@@ -4367,7 +4367,11 @@ fn get_class_names_sort_options<'a>(node: Node<'a>, context: &Context<'a>) -> Op
           is_at_end &= is_last;
         }
       }
-      Node::ParenExpr(_) | Node::CondExpr(_) => keeps_ends = true,
+      // these evaluate to one of their operands
+      Node::BinExpr(bin_expr) if matches!(bin_expr.op(), BinaryOp::LogicalAnd | BinaryOp::LogicalOr | BinaryOp::NullishCoalescing) => keeps_ends = true,
+      Node::ParenExpr(_) | Node::CondExpr(_) | Node::TsAsExpr(_) | Node::TsSatisfiesExpr(_) | Node::TsNonNullExpr(_) | Node::TsConstAssertion(_) => {
+        keeps_ends = true
+      }
       _ => {}
     }
     if !keeps_ends {
