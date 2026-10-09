@@ -3,18 +3,22 @@
 //! This module is self-contained so that it can be extracted into its own crate.
 //!
 //! The handling of whitespace, duplicates, unknown classes, and partially sorted
-//! class lists is patterned off prettier-plugin-tailwindcss and its tests, which
-//! is MIT licensed (see `LICENSE.prettier-plugin-tailwindcss`). Unlike that plugin,
-//! this doesn't load Tailwind or a project's configuration. The class order comes
-//! from the static tables in `tables.rs`.
+//! class lists is patterned off prettier-plugin-tailwindcss and its tests. The order
+//! of the classes is the one Tailwind CSS outputs its CSS in, where the comparisons
+//! are ported from Tailwind and `tables.rs` is generated from it. Both projects are
+//! MIT licensed (see `LICENSE.prettier-plugin-tailwindcss` and `LICENSE.tailwindcss`).
+//!
+//! Unlike the Prettier plugin, this doesn't load Tailwind or a project's configuration,
+//! so it only knows about Tailwind's default theme:
+//!
+//! - A value that's not in the default theme (ex. `text-brand`) gets the position
+//!   that most values of its utility have (a color for `text-`).
+//! - A variant that's not in Tailwind (ex. `custom:flex`) goes after the ones that are.
 
 mod tables;
 
 use std::borrow::Cow;
 use std::cmp::Ordering;
-use std::sync::OnceLock;
-
-use rustc_hash::FxHashMap;
 
 use tables::*;
 
@@ -150,42 +154,49 @@ fn is_ellipsis(class_name: &str) -> bool {
   matches!(class_name, "..." | "…")
 }
 
+/// Compares the same way as Tailwind does when it sorts the CSS it generates.
 fn compare_classes(a: &ClassInfo, b: &ClassInfo) -> Ordering {
-  a.arbitrary_variant_count
-    .cmp(&b.arbitrary_variant_count)
-    .then_with(|| a.arbitrary_variants().cmp(b.arbitrary_variants()))
-    .then_with(|| (a.variant_weight != 0).cmp(&(b.variant_weight != 0)))
-    .then_with(|| a.layer_index.cmp(&b.layer_index))
-    .then_with(|| compare_variant_weights(a.variant_weight, b.variant_weight))
-    .then_with(|| a.utility_index.cmp(&b.utility_index))
-    .then_with(|| a.text.cmp(b.text))
+  a.variants
+    .cmp(&b.variants)
+    .then_with(|| a.position.cmp(&b.position))
+    .then_with(|| compare_text(a.text, b.text))
 }
 
-/// Compares two sets of variant positions, where fewer variants go first and
-/// otherwise the set with the earliest variant that the other doesn't have.
-fn compare_variant_weights(a: u128, b: u128) -> Ordering {
-  a.count_ones().cmp(&b.count_ones()).then_with(|| {
-    let first_difference = (a ^ b).trailing_zeros();
-    if a == b {
-      Ordering::Equal
-    } else if a & (1 << first_difference) != 0 {
-      Ordering::Less
-    } else {
-      Ordering::Greater
+/// Compares two strings where the numbers in them are compared as numbers.
+fn compare_text(a: &str, b: &str) -> Ordering {
+  let (a, b) = (a.as_bytes(), b.as_bytes());
+  for index in 0..a.len().min(b.len()) {
+    if a[index].is_ascii_digit() && b[index].is_ascii_digit() {
+      let a_number = get_leading_digits(&a[index..]);
+      let b_number = get_leading_digits(&b[index..]);
+      let ordering = compare_numbers(a_number, b_number).then_with(|| a_number.cmp(b_number));
+      if ordering != Ordering::Equal {
+        return ordering;
+      }
+    } else if a[index] != b[index] {
+      return a[index].cmp(&b[index]);
     }
-  })
+  }
+  a.len().cmp(&b.len())
+}
+
+fn get_leading_digits(text: &[u8]) -> &[u8] {
+  let len = text.iter().position(|byte| !byte.is_ascii_digit()).unwrap_or(text.len());
+  &text[..len]
+}
+
+fn compare_numbers(a: &[u8], b: &[u8]) -> Ordering {
+  let a = &a[a.iter().position(|byte| *byte != b'0').unwrap_or(a.len())..];
+  let b = &b[b.iter().position(|byte| *byte != b'0').unwrap_or(b.len())..];
+  a.len().cmp(&b.len()).then_with(|| a.cmp(b))
 }
 
 #[derive(Clone, Copy)]
 struct ClassInfo<'a> {
   text: &'a str,
-  /// The text before the utility (ex. `hover:focus:` in `hover:focus:p-4`).
-  variants_text: &'a str,
-  arbitrary_variant_count: usize,
-  /// Bit set of the positions of the non-arbitrary variants in `VARIANT_CLASSES`.
-  variant_weight: u128,
-  layer_index: usize,
-  utility_index: usize,
+  variants: ClassVariants<'a>,
+  /// Position of the utility among the other utilities.
+  position: u16,
 }
 
 impl<'a> ClassInfo<'a> {
@@ -197,29 +208,17 @@ impl<'a> ClassInfo<'a> {
       return None;
     }
     let (variants_text, utility) = split_utility(class_name)?;
-    let utility_info = get_utility_info(utility)?;
-    let mut arbitrary_variant_count = 0;
-    let mut variant_weight = 0;
-    for variant in split_variants(variants_text) {
-      if variant.starts_with('[') {
-        arbitrary_variant_count += 1;
-      } else {
-        variant_weight |= 1 << find_variant_position(variant).unwrap_or(UNKNOWN_VARIANT_POSITION);
-      }
+    let position = get_utility_position(utility)?;
+    let mut variants = ClassVariants::default();
+    for variant in split_top_level(variants_text, ':').filter(|variant| !variant.is_empty()) {
+      variants.insert(variant)?;
     }
 
     Some(ClassInfo {
       text: class_name,
-      variants_text,
-      arbitrary_variant_count,
-      variant_weight,
-      layer_index: utility_info.layer_index,
-      utility_index: utility_info.utility_index,
+      variants,
+      position,
     })
-  }
-
-  fn arbitrary_variants(&self) -> impl Iterator<Item = &'a str> {
-    split_variants(self.variants_text).filter(|variant| variant.starts_with('['))
   }
 }
 
@@ -230,8 +229,8 @@ fn split_utility(class_name: &str) -> Option<(&str, &str)> {
   let mut utility_start = 0;
   for (index, byte) in class_name.bytes().enumerate() {
     match byte {
-      b'[' => arbitrary_block_depth += 1,
-      b']' => {
+      b'[' | b'(' => arbitrary_block_depth += 1,
+      b']' | b')' => {
         if arbitrary_block_depth == 0 {
           return None;
         }
@@ -247,103 +246,258 @@ fn split_utility(class_name: &str) -> Option<(&str, &str)> {
   Some(class_name.split_at(utility_start))
 }
 
-/// Splits on the colons that aren't in an arbitrary value (ex. not the one in `[&:hover]:`).
-fn split_variants(variants_text: &str) -> impl Iterator<Item = &str> {
+/// Splits on the separators that aren't in an arbitrary value (ex. not the colon in `[&:hover]:`).
+fn split_top_level(text: &str, separator: char) -> impl Iterator<Item = &str> {
   let mut arbitrary_block_depth = 0;
-  variants_text
-    .split(move |c| {
-      match c {
-        '[' => arbitrary_block_depth += 1,
-        ']' => arbitrary_block_depth -= 1,
-        ':' => return arbitrary_block_depth == 0,
-        _ => {}
-      }
-      false
-    })
-    .filter(|variant| !variant.is_empty())
+  text.split(move |c| {
+    match c {
+      '[' | '(' => arbitrary_block_depth += 1,
+      ']' | ')' => arbitrary_block_depth -= 1,
+      _ => return c == separator && arbitrary_block_depth == 0,
+    }
+    false
+  })
 }
 
-#[derive(Clone, Copy)]
-struct UtilityInfo {
-  layer_index: usize,
-  utility_index: usize,
+/// Splits off what follows the last slash (ex. `bg-red-500/50` to `bg-red-500` and `50`).
+fn split_modifier(text: &str) -> (&str, Option<&str>) {
+  match split_top_level(text, '/').last() {
+    Some(modifier) if modifier.len() < text.len() => (&text[..text.len() - modifier.len() - 1], Some(modifier)),
+    _ => (text, None),
+  }
 }
 
-fn get_utility_info(utility: &str) -> Option<UtilityInfo> {
+/// Gets the indexes of the dashes that may separate a root from its value starting from the last one.
+fn value_separator_indexes(text: &str) -> impl Iterator<Item = usize> + '_ {
+  let end = text.find(['[', '(']).unwrap_or(text.len());
+  text[..end].rmatch_indices('-').map(|(index, _)| index).filter(|index| index + 1 < text.len())
+}
+
+fn get_utility_position(utility: &str) -> Option<u16> {
   // the important modifier goes at the start in Tailwind 3 and at the end in Tailwind 4
   let utility = utility.strip_prefix('!').or_else(|| utility.strip_suffix('!')).unwrap_or(utility);
-  if utility.starts_with('[') {
-    return Some(UtilityInfo {
-      layer_index: 2,
-      utility_index: 0,
-    });
+  if let Some(declaration) = utility.strip_prefix('[') {
+    // an arbitrary property (ex. `[color:red]`)
+    let (property, _) = declaration.split_once(':')?;
+    return Some(
+      find(PROPERTIES, property, |entry| entry.0)
+        .map(|entry| entry.1)
+        .unwrap_or(UNKNOWN_PROPERTY_POSITION),
+    );
   }
+  // negative utilities have the position of the positive one
   let utility = utility.strip_prefix('-').unwrap_or(utility);
-  utility_layers().iter().find_map(|layer| layer.get(utility))
+  let (utility_without_modifier, _) = split_modifier(utility);
+  if let Some(entry) = find(UTILITIES, utility, |entry| entry.0).or_else(|| find(UTILITIES, utility_without_modifier, |entry| entry.0)) {
+    return Some(entry.1);
+  }
+  let utility = utility_without_modifier;
+  value_separator_indexes(utility).find_map(|index| {
+    let (_, default_position, length_position, color_position) = find(UTILITY_ROOTS, &utility[..index], |entry| entry.0)?;
+    Some(match get_arbitrary_value_kind(&utility[index + 1..]) {
+      Some(ArbitraryValueKind::Length) => *length_position,
+      Some(ArbitraryValueKind::Color) => *color_position,
+      None => *default_position,
+    })
+  })
 }
 
-fn utility_layers() -> &'static [UtilityLayer; 2] {
-  static LAYERS: OnceLock<[UtilityLayer; 2]> = OnceLock::new();
-  LAYERS.get_or_init(|| [UtilityLayer::new(0, COMPONENTS_LAYER_CLASSES), UtilityLayer::new(1, UTILITIES_LAYER_CLASSES)])
+enum ArbitraryValueKind {
+  Length,
+  Color,
 }
 
-struct UtilityLayer {
-  /// Utilities that match on their entire text (ex. `flex`).
-  exact: FxHashMap<&'static str, UtilityInfo>,
-  /// Utilities that are followed by a value (ex. `p-`).
-  prefixes: FxHashMap<&'static str, UtilityInfo>,
-}
-
-impl UtilityLayer {
-  fn new(layer_index: usize, layer_classes: &[&'static str]) -> Self {
-    let mut layer = UtilityLayer {
-      exact: Default::default(),
-      prefixes: Default::default(),
+/// Guesses what an arbitrary value is for the roots that are for more than one
+/// CSS property (ex. `text-[14px]` sets the font size and `text-[#fff]` the color).
+fn get_arbitrary_value_kind(value: &str) -> Option<ArbitraryValueKind> {
+  let value = value.strip_prefix('[')?;
+  if let Some((data_type, _)) = value.split_once(':') {
+    return match data_type {
+      "length" | "percentage" | "number" | "absolute-size" | "relative-size" => Some(ArbitraryValueKind::Length),
+      "color" => Some(ArbitraryValueKind::Color),
+      _ => None,
     };
-    for (utility_index, target) in layer_classes.iter().enumerate() {
-      let info = UtilityInfo { layer_index, utility_index };
-      match target.strip_suffix('$') {
-        Some(target) => layer.exact.entry(target).or_insert(info),
-        None => layer.prefixes.entry(target).or_insert(info),
-      };
-    }
-    layer
   }
-
-  fn get(&self, utility: &str) -> Option<UtilityInfo> {
-    if let Some(info) = self.exact.get(utility) {
-      return Some(*info);
-    }
-    // every prefix ends with a dash, so check the text up to each dash
-    // starting from the last one in order to find the longest prefix
-    utility
-      .rmatch_indices('-')
-      .filter(|(index, _)| index + 1 < utility.len())
-      .find_map(|(index, _)| self.prefixes.get(&utility[..=index]).copied())
+  let is_number = value.trim_start_matches(['-', '+', '.']).starts_with(|c: char| c.is_ascii_digit());
+  if is_number || value.starts_with("calc(") {
+    Some(ArbitraryValueKind::Length)
+  } else if ["#", "rgb", "hsl", "hwb", "lab(", "lch(", "oklab(", "oklch(", "color("]
+    .iter()
+    .any(|prefix| value.starts_with(prefix))
+  {
+    Some(ArbitraryValueKind::Color)
+  } else {
+    None
   }
 }
 
-/// The position of variants that aren't in `VARIANT_CLASSES`, which are ones from a
-/// project's configuration or a newer Tailwind. These go after the known variants.
-const UNKNOWN_VARIANT_POSITION: usize = u128::BITS as usize - 1;
+/// Finds an entry in a table that's sorted by name.
+fn find<'a, T>(table: &'a [T], name: &str, get_name: impl Fn(&T) -> &'static str) -> Option<&'a T> {
+  table.binary_search_by(|entry| get_name(entry).cmp(name)).ok().map(|index| &table[index])
+}
 
-fn find_variant_position(variant: &str) -> Option<usize> {
-  let mut longest_match = None;
-  let mut longest_match_len = 0;
-  for (index, target) in VARIANT_CLASSES.iter().enumerate() {
-    let Some(rest) = variant.strip_prefix(target) else {
-      continue;
-    };
-    if rest.is_empty() || rest.starts_with("-[") {
-      return Some(index);
+/// The most variants a class may have, where classes with more are not sorted.
+const MAX_VARIANTS: usize = 8;
+
+/// The variants of a class ordered from the last one Tailwind would output to the first.
+///
+/// Tailwind gives each variant a bit based on its position then compares the numbers
+/// those make, which is the same as comparing these.
+#[derive(Clone, Copy, Default)]
+struct ClassVariants<'a> {
+  items: [&'a str; MAX_VARIANTS],
+  len: usize,
+}
+
+impl<'a> ClassVariants<'a> {
+  fn insert(&mut self, variant: &'a str) -> Option<()> {
+    let mut index = 0;
+    while index < self.len {
+      match compare_variants(variant, self.items[index]) {
+        Ordering::Greater => break,
+        Ordering::Equal => return Some(()),
+        Ordering::Less => index += 1,
+      }
     }
-    // only match on a whole word in order to not match `small` to `sm`
-    if rest.starts_with(['-', '/']) && target.len() > longest_match_len {
-      longest_match = Some(index);
-      longest_match_len = target.len();
+    if self.len == MAX_VARIANTS {
+      return None;
+    }
+    self.items.copy_within(index..self.len, index + 1);
+    self.items[index] = variant;
+    self.len += 1;
+    Some(())
+  }
+
+  fn cmp(&self, other: &ClassVariants) -> Ordering {
+    for (a, b) in self.items[..self.len].iter().zip(&other.items[..other.len]) {
+      let ordering = compare_variants(a, b);
+      if ordering != Ordering::Equal {
+        return ordering;
+      }
+    }
+    self.len.cmp(&other.len)
+  }
+}
+
+/// Compares the same way as Tailwind's `Variants#compare`.
+fn compare_variants(a: &str, b: &str) -> Ordering {
+  // arbitrary variants (ex. `[&>*]`) go last
+  match (a.starts_with('['), b.starts_with('[')) {
+    (true, true) => return a.cmp(b),
+    (true, false) => return Ordering::Greater,
+    (false, true) => return Ordering::Less,
+    (false, false) => {}
+  }
+
+  let (a, b) = (VariantInfo::parse(a), VariantInfo::parse(b));
+  let ordering = a.order.cmp(&b.order);
+  if ordering != Ordering::Equal {
+    return ordering;
+  }
+  if a.kind == Some(VariantKind::Compound) && b.kind == Some(VariantKind::Compound) {
+    return compare_variants(a.value.unwrap_or(""), b.value.unwrap_or("")).then_with(|| a.modifier.cmp(&b.modifier));
+  }
+  if a.value_order != VariantValueOrder::None {
+    let is_ascending = a.value_order == VariantValueOrder::Ascending;
+    let ordering = match (a.breakpoint_value(), b.breakpoint_value()) {
+      (Some(a_value), Some(b_value)) => return compare_breakpoints(a_value, b_value, is_ascending),
+      (Some(_), None) => Ordering::Greater,
+      (None, Some(_)) => Ordering::Less,
+      (None, None) => return a.text.cmp(b.text),
+    };
+    return if is_ascending { ordering } else { ordering.reverse() };
+  }
+  a.root.cmp(b.root).then_with(|| match (a.value, b.value) {
+    // named values go before arbitrary ones
+    (Some(a_value), Some(b_value)) => a_value.starts_with('[').cmp(&b_value.starts_with('[')).then_with(|| a_value.cmp(b_value)),
+    (a_value, b_value) => a_value.cmp(&b_value),
+  })
+}
+
+/// Compares the same way as Tailwind's `compareBreakpoints`.
+fn compare_breakpoints(a: &str, b: &str, is_ascending: bool) -> Ordering {
+  // values are only comparable when they have the same unit or CSS function
+  fn bucket(value: &str) -> impl Iterator<Item = char> + '_ {
+    let function_name_end = value.find('(');
+    value[..function_name_end.unwrap_or(value.len())]
+      .chars()
+      .filter(move |c| function_name_end.is_some() || !c.is_ascii_digit() && *c != '.')
+  }
+
+  fn parse_int(value: &str) -> Option<i64> {
+    let digits_start = value.find(|c: char| !matches!(c, '-' | '+')).filter(|index| *index <= 1)?;
+    let digits_len = value[digits_start..].find(|c: char| !c.is_ascii_digit()).unwrap_or(value.len() - digits_start);
+    value[..digits_start + digits_len].parse().ok()
+  }
+
+  if a == b {
+    return Ordering::Equal;
+  }
+  bucket(a).cmp(bucket(b)).then_with(|| match (parse_int(a), parse_int(b)) {
+    (Some(a_number), Some(b_number)) if is_ascending => a_number.cmp(&b_number),
+    (Some(a_number), Some(b_number)) => b_number.cmp(&a_number),
+    _ => a.cmp(b),
+  })
+}
+
+/// The order of variants that aren't in `VARIANTS`, which are ones from a project's
+/// configuration or a newer Tailwind. These go after the known variants.
+const UNKNOWN_VARIANT_ORDER: u16 = u16::MAX;
+
+struct VariantInfo<'a> {
+  /// The text of the variant without its modifier.
+  text: &'a str,
+  root: &'a str,
+  value: Option<&'a str>,
+  modifier: Option<&'a str>,
+  kind: Option<VariantKind>,
+  order: u16,
+  value_order: VariantValueOrder,
+}
+
+impl<'a> VariantInfo<'a> {
+  fn parse(variant: &'a str) -> VariantInfo<'a> {
+    let (text, modifier) = split_modifier(variant);
+    let found = find(VARIANTS, text, |entry| entry.0).map(|entry| (entry, None)).or_else(|| {
+      // container query variants don't have a dash before their value (ex. `@md`)
+      let container_value = text.strip_prefix('@').filter(|value| !value.starts_with("max-") && !value.starts_with("min-"));
+      let mut roots_and_values = value_separator_indexes(text)
+        .map(|index| (&text[..index], &text[index + 1..]))
+        .chain(container_value.map(|value| ("@", value)));
+      roots_and_values.find_map(|(root, value)| {
+        let entry = find(VARIANTS, root, |entry| entry.0).filter(|entry| entry.1 != VariantKind::Static)?;
+        Some((entry, Some(value)))
+      })
+    });
+    match found {
+      Some(((root, kind, order, value_order), value)) => VariantInfo {
+        text,
+        root,
+        value,
+        modifier,
+        kind: Some(*kind),
+        order: *order,
+        value_order: *value_order,
+      },
+      None => VariantInfo {
+        text,
+        root: text,
+        value: None,
+        modifier,
+        kind: None,
+        order: UNKNOWN_VARIANT_ORDER,
+        value_order: VariantValueOrder::None,
+      },
     }
   }
-  longest_match
+
+  /// Gets the value of a variant that's ordered by its value (ex. `48rem` for `md` or `min-[48rem]`).
+  fn breakpoint_value(&self) -> Option<&'a str> {
+    match self.value.and_then(|value| value.strip_prefix('[')) {
+      Some(value) => value.strip_suffix(']').filter(|value| !value.contains("var(")),
+      None => find(VARIANT_VALUES, self.text, |entry| entry.0).map(|entry| entry.1),
+    }
+  }
 }
 
 #[cfg(test)]
@@ -351,12 +505,44 @@ mod test {
   use super::*;
 
   #[test]
-  fn tables_fit_the_lookups() {
-    assert!(VARIANT_CLASSES.len() <= UNKNOWN_VARIANT_POSITION);
-    for target in COMPONENTS_LAYER_CLASSES.iter().chain(UTILITIES_LAYER_CLASSES) {
-      assert!(target.ends_with('$') || target.ends_with('-'), "{}", target);
-      assert!(!target.starts_with('-'), "{}", target);
+  fn tables_are_sorted_for_searching() {
+    assert!(UTILITIES.is_sorted_by(|a, b| a.0 < b.0));
+    assert!(UTILITY_ROOTS.is_sorted_by(|a, b| a.0 < b.0));
+    assert!(PROPERTIES.is_sorted_by(|a, b| a.0 < b.0));
+    assert!(VARIANTS.is_sorted_by(|a, b| a.0 < b.0));
+    assert!(VARIANT_VALUES.is_sorted_by(|a, b| a.0 < b.0));
+  }
+
+  #[test]
+  fn sorts_the_same_as_tailwind() {
+    let mut failures = Vec::new();
+    let mut count = 0;
+    for line in include_str!("sort_tests.txt").lines().filter(|line| !line.starts_with('#')) {
+      let (text, expected) = line.split_once(" => ").unwrap();
+      let actual = sort_class_names(text, &Default::default());
+      count += 1;
+      if actual != expected {
+        failures.push(format!(
+          "   input: {}
+expected: {}
+  actual: {}",
+          text, expected, actual
+        ));
+      }
     }
+    assert!(
+      failures.is_empty(),
+      "{} of {} failed:
+
+{}",
+      failures.len(),
+      count,
+      failures[..failures.len().min(10)].join(
+        "
+
+"
+      )
+    );
   }
 
   #[test]
@@ -386,7 +572,10 @@ mod test {
   fn sorts_unknown_variants_after_known_variants() {
     assert_sorts("custom:flex p-4", "p-4 custom:flex");
     assert_sorts("small:p-4 hover:flex hoverable:p-4 m-2", "m-2 hover:flex hoverable:p-4 small:p-4");
-    assert_sorts("custom:hover:p-4 hover:focus:p-4 custom:m-2", "custom:m-2 hover:focus:p-4 custom:hover:p-4");
+    assert_sorts(
+      "custom:hover:p-4 [&>*]:p-4 hover:focus:p-4 custom:m-2",
+      "hover:focus:p-4 custom:m-2 custom:hover:p-4 [&>*]:p-4",
+    );
     assert_sorts("group-hover/item:p-4 peer-checked:m-2 m-2", "m-2 group-hover/item:p-4 peer-checked:m-2");
   }
 
