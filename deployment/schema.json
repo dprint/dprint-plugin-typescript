@@ -791,10 +791,6 @@
     }
   },
   "properties": {
-    "locked": {
-      "description": "Whether the configuration is not allowed to be overridden or extended.",
-      "type": "boolean"
-    },
     "lineWidth": {
       "description": "The width of a line the printer will try to stay under. Note that the printer may exceed this width in certain cases.",
       "default": 120,
