@@ -1,0 +1,52 @@
+== should format graphql in graphql`...` ==
+const q = graphql`query   User {   id   name   }`;
+[expect]
+const q = graphql`
+    query User { id name }
+`;
+
+== should format graphql in gql`...` (aliased) ==
+const q = gql`mutation   Foo {   bar   }`;
+[expect]
+const q = gql`
+    mutation Foo { bar }
+`;
+
+== should format graphql in graphql.experimental`...` ==
+graphql.experimental`mutation   MarkRead($input: Bar)   {   markRead(data: $input)  {  id  } }`;
+[expect]
+graphql.experimental`
+    mutation MarkRead($input: Bar) { markRead(data: $input) { id } }
+`;
+
+== should format graphql in graphql(`...`) call expression ==
+const q = graphql(`query   { users { name email } }`);
+[expect]
+const q = graphql(`
+    query { users { name email } }
+`);
+
+== should format graphql in graphql(schema, `...`) call expression ==
+graphql(schema, `mutation   MarkRead($input: Bar)   {   markRead(data: $input)  {  id  } }`);
+[expect]
+graphql(
+    schema,
+    `
+        mutation MarkRead($input: Bar) { markRead(data: $input) { id } }
+    `,
+);
+
+== should not treat gql(`...`) as graphql call expression ==
+gql(`query { users { name } }`);
+[expect]
+gql(`query { users { name } }`);
+
+== should not treat someFunction(`...`) as graphql call expression ==
+someFunction(`query { users { name } }`);
+[expect]
+someFunction(`query { users { name } }`);
+
+== should not treat ...spread template arg as graphql ==
+graphql(...args);
+[expect]
+graphql(...args);
