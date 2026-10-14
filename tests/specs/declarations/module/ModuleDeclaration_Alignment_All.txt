@@ -1,0 +1,28 @@
+~~ moduleDeclaration.alignProperties: true, indentWidth: 2 ~~
+== should align module declaration properties ==
+declare module "example-module" {
+export const shortName: string;
+export const veryLongVariableName: number;
+export function func(): void;
+export function aVeryLongFunctionName(): boolean;
+}
+
+namespace MyNamespace {
+export const x = 1;
+export const longVariableName = 2;
+export const y = 3;
+}
+
+[expect]
+declare module "example-module" {
+  export const shortName: string;
+  export const veryLongVariableName: number;
+  export function func(): void;
+  export function aVeryLongFunctionName(): boolean;
+}
+
+namespace MyNamespace {
+  export const x                = 1;
+  export const longVariableName = 2;
+  export const y                = 3;
+}

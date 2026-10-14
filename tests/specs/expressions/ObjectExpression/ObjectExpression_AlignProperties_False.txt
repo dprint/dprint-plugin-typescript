@@ -1,0 +1,12 @@
+~~ objectExpression.alignProperties: false ~~
+== should not align when disabled ==
+const foo = {
+    bar: 123,
+    barbaz: 123
+}
+
+[expect]
+const foo = {
+    bar: 123,
+    barbaz: 123,
+};
