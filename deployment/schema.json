@@ -231,6 +231,21 @@
         "description": "Forces the operator to be on the next line."
       }]
     },
+    "paddingLineBetweenStatements": {
+      "description": "If true, adds blank lines between statements. If false, maintains existing spacing.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [
+        {
+          "const": true,
+          "description": "Adds blank lines between statements for better readability."
+        },
+        {
+          "const": false,
+          "description": "Maintains existing spacing between statements."
+        }
+      ]
+    },
     "preferHanging": {
       "description": "Set to prefer hanging indentation when exceeding the line width instead of making code split up on multiple lines.",
       "type": "boolean",
