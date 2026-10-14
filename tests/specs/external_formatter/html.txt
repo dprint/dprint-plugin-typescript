@@ -97,3 +97,10 @@ const a = html`
             <circle r="5" />
         </svg></a>
 `;
+
+== should preserve a lone newline escape, not double it (deno#30103) ==
+html`\n`;
+[expect]
+html`
+    \n
+`;
