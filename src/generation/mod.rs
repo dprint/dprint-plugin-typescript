@@ -7,6 +7,8 @@ mod sorting;
 mod swc;
 mod tokens;
 
+pub mod imports;
+
 use comments::*;
 use context::*;
 use generate_types::*;

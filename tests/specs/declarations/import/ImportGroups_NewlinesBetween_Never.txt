@@ -1,0 +1,32 @@
+~~ {
+  "lineWidth": 80,
+  "module.sortImportDeclarations": "maintain",
+  "module.importGroupsNewlinesBetween": "never",
+  "module.importGroups": [
+    { "match": "builtin" },
+    { "match": "external" },
+    { "match": ["sibling", "index"] }
+  ]
+} ~~
+== groups ordered with no blank lines between them ==
+import { a } from "react";
+
+import { b } from "./b";
+import { fs } from "node:fs";
+
+[expect]
+import { fs } from "node:fs";
+import { a } from "react";
+import { b } from "./b";
+
+== blank line between preceding code and the imports is kept ==
+const x = 1;
+
+import { a } from "react";
+import { fs } from "node:fs";
+
+[expect]
+const x = 1;
+
+import { fs } from "node:fs";
+import { a } from "react";

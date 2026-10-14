@@ -1,0 +1,23 @@
+~~ {
+  "lineWidth": 80,
+  "module.builtinsRuntime": "bun",
+  "module.sortImportDeclarations": "caseInsensitive",
+  "module.importGroups": [
+    { "match": "builtin" },
+    { "match": "external" }
+  ]
+} ~~
+== bun runtime: bun: prefix plus node: prefix plus bare core all builtin ==
+import fs from "fs";
+import { test } from "bun:test";
+import { x } from "node:path";
+import { y } from "npm:react";
+import { z } from "react";
+
+[expect]
+import { test } from "bun:test";
+import fs from "fs";
+import { x } from "node:path";
+
+import { y } from "npm:react";
+import { z } from "react";

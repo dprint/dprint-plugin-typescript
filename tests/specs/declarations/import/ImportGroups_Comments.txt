@@ -1,0 +1,26 @@
+~~ {
+  "lineWidth": 80,
+  "module.sortImportDeclarations": "maintain",
+  "module.importGroups": [
+    { "match": "builtin" },
+    { "match": "external" },
+    { "match": ["sibling", "index"] }
+  ]
+} ~~
+== trailing line comment stays with the import it trails ==
+import { a } from "react"; // trails react
+import { fs } from "node:fs";
+
+[expect]
+import { fs } from "node:fs";
+
+import { a } from "react"; // trails react
+
+== trailing block comment stays with the import it trails ==
+import { a } from "react"; /* trails react */
+import { fs } from "node:fs";
+
+[expect]
+import { fs } from "node:fs";
+
+import { a } from "react"; /* trails react */
