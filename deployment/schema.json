@@ -1195,6 +1195,9 @@
     "conditionalType.operatorPosition": {
       "$ref": "#/definitions/operatorPosition"
     },
+    "unionAndIntersectionType.operatorPosition": {
+      "$ref": "#/definitions/operatorPosition"
+    },
     "arguments.preferHanging": {
       "$ref": "#/definitions/preferHangingGranular"
     },

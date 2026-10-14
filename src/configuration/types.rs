@@ -468,6 +468,8 @@ pub struct Configuration {
   pub conditional_expression_operator_position: OperatorPosition,
   #[serde(rename = "conditionalType.operatorPosition")]
   pub conditional_type_operator_position: OperatorPosition,
+  #[serde(rename = "unionAndIntersectionType.operatorPosition")]
+  pub union_and_intersection_type_operator_position: OperatorPosition,
   /* single body position */
   #[serde(rename = "ifStatement.singleBodyPosition")]
   pub if_statement_single_body_position: SameOrNextLinePosition,
