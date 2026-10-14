@@ -6,11 +6,11 @@ const t = <div>{t} {u} {v}</div>;
 [expect]
 const t = <div>{t} {u} {v}</div>;
 
-== should remove spaces surrounding ==
+== should keep spaces surrounding ==
 const t = <div> test </div>;
 
 [expect]
-const t = <div>test</div>;
+const t = <div> test </div>;
 
 == should handle a space when exceeding the line width with only the parent when the parent and children are on the same line ==
 const t = <div>{test} {testsdffffffffffff}</div>;
