@@ -122,18 +122,15 @@ const buildJob = job("build", {
     },
     {
       name: "Release",
-      // pinned because softprops/action-gh-release was once compromised
-      uses: "softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844",
       if: isReleaseAndTag,
-      env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" },
-      with: {
-        files: [
-          "target/wasm32-unknown-unknown/release/plugin.wasm",
-          "deployment/schema.json",
-        ].join("\n"),
-        body_path: "${{ github.workspace }}-CHANGELOG.txt",
-        draft: false,
-      },
+      // gh uploads the assets to a draft and then publishes it, which immutable releases require
+      env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" },
+      run: [
+        `gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME"`,
+        "--notes-file ${{ github.workspace }}-CHANGELOG.txt",
+        "target/wasm32-unknown-unknown/release/plugin.wasm",
+        "deployment/schema.json",
+      ].join(" \\\n  "),
     },
     {
       name: "Lint workflow generation",
