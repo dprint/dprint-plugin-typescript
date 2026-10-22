@@ -1,0 +1,184 @@
+~~ lineWidth: 40 ~~
+== should print ==
+with (obj) {
+    a;
+    b;
+}
+
+[expect]
+with (obj) {
+    a;
+    b;
+}
+
+== should print multi-line ==
+with (thisIsA && veryLongHeader && that) {
+    a;
+    b;
+}
+
+[expect]
+with (
+    thisIsA && veryLongHeader && that
+) {
+    a;
+    b;
+}
+
+== should print multi-line when exceeding width twice ==
+with (thisIsA && veryLongHeader && thatWillExceedTwice) {
+    a;
+    b;
+}
+
+[expect]
+with (
+    thisIsA && veryLongHeader
+    && thatWillExceedTwice
+) {
+    a;
+    b;
+}
+
+== should use multiple lines if open paren is on a different line than condition ==
+with (
+    true) {
+    }
+
+[expect]
+with (
+    true
+) {
+}
+
+== should print empty with statement on same line when on same line ==
+with (obj) {}
+
+[expect]
+with (obj) {}
+
+== should print empty with statement on different line when close brace on different line ==
+with (obj) {
+}
+
+[expect]
+with (obj) {
+}
+
+== should handle empty with comments ==
+with (true) { /* 1 */ }
+with (true) {
+/* test */}
+with (true) { // 1
+//2
+/* 3*/}
+
+[expect]
+with (true) { /* 1 */ }
+with (true) {
+    /* test */
+}
+with (true) { // 1
+    // 2
+    /* 3*/
+}
+
+== should handle block comment on first line with statement ==
+with (true) { /* 1 */
+s;}
+with (true) { /* 1 */ s; /* 2 */}
+
+[expect]
+with (true) {
+    /* 1 */
+    s;
+}
+with (true) /* 1 */ s; /* 2 */
+
+== should print when only has an empty statement ==
+with (true);
+
+[expect]
+with (true);
+
+== should print when only has an empty statement on next line ==
+with (true)
+    ;
+
+[expect]
+with (true);
+
+== should support comments in header ==
+with (
+    // testing
+    test
+) {
+    a;
+}
+
+[expect]
+with (
+    // testing
+    test
+) {
+    a;
+}
+
+== should move trailing header comment to next line ==
+with (// testing
+    test
+) {
+    a;
+}
+
+[expect]
+with (
+    // testing
+    test
+) {
+    a;
+}
+
+== should remain stable with trailing line comment after open brace (issue #787) ==
+with (a) { //
+}
+
+[expect]
+with (a) { //
+}
+
+== should remain stable with non-block body and trailing line comment ==
+with (a) 1; //
+
+[expect]
+with (a) 1; //
+
+== should normalize spacing ==
+with(a){//
+}
+
+[expect]
+with (a) { //
+}
+
+== should handle interior comments ==
+with (a) {
+    // inner
+    b;
+    // tail
+}
+
+[expect]
+with (a) {
+    // inner
+    b;
+    // tail
+}
+
+== should handle prettier with/indent.js cases ==
+with (0) {}
+with (0) 1;
+
+[expect]
+with (0) {}
+with (0) 1;
