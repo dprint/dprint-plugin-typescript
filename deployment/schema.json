@@ -130,9 +130,6 @@
       }, {
         "const": "lf",
         "description": "Uses line feed."
-      }, {
-        "const": "system",
-        "description": "Uses the system standard (ex. crlf on Windows)."
       }]
     },
     "useBraces": {
