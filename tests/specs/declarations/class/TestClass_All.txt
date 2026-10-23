@@ -1,0 +1,22 @@
+~~ classDeclaration.alignProperties: true, indentWidth: 2 ~~
+== should align class properties ==
+class TestClass {
+a = 1;
+longPropertyName = "value";
+x = true;
+veryLongMethodName() { return 42; }
+b() { return "short"; }
+}
+
+[expect]
+class TestClass {
+  a                = 1;
+  longPropertyName = "value";
+  x                = true;
+  veryLongMethodName() {
+    return 42;
+  }
+  b() {
+    return "short";
+  }
+}

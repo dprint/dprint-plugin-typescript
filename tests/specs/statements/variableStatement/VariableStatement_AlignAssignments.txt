@@ -1,0 +1,40 @@
+~~ variableStatement.alignAssignments: true ~~
+== should align variable assignments ==
+const foo = 12;
+const bar = 21;
+const foobar = 22;
+
+[expect]
+const foo    = 12;
+const bar    = 21;
+const foobar = 22;
+
+== should align let assignments ==
+let foo = 12;
+let bar = 21;  
+let foobar = 22;
+
+[expect]
+let foo    = 12;
+let bar    = 21;
+let foobar = 22;
+
+== should align var assignments ==
+var foo = 12;
+var bar = 21;
+var foobar = 22;
+
+[expect]
+var foo    = 12;
+var bar    = 21;
+var foobar = 22;
+
+== should align with destructuring ==
+const { a, b } = obj1;
+const { c } = obj2;
+const simple = obj3;
+
+[expect]
+const { a, b } = obj1;
+const { c }    = obj2;
+const simple   = obj3;

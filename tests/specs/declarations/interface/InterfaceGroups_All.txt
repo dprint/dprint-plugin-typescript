@@ -1,0 +1,32 @@
+~~ interfaceDeclaration.alignProperties: true, indentWidth: 2 ~~
+== should align interface properties in groups ==
+interface ServerConfig {
+// Connection settings
+host: string;
+port: number;
+
+// Security settings
+tls: boolean;
+tlsCertificate: string;
+tlsPrivateKey: string;
+
+// Timeouts
+readTimeout: number;
+writeTimeoutDuration: number;
+}
+
+[expect]
+interface ServerConfig {
+  // Connection settings
+  host: string;
+  port: number;
+
+  // Security settings
+  tls:            boolean;
+  tlsCertificate: string;
+  tlsPrivateKey:  string;
+
+  // Timeouts
+  readTimeout:          number;
+  writeTimeoutDuration: number;
+}
