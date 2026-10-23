@@ -1,0 +1,55 @@
+~~ lineWidth: 40, unionAndIntersectionType.operatorPosition: sameLine ~~
+== should format with operator at end of line when wrapping ==
+export type T = string | test | string | number;
+
+[expect]
+export type T =
+    string |
+    test |
+    string |
+    number;
+
+== should keep single line when it fits ==
+export type T = string | number;
+
+[expect]
+export type T = string | number;
+
+== should rewrite leading operator style to trailing ==
+export type T =
+    | string
+    | test
+    | other;
+
+[expect]
+export type T =
+    string |
+    test |
+    other;
+
+== should keep trailing operator style as-is ==
+export type T =
+    string |
+    test |
+    other;
+
+[expect]
+export type T =
+    string |
+    test |
+    other;
+
+== should produce trailing operators for the example from issue #759 ==
+export type T = (
+    "option_a" |
+    "option_b" |
+    "option_c" |
+    "option_d"
+);
+
+[expect]
+export type T =
+    "option_a" |
+    "option_b" |
+    "option_c" |
+    "option_d";
