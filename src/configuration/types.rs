@@ -407,6 +407,8 @@ pub struct Configuration {
   pub arguments_prefer_hanging: PreferHanging,
   #[serde(rename = "arrayExpression.preferHanging")]
   pub array_expression_prefer_hanging: PreferHanging,
+  #[serde(rename = "arrayExpression.maxWidth")]
+  pub array_expression_max_width: Option<u32>,
   #[serde(rename = "arrayPattern.preferHanging")]
   pub array_pattern_prefer_hanging: bool,
   #[serde(rename = "doWhileStatement.preferHanging")]
