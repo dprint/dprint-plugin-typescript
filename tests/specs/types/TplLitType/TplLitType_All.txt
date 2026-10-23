@@ -1,5 +1,28 @@
+~~ lineWidth: 80, indentWidth: 2 ~~
 == should format a template literal type ==
 type Test<T> = `${string    &    keyof    T}Changed`;
 
 [expect]
 type Test<T> = `${string & keyof T}Changed`;
+
+== should keep union template literal type expression on one line when it fits ==
+type Foo = `${typeof X | typeof Y}__${typeof Z | typeof W}`;
+
+[expect]
+type Foo = `${typeof X | typeof Y}__${typeof Z | typeof W}`;
+
+== should surround union template literal type expression with newlines when too long ==
+export type SortSelector = `${typeof Descending | typeof Ascending}${SortItems}`;
+
+[expect]
+export type SortSelector = `${
+  typeof Descending | typeof Ascending
+}${SortItems}`;
+
+== should surround intersection template literal type expression with newlines when too long ==
+export type IntersectionTpl = `${typeof Descending & typeof Ascending}${SortItems}`;
+
+[expect]
+export type IntersectionTpl = `${
+  typeof Descending & typeof Ascending
+}${SortItems}`;
