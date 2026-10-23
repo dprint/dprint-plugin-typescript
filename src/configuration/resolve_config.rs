@@ -132,6 +132,11 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
       NamedTypeImportsExportsOrder::None,
       &mut diagnostics,
     ),
+    module_import_groups: parse_import_groups(&mut config, &mut diagnostics),
+    module_type_imports: get_value(&mut config, "module.typeImports", TypeImportsMode::Separate, &mut diagnostics),
+    module_builtins_runtime: get_value(&mut config, "module.builtinsRuntime", BuiltinsRuntime::Node, &mut diagnostics),
+    module_import_groups_newlines_between: get_value(&mut config, "module.importGroupsNewlinesBetween", NewlinesBetween::Always, &mut diagnostics),
+    module_import_groups_cache: Default::default(),
     /* ignore comments */
     ignore_node_comment_text: get_value(&mut config, "ignoreNodeCommentText", String::from("dprint-ignore"), &mut diagnostics),
     ignore_file_comment_text: get_value(&mut config, "ignoreFileCommentText", String::from("dprint-ignore-file"), &mut diagnostics),
@@ -338,6 +343,16 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
 
   diagnostics.extend(get_unknown_property_diagnostics(config));
 
+  // compile once here so formatting never has to, and report what it found
+  let (groups, compile_diags) = crate::generation::imports::resolved::compile_import_groups(&resolved_config);
+  resolved_config.module_import_groups_cache.set(groups);
+  for message in compile_diags {
+    diagnostics.push(ConfigurationDiagnostic {
+      property_name: "module.importGroups".to_string(),
+      message,
+    });
+  }
+
   return ResolveConfigurationResult {
     config: resolved_config,
     diagnostics,
@@ -348,6 +363,35 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
       if !config.contains_key(key) {
         config.insert(key.clone(), value.clone());
       }
+    }
+  }
+}
+
+fn parse_import_groups(
+  config: &mut ConfigKeyMap,
+  diagnostics: &mut Vec<ConfigurationDiagnostic>,
+) -> Vec<ImportGroup> {
+  let Some(raw) = config.shift_remove("module.importGroups") else {
+    return Vec::new();
+  };
+  let json = match serde_json::to_value(&raw) {
+    Ok(v) => v,
+    Err(err) => {
+      diagnostics.push(ConfigurationDiagnostic {
+        property_name: "module.importGroups".to_string(),
+        message: format!("Failed to convert config value to JSON: {err}"),
+      });
+      return Vec::new();
+    }
+  };
+  match serde_json::from_value::<Vec<ImportGroup>>(json) {
+    Ok(groups) => groups,
+    Err(err) => {
+      diagnostics.push(ConfigurationDiagnostic {
+        property_name: "module.importGroups".to_string(),
+        message: format!("Invalid import groups configuration: {err}"),
+      });
+      Vec::new()
     }
   }
 }
@@ -410,5 +454,78 @@ mod tests {
     assert_eq!(result.config.indent_width, 8);
     assert_eq!(result.config.line_width, expected_config.line_width);
     assert_eq!(result.diagnostics.len(), 0);
+  }
+}
+
+#[cfg(test)]
+mod import_groups_resolution_tests {
+  use super::*;
+  use dprint_core::configuration::ConfigKeyMap;
+
+  fn resolve(json: serde_json::Value) -> ResolveConfigurationResult<Configuration> {
+    let map: ConfigKeyMap = serde_json::from_value(json).unwrap();
+    resolve_config(map, &Default::default())
+  }
+
+  #[test]
+  fn empty_import_groups_default() {
+    let r = resolve(serde_json::json!({}));
+    assert!(r.config.module_import_groups.is_empty());
+    assert!(matches!(r.config.module_type_imports, TypeImportsMode::Separate));
+    assert!(matches!(r.config.module_builtins_runtime, BuiltinsRuntime::Node));
+    assert!(r.diagnostics.is_empty());
+  }
+
+  #[test]
+  fn parses_basic_eslint_mirror() {
+    let r = resolve(serde_json::json!({
+      "module.importGroups": [
+        { "match": "builtin" },
+        { "match": "external" },
+        { "match": ["sibling", "index"] }
+      ]
+    }));
+    assert!(r.diagnostics.is_empty(), "unexpected diagnostics: {:?}", r.diagnostics.iter().map(|d| &d.message).collect::<Vec<_>>());
+    assert_eq!(r.config.module_import_groups.len(), 3);
+  }
+
+  #[test]
+  fn invalid_import_groups_emits_diagnostic() {
+    let r = resolve(serde_json::json!({
+      "module.importGroups": "not-an-array"
+    }));
+    assert_eq!(r.config.module_import_groups.len(), 0);
+    assert_eq!(r.diagnostics.len(), 1);
+    assert_eq!(r.diagnostics[0].property_name, "module.importGroups");
+  }
+
+  #[test]
+  fn unknown_category_string_diagnostic() {
+    let r = resolve(serde_json::json!({
+      "module.importGroups": [{ "match": "buildin" }]
+    }));
+    assert!(!r.diagnostics.is_empty(), "expected diagnostic for typo");
+    assert!(
+      r.diagnostics.iter().any(|d| {
+        let m = d.message.to_lowercase();
+        m.contains("buildin")
+          || m.contains("unknown")
+          || m.contains("did not match any variant")
+          || m.contains("invalid import groups")
+      }),
+      "diagnostic should signal an invalid variant, got: {:?}",
+      r.diagnostics.iter().map(|d| &d.message).collect::<Vec<_>>()
+    );
+  }
+
+  #[test]
+  fn duplicate_category_surfaces_via_resolve_config() {
+    let r = resolve(serde_json::json!({
+      "module.importGroups": [
+        { "match": "builtin" },
+        { "match": "builtin" }
+      ]
+    }));
+    assert!(r.diagnostics.iter().any(|d| d.property_name == "module.importGroups" && d.message.contains("Builtin")), "expected duplicate-category diagnostic, got: {:?}", r.diagnostics.iter().map(|d| &d.message).collect::<Vec<_>>());
   }
 }

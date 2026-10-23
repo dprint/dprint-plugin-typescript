@@ -1,0 +1,16 @@
+~~ {
+  "lineWidth": 80,
+  "module.typeImports": "interleave",
+  "module.importGroups": [
+    { "match": "external" }
+  ]
+} ~~
+== typeImports interleave mixes type and value imports in external group ==
+import { a } from "alpha";
+import type { B } from "beta";
+import { c } from "gamma";
+
+[expect]
+import { a } from "alpha";
+import type { B } from "beta";
+import { c } from "gamma";
