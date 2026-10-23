@@ -1,0 +1,73 @@
+~~ lineWidth: 60, trailingCommas: always ~~
+== should add trailing comma to single-arg call ==
+foo(x);
+
+[expect]
+foo(x,);
+
+== should add trailing comma to multi-arg call ==
+foo(a, b, c);
+
+[expect]
+foo(a, b, c,);
+
+== should add trailing comma in multi-line call ==
+foo(
+    aLongerName,
+    anotherLongerName
+);
+
+[expect]
+foo(
+    aLongerName,
+    anotherLongerName,
+);
+
+== should add trailing comma after arrow expression body when call wraps (issue #696) ==
+[1, 2, 3].map(value =>
+    value == "a quite long paragraph with many words")
+
+[expect]
+[1, 2, 3,].map(value =>
+    value == "a quite long paragraph with many words",
+);
+
+== should add trailing comma after block-bodied arrow ==
+foo(
+    (v) => {
+        return v;
+    }
+)
+
+[expect]
+foo(
+    (v,) => {
+        return v;
+    },
+);
+
+== should not add trailing comma after rest argument in call when never-trailing applies ==
+foo(...args);
+
+[expect]
+foo(...args,);
+
+== should not add trailing comma in dynamic import ==
+import(
+    "myreallylongdynamicallyloadedmodulename"
+);
+
+[expect]
+import(
+    "myreallylongdynamicallyloadedmodulename"
+);
+
+== should add trailing comma when last arg is arrow whose body wraps ==
+a.b().c({ d: 1 }, () =>
+    doSomethingThatDoesNotFitOnTheSameLine())
+
+[expect]
+a.b().c(
+    { d: 1, },
+    () => doSomethingThatDoesNotFitOnTheSameLine(),
+);
