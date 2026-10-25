@@ -33,7 +33,7 @@ const a = [
     ["123456", "123456"], //
 ];
 
-== should not be multi line if the objects are allowed to be inline multi-line ==
+== should break the container when multiple object siblings could each go inline multi-line (issue #641) ==
 const t = [{
     prop: 5
 }, {
@@ -41,11 +41,14 @@ const t = [{
 }];
 
 [expect]
-const t = [{
-    prop: 5,
-}, {
-    other: "string",
-}];
+const t = [
+    {
+        prop: 5,
+    },
+    {
+        other: "string",
+    },
+];
 
 == should maintain blank lines when exceeding the line width ==
 const t = [
