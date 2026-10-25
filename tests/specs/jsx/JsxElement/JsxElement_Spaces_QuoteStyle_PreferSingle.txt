@@ -1,0 +1,13 @@
+-- file.tsx --
+~~ lineWidth: 40, quoteStyle: preferSingle ~~
+== should use single quotes in the jsx space expressions for the edge spaces ==
+const t = <div> test text that is long enough to wrap past </div>;
+
+[expect]
+const t = (
+    <div>
+        {' '}
+        test text that is long enough to
+        wrap past{' '}
+    </div>
+);

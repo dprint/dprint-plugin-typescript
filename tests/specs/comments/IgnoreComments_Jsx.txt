@@ -48,3 +48,25 @@ const t = (
         <Test      />
     </Element>
 );
+
+== should not add a space after ignored text that ends with a space ==
+const t = (
+    <div>
+        {/* dprint-ignore */}
+        some    text {a}
+    </div>
+);
+
+[expect]
+const t = (
+    <div>
+        {/* dprint-ignore */}
+        some    text {a}
+    </div>
+);
+
+== should keep a space after an ignore comment ==
+const t = <div>{/* dprint-ignore */} </div>;
+
+[expect]
+const t = <div>{/* dprint-ignore */} </div>;

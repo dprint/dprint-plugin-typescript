@@ -29,3 +29,21 @@ const t = (
         {myAwesomeContent}
     </Test>
 );
+
+== should use jsx space expressions for the edge spaces ==
+const t1 = <Test> {myAwesomeContent} </Test>;
+const t2 = <Test> </Test>;
+
+[expect]
+const t1 = (
+    <Test>
+        {" "}
+        {myAwesomeContent}
+        {" "}
+    </Test>
+);
+const t2 = (
+    <Test>
+        {" "}
+    </Test>
+);
