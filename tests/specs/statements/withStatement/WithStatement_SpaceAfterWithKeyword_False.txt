@@ -6,3 +6,11 @@ with (true) {
 [expect]
 with(true) {
 }
+
+== should keep a space before a comment before the paren ==
+with /* c */ (obj) {
+}
+
+[expect]
+with /* c */ (obj) {
+}

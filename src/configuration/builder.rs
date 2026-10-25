@@ -347,10 +347,10 @@ impl ConfigurationBuilder {
     self.insert("forInStatement.spaceAfterForKeyword", value.into())
   }
 
-  /// Whether to add a space after the `for` keyword in a "for of" statement.
+  /// Whether to add a space after the `for` keyword, or the `await` keyword in a `for await`, in a "for of" statement.
   ///
-  /// * `true` (default) - Ex. `for (const value of myArray)`
-  /// * `false` - Ex. `for(const value of myArray)`
+  /// * `true` (default) - Ex. `for (const value of myArray)` or `for await (const value of myArray)`
+  /// * `false` - Ex. `for(const value of myArray)` or `for await(const value of myArray)`
   pub fn for_of_statement_space_after_for_keyword(&mut self, value: bool) -> &mut Self {
     self.insert("forOfStatement.spaceAfterForKeyword", value.into())
   }
