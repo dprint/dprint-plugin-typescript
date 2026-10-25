@@ -43,12 +43,12 @@ const d = <Outer className={<Inner title="p-4 flex" className="flex p-4" />} />;
 const e = <div className={["flex p-4", "m-2 block"].join(" ")} />;
 
 == should not sort a tagged template literal whose tag isn't configured ==
-const a = <div className={css`p-4 flex`} />;
-const b = <div className={clsx(css`p-4 flex ${"p-4 flex"}`, "p-4 flex")} />;
+const a = <div className={other`p-4 flex`} />;
+const b = <div className={clsx(other`p-4 flex ${"p-4 flex"}`, "p-4 flex")} />;
 
 [expect]
-const a = <div className={css`p-4 flex`} />;
-const b = <div className={clsx(css`p-4 flex ${"p-4 flex"}`, "flex p-4")} />;
+const a = <div className={other`p-4 flex`} />;
+const b = <div className={clsx(other`p-4 flex ${"p-4 flex"}`, "flex p-4")} />;
 
 == should not sort text with escaped whitespace ==
 const a = <div className={"p-4 flex\
