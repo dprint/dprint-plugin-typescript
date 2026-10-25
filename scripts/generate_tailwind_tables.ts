@@ -7,13 +7,14 @@
 //   src/tailwind check the Rust code sorts the same way
 // - sort_tests_project.txt has the same for a project that customizes Tailwind
 //
-// Bump the version in the import below to update to a newer Tailwind.
+// bump the version in the import below to update to a newer Tailwind
 import { readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { __unstable__loadDesignSystem } from "npm:tailwindcss@4.3.3";
 
-const tailwindVersion = "4.3.3";
 const require = createRequire(import.meta.url);
+// read from the package so that the version is only in the import
+const tailwindVersion: string = JSON.parse(readFileSync(require.resolve("tailwindcss/package.json"), "utf8")).version;
 
 type ModifierKind = "None" | "Arbitrary" | "Opacity" | "LineHeight" | "Any";
 
