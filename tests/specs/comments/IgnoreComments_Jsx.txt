@@ -70,3 +70,50 @@ const t = <div>{/* dprint-ignore */} </div>;
 
 [expect]
 const t = <div>{/* dprint-ignore */} </div>;
+
+== should keep the closing tag beside ignored text that ends with spaces ==
+const t = (
+    <div>
+        <b>a</b>
+        {/* dprint-ignore */}
+        some    text </div>
+);
+
+[expect]
+const t = (
+    <div>
+        <b>a</b>
+        {/* dprint-ignore */}
+        some    text </div>
+);
+
+== should move the closing tag to the next line after ignored text without spaces at its end ==
+const t1 = (
+    <div>
+        <b>a</b>
+        {/* dprint-ignore */}
+        some    text</div>
+);
+const t2 = (
+    <div>
+        <b>a</b>
+        {/* dprint-ignore */}
+        some    text
+    </div>
+);
+
+[expect]
+const t1 = (
+    <div>
+        <b>a</b>
+        {/* dprint-ignore */}
+        some    text
+    </div>
+);
+const t2 = (
+    <div>
+        <b>a</b>
+        {/* dprint-ignore */}
+        some    text
+    </div>
+);

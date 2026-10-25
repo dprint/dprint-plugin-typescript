@@ -9719,6 +9719,10 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
     let mut items = PrintItems::new();
     let has_children = !children.is_empty();
     let is_last_child_text = matches!(children.last(), Some((Node::JSXText(_), _)));
+    // a newline after ignored text would remove the spaces at its end, so keep the closing tag beside it
+    let is_closing_beside_last_child = children
+      .last()
+      .is_some_and(|(child, _)| is_jsx_text_generated_as_is(*child, context) && utils::has_jsx_trailing_space(child.text_fast(context.program)));
     // a space beside a newline would be removed, so the edge spaces become jsx space expressions
     let mut inner_items = PrintItems::new();
     if edge_spaces.leading {
@@ -9772,7 +9776,7 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
     items.push_signal(Signal::NewLine);
     items.extend(ir_helpers::with_indent(inner_items));
 
-    if has_children || edge_spaces.leading {
+    if (has_children || edge_spaces.leading) && !is_closing_beside_last_child {
       items.push_signal(Signal::NewLine);
     }
 
