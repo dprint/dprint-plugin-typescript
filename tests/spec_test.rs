@@ -99,21 +99,19 @@ fn main() {
     },
     {
       let global_config = global_config.clone();
-      Arc::new(move |file_name, file_text, spec_config| {
+      Arc::new(move |file_name, file_text, range, spec_config| {
+        assert!(range.is_none(), "range formatting is not supported");
         let spec_config: ConfigKeyMap = serde_json::from_value(spec_config.clone().into()).unwrap();
         let config_result = resolve_config(spec_config, &global_config);
         ensure_no_diagnostics(&config_result.diagnostics);
 
-        // dprint-development's callback wants an `anyhow::Result`, so bridge the
-        // crate's boxed error through `std::io::Error` to avoid depending on anyhow
         let result = format_text(FormatTextOptions {
           path: file_name,
           extension: None,
           text: file_text.into(),
           config: &config_result.config,
           external_formatter: Some(&external_formatter),
-        })
-        .map_err(std::io::Error::other)?;
+        })?;
         Ok(result)
       })
     },
