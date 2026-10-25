@@ -115,15 +115,13 @@ pub fn has_surrounding_different_line_comments<'a>(node: Node<'a>, program: Prog
 
 pub fn nodes_have_only_spaces_between<'a>(previous_node: Node<'a>, next_node: Node<'a>, program: Program<'a>) -> bool {
   if let Node::JSXText(previous_node) = previous_node {
-    let previous_node_text = previous_node.text_fast(program);
-    crate::utils::has_no_new_lines_in_trailing_whitespace(previous_node_text) && previous_node_text.ends_with(' ')
+    crate::utils::has_jsx_trailing_space(previous_node.text_fast(program))
   } else if let Node::JSXText(next_node) = next_node {
-    let next_node_text = next_node.text_fast(program);
-    crate::utils::has_no_new_lines_in_leading_whitespace(next_node_text) && next_node_text.starts_with(' ')
+    crate::utils::has_jsx_leading_space(next_node.text_fast(program))
   } else {
     let text_info = program.text_info();
     let range = SourceRange::new(previous_node.end(), next_node.start());
-    crate::utils::is_not_empty_and_only_spaces(text_info.range_text(&range))
+    crate::utils::is_jsx_space(text_info.range_text(&range))
   }
 }
 
@@ -176,7 +174,7 @@ pub fn count_spaces_between_jsx_children<'a>(previous_node: Node<'a>, next_node:
   let siblings_between = all_siblings_between
     .into_iter()
     // ignore empty JSXText
-    .filter(|n| !n.text_fast(program).trim().is_empty())
+    .filter(|n| !crate::utils::is_jsx_whitespace(n.text_fast(program)))
     .collect::<Vec<_>>();
 
   let mut count = 0;

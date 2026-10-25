@@ -109,7 +109,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
     let node_text = if node_kind == NodeKind::JSXText {
       // keep the leading text, but leave the trailing text to be formatted if on a separate line
       let node_text = node.text_fast(context.program);
-      let end_trim = node_text.trim_end();
+      let end_trim = node_text.trim_end_matches(utils::is_jsx_whitespace_char);
       if node_text[end_trim.len()..].contains('\n') { end_trim } else { node_text }
     } else {
       node.text_fast(context.program)
@@ -409,7 +409,7 @@ fn gen_file_text_as_is(text: &str, end: SourcePos, trim_line_ends: TrimLineEnds,
     }
   }
   match trim_line_ends {
-    TrimLineEnds::Yes => ir_helpers::gen_from_raw_string_trim_line_ends(text),
+    TrimLineEnds::Yes => ir_helpers::gen_from_raw_string(&get_text_with_trimmed_line_ends(text)),
     TrimLineEnds::No => ir_helpers::gen_from_raw_string(text),
   }
 }
@@ -419,7 +419,25 @@ enum TrimLineEnds {
   No,
 }
 
-fn get_has_ignore_comment<'a>(leading_comments: &CommentsIterator<'a>, node: Node<'a>, context: &mut Context<'a>) -> bool {
+/// Trims the whitespace at the end of each line, which JSX removes.
+///
+/// The end of the last line is beside the text after it, so it's kept
+/// unless the last line is only the whitespace before that text.
+fn get_text_with_trimmed_line_ends(text: &str) -> String {
+  let mut result = String::with_capacity(text.len());
+  let mut lines = text.split('\n').enumerate().peekable();
+  while let Some((i, line)) = lines.next() {
+    if lines.peek().is_some() {
+      result.push_str(line.trim_end_matches(utils::is_jsx_whitespace_char));
+      result.push('\n');
+    } else if i == 0 || !utils::is_jsx_whitespace(line) {
+      result.push_str(line);
+    }
+  }
+  result
+}
+
+fn get_has_ignore_comment<'a>(leading_comments: &CommentsIterator<'a>, node: Node<'a>, context: &Context<'a>) -> bool {
   let comments = match node.parent() {
     Some(Node::JSXElement(jsx_element)) => get_comments_for_jsx_children(jsx_element.children, &node.start(), context),
     Some(Node::JSXFragment(jsx_fragment)) => get_comments_for_jsx_children(jsx_fragment.children, &node.start(), context),
@@ -434,7 +452,7 @@ fn get_has_ignore_comment<'a>(leading_comments: &CommentsIterator<'a>, node: Nod
 
   return false;
 
-  fn get_comments_for_jsx_children<'a>(children: &[JSXElementChild], node_lo: &SourcePos, context: &mut Context<'a>) -> CommentsIterator<'a> {
+  fn get_comments_for_jsx_children<'a>(children: &[JSXElementChild], node_lo: &SourcePos, context: &Context<'a>) -> CommentsIterator<'a> {
     let mut iterator = CommentsIterator::empty();
     let index = if let Ok(index) = children.binary_search_by_key(node_lo, |child| child.start()) {
       index
@@ -453,7 +471,7 @@ fn get_has_ignore_comment<'a>(leading_comments: &CommentsIterator<'a>, node: Nod
           };
         }
         JSXElementChild::JSXText(jsx_text) => {
-          if !jsx_text.text_fast(context.program).trim().is_empty() {
+          if !utils::is_jsx_whitespace(jsx_text.text_fast(context.program)) {
             break;
           }
         }
@@ -477,6 +495,14 @@ fn is_ignore_jsx_expr_container(node: Node, context: &Context) -> bool {
   }
 
   false
+}
+
+/// Gets if the node is JSX text after an ignore comment, which is generated
+/// as-is along with its leading whitespace and the spaces at its end.
+fn is_jsx_text_generated_as_is<'a>(node: Node<'a>, context: &Context<'a>) -> bool {
+  node.kind() == NodeKind::JSXText
+    && !utils::is_jsx_whitespace(node.text_fast(context.program))
+    && get_has_ignore_comment(&CommentsIterator::empty(), node, context)
 }
 
 /* class */
@@ -3920,7 +3946,7 @@ fn handle_jsx_surrounding_parens(inner_items: PrintItems, context: &mut Context<
   items.extend(actions::if_column_number_changes(move |context| {
     context.clear_info(end_ln);
   }));
-  items.push_condition(if_true_or(
+  let mut condition = if_true_or(
     "parensOrNewlinesIfMultipleLines",
     Rc::new(move |context| condition_helpers::is_multiple_lines(context, start_ln, end_ln)),
     surround_with_parens(surround_with_new_lines(with_indent(inner_items_rc.into()))),
@@ -3930,9 +3956,14 @@ fn handle_jsx_surrounding_parens(inner_items: PrintItems, context: &mut Context<
       items.extend(inner_items_rc.into());
       items
     },
-  ));
+  );
+  let condition_reevaluation = condition.create_reevaluation();
+  items.push_condition(condition);
 
   items.push_info(end_ln);
+  // the end line changes when the line breaks after the jsx, which
+  // happens after the condition was evaluated with the end line on the first line
+  items.push_reevaluation(condition_reevaluation);
   return items;
 
   fn should_jsx_surround_newlines<'a>(node: Node<'a>, context: &Context<'a>) -> bool {
@@ -4239,7 +4270,7 @@ fn gen_jsx_text<'a>(node: &JSXText<'a>, context: &mut Context<'a>) -> PrintItems
     }
 
     let mut was_last_space_or_newline = true;
-    for word in line.split(' ') {
+    for word in line.split(utils::is_jsx_space_char) {
       if !was_last_space_or_newline {
         items.push_signal(Signal::SpaceOrNewLine);
         was_last_space_or_newline = true;
@@ -4255,7 +4286,10 @@ fn gen_jsx_text<'a>(node: &JSXText<'a>, context: &mut Context<'a>) -> PrintItems
 
   fn get_lines(node_text: &str) -> Vec<String> {
     let mut past_line: Option<&str> = None;
-    let lines = node_text.trim().lines().map(|line| line.trim());
+    let lines = node_text
+      .trim_matches(utils::is_jsx_whitespace_char)
+      .lines()
+      .map(|line| line.trim_matches(utils::is_jsx_whitespace_char));
     let mut result = Vec::new();
     let mut current_line = String::new();
 
@@ -7912,7 +7946,7 @@ where
     let is_empty_stmt = node.is::<EmptyStmt>();
     if !is_empty_stmt {
       if let Some(last_node) = last_node {
-        if is_ignore_jsx_expr_container(last_node, context) && node.kind() == NodeKind::JSXText {
+        if is_jsx_text_generated_as_is(node, context) {
           // ignore
         } else if should_use_new_line(&opts.should_use_new_line, last_node, node, context) {
           items.push_signal(Signal::NewLine);
@@ -9508,7 +9542,7 @@ fn gen_jsx_with_opening_and_closing<'a>(opts: GenJsxWithOpeningAndClosingOptions
   }));
   items.push_line_and_column(start_lc);
   items.extend(gen_node(opts.opening_element, context));
-  items.extend(gen_jsx_children(
+  let children_result = gen_jsx_children(
     GenJsxChildrenOptions {
       inner_range,
       children: opts.children,
@@ -9517,9 +9551,15 @@ fn gen_jsx_with_opening_and_closing<'a>(opts: GenJsxWithOpeningAndClosingOptions
       force_use_multi_lines,
     },
     context,
-  ));
+  );
+  items.extend(children_result.items);
   items.extend(gen_node(opts.closing_element, context));
   items.push_info(end_ln);
+  if let Some(reevaluation) = children_result.new_lines_reevaluation {
+    // the end line changes when the line breaks after the element, which
+    // happens after the condition was evaluated with the end line on the first line
+    items.push_reevaluation(reevaluation);
+  }
 
   return GenJsxWithOpeningAndClosingResult {
     items,
@@ -9563,7 +9603,20 @@ struct GenJsxChildrenOptions<'a> {
   force_use_multi_lines: bool,
 }
 
-fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'a>) -> PrintItems {
+struct GenJsxChildrenResult {
+  items: PrintItems,
+  new_lines_reevaluation: Option<ConditionReevaluation>,
+}
+
+/// The spaces JSX keeps between the children and the opening and closing tags.
+#[derive(Clone, Copy)]
+struct JsxEdgeSpaces {
+  leading: bool,
+  trailing: bool,
+}
+
+fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'a>) -> GenJsxChildrenResult {
+  let edge_spaces = get_jsx_edge_spaces(&opts.children, context);
   let filtered_children = get_filtered_jsx_children(opts.children, context);
 
   // Need to generate the children here so they only get generated once.
@@ -9586,10 +9639,13 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
   let parent_end_ln = opts.parent_end_ln;
 
   if opts.force_use_multi_lines {
-    return gen_for_new_lines(generated_children, opts.inner_range, context);
+    return GenJsxChildrenResult {
+      items: gen_for_new_lines(generated_children, edge_spaces, opts.inner_range, context),
+      new_lines_reevaluation: None,
+    };
   } else {
     // decide whether newlines should be used or not
-    return if_true_or(
+    let mut condition = if_true_or(
       "jsxChildrenNewLinesOrNot",
       Rc::new(move |condition_context| {
         // use newlines if the header is multiple lines
@@ -9600,10 +9656,29 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
         // use newlines if the entire jsx element is on multiple lines
         condition_helpers::is_multiple_lines(condition_context, parent_start_ln, parent_end_ln)
       }),
-      gen_for_new_lines(generated_children.clone(), opts.inner_range, context),
-      gen_for_single_line(generated_children, context),
-    )
-    .into();
+      gen_for_new_lines(generated_children.clone(), edge_spaces, opts.inner_range, context),
+      gen_for_single_line(generated_children, edge_spaces, context),
+    );
+    let new_lines_reevaluation = condition.create_reevaluation();
+    return GenJsxChildrenResult {
+      items: condition.into(),
+      new_lines_reevaluation: Some(new_lines_reevaluation),
+    };
+  }
+
+  /// JSX keeps whitespace without a line break, so the whitespace between a tag
+  /// and the text beside it is a space when it's on the same line.
+  fn get_jsx_edge_spaces<'a>(children: &[Node<'a>], context: &Context<'a>) -> JsxEdgeSpaces {
+    let leading = match children.first() {
+      Some(Node::JSXText(text)) => utils::has_jsx_leading_space(text.text_fast(context.program)),
+      _ => false,
+    };
+    let trailing = match children.last() {
+      // text generated as-is already has its spaces
+      Some(&child @ Node::JSXText(text)) => !is_jsx_text_generated_as_is(child, context) && utils::has_jsx_trailing_space(text.text_fast(context.program)),
+      _ => false,
+    };
+    JsxEdgeSpaces { leading, trailing }
   }
 
   /// JSX children includes JSXText whitespace nodes that overly complicates things.
@@ -9620,8 +9695,7 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
         current_jsx_space_exprs.push(child);
         continue;
       }
-      let child_text = child.text_fast(context.program);
-      if child_text.trim().is_empty() {
+      if utils::is_jsx_whitespace(child.text_fast(context.program)) {
         continue;
       }
 
@@ -9636,32 +9710,35 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
     children
   }
 
-  fn gen_for_new_lines<'a>(children: Vec<(Node<'a>, Option<PrintItemPath>)>, inner_range: SourceRange, context: &mut Context<'a>) -> PrintItems {
+  fn gen_for_new_lines<'a>(
+    children: Vec<(Node<'a>, Option<PrintItemPath>)>,
+    edge_spaces: JsxEdgeSpaces,
+    inner_range: SourceRange,
+    context: &mut Context<'a>,
+  ) -> PrintItems {
     let mut items = PrintItems::new();
     let has_children = !children.is_empty();
-    items.push_signal(Signal::NewLine);
-    items.extend(ir_helpers::with_indent(gen_members(
+    let is_last_child_text = matches!(children.last(), Some((Node::JSXText(_), _)));
+    // a space beside a newline would be removed, so the edge spaces become jsx space expressions
+    let mut inner_items = PrintItems::new();
+    if edge_spaces.leading {
+      inner_items.push_string(get_jsx_space_text(1, context));
+      if has_children {
+        inner_items.push_signal(Signal::NewLine);
+      }
+    }
+    inner_items.extend(gen_members(
       GenMembersOptions {
         inner_range,
         items: children.into_iter().map(|(a, b)| (a, Some(b.into()))).collect(),
-        should_use_space: Some(Box::new(|previous, next, context| {
-          if has_jsx_space_between(previous, next, context.program) {
-            true
-          } else if let Node::JSXText(element) = previous {
-            element.text_fast(context.program).ends_with(' ')
-          } else if let Node::JSXText(element) = next {
-            element.text_fast(context.program).starts_with(' ')
-          } else {
-            false
-          }
-        })),
+        should_use_space: Some(Box::new(|previous, next, context| has_jsx_space_between(previous, next, context.program))),
         should_use_new_line: Some(Box::new(|previous, next, context| {
           if has_jsx_space_between(previous, next, context.program) {
             false // prefer collapsing
           } else if let Node::JSXText(next) = next {
-            !utils::has_no_new_lines_in_leading_whitespace(next.text_fast(context.program))
+            utils::get_jsx_leading_whitespace(next.text_fast(context.program)).contains('\n')
           } else if let Node::JSXText(previous) = previous {
-            !utils::has_no_new_lines_in_trailing_whitespace(previous.text_fast(context.program))
+            utils::get_jsx_trailing_whitespace(previous.text_fast(context.program)).contains('\n')
           } else {
             true
           }
@@ -9670,9 +9747,9 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
           if has_jsx_space_between(previous, next, context.program) {
             false // prefer collapsing
           } else if let Node::JSXText(previous) = previous {
-            utils::has_new_line_occurrences_in_trailing_whitespace(previous.text_fast(context.program), 2)
+            utils::get_jsx_trailing_whitespace(previous.text_fast(context.program)).matches('\n').count() >= 2
           } else if let Node::JSXText(next) = next {
-            utils::has_new_line_occurrences_in_leading_whitespace(next.text_fast(context.program), 2)
+            utils::get_jsx_leading_whitespace(next.text_fast(context.program)).matches('\n').count() >= 2
           } else {
             node_helpers::has_separating_blank_line(&previous, &next, context.program)
           }
@@ -9681,94 +9758,57 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
         is_jsx_children: true,
       },
       context,
-    )));
+    ));
+    if edge_spaces.trailing && has_children {
+      // same as a jsx space expression after the last child
+      if is_last_child_text {
+        inner_items.push_signal(Signal::PossibleNewLine);
+      } else {
+        inner_items.push_signal(Signal::NewLine);
+      }
+      inner_items.push_string(get_jsx_space_text(1, context));
+    }
 
-    if has_children {
+    items.push_signal(Signal::NewLine);
+    items.extend(ir_helpers::with_indent(inner_items));
+
+    if has_children || edge_spaces.leading {
       items.push_signal(Signal::NewLine);
     }
 
     items
   }
 
-  fn gen_for_single_line<'a>(children: Vec<(Node<'a>, Option<PrintItemPath>)>, context: &mut Context<'a>) -> PrintItems {
+  fn gen_for_single_line<'a>(children: Vec<(Node<'a>, Option<PrintItemPath>)>, edge_spaces: JsxEdgeSpaces, context: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
-    if children.is_empty() {
-      items.push_signal(Signal::PossibleNewLine);
-    } else {
-      // `gen_jsx_text` trims boundary whitespace so multi-line JSX text doesn't keep source indentation.
-      // Restore meaningful same-line edge spaces here when the first or last rendered child is JSX text.
-      let children_len = children.len();
-      let mut previous_child: Option<Node<'a>> = None;
-      let mut before_last_child: Option<Node<'a>> = None;
-      for (index, (child, generated_child)) in children.into_iter().enumerate() {
-        if index > 0 && should_use_space(*previous_child.as_ref().unwrap(), child, context) {
-          items.extend(jsx_space_separator(*previous_child.as_ref().unwrap(), child, context));
-        } else if index == 0 && has_jsx_leading_space(child, context) {
-          items.push_signal(Signal::SpaceOrNewLine);
-        } else {
-          items.push_signal(Signal::PossibleNewLine);
+    // the possible newlines are outside the edge spaces so that going multi-line
+    // happens at the edges, which then uses jsx space expressions for the spaces
+    items.push_signal(Signal::PossibleNewLine);
+    // when there are no children, the leading and trailing spaces are from the same whitespace text
+    if edge_spaces.leading {
+      items.push_space();
+    }
+    if !children.is_empty() {
+      let mut previous_child = None;
+      for (child, generated_child) in children.into_iter() {
+        if let Some(previous_child) = previous_child {
+          if has_jsx_space_between(previous_child, child, context.program) {
+            items.extend(jsx_space_separator(previous_child, child, context));
+          } else {
+            items.push_signal(Signal::PossibleNewLine);
+          }
         }
 
         items.extend(generated_child.into());
 
-        if children_len >= 2 && index == children_len - 2 {
-          before_last_child = Some(child);
-        }
         previous_child = Some(child);
       }
-      if has_jsx_trailing_space(*previous_child.as_ref().unwrap(), before_last_child, context) {
-        items.push_signal(Signal::SpaceOrNewLine);
-      } else {
-        items.push_signal(Signal::PossibleNewLine);
+      if edge_spaces.trailing {
+        items.push_space();
       }
+      items.push_signal(Signal::PossibleNewLine);
     }
     items
-  }
-
-  fn has_jsx_leading_space<'a>(current_node: Node<'a>, context: &Context<'a>) -> bool {
-    if let Node::JSXText(text) = current_node {
-      let text = text.text_fast(context.program);
-      text.starts_with(' ') && utils::has_no_new_lines_in_leading_whitespace(text)
-    } else {
-      false
-    }
-  }
-
-  fn has_jsx_trailing_space<'a>(current_node: Node<'a>, previous_node: Option<Node<'a>>, context: &Context<'a>) -> bool {
-    if let Node::JSXText(text) = current_node {
-      if matches!(previous_node, Some(previous_node) if is_ignore_jsx_expr_container(previous_node, context)) {
-        return false;
-      }
-
-      let text = text.text_fast(context.program);
-      text.ends_with(' ') && utils::has_no_new_lines_in_trailing_whitespace(text)
-    } else {
-      false
-    }
-  }
-
-  fn should_use_space<'a>(previous_child: Node<'a>, current: Node<'a>, context: &mut Context<'a>) -> bool {
-    if has_jsx_space_between(previous_child, current, context.program) {
-      return true;
-    }
-
-    let past_token = context.token_finder.get_previous_token(&current);
-    if let Some(TokenAndSpan {
-      token: dprint_swc_ext::swc::parser::token::Token::JSXText { .. },
-      span,
-      had_line_break,
-    }) = past_token
-    {
-      let text = span.text_fast(context.program);
-      if !had_line_break && text.ends_with(' ') {
-        return true;
-      }
-    }
-    if let Node::JSXText(child) = current {
-      child.text_fast(context.program).starts_with(' ')
-    } else {
-      false
-    }
   }
 
   /// If the node has a "JSX space expression" between or text that's only spaces between.
@@ -9790,7 +9830,8 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
 }
 
 fn jsx_space_separator<'a>(previous_node: Node<'a>, current_node: Node<'a>, context: &Context<'a>) -> PrintItems {
-  return if is_ignore_jsx_expr_container(previous_node, context) && current_node.kind() == NodeKind::JSXText {
+  return if is_jsx_text_generated_as_is(previous_node, context) || is_jsx_text_generated_as_is(current_node, context) {
+    // the spaces are in the text
     PrintItems::new()
   } else if node_should_force_newline_if_multi_line(previous_node) || node_should_force_newline_if_multi_line(current_node) {
     jsx_force_space_with_newline_if_either_node_multi_line(previous_node, current_node, context)

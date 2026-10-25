@@ -12,6 +12,171 @@ const t = <div> test </div>;
 [expect]
 const t = <div> test </div>;
 
+== should keep the spaces around an expression ==
+const t = <div> {a} </div>;
+
+[expect]
+const t = <div> {a} </div>;
+
+== should keep the spaces around text and an expression ==
+const t = <div> test {a} </div>;
+
+[expect]
+const t = <div> test {a} </div>;
+
+== should keep a space that's the only child ==
+const t = <div> </div>;
+
+[expect]
+const t = <div> </div>;
+
+== should keep the space at only one edge ==
+const t1 = <div> {a}</div>;
+const t2 = <div>{a} </div>;
+const t3 = <div> {a}
+</div>;
+
+[expect]
+const t1 = <div> {a}</div>;
+const t2 = <div>{a} </div>;
+const t3 = <div> {a}</div>;
+
+== should collapse multiple spaces at the edges ==
+const t = <div>   test   {a}   </div>;
+
+[expect]
+const t = <div> test {a} </div>;
+
+== should not keep whitespace with a line break at the edges ==
+const t = (
+    <div>
+        test
+    </div>
+);
+
+[expect]
+const t = (
+    <div>
+        test
+    </div>
+);
+
+== should use jsx space expressions for the edge spaces when exceeding the line width ==
+const t = <div> test text that is long enough to wrap past </div>;
+
+[expect]
+const t = (
+    <div>
+        {" "}
+        test text that is long enough to
+        wrap past{" "}
+    </div>
+);
+
+== should use jsx space expressions for the edge spaces when an element makes it multi-line ==
+const t = <div> a<br /> </div>;
+
+[expect]
+const t = (
+    <div>
+        {" "}
+        a<br />
+        {" "}
+    </div>
+);
+
+== should use jsx space expressions for the edge spaces of multi-line text ==
+const t = <div> test
+    more </div>;
+
+[expect]
+const t = (
+    <div>
+        {" "}
+        test more{" "}
+    </div>
+);
+
+== should keep the edge spaces when moving into parens at the line width ==
+const ttttttttttt = <div> testing </div>;
+const tttttttttttttt = <div>testing </div>;
+const tttttttttttttt = <div> testing</div>;
+
+[expect]
+const ttttttttttt = (
+    <div> testing </div>
+);
+const tttttttttttttt = (
+    <div>testing </div>
+);
+const tttttttttttttt = (
+    <div> testing</div>
+);
+
+== should move into parens when only the semicolon exceeds the line width ==
+const ttttttttttttt = <div>testing</div>;
+
+[expect]
+const ttttttttttttt = (
+    <div>testing</div>
+);
+
+== should move a trailing jsx space expression to the next line when it exceeds the line width ==
+const t = <div> {aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa} </div>;
+
+[expect]
+const t = (
+    <div>
+        {" "}
+        {aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}
+        {" "}
+    </div>
+);
+
+== should keep the edge spaces of nested elements ==
+const t = (
+    <div>
+        <b> a </b> and <i> b </i>
+    </div>
+);
+
+[expect]
+const t = (
+    <div>
+        <b> a </b> and <i> b </i>
+    </div>
+);
+
+== should keep the edge spaces of an element in an attribute ==
+const t = <A b={<i> c </i>} />;
+
+[expect]
+const t = <A b={<i> c </i>} />;
+
+== should keep the edge spaces around a comment ==
+const t = <div> {/* c */} </div>;
+
+[expect]
+const t = <div> {/* c */} </div>;
+
+== should not add a space for whitespace with a line break between children ==
+const t1 = <div>{a}
+    {b}</div>;
+const t2 = <div>{a}
+    test</div>;
+const t3 = <div>test
+    {a}</div>;
+
+[expect]
+const t1 = <div>{a}{b}</div>;
+const t2 = <div>{a}test</div>;
+const t3 = (
+    <div>
+        test
+        {a}
+    </div>
+);
+
 == should handle a space when exceeding the line width with only the parent when the parent and children are on the same line ==
 const t = <div>{test} {testsdffffffffffff}</div>;
 
