@@ -59,11 +59,19 @@ const c = <div className={`p-4 flex\
 const d = <div className={"p-4 flex\\ m-2"} />;
 
 [expect]
-const a = <div className={"p-4 flex\
- m-2"} />;
+const a = (
+    <div
+        className={"p-4 flex\
+ m-2"}
+    />
+);
 const b = <div className={"p-4\ flex m-2"} />;
-const c = <div className={`p-4 flex\
- m-2`} />;
+const c = (
+    <div
+        className={`p-4 flex\
+ m-2`}
+    />
+);
 const d = <div className={"flex\\ m-2 p-4"} />;
 
 == should only remove the whitespace at the ends of a string in a template literal when the text beside it has whitespace ==
