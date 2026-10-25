@@ -1,4 +1,4 @@
-# Prefer using `SourcePos` from deno_ast because it abstracts
+# Prefer using `SourcePos` from dprint-swc-ext because it abstracts
 # away swc's non-zero-indexed based positioning
 disallowed-methods = [
   "swc_common::Spanned::span",
