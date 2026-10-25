@@ -156,3 +156,42 @@ css`
         background-color: #86efac;
     }
 `;
+
+== should keep a lone escape ==
+css`.a::before { content: "\201C"; }`
+[expect]
+css`
+    .a::before {
+        content: "\201C";
+    }
+`;
+
+== should keep an escaped backtick ==
+css`.a::before { content: "\`"; }`
+[expect]
+css`
+    .a::before {
+        content: "\`";
+    }
+`;
+
+== should keep an escaped backslash next to a lone escape ==
+css`.a::before { content: "\\\\"; } .b::before { content: "\e600"; }`
+[expect]
+css`
+    .a::before {
+        content: "\\\\";
+    }
+    .b::before {
+        content: "\e600";
+    }
+`;
+
+== should keep an escaped backslash before an escaped backtick ==
+css`.a::before { content: "\\\`"; }`
+[expect]
+css`
+    .a::before {
+        content: "\\\`";
+    }
+`;
