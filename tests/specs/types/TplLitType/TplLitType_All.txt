@@ -142,3 +142,18 @@ type B = `${
     /* comment */
     typeof Descending | typeof Ascending
 }`;
+
+== should put the type on its own line when it has a trailing line comment ==
+type A = `${typeof X | typeof Y // comment
+}`;
+type B = `${
+    typeof X | typeof Y // comment
+}`;
+
+[expect]
+type A = `${
+    typeof X | typeof Y // comment
+}`;
+type B = `${
+    typeof X | typeof Y // comment
+}`;

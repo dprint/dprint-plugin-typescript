@@ -3285,19 +3285,24 @@ fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context
     } else {
       let leading_comment_items = gen_leading_comments_on_previous_lines(&node.range(), context);
       let trailing_comment_items = gen_trailing_comments_as_statements(&node.range(), context);
+      // a line comment after the expression is generated with it and forces a newline before the closing brace
+      let has_trailing_line_comment = node
+        .trailing_comments_fast(context.program)
+        .any(|c| c.kind == CommentKind::Line && !context.has_handled_comment(c));
       let generated_expr = gen_node(node, context);
-      if !leading_comment_items.is_empty() || !trailing_comment_items.is_empty() {
+      if !leading_comment_items.is_empty() || !trailing_comment_items.is_empty() || has_trailing_line_comment {
+        // the comments make it multi-line, so put the expression on its own line
         items.push_signal(Signal::StartIndent);
-        let has_leading_comments = !leading_comment_items.is_empty();
-        if has_leading_comments {
+        if leading_comment_items.is_empty() {
+          items.push_signal(Signal::NewLine);
+        } else {
           items.extend(surround_with_new_lines(leading_comment_items));
         }
         items.extend(generated_expr);
-        if !trailing_comment_items.is_empty() {
-          items.extend(trailing_comment_items);
-        } else if has_leading_comments {
-          // the expression is on its own line after the comments, so put the closing brace on the next line
+        if trailing_comment_items.is_empty() {
           items.push_signal(Signal::NewLine);
+        } else {
+          items.extend(trailing_comment_items);
         }
         items.push_signal(Signal::FinishIndent);
       } else {
