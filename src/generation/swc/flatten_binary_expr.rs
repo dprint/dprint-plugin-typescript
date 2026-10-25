@@ -1,8 +1,8 @@
 use super::super::Context;
-use deno_ast::swc::parser::token::TokenAndSpan;
-use deno_ast::view::*;
-use deno_ast::SourceRanged;
-use deno_ast::SourceRangedForSpanned;
+use dprint_swc_ext::common::SourceRanged;
+use dprint_swc_ext::common::SourceRangedForSpanned;
+use dprint_swc_ext::swc::parser::token::TokenAndSpan;
+use dprint_swc_ext::view::*;
 
 use super::extensions::*;
 use crate::configuration::*;

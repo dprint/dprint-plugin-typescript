@@ -1,0 +1,24 @@
+~~ arguments.preferSingleLine: true ~~
+== should keep a block comment before a comma on its own line like one before an argument ==
+foo(
+    a
+    /* c */
+    , b
+);
+foo(
+    a,
+    /* c */
+    b
+);
+
+[expect]
+foo(
+    a,
+    /* c */
+    b,
+);
+foo(
+    a,
+    /* c */
+    b,
+);

@@ -1,0 +1,23 @@
+~~ withStatement.singleBodyPosition: sameLine ~~
+== should keep on a single line ==
+with (true) a;
+
+[expect]
+with (true) a;
+
+== should move to the same line ==
+with (true)
+    a;
+
+[expect]
+with (true) a;
+
+== should keep on the next line when has braces ==
+with (true) {
+    a;
+}
+
+[expect]
+with (true) {
+    a;
+}
