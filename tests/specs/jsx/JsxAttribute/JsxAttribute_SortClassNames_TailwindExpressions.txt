@@ -28,11 +28,43 @@ const a = <div className={"flex p-4 " + extra} />;
 const b = <div className={first + " " + second} />;
 const c = <div className={first + " flex p-4 " + second} />;
 
-== should sort every string in a className expression like Prettier's plugin does ==
-const value = <Outer className={<Inner title="p-4 flex" className="p-4 flex" />} />;
+== should not sort strings in a className expression that aren't class names ==
+const a = <div className={styles["p-4 flex"]} />;
+const b = <div className={mode === "flex flex" ? "p-4 flex" : "m-2 block"} />;
+const c = <div className={getClasses("p-4 flex")["p-4 flex"]} />;
+const d = <Outer className={<Inner title="p-4 flex" className="p-4 flex" />} />;
+const e = <div className={["p-4 flex", "m-2 block"].join(" ")} />;
 
 [expect]
-const value = <Outer className={<Inner title="flex p-4" className="flex p-4" />} />;
+const a = <div className={styles["p-4 flex"]} />;
+const b = <div className={mode === "flex flex" ? "flex p-4" : "m-2 block"} />;
+const c = <div className={getClasses("p-4 flex")["p-4 flex"]} />;
+const d = <Outer className={<Inner title="p-4 flex" className="flex p-4" />} />;
+const e = <div className={["flex p-4", "m-2 block"].join(" ")} />;
+
+== should not sort a tagged template literal whose tag isn't configured ==
+const a = <div className={css`p-4 flex`} />;
+const b = <div className={clsx(css`p-4 flex ${"p-4 flex"}`, "p-4 flex")} />;
+
+[expect]
+const a = <div className={css`p-4 flex`} />;
+const b = <div className={clsx(css`p-4 flex ${"p-4 flex"}`, "flex p-4")} />;
+
+== should not sort text with escaped whitespace ==
+const a = <div className={"p-4 flex\
+ m-2"} />;
+const b = <div className={"p-4\ flex m-2"} />;
+const c = <div className={`p-4 flex\
+ m-2`} />;
+const d = <div className={"p-4 flex\\ m-2"} />;
+
+[expect]
+const a = <div className={"p-4 flex\
+ m-2"} />;
+const b = <div className={"p-4\ flex m-2"} />;
+const c = <div className={`p-4 flex\
+ m-2`} />;
+const d = <div className={"flex\\ m-2 p-4"} />;
 
 == should only remove the whitespace at the ends of a string in a template literal when the text beside it has whitespace ==
 const a = <div className={`foo ${"  p-4 flex  "} bar`} />;

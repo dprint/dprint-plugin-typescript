@@ -76,11 +76,11 @@ const value = <div class={clsx({ "sm:p-0 p-0": "sm:p-0 p-0" })} />;
 [expect]
 const value = <div class={clsx({ "p-0 sm:p-0": "p-0 sm:p-0" })} />;
 
-== should sort strings in a member expression ==
+== should not sort strings in a computed member expression ==
 const value = <div class={{ "sm:p-0 p-0": "sm:p-0 p-0" }["sm:p-0 p-0"]} />;
 
 [expect]
-const value = <div class={{ "p-0 sm:p-0": "p-0 sm:p-0" }["p-0 sm:p-0"]} />;
+const value = <div class={{ "sm:p-0 p-0": "sm:p-0 p-0" }["sm:p-0 p-0"]} />;
 
 == should handle a class attribute without a value ==
 const value = <div class />;
