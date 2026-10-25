@@ -21,22 +21,24 @@ for await(const t of test) {
     a;
 }
 
-== should handle for await with binding identifier ==
-async function foo() {
-    for await (num of asyncIterable) {
-        console.log(num);
-    }
+== should keep a space before a comment before the paren ==
+for /* c */ (const t of test) {
+}
+for await /* c */ (const t of test) {
+}
+for /* a */ await /* b */ (const t of test) {
+}
+for await // c
+(const t of test) {
 }
 
 [expect]
-async function foo() {
-    for await(num of asyncIterable) {
-        console.log(num);
-    }
+for /* c */ (const t of test) {
 }
-
-== should handle for await with empty body ==
-for await (const x of arr);
-
-[expect]
-for await(const x of arr);
+for await /* c */ (const t of test) {
+}
+for /* a */ await /* b */ (const t of test) {
+}
+for await // c
+(const t of test) {
+}

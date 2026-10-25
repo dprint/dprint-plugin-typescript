@@ -5056,7 +5056,8 @@ fn gen_do_while_stmt<'a>(node: &DoWhileStmt<'a>, context: &mut Context<'a>) -> P
     items.push_signal(Signal::NewLine);
   }
   items.push_sc(sc!("while"));
-  if context.config.do_while_statement_space_after_while_keyword {
+  let open_paren_token = context.token_finder.get_previous_token_if_open_paren(&node.test.range());
+  if use_space_after_keyword(context.config.do_while_statement_space_after_while_keyword, open_paren_token, context) {
     items.push_space();
   }
   items.extend(gen_node_in_parens(
@@ -5258,8 +5259,18 @@ fn gen_for_stmt<'a>(node: &ForStmt<'a>, context: &mut Context<'a>) -> PrintItems
   items.push_info(start_header_ln);
   items.push_info(start_header_lsil);
   items.push_sc(sc!("for"));
-  if context.config.for_statement_space_after_for_keyword {
+  let open_paren_token = node.tokens_fast(context.program).get(1).filter(|token| token.token == Token::LParen);
+  if use_space_after_keyword(context.config.for_statement_space_after_for_keyword, open_paren_token, context) {
     items.push_space();
+  }
+  // these are generated before the init is, which would otherwise take them as its leading comments
+  if let Some(open_paren_token) = open_paren_token {
+    for comment in get_comments_before_token(open_paren_token, context) {
+      if let Some(generated_comment) = gen_comment(comment, context) {
+        items.extend(generated_comment);
+        items.push_space();
+      }
+    }
   }
 
   let separator_after_semi_colons = if context.config.for_statement_space_after_semi_colons {
@@ -5365,10 +5376,11 @@ fn gen_for_in_stmt<'a>(node: &ForInStmt<'a>, context: &mut Context<'a>) -> Print
   items.push_info(start_header_ln);
   items.push_info(start_header_lsil);
   items.push_sc(sc!("for"));
-  if context.config.for_in_statement_space_after_for_keyword {
+  let inner_header_range = SourceRange::new(node.left.start(), node.right.end());
+  let open_paren_token = context.token_finder.get_previous_token_if_open_paren(&inner_header_range);
+  if use_space_after_keyword(context.config.for_in_statement_space_after_for_keyword, open_paren_token, context) {
     items.push_space();
   }
-  let inner_header_range = SourceRange::new(node.left.start(), node.right.end());
   items.extend(gen_node_in_parens(
     |context| {
       let mut items = PrintItems::new();
@@ -5420,14 +5432,22 @@ fn gen_for_of_stmt<'a>(node: &ForOfStmt<'a>, context: &mut Context<'a>) -> Print
   items.push_info(start_header_lsil);
   items.push_sc(sc!("for"));
   if node.is_await() {
-    // todo: generate comments around await token range
+    if let Some(await_token) = node.tokens_fast(context.program).get(1) {
+      for comment in get_comments_before_token(await_token, context) {
+        if let Some(generated_comment) = gen_comment(comment, context) {
+          items.push_space();
+          items.extend(generated_comment);
+        }
+      }
+    }
     items.push_space();
     items.push_sc(sc!("await"));
   }
-  if context.config.for_of_statement_space_after_for_keyword {
+  let inner_header_range = SourceRange::new(node.left.start(), node.right.end());
+  let open_paren_token = context.token_finder.get_previous_token_if_open_paren(&inner_header_range);
+  if use_space_after_keyword(context.config.for_of_statement_space_after_for_keyword, open_paren_token, context) {
     items.push_space();
   }
-  let inner_header_range = SourceRange::new(node.left.start(), node.right.end());
   items.extend(gen_node_in_parens(
     |context| {
       let mut items = PrintItems::new();
@@ -5480,7 +5500,8 @@ fn gen_if_stmt<'a>(node: &IfStmt<'a>, context: &mut Context<'a>) -> PrintItems {
       generated_header: {
         let mut items = PrintItems::new();
         items.push_sc(sc!("if"));
-        if context.config.if_statement_space_after_if_keyword {
+        let open_paren_token = context.token_finder.get_previous_token_if_open_paren(&node.test.range());
+        if use_space_after_keyword(context.config.if_statement_space_after_if_keyword, open_paren_token, context) {
           items.push_space();
         }
         let test = node.test;
@@ -5929,7 +5950,8 @@ fn gen_while_stmt<'a>(node: &WhileStmt<'a>, context: &mut Context<'a>) -> PrintI
   items.push_info(start_header_ln);
   items.push_info(start_header_lsil);
   items.push_sc(sc!("while"));
-  if context.config.while_statement_space_after_while_keyword {
+  let open_paren_token = context.token_finder.get_previous_token_if_open_paren(&node.test.range());
+  if use_space_after_keyword(context.config.while_statement_space_after_while_keyword, open_paren_token, context) {
     items.push_space();
   }
   items.extend(gen_node_in_parens(
@@ -5970,7 +5992,8 @@ fn gen_with_stmt<'a>(node: &WithStmt<'a>, context: &mut Context<'a>) -> PrintIte
   items.push_info(start_header_ln);
   items.push_info(start_header_lsil);
   items.push_sc(sc!("with"));
-  if context.config.with_statement_space_after_with_keyword {
+  let open_paren_token = context.token_finder.get_previous_token_if_open_paren(&node.obj.range());
+  if use_space_after_keyword(context.config.with_statement_space_after_with_keyword, open_paren_token, context) {
     items.push_space();
   }
   items.extend(gen_node_in_parens(
@@ -7448,17 +7471,23 @@ fn get_trailing_comments_before_comma<'a>(
   (!comments.is_empty()).then_some((comma_token, comments))
 }
 
-/// Gets the comments between a comma and the token before it.
-fn get_comments_before_comma<'a>(comma_token: &TokenAndSpan, context: &Context<'a>) -> Vec<&'a Comment> {
+/// Gets the comments between a token and the token before it.
+fn get_comments_before_token<'a>(token: &TokenAndSpan, context: &Context<'a>) -> Vec<&'a Comment> {
   let program = context.program;
-  match comma_token.previous_token_fast(program) {
+  match token.previous_token_fast(program) {
     Some(previous_token) => previous_token
       .end()
       .trailing_comments_fast(program)
-      .chain(comma_token.start().leading_comments_fast(program))
+      .chain(token.start().leading_comments_fast(program))
       .collect(),
     None => Vec::new(),
   }
+}
+
+/// Gets if there should be a space after a keyword that's before an open paren, which there
+/// always is when comments are before the paren so they're not beside the keyword (ex. `for /* c */ (`).
+fn use_space_after_keyword(is_configured: bool, open_paren_token: Option<&TokenAndSpan>, context: &Context) -> bool {
+  is_configured || open_paren_token.is_some_and(|token| !get_comments_before_token(token, context).is_empty())
 }
 
 /// Generates comments that were before or beside a comma for when the comma is printed
@@ -8486,7 +8515,7 @@ fn gen_node_with_separator<'a>(value: Node<'a>, generated_separator: PrintItems,
     }
     // the comments before the comma go after it, so these go on their own line after
     // those when they're on a different line (ex. `// d` in `a\n// c\n, // d`)
-    match get_comments_before_comma(comma_token, context).last() {
+    match get_comments_before_token(comma_token, context).last() {
       Some(last_comment) => {
         let trailing_comments = get_trailing_comments_same_line(&comma_range, trailing_comments, context);
         gen_comments_after_comma(&last_comment.range(), trailing_comments, comma_token, context)
@@ -8496,7 +8525,7 @@ fn gen_node_with_separator<'a>(value: Node<'a>, generated_separator: PrintItems,
   }
 
   fn gen_comments_before_comma_within<'a>(comma_token: &'a TokenAndSpan, context: &mut Context<'a>) -> PrintItems {
-    let comments = get_comments_before_comma(comma_token, context);
+    let comments = get_comments_before_token(comma_token, context);
     match comma_token.previous_token_fast(context.program) {
       Some(previous_token) if !comments.is_empty() => gen_comments_after_comma(&previous_token.range(), comments, comma_token, context),
       _ => PrintItems::new(),

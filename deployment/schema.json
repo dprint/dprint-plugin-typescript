@@ -656,15 +656,15 @@
       }]
     },
     "forOfStatement.spaceAfterForKeyword": {
-      "description": "Whether to add a space after the `for` keyword in a \"for of\" statement.",
+      "description": "Whether to add a space after the `for` keyword, or the `await` keyword in a `for await`, in a \"for of\" statement.",
       "type": "boolean",
       "default": true,
       "oneOf": [{
         "const": true,
-        "description": "Ex. `for (const value of myArray)`"
+        "description": "Ex. `for (const value of myArray)` or `for await (const value of myArray)`"
       }, {
         "const": false,
-        "description": "Ex. `for(const value of myArray)`"
+        "description": "Ex. `for(const value of myArray)` or `for await(const value of myArray)`"
       }]
     },
     "forStatement.spaceAfterForKeyword": {

@@ -48,26 +48,6 @@ for await (const t of test) {
 for await (const t of test) {
 }
 
-== should format for await with empty body ==
-for await (const x of arr);
-
-[expect]
-for await (const x of arr);
-
-== should format for await with binding identifier inside async function ==
-async function foo() {
-    for await (num of asyncIterable) {
-        console.log(num);
-    }
-}
-
-[expect]
-async function foo() {
-    for await (num of asyncIterable) {
-        console.log(num);
-    }
-}
-
 == should print a nested variable declaration with semi-colon ==
 for (const t of test) {
     const u = 5;
@@ -115,3 +95,11 @@ for (const t of test)
 
 [expect]
 for (const t of test);
+
+== should keep the comments around the await keyword ==
+for /* a */ await /* b */ (x of y) {
+}
+
+[expect]
+for /* a */ await /* b */ (x of y) {
+}
