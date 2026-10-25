@@ -117,3 +117,163 @@ const t2 = (
         some    text
     </div>
 );
+
+== should keep the closing tag beside ignored text that ends with multiple spaces ==
+const t = (
+    <div>
+        <b>a</b>
+        {/* dprint-ignore */}
+        some    text   </div>
+);
+
+[expect]
+const t = (
+    <div>
+        <b>a</b>
+        {/* dprint-ignore */}
+        some    text   </div>
+);
+
+== should keep the closing tag beside ignored text that ends with a tab ==
+const t = (
+    <div>
+        <b>a</b>
+        {/* dprint-ignore */}
+        some    text	</div>
+);
+
+[expect]
+const t = (
+    <div>
+        <b>a</b>
+        {/* dprint-ignore */}
+        some    text	</div>
+);
+
+== should keep the closing tag beside ignored text on multiple lines that ends with spaces ==
+const t = (
+    <div>
+        <b>a</b>
+        {/* dprint-ignore */}
+        some    text
+          more   text </div>
+);
+
+[expect]
+const t = (
+    <div>
+        <b>a</b>
+        {/* dprint-ignore */}
+        some    text
+          more   text </div>
+);
+
+== should keep the closing tag of a fragment beside ignored text that ends with spaces ==
+const t = (
+    <>
+        <b>a</b>
+        {/* dprint-ignore */}
+        some    text </>
+);
+
+[expect]
+const t = (
+    <>
+        <b>a</b>
+        {/* dprint-ignore */}
+        some    text </>
+);
+
+== should keep the closing tag beside ignored text after another comment ==
+const t = (
+    <div>
+        <b>a</b>
+        {/* dprint-ignore */}
+        {/* other */}
+        some    text </div>
+);
+
+[expect]
+const t = (
+    <div>
+        <b>a</b>
+        {/* dprint-ignore */}
+        {/* other */}
+        some    text </div>
+);
+
+== should keep the closing tag beside ignored text on the same line as the ignore comment ==
+const t = (
+    <div>
+        <b>a</b>
+        {/* dprint-ignore */} some    text </div>
+);
+
+[expect]
+const t = (
+    <div>
+        <b>a</b>
+        {/* dprint-ignore */} some    text </div>
+);
+
+== should keep single line ignored text that ends with spaces ==
+const t = <div>{/* dprint-ignore */} some    text </div>;
+
+[expect]
+const t = <div>{/* dprint-ignore */} some    text </div>;
+
+== should keep the closing tag of a nested element beside ignored text that ends with spaces ==
+const t = (
+    <div>
+        <p>
+            <b>a</b>
+            {/* dprint-ignore */}
+            some    text </p>
+    </div>
+);
+
+[expect]
+const t = (
+    <div>
+        <p>
+            <b>a</b>
+            {/* dprint-ignore */}
+            some    text </p>
+    </div>
+);
+
+== should not keep the closing tag beside ignored text when an expression is last ==
+const t = (
+    <div>
+        <b>a</b>
+        {/* dprint-ignore */}
+        some    text {a} </div>
+);
+
+[expect]
+const t = (
+    <div>
+        <b>a</b>
+        {/* dprint-ignore */}
+        some    text {a}
+        {" "}
+    </div>
+);
+
+== should keep the closing tag beside ignored text that ends with spaces when adding parens ==
+function f() {
+    return <div>
+        <b>a</b>
+        {/* dprint-ignore */}
+        some    text </div>;
+}
+
+[expect]
+function f() {
+    return (
+        <div>
+            <b>a</b>
+            {/* dprint-ignore */}
+        some    text </div>
+    );
+}
