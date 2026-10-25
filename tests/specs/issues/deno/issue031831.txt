@@ -8,7 +8,7 @@ export function example() {}
 
 [expect]
 /**
- * abc\
+ * abc  
  * def
  */
 export function example() {}
