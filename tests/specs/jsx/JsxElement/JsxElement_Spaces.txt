@@ -551,3 +551,12 @@ const t3 = (
         Testing
     </div>
 );
+
+== should keep the closing tag beside ignored text that ends with spaces when exceeding the line width ==
+const t = <div>{/* dprint-ignore */} test   </div>;
+
+[expect]
+const t = (
+    <div>
+        {/* dprint-ignore */} test   </div>
+);

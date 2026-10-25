@@ -47,3 +47,12 @@ const t2 = (
         {" "}
     </Test>
 );
+
+== should keep the closing tag beside ignored text that ends with spaces ==
+const t = <Test>{/* dprint-ignore */} some   text </Test>;
+
+[expect]
+const t = (
+    <Test>
+        {/* dprint-ignore */} some   text </Test>
+);
