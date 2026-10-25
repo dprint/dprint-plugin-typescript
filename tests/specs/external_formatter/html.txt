@@ -104,3 +104,21 @@ html`\n`;
 html`
     \n
 `;
+
+== should keep escaped backticks and backslashes ==
+html`<p>\`a\` \\ b</p>`;
+[expect]
+html`
+    <p>\`a\` \\ b</p>
+`;
+
+== should unescape the css in a style element ==
+html`<style>.bg-\\[\\#86efac\\] { color: red }</style>`;
+[expect]
+html`
+    <style>
+    .bg-\\[\\#86efac\\] {
+        color: red;
+    }
+    </style>
+`;

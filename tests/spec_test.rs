@@ -60,8 +60,17 @@ fn format_html(text: &str, config: &Configuration) -> Result<Option<String>> {
     },
     ..Default::default()
   };
-  let text = markup_fmt::format_text(text, markup_fmt::Language::Html, &options, |code, _| {
-    Ok::<_, std::convert::Infallible>(code.into())
+  let css_options = malva::config::FormatOptions {
+    layout: malva::config::LayoutOptions {
+      indent_width: config.indent_width as usize,
+      ..Default::default()
+    },
+    ..Default::default()
+  };
+  // formats the css in style elements like deno does, which errors when the css can't be parsed
+  let text = markup_fmt::format_text(text, markup_fmt::Language::Html, &options, |code, hints| match hints.ext {
+    "css" => malva::format_text(code, malva::Syntax::Css, &css_options).map(Into::into),
+    _ => Ok(code.into()),
   })?;
   Ok(Some(text.to_string()))
 }

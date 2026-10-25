@@ -3057,24 +3057,12 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
   })
   .unwrap();
 
-  // Then formats the text with the external formatter.
-  //
-  // Only CSS needs the `\\` -> `\` round-trip, so the CSS parser sees escapes
-  // like Tailwind's `\\[\\#86efac\\]` as `\[\#86efac\]`. For other embedded
-  // languages the raw text must be passed through verbatim; unescaping there
-  // doubles lone escape sequences such as `\n` or `` \` `` (see
-  // denoland/deno#30103 and #30948).
-  let needs_unescape = embedded_lang == "css";
-  let input = if needs_unescape { text.replace(r"\\", "\\") } else { text };
-  let formatted_tpl = match external_formatter(embedded_lang, input, context.config) {
-    Ok(formatted_tpl) => {
-      let formatted = formatted_tpl?;
-      if needs_unescape {
-        formatted.replace("\\", r"\\")
-      } else {
-        formatted
-      }
-    }
+  // Then formats the text with the external formatter, which gets the escapes that only
+  // exist because of the template literal unescaped (ex. Tailwind's `\\[\\#86efac\\]`
+  // as `\[\#86efac\]`) and the other escapes as is (ex. `\n` and `\e600`).
+  let text = unescape_embedded_text(&text)?;
+  let formatted_tpl = match external_formatter(embedded_lang, text, context.config) {
+    Ok(formatted_tpl) => escape_embedded_text(&formatted_tpl?),
     Err(err) => {
       context.diagnostics.push(context::GenerateDiagnostic {
         message: format!("Error formatting tagged template literal at line {}: {}", node.start_line() + 1, err),
@@ -3155,6 +3143,53 @@ fn normalize_embedded_language_type<'a>(node: &TaggedTpl<'a>) -> Option<&'a str>
     }
     _ => None,
   }
+}
+
+/// Stands in for the backslash of an escape that the embedded language gets as is (ex. `\n`),
+/// which keeps it apart from a backslash that was escaped (ex. `\\`).
+const EMBEDDED_ESCAPE_SENTINEL: char = '\u{E000}';
+
+/// Unescapes what a template literal requires to be escaped (`\\`, `` \` ``, and `\${`), which
+/// is what the embedded language sees. The other escapes are kept so that `escape_embedded_text`
+/// can restore them exactly. Returns `None` when the text already has the sentinel.
+fn unescape_embedded_text(text: &str) -> Option<String> {
+  if text.contains(EMBEDDED_ESCAPE_SENTINEL) {
+    return None;
+  }
+  let mut result = String::with_capacity(text.len());
+  let mut rest = text;
+  while let Some(index) = rest.find('\\') {
+    result.push_str(&rest[..index]);
+    let escaped = &rest[index + 1..];
+    if escaped.starts_with(['\\', '`']) || escaped.starts_with("${") {
+      result.push_str(&escaped[..1]);
+      rest = &escaped[1..];
+    } else {
+      result.push(EMBEDDED_ESCAPE_SENTINEL);
+      rest = escaped;
+    }
+  }
+  result.push_str(rest);
+  Some(result)
+}
+
+/// Escapes the formatted text of an embedded language for a template literal,
+/// which is the reverse of `unescape_embedded_text`.
+fn escape_embedded_text(text: &str) -> String {
+  let mut result = String::with_capacity(text.len());
+  let mut chars = text.chars().peekable();
+  while let Some(c) = chars.next() {
+    match c {
+      EMBEDDED_ESCAPE_SENTINEL => result.push('\\'),
+      '\\' | '`' => {
+        result.push('\\');
+        result.push(c);
+      }
+      '$' if chars.peek() == Some(&'{') => result.push_str("\\$"),
+      _ => result.push(c),
+    }
+  }
+  result
 }
 
 fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintItems {
