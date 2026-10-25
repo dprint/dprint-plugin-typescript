@@ -454,3 +454,25 @@ const test = 5;
  * Details here.
  */
 const test = 5;
+
+== should keep a backslash markdown hard line break ==
+/**
+ * Does something.\
+ * Details here.\
+ *
+ * More.\
+ * @param a The first number.\
+ * More about it.
+ */
+const test = 5;
+
+[expect]
+/**
+ * Does something.\
+ * Details here.\
+ *
+ * More.\
+ * @param a The first number.\
+ * More about it.
+ */
+const test = 5;
