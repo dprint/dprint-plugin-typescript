@@ -1,6 +1,6 @@
 # dprint-plugin-typescript
 
-[![](https://img.shields.io/crates/v/dprint-plugin-typescript.svg)](https://crates.io/crates/dprint-plugin-typescript) [![CI](https://github.com/dprint/dprint-plugin-typescript/workflows/CI/badge.svg)](https://github.com/dprint/dprint-plugin-typescript/actions?query=workflow%3ACI)
+[![](https://img.shields.io/crates/v/dprint-plugin-typescript.svg)](https://crates.io/crates/dprint-plugin-typescript) [![npm version](https://img.shields.io/npm/v/@dprint/typescript.svg)](https://www.npmjs.com/package/@dprint/typescript) [![CI](https://github.com/dprint/dprint-plugin-typescript/workflows/CI/badge.svg)](https://github.com/dprint/dprint-plugin-typescript/actions?query=workflow%3ACI)
 
 TypeScript formatting plugin for dprint.
 
@@ -8,7 +8,15 @@ This uses the [swc](https://github.com/swc-project/swc) parser for TypeScript wr
 
 ## Install
 
-See the GitHub [releases](https://github.com/dprint/dprint-plugin-typescript/releases).
+[Install](https://dprint.dev/install/) and [setup](https://dprint.dev/setup/) dprint.
+
+Then in your project's directory with a dprint.json file, run:
+
+```shellsession
+dprint add typescript
+```
+
+See https://dprint.dev/plugins/typescript/ for more information.
 
 ## Development
 

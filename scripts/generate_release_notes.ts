@@ -14,7 +14,7 @@ ${changelog}
 
 Then in your project's dprint configuration file:
 
-1. Specify the plugin url in the \`"plugins"\` array (can be done via \`dprint config add typescript\`).
+1. Specify the plugin url in the \`"plugins"\` array (can be done via \`dprint add typescript\`).
 2. Add a \`"typescript"\` configuration property if desired.
    \`\`\`jsonc
    {
@@ -26,7 +26,7 @@ Then in your project's dprint configuration file:
        "**/node_modules"
      ],
      "plugins": [
-       "https://plugins.dprint.dev/typescript-${version}.wasm"
+       "npm:@dprint/typescript@${version}"
      ]
    }
    \`\`\`

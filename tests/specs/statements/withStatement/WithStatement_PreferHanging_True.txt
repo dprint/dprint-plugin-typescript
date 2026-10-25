@@ -1,0 +1,37 @@
+~~ lineWidth: 40, withStatement.preferHanging: true ~~
+== should print ==
+with (true) {
+    a;
+    b;
+}
+
+[expect]
+with (true) {
+    a;
+    b;
+}
+
+== should put brace on newline when on multiple lines ==
+with (thisIsA && veryLongHeader && thatWill) {
+    a;
+    b;
+}
+
+[expect]
+with (thisIsA && veryLongHeader
+    && thatWill)
+{
+    a;
+    b;
+}
+
+== should use multiple lines if open paren is on a different line than condition ==
+with (
+    true) {
+    }
+
+[expect]
+with (
+    true
+) {
+}
