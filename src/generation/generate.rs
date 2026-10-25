@@ -7367,23 +7367,26 @@ fn gen_comments_as_trailing<'a>(node: &SourceRange, trailing_comments: CommentsI
     return items;
   }
 
+  let comments_before_comma = get_trailing_comments_before_comma(node, trailing_comments.clone(), context);
   let trailing_comments_on_same_line = get_trailing_comments_same_line(node, trailing_comments, context);
 
-  // don't do extra work
-  if trailing_comments_on_same_line.is_empty() {
-    return items;
-  }
+  if !trailing_comments_on_same_line.is_empty() {
+    let first_unhandled_comment = trailing_comments_on_same_line.iter().find(|c| !context.has_handled_comment(c));
 
-  // now handle the comments
-  let first_unhandled_comment = trailing_comments_on_same_line.iter().find(|c| !context.has_handled_comment(c));
-
-  if let Some(first_unhandled_comment) = first_unhandled_comment {
-    if first_unhandled_comment.kind == CommentKind::Block {
-      items.push_space();
+    if let Some(first_unhandled_comment) = first_unhandled_comment {
+      if first_unhandled_comment.kind == CommentKind::Block {
+        items.push_space();
+      }
     }
+
+    items.extend(gen_comment_collection(trailing_comments_on_same_line.into_iter(), Some(node), None, context));
   }
 
-  items.extend(gen_comment_collection(trailing_comments_on_same_line.into_iter(), Some(node), None, context));
+  // nothing else generates these because the comma they're before is printed beside the node
+  if let Some((comma_token, comments)) = comments_before_comma {
+    items.extend(gen_comments_after_comma(node, comments, comma_token, context));
+  }
+
   items
 }
 
@@ -7415,6 +7418,75 @@ fn get_trailing_comments_same_line<'a>(node: &SourceRange, trailing_comments: Co
     }
   }
   trailing_comments_on_same_line
+}
+
+/// Gets the trailing comments on the lines after the node that are before the comma
+/// following it (ex. `// c` in `a\n// c\n, b`) along with the comma.
+fn get_trailing_comments_before_comma<'a>(
+  node: &SourceRange,
+  trailing_comments: CommentsIterator<'a>,
+  context: &mut Context<'a>,
+) -> Option<(&'a TokenAndSpan, Vec<&'a Comment>)> {
+  let program = context.program;
+  let node_end_line = node.end_line_fast(program);
+  let mut comments = trailing_comments.filter(|c| c.start_line_fast(program) > node_end_line).peekable();
+  // only look for the comma when there are comments
+  comments.peek()?;
+  // a comma after a comma is for an array hole, which is generated with its comments
+  if node.text_fast(program) == "," {
+    return None;
+  }
+  let comma_token = context.token_finder.get_next_token_if_comma(&node.range())?;
+  let comments = comments.filter(|c| c.start() < comma_token.start()).collect::<Vec<_>>();
+  (!comments.is_empty()).then_some((comma_token, comments))
+}
+
+/// Gets the comments between a comma and the token before it.
+fn get_comments_before_comma<'a>(comma_token: &TokenAndSpan, context: &Context<'a>) -> Vec<&'a Comment> {
+  let program = context.program;
+  match comma_token.previous_token_fast(program) {
+    Some(previous_token) => previous_token
+      .end()
+      .trailing_comments_fast(program)
+      .chain(comma_token.start().leading_comments_fast(program))
+      .collect(),
+    None => Vec::new(),
+  }
+}
+
+/// Generates comments that were before or beside a comma for when the comma is printed
+/// before them, where the ones on a line after what's before them go on their own line.
+fn gen_comments_after_comma<'a>(previous: &SourceRange, comments: Vec<&'a Comment>, comma_token: &TokenAndSpan, context: &mut Context<'a>) -> PrintItems {
+  let program = context.program;
+  let next_token_start_line = comma_token.next_token_fast(program).map(|token| token.start_line_fast(program));
+  let mut items = PrintItems::new();
+  let mut previous = previous.range();
+  for comment in comments {
+    if context.has_handled_comment(comment) {
+      continue;
+    }
+    let is_on_later_line = comment.start_line_fast(program) > previous.end_line_fast(program);
+    // a block comment beside what follows the comma stays beside it like a leading comment (ex. `a\n/* c */, b`)
+    let is_beside_next_token = Some(comment.end_line_fast(program)) == next_token_start_line;
+    if comment.kind == CommentKind::Block && (!is_on_later_line || is_beside_next_token) {
+      if let Some(generated_comment) = gen_comment(comment, context) {
+        items.push_space();
+        items.extend(generated_comment);
+      }
+    } else if is_on_later_line {
+      items.push_signal(Signal::NewLine);
+      // only where the list keeps blank lines, as formatting again would otherwise remove it
+      if context.allow_blank_lines_in_list && comment.start_line_fast(program) > previous.end_line_fast(program) + 1 {
+        items.push_signal(Signal::NewLine);
+      }
+      items.extend(gen_comment(comment, context).unwrap_or_default());
+    } else {
+      let opts = GenCommentBasedOnLastNodeOptions { separate_with_newlines: false };
+      items.extend(gen_comment_based_on_last_node(comment, &Some(previous), opts, context));
+    }
+    previous = comment.range();
+  }
+  items
 }
 
 fn get_jsx_empty_expr_comments<'a>(node: &JSXEmptyExpr, context: &Context<'a>) -> CommentsIterator<'a> {
@@ -8275,7 +8347,12 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
         } else {
           let generated_separator = get_generated_separator(&separator, node_index == nodes_count - 1, &is_multi_line_or_hanging);
           match value {
-            NodeOrSeparator::Node(value) => gen_node_with_separator(value, generated_separator, context),
+            NodeOrSeparator::Node(value) => {
+              let previous_allow_blank_lines = std::mem::replace(&mut context.allow_blank_lines_in_list, opts.allow_blank_lines);
+              let items = gen_node_with_separator(value, generated_separator, context);
+              context.allow_blank_lines_in_list = previous_allow_blank_lines;
+              items
+            }
             NodeOrSeparator::Separator(separator_token) => {
               let mut items = PrintItems::new();
               // don't use gen_leading_comments here because we don't want a space between the block comment and separator (comma)
@@ -8357,7 +8434,7 @@ fn gen_node_with_separator<'a>(value: Node<'a>, generated_separator: PrintItems,
 
   // get the trailing comments after the comma token (if the separator in the file is currently a comma)
   let generated_trailing_comments = if let Some(comma_token) = comma_token {
-    gen_trailing_comments(&comma_token.range(), context)
+    gen_comma_trailing_comments(comma_token, context)
   } else {
     PrintItems::new()
   };
@@ -8368,12 +8445,19 @@ fn gen_node_with_separator<'a>(value: Node<'a>, generated_separator: PrintItems,
   if is_ignored_with_semi_colon {
     items.extend(gen_node(value, context));
   } else {
+    // the comments before a comma that's within the node (ex. in a type literal member) are generated
+    // before the node so that they go after the separator instead of where the comma was
+    let generated_comments_before_comma = match comma_token {
+      Some(comma_token) if comma_token.end() == value.end() => gen_comments_before_comma_within(comma_token, context),
+      _ => PrintItems::new(),
+    };
     let generated_separator = generated_separator.into_rc_path();
     items.extend(gen_node_with_inner_gen(value, context, move |mut items, _| {
       // this Rc clone is necessary because we can't move the captured generated_separator out of this closure
       items.push_optional_path(generated_separator);
       items
     }));
+    items.extend(generated_comments_before_comma);
   }
 
   items.extend(generated_trailing_comments);
@@ -8384,6 +8468,31 @@ fn gen_node_with_separator<'a>(value: Node<'a>, generated_separator: PrintItems,
     match context.token_finder.get_next_token_if_comma(&element) {
       Some(comma) => Some(comma),
       None => context.token_finder.get_last_token_within_if_comma(&element), // may occur for type literals
+    }
+  }
+
+  fn gen_comma_trailing_comments<'a>(comma_token: &'a TokenAndSpan, context: &mut Context<'a>) -> PrintItems {
+    let comma_range = comma_token.range();
+    let trailing_comments = comma_range.trailing_comments_fast(context.program);
+    if trailing_comments.is_empty() {
+      return PrintItems::new();
+    }
+    // the comments before the comma go after it, so these go on their own line after
+    // those when they're on a different line (ex. `// d` in `a\n// c\n, // d`)
+    match get_comments_before_comma(comma_token, context).last() {
+      Some(last_comment) => {
+        let trailing_comments = get_trailing_comments_same_line(&comma_range, trailing_comments, context);
+        gen_comments_after_comma(&last_comment.range(), trailing_comments, comma_token, context)
+      }
+      None => gen_comments_as_trailing(&comma_range, trailing_comments, context),
+    }
+  }
+
+  fn gen_comments_before_comma_within<'a>(comma_token: &'a TokenAndSpan, context: &mut Context<'a>) -> PrintItems {
+    let comments = get_comments_before_comma(comma_token, context);
+    match comma_token.previous_token_fast(context.program) {
+      Some(previous_token) if !comments.is_empty() => gen_comments_after_comma(&previous_token.range(), comments, comma_token, context),
+      _ => PrintItems::new(),
     }
   }
 }
