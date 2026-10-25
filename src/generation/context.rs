@@ -1,21 +1,22 @@
-use deno_ast::swc::common::comments::Comment;
-use deno_ast::swc::parser::token::TokenAndSpan;
-use deno_ast::view::*;
-use deno_ast::MediaType;
-use deno_ast::SourcePos;
-use deno_ast::SourceRange;
-use deno_ast::SourceRanged;
-use deno_ast::SourceRangedForSpanned;
 use dprint_core::formatting::ConditionReference;
 use dprint_core::formatting::IndentLevel;
 use dprint_core::formatting::IsStartOfLine;
 use dprint_core::formatting::LineNumber;
 use dprint_core::formatting::LineStartIndentLevel;
+use dprint_swc_ext::common::SourcePos;
+use dprint_swc_ext::common::SourceRange;
+use dprint_swc_ext::common::SourceRanged;
+use dprint_swc_ext::common::SourceRangedForSpanned;
+use dprint_swc_ext::swc::common::comments::Comment;
+use dprint_swc_ext::swc::parser::token::TokenAndSpan;
+use dprint_swc_ext::swc::parser::Syntax;
+use dprint_swc_ext::view::*;
 use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
 
 use super::*;
 use crate::configuration::*;
+use crate::tailwind;
 use crate::utils::Stack;
 
 /// A callback that will be called when encountering tagged templates.
@@ -46,14 +47,14 @@ use crate::utils::Stack;
 /// cases the templates will be left as they are.
 ///
 /// Only templates with no interpolation are supported.
-pub type ExternalFormatter = dyn Fn(&str, String, &Configuration) -> anyhow::Result<Option<String>>;
+pub type ExternalFormatter = dyn Fn(&str, String, &Configuration) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync + 'static>>;
 
 pub(crate) struct GenerateDiagnostic {
   pub message: String,
 }
 
 pub struct Context<'a> {
-  pub media_type: MediaType,
+  pub syntax: Syntax,
   pub program: Program<'a>,
   pub config: &'a Configuration,
   pub comments: CommentTracker<'a>,
@@ -69,6 +70,10 @@ pub struct Context<'a> {
   stored_ln: FxHashMap<(SourcePos, SourcePos), LineNumber>,
   stored_il: FxHashMap<(SourcePos, SourcePos), IndentLevel>,
   pub skip_iife_body_indent: bool,
+  /// The start of the template literal being generated and how to sort the class names in it.
+  pub tpl_class_names_sort_options: Option<(SourcePos, tailwind::SortOptions)>,
+  /// Whether the blank lines between the values of the list being generated are kept.
+  pub allow_blank_lines_in_list: bool,
   pub end_statement_or_member_lns: Stack<LineNumber>,
   before_comments_start_info_stack: Stack<(SourceRange, LineNumber, IsStartOfLine)>,
   if_stmt_last_brace_condition_ref: Option<ConditionReference>,
@@ -81,7 +86,7 @@ pub struct Context<'a> {
 
 impl<'a> Context<'a> {
   pub fn new(
-    media_type: MediaType,
+    syntax: Syntax,
     tokens: &'a [TokenAndSpan],
     current_node: Node<'a>,
     program: Program<'a>,
@@ -89,7 +94,7 @@ impl<'a> Context<'a> {
     external_formatter: Option<&'a ExternalFormatter>,
   ) -> Context<'a> {
     Context {
-      media_type,
+      syntax,
       program,
       config,
       comments: CommentTracker::new(program, tokens),
@@ -104,18 +109,34 @@ impl<'a> Context<'a> {
       stored_ln: FxHashMap::default(),
       stored_il: FxHashMap::default(),
       skip_iife_body_indent: false,
+      tpl_class_names_sort_options: None,
+      allow_blank_lines_in_list: true,
       end_statement_or_member_lns: Default::default(),
       before_comments_start_info_stack: Default::default(),
       if_stmt_last_brace_condition_ref: None,
       expr_stmt_single_line_parent_brace_ref: None,
       #[cfg(debug_assertions)]
-      last_generated_node_pos: deno_ast::SourceTextInfoProvider::text_info(&program).range().start.into(),
+      last_generated_node_pos: dprint_swc_ext::common::SourceTextInfoProvider::text_info(&program).range().start.into(),
       diagnostics: Vec::new(),
     }
   }
 
+  /// Whether the file was parsed with jsx enabled, which makes `<T>() => {}`
+  /// ambiguous with a jsx element.
   pub fn is_jsx(&self) -> bool {
-    matches!(self.media_type, MediaType::Tsx | MediaType::Jsx | MediaType::JavaScript)
+    match self.syntax {
+      Syntax::Typescript(syntax) => syntax.tsx,
+      Syntax::Es(syntax) => syntax.jsx,
+    }
+  }
+
+  /// Whether jsx-like syntax is reserved, which is the case for `.cts` and
+  /// `.mts` files.
+  pub fn disallows_ambiguous_jsx_like(&self) -> bool {
+    match self.syntax {
+      Syntax::Typescript(syntax) => syntax.disallow_ambiguous_jsx_like,
+      Syntax::Es(_) => false,
+    }
   }
 
   pub fn parent(&self) -> Node<'a> {

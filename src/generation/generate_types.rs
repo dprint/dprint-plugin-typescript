@@ -1,9 +1,9 @@
-use deno_ast::swc::common::comments::CommentKind;
-use deno_ast::view::*;
-use deno_ast::SourcePos;
-use deno_ast::SourceRange;
-use deno_ast::SourceRanged;
-use deno_ast::SourceRangedForSpanned;
+use dprint_swc_ext::common::SourcePos;
+use dprint_swc_ext::common::SourceRange;
+use dprint_swc_ext::common::SourceRanged;
+use dprint_swc_ext::common::SourceRangedForSpanned;
+use dprint_swc_ext::swc::common::comments::CommentKind;
+use dprint_swc_ext::view::*;
 
 use super::*;
 

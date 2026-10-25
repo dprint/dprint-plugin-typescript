@@ -1,21 +1,22 @@
-use deno_ast::swc::common::comments::Comment;
-use deno_ast::swc::common::comments::CommentKind;
-use deno_ast::swc::parser::token::BinOpToken;
-use deno_ast::swc::parser::token::Token;
-use deno_ast::swc::parser::token::TokenAndSpan;
-use deno_ast::view::*;
-use deno_ast::CommentsIterator;
-use deno_ast::MediaType;
-use deno_ast::ParsedSource;
-use deno_ast::SourcePos;
-use deno_ast::SourceRange;
-use deno_ast::SourceRanged;
-use deno_ast::SourceRangedForSpanned;
 use dprint_core::formatting::condition_resolvers;
 use dprint_core::formatting::conditions::*;
 use dprint_core::formatting::ir_helpers::*;
 use dprint_core::formatting::*;
 use dprint_core_macros::sc;
+use dprint_swc_ext::common::CommentsIterator;
+use dprint_swc_ext::common::RootNode;
+use dprint_swc_ext::common::SourcePos;
+use dprint_swc_ext::common::SourceRange;
+use dprint_swc_ext::common::SourceRanged;
+use dprint_swc_ext::common::SourceRangedForSpanned;
+use dprint_swc_ext::swc::common::comments::Comment;
+use dprint_swc_ext::swc::common::comments::CommentKind;
+use dprint_swc_ext::swc::parser::token::BinOpToken;
+use dprint_swc_ext::swc::parser::token::Token;
+use dprint_swc_ext::swc::parser::token::TokenAndSpan;
+use dprint_swc_ext::swc::parser::Syntax;
+use dprint_swc_ext::view::*;
+use std::borrow::Cow;
 use std::rc::Rc;
 
 use super::sorting::*;
@@ -23,42 +24,36 @@ use super::swc::get_flattened_bin_expr;
 use super::swc::*;
 use super::*;
 use crate::configuration::*;
+use crate::tailwind;
 use crate::utils;
 
-pub fn generate(parsed_source: &ParsedSource, config: &Configuration, external_formatter: Option<&ExternalFormatter>) -> anyhow::Result<PrintItems> {
-  // eprintln!("Leading: {:?}", parsed_source.comments().leading_map());
-  // eprintln!("Trailing: {:?}", parsed_source.comments().trailing_map());
+pub fn generate<'a>(
+  program: Program<'a>,
+  syntax: Syntax,
+  config: &'a Configuration,
+  external_formatter: Option<&'a ExternalFormatter>,
+) -> crate::Result<PrintItems> {
+  let program_node = program.into();
+  let mut context = Context::new(syntax, program.token_container().tokens, program_node, program, config, external_formatter);
+  let mut items = gen_node(program_node, &mut context);
+  items.push_condition(if_true(
+    "endOfFileNewLine",
+    Rc::new(|context| Some(context.writer_info.column_number > 0 || context.writer_info.line_number > 0)),
+    Signal::NewLine.into(),
+  ));
 
-  parsed_source.with_view(|program| {
-    let program_node = program.into();
-    let mut context = Context::new(
-      parsed_source.media_type(),
-      parsed_source.tokens(),
-      program_node,
-      program,
-      config,
-      external_formatter,
-    );
-    let mut items = gen_node(program_node, &mut context);
-    items.push_condition(if_true(
-      "endOfFileNewLine",
-      Rc::new(|context| Some(context.writer_info.column_number > 0 || context.writer_info.line_number > 0)),
-      Signal::NewLine.into(),
-    ));
+  #[cfg(debug_assertions)]
+  context.assert_end_of_file_state();
 
-    #[cfg(debug_assertions)]
-    context.assert_end_of_file_state();
+  if let Some(diagnostic) = context.diagnostics.pop() {
+    return Err(diagnostic.message.into());
+  }
 
-    if let Some(diagnostic) = context.diagnostics.pop() {
-      return Err(anyhow::anyhow!(diagnostic.message));
-    }
-
-    if config.file_indent_level > 0 {
-      Ok(with_indent_times(items, config.file_indent_level))
-    } else {
-      Ok(items)
-    }
-  })
+  if config.file_indent_level > 0 {
+    Ok(with_indent_times(items, config.file_indent_level))
+  } else {
+    Ok(items)
+  }
 }
 
 fn gen_node<'a>(node: Node<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -114,23 +109,13 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
     let node_text = if node_kind == NodeKind::JSXText {
       // keep the leading text, but leave the trailing text to be formatted if on a separate line
       let node_text = node.text_fast(context.program);
-      let end_trim = node_text.trim_end();
-      if node_text[end_trim.len()..].contains('\n') {
-        end_trim
-      } else {
-        node_text
-      }
+      let end_trim = node_text.trim_end_matches(utils::is_jsx_whitespace_char);
+      if node_text[end_trim.len()..].contains('\n') { end_trim } else { node_text }
     } else {
       node.text_fast(context.program)
     };
-    items.extend(inner_gen(ir_helpers::gen_from_raw_string(node_text), context));
-
-    // mark any previous comments as handled
-    for comment in context.comments.trailing_comments_with_previous(node_end) {
-      if comment.start() < node_end {
-        context.mark_comment_handled(comment);
-      }
-    }
+    let node_items = gen_file_text_as_is(node_text, node_end, TrimLineEnds::No, context);
+    items.extend(inner_gen(node_items, context));
   } else {
     items.extend(inner_gen(gen_node_inner(node, context), context));
   }
@@ -314,6 +299,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       Node::VarDecl(node) => gen_var_decl(node, context),
       Node::VarDeclarator(node) => gen_var_declarator(node, context),
       Node::WhileStmt(node) => gen_while_stmt(node, context),
+      Node::WithStmt(node) => gen_with_stmt(node, context),
       /* types */
       Node::TsArrayType(node) => gen_array_type(node, context),
       Node::TsConditionalType(node) => gen_conditional_type(node, context),
@@ -348,12 +334,12 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       Node::TsTypeRef(node) => gen_type_reference(node, context),
       Node::TsUnionType(node) => gen_union_type(node, context),
       /* These should never be matched. Return its text if so */
-      Node::Class(_) | Node::Function(_) | Node::Invalid(_) | Node::WithStmt(_) | Node::TsModuleBlock(_) => {
+      Node::Class(_) | Node::Function(_) | Node::Invalid(_) | Node::TsModuleBlock(_) => {
         if cfg!(debug_assertions) {
           panic!("Debug panic! Did not expect to generate IR for node of type {}.", node.kind());
         }
 
-        gen_from_raw_string(node.text_fast(context.program))
+        gen_file_text_as_is(node.text_fast(context.program), node.end(), TrimLineEnds::No, context)
       }
     }
   }
@@ -414,7 +400,44 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
   }
 }
 
-fn get_has_ignore_comment<'a>(leading_comments: &CommentsIterator<'a>, node: Node<'a>, context: &mut Context<'a>) -> bool {
+/// Generates text from the file as is. The comments before its end are marked as
+/// handled because they're in the text, which would otherwise generate them again.
+fn gen_file_text_as_is(text: &str, end: SourcePos, trim_line_ends: TrimLineEnds, context: &mut Context) -> PrintItems {
+  for comment in context.comments.trailing_comments_with_previous(end) {
+    if comment.start() < end {
+      context.mark_comment_handled(comment);
+    }
+  }
+  match trim_line_ends {
+    TrimLineEnds::Yes => ir_helpers::gen_from_raw_string(&get_text_with_trimmed_line_ends(text)),
+    TrimLineEnds::No => ir_helpers::gen_from_raw_string(text),
+  }
+}
+
+enum TrimLineEnds {
+  Yes,
+  No,
+}
+
+/// Trims the whitespace at the end of each line, which JSX removes.
+///
+/// The end of the last line is beside the text after it, so it's kept
+/// unless the last line is only the whitespace before that text.
+fn get_text_with_trimmed_line_ends(text: &str) -> String {
+  let mut result = String::with_capacity(text.len());
+  let mut lines = text.split('\n').enumerate().peekable();
+  while let Some((i, line)) = lines.next() {
+    if lines.peek().is_some() {
+      result.push_str(line.trim_end_matches(utils::is_jsx_whitespace_char));
+      result.push('\n');
+    } else if i == 0 || !utils::is_jsx_whitespace(line) {
+      result.push_str(line);
+    }
+  }
+  result
+}
+
+fn get_has_ignore_comment<'a>(leading_comments: &CommentsIterator<'a>, node: Node<'a>, context: &Context<'a>) -> bool {
   let comments = match node.parent() {
     Some(Node::JSXElement(jsx_element)) => get_comments_for_jsx_children(jsx_element.children, &node.start(), context),
     Some(Node::JSXFragment(jsx_fragment)) => get_comments_for_jsx_children(jsx_fragment.children, &node.start(), context),
@@ -429,7 +452,7 @@ fn get_has_ignore_comment<'a>(leading_comments: &CommentsIterator<'a>, node: Nod
 
   return false;
 
-  fn get_comments_for_jsx_children<'a>(children: &[JSXElementChild], node_lo: &SourcePos, context: &mut Context<'a>) -> CommentsIterator<'a> {
+  fn get_comments_for_jsx_children<'a>(children: &[JSXElementChild], node_lo: &SourcePos, context: &Context<'a>) -> CommentsIterator<'a> {
     let mut iterator = CommentsIterator::empty();
     let index = if let Ok(index) = children.binary_search_by_key(node_lo, |child| child.start()) {
       index
@@ -448,7 +471,7 @@ fn get_has_ignore_comment<'a>(leading_comments: &CommentsIterator<'a>, node: Nod
           };
         }
         JSXElementChild::JSXText(jsx_text) => {
-          if !jsx_text.text_fast(context.program).trim().is_empty() {
+          if !utils::is_jsx_whitespace(jsx_text.text_fast(context.program)) {
             break;
           }
         }
@@ -472,6 +495,14 @@ fn is_ignore_jsx_expr_container(node: Node, context: &Context) -> bool {
   }
 
   false
+}
+
+/// Gets if the node is JSX text after an ignore comment, which is generated
+/// as-is along with its leading whitespace and the spaces at its end.
+fn is_jsx_text_generated_as_is<'a>(node: Node<'a>, context: &Context<'a>) -> bool {
+  node.kind() == NodeKind::JSXText
+    && !utils::is_jsx_whitespace(node.text_fast(context.program))
+    && get_has_ignore_comment(&CommentsIterator::empty(), node, context)
 }
 
 /* class */
@@ -1134,11 +1165,7 @@ fn gen_export_named_decl<'a>(node: &NamedExport<'a>, context: &mut Context<'a>) 
     items.push_sc(sc!(";"));
   }
 
-  if should_single_line {
-    with_no_new_lines(items)
-  } else {
-    items
-  }
+  if should_single_line { with_no_new_lines(items) } else { items }
 }
 
 fn gen_function_decl<'a>(node: &FnDecl<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -1349,11 +1376,7 @@ fn gen_import_decl<'a>(node: &ImportDecl<'a>, context: &mut Context<'a>) -> Prin
     items.push_sc(sc!(";"));
   }
 
-  if should_single_line {
-    with_no_new_lines(items)
-  } else {
-    items
-  }
+  if should_single_line { with_no_new_lines(items) } else { items }
 }
 
 fn gen_import_equals_decl<'a>(node: &TsImportEqualsDecl<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -1968,6 +1991,7 @@ fn gen_assignment_expr<'a>(node: &AssignExpr<'a>, context: &mut Context<'a>) -> 
                 lines_span,
                 allow_inline_multi_line: true,
                 allow_inline_single_line: true,
+                is_known_multi_line: false,
               });
             }
 
@@ -2144,6 +2168,7 @@ fn gen_binary_expr<'a>(node: &BinExpr<'a>, context: &mut Context<'a>) -> PrintIt
             lines_span,
             allow_inline_multi_line: true,
             allow_inline_single_line: true,
+            is_known_multi_line: false,
           });
         }
 
@@ -3063,9 +3088,12 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
   })
   .unwrap();
 
-  // Then formats the text with the external formatter.
-  let formatted_tpl = match external_formatter(embedded_lang, text.replace(r"\\", "\\"), context.config) {
-    Ok(formatted_tpl) => formatted_tpl?.replace("\\", r"\\"),
+  // Then formats the text with the external formatter, which gets the escapes that only
+  // exist because of the template literal unescaped (ex. Tailwind's `\\[\\#86efac\\]`
+  // as `\[\#86efac\]`) and the other escapes as is (ex. `\n` and `\e600`).
+  let text = unescape_embedded_text(&text)?;
+  let formatted_tpl = match external_formatter(embedded_lang, text, context.config) {
+    Ok(formatted_tpl) => escape_embedded_text(&formatted_tpl?),
     Err(err) => {
       context.diagnostics.push(context::GenerateDiagnostic {
         message: format!("Error formatting tagged template literal at line {}: {}", node.start_line() + 1, err),
@@ -3148,6 +3176,53 @@ fn normalize_embedded_language_type<'a>(node: &TaggedTpl<'a>) -> Option<&'a str>
   }
 }
 
+/// Stands in for the backslash of an escape that the embedded language gets as is (ex. `\n`),
+/// which keeps it apart from a backslash that was escaped (ex. `\\`).
+const EMBEDDED_ESCAPE_SENTINEL: char = '\u{E000}';
+
+/// Unescapes what a template literal requires to be escaped (`\\`, `` \` ``, and `\${`), which
+/// is what the embedded language sees. The other escapes are kept so that `escape_embedded_text`
+/// can restore them exactly. Returns `None` when the text already has the sentinel.
+fn unescape_embedded_text(text: &str) -> Option<String> {
+  if text.contains(EMBEDDED_ESCAPE_SENTINEL) {
+    return None;
+  }
+  let mut result = String::with_capacity(text.len());
+  let mut rest = text;
+  while let Some(index) = rest.find('\\') {
+    result.push_str(&rest[..index]);
+    let escaped = &rest[index + 1..];
+    if escaped.starts_with(['\\', '`']) || escaped.starts_with("${") {
+      result.push_str(&escaped[..1]);
+      rest = &escaped[1..];
+    } else {
+      result.push(EMBEDDED_ESCAPE_SENTINEL);
+      rest = escaped;
+    }
+  }
+  result.push_str(rest);
+  Some(result)
+}
+
+/// Escapes the formatted text of an embedded language for a template literal,
+/// which is the reverse of `unescape_embedded_text`.
+fn escape_embedded_text(text: &str) -> String {
+  let mut result = String::with_capacity(text.len());
+  let mut chars = text.chars().peekable();
+  while let Some(c) = chars.next() {
+    match c {
+      EMBEDDED_ESCAPE_SENTINEL => result.push('\\'),
+      '\\' | '`' => {
+        result.push('\\');
+        result.push(c);
+      }
+      '$' if chars.peek() == Some(&'{') => result.push_str("\\$"),
+      _ => result.push(c),
+    }
+  }
+  result
+}
+
 fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintItems {
   let use_space = context.config.tagged_template_space_before_literal;
   let mut items = gen_node(node.tag.into(), context);
@@ -3174,15 +3249,23 @@ fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintI
 }
 
 fn gen_tpl<'a>(node: &Tpl<'a>, context: &mut Context<'a>) -> PrintItems {
-  gen_template_literal(
+  let class_names_sort_options = get_class_names_sort_options(node.into(), context).map(|options| (node.start(), options));
+  let previous_class_names_sort_options = std::mem::replace(&mut context.tpl_class_names_sort_options, class_names_sort_options);
+  let items = gen_template_literal(
     node.quasis.iter().map(|&n| n.into()).collect(),
     node.exprs.iter().map(|x| x.into()).collect(),
     context,
-  )
+  );
+  context.tpl_class_names_sort_options = previous_class_names_sort_options;
+  items
 }
 
 fn gen_tpl_element<'a>(node: &TplElement<'a>, context: &mut Context<'a>) -> PrintItems {
-  gen_from_raw_string(node.text_fast(context.program))
+  let text = node.text_fast(context.program);
+  match get_tpl_element_class_names_sort_options(node, context) {
+    Some(options) => gen_from_raw_string(&tailwind::sort_class_names(text, &options, &get_tailwind_project(context))),
+    None => gen_from_raw_string(text),
+  }
 }
 
 fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context: &mut Context<'a>) -> PrintItems {
@@ -3864,7 +3947,7 @@ fn handle_jsx_surrounding_parens(inner_items: PrintItems, context: &mut Context<
   items.extend(actions::if_column_number_changes(move |context| {
     context.clear_info(end_ln);
   }));
-  items.push_condition(if_true_or(
+  let mut condition = if_true_or(
     "parensOrNewlinesIfMultipleLines",
     Rc::new(move |context| condition_helpers::is_multiple_lines(context, start_ln, end_ln)),
     surround_with_parens(surround_with_new_lines(with_indent(inner_items_rc.into()))),
@@ -3874,9 +3957,14 @@ fn handle_jsx_surrounding_parens(inner_items: PrintItems, context: &mut Context<
       items.extend(inner_items_rc.into());
       items
     },
-  ));
+  );
+  let condition_reevaluation = condition.create_reevaluation();
+  items.push_condition(condition);
 
   items.push_info(end_ln);
+  // the end line changes when the line breaks after the jsx, which
+  // happens after the condition was evaluated with the end line on the first line
+  items.push_reevaluation(condition_reevaluation);
   return items;
 
   fn should_jsx_surround_newlines<'a>(node: Node<'a>, context: &Context<'a>) -> bool {
@@ -3935,7 +4023,8 @@ fn gen_jsx_element<'a>(node: &JSXElement<'a>, context: &mut Context<'a>) -> Prin
     if node.opening.name.text_fast(context.program) == "pre" {
       let mut items = gen_node(node.opening.into(), context);
       let in_between_range = SourceRange::new(node.opening.end(), closing.start());
-      items.extend(ir_helpers::gen_from_raw_string_trim_line_ends(in_between_range.text_fast(context.program)));
+      let in_between_text = in_between_range.text_fast(context.program);
+      items.extend(gen_file_text_as_is(in_between_text, closing.start(), TrimLineEnds::Yes, context));
       items.extend(gen_node(closing.into(), context));
       items
     } else {
@@ -4182,7 +4271,7 @@ fn gen_jsx_text<'a>(node: &JSXText<'a>, context: &mut Context<'a>) -> PrintItems
     }
 
     let mut was_last_space_or_newline = true;
-    for word in line.split(' ') {
+    for word in line.split(utils::is_jsx_space_char) {
       if !was_last_space_or_newline {
         items.push_signal(Signal::SpaceOrNewLine);
         was_last_space_or_newline = true;
@@ -4198,7 +4287,10 @@ fn gen_jsx_text<'a>(node: &JSXText<'a>, context: &mut Context<'a>) -> PrintItems
 
   fn get_lines(node_text: &str) -> Vec<String> {
     let mut past_line: Option<&str> = None;
-    let lines = node_text.trim().lines().map(|line| line.trim());
+    let lines = node_text
+      .trim_matches(utils::is_jsx_whitespace_char)
+      .lines()
+      .map(|line| line.trim_matches(utils::is_jsx_whitespace_char));
     let mut result = Vec::new();
     let mut current_line = String::new();
 
@@ -4257,11 +4349,235 @@ fn gen_reg_exp_literal(node: &Regex, _: &mut Context) -> PrintItems {
 }
 
 fn gen_string_literal<'a>(node: &Str<'a>, context: &mut Context<'a>) -> PrintItems {
-  let string_value = string_literal::get_value(node, context);
+  let mut string_value = string_literal::get_value(node, context);
+  if let Some(options) = get_class_names_sort_options(node.into(), context)
+    && let Cow::Owned(sorted_value) = tailwind::sort_class_names(&string_value, &options, &get_tailwind_project(context))
+  {
+    string_value = sorted_value;
+  }
   if node.parent().is::<JSXAttr>() {
     string_literal::gen_jsx_text(&string_value, context)
   } else {
     string_literal::gen_non_jsx_text(&string_value, context)
+  }
+}
+
+fn get_tpl_element_class_names_sort_options<'a>(node: &TplElement<'a>, context: &Context<'a>) -> Option<tailwind::SortOptions> {
+  let Some(Node::Tpl(tpl)) = node.as_node().parent() else {
+    return None;
+  };
+  // these are the template literal's, which `gen_tpl` gets once for all its elements
+  let (tpl_start, mut options) = context.tpl_class_names_sort_options?;
+  if tpl_start != tpl.start() {
+    return None;
+  }
+  let index = tpl.quasis.binary_search_by_key(&node.start(), |quasi| quasi.start()).ok()?;
+  let is_last = index >= tpl.exprs.len();
+  let text = node.text_fast(context.program);
+  // the class at an end is only part of a class name when the text
+  // isn't separated from the neighbouring expression by whitespace
+  options.ignore_first = if index > 0 {
+    !text.starts_with(tailwind::is_class_separator)
+  } else {
+    options.ignore_first
+  };
+  options.ignore_last = if is_last {
+    options.ignore_last
+  } else {
+    !text.ends_with(tailwind::is_class_separator)
+  };
+  options.collapse_start &= index == 0;
+  options.collapse_end &= is_last;
+  Some(options)
+}
+
+/// Gets how to sort the class names in the provided string or template literal, or
+/// `None` when it's not somewhere that's known to have class names. This looks for
+/// the same places as prettier-plugin-tailwindcss, but only where the text may be
+/// part of the class names (ex. not in `styles["p-4 flex"]` or `x === "p-4 flex"`).
+fn get_class_names_sort_options<'a>(node: Node<'a>, context: &Context<'a>) -> Option<tailwind::SortOptions> {
+  if context.config.jsx_sort_class_names.kind != JsxClassNamesSortOrder::Tailwind {
+    return None;
+  }
+  let options = find_class_names_sort_options(node, context)?;
+  // moving the classes around an escaped whitespace character (ex. a line continuation)
+  // would change the value or escape the closing quote
+  (!has_escaped_class_separator(get_class_names_text(node, context))).then_some(options)
+}
+
+fn find_class_names_sort_options<'a>(node: Node<'a>, context: &Context<'a>) -> Option<tailwind::SortOptions> {
+  let mut options = tailwind::SortOptions {
+    preserve_whitespace: context.config.jsx_sort_class_names.preserve_whitespace,
+    preserve_duplicates: context.config.jsx_sort_class_names.preserve_duplicates,
+    ..Default::default()
+  };
+  let text = get_class_names_text(node, context);
+  let starts_with_separator = text.starts_with(tailwind::is_class_separator);
+  let ends_with_separator = text.ends_with(tailwind::is_class_separator);
+  // if the text is at the start and the end of the string the child evaluates to, which is when what's
+  // beside the child is beside the text and so needs whitespace to not be part of the class at that end
+  let mut is_at_start = true;
+  let mut is_at_end = true;
+  let mut child = node;
+  while let Some(parent) = child.parent() {
+    let mut keeps_ends = false;
+    // this stops at the first parent where the child isn't what has the class names, which
+    // also stops the search right away for most strings and template literals in a file
+    match parent {
+      Node::JSXAttr(attr) => return is_class_names_jsx_attr(attr, context).then_some(options),
+      Node::CallExpr(call_expr) => {
+        if let Callee::Expr(callee) = call_expr.callee
+          && child.start() >= callee.end()
+          && is_class_names_function(callee, context)
+        {
+          return Some(options);
+        }
+      }
+      Node::OptCall(call_expr) => {
+        if child.start() >= call_expr.callee.end() && is_class_names_function(call_expr.callee, context) {
+          return Some(options);
+        }
+      }
+      Node::TaggedTpl(tagged_tpl) => {
+        // the text of a template whose tag isn't configured isn't class names (ex. emotion's `css`)
+        if child.start() < tagged_tpl.tpl.start() || !is_class_names_function(tagged_tpl.tag, context) {
+          return None;
+        }
+        // only the text of the template has class names, not the strings in its expressions
+        if child.kind() == node.kind() && child.range() == node.range() {
+          return Some(options);
+        }
+      }
+      Node::BinExpr(bin_expr) if bin_expr.op() == BinaryOp::Add => {
+        // the whitespace between concatenated strings separates their class names
+        keeps_ends = true;
+        if child.start() == bin_expr.left.start() {
+          options.collapse_end = false;
+          let is_separated = ends_with_separator || get_class_names_text(bin_expr.right.into(), context).starts_with(tailwind::is_class_separator);
+          options.ignore_last |= is_at_end && !is_separated;
+          is_at_end = false;
+        } else {
+          options.collapse_start = false;
+          let is_separated = starts_with_separator || get_class_names_text(bin_expr.left.into(), context).ends_with(tailwind::is_class_separator);
+          options.ignore_first |= is_at_start && !is_separated;
+          is_at_start = false;
+        }
+      }
+      Node::Tpl(tpl) => {
+        // this is an expression in a template literal, so the whitespace at an end may
+        // only be removed when the text next to it has whitespace to separate the classes
+        if let Some(index) = tpl.exprs.iter().position(|expr| expr.start() == child.start()) {
+          keeps_ends = true;
+          let text_before = tpl.quasis[index].text_fast(context.program);
+          let text_after = tpl.quasis[index + 1].text_fast(context.program);
+          let is_separated_before = text_before.ends_with(tailwind::is_class_separator);
+          let is_separated_after = text_after.starts_with(tailwind::is_class_separator);
+          options.collapse_start &= is_separated_before;
+          options.collapse_end &= is_separated_after;
+          // nothing is before the first expression or after the last one when there's no text there
+          let is_first = index == 0 && text_before.is_empty();
+          let is_last = index + 1 == tpl.exprs.len() && text_after.is_empty();
+          options.ignore_first |= is_at_start && !is_first && !is_separated_before && !starts_with_separator;
+          options.ignore_last |= is_at_end && !is_last && !is_separated_after && !ends_with_separator;
+          is_at_start &= is_first;
+          is_at_end &= is_last;
+        }
+      }
+      // these evaluate to one of their operands
+      Node::BinExpr(bin_expr) if matches!(bin_expr.op(), BinaryOp::LogicalAnd | BinaryOp::LogicalOr | BinaryOp::NullishCoalescing) => keeps_ends = true,
+      // a string in the type of one of these is under a type node, which stops the search
+      Node::ParenExpr(_) | Node::CondExpr(_) | Node::TsAsExpr(_) | Node::TsSatisfiesExpr(_) | Node::TsNonNullExpr(_) | Node::TsConstAssertion(_) => {
+        keeps_ends = true
+      }
+      Node::MemberExpr(member_expr) => {
+        // the object may have class names (ex. `["p-4", "flex"].join(" ")`), but not the
+        // property or an object that's indexed into (ex. `styles["p-4 flex"]`)
+        if child.start() != member_expr.obj.start() || matches!(member_expr.prop, MemberProp::Computed(_)) {
+          return None;
+        }
+      }
+      // these hold class names that get combined (ex. `cn(["p-4", { flex: active }])`)
+      Node::JSXExprContainer(_)
+      | Node::ExprOrSpread(_)
+      | Node::SpreadElement(_)
+      | Node::ArrayLit(_)
+      | Node::ObjectLit(_)
+      | Node::KeyValueProp(_)
+      | Node::OptChainExpr(_) => {}
+      // anything else, like a member expression's property or a comparison, doesn't
+      _ => return None,
+    }
+    if !keeps_ends {
+      is_at_start = false;
+      is_at_end = false;
+    }
+    child = parent;
+  }
+  None
+}
+
+/// Gets the text within the quotes of a string or template literal and otherwise an empty string.
+fn get_class_names_text<'a>(node: Node<'a>, context: &Context<'a>) -> &'a str {
+  match node {
+    Node::Str(_) | Node::Tpl(_) => {
+      let text = node.text_fast(context.program);
+      &text[1..text.len() - 1]
+    }
+    _ => "",
+  }
+}
+
+/// Gets if the text has a backslash that escapes whitespace (ex. `\` then a newline).
+fn has_escaped_class_separator(text: &str) -> bool {
+  let mut is_escaped = false;
+  for c in text.chars() {
+    if is_escaped && tailwind::is_class_separator(c) {
+      return true;
+    }
+    is_escaped = !is_escaped && c == '\\';
+  }
+  false
+}
+
+fn is_class_names_jsx_attr(attr: &JSXAttr, context: &Context) -> bool {
+  let name = attr.name.text_fast(context.program);
+  matches!(name, "class" | "className") || context.config.jsx_sort_class_names.attributes.iter().any(|attribute_name| attribute_name == name)
+}
+
+fn get_tailwind_project<'a>(context: &Context<'a>) -> tailwind::Project<'a> {
+  let config = &context.config.jsx_sort_class_names;
+  tailwind::Project {
+    prefix: config.prefix.as_deref(),
+    theme: &config.theme,
+    variants: &config.variants,
+    utilities: &config.utilities,
+  }
+}
+
+/// Gets if the expression starts with one of the configured function names (ex. `cn` in `cn.foo("")`).
+fn is_class_names_function(expr: Expr, context: &Context) -> bool {
+  if context.config.jsx_sort_class_names.functions.is_empty() {
+    return false;
+  }
+
+  let mut expr = expr;
+  loop {
+    expr = match expr {
+      Expr::Ident(ident) => {
+        let name = ident.text_fast(context.program);
+        return context.config.jsx_sort_class_names.functions.iter().any(|function_name| function_name == name);
+      }
+      Expr::Member(member_expr) => member_expr.obj,
+      Expr::Call(call_expr) => match call_expr.callee {
+        Callee::Expr(callee) => callee,
+        _ => return false,
+      },
+      Expr::OptChain(opt_chain_expr) => match opt_chain_expr.base {
+        OptChainBase::Member(member_expr) => member_expr.obj,
+        OptChainBase::Call(call_expr) => call_expr.callee,
+      },
+      _ => return false,
+    };
   }
 }
 
@@ -4401,7 +4717,7 @@ fn gen_script<'a>(node: &Script<'a>, context: &mut Context<'a>) -> PrintItems {
 
 struct ProgramInfo<'a, 'b> {
   range: SourceRange,
-  shebang: &'b Option<deno_ast::swc::atoms::Atom>,
+  shebang: &'b Option<dprint_swc_ext::swc::atoms::Atom>,
   statements: Vec<Node<'a>>,
 }
 
@@ -4775,7 +5091,8 @@ fn gen_do_while_stmt<'a>(node: &DoWhileStmt<'a>, context: &mut Context<'a>) -> P
     items.push_signal(Signal::NewLine);
   }
   items.push_sc(sc!("while"));
-  if context.config.do_while_statement_space_after_while_keyword {
+  let open_paren_token = context.token_finder.get_previous_token_if_open_paren(&node.test.range());
+  if use_space_after_keyword(context.config.do_while_statement_space_after_while_keyword, open_paren_token, context) {
     items.push_space();
   }
   items.extend(gen_node_in_parens(
@@ -4977,8 +5294,18 @@ fn gen_for_stmt<'a>(node: &ForStmt<'a>, context: &mut Context<'a>) -> PrintItems
   items.push_info(start_header_ln);
   items.push_info(start_header_lsil);
   items.push_sc(sc!("for"));
-  if context.config.for_statement_space_after_for_keyword {
+  let open_paren_token = node.tokens_fast(context.program).get(1).filter(|token| token.token == Token::LParen);
+  if use_space_after_keyword(context.config.for_statement_space_after_for_keyword, open_paren_token, context) {
     items.push_space();
+  }
+  // these are generated before the init is, which would otherwise take them as its leading comments
+  if let Some(open_paren_token) = open_paren_token {
+    for comment in get_comments_before_token(open_paren_token, context) {
+      if let Some(generated_comment) = gen_comment(comment, context) {
+        items.extend(generated_comment);
+        items.push_space();
+      }
+    }
   }
 
   let separator_after_semi_colons = if context.config.for_statement_space_after_semi_colons {
@@ -5084,10 +5411,11 @@ fn gen_for_in_stmt<'a>(node: &ForInStmt<'a>, context: &mut Context<'a>) -> Print
   items.push_info(start_header_ln);
   items.push_info(start_header_lsil);
   items.push_sc(sc!("for"));
-  if context.config.for_in_statement_space_after_for_keyword {
+  let inner_header_range = SourceRange::new(node.left.start(), node.right.end());
+  let open_paren_token = context.token_finder.get_previous_token_if_open_paren(&inner_header_range);
+  if use_space_after_keyword(context.config.for_in_statement_space_after_for_keyword, open_paren_token, context) {
     items.push_space();
   }
-  let inner_header_range = SourceRange::new(node.left.start(), node.right.end());
   items.extend(gen_node_in_parens(
     |context| {
       let mut items = PrintItems::new();
@@ -5138,14 +5466,23 @@ fn gen_for_of_stmt<'a>(node: &ForOfStmt<'a>, context: &mut Context<'a>) -> Print
   items.push_info(start_header_ln);
   items.push_info(start_header_lsil);
   items.push_sc(sc!("for"));
-  if context.config.for_of_statement_space_after_for_keyword {
-    items.push_space();
-  }
   if node.is_await() {
-    // todo: generate comments around await token range
-    items.push_sc(sc!("await "));
+    if let Some(await_token) = node.tokens_fast(context.program).get(1) {
+      for comment in get_comments_before_token(await_token, context) {
+        if let Some(generated_comment) = gen_comment(comment, context) {
+          items.push_space();
+          items.extend(generated_comment);
+        }
+      }
+    }
+    items.push_space();
+    items.push_sc(sc!("await"));
   }
   let inner_header_range = SourceRange::new(node.left.start(), node.right.end());
+  let open_paren_token = context.token_finder.get_previous_token_if_open_paren(&inner_header_range);
+  if use_space_after_keyword(context.config.for_of_statement_space_after_for_keyword, open_paren_token, context) {
+    items.push_space();
+  }
   items.extend(gen_node_in_parens(
     |context| {
       let mut items = PrintItems::new();
@@ -5198,7 +5535,8 @@ fn gen_if_stmt<'a>(node: &IfStmt<'a>, context: &mut Context<'a>) -> PrintItems {
       generated_header: {
         let mut items = PrintItems::new();
         items.push_sc(sc!("if"));
-        if context.config.if_statement_space_after_if_keyword {
+        let open_paren_token = context.token_finder.get_previous_token_if_open_paren(&node.test.range());
+        if use_space_after_keyword(context.config.if_statement_space_after_if_keyword, open_paren_token, context) {
           items.push_space();
         }
         let test = node.test;
@@ -5647,7 +5985,8 @@ fn gen_while_stmt<'a>(node: &WhileStmt<'a>, context: &mut Context<'a>) -> PrintI
   items.push_info(start_header_ln);
   items.push_info(start_header_lsil);
   items.push_sc(sc!("while"));
-  if context.config.while_statement_space_after_while_keyword {
+  let open_paren_token = context.token_finder.get_previous_token_if_open_paren(&node.test.range());
+  if use_space_after_keyword(context.config.while_statement_space_after_while_keyword, open_paren_token, context) {
     items.push_space();
   }
   items.extend(gen_node_in_parens(
@@ -5668,6 +6007,48 @@ fn gen_while_stmt<'a>(node: &WhileStmt<'a>, context: &mut Context<'a>) -> PrintI
         use_braces: context.config.while_statement_use_braces,
         brace_position: context.config.while_statement_brace_position,
         single_body_position: Some(context.config.while_statement_single_body_position),
+        requires_braces_condition_ref: None,
+        start_header_info: Some((start_header_ln, start_header_lsil)),
+        end_header_info: Some(end_header_ln),
+      },
+      context,
+    )
+    .generated_node,
+  );
+  items
+}
+
+fn gen_with_stmt<'a>(node: &WithStmt<'a>, context: &mut Context<'a>) -> PrintItems {
+  // `with` statements are deprecated and forbidden in strict mode, but still valid syntax
+  let start_header_ln = LineNumber::new("startHeader");
+  let start_header_lsil = LineStartIndentLevel::new("startHeader");
+  let end_header_ln = LineNumber::new("endHeader");
+  let mut items = PrintItems::new();
+  items.push_info(start_header_ln);
+  items.push_info(start_header_lsil);
+  items.push_sc(sc!("with"));
+  let open_paren_token = context.token_finder.get_previous_token_if_open_paren(&node.obj.range());
+  if use_space_after_keyword(context.config.with_statement_space_after_with_keyword, open_paren_token, context) {
+    items.push_space();
+  }
+  items.extend(gen_node_in_parens(
+    |context| gen_node(node.obj.into(), context),
+    GenNodeInParensOptions {
+      inner_range: node.obj.range(),
+      prefer_hanging: context.config.with_statement_prefer_hanging,
+      allow_open_paren_trailing_comments: false,
+      single_line_space_around: context.config.with_statement_space_around,
+    },
+    context,
+  ));
+  items.push_info(end_header_ln);
+  items.extend(
+    gen_conditional_brace_body(
+      GenConditionalBraceBodyOptions {
+        body_node: node.body.into(),
+        use_braces: context.config.with_statement_use_braces,
+        brace_position: context.config.with_statement_brace_position,
+        single_body_position: Some(context.config.with_statement_single_body_position),
         requires_braces_condition_ref: None,
         start_header_info: Some((start_header_ln, start_header_lsil)),
         end_header_info: Some(end_header_ln),
@@ -6423,7 +6804,7 @@ fn gen_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -
             Some(NodeKind::ExportDefaultExpr | NodeKind::ExportDefaultDecl)
           );
         // Prevent "This syntax is reserved in files with the .mts or .cts extension." diagnostic.
-        let is_cts_mts_arrow_fn = matches!(context.media_type, MediaType::Cts | MediaType::Mts) && parent.kind() == NodeKind::ArrowExpr;
+        let is_cts_mts_arrow_fn = context.disallows_ambiguous_jsx_like() && parent.kind() == NodeKind::ArrowExpr;
         if is_ambiguous_jsx_fn_expr || is_cts_mts_arrow_fn {
           let children = type_params.children();
           // It is not ambiguous if there are multiple type parameters.
@@ -6585,6 +6966,7 @@ fn gen_union_or_intersection_type<'a, 'b>(node: UnionOrIntersectionType<'a, 'b>,
           lines_span: None,
           allow_inline_multi_line,
           allow_inline_single_line,
+          is_known_multi_line: false,
         });
       }
 
@@ -6962,18 +7344,31 @@ fn gen_comment(comment: &Comment, context: &mut Context) -> Option<PrintItems> {
 fn gen_js_doc_or_multiline_block(comment: &Comment, _context: &mut Context) -> PrintItems {
   debug_assert_eq!(comment.kind, CommentKind::Block);
   let is_js_doc = comment.text.starts_with('*');
-  return lines_to_print_items(is_js_doc, build_lines(comment));
+  return lines_to_print_items(is_js_doc, build_lines(comment, is_js_doc));
 
-  fn build_lines(comment: &Comment) -> Vec<&str> {
+  fn build_lines(comment: &Comment, is_js_doc: bool) -> Vec<&str> {
     let mut lines: Vec<&str> = Vec::new();
+    let mut markdown_state = JsDocMarkdownState::default();
+    let mut comment_lines = utils::split_lines(&comment.text)
+      .map(|line| {
+        let text = if line.line_index == 0 && !line.text.starts_with('*') {
+          line.text
+        } else {
+          &line.text[get_line_start_index(line.text)..]
+        };
+        (text, line.is_last)
+      })
+      .peekable();
 
-    for line in utils::split_lines(&comment.text) {
-      let text = if line.line_index == 0 && !line.text.starts_with('*') {
-        line.text
+    while let Some((text, is_last)) = comment_lines.next() {
+      let is_markdown_text = is_js_doc && markdown_state.is_text_line(text);
+      let text = if is_last && !text.trim().is_empty() {
+        text
+      } else if is_markdown_text && comment_lines.peek().is_some_and(|(next_text, _)| can_follow_hard_line_break(next_text)) {
+        trim_end_keeping_hard_line_break(text)
       } else {
-        &line.text[get_line_start_index(line.text)..]
+        text.trim_end()
       };
-      let text = if line.is_last && !text.trim().is_empty() { text } else { text.trim_end() };
 
       if !text.is_empty() || !lines.last().map(|l| l.is_empty()).unwrap_or(false) {
         lines.push(text);
@@ -6993,6 +7388,75 @@ fn gen_js_doc_or_multiline_block(comment: &Comment, _context: &mut Context) -> P
     }
 
     0
+  }
+
+  /// Trims the end of the line, but keeps two spaces when it ends with a
+  /// markdown hard line break, which is two or more spaces.
+  fn trim_end_keeping_hard_line_break(text: &str) -> &str {
+    let trimmed = text.trim_end();
+    let trailing_whitespace = &text[trimmed.len()..];
+    if !trimmed.is_empty() && trailing_whitespace.len() >= 2 && trailing_whitespace.bytes().all(|b| b == b' ') {
+      &text[..trimmed.len() + 2]
+    } else {
+      trimmed
+    }
+  }
+
+  /// A hard line break only does something when text follows it, and
+  /// a block tag ends the text before it.
+  fn can_follow_hard_line_break(next_text: &str) -> bool {
+    let next_text = next_text.trim();
+    !next_text.is_empty() && !next_text.starts_with('@')
+  }
+
+  /// Tracks which JSDoc lines are markdown text rather than code.
+  #[derive(Default)]
+  struct JsDocMarkdownState {
+    fence: Option<MarkdownFence>,
+    is_in_example: bool,
+  }
+
+  impl JsDocMarkdownState {
+    /// Updates the state with the next line and gets if it's markdown text.
+    fn is_text_line(&mut self, text: &str) -> bool {
+      let text = text.trim_start();
+      if let Some(fence) = &self.fence {
+        if fence.is_closed_by(text) {
+          self.fence = None;
+        }
+        return false;
+      }
+      if let Some(fence) = MarkdownFence::from_line(text) {
+        self.fence = Some(fence);
+        return false;
+      }
+      if text.starts_with('@') {
+        // the code of an example without a fence goes until the next block tag
+        self.is_in_example = text
+          .strip_prefix("@example")
+          .is_some_and(|rest| !rest.starts_with(|c: char| c.is_alphanumeric()));
+      }
+      !self.is_in_example
+    }
+  }
+
+  struct MarkdownFence {
+    marker: char,
+    len: usize,
+  }
+
+  impl MarkdownFence {
+    fn from_line(text: &str) -> Option<MarkdownFence> {
+      let marker = text.chars().next().filter(|c| matches!(c, '`' | '~'))?;
+      let len = text.chars().take_while(|c| *c == marker).count();
+      (len >= 3).then_some(MarkdownFence { marker, len })
+    }
+
+    /// A closing fence uses the same marker, is at least as long as
+    /// the opening fence, and has nothing after it.
+    fn is_closed_by(&self, text: &str) -> bool {
+      MarkdownFence::from_line(text).is_some_and(|fence| fence.marker == self.marker && fence.len >= self.len && text[fence.len..].trim().is_empty())
+    }
   }
 
   fn lines_to_print_items(is_js_doc: bool, lines: Vec<&str>) -> PrintItems {
@@ -7050,23 +7514,26 @@ fn gen_comments_as_trailing<'a>(node: &SourceRange, trailing_comments: CommentsI
     return items;
   }
 
+  let comments_before_comma = get_trailing_comments_before_comma(node, trailing_comments.clone(), context);
   let trailing_comments_on_same_line = get_trailing_comments_same_line(node, trailing_comments, context);
 
-  // don't do extra work
-  if trailing_comments_on_same_line.is_empty() {
-    return items;
-  }
+  if !trailing_comments_on_same_line.is_empty() {
+    let first_unhandled_comment = trailing_comments_on_same_line.iter().find(|c| !context.has_handled_comment(c));
 
-  // now handle the comments
-  let first_unhandled_comment = trailing_comments_on_same_line.iter().find(|c| !context.has_handled_comment(c));
-
-  if let Some(first_unhandled_comment) = first_unhandled_comment {
-    if first_unhandled_comment.kind == CommentKind::Block {
-      items.push_space();
+    if let Some(first_unhandled_comment) = first_unhandled_comment {
+      if first_unhandled_comment.kind == CommentKind::Block {
+        items.push_space();
+      }
     }
+
+    items.extend(gen_comment_collection(trailing_comments_on_same_line.into_iter(), Some(node), None, context));
   }
 
-  items.extend(gen_comment_collection(trailing_comments_on_same_line.into_iter(), Some(node), None, context));
+  // nothing else generates these because the comma they're before is printed beside the node
+  if let Some((comma_token, comments)) = comments_before_comma {
+    items.extend(gen_comments_after_comma(node, comments, comma_token, context));
+  }
+
   items
 }
 
@@ -7098,6 +7565,81 @@ fn get_trailing_comments_same_line<'a>(node: &SourceRange, trailing_comments: Co
     }
   }
   trailing_comments_on_same_line
+}
+
+/// Gets the trailing comments on the lines after the node that are before the comma
+/// following it (ex. `// c` in `a\n// c\n, b`) along with the comma.
+fn get_trailing_comments_before_comma<'a>(
+  node: &SourceRange,
+  trailing_comments: CommentsIterator<'a>,
+  context: &mut Context<'a>,
+) -> Option<(&'a TokenAndSpan, Vec<&'a Comment>)> {
+  let program = context.program;
+  let node_end_line = node.end_line_fast(program);
+  let mut comments = trailing_comments.filter(|c| c.start_line_fast(program) > node_end_line).peekable();
+  // only look for the comma when there are comments
+  comments.peek()?;
+  // a comma after a comma is for an array hole, which is generated with its comments
+  if node.text_fast(program) == "," {
+    return None;
+  }
+  let comma_token = context.token_finder.get_next_token_if_comma(&node.range())?;
+  let comments = comments.filter(|c| c.start() < comma_token.start()).collect::<Vec<_>>();
+  (!comments.is_empty()).then_some((comma_token, comments))
+}
+
+/// Gets the comments between a token and the token before it.
+fn get_comments_before_token<'a>(token: &TokenAndSpan, context: &Context<'a>) -> Vec<&'a Comment> {
+  let program = context.program;
+  match token.previous_token_fast(program) {
+    Some(previous_token) => previous_token
+      .end()
+      .trailing_comments_fast(program)
+      .chain(token.start().leading_comments_fast(program))
+      .collect(),
+    None => Vec::new(),
+  }
+}
+
+/// Gets if there should be a space after a keyword that's before an open paren, which there
+/// always is when comments are before the paren so they're not beside the keyword (ex. `for /* c */ (`).
+fn use_space_after_keyword(is_configured: bool, open_paren_token: Option<&TokenAndSpan>, context: &Context) -> bool {
+  is_configured || open_paren_token.is_some_and(|token| !get_comments_before_token(token, context).is_empty())
+}
+
+/// Generates comments that were before or beside a comma for when the comma is printed
+/// before them, where the ones on a line after what's before them go on their own line.
+fn gen_comments_after_comma<'a>(previous: &SourceRange, comments: Vec<&'a Comment>, comma_token: &TokenAndSpan, context: &mut Context<'a>) -> PrintItems {
+  let program = context.program;
+  let next_token_start_line = comma_token.next_token_fast(program).map(|token| token.start_line_fast(program));
+  let mut items = PrintItems::new();
+  let mut previous = previous.range();
+  for comment in comments {
+    if context.has_handled_comment(comment) {
+      continue;
+    }
+    let is_on_later_line = comment.start_line_fast(program) > previous.end_line_fast(program);
+    // a block comment beside what follows the comma stays beside it like a leading comment (ex. `a\n/* c */, b`)
+    let is_beside_next_token = Some(comment.end_line_fast(program)) == next_token_start_line;
+    if comment.kind == CommentKind::Block && (!is_on_later_line || is_beside_next_token) {
+      if let Some(generated_comment) = gen_comment(comment, context) {
+        items.push_space();
+        items.extend(generated_comment);
+      }
+    } else if is_on_later_line {
+      items.push_signal(Signal::NewLine);
+      // only where the list keeps blank lines, as formatting again would otherwise remove it
+      if context.allow_blank_lines_in_list && comment.start_line_fast(program) > previous.end_line_fast(program) + 1 {
+        items.push_signal(Signal::NewLine);
+      }
+      items.extend(gen_comment(comment, context).unwrap_or_default());
+    } else {
+      let opts = GenCommentBasedOnLastNodeOptions { separate_with_newlines: false };
+      items.extend(gen_comment_based_on_last_node(comment, &Some(previous), opts, context));
+    }
+    previous = comment.range();
+  }
+  items
 }
 
 fn get_jsx_empty_expr_comments<'a>(node: &JSXEmptyExpr, context: &Context<'a>) -> CommentsIterator<'a> {
@@ -7487,7 +8029,7 @@ where
     let is_empty_stmt = node.is::<EmptyStmt>();
     if !is_empty_stmt {
       if let Some(last_node) = last_node {
-        if is_ignore_jsx_expr_container(last_node, context) && node.kind() == NodeKind::JSXText {
+        if is_jsx_text_generated_as_is(node, context) {
           // ignore
         } else if should_use_new_line(&opts.should_use_new_line, last_node, node, context) {
           items.push_signal(Signal::NewLine);
@@ -7797,11 +8339,7 @@ fn gen_close_paren_with_type<'a>(opts: GenCloseParenWithTypeOptions<'a>, context
       items.extend(generated_type_node);
       items.push_info(type_node_end_ln);
 
-      if use_new_line_group {
-        new_line_group(items)
-      } else {
-        items
-      }
+      if use_new_line_group { new_line_group(items) } else { items }
     } else {
       items
     };
@@ -7962,7 +8500,12 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
         } else {
           let generated_separator = get_generated_separator(&separator, node_index == nodes_count - 1, &is_multi_line_or_hanging);
           match value {
-            NodeOrSeparator::Node(value) => gen_node_with_separator(value, generated_separator, context),
+            NodeOrSeparator::Node(value) => {
+              let previous_allow_blank_lines = std::mem::replace(&mut context.allow_blank_lines_in_list, opts.allow_blank_lines);
+              let items = gen_node_with_separator(value, generated_separator, context);
+              context.allow_blank_lines_in_list = previous_allow_blank_lines;
+              items
+            }
             NodeOrSeparator::Separator(separator_token) => {
               let mut items = PrintItems::new();
               // don't use gen_leading_comments here because we don't want a space between the block comment and separator (comma)
@@ -7988,6 +8531,7 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
           lines_span,
           allow_inline_multi_line,
           allow_inline_single_line,
+          is_known_multi_line: false,
         });
       }
 
@@ -8043,7 +8587,7 @@ fn gen_node_with_separator<'a>(value: Node<'a>, generated_separator: PrintItems,
 
   // get the trailing comments after the comma token (if the separator in the file is currently a comma)
   let generated_trailing_comments = if let Some(comma_token) = comma_token {
-    gen_trailing_comments(&comma_token.range(), context)
+    gen_comma_trailing_comments(comma_token, context)
   } else {
     PrintItems::new()
   };
@@ -8054,12 +8598,19 @@ fn gen_node_with_separator<'a>(value: Node<'a>, generated_separator: PrintItems,
   if is_ignored_with_semi_colon {
     items.extend(gen_node(value, context));
   } else {
+    // the comments before a comma that's within the node (ex. in a type literal member) are generated
+    // before the node so that they go after the separator instead of where the comma was
+    let generated_comments_before_comma = match comma_token {
+      Some(comma_token) if comma_token.end() == value.end() => gen_comments_before_comma_within(comma_token, context),
+      _ => PrintItems::new(),
+    };
     let generated_separator = generated_separator.into_rc_path();
     items.extend(gen_node_with_inner_gen(value, context, move |mut items, _| {
       // this Rc clone is necessary because we can't move the captured generated_separator out of this closure
       items.push_optional_path(generated_separator);
       items
     }));
+    items.extend(generated_comments_before_comma);
   }
 
   items.extend(generated_trailing_comments);
@@ -8070,6 +8621,31 @@ fn gen_node_with_separator<'a>(value: Node<'a>, generated_separator: PrintItems,
     match context.token_finder.get_next_token_if_comma(&element) {
       Some(comma) => Some(comma),
       None => context.token_finder.get_last_token_within_if_comma(&element), // may occur for type literals
+    }
+  }
+
+  fn gen_comma_trailing_comments<'a>(comma_token: &'a TokenAndSpan, context: &mut Context<'a>) -> PrintItems {
+    let comma_range = comma_token.range();
+    let trailing_comments = comma_range.trailing_comments_fast(context.program);
+    if trailing_comments.is_empty() {
+      return PrintItems::new();
+    }
+    // the comments before the comma go after it, so these go on their own line after
+    // those when they're on a different line (ex. `// d` in `a\n// c\n, // d`)
+    match get_comments_before_token(comma_token, context).last() {
+      Some(last_comment) => {
+        let trailing_comments = get_trailing_comments_same_line(&comma_range, trailing_comments, context);
+        gen_comments_after_comma(&last_comment.range(), trailing_comments, comma_token, context)
+      }
+      None => gen_comments_as_trailing(&comma_range, trailing_comments, context),
+    }
+  }
+
+  fn gen_comments_before_comma_within<'a>(comma_token: &'a TokenAndSpan, context: &mut Context<'a>) -> PrintItems {
+    let comments = get_comments_before_token(comma_token, context);
+    match comma_token.previous_token_fast(context.program) {
+      Some(previous_token) if !comments.is_empty() => gen_comments_after_comma(&previous_token.range(), comments, comma_token, context),
+      _ => PrintItems::new(),
     }
   }
 }
@@ -9049,7 +9625,7 @@ fn gen_jsx_with_opening_and_closing<'a>(opts: GenJsxWithOpeningAndClosingOptions
   }));
   items.push_line_and_column(start_lc);
   items.extend(gen_node(opts.opening_element, context));
-  items.extend(gen_jsx_children(
+  let children_result = gen_jsx_children(
     GenJsxChildrenOptions {
       inner_range,
       children: opts.children,
@@ -9058,9 +9634,15 @@ fn gen_jsx_with_opening_and_closing<'a>(opts: GenJsxWithOpeningAndClosingOptions
       force_use_multi_lines,
     },
     context,
-  ));
+  );
+  items.extend(children_result.items);
   items.extend(gen_node(opts.closing_element, context));
   items.push_info(end_ln);
+  if let Some(reevaluation) = children_result.new_lines_reevaluation {
+    // the end line changes when the line breaks after the element, which
+    // happens after the condition was evaluated with the end line on the first line
+    items.push_reevaluation(reevaluation);
+  }
 
   return GenJsxWithOpeningAndClosingResult {
     items,
@@ -9104,7 +9686,20 @@ struct GenJsxChildrenOptions<'a> {
   force_use_multi_lines: bool,
 }
 
-fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'a>) -> PrintItems {
+struct GenJsxChildrenResult {
+  items: PrintItems,
+  new_lines_reevaluation: Option<ConditionReevaluation>,
+}
+
+/// The spaces JSX keeps between the children and the opening and closing tags.
+#[derive(Clone, Copy)]
+struct JsxEdgeSpaces {
+  leading: bool,
+  trailing: bool,
+}
+
+fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'a>) -> GenJsxChildrenResult {
+  let edge_spaces = get_jsx_edge_spaces(&opts.children, context);
   let filtered_children = get_filtered_jsx_children(opts.children, context);
 
   // Need to generate the children here so they only get generated once.
@@ -9127,10 +9722,13 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
   let parent_end_ln = opts.parent_end_ln;
 
   if opts.force_use_multi_lines {
-    return gen_for_new_lines(generated_children, opts.inner_range, context);
+    return GenJsxChildrenResult {
+      items: gen_for_new_lines(generated_children, edge_spaces, opts.inner_range, context),
+      new_lines_reevaluation: None,
+    };
   } else {
     // decide whether newlines should be used or not
-    return if_true_or(
+    let mut condition = if_true_or(
       "jsxChildrenNewLinesOrNot",
       Rc::new(move |condition_context| {
         // use newlines if the header is multiple lines
@@ -9141,10 +9739,29 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
         // use newlines if the entire jsx element is on multiple lines
         condition_helpers::is_multiple_lines(condition_context, parent_start_ln, parent_end_ln)
       }),
-      gen_for_new_lines(generated_children.clone(), opts.inner_range, context),
-      gen_for_single_line(generated_children, context),
-    )
-    .into();
+      gen_for_new_lines(generated_children.clone(), edge_spaces, opts.inner_range, context),
+      gen_for_single_line(generated_children, edge_spaces, context),
+    );
+    let new_lines_reevaluation = condition.create_reevaluation();
+    return GenJsxChildrenResult {
+      items: condition.into(),
+      new_lines_reevaluation: Some(new_lines_reevaluation),
+    };
+  }
+
+  /// JSX keeps whitespace without a line break, so the whitespace between a tag
+  /// and the text beside it is a space when it's on the same line.
+  fn get_jsx_edge_spaces<'a>(children: &[Node<'a>], context: &Context<'a>) -> JsxEdgeSpaces {
+    let leading = match children.first() {
+      Some(Node::JSXText(text)) => utils::has_jsx_leading_space(text.text_fast(context.program)),
+      _ => false,
+    };
+    let trailing = match children.last() {
+      // text generated as-is already has its spaces
+      Some(&child @ Node::JSXText(text)) => !is_jsx_text_generated_as_is(child, context) && utils::has_jsx_trailing_space(text.text_fast(context.program)),
+      _ => false,
+    };
+    JsxEdgeSpaces { leading, trailing }
   }
 
   /// JSX children includes JSXText whitespace nodes that overly complicates things.
@@ -9161,8 +9778,7 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
         current_jsx_space_exprs.push(child);
         continue;
       }
-      let child_text = child.text_fast(context.program);
-      if child_text.trim().is_empty() {
+      if utils::is_jsx_whitespace(child.text_fast(context.program)) {
         continue;
       }
 
@@ -9177,32 +9793,39 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
     children
   }
 
-  fn gen_for_new_lines<'a>(children: Vec<(Node<'a>, Option<PrintItemPath>)>, inner_range: SourceRange, context: &mut Context<'a>) -> PrintItems {
+  fn gen_for_new_lines<'a>(
+    children: Vec<(Node<'a>, Option<PrintItemPath>)>,
+    edge_spaces: JsxEdgeSpaces,
+    inner_range: SourceRange,
+    context: &mut Context<'a>,
+  ) -> PrintItems {
     let mut items = PrintItems::new();
     let has_children = !children.is_empty();
-    items.push_signal(Signal::NewLine);
-    items.extend(ir_helpers::with_indent(gen_members(
+    let is_last_child_text = matches!(children.last(), Some((Node::JSXText(_), _)));
+    // a newline after ignored text would remove the spaces at its end, so keep the closing tag beside it
+    let is_closing_beside_last_child = children
+      .last()
+      .is_some_and(|(child, _)| is_jsx_text_generated_as_is(*child, context) && utils::has_jsx_trailing_space(child.text_fast(context.program)));
+    // a space beside a newline would be removed, so the edge spaces become jsx space expressions
+    let mut inner_items = PrintItems::new();
+    if edge_spaces.leading {
+      inner_items.push_string(get_jsx_space_text(1, context));
+      if has_children {
+        inner_items.push_signal(Signal::NewLine);
+      }
+    }
+    inner_items.extend(gen_members(
       GenMembersOptions {
         inner_range,
         items: children.into_iter().map(|(a, b)| (a, Some(b.into()))).collect(),
-        should_use_space: Some(Box::new(|previous, next, context| {
-          if has_jsx_space_between(previous, next, context.program) {
-            true
-          } else if let Node::JSXText(element) = previous {
-            element.text_fast(context.program).ends_with(' ')
-          } else if let Node::JSXText(element) = next {
-            element.text_fast(context.program).starts_with(' ')
-          } else {
-            false
-          }
-        })),
+        should_use_space: Some(Box::new(|previous, next, context| has_jsx_space_between(previous, next, context.program))),
         should_use_new_line: Some(Box::new(|previous, next, context| {
           if has_jsx_space_between(previous, next, context.program) {
             false // prefer collapsing
           } else if let Node::JSXText(next) = next {
-            !utils::has_no_new_lines_in_leading_whitespace(next.text_fast(context.program))
+            utils::get_jsx_leading_whitespace(next.text_fast(context.program)).contains('\n')
           } else if let Node::JSXText(previous) = previous {
-            !utils::has_no_new_lines_in_trailing_whitespace(previous.text_fast(context.program))
+            utils::get_jsx_trailing_whitespace(previous.text_fast(context.program)).contains('\n')
           } else {
             true
           }
@@ -9211,9 +9834,9 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
           if has_jsx_space_between(previous, next, context.program) {
             false // prefer collapsing
           } else if let Node::JSXText(previous) = previous {
-            utils::has_new_line_occurrences_in_trailing_whitespace(previous.text_fast(context.program), 2)
+            utils::get_jsx_trailing_whitespace(previous.text_fast(context.program)).matches('\n').count() >= 2
           } else if let Node::JSXText(next) = next {
-            utils::has_new_line_occurrences_in_leading_whitespace(next.text_fast(context.program), 2)
+            utils::get_jsx_leading_whitespace(next.text_fast(context.program)).matches('\n').count() >= 2
           } else {
             node_helpers::has_separating_blank_line(&previous, &next, context.program)
           }
@@ -9222,59 +9845,57 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
         is_jsx_children: true,
       },
       context,
-    )));
+    ));
+    if edge_spaces.trailing && has_children {
+      // same as a jsx space expression after the last child
+      if is_last_child_text {
+        inner_items.push_signal(Signal::PossibleNewLine);
+      } else {
+        inner_items.push_signal(Signal::NewLine);
+      }
+      inner_items.push_string(get_jsx_space_text(1, context));
+    }
 
-    if has_children {
+    items.push_signal(Signal::NewLine);
+    items.extend(ir_helpers::with_indent(inner_items));
+
+    if (has_children || edge_spaces.leading) && !is_closing_beside_last_child {
       items.push_signal(Signal::NewLine);
     }
 
     items
   }
 
-  fn gen_for_single_line<'a>(children: Vec<(Node<'a>, Option<PrintItemPath>)>, context: &mut Context<'a>) -> PrintItems {
+  fn gen_for_single_line<'a>(children: Vec<(Node<'a>, Option<PrintItemPath>)>, edge_spaces: JsxEdgeSpaces, context: &mut Context<'a>) -> PrintItems {
     let mut items = PrintItems::new();
-    if children.is_empty() {
-      items.push_signal(Signal::PossibleNewLine);
-    } else {
+    // the possible newlines are outside the edge spaces so that going multi-line
+    // happens at the edges, which then uses jsx space expressions for the spaces
+    items.push_signal(Signal::PossibleNewLine);
+    // when there are no children, the leading and trailing spaces are from the same whitespace text
+    if edge_spaces.leading {
+      items.push_space();
+    }
+    if !children.is_empty() {
       let mut previous_child = None;
-      for (index, (child, generated_child)) in children.into_iter().enumerate() {
-        if index > 0 && should_use_space(*previous_child.as_ref().unwrap(), child, context) {
-          items.extend(jsx_space_separator(*previous_child.as_ref().unwrap(), child, context));
-        } else {
-          items.push_signal(Signal::PossibleNewLine);
+      for (child, generated_child) in children.into_iter() {
+        if let Some(previous_child) = previous_child {
+          if has_jsx_space_between(previous_child, child, context.program) {
+            items.extend(jsx_space_separator(previous_child, child, context));
+          } else {
+            items.push_signal(Signal::PossibleNewLine);
+          }
         }
 
         items.extend(generated_child.into());
 
         previous_child = Some(child);
       }
+      if edge_spaces.trailing {
+        items.push_space();
+      }
       items.push_signal(Signal::PossibleNewLine);
     }
     items
-  }
-
-  fn should_use_space<'a>(previous_child: Node<'a>, current: Node<'a>, context: &mut Context<'a>) -> bool {
-    if has_jsx_space_between(previous_child, current, context.program) {
-      return true;
-    }
-
-    let past_token = context.token_finder.get_previous_token(&current);
-    if let Some(TokenAndSpan {
-      token: deno_ast::swc::parser::token::Token::JSXText { .. },
-      span,
-      had_line_break,
-    }) = past_token
-    {
-      let text = span.text_fast(context.program);
-      if !had_line_break && text.ends_with(' ') {
-        return true;
-      }
-    }
-    if let Node::JSXText(child) = current {
-      child.text_fast(context.program).starts_with(' ')
-    } else {
-      false
-    }
   }
 
   /// If the node has a "JSX space expression" between or text that's only spaces between.
@@ -9296,7 +9917,8 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
 }
 
 fn jsx_space_separator<'a>(previous_node: Node<'a>, current_node: Node<'a>, context: &Context<'a>) -> PrintItems {
-  return if is_ignore_jsx_expr_container(previous_node, context) && current_node.kind() == NodeKind::JSXText {
+  return if is_jsx_text_generated_as_is(previous_node, context) || is_jsx_text_generated_as_is(current_node, context) {
+    // the spaces are in the text
     PrintItems::new()
   } else if node_should_force_newline_if_multi_line(previous_node) || node_should_force_newline_if_multi_line(current_node) {
     jsx_force_space_with_newline_if_either_node_multi_line(previous_node, current_node, context)
@@ -9649,6 +10271,7 @@ fn gen_surrounded_by_tokens<'a>(
                         lines_span: Some(ir_helpers::LinesSpan { start_line, end_line }),
                         allow_inline_multi_line: false,
                         allow_inline_single_line: false,
+                        is_known_multi_line: false,
                       });
                     }
                   }

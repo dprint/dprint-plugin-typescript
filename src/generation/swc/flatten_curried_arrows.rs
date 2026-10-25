@@ -1,7 +1,7 @@
-use deno_ast::view::*;
-use deno_ast::SourceRange;
-use deno_ast::SourceRanged;
-use deno_ast::SourceRangedForSpanned;
+use dprint_swc_ext::common::SourceRange;
+use dprint_swc_ext::common::SourceRanged;
+use dprint_swc_ext::common::SourceRangedForSpanned;
+use dprint_swc_ext::view::*;
 
 use crate::generation::context::Context;
 
@@ -45,7 +45,7 @@ impl<'a> ArrowSignature<'a> {
   pub fn range(&self, context: &Context<'a>) -> SourceRange {
     let start = self.inner.start();
     let last_token = self.inner.body.previous_token_fast(context.program).unwrap();
-    debug_assert_eq!(last_token.token, deno_ast::swc::parser::token::Token::Arrow);
+    debug_assert_eq!(last_token.token, dprint_swc_ext::swc::parser::token::Token::Arrow);
     SourceRange::new(start, last_token.end())
   }
 }
