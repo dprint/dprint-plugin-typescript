@@ -192,3 +192,23 @@ const test = `test test test test ${
     ""
     // 6
 }b`;
+
+== should put the closing brace on the next line after an expression with leading comments ==
+`a${
+    // 1
+    a + b
+}b`;
+`a${
+    /* 2 */
+    a + b
+}b`;
+
+[expect]
+`a${
+    // 1
+    a + b
+}b`;
+`a${
+    /* 2 */
+    a + b
+}b`;
