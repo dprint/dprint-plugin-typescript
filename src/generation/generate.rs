@@ -117,11 +117,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
     items.extend(inner_gen(ir_helpers::gen_from_raw_string(node_text), context));
 
     // mark any previous comments as handled
-    for comment in context.comments.trailing_comments_with_previous(node_end) {
-      if comment.start() < node_end {
-        context.mark_comment_handled(comment);
-      }
-    }
+    mark_comments_handled_before(node_end, context);
   } else {
     items.extend(inner_gen(gen_node_inner(node, context), context));
   }
@@ -345,7 +341,19 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
           panic!("Debug panic! Did not expect to generate IR for node of type {}.", node.kind());
         }
 
+        // the comments are output with the text, so they shouldn't be output again
+        mark_comments_handled_before(node.end(), context);
         gen_from_raw_string(node.text_fast(context.program))
+      }
+    }
+  }
+
+  /// Marks the comments before the provided position as handled, which is for
+  /// when the text of a node is output as is along with its comments.
+  fn mark_comments_handled_before(end: SourcePos, context: &mut Context) {
+    for comment in context.comments.trailing_comments_with_previous(end) {
+      if comment.start() < end {
+        context.mark_comment_handled(comment);
       }
     }
   }
@@ -5897,9 +5905,7 @@ fn gen_while_stmt<'a>(node: &WhileStmt<'a>, context: &mut Context<'a>) -> PrintI
 }
 
 fn gen_with_stmt<'a>(node: &WithStmt<'a>, context: &mut Context<'a>) -> PrintItems {
-  // `with` statements are deprecated and forbidden in strict mode, but still valid
-  // syntax. Reuse the while statement configuration since the shapes are identical
-  // (keyword, parenthesized expression, body statement).
+  // `with` statements are deprecated and forbidden in strict mode, but still valid syntax
   let start_header_ln = LineNumber::new("startHeader");
   let start_header_lsil = LineStartIndentLevel::new("startHeader");
   let end_header_ln = LineNumber::new("endHeader");
@@ -5907,16 +5913,16 @@ fn gen_with_stmt<'a>(node: &WithStmt<'a>, context: &mut Context<'a>) -> PrintIte
   items.push_info(start_header_ln);
   items.push_info(start_header_lsil);
   items.push_sc(sc!("with"));
-  if context.config.while_statement_space_after_while_keyword {
+  if context.config.with_statement_space_after_with_keyword {
     items.push_space();
   }
   items.extend(gen_node_in_parens(
     |context| gen_node(node.obj.into(), context),
     GenNodeInParensOptions {
       inner_range: node.obj.range(),
-      prefer_hanging: context.config.while_statement_prefer_hanging,
+      prefer_hanging: context.config.with_statement_prefer_hanging,
       allow_open_paren_trailing_comments: false,
-      single_line_space_around: context.config.while_statement_space_around,
+      single_line_space_around: context.config.with_statement_space_around,
     },
     context,
   ));
@@ -5925,9 +5931,9 @@ fn gen_with_stmt<'a>(node: &WithStmt<'a>, context: &mut Context<'a>) -> PrintIte
     gen_conditional_brace_body(
       GenConditionalBraceBodyOptions {
         body_node: node.body.into(),
-        use_braces: context.config.while_statement_use_braces,
-        brace_position: context.config.while_statement_brace_position,
-        single_body_position: Some(context.config.while_statement_single_body_position),
+        use_braces: context.config.with_statement_use_braces,
+        brace_position: context.config.with_statement_brace_position,
+        single_body_position: Some(context.config.with_statement_single_body_position),
         requires_braces_condition_ref: None,
         start_header_info: Some((start_header_ln, start_header_lsil)),
         end_header_info: Some(end_header_ln),

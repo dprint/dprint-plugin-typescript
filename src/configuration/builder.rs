@@ -507,6 +507,14 @@ impl ConfigurationBuilder {
     self.insert("whileStatement.spaceAfterWhileKeyword", value.into())
   }
 
+  /// Whether to add a space after the `with` keyword in a with statement.
+  ///
+  /// * `true` (default) - Ex. `with (obj)`
+  /// * `false` - Ex. `with(obj)`
+  pub fn with_statement_space_after_with_keyword(&mut self, value: bool) -> &mut Self {
+    self.insert("withStatement.spaceAfterWithKeyword", value.into())
+  }
+
   /// Whether to place spaces around enclosed expressions.
   ///
   /// * `true` - Ex. `myFunction( true )`
@@ -713,6 +721,10 @@ impl ConfigurationBuilder {
     self.insert("whileStatement.bracePosition", value.to_string().into())
   }
 
+  pub fn with_statement_brace_position(&mut self, value: BracePosition) -> &mut Self {
+    self.insert("withStatement.bracePosition", value.to_string().into())
+  }
+
   /* prefer hanging */
 
   pub fn arguments_prefer_hanging(&mut self, value: PreferHanging) -> &mut Self {
@@ -811,6 +823,10 @@ impl ConfigurationBuilder {
     self.insert("whileStatement.preferHanging", value.into())
   }
 
+  pub fn with_statement_prefer_hanging(&mut self, value: bool) -> &mut Self {
+    self.insert("withStatement.preferHanging", value.into())
+  }
+
   /* force single line */
 
   pub fn export_declaration_force_single_line(&mut self, value: bool) -> &mut Self {
@@ -887,6 +903,10 @@ impl ConfigurationBuilder {
     self.insert("whileStatement.singleBodyPosition", value.to_string().into())
   }
 
+  pub fn with_statement_single_body_position(&mut self, value: SameOrNextLinePosition) -> &mut Self {
+    self.insert("withStatement.singleBodyPosition", value.to_string().into())
+  }
+
   /* trailing commas */
 
   pub fn arguments_trailing_commas(&mut self, value: TrailingCommas) -> &mut Self {
@@ -958,6 +978,10 @@ impl ConfigurationBuilder {
 
   pub fn while_statement_use_braces(&mut self, value: UseBraces) -> &mut Self {
     self.insert("whileStatement.useBraces", value.to_string().into())
+  }
+
+  pub fn with_statement_use_braces(&mut self, value: UseBraces) -> &mut Self {
+    self.insert("withStatement.useBraces", value.to_string().into())
   }
 
   /* prefer single line */
@@ -1116,6 +1140,10 @@ impl ConfigurationBuilder {
     self.insert("whileStatement.spaceAround", value.into())
   }
 
+  pub fn with_statement_space_around(&mut self, value: bool) -> &mut Self {
+    self.insert("withStatement.spaceAround", value.into())
+  }
+
   #[cfg(test)]
   pub(super) fn get_inner_config(&self) -> ConfigKeyMap {
     self.config.clone()
@@ -1203,6 +1231,7 @@ mod tests {
       .switch_statement_brace_position(BracePosition::NextLine)
       .try_statement_brace_position(BracePosition::NextLine)
       .while_statement_brace_position(BracePosition::NextLine)
+      .with_statement_brace_position(BracePosition::NextLine)
       /* prefer hanging */
       .arguments_prefer_hanging(PreferHanging::OnlySingleItem)
       .array_expression_prefer_hanging(PreferHanging::OnlySingleItem)
@@ -1228,6 +1257,7 @@ mod tests {
       .union_and_intersection_type_prefer_hanging(true)
       .variable_statement_prefer_hanging(true)
       .while_statement_prefer_hanging(true)
+      .with_statement_prefer_hanging(true)
       /* member spacing */
       .enum_declaration_member_spacing(MemberSpacing::Maintain)
       /* next control flow position */
@@ -1244,6 +1274,7 @@ mod tests {
       .for_in_statement_single_body_position(SameOrNextLinePosition::SameLine)
       .for_of_statement_single_body_position(SameOrNextLinePosition::SameLine)
       .while_statement_single_body_position(SameOrNextLinePosition::SameLine)
+      .with_statement_single_body_position(SameOrNextLinePosition::SameLine)
       /* trailing commas */
       .arguments_trailing_commas(TrailingCommas::Never)
       .parameters_trailing_commas(TrailingCommas::Never)
@@ -1263,6 +1294,7 @@ mod tests {
       .for_in_statement_use_braces(UseBraces::Always)
       .for_of_statement_use_braces(UseBraces::Always)
       .while_statement_use_braces(UseBraces::Always)
+      .with_statement_use_braces(UseBraces::Always)
       /* prefer single line */
       .array_expression_prefer_single_line(false)
       .array_pattern_prefer_single_line(false)
@@ -1324,6 +1356,7 @@ mod tests {
       .type_assertion_space_before_expression(true)
       .type_literal_space_surrounding_properties(false)
       .while_statement_space_after_while_keyword(true)
+      .with_statement_space_after_with_keyword(true)
       /* space around */
       .arguments_space_around(true)
       .array_expression_space_around(true)
@@ -1338,10 +1371,11 @@ mod tests {
       .paren_expression_space_around(true)
       .switch_statement_space_around(true)
       .tuple_type_space_around(true)
-      .while_statement_space_around(true);
+      .while_statement_space_around(true)
+      .with_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 183);
+    assert_eq!(inner_config.len(), 189);
     let diagnostics = resolve_config(inner_config, &Default::default()).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

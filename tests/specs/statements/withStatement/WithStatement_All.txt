@@ -182,3 +182,24 @@ with (0) 1;
 [expect]
 with (0) {}
 with (0) 1;
+
+== should move a comment between the header and the body into the body ==
+with (a) /* c */ {
+    b;
+}
+
+[expect]
+with (a) {
+    /* c */ b;
+}
+
+== should handle a with statement with an if statement body in an if statement ==
+if (x) with (a) if (b) c; else d;
+
+[expect]
+if (x) {
+    with (a) {
+        if (b) c;
+        else d;
+    }
+}

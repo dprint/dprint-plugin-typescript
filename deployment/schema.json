@@ -870,6 +870,18 @@
         "const": false,
         "description": "Ex. `while(true)`"
       }]
+    },
+    "withStatement.spaceAfterWithKeyword": {
+      "description": "Whether to add a space after the `with` keyword in a with statement.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `with (obj)`"
+      }, {
+        "const": false,
+        "description": "Ex. `with(obj)`"
+      }]
     }
   },
   "properties": {
@@ -1012,6 +1024,9 @@
     "whileStatement.spaceAround": {
       "$ref": "#/definitions/spaceAround"
     },
+    "withStatement.spaceAround": {
+      "$ref": "#/definitions/spaceAround"
+    },
     "spaceSurroundingProperties": {
       "$ref": "#/definitions/spaceSurroundingProperties"
     },
@@ -1102,6 +1117,9 @@
     "whileStatement.spaceAfterWhileKeyword": {
       "$ref": "#/definitions/whileStatement.spaceAfterWhileKeyword"
     },
+    "withStatement.spaceAfterWithKeyword": {
+      "$ref": "#/definitions/withStatement.spaceAfterWithKeyword"
+    },
     "module.sortImportDeclarations": {
       "$ref": "#/definitions/sortOrder"
     },
@@ -1143,6 +1161,9 @@
       "$ref": "#/definitions/useBraces"
     },
     "whileStatement.useBraces": {
+      "$ref": "#/definitions/useBraces"
+    },
+    "withStatement.useBraces": {
       "$ref": "#/definitions/useBraces"
     },
     "arrowFunction.bracePosition": {
@@ -1211,6 +1232,9 @@
     "whileStatement.bracePosition": {
       "$ref": "#/definitions/bracePosition"
     },
+    "withStatement.bracePosition": {
+      "$ref": "#/definitions/bracePosition"
+    },
     "forInStatement.singleBodyPosition": {
       "$ref": "#/definitions/singleBodyPosition"
     },
@@ -1224,6 +1248,9 @@
       "$ref": "#/definitions/singleBodyPosition"
     },
     "whileStatement.singleBodyPosition": {
+      "$ref": "#/definitions/singleBodyPosition"
+    },
+    "withStatement.singleBodyPosition": {
       "$ref": "#/definitions/singleBodyPosition"
     },
     "ifStatement.nextControlFlowPosition": {
@@ -1350,6 +1377,9 @@
       "$ref": "#/definitions/preferHanging"
     },
     "whileStatement.preferHanging": {
+      "$ref": "#/definitions/preferHanging"
+    },
+    "withStatement.preferHanging": {
       "$ref": "#/definitions/preferHanging"
     },
     "arrayExpression.preferSingleLine": {

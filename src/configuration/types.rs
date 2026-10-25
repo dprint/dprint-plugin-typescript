@@ -467,6 +467,8 @@ pub struct Configuration {
   pub try_statement_brace_position: BracePosition,
   #[serde(rename = "whileStatement.bracePosition")]
   pub while_statement_brace_position: BracePosition,
+  #[serde(rename = "withStatement.bracePosition")]
+  pub with_statement_brace_position: BracePosition,
   /* prefer hanging */
   #[serde(rename = "arguments.preferHanging")]
   pub arguments_prefer_hanging: PreferHanging,
@@ -516,6 +518,8 @@ pub struct Configuration {
   pub variable_statement_prefer_hanging: bool,
   #[serde(rename = "whileStatement.preferHanging")]
   pub while_statement_prefer_hanging: bool,
+  #[serde(rename = "withStatement.preferHanging")]
+  pub with_statement_prefer_hanging: bool,
   /* member spacing */
   #[serde(rename = "enumDeclaration.memberSpacing")]
   pub enum_declaration_member_spacing: MemberSpacing,
@@ -544,6 +548,8 @@ pub struct Configuration {
   pub for_of_statement_single_body_position: SameOrNextLinePosition,
   #[serde(rename = "whileStatement.singleBodyPosition")]
   pub while_statement_single_body_position: SameOrNextLinePosition,
+  #[serde(rename = "withStatement.singleBodyPosition")]
+  pub with_statement_single_body_position: SameOrNextLinePosition,
   /* trailing commas */
   #[serde(rename = "arguments.trailingCommas")]
   pub arguments_trailing_commas: TrailingCommas,
@@ -580,6 +586,8 @@ pub struct Configuration {
   pub for_in_statement_use_braces: UseBraces,
   #[serde(rename = "whileStatement.useBraces")]
   pub while_statement_use_braces: UseBraces,
+  #[serde(rename = "withStatement.useBraces")]
+  pub with_statement_use_braces: UseBraces,
   /* prefer single line */
   #[serde(rename = "arrayExpression.preferSingleLine")]
   pub array_expression_prefer_single_line: bool,
@@ -701,6 +709,8 @@ pub struct Configuration {
   pub type_literal_space_surrounding_properties: bool,
   #[serde(rename = "whileStatement.spaceAfterWhileKeyword")]
   pub while_statement_space_after_while_keyword: bool,
+  #[serde(rename = "withStatement.spaceAfterWithKeyword")]
+  pub with_statement_space_after_with_keyword: bool,
   #[serde(rename = "arguments.spaceAround")]
   pub arguments_space_around: bool,
   #[serde(rename = "arrayExpression.spaceAround")]
@@ -729,4 +739,6 @@ pub struct Configuration {
   pub tuple_type_space_around: bool,
   #[serde(rename = "whileStatement.spaceAround")]
   pub while_statement_space_around: bool,
+  #[serde(rename = "withStatement.spaceAround")]
+  pub with_statement_space_around: bool,
 }
