@@ -2,6 +2,7 @@ use dprint_core::configuration::*;
 use dprint_core::generate_str_to_from;
 use serde::Deserialize;
 use serde::Serialize;
+use std::collections::BTreeMap;
 
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -265,6 +266,68 @@ pub enum JsxMultiLineParens {
 
 generate_str_to_from![JsxMultiLineParens, [Never, "never"], [Prefer, "prefer"], [Always, "always"]];
 
+/// How to sort JSX class attribute values.
+#[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum JsxClassNamesSortOrder {
+  /// Maintains the current class name ordering.
+  Maintain,
+  /// Sorts class names using Tailwind CSS ordering.
+  Tailwind,
+}
+
+generate_str_to_from![JsxClassNamesSortOrder, [Maintain, "maintain"], [Tailwind, "tailwind"]];
+
+/// How to sort JSX class attribute values along with what's known about the project's classes.
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct JsxClassNamesSortConfig {
+  /// How to sort the class names.
+  pub kind: JsxClassNamesSortOrder,
+  /// Leading function or tag identifiers whose string arguments and template literals
+  /// should be sorted as class names.
+  pub functions: Vec<String>,
+  /// Attributes whose values should be sorted as class names in addition to `class` and `className`.
+  pub attributes: Vec<String>,
+  /// Whether to keep the whitespace between class names as is when sorting them.
+  pub preserve_whitespace: bool,
+  /// Whether to keep duplicate class names when sorting them.
+  pub preserve_duplicates: bool,
+  /// The prefix the project's Tailwind classes have (ex. `tw` when classes look like `tw:flex`).
+  pub prefix: Option<String>,
+  /// The theme variables the project adds to Tailwind's default theme and their
+  /// values (ex. `--breakpoint-3xl` and `120rem`), which is what's in `@theme` in its CSS.
+  pub theme: BTreeMap<String, String>,
+  /// The names of the project's custom variants in the order they're defined,
+  /// which is what it has an `@custom-variant` for in its CSS.
+  pub variants: Vec<String>,
+  /// The names of the project's custom utilities (ex. `btn` or `tab-*` for one that has a value)
+  /// along with the CSS properties each sets, which is what it has an `@utility` for in its CSS.
+  pub utilities: BTreeMap<String, Vec<String>>,
+}
+
+impl Default for JsxClassNamesSortConfig {
+  fn default() -> Self {
+    JsxClassNamesSortOrder::Maintain.into()
+  }
+}
+
+impl From<JsxClassNamesSortOrder> for JsxClassNamesSortConfig {
+  fn from(kind: JsxClassNamesSortOrder) -> Self {
+    Self {
+      kind,
+      functions: Vec::new(),
+      attributes: Vec::new(),
+      preserve_whitespace: false,
+      preserve_duplicates: false,
+      prefix: None,
+      theme: BTreeMap::new(),
+      variants: Vec::new(),
+      utilities: BTreeMap::new(),
+    }
+  }
+}
+
 /// Whether to use semi-colons or commas.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -329,6 +392,8 @@ pub struct Configuration {
   pub jsx_quote_style: JsxQuoteStyle,
   #[serde(rename = "jsx.multiLineParens")]
   pub jsx_multi_line_parens: JsxMultiLineParens,
+  #[serde(rename = "jsx.sortClassNames")]
+  pub jsx_sort_class_names: JsxClassNamesSortConfig,
   #[serde(rename = "jsx.forceNewLinesSurroundingContent")]
   pub jsx_force_new_lines_surrounding_content: bool,
   #[serde(rename = "jsxOpeningElement.bracketPosition")]
