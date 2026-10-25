@@ -668,7 +668,7 @@ struct GenClassPropCommon<'a, 'b> {
 
 fn gen_class_prop_common<'a, 'b>(node: GenClassPropCommon<'a, 'b>, context: &mut Context<'a>) -> PrintItems {
   let mut items = PrintItems::new();
-  items.extend(gen_decorators(node.decorators, false, context));
+  items.extend(gen_decorators(node.decorators, true, context));
   if node.is_declare {
     items.push_sc(sc!("declare "));
   }
