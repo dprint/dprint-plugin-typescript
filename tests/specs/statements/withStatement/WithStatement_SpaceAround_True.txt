@@ -1,0 +1,8 @@
+~~ withStatement.spaceAround: true ~~
+== should format with space around the condition ==
+with (i <= arr.length) {
+}
+
+[expect]
+with ( i <= arr.length ) {
+}

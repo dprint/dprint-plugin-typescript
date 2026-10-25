@@ -6,3 +6,11 @@ while (true) {
 [expect]
 while(true) {
 }
+
+== should keep a space before a comment before the paren ==
+while /* c */ (true) {
+}
+
+[expect]
+while /* c */ (true) {
+}

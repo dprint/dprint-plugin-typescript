@@ -1,0 +1,12 @@
+~~ whileStatement.spaceAfterWhileKeyword: false, whileStatement.useBraces: always, whileStatement.bracePosition: nextLine, whileStatement.spaceAround: true ~~
+== should not use the while statement configuration ==
+with (obj) a;
+with (obj) {
+    a;
+}
+
+[expect]
+with (obj) a;
+with (obj) {
+    a;
+}

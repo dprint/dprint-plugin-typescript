@@ -1,0 +1,15 @@
+~~ withStatement.singleBodyPosition: maintain ~~
+== should keep on a single line ==
+with (true) a;
+
+[expect]
+with (true) a;
+
+== should keep on the next line ==
+with (true)
+    a;
+
+[expect]
+with (true) {
+    a;
+}

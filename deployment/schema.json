@@ -60,6 +60,91 @@
         "description": "Prefers using single quotes except in scenarios where the string contains more single quotes than double quotes."
       }]
     },
+    "jsx.sortClassNames": {
+      "description": "How to sort JSX class attribute values, which is either only the kind of sorting or an object with the kind and its options.",
+      "default": "maintain",
+      "oneOf": [{
+        "$ref": "#/definitions/jsx.sortClassNames.kind"
+      }, {
+        "type": "object",
+        "required": ["kind"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "$ref": "#/definitions/jsx.sortClassNames.kind"
+          },
+          "functions": {
+            "description": "Leading function or tag identifiers whose string arguments and template literals should be sorted as class names (ex. [\"cn\", \"clsx\"]).",
+            "type": "array",
+            "default": [],
+            "items": {
+              "type": "string"
+            }
+          },
+          "attributes": {
+            "description": "Attributes whose values should be sorted as class names in addition to \"class\" and \"className\".",
+            "type": "array",
+            "default": [],
+            "items": {
+              "type": "string"
+            }
+          },
+          "preserveWhitespace": {
+            "description": "Whether to keep the whitespace between class names as is when sorting them.",
+            "type": "boolean",
+            "default": false
+          },
+          "preserveDuplicates": {
+            "description": "Whether to keep duplicate class names when sorting them.",
+            "type": "boolean",
+            "default": false
+          },
+          "prefix": {
+            "description": "The prefix the project's Tailwind classes have (ex. \"tw\" when classes look like \"tw:flex\").",
+            "type": "string"
+          },
+          "theme": {
+            "description": "The theme variables the project adds to Tailwind's default theme and their values, which is what's in \"@theme\" in its CSS (ex. { \"--breakpoint-3xl\": \"120rem\", \"--color-brand\": \"#f00\" }).",
+            "type": "object",
+            "default": {},
+            "additionalProperties": {
+              "type": ["string", "integer"]
+            }
+          },
+          "variants": {
+            "description": "The names of the project's custom variants in the order they're defined, which is what it has an \"@custom-variant\" for in its CSS.",
+            "type": "array",
+            "default": [],
+            "items": {
+              "type": "string"
+            }
+          },
+          "utilities": {
+            "description": "The names of the project's custom utilities along with the CSS properties each sets, which is what it has an \"@utility\" for in its CSS (ex. { \"btn\": [\"display\", \"padding\"], \"tab-*\": [\"tab-size\"] }).",
+            "type": "object",
+            "default": {},
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }]
+    },
+    "jsx.sortClassNames.kind": {
+      "description": "How to sort JSX class attribute values.",
+      "type": "string",
+      "default": "maintain",
+      "oneOf": [{
+        "const": "maintain",
+        "description": "Maintains the current class name ordering."
+      }, {
+        "const": "tailwind",
+        "description": "Sorts class names using Tailwind CSS ordering."
+      }]
+    },
     "quoteProps": {
       "description": "Change when properties in objects are quoted.",
       "type": "string",
@@ -130,9 +215,6 @@
       }, {
         "const": "lf",
         "description": "Uses line feed."
-      }, {
-        "const": "system",
-        "description": "Uses the system standard (ex. crlf on Windows)."
       }]
     },
     "useBraces": {
@@ -574,15 +656,15 @@
       }]
     },
     "forOfStatement.spaceAfterForKeyword": {
-      "description": "Whether to add a space after the `for` keyword in a \"for of\" statement.",
+      "description": "Whether to add a space after the `for` keyword, or the `await` keyword in a `for await`, in a \"for of\" statement.",
       "type": "boolean",
       "default": true,
       "oneOf": [{
         "const": true,
-        "description": "Ex. `for (const value of myArray)`"
+        "description": "Ex. `for (const value of myArray)` or `for await (const value of myArray)`"
       }, {
         "const": false,
-        "description": "Ex. `for(const value of myArray)`"
+        "description": "Ex. `for(const value of myArray)` or `for await(const value of myArray)`"
       }]
     },
     "forStatement.spaceAfterForKeyword": {
@@ -788,13 +870,21 @@
         "const": false,
         "description": "Ex. `while(true)`"
       }]
+    },
+    "withStatement.spaceAfterWithKeyword": {
+      "description": "Whether to add a space after the `with` keyword in a with statement.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `with (obj)`"
+      }, {
+        "const": false,
+        "description": "Ex. `with(obj)`"
+      }]
     }
   },
   "properties": {
-    "locked": {
-      "description": "Whether the configuration is not allowed to be overridden or extended.",
-      "type": "boolean"
-    },
     "lineWidth": {
       "description": "The width of a line the printer will try to stay under. Note that the printer may exceed this width in certain cases.",
       "default": 120,
@@ -871,6 +961,9 @@
     "jsx.multiLineParens": {
       "$ref": "#/definitions/jsx.multiLineParens"
     },
+    "jsx.sortClassNames": {
+      "$ref": "#/definitions/jsx.sortClassNames"
+    },
     "memberExpression.linePerExpression": {
       "$ref": "#/definitions/memberExpression.linePerExpression"
     },
@@ -929,6 +1022,9 @@
       "$ref": "#/definitions/spaceAround"
     },
     "whileStatement.spaceAround": {
+      "$ref": "#/definitions/spaceAround"
+    },
+    "withStatement.spaceAround": {
       "$ref": "#/definitions/spaceAround"
     },
     "spaceSurroundingProperties": {
@@ -1021,6 +1117,9 @@
     "whileStatement.spaceAfterWhileKeyword": {
       "$ref": "#/definitions/whileStatement.spaceAfterWhileKeyword"
     },
+    "withStatement.spaceAfterWithKeyword": {
+      "$ref": "#/definitions/withStatement.spaceAfterWithKeyword"
+    },
     "module.sortImportDeclarations": {
       "$ref": "#/definitions/sortOrder"
     },
@@ -1062,6 +1161,9 @@
       "$ref": "#/definitions/useBraces"
     },
     "whileStatement.useBraces": {
+      "$ref": "#/definitions/useBraces"
+    },
+    "withStatement.useBraces": {
       "$ref": "#/definitions/useBraces"
     },
     "arrowFunction.bracePosition": {
@@ -1130,6 +1232,9 @@
     "whileStatement.bracePosition": {
       "$ref": "#/definitions/bracePosition"
     },
+    "withStatement.bracePosition": {
+      "$ref": "#/definitions/bracePosition"
+    },
     "forInStatement.singleBodyPosition": {
       "$ref": "#/definitions/singleBodyPosition"
     },
@@ -1143,6 +1248,9 @@
       "$ref": "#/definitions/singleBodyPosition"
     },
     "whileStatement.singleBodyPosition": {
+      "$ref": "#/definitions/singleBodyPosition"
+    },
+    "withStatement.singleBodyPosition": {
       "$ref": "#/definitions/singleBodyPosition"
     },
     "ifStatement.nextControlFlowPosition": {
@@ -1269,6 +1377,9 @@
       "$ref": "#/definitions/preferHanging"
     },
     "whileStatement.preferHanging": {
+      "$ref": "#/definitions/preferHanging"
+    },
+    "withStatement.preferHanging": {
       "$ref": "#/definitions/preferHanging"
     },
     "arrayExpression.preferSingleLine": {
