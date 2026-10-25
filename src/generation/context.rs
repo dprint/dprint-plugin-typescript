@@ -16,6 +16,7 @@ use rustc_hash::FxHashSet;
 
 use super::*;
 use crate::configuration::*;
+use crate::tailwind;
 use crate::utils::Stack;
 
 /// A callback that will be called when encountering tagged templates.
@@ -69,6 +70,8 @@ pub struct Context<'a> {
   stored_ln: FxHashMap<(SourcePos, SourcePos), LineNumber>,
   stored_il: FxHashMap<(SourcePos, SourcePos), IndentLevel>,
   pub skip_iife_body_indent: bool,
+  /// The start of the template literal being generated and how to sort the class names in it.
+  pub tpl_class_names_sort_options: Option<(SourcePos, tailwind::SortOptions)>,
   pub end_statement_or_member_lns: Stack<LineNumber>,
   before_comments_start_info_stack: Stack<(SourceRange, LineNumber, IsStartOfLine)>,
   if_stmt_last_brace_condition_ref: Option<ConditionReference>,
@@ -104,6 +107,7 @@ impl<'a> Context<'a> {
       stored_ln: FxHashMap::default(),
       stored_il: FxHashMap::default(),
       skip_iife_body_indent: false,
+      tpl_class_names_sort_options: None,
       end_statement_or_member_lns: Default::default(),
       before_comments_start_info_stack: Default::default(),
       if_stmt_last_brace_condition_ref: None,
