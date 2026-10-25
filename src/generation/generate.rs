@@ -3288,12 +3288,16 @@ fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context
       let generated_expr = gen_node(node, context);
       if !leading_comment_items.is_empty() || !trailing_comment_items.is_empty() {
         items.push_signal(Signal::StartIndent);
-        if !leading_comment_items.is_empty() {
+        let has_leading_comments = !leading_comment_items.is_empty();
+        if has_leading_comments {
           items.extend(surround_with_new_lines(leading_comment_items));
         }
         items.extend(generated_expr);
         if !trailing_comment_items.is_empty() {
           items.extend(trailing_comment_items);
+        } else if has_leading_comments {
+          // the expression is on its own line after the comments, so put the closing brace on the next line
+          items.push_signal(Signal::NewLine);
         }
         items.push_signal(Signal::FinishIndent);
       } else {
@@ -3349,6 +3353,11 @@ fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context
   fn get_keep_on_one_line(node: Node) -> bool {
     match node {
       Node::Ident(_) | Node::IdentName(_) | Node::ThisExpr(_) | Node::SuperPropExpr(_) | Node::MetaPropExpr(_) | Node::Str(_) | Node::PrivateName(_) => true,
+      Node::TsKeywordType(_) | Node::TsThisType(_) | Node::TsQualifiedName(_) => true,
+      Node::TsLitType(lit_type) => !matches!(lit_type.lit, TsLit::Tpl(_)),
+      Node::TsTypeRef(type_ref) => type_ref.type_params.is_none(),
+      Node::TsTypeQuery(type_query) => type_query.type_args.is_none() && matches!(type_query.expr_name, TsTypeQueryExpr::TsEntityName(_)),
+      Node::TsTypeOperator(type_operator) => get_keep_on_one_line(type_operator.type_ann.into()),
       Node::OptChainExpr(expr) => get_keep_on_one_line(expr.base.as_node()),
       Node::MemberExpr(expr) => keep_member_expr_on_one_line(expr),
       Node::CallExpr(expr) => keep_call_expr_on_one_line(expr.into()),
@@ -3360,8 +3369,10 @@ fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context
   fn get_possible_surround_newlines(node: Node) -> bool {
     match node {
       Node::OptChainExpr(expr) => get_possible_surround_newlines(expr.base.as_node()),
-      Node::CondExpr(_) => true,
-      Node::BinExpr(_) => true,
+      Node::CondExpr(_) | Node::BinExpr(_) => true,
+      Node::TsConditionalType(_) | Node::TsUnionType(_) | Node::TsIntersectionType(_) | Node::TsIndexedAccessType(_) => true,
+      Node::TsTypeRef(_) | Node::TsTypeQuery(_) => !get_keep_on_one_line(node),
+      Node::TsTypeOperator(type_operator) => get_possible_surround_newlines(type_operator.type_ann.into()),
       Node::MemberExpr(expr) => !keep_member_expr_on_one_line(expr),
       Node::CallExpr(expr) => !keep_call_expr_on_one_line(expr.into()),
       Node::OptCall(expr) => !keep_call_expr_on_one_line(expr.into()),
