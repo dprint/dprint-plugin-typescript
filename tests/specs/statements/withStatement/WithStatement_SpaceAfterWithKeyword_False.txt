@@ -1,0 +1,8 @@
+~~ withStatement.spaceAfterWithKeyword: false ~~
+== should print ==
+with (true) {
+}
+
+[expect]
+with(true) {
+}

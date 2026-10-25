@@ -60,8 +60,17 @@ fn format_html(text: &str, config: &Configuration) -> Result<Option<String>> {
     },
     ..Default::default()
   };
-  let text = markup_fmt::format_text(text, markup_fmt::Language::Html, &options, |code, _| {
-    Ok::<_, std::convert::Infallible>(code.into())
+  let css_options = malva::config::FormatOptions {
+    layout: malva::config::LayoutOptions {
+      indent_width: config.indent_width as usize,
+      ..Default::default()
+    },
+    ..Default::default()
+  };
+  // formats the css in style elements like deno does, which errors when the css can't be parsed
+  let text = markup_fmt::format_text(text, markup_fmt::Language::Html, &options, |code, hints| match hints.ext {
+    "css" => malva::format_text(code, malva::Syntax::Css, &css_options).map(Into::into),
+    _ => Ok(code.into()),
   })?;
   Ok(Some(text.to_string()))
 }
@@ -90,21 +99,19 @@ fn main() {
     },
     {
       let global_config = global_config.clone();
-      Arc::new(move |file_name, file_text, spec_config| {
+      Arc::new(move |file_name, file_text, range, spec_config| {
+        assert!(range.is_none(), "range formatting is not supported");
         let spec_config: ConfigKeyMap = serde_json::from_value(spec_config.clone().into()).unwrap();
         let config_result = resolve_config(spec_config, &global_config);
         ensure_no_diagnostics(&config_result.diagnostics);
 
-        // dprint-development's callback wants an `anyhow::Result`, so bridge the
-        // crate's boxed error through `std::io::Error` to avoid depending on anyhow
         let result = format_text(FormatTextOptions {
           path: file_name,
           extension: None,
           text: file_text.into(),
           config: &config_result.config,
           external_formatter: Some(&external_formatter),
-        })
-        .map_err(std::io::Error::other)?;
+        })?;
         Ok(result)
       })
     },

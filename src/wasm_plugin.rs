@@ -35,6 +35,7 @@ impl SyncPluginHandler<Configuration> for TypeScriptPluginHandler {
           String::from("cts"),
         ],
         file_names: vec![],
+        additive: false,
       },
     }
   }
