@@ -1,5 +1,159 @@
+~~ lineWidth: 50 ~~
 == should format a template literal type ==
 type Test<T> = `${string    &    keyof    T}Changed`;
 
 [expect]
 type Test<T> = `${string & keyof T}Changed`;
+
+== should keep a union on one line when it fits ==
+type A = `${typeof X | typeof Y}__${typeof Z}`;
+
+[expect]
+type A = `${typeof X | typeof Y}__${typeof Z}`;
+
+== should surround a union with newlines when too long ==
+export type SortSelector = `${typeof Descending | typeof Ascending}${SortItems}`;
+
+[expect]
+export type SortSelector = `${
+    typeof Descending | typeof Ascending
+}${SortItems}`;
+
+== should surround only the union that is too long with newlines ==
+type A = `${typeof X | typeof Y}__${typeof Z | typeof W}`;
+
+[expect]
+type A = `${typeof X | typeof Y}__${
+    typeof Z | typeof W
+}`;
+
+== should surround an intersection with newlines when too long ==
+export type IntersectionTpl = `${typeof Descending & typeof Ascending}${SortItems}`;
+
+[expect]
+export type IntersectionTpl = `${
+    typeof Descending & typeof Ascending
+}${SortItems}`;
+
+== should put each type of a union on its own line when too long after surrounding it with newlines ==
+type A = `${typeof Descendingxxxxxxx | typeof Ascendingxxxxxx | typeof Otherxxxxx}${S}`;
+
+[expect]
+type A = `${
+    | typeof Descendingxxxxxxx
+    | typeof Ascendingxxxxxx
+    | typeof Otherxxxxx
+}${S}`;
+
+== should surround a union of type operators with newlines when too long ==
+type A = `${keyof Descendingxxxxxxx | keyof Ascendingxxxxxxx}${S}`;
+
+[expect]
+type A = `${
+    | keyof Descendingxxxxxxx
+    | keyof Ascendingxxxxxxx
+}${S}`;
+
+== should surround a conditional type with newlines when too long ==
+type A = `${T extends string ? Descendingxxxxxxx : Ascendingxxxxxxxx}${S}`;
+
+[expect]
+type A = `${
+    T extends string ? Descendingxxxxxxx
+        : Ascendingxxxxxxxx
+}${S}`;
+
+== should surround a type reference with type arguments with newlines when too long ==
+type A = `${Descendingxxxxxxx<Ascendingxxxxxx, Otherxxxxxxx>}${S}`;
+
+[expect]
+type A = `${
+    Descendingxxxxxxx<
+        Ascendingxxxxxx,
+        Otherxxxxxxx
+    >
+}${S}`;
+
+== should surround an indexed access type with newlines when too long ==
+type A = `${Descendingxxxxxxxxxxxxxx[keyof Ascendingxxxxxxx]}${S}`;
+
+[expect]
+type A = `${
+    Descendingxxxxxxxxxxxxxx[
+        keyof Ascendingxxxxxxx
+    ]
+}${S}`;
+
+== should surround a type query of an import type with newlines when too long ==
+type A = `${typeof import("./some-module-name-here")}${S}`;
+
+[expect]
+type A = `${
+    typeof import("./some-module-name-here")
+}${S}`;
+
+== should not surround simple types with newlines ==
+type A = `${string}-${T}-${A.B}-${typeof x}`;
+type B = `${keyof T}-${"a"}-${1}-${this}`;
+type C = `${Descendingxxxxxxxxxxxxxxxxxx}-${Ascendingxxxxxxxxxxxxxxxxx}`;
+
+[expect]
+type A = `${string}-${T}-${A.B}-${typeof x}`;
+type B = `${keyof T}-${"a"}-${1}-${this}`;
+type C =
+    `${Descendingxxxxxxxxxxxxxxxxxx}-${Ascendingxxxxxxxxxxxxxxxxx}`;
+
+== should surround a union with newlines in an interface property ==
+interface A {
+    prop: `${typeof Descendingxxx | typeof Ascendingxxx}`;
+}
+
+[expect]
+interface A {
+    prop: `${
+        typeof Descendingxxx | typeof Ascendingxxx
+    }`;
+}
+
+== should surround a union with newlines in a nested template literal type ==
+type A = `${`${typeof Descendingxxx | typeof Ascendingxxx}`}`;
+
+[expect]
+type A = `${`${
+    typeof Descendingxxx | typeof Ascendingxxx
+}`}`;
+
+== should put the closing brace on the next line after a type with leading comments ==
+type A = `${
+    // comment
+    typeof Descending | typeof Ascending
+}`;
+type B = `${
+    /* comment */
+    typeof Descending | typeof Ascending
+}`;
+
+[expect]
+type A = `${
+    // comment
+    typeof Descending | typeof Ascending
+}`;
+type B = `${
+    /* comment */
+    typeof Descending | typeof Ascending
+}`;
+
+== should put the type on its own line when it has a trailing line comment ==
+type A = `${typeof X | typeof Y // comment
+}`;
+type B = `${
+    typeof X | typeof Y // comment
+}`;
+
+[expect]
+type A = `${
+    typeof X | typeof Y // comment
+}`;
+type B = `${
+    typeof X | typeof Y // comment
+}`;

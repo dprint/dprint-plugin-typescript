@@ -14,5 +14,8 @@ import * as fs from "fs";
 const buffer = fs.readFileSync(getPath());
 const formatter = createFromBuffer(buffer);
 
-console.log(formatter.formatText("test.ts", "const   t    =    5;"));
+console.log(formatter.formatText({
+  filePath: "test.ts",
+  fileText: "const   t    =    5;",
+}));
 ```

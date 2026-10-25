@@ -15,6 +15,7 @@ mod error;
 mod format_text;
 mod generation;
 pub mod parsing;
+mod tailwind;
 mod utils;
 
 /// Re-export of the crate used for the AST in order to
@@ -41,7 +42,3 @@ pub use format_text::trace_file;
 #[cfg(feature = "wasm")]
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 mod wasm_plugin;
-
-#[cfg(feature = "wasm")]
-#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
-pub use wasm_plugin::*;
