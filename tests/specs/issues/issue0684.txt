@@ -69,3 +69,127 @@ function f(
     // c
     b,
 ) {}
+
+== should keep a trailing comment on the same line as the node ==
+foo(
+    a // t
+    // c
+    , b);
+
+[expect]
+foo(
+    a, // t
+    // c
+    b,
+);
+
+== should put a comment after the comma on its own line after the comments before the comma ==
+foo(
+    a
+    // c
+    , // d
+    b,
+);
+
+[expect]
+foo(
+    a,
+    // c
+    // d
+    b,
+);
+
+== should keep a blank line before a comment before a comma ==
+({
+    a: 1
+
+    // c
+    , b: 2
+});
+
+[expect]
+({
+    a: 1,
+
+    // c
+    b: 2,
+});
+
+== should not keep a blank line before a comment before a comma in arguments ==
+foo(
+    a
+
+    // c
+    , b
+);
+
+[expect]
+foo(
+    a,
+    // c
+    b,
+);
+
+== should keep a block comment beside what follows the comma ==
+foo(a
+/* c */, b);
+
+[expect]
+foo(a, /* c */ b);
+
+== should preserve comment before comma in enum members ==
+enum E {
+    A
+    // c
+    , B
+}
+
+[expect]
+enum E {
+    A,
+    // c
+    B,
+}
+
+== should preserve comment before comma in type literal ==
+type T = {
+    a: string
+    // c
+    , b: string
+};
+
+[expect]
+type T = {
+    a: string;
+    // c
+    b: string;
+};
+
+== should put a same line comment before comma in type literal after the separator ==
+type T = {
+    a: string // t
+    , b: string
+};
+
+[expect]
+type T = {
+    a: string; // t
+    b: string;
+};
+
+== should not move a comment in place of an array element ==
+[
+    1
+    // c
+    ,
+    /* 2 */,
+    3,
+];
+
+[expect]
+[
+    1,
+    // c
+    /* 2 */,
+    3,
+];

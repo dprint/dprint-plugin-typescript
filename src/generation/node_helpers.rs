@@ -5,6 +5,7 @@ use dprint_swc_ext::common::SourceRangedForSpanned;
 use dprint_swc_ext::common::SourceTextInfoProvider;
 use dprint_swc_ext::swc::common::comments::Comment;
 use dprint_swc_ext::swc::common::comments::CommentKind;
+use dprint_swc_ext::swc::parser::token::Token;
 use dprint_swc_ext::view::*;
 
 pub fn is_first_node_on_line(node: &impl SourceRanged, program: Program) -> bool {
@@ -23,7 +24,23 @@ pub fn is_first_node_on_line(node: &impl SourceRanged, program: Program) -> bool
 }
 
 pub fn has_separating_blank_line(first_node: &impl SourceRanged, second_node: &impl SourceRanged, program: Program) -> bool {
-  return get_second_start_line(first_node, second_node, program) > first_node.end_line_fast(program) + 1;
+  let second_start_line = get_second_start_line(first_node, second_node, program);
+  // the first check is a cheaper one that's needed for the second to be true
+  return second_start_line > first_node.end_line_fast(program) + 1
+    && second_start_line > get_first_end_line_with_comments_before_comma(first_node, program) + 1;
+
+  /// The comments between the first node and a comma after it go after the comma,
+  /// so they're with the first node (ex. `// c` in `A\n// c\n, B`).
+  fn get_first_end_line_with_comments_before_comma(first_node: &impl SourceRanged, program: Program) -> usize {
+    let end_line = first_node.end_line_fast(program);
+    match first_node.next_token_fast(program) {
+      Some(token) if token.token == Token::Comma => match token.start().leading_comments_fast(program).peek_last_comment() {
+        Some(comment) => comment.end_line_fast(program).max(end_line),
+        None => end_line,
+      },
+      _ => end_line,
+    }
+  }
 
   fn get_second_start_line(first_node: &impl SourceRanged, second_node: &impl SourceRanged, program: Program) -> usize {
     let leading_comments = second_node.leading_comments_fast(program);
