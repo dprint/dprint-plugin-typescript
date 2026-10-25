@@ -16,6 +16,7 @@ use dprint_swc_ext::swc::parser::token::Token;
 use dprint_swc_ext::swc::parser::token::TokenAndSpan;
 use dprint_swc_ext::swc::parser::Syntax;
 use dprint_swc_ext::view::*;
+use std::borrow::Cow;
 use std::rc::Rc;
 
 use super::sorting::*;
@@ -23,6 +24,7 @@ use super::swc::get_flattened_bin_expr;
 use super::swc::*;
 use super::*;
 use crate::configuration::*;
+use crate::tailwind;
 use crate::utils;
 
 pub fn generate<'a>(
@@ -115,11 +117,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
     items.extend(inner_gen(ir_helpers::gen_from_raw_string(node_text), context));
 
     // mark any previous comments as handled
-    for comment in context.comments.trailing_comments_with_previous(node_end) {
-      if comment.start() < node_end {
-        context.mark_comment_handled(comment);
-      }
-    }
+    mark_comments_handled_before(node_end, context);
   } else {
     items.extend(inner_gen(gen_node_inner(node, context), context));
   }
@@ -303,6 +301,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       Node::VarDecl(node) => gen_var_decl(node, context),
       Node::VarDeclarator(node) => gen_var_declarator(node, context),
       Node::WhileStmt(node) => gen_while_stmt(node, context),
+      Node::WithStmt(node) => gen_with_stmt(node, context),
       /* types */
       Node::TsArrayType(node) => gen_array_type(node, context),
       Node::TsConditionalType(node) => gen_conditional_type(node, context),
@@ -337,12 +336,24 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
       Node::TsTypeRef(node) => gen_type_reference(node, context),
       Node::TsUnionType(node) => gen_union_type(node, context),
       /* These should never be matched. Return its text if so */
-      Node::Class(_) | Node::Function(_) | Node::Invalid(_) | Node::WithStmt(_) | Node::TsModuleBlock(_) => {
+      Node::Class(_) | Node::Function(_) | Node::Invalid(_) | Node::TsModuleBlock(_) => {
         if cfg!(debug_assertions) {
           panic!("Debug panic! Did not expect to generate IR for node of type {}.", node.kind());
         }
 
+        // the comments are output with the text, so they shouldn't be output again
+        mark_comments_handled_before(node.end(), context);
         gen_from_raw_string(node.text_fast(context.program))
+      }
+    }
+  }
+
+  /// Marks the comments before the provided position as handled, which is for
+  /// when the text of a node is output as is along with its comments.
+  fn mark_comments_handled_before(end: SourcePos, context: &mut Context) {
+    for comment in context.comments.trailing_comments_with_previous(end) {
+      if comment.start() < end {
+        context.mark_comment_handled(comment);
       }
     }
   }
@@ -3046,9 +3057,12 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
   })
   .unwrap();
 
-  // Then formats the text with the external formatter.
-  let formatted_tpl = match external_formatter(embedded_lang, text.replace(r"\\", "\\"), context.config) {
-    Ok(formatted_tpl) => formatted_tpl?.replace("\\", r"\\"),
+  // Then formats the text with the external formatter, which gets the escapes that only
+  // exist because of the template literal unescaped (ex. Tailwind's `\\[\\#86efac\\]`
+  // as `\[\#86efac\]`) and the other escapes as is (ex. `\n` and `\e600`).
+  let text = unescape_embedded_text(&text)?;
+  let formatted_tpl = match external_formatter(embedded_lang, text, context.config) {
+    Ok(formatted_tpl) => escape_embedded_text(&formatted_tpl?),
     Err(err) => {
       context.diagnostics.push(context::GenerateDiagnostic {
         message: format!("Error formatting tagged template literal at line {}: {}", node.start_line() + 1, err),
@@ -3131,6 +3145,53 @@ fn normalize_embedded_language_type<'a>(node: &TaggedTpl<'a>) -> Option<&'a str>
   }
 }
 
+/// Stands in for the backslash of an escape that the embedded language gets as is (ex. `\n`),
+/// which keeps it apart from a backslash that was escaped (ex. `\\`).
+const EMBEDDED_ESCAPE_SENTINEL: char = '\u{E000}';
+
+/// Unescapes what a template literal requires to be escaped (`\\`, `` \` ``, and `\${`), which
+/// is what the embedded language sees. The other escapes are kept so that `escape_embedded_text`
+/// can restore them exactly. Returns `None` when the text already has the sentinel.
+fn unescape_embedded_text(text: &str) -> Option<String> {
+  if text.contains(EMBEDDED_ESCAPE_SENTINEL) {
+    return None;
+  }
+  let mut result = String::with_capacity(text.len());
+  let mut rest = text;
+  while let Some(index) = rest.find('\\') {
+    result.push_str(&rest[..index]);
+    let escaped = &rest[index + 1..];
+    if escaped.starts_with(['\\', '`']) || escaped.starts_with("${") {
+      result.push_str(&escaped[..1]);
+      rest = &escaped[1..];
+    } else {
+      result.push(EMBEDDED_ESCAPE_SENTINEL);
+      rest = escaped;
+    }
+  }
+  result.push_str(rest);
+  Some(result)
+}
+
+/// Escapes the formatted text of an embedded language for a template literal,
+/// which is the reverse of `unescape_embedded_text`.
+fn escape_embedded_text(text: &str) -> String {
+  let mut result = String::with_capacity(text.len());
+  let mut chars = text.chars().peekable();
+  while let Some(c) = chars.next() {
+    match c {
+      EMBEDDED_ESCAPE_SENTINEL => result.push('\\'),
+      '\\' | '`' => {
+        result.push('\\');
+        result.push(c);
+      }
+      '$' if chars.peek() == Some(&'{') => result.push_str("\\$"),
+      _ => result.push(c),
+    }
+  }
+  result
+}
+
 fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintItems {
   let use_space = context.config.tagged_template_space_before_literal;
   let mut items = gen_node(node.tag.into(), context);
@@ -3157,15 +3218,23 @@ fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintI
 }
 
 fn gen_tpl<'a>(node: &Tpl<'a>, context: &mut Context<'a>) -> PrintItems {
-  gen_template_literal(
+  let class_names_sort_options = get_class_names_sort_options(node.into(), context).map(|options| (node.start(), options));
+  let previous_class_names_sort_options = std::mem::replace(&mut context.tpl_class_names_sort_options, class_names_sort_options);
+  let items = gen_template_literal(
     node.quasis.iter().map(|&n| n.into()).collect(),
     node.exprs.iter().map(|x| x.into()).collect(),
     context,
-  )
+  );
+  context.tpl_class_names_sort_options = previous_class_names_sort_options;
+  items
 }
 
 fn gen_tpl_element<'a>(node: &TplElement<'a>, context: &mut Context<'a>) -> PrintItems {
-  gen_from_raw_string(node.text_fast(context.program))
+  let text = node.text_fast(context.program);
+  match get_tpl_element_class_names_sort_options(node, context) {
+    Some(options) => gen_from_raw_string(&tailwind::sort_class_names(text, &options, &get_tailwind_project(context))),
+    None => gen_from_raw_string(text),
+  }
 }
 
 fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context: &mut Context<'a>) -> PrintItems {
@@ -4239,11 +4308,235 @@ fn gen_reg_exp_literal(node: &Regex, _: &mut Context) -> PrintItems {
 }
 
 fn gen_string_literal<'a>(node: &Str<'a>, context: &mut Context<'a>) -> PrintItems {
-  let string_value = string_literal::get_value(node, context);
+  let mut string_value = string_literal::get_value(node, context);
+  if let Some(options) = get_class_names_sort_options(node.into(), context)
+    && let Cow::Owned(sorted_value) = tailwind::sort_class_names(&string_value, &options, &get_tailwind_project(context))
+  {
+    string_value = sorted_value;
+  }
   if node.parent().is::<JSXAttr>() {
     string_literal::gen_jsx_text(&string_value, context)
   } else {
     string_literal::gen_non_jsx_text(&string_value, context)
+  }
+}
+
+fn get_tpl_element_class_names_sort_options<'a>(node: &TplElement<'a>, context: &Context<'a>) -> Option<tailwind::SortOptions> {
+  let Some(Node::Tpl(tpl)) = node.as_node().parent() else {
+    return None;
+  };
+  // these are the template literal's, which `gen_tpl` gets once for all its elements
+  let (tpl_start, mut options) = context.tpl_class_names_sort_options?;
+  if tpl_start != tpl.start() {
+    return None;
+  }
+  let index = tpl.quasis.binary_search_by_key(&node.start(), |quasi| quasi.start()).ok()?;
+  let is_last = index >= tpl.exprs.len();
+  let text = node.text_fast(context.program);
+  // the class at an end is only part of a class name when the text
+  // isn't separated from the neighbouring expression by whitespace
+  options.ignore_first = if index > 0 {
+    !text.starts_with(tailwind::is_class_separator)
+  } else {
+    options.ignore_first
+  };
+  options.ignore_last = if is_last {
+    options.ignore_last
+  } else {
+    !text.ends_with(tailwind::is_class_separator)
+  };
+  options.collapse_start &= index == 0;
+  options.collapse_end &= is_last;
+  Some(options)
+}
+
+/// Gets how to sort the class names in the provided string or template literal, or
+/// `None` when it's not somewhere that's known to have class names. This looks for
+/// the same places as prettier-plugin-tailwindcss, but only where the text may be
+/// part of the class names (ex. not in `styles["p-4 flex"]` or `x === "p-4 flex"`).
+fn get_class_names_sort_options<'a>(node: Node<'a>, context: &Context<'a>) -> Option<tailwind::SortOptions> {
+  if context.config.jsx_sort_class_names.kind != JsxClassNamesSortOrder::Tailwind {
+    return None;
+  }
+  let options = find_class_names_sort_options(node, context)?;
+  // moving the classes around an escaped whitespace character (ex. a line continuation)
+  // would change the value or escape the closing quote
+  (!has_escaped_class_separator(get_class_names_text(node, context))).then_some(options)
+}
+
+fn find_class_names_sort_options<'a>(node: Node<'a>, context: &Context<'a>) -> Option<tailwind::SortOptions> {
+  let mut options = tailwind::SortOptions {
+    preserve_whitespace: context.config.jsx_sort_class_names.preserve_whitespace,
+    preserve_duplicates: context.config.jsx_sort_class_names.preserve_duplicates,
+    ..Default::default()
+  };
+  let text = get_class_names_text(node, context);
+  let starts_with_separator = text.starts_with(tailwind::is_class_separator);
+  let ends_with_separator = text.ends_with(tailwind::is_class_separator);
+  // if the text is at the start and the end of the string the child evaluates to, which is when what's
+  // beside the child is beside the text and so needs whitespace to not be part of the class at that end
+  let mut is_at_start = true;
+  let mut is_at_end = true;
+  let mut child = node;
+  while let Some(parent) = child.parent() {
+    let mut keeps_ends = false;
+    // this stops at the first parent where the child isn't what has the class names, which
+    // also stops the search right away for most strings and template literals in a file
+    match parent {
+      Node::JSXAttr(attr) => return is_class_names_jsx_attr(attr, context).then_some(options),
+      Node::CallExpr(call_expr) => {
+        if let Callee::Expr(callee) = call_expr.callee
+          && child.start() >= callee.end()
+          && is_class_names_function(callee, context)
+        {
+          return Some(options);
+        }
+      }
+      Node::OptCall(call_expr) => {
+        if child.start() >= call_expr.callee.end() && is_class_names_function(call_expr.callee, context) {
+          return Some(options);
+        }
+      }
+      Node::TaggedTpl(tagged_tpl) => {
+        // the text of a template whose tag isn't configured isn't class names (ex. emotion's `css`)
+        if child.start() < tagged_tpl.tpl.start() || !is_class_names_function(tagged_tpl.tag, context) {
+          return None;
+        }
+        // only the text of the template has class names, not the strings in its expressions
+        if child.kind() == node.kind() && child.range() == node.range() {
+          return Some(options);
+        }
+      }
+      Node::BinExpr(bin_expr) if bin_expr.op() == BinaryOp::Add => {
+        // the whitespace between concatenated strings separates their class names
+        keeps_ends = true;
+        if child.start() == bin_expr.left.start() {
+          options.collapse_end = false;
+          let is_separated = ends_with_separator || get_class_names_text(bin_expr.right.into(), context).starts_with(tailwind::is_class_separator);
+          options.ignore_last |= is_at_end && !is_separated;
+          is_at_end = false;
+        } else {
+          options.collapse_start = false;
+          let is_separated = starts_with_separator || get_class_names_text(bin_expr.left.into(), context).ends_with(tailwind::is_class_separator);
+          options.ignore_first |= is_at_start && !is_separated;
+          is_at_start = false;
+        }
+      }
+      Node::Tpl(tpl) => {
+        // this is an expression in a template literal, so the whitespace at an end may
+        // only be removed when the text next to it has whitespace to separate the classes
+        if let Some(index) = tpl.exprs.iter().position(|expr| expr.start() == child.start()) {
+          keeps_ends = true;
+          let text_before = tpl.quasis[index].text_fast(context.program);
+          let text_after = tpl.quasis[index + 1].text_fast(context.program);
+          let is_separated_before = text_before.ends_with(tailwind::is_class_separator);
+          let is_separated_after = text_after.starts_with(tailwind::is_class_separator);
+          options.collapse_start &= is_separated_before;
+          options.collapse_end &= is_separated_after;
+          // nothing is before the first expression or after the last one when there's no text there
+          let is_first = index == 0 && text_before.is_empty();
+          let is_last = index + 1 == tpl.exprs.len() && text_after.is_empty();
+          options.ignore_first |= is_at_start && !is_first && !is_separated_before && !starts_with_separator;
+          options.ignore_last |= is_at_end && !is_last && !is_separated_after && !ends_with_separator;
+          is_at_start &= is_first;
+          is_at_end &= is_last;
+        }
+      }
+      // these evaluate to one of their operands
+      Node::BinExpr(bin_expr) if matches!(bin_expr.op(), BinaryOp::LogicalAnd | BinaryOp::LogicalOr | BinaryOp::NullishCoalescing) => keeps_ends = true,
+      // a string in the type of one of these is under a type node, which stops the search
+      Node::ParenExpr(_) | Node::CondExpr(_) | Node::TsAsExpr(_) | Node::TsSatisfiesExpr(_) | Node::TsNonNullExpr(_) | Node::TsConstAssertion(_) => {
+        keeps_ends = true
+      }
+      Node::MemberExpr(member_expr) => {
+        // the object may have class names (ex. `["p-4", "flex"].join(" ")`), but not the
+        // property or an object that's indexed into (ex. `styles["p-4 flex"]`)
+        if child.start() != member_expr.obj.start() || matches!(member_expr.prop, MemberProp::Computed(_)) {
+          return None;
+        }
+      }
+      // these hold class names that get combined (ex. `cn(["p-4", { flex: active }])`)
+      Node::JSXExprContainer(_)
+      | Node::ExprOrSpread(_)
+      | Node::SpreadElement(_)
+      | Node::ArrayLit(_)
+      | Node::ObjectLit(_)
+      | Node::KeyValueProp(_)
+      | Node::OptChainExpr(_) => {}
+      // anything else, like a member expression's property or a comparison, doesn't
+      _ => return None,
+    }
+    if !keeps_ends {
+      is_at_start = false;
+      is_at_end = false;
+    }
+    child = parent;
+  }
+  None
+}
+
+/// Gets the text within the quotes of a string or template literal and otherwise an empty string.
+fn get_class_names_text<'a>(node: Node<'a>, context: &Context<'a>) -> &'a str {
+  match node {
+    Node::Str(_) | Node::Tpl(_) => {
+      let text = node.text_fast(context.program);
+      &text[1..text.len() - 1]
+    }
+    _ => "",
+  }
+}
+
+/// Gets if the text has a backslash that escapes whitespace (ex. `\` then a newline).
+fn has_escaped_class_separator(text: &str) -> bool {
+  let mut is_escaped = false;
+  for c in text.chars() {
+    if is_escaped && tailwind::is_class_separator(c) {
+      return true;
+    }
+    is_escaped = !is_escaped && c == '\\';
+  }
+  false
+}
+
+fn is_class_names_jsx_attr(attr: &JSXAttr, context: &Context) -> bool {
+  let name = attr.name.text_fast(context.program);
+  matches!(name, "class" | "className") || context.config.jsx_sort_class_names.attributes.iter().any(|attribute_name| attribute_name == name)
+}
+
+fn get_tailwind_project<'a>(context: &Context<'a>) -> tailwind::Project<'a> {
+  let config = &context.config.jsx_sort_class_names;
+  tailwind::Project {
+    prefix: config.prefix.as_deref(),
+    theme: &config.theme,
+    variants: &config.variants,
+    utilities: &config.utilities,
+  }
+}
+
+/// Gets if the expression starts with one of the configured function names (ex. `cn` in `cn.foo("")`).
+fn is_class_names_function(expr: Expr, context: &Context) -> bool {
+  if context.config.jsx_sort_class_names.functions.is_empty() {
+    return false;
+  }
+
+  let mut expr = expr;
+  loop {
+    expr = match expr {
+      Expr::Ident(ident) => {
+        let name = ident.text_fast(context.program);
+        return context.config.jsx_sort_class_names.functions.iter().any(|function_name| function_name == name);
+      }
+      Expr::Member(member_expr) => member_expr.obj,
+      Expr::Call(call_expr) => match call_expr.callee {
+        Callee::Expr(callee) => callee,
+        _ => return false,
+      },
+      Expr::OptChain(opt_chain_expr) => match opt_chain_expr.base {
+        OptChainBase::Member(member_expr) => member_expr.obj,
+        OptChainBase::Call(call_expr) => call_expr.callee,
+      },
+      _ => return false,
+    };
   }
 }
 
@@ -5650,6 +5943,47 @@ fn gen_while_stmt<'a>(node: &WhileStmt<'a>, context: &mut Context<'a>) -> PrintI
         use_braces: context.config.while_statement_use_braces,
         brace_position: context.config.while_statement_brace_position,
         single_body_position: Some(context.config.while_statement_single_body_position),
+        requires_braces_condition_ref: None,
+        start_header_info: Some((start_header_ln, start_header_lsil)),
+        end_header_info: Some(end_header_ln),
+      },
+      context,
+    )
+    .generated_node,
+  );
+  items
+}
+
+fn gen_with_stmt<'a>(node: &WithStmt<'a>, context: &mut Context<'a>) -> PrintItems {
+  // `with` statements are deprecated and forbidden in strict mode, but still valid syntax
+  let start_header_ln = LineNumber::new("startHeader");
+  let start_header_lsil = LineStartIndentLevel::new("startHeader");
+  let end_header_ln = LineNumber::new("endHeader");
+  let mut items = PrintItems::new();
+  items.push_info(start_header_ln);
+  items.push_info(start_header_lsil);
+  items.push_sc(sc!("with"));
+  if context.config.with_statement_space_after_with_keyword {
+    items.push_space();
+  }
+  items.extend(gen_node_in_parens(
+    |context| gen_node(node.obj.into(), context),
+    GenNodeInParensOptions {
+      inner_range: node.obj.range(),
+      prefer_hanging: context.config.with_statement_prefer_hanging,
+      allow_open_paren_trailing_comments: false,
+      single_line_space_around: context.config.with_statement_space_around,
+    },
+    context,
+  ));
+  items.push_info(end_header_ln);
+  items.extend(
+    gen_conditional_brace_body(
+      GenConditionalBraceBodyOptions {
+        body_node: node.body.into(),
+        use_braces: context.config.with_statement_use_braces,
+        brace_position: context.config.with_statement_brace_position,
+        single_body_position: Some(context.config.with_statement_single_body_position),
         requires_braces_condition_ref: None,
         start_header_info: Some((start_header_ln, start_header_lsil)),
         end_header_info: Some(end_header_ln),
