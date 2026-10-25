@@ -114,10 +114,8 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
     } else {
       node.text_fast(context.program)
     };
-    items.extend(inner_gen(ir_helpers::gen_from_raw_string(node_text), context));
-
-    // mark any previous comments as handled
-    mark_comments_handled_before(node_end, context);
+    let node_items = gen_file_text_as_is(node_text, node_end, TrimLineEnds::No, context);
+    items.extend(inner_gen(node_items, context));
   } else {
     items.extend(inner_gen(gen_node_inner(node, context), context));
   }
@@ -341,19 +339,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
           panic!("Debug panic! Did not expect to generate IR for node of type {}.", node.kind());
         }
 
-        // the comments are output with the text, so they shouldn't be output again
-        mark_comments_handled_before(node.end(), context);
-        gen_from_raw_string(node.text_fast(context.program))
-      }
-    }
-  }
-
-  /// Marks the comments before the provided position as handled, which is for
-  /// when the text of a node is output as is along with its comments.
-  fn mark_comments_handled_before(end: SourcePos, context: &mut Context) {
-    for comment in context.comments.trailing_comments_with_previous(end) {
-      if comment.start() < end {
-        context.mark_comment_handled(comment);
+        gen_file_text_as_is(node.text_fast(context.program), node.end(), TrimLineEnds::No, context)
       }
     }
   }
@@ -412,6 +398,25 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
     }
     context.last_generated_node_pos = node_pos;
   }
+}
+
+/// Generates text from the file as is. The comments before its end are marked as
+/// handled because they're in the text, which would otherwise generate them again.
+fn gen_file_text_as_is(text: &str, end: SourcePos, trim_line_ends: TrimLineEnds, context: &mut Context) -> PrintItems {
+  for comment in context.comments.trailing_comments_with_previous(end) {
+    if comment.start() < end {
+      context.mark_comment_handled(comment);
+    }
+  }
+  match trim_line_ends {
+    TrimLineEnds::Yes => ir_helpers::gen_from_raw_string_trim_line_ends(text),
+    TrimLineEnds::No => ir_helpers::gen_from_raw_string(text),
+  }
+}
+
+enum TrimLineEnds {
+  Yes,
+  No,
 }
 
 fn get_has_ignore_comment<'a>(leading_comments: &CommentsIterator<'a>, node: Node<'a>, context: &mut Context<'a>) -> bool {
@@ -3986,7 +3991,8 @@ fn gen_jsx_element<'a>(node: &JSXElement<'a>, context: &mut Context<'a>) -> Prin
     if node.opening.name.text_fast(context.program) == "pre" {
       let mut items = gen_node(node.opening.into(), context);
       let in_between_range = SourceRange::new(node.opening.end(), closing.start());
-      items.extend(ir_helpers::gen_from_raw_string_trim_line_ends(in_between_range.text_fast(context.program)));
+      let in_between_text = in_between_range.text_fast(context.program);
+      items.extend(gen_file_text_as_is(in_between_text, closing.start(), TrimLineEnds::Yes, context));
       items.extend(gen_node(closing.into(), context));
       items
     } else {
