@@ -85,6 +85,7 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
   let mut has_ignore_comment = false;
 
   // the comments before the braces of a jsx spread attribute go outside them
+  let is_jsx_spread_attr = is_jsx_spread_attr(node);
   let jsx_spread_attr_braces = get_jsx_spread_attr_braces(node, context);
   let jsx_spread_attr_leading_comment_items = match jsx_spread_attr_braces {
     Some((open_brace, _)) => {
@@ -150,14 +151,15 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
   // pop info
   context.current_node = context.parent_stack.pop();
 
-  // need to ensure a jsx spread element's comments are generated within the braces since swc
-  // has no representation of a JSX spread attribute and goes straight to the spread element
-  return if let Some((_, close_brace)) = jsx_spread_attr_braces {
+  // swc has no representation of a JSX spread attribute and goes straight to the spread element,
+  // so generate the braces here with the comments inside them inside and the others outside
+  return if is_jsx_spread_attr {
     let mut jsx_spread_attr_items = jsx_spread_attr_leading_comment_items;
     jsx_spread_attr_items.extend(gen_as_jsx_expr_container(node, items, context));
-    // the comments after the braces go outside them
-    let trailing_comments = context.comments.trailing_comments_with_previous(close_brace.end());
-    jsx_spread_attr_items.extend(gen_comments_as_trailing(&close_brace.range(), trailing_comments, context));
+    if let Some((_, close_brace)) = jsx_spread_attr_braces {
+      let trailing_comments = context.comments.trailing_comments_with_previous(close_brace.end());
+      jsx_spread_attr_items.extend(gen_comments_as_trailing(&close_brace.range(), trailing_comments, context));
+    }
     jsx_spread_attr_items
   } else {
     items
@@ -415,14 +417,26 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
   }
 }
 
+/// Gets the range of a jsx attribute, which includes the braces of a spread attribute.
+fn get_jsx_attr_range<'a>(attr: Node<'a>, context: &Context<'a>) -> SourceRange {
+  match get_jsx_spread_attr_braces(attr, context) {
+    Some((open_brace, close_brace)) => SourceRange::new(open_brace.start(), close_brace.end()),
+    None => attr.range(),
+  }
+}
+
 /// Gets the braces of a jsx spread attribute, which aren't part of its spread element.
 fn get_jsx_spread_attr_braces<'a>(node: Node<'a>, context: &Context<'a>) -> Option<(&'a TokenAndSpan, &'a TokenAndSpan)> {
-  if node.kind() != NodeKind::SpreadElement || node.parent()?.kind() != NodeKind::JSXOpeningElement {
+  if !is_jsx_spread_attr(node) {
     return None;
   }
   let open_brace = context.token_finder.get_previous_token_if_open_brace(&node)?;
   let close_brace = context.token_finder.get_next_token_if_close_brace(&node)?;
   Some((open_brace, close_brace))
+}
+
+fn is_jsx_spread_attr(node: Node) -> bool {
+  node.kind() == NodeKind::SpreadElement && node.parent().is_some_and(|parent| parent.kind() == NodeKind::JSXOpeningElement)
 }
 
 /// Generates text from the file as is. The comments before its end are marked as
@@ -4185,7 +4199,7 @@ fn gen_as_jsx_expr_container(expr: Node, inner_items: PrintItems, context: &mut 
         return true;
       }
     }
-    let expr_end_line = expr.start_line_fast(program);
+    let expr_end_line = expr.end_line_fast(program);
     for comment in expr.trailing_comments_fast(program) {
       if comment.kind == CommentKind::Line || comment.end_line_fast(program) > expr_end_line {
         return true;
@@ -4268,10 +4282,7 @@ fn gen_jsx_opening_element<'a>(node: &JSXOpeningElement<'a>, context: &mut Conte
   let last_node_end = node
     .attrs
     .last()
-    .map(|n| match get_jsx_spread_attr_braces(n.into(), context) {
-      Some((_, close_brace)) => close_brace.end(),
-      None => n.end(),
-    })
+    .map(|n| get_jsx_attr_range(n.into(), context).end)
     .unwrap_or(name_or_type_arg_end);
 
   let generated_comments = gen_comments_as_statements(last_node_end.trailing_comments_fast(context.program), None, context);
@@ -4296,17 +4307,17 @@ fn gen_jsx_opening_element<'a>(node: &JSXOpeningElement<'a>, context: &mut Conte
 
   return items;
 
-  fn get_force_is_multi_line(node: &JSXOpeningElement, context: &mut Context) -> bool {
+  fn get_force_is_multi_line<'a>(node: &JSXOpeningElement<'a>, context: &mut Context<'a>) -> bool {
     if context.config.jsx_attributes_prefer_single_line {
       false
     } else if let Some(first_attrib) = node.attrs.first() {
-      node_helpers::get_use_new_lines_for_nodes(&node.name, first_attrib, context.program)
+      node_helpers::get_use_new_lines_for_nodes(&node.name, &get_jsx_attr_range(first_attrib.into(), context), context.program)
     } else {
       false
     }
   }
 
-  fn get_should_prefer_newline_before_close_bracket(node: &JSXOpeningElement, context: &mut Context) -> bool {
+  fn get_should_prefer_newline_before_close_bracket<'a>(node: &JSXOpeningElement<'a>, context: &mut Context<'a>) -> bool {
     let bracket_pos_config = match node.self_closing() {
       true => context.config.jsx_self_closing_element_bracket_position,
       false => context.config.jsx_opening_element_bracket_position,
@@ -4314,7 +4325,7 @@ fn gen_jsx_opening_element<'a>(node: &JSXOpeningElement<'a>, context: &mut Conte
     match bracket_pos_config {
       SameOrNextLinePosition::Maintain => {
         if let Some(last_attr) = node.attrs.last() {
-          last_attr.end_line_fast(context.program) < node.end_line_fast(context.program)
+          get_jsx_attr_range(last_attr.into(), context).end_line_fast(context.program) < node.end_line_fast(context.program)
         } else {
           false
         }
