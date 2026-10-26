@@ -9174,10 +9174,20 @@ fn gen_for_flattened_member_like_expr<'a>(node: FlattenedMemberLikeExpr<'a>, con
 
   if total_items_len > 1 {
     items.push_info(member_expr_start_ln);
+    if context.config.member_expression_line_per_expression {
+      // the last item's line number is still resolved from an earlier printing of this
+      // expression when the printer goes back and prints it again, so keep it relative
+      // to the start when the expression moves lines and forget it when it moves columns
+      items.push_anchor(LineNumberAnchor::new(member_expr_last_item_start_ln));
+      items.extend(actions::if_column_number_changes(move |context| {
+        context.clear_info(member_expr_last_item_start_ln);
+      }));
+    }
   }
 
   items.extend(gen_for_member_like_expr_item(&node.nodes[0], context, 0, total_items_len));
 
+  let mut first_reevaluation = None;
   for (i, item) in node.nodes.iter().enumerate().skip(1) {
     let force_use_new_line =
       !context.config.member_expression_prefer_single_line && node_helpers::get_use_new_lines_for_nodes(&node.nodes[i - 1], &node.nodes[i], context.program);
@@ -9187,12 +9197,16 @@ fn gen_for_flattened_member_like_expr<'a>(node: FlattenedMemberLikeExpr<'a>, con
       } else if !context.config.member_expression_line_per_expression {
         items.push_condition(conditions::if_above_width(context.config.indent_width, Signal::PossibleNewLine.into()));
       } else {
-        items.push_condition(if_true_or(
+        let mut condition = if_true_or(
           "isMultipleLines",
           Rc::new(move |context| condition_helpers::is_multiple_lines(context, member_expr_start_ln, member_expr_last_item_start_ln)),
           Signal::NewLine.into(),
           Signal::PossibleNewLine.into(),
-        ));
+        );
+        if first_reevaluation.is_none() {
+          first_reevaluation = Some(condition.create_reevaluation());
+        }
+        items.push_condition(condition);
       }
     }
 
@@ -9200,6 +9214,11 @@ fn gen_for_flattened_member_like_expr<'a>(node: FlattenedMemberLikeExpr<'a>, con
     if is_last_item {
       // store this right before the last right expression
       items.push_info(member_expr_last_item_start_ln);
+      // the last item moves to the next line after the conditions were resolved
+      // when only it exceeds the line width, so check again
+      if let Some(reevaluation) = first_reevaluation.take() {
+        items.push_reevaluation(reevaluation);
+      }
     }
 
     let generated_item = gen_for_member_like_expr_item(item, context, i, total_items_len);

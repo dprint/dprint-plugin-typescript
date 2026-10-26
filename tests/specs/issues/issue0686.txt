@@ -1,0 +1,60 @@
+~~ lineWidth: 80, indentWidth: 2, memberExpression.linePerExpression: true, semiColons: asi ~~
+== should not break a member expression that fits after a multi-line statement ==
+const createTestData = () =>
+  function*() {
+    const startingFrom = yield* Effect.map(DateTime.now, now =>
+      DateTime.startOf(now, 'day'))
+
+    return HashSet.make(DateTime.toEpochMillis(startingFrom))
+  }
+
+[expect]
+const createTestData = () =>
+  function*() {
+    const startingFrom = yield* Effect.map(DateTime.now, now =>
+      DateTime.startOf(now, "day"))
+
+    return HashSet.make(DateTime.toEpochMillis(startingFrom))
+  }
+
+== should not break a member expression that fits in a declaration after a multi-line statement ==
+const createTestData = () =>
+  function*() {
+    const startingFrom = yield* Effect.map(DateTime.now, now =>
+      DateTime.startOf(now, 'day'))
+
+    const value = HashSet.make(DateTime.toEpochMillis(startingFrom)).value
+    return value.other
+  }
+
+[expect]
+const createTestData = () =>
+  function*() {
+    const startingFrom = yield* Effect.map(DateTime.now, now =>
+      DateTime.startOf(now, "day"))
+
+    const value = HashSet.make(DateTime.toEpochMillis(startingFrom)).value
+    return value.other
+  }
+
+== should still break a member expression that doesn't fit after a multi-line statement ==
+const createTestData = () =>
+  function*() {
+    const startingFrom = yield* Effect.map(DateTime.now, now =>
+      DateTime.startOf(now, 'day'))
+
+    return HashSet.make(DateTime.toEpochMillis(startingFrom)).testing.this.output
+  }
+
+[expect]
+const createTestData = () =>
+  function*() {
+    const startingFrom = yield* Effect.map(DateTime.now, now =>
+      DateTime.startOf(now, "day"))
+
+    return HashSet
+      .make(DateTime.toEpochMillis(startingFrom))
+      .testing
+      .this
+      .output
+  }
