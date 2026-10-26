@@ -87,16 +87,21 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
   // the comments before the braces of a jsx spread attribute go outside them
   let is_jsx_spread_attr = is_jsx_spread_attr(node);
   let jsx_spread_attr_braces = get_jsx_spread_attr_braces(node, context);
+  let mut jsx_spread_attr_as_is_range = None;
   let jsx_spread_attr_leading_comment_items = match jsx_spread_attr_braces {
-    Some((open_brace, _)) => {
+    Some((open_brace, close_brace)) => {
       let leading_comments = context.comments.leading_comments_with_previous(open_brace.start());
+      if get_has_ignore_comment(&leading_comments, node, context) {
+        jsx_spread_attr_as_is_range = Some(SourceRange::new(open_brace.start(), close_brace.end()));
+      }
       gen_comments_as_leading(&open_brace.range(), leading_comments, context)
     }
     None => PrintItems::new(),
   };
 
-  // do not get the comments for modules as this will be handled in gen_statements
-  if !matches!(node_kind, NodeKind::Module | NodeKind::Script) {
+  // do not get the comments for modules as this will be handled in gen_statements, or for
+  // an ignored jsx spread attribute because they're in its text
+  if !matches!(node_kind, NodeKind::Module | NodeKind::Script) && jsx_spread_attr_as_is_range.is_none() {
     // get the leading comments
     if does_first_child_own_leading_comments_on_same_line(node, context) {
       // Some block comments should belong to the first child rather than the
@@ -115,17 +120,20 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
   }
 
   // generate the node
-  if has_ignore_comment {
+  if has_ignore_comment || jsx_spread_attr_as_is_range.is_some() {
     items.push_force_current_line_indentation();
-    let node_text = if node_kind == NodeKind::JSXText {
+    let (node_text, node_text_end) = if let Some(range) = jsx_spread_attr_as_is_range {
+      // the braces of an ignored jsx spread attribute are kept as is too
+      (range.text_fast(context.program), range.end)
+    } else if node_kind == NodeKind::JSXText {
       // keep the leading text, but leave the trailing text to be formatted if on a separate line
       let node_text = node.text_fast(context.program);
       let end_trim = node_text.trim_end_matches(utils::is_jsx_whitespace_char);
-      if node_text[end_trim.len()..].contains('\n') { end_trim } else { node_text }
+      (if node_text[end_trim.len()..].contains('\n') { end_trim } else { node_text }, node_end)
     } else {
-      node.text_fast(context.program)
+      (node.text_fast(context.program), node_end)
     };
-    let node_items = gen_file_text_as_is(node_text, node_end, TrimLineEnds::No, context);
+    let node_items = gen_file_text_as_is(node_text, node_text_end, TrimLineEnds::No, context);
     items.extend(inner_gen(node_items, context));
   } else {
     items.extend(inner_gen(gen_node_inner(node, context), context));
@@ -155,7 +163,11 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
   // so generate the braces here with the comments inside them inside and the others outside
   return if is_jsx_spread_attr {
     let mut jsx_spread_attr_items = jsx_spread_attr_leading_comment_items;
-    jsx_spread_attr_items.extend(gen_as_jsx_expr_container(node, items, context));
+    if jsx_spread_attr_as_is_range.is_some() {
+      jsx_spread_attr_items.extend(items);
+    } else {
+      jsx_spread_attr_items.extend(gen_as_jsx_expr_container(node.range(), items, context));
+    }
     if let Some((_, close_brace)) = jsx_spread_attr_braces {
       let trailing_comments = context.comments.trailing_comments_with_previous(close_brace.end());
       jsx_spread_attr_items.extend(gen_comments_as_trailing(&close_brace.range(), trailing_comments, context));
@@ -4001,7 +4013,7 @@ fn gen_jsx_attribute<'a>(node: &JSXAttr<'a>, context: &mut Context<'a>) -> Print
     let surround_with_braces = context.token_finder.get_previous_token_if_open_brace(value).is_some();
     let inner_items = gen_node(value.into(), context);
     items.extend(if surround_with_braces {
-      gen_as_jsx_expr_container(node.into(), inner_items, context)
+      gen_as_jsx_expr_container(node.range(), inner_items, context)
     } else {
       inner_items
     });
@@ -4164,12 +4176,12 @@ fn gen_jsx_expr_container<'a>(node: &JSXExprContainer<'a>, context: &mut Context
     JSXExpr::Expr(expr) => gen_node(expr.into(), context),
   };
 
-  gen_as_jsx_expr_container(node.expr.into(), gen_inner, context)
+  gen_as_jsx_expr_container(node.expr.range(), gen_inner, context)
 }
 
-fn gen_as_jsx_expr_container(expr: Node, inner_items: PrintItems, context: &mut Context) -> PrintItems {
+fn gen_as_jsx_expr_container(inner_range: SourceRange, inner_items: PrintItems, context: &mut Context) -> PrintItems {
   let surround_with_space = context.config.jsx_expression_container_space_surrounding_expression;
-  let surround_with_new_lines = should_surround_with_newlines(expr, context.program);
+  let surround_with_new_lines = should_surround_with_newlines(inner_range, context.program);
   let mut items = PrintItems::new();
   items.push_sc(sc!("{"));
   if surround_with_new_lines {
@@ -4180,7 +4192,7 @@ fn gen_as_jsx_expr_container(expr: Node, inner_items: PrintItems, context: &mut 
   }
   items.extend(inner_items);
   if surround_with_new_lines {
-    items.extend(gen_trailing_comments_as_statements(&expr.range(), context));
+    items.extend(gen_trailing_comments_as_statements(&inner_range, context));
     items.push_signal(Signal::NewLine);
     items.push_signal(Signal::FinishIndent);
   } else if surround_with_space {
@@ -4190,7 +4202,7 @@ fn gen_as_jsx_expr_container(expr: Node, inner_items: PrintItems, context: &mut 
 
   return items;
 
-  fn should_surround_with_newlines(expr: Node, program: Program) -> bool {
+  fn should_surround_with_newlines(expr: SourceRange, program: Program) -> bool {
     let expr_start_line = expr.start_line_fast(program);
     for comment in expr.leading_comments_fast(program) {
       if comment.kind == CommentKind::Line {
@@ -4350,16 +4362,17 @@ fn gen_jsx_opening_fragment<'a>(_: &'a JSXOpeningFragment, _: &mut Context<'a>) 
 }
 
 fn gen_jsx_spread_child<'a>(node: &JSXSpreadChild<'a>, context: &mut Context<'a>) -> PrintItems {
-  gen_as_jsx_expr_container(
-    node.into(),
-    {
-      let mut items = PrintItems::new();
-      items.push_sc(sc!("..."));
-      items.extend(gen_node(node.expr.into(), context));
-      items
-    },
-    context,
-  )
+  let mut items = PrintItems::new();
+  let dot3_token = context.token_finder.get_previous_token(&node.expr).filter(|t| t.token == Token::DotDotDot);
+  // the comments before the spread operator go before it rather than before the expression
+  if let Some(dot3_token) = dot3_token {
+    let leading_comments = context.comments.leading_comments_with_previous(dot3_token.start());
+    items.extend(gen_comments_as_leading(&dot3_token.range(), leading_comments, context));
+  }
+  items.push_sc(sc!("..."));
+  items.extend(gen_node(node.expr.into(), context));
+  let inner_start = dot3_token.map(|t| t.start()).unwrap_or_else(|| node.expr.start());
+  gen_as_jsx_expr_container(SourceRange::new(inner_start, node.expr.end()), items, context)
 }
 
 fn gen_jsx_text<'a>(node: &JSXText<'a>, context: &mut Context<'a>) -> PrintItems {
