@@ -122,3 +122,10 @@ html`
     }
     </style>
 `;
+
+== should not format html in an Angular component template ==
+@Component({ template: `<h1>{{title}}</h1>` })
+export class A {}
+[expect]
+@Component({ template: `<h1>{{title}}</h1>` })
+export class A {}

@@ -3174,23 +3174,47 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
 /// Normalizes the type of embedded language in a tagged template literal.
 fn normalize_embedded_language_type<'a>(node: &TaggedTpl<'a>) -> Option<&'a str> {
   match node.tag {
-    Expr::Ident(ident) => return Some(ident.sym().as_str()),
+    Expr::Ident(ident) => Some(ident.sym().as_str()),
     Expr::Member(member_expr) => {
-      if let Expr::Ident(ident) = member_expr.obj {
-        if ident.sym().as_str() == "styled" {
-          return Some("css"); // styled.foo`...`
-        }
+      // styled.foo`...`, styled["foo"]`...`, Button.extend`...`
+      if is_styled_member_expr(member_expr) {
+        return Some("css");
       }
-      None
+      let Expr::Ident(obj) = member_expr.obj else { return None };
+      match (obj.sym().as_str(), get_member_prop_name(member_expr)?) {
+        ("css", "global" | "resolve") => Some("css"), // css.global`...` (styled-jsx)
+        ("graphql", "experimental") => Some("graphql"),
+        _ => None,
+      }
     }
     Expr::Call(call_expr) => {
-      if let Callee::Expr(Expr::Ident(ident)) = call_expr.callee {
-        if ident.sym().as_str() == "styled" {
-          return Some("css"); // styled(Button)`...`
-        }
+      let Callee::Expr(callee) = call_expr.callee else { return None };
+      match callee {
+        // styled(Button)`...`
+        Expr::Ident(ident) if ident.sym().as_str() == "styled" => Some("css"),
+        // styled.foo.attrs({})`...`, Button.extend.attrs({})`...`, styled(Button).attrs({})`...`
+        Expr::Member(member_expr) => match member_expr.obj {
+          Expr::Member(obj) if is_styled_member_expr(obj) => Some("css"),
+          Expr::Call(obj) if matches!(obj.callee, Callee::Expr(Expr::Ident(ident)) if ident.sym().as_str() == "styled") => Some("css"),
+          _ => None,
+        },
+        _ => None,
       }
-      None
     }
+    _ => None,
+  }
+}
+
+/// Gets if the member expression is `styled.foo` or `Button.extend`.
+fn is_styled_member_expr(member_expr: &MemberExpr) -> bool {
+  let Expr::Ident(obj) = member_expr.obj else { return false };
+  let obj_name = obj.sym().as_str();
+  obj_name == "styled" || get_member_prop_name(member_expr) == Some("extend") && obj_name.starts_with(|c: char| c.is_ascii_uppercase())
+}
+
+fn get_member_prop_name<'a>(member_expr: &MemberExpr<'a>) -> Option<&'a str> {
+  match member_expr.prop {
+    MemberProp::Ident(ident) => Some(ident.sym().as_str()),
     _ => None,
   }
 }
