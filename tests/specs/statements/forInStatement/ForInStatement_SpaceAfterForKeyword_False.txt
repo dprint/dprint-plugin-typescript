@@ -10,3 +10,11 @@ for(const t in test) {
     a;
     b;
 }
+
+== should keep a space before a comment before the paren ==
+for /* c */ (const t in test) {
+}
+
+[expect]
+for /* c */ (const t in test) {
+}

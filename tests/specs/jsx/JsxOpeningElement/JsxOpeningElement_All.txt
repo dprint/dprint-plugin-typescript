@@ -10,7 +10,7 @@ const t = <Test>Test</Test>;
 const t = <Test    attrib={5}    other="test"  > < /  Test  > ;
 
 [expect]
-const t = <Test attrib={5} other="test"></Test>;
+const t = <Test attrib={5} other="test"> </Test>;
 
 == should make the body multi-line when the header is multiple lines ==
 const t = <Test attrib={5} otherAttrib="test" anotherVeryLongAttrib={234234}>Test</Test>;

@@ -1,0 +1,44 @@
+-- file.tsx --
+== should keep the spaces around an expression ==
+<>
+  <div> {"hello"} </div>
+  <pre> {"hello"} </pre>
+</>;
+
+[expect]
+<>
+    <div> {"hello"} </div>
+    <pre> {"hello"} </pre>
+</>;
+
+== should keep the spaces at the end of the last line of a pre element ==
+const t1 = <pre>a </pre>;
+const t2 = <pre> </pre>;
+const t3 = (
+    <pre>
+  a
+  b </pre>
+);
+
+[expect]
+const t1 = <pre>a </pre>;
+const t2 = <pre> </pre>;
+const t3 = (
+    <pre>
+  a
+  b </pre>
+);
+
+== should not keep the indentation before the closing tag of a pre element ==
+const t = (
+    <pre>
+  a
+        </pre>
+);
+
+[expect]
+const t = (
+    <pre>
+  a
+    </pre>
+);

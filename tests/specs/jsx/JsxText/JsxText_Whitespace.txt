@@ -1,0 +1,65 @@
+-- file.tsx --
+~~ lineWidth: 40 ~~
+== should keep tabs at the edges as spaces ==
+const t = <div>	test	{a}	</div>;
+
+[expect]
+const t = <div> test {a} </div>;
+
+== should change tabs between words to spaces ==
+const t = <div>a	b		c</div>;
+
+[expect]
+const t = <div>a b c</div>;
+
+== should keep a tab between expressions as a space ==
+const t = <div>{a}	{b}</div>;
+
+[expect]
+const t = <div>{a} {b}</div>;
+
+== should use jsx space expressions for tabs at the edges when multi-line ==
+const t = <div>	test text that is long enough to wrap past	</div>;
+
+[expect]
+const t = (
+    <div>
+        {" "}
+        test text that is long enough to
+        wrap past{" "}
+    </div>
+);
+
+== should keep non-breaking spaces at the edges ==
+const t = <div> test </div>;
+
+[expect]
+const t = <div> test </div>;
+
+== should keep a non-breaking space that is the only child ==
+const t = <div> </div>;
+
+[expect]
+const t = <div> </div>;
+
+== should keep a non-breaking space before a line break between expressions ==
+const t = <div>{a} 
+{b}</div>;
+
+[expect]
+const t = <div>{a} {b}</div>;
+
+== should keep non-breaking spaces at the start and end of lines ==
+const t = (
+    <div>
+        a 
+         b
+    </div>
+);
+
+[expect]
+const t = (
+    <div>
+        a   b
+    </div>
+);

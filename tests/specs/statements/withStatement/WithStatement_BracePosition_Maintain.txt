@@ -1,0 +1,38 @@
+~~ withStatement.bracePosition: maintain, lineWidth: 40, withStatement.preferHanging: true ~~
+== should maintain the position for the brace position when on same line ==
+with (true) {
+}
+
+[expect]
+with (true) {
+}
+
+== should maintain the position for the brace position when on a new line ==
+with (true)
+{
+}
+
+[expect]
+with (true)
+{
+}
+
+== should maintain the position for the brace position when hanging and on the same line ==
+with (someCondition && otherLongLongLong) {
+}
+
+[expect]
+with (someCondition
+    && otherLongLongLong) {
+}
+
+== should maintain the position for the brace position when hanging and on the next line ==
+with (someCondition && otherLongLongLong)
+{
+}
+
+[expect]
+with (someCondition
+    && otherLongLongLong)
+{
+}
