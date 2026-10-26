@@ -7975,12 +7975,14 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
         let mut items = PrintItems::new();
         let end_ln = LineNumber::new("endStatement");
         context.end_statement_or_member_lns.push(end_ln);
-        items.extend(gen_node(node, context));
+        let generated = gen_node_with_comments_before_semicolon_on_later_line(node, |node, context| gen_node(node, context), context);
+        items.extend(generated.node_items);
         items.push_info(end_ln);
+        items.extend(generated.comment_items);
         generated_nodes.push(items);
         context.end_statement_or_member_lns.pop();
 
-        last_node = Some(node.range());
+        last_node = Some(generated.last_range);
       } else {
         let mut items = PrintItems::new();
         let leading_comments = node.leading_comments_fast(context.program);
@@ -8041,6 +8043,72 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
       StmtGroupKind::Other => None,
     }
   }
+}
+
+struct GeneratedNodeWithCommentsAfter {
+  node_items: PrintItems,
+  comment_items: PrintItems,
+  /// The range of the last comment after the node, if any.
+  comment_range: Option<SourceRange>,
+  /// The range of what was generated last, which is used for the blank line checks.
+  last_range: SourceRange,
+}
+
+impl GeneratedNodeWithCommentsAfter {
+  fn new(node_items: PrintItems, node: Node) -> Self {
+    Self {
+      node_items,
+      comment_items: PrintItems::new(),
+      comment_range: None,
+      last_range: node.range(),
+    }
+  }
+}
+
+/// Generates a statement or member that may end with a semicolon written at the start of the
+/// next line (ex. `;(a)()`). The comments before that semicolon are on the lines after the rest
+/// of the node, so they're generated after it instead of within it.
+fn gen_node_with_comments_before_semicolon_on_later_line<'a>(
+  node: Node<'a>,
+  gen_inner: impl FnOnce(Node<'a>, &mut Context<'a>) -> PrintItems,
+  context: &mut Context<'a>,
+) -> GeneratedNodeWithCommentsAfter {
+  let program = context.program;
+  let Some((previous_token, semicolon)) = get_semicolon_on_later_line(node, program) else {
+    let node_items = gen_inner(node, context);
+    return GeneratedNodeWithCommentsAfter::new(node_items, node);
+  };
+  let previous_token_end_line = previous_token.end_line_fast(program);
+  let comments = semicolon
+    .start()
+    .leading_comments_fast(program)
+    .filter(|c| c.start_line_fast(program) > previous_token_end_line && !context.has_handled_comment(c))
+    .collect::<Vec<_>>();
+  for comment in &comments {
+    context.mark_comment_handled(comment);
+  }
+  let node_items = gen_inner(node, context);
+  for comment in &comments {
+    context.unmark_comment_handled(comment);
+  }
+  let node_range = SourceRange::new(node.start(), previous_token.end());
+  let comment_range = comments.last().map(|c| c.range());
+  let comment_items = gen_comments_as_statements(comments.into_iter(), Some(&node_range), context);
+  GeneratedNodeWithCommentsAfter {
+    node_items,
+    comment_items,
+    comment_range,
+    last_range: comment_range.unwrap_or(node_range),
+  }
+}
+
+/// Gets the semicolon that ends the node when it's on a later line than the rest of
+/// the node, along with the token before it.
+fn get_semicolon_on_later_line<'a>(node: Node<'a>, program: Program<'a>) -> Option<(&'a TokenAndSpan, &'a TokenAndSpan)> {
+  let [.., previous_token, semicolon] = node.tokens_fast(program) else {
+    return None;
+  };
+  (semicolon.token == Token::Semi && previous_token.end_line_fast(program) < semicolon.start_line_fast(program)).then_some((previous_token, semicolon))
 }
 
 fn gen_member_or_member_expr_stmt_comments(node: Node, context: &mut Context) -> PrintItems {
@@ -8133,6 +8201,8 @@ where
   FShouldUseBlankLine: Fn(Node<'a>, Node<'a>, &mut Context<'a>) -> bool,
 {
   let mut last_node: Option<Node> = None;
+  // the comments that were before a semicolon on a later line, which are generated after the member
+  let mut last_comment_range: Option<SourceRange> = None;
   let mut items = PrintItems::new();
   let children_len = opts.items.len();
 
@@ -8148,7 +8218,11 @@ where
         } else if should_use_new_line(&opts.should_use_new_line, last_node, node, context) {
           items.push_signal(Signal::NewLine);
 
-          if (opts.should_use_blank_line)(last_node, node, context) {
+          let use_blank_line = match &last_comment_range {
+            Some(last_comment_range) => node_helpers::has_separating_blank_line(last_comment_range, &node, context.program),
+            None => (opts.should_use_blank_line)(last_node, node, context),
+          };
+          if use_blank_line {
             items.push_signal(Signal::NewLine);
           }
         } else if let Some(should_use_space) = &opts.should_use_space {
@@ -8165,17 +8239,27 @@ where
       let next_node = member_items.peek().map(|(_, (n, _))| n);
       let end_ln = LineNumber::new("endMember");
       context.end_statement_or_member_lns.push(end_ln);
-      items.extend(if let Some(print_items) = optional_print_items {
-        print_items
-      } else if opts.separator.is_none() || is_ignore_jsx_expr_container(node, context) && next_node.map(|n| n.kind() == NodeKind::JSXText).unwrap_or(false) {
-        gen_node(node, context)
-      } else {
-        let generated_separator = get_generated_separator(&opts.separator, i == children_len - 1, &condition_resolvers::true_resolver());
-        gen_node_with_separator(node, generated_separator, context)
-      });
+      let generated = match optional_print_items {
+        Some(print_items) => GeneratedNodeWithCommentsAfter::new(print_items, node),
+        None => gen_node_with_comments_before_semicolon_on_later_line(
+          node,
+          |node, context| {
+            if opts.separator.is_none() || is_ignore_jsx_expr_container(node, context) && next_node.map(|n| n.kind() == NodeKind::JSXText).unwrap_or(false) {
+              gen_node(node, context)
+            } else {
+              let generated_separator = get_generated_separator(&opts.separator, i == children_len - 1, &condition_resolvers::true_resolver());
+              gen_node_with_separator(node, generated_separator, context)
+            }
+          },
+          context,
+        ),
+      };
+      items.extend(generated.node_items);
       items.push_info(end_ln);
+      items.extend(generated.comment_items);
       context.end_statement_or_member_lns.pop();
 
+      last_comment_range = generated.comment_range;
       last_node = Some(node);
     } else {
       items.extend(gen_member_or_member_expr_stmt_comments(node, context));
