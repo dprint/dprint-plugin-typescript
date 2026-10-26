@@ -2348,7 +2348,7 @@ fn gen_import_callee<'a>(node: &Import<'a>, _context: &mut Context<'a>) -> Print
 
 fn gen_class_expr<'a>(node: &ClassExpr<'a>, context: &mut Context<'a>) -> PrintItems {
   let is_class_decl = node.parent().kind() == NodeKind::ExportDefaultDecl && node.ident.is_some();
-  gen_class_decl_or_expr(
+  let items = gen_class_decl_or_expr(
     ClassDeclOrExpr {
       node: node.into(),
       member_node: node.class.into(),
@@ -2369,7 +2369,17 @@ fn gen_class_expr<'a>(node: &ClassExpr<'a>, context: &mut Context<'a>) -> PrintI
       },
     },
     context,
-  )
+  );
+
+  if should_add_parens_around_expr(node.into(), context) {
+    if context.config.paren_expression_space_around {
+      surround_with_parens(surround_with_spaces(items))
+    } else {
+      surround_with_parens(items)
+    }
+  } else {
+    items
+  }
 }
 
 fn gen_conditional_expr<'a>(node: &CondExpr<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -2750,6 +2760,15 @@ fn should_add_parens_around_expr<'a>(node: Node<'a>, context: &Context<'a>) -> b
       }
       Node::OptChainExpr(_) => {
         // continue searching
+      }
+      // the expression is always the left most part of these
+      Node::TsAsExpr(_) | Node::TsSatisfiesExpr(_) | Node::TsNonNullExpr(_) | Node::TsConstAssertion(_) | Node::TsInstantiation(_) => {
+        // continue searching
+      }
+      Node::TaggedTpl(tagged_tpl) => {
+        if !tagged_tpl.tag.range().contains(&original_node.range()) {
+          return false;
+        }
       }
       _ => {
         return false;
