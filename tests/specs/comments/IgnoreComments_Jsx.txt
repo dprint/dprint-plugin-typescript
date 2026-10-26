@@ -277,3 +277,57 @@ function f() {
         some    text </div>
     );
 }
+
+== should keep an ignored jsx spread attribute as is with its braces ==
+const a = (
+    <div
+        // dprint-ignore
+        {...b   }
+        c = {d}
+    />
+);
+const b = <div /* dprint-ignore */ {...b   } c = {d} />;
+
+[expect]
+const a = (
+    <div
+        // dprint-ignore
+        {...b   }
+        c={d}
+    />
+);
+const b = <div /* dprint-ignore */ {...b   } c={d} />;
+
+== should not duplicate the comments inside the braces of an ignored jsx spread attribute ==
+const a = (
+    <div
+        // dprint-ignore
+        {  /* x */ ...b   }
+    />
+);
+
+[expect]
+const a = (
+    <div
+        // dprint-ignore
+        {  /* x */ ...b   }
+    />
+);
+
+== should keep a comment after an ignored jsx spread attribute ==
+const a = (
+    <div
+        // dprint-ignore
+        {...b   } // c
+        d="e"
+    />
+);
+
+[expect]
+const a = (
+    <div
+        // dprint-ignore
+        {...b   } // c
+        d="e"
+    />
+);
