@@ -7880,15 +7880,19 @@ where
 {
   let mut items = PrintItems::new();
   let child_tokens = get_tokens_from_children_with_tokens(opts.node, context.program);
-  let open_brace_token = child_tokens
-    .iter()
-    .find(|t| t.token == Token::LBrace)
-    .expect("Expected to find an open brace token.");
-  let close_brace_token = child_tokens
-    .iter()
-    .rev()
-    .find(|t| t.token == Token::RBrace)
-    .expect("Expected to find a close brace token.");
+  let open_brace_token = child_tokens.iter().find(|t| t.token == Token::LBrace);
+  let close_brace_token = child_tokens.iter().rev().find(|t| t.token == Token::RBrace);
+  // swc sometimes recovers from a missing brace without reporting an error (ex. an
+  // `export namespace` missing its close brace in a program parsed by deno_ast)
+  let (Some(open_brace_token), Some(close_brace_token)) = (open_brace_token, close_brace_token) else {
+    context.diagnostics.push(context::GenerateDiagnostic {
+      message: format!(
+        "Expected to find the open and close brace tokens of the body starting on line {}.",
+        opts.node.start_line_fast(context.program) + 1
+      ),
+    });
+    return items;
+  };
 
   items.extend(gen_brace_separator(
     GenBraceSeparatorOptions {
