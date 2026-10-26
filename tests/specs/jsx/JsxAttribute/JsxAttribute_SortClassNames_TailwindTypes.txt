@@ -1,0 +1,15 @@
+-- file.tsx --
+~~ jsx.sortClassNames: tailwind ~~
+== should not sort strings in types ==
+const value = <div className={classes as "p-4 flex"} />;
+const other = <div className={(classes satisfies Record<"p-4 flex", string>)["p-4 flex"]} />;
+
+[expect]
+const value = <div className={classes as "p-4 flex"} />;
+const other = <div className={(classes satisfies Record<"p-4 flex", string>)["p-4 flex"]} />;
+
+== should sort the expression of a type assertion ==
+const value = <div className={"p-4 flex" as const} />;
+
+[expect]
+const value = <div className={"flex p-4" as const} />;
