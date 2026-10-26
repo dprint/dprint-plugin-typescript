@@ -13,6 +13,19 @@ testing
     .thelineWidth
     .someMore;
 
+== should go full multi-line when only the last item exceeds the width ==
+testing.this.out.for.when.it.passes.longer;
+
+[expect]
+testing
+    .this
+    .out
+    .for
+    .when
+    .it
+    .passes
+    .longer;
+
 == should maintain single line when below the width ==
 testing.this.out;
 
