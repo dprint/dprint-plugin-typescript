@@ -1835,10 +1835,13 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
       if should_not_newline_after_arrow(&node.body, context) {
         items.push_space();
       } else {
-        // todo: uncomment this? I was making a lot of changes so didn't want to do it yet
-        // items.extend(actions::if_column_number_changes(move |context| {
-        //   context.clear_info(end_body_ln);
-        // }));
+        // the end line resolved while printing the body at a different position is
+        // stale, so shift it when only the line changes and clear it when the
+        // column changes, otherwise an old line break forces a new line here
+        items.push_anchor(LineNumberAnchor::new(end_body_ln));
+        items.extend(actions::if_column_number_changes(move |context| {
+          context.clear_info(end_body_ln);
+        }));
         items.push_condition(conditions::if_above_width_or(
           context.config.indent_width,
           if_true_or(

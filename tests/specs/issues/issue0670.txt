@@ -1,0 +1,94 @@
+~~ lineWidth: 80 ~~
+== should not break an arrow body that fits once the statement moves to the next line ==
+function foo() {
+  for (let i = 0; i < buttonCount; i++) { range.text(i.toString(), (ctx) => ctx.reply(`${i} selected`));
+  }
+}
+
+[expect]
+function foo() {
+    for (let i = 0; i < buttonCount; i++) {
+        range.text(i.toString(), (ctx) => ctx.reply(`${i} selected`));
+    }
+}
+
+== should join an arrow body that was previously broken when it fits ==
+function foo() {
+    for (let i = 0; i < buttonCount; i++) {
+        range.text(i.toString(), (ctx) =>
+            ctx.reply(`${i} selected`));
+    }
+}
+
+[expect]
+function foo() {
+    for (let i = 0; i < buttonCount; i++) {
+        range.text(i.toString(), (ctx) => ctx.reply(`${i} selected`));
+    }
+}
+
+== should not break the arrow body when a single line body moves to the next line ==
+for (let i = 0; i < buttonCount; i++) { range.text(i.toString(), (ctx) => ctx.reply(`${i}`)); }
+
+if (someCondition) { range.text(i.toString(), (ctx) => ctx.reply(`${i} selected`)); }
+
+while (someCondition) { range.text(i.toString(), (ctx) => ctx.reply(`${i} selected`)); }
+
+for (const item of items) { range.text(i.toString(), (ctx) => ctx.reply(`${i} selected`)); }
+
+for (let i = 0; i < buttonCount; i++) { range.text(i.toString(), (ctx) => (other) => ctx.reply(other)); }
+
+[expect]
+for (let i = 0; i < buttonCount; i++) {
+    range.text(i.toString(), (ctx) => ctx.reply(`${i}`));
+}
+
+if (someCondition) {
+    range.text(i.toString(), (ctx) => ctx.reply(`${i} selected`));
+}
+
+while (someCondition) {
+    range.text(i.toString(), (ctx) => ctx.reply(`${i} selected`));
+}
+
+for (const item of items) {
+    range.text(i.toString(), (ctx) => ctx.reply(`${i} selected`));
+}
+
+for (let i = 0; i < buttonCount; i++) {
+    range.text(i.toString(), (ctx) => (other) => ctx.reply(other));
+}
+
+== should format the same as when the statement is already on its own line ==
+for (let i = 0; i < buttonCount; i++) { range.text(i.toString(), (ctx) => ctx.reply(`${i} selected ${aaaaaaaaaaaaaaaaaaaaaaa}`)); }
+
+for (let i = 0; i < buttonCount; i++) {
+    range.text(i.toString(), (ctx) => ctx.reply(`${i} selected ${aaaaaaaaaaaaaaaaaaaaaaa}`));
+}
+
+[expect]
+for (let i = 0; i < buttonCount; i++) {
+    range.text(
+        i.toString(),
+        (ctx) => ctx.reply(`${i} selected ${aaaaaaaaaaaaaaaaaaaaaaa}`),
+    );
+}
+
+for (let i = 0; i < buttonCount; i++) {
+    range.text(
+        i.toString(),
+        (ctx) => ctx.reply(`${i} selected ${aaaaaaaaaaaaaaaaaaaaaaa}`),
+    );
+}
+
+== should remove the braces of a nested body that fits on one line with its header ==
+function foo() {
+  if (a) { if (b) { range.text(i.toString(), (ctx) => ctx.reply(`${i} selected`)); } }
+}
+
+[expect]
+function foo() {
+    if (a) {
+        if (b) range.text(i.toString(), (ctx) => ctx.reply(`${i} selected`));
+    }
+}
