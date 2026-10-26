@@ -1835,13 +1835,7 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
       if should_not_newline_after_arrow(&node.body, context) {
         items.push_space();
       } else {
-        // the end line resolved while printing the body at a different position is
-        // stale, so shift it when only the line changes and clear it when the
-        // column changes, otherwise an old line break forces a new line here
-        items.push_anchor(LineNumberAnchor::new(end_body_ln));
-        items.extend(actions::if_column_number_changes(move |context| {
-          context.clear_info(end_body_ln);
-        }));
+        items.extend(reset_stale_line_number(end_body_ln));
         items.push_condition(conditions::if_above_width_or(
           context.config.indent_width,
           if_true_or(
@@ -4055,10 +4049,7 @@ fn handle_jsx_surrounding_parens(inner_items: PrintItems, context: &mut Context<
   let inner_items_rc = inner_items.into_rc_path();
 
   items.push_info(start_ln);
-  items.push_anchor(LineNumberAnchor::new(end_ln));
-  items.extend(actions::if_column_number_changes(move |context| {
-    context.clear_info(end_ln);
-  }));
+  items.extend(reset_stale_line_number(end_ln));
   let mut condition = if_true_or(
     "parensOrNewlinesIfMultipleLines",
     Rc::new(move |context| condition_helpers::is_multiple_lines(context, start_ln, end_ln)),
@@ -9175,13 +9166,7 @@ fn gen_for_flattened_member_like_expr<'a>(node: FlattenedMemberLikeExpr<'a>, con
   if total_items_len > 1 {
     items.push_info(member_expr_start_ln);
     if context.config.member_expression_line_per_expression {
-      // the last item's line number is still resolved from an earlier printing of this
-      // expression when the printer goes back and prints it again, so keep it relative
-      // to the start when the expression moves lines and forget it when it moves columns
-      items.push_anchor(LineNumberAnchor::new(member_expr_last_item_start_ln));
-      items.extend(actions::if_column_number_changes(move |context| {
-        context.clear_info(member_expr_last_item_start_ln);
-      }));
+      items.extend(reset_stale_line_number(member_expr_last_item_start_ln));
     }
   }
 
@@ -10216,11 +10201,8 @@ fn jsx_space_separator<'a>(previous_node: Node<'a>, current_node: Node<'a>, cont
 
     let start_line = LineNumber::new("jsxSpaceStartLine");
     let end_line = LineNumber::new("jsxSpaceEndLine");
-    items.push_anchor(LineNumberAnchor::new(end_line));
     items.push_info(start_line);
-    items.extend(actions::if_column_number_changes(move |context| {
-      context.clear_info(end_line);
-    }));
+    items.extend(reset_stale_line_number(end_line));
 
     let mut condition = if_true_or(
       "jsxSpaceOrNewLineIsMultipleLines",
@@ -10578,6 +10560,22 @@ fn use_new_line_group_for_arrow_body<'a>(arrow_expr: &'a ArrowExpr<'a>, context:
     },
     _ => true,
   }
+}
+
+/// Prevents a condition from reading a line number that's resolved later in the output with
+/// the value from an earlier printing at a different position. The printer doesn't clear
+/// resolved infos when it goes back and prints something again, so a stale end line could
+/// make a condition think its node is multi-line, which then makes it multi-line.
+///
+/// The line number is shifted when the printing moves to another line and cleared when it
+/// moves to another column.
+fn reset_stale_line_number(line_number: LineNumber) -> PrintItems {
+  let mut items = PrintItems::new();
+  items.push_anchor(LineNumberAnchor::new(line_number));
+  items.extend(actions::if_column_number_changes(move |context| {
+    context.clear_info(line_number);
+  }));
+  items
 }
 
 fn surround_with_parens(items: PrintItems) -> PrintItems {

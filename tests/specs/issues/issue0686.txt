@@ -11,8 +11,10 @@ const createTestData = () =>
 [expect]
 const createTestData = () =>
   function*() {
-    const startingFrom = yield* Effect.map(DateTime.now, now =>
-      DateTime.startOf(now, "day"))
+    const startingFrom = yield* Effect.map(
+      DateTime.now,
+      now => DateTime.startOf(now, "day"),
+    )
 
     return HashSet.make(DateTime.toEpochMillis(startingFrom))
   }
@@ -30,8 +32,10 @@ const createTestData = () =>
 [expect]
 const createTestData = () =>
   function*() {
-    const startingFrom = yield* Effect.map(DateTime.now, now =>
-      DateTime.startOf(now, "day"))
+    const startingFrom = yield* Effect.map(
+      DateTime.now,
+      now => DateTime.startOf(now, "day"),
+    )
 
     const value = HashSet.make(DateTime.toEpochMillis(startingFrom)).value
     return value.other
@@ -49,8 +53,10 @@ const createTestData = () =>
 [expect]
 const createTestData = () =>
   function*() {
-    const startingFrom = yield* Effect.map(DateTime.now, now =>
-      DateTime.startOf(now, "day"))
+    const startingFrom = yield* Effect.map(
+      DateTime.now,
+      now => DateTime.startOf(now, "day"),
+    )
 
     return HashSet
       .make(DateTime.toEpochMillis(startingFrom))
