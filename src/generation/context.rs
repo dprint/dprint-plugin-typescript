@@ -151,6 +151,10 @@ impl<'a> Context<'a> {
     self.handled_comments.insert(comment.start());
   }
 
+  pub fn unmark_comment_handled(&mut self, comment: &Comment) {
+    self.handled_comments.remove(&comment.start());
+  }
+
   pub fn store_info_range_for_node(&mut self, node: &impl SourceRanged, lns: (LineNumber, LineNumber)) {
     self.stored_ln_ranges.insert((node.start(), node.end()), lns);
   }
