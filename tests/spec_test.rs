@@ -13,15 +13,13 @@ fn external_formatter(lang: &str, text: String, config: &Configuration) -> Resul
     "css" => format_embedded_css(&text, config),
     "html" => format_html(&text, config),
     "sql" => format_sql(&text, config),
-    "graphql" => format_graphql_stub(&text, config),
+    "graphql" | "gql" => format_graphql_stub(&text, config),
     _ => Ok(None),
   }
 }
 
-/// Stub formatter for graphql — collapses whitespace runs to single spaces on each
-/// line. Just enough to verify that the `graphql` language key is reached from
-/// `gql`, `graphql`, and `graphql.experimental` tag patterns. Emits at 0-level
-/// indent; the host re-indents to match the surrounding code.
+/// Stub formatter for graphql that collapses the whitespace on each line, which is
+/// enough to test that `graphql`, `gql`, and `graphql.experimental` reach it.
 fn format_graphql_stub(text: &str, _config: &Configuration) -> Result<Option<String>> {
   // collect non-empty collapsed lines so the second formatting pass is idempotent
   let lines: Vec<String> = text

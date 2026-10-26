@@ -192,7 +192,7 @@ foo.extend`color: red;`;
 [expect]
 foo.extend`color: red;`;
 
-== should format css in css.global`...` (emotion-style member) ==
+== should format css in css.global`...` ==
 const reset = css.global`.reset { margin : 0 ; padding : 0 ; }`;
 [expect]
 const reset = css.global`
@@ -210,94 +210,43 @@ const Anchor = styled["a"]`
     color: #007bff;
 `;
 
-== should format css in JSX css prop ==
-const x = <div css={`display:flex ; align-items:center ;`}>x</div>;
+== should format css in css.resolve`...` ==
+const { className } = css.resolve`a { color : red ; }`;
 [expect]
-const x = (
-    <div
-        css={`
-            display: flex;
-            align-items: center;
-        `}
-    >
-        x
-    </div>
-);
+const { className } = css.resolve`
+    a {
+        color: red;
+    }
+`;
 
-== should not treat non-css JSX attribute template as css ==
-const x = <div data={`raw template`}>x</div>;
+== should format css in a method call on styled.tag`...` ==
+styled.div.withConfig({ displayName: "A" })`color : red ;`;
 [expect]
-const x = <div data={`raw template`}>x</div>;
+styled.div.withConfig({ displayName: "A" })`
+    color: red;
+`;
 
-== should format css in styled-jsx `<style jsx>{`...`}</style>` ==
-const x = <style jsx>{`display:flex ; align-items:center ;`}</style>;
+== should not format css in other members of css ==
+css.foo`color : red ;`;
 [expect]
-const x = (
-    <style jsx>
-        {`
-            display: flex;
-            align-items: center;
-        `}
-    </style>
-);
+css.foo`color : red ;`;
 
-== should format css in styled-jsx `<style jsx global>{`...`}</style>` ==
-const x = <style jsx global>{`html { color: red; }`}</style>;
+== should not format css in a member of a member of <UpperIdent>.extend ==
+Button.extend.foo.bar`color : red ;`;
 [expect]
-const x = (
-    <style jsx global>
-        {`
-            html {
-                color: red;
-            }
-        `}
-    </style>
-);
+Button.extend.foo.bar`color : red ;`;
 
-== should not treat `<style>{`...`}</style>` without jsx attribute as css ==
-const x = <style>{`html { color: red; }`}</style>;
+== should not format css in a call of <UpperIdent>.extend ==
+Model.extend(options)`color : red ;`;
 [expect]
-const x = <style>{`html { color: red; }`}</style>;
+Model.extend(options)`color : red ;`;
 
-== should format css in Angular @Component({ styles: `...` }) ==
-@Component({ selector: 'app', styles: `h1 { color : blue }` })
-export class A {}
+== should not format css in template literals that aren't tagged ==
+const a = <div css={`color : red ;`} />;
+const b = <style jsx>{`a { color : red ; }`}</style>;
 [expect]
-@Component({
-    selector: "app",
-    styles: `
-        h1 {
-            color: blue;
-        }
-    `,
-})
-export class A {}
-
-== should format css in Angular @Component({ styles: [`...`] }) ==
-@Component({ selector: 'app', styles: [`h1 { color : blue }`] })
-export class A {}
-[expect]
-@Component({
-    selector: "app",
-    styles: [`
-        h1 {
-            color: blue;
-        }
-    `],
-})
-export class A {}
-
-== should not treat non-Component decorator template as css/html ==
-decorate({ styles: `h1 { color: red }` });
-[expect]
-decorate({ styles: `h1 { color: red }` });
-
-== should not treat Angular @Component with computed `[styles]` key ==
-@Component({ [stylesKey]: `h1 { color : blue }` })
-export class A {}
-[expect]
-@Component({ [stylesKey]: `h1 { color : blue }` })
-export class A {}
+const a = <div css={`color : red ;`} />;
+const b = <style jsx>{`a { color : red ; }`}</style>;
 
 == should keep a lone escape ==
 css`.a::before { content: "\201C"; }`
