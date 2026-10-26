@@ -84,6 +84,16 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
   let node_end = node_range.end;
   let mut has_ignore_comment = false;
 
+  // the comments before the braces of a jsx spread attribute go outside them
+  let jsx_spread_attr_braces = get_jsx_spread_attr_braces(node, context);
+  let jsx_spread_attr_leading_comment_items = match jsx_spread_attr_braces {
+    Some((open_brace, _)) => {
+      let leading_comments = context.comments.leading_comments_with_previous(open_brace.start());
+      gen_comments_as_leading(&open_brace.range(), leading_comments, context)
+    }
+    None => PrintItems::new(),
+  };
+
   // do not get the comments for modules as this will be handled in gen_statements
   if !matches!(node_kind, NodeKind::Module | NodeKind::Script) {
     // get the leading comments
@@ -142,8 +152,13 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
 
   // need to ensure a jsx spread element's comments are generated within the braces since swc
   // has no representation of a JSX spread attribute and goes straight to the spread element
-  return if node_kind == NodeKind::SpreadElement && node.parent().unwrap().kind() == NodeKind::JSXOpeningElement {
-    gen_as_jsx_expr_container(node, items, context)
+  return if let Some((_, close_brace)) = jsx_spread_attr_braces {
+    let mut jsx_spread_attr_items = jsx_spread_attr_leading_comment_items;
+    jsx_spread_attr_items.extend(gen_as_jsx_expr_container(node, items, context));
+    // the comments after the braces go outside them
+    let trailing_comments = context.comments.trailing_comments_with_previous(close_brace.end());
+    jsx_spread_attr_items.extend(gen_comments_as_trailing(&close_brace.range(), trailing_comments, context));
+    jsx_spread_attr_items
   } else {
     items
   };
@@ -398,6 +413,16 @@ fn gen_node_with_inner_gen<'a>(node: Node<'a>, context: &mut Context<'a>, inner_
     }
     context.last_generated_node_pos = node_pos;
   }
+}
+
+/// Gets the braces of a jsx spread attribute, which aren't part of its spread element.
+fn get_jsx_spread_attr_braces<'a>(node: Node<'a>, context: &Context<'a>) -> Option<(&'a TokenAndSpan, &'a TokenAndSpan)> {
+  if node.kind() != NodeKind::SpreadElement || node.parent()?.kind() != NodeKind::JSXOpeningElement {
+    return None;
+  }
+  let open_brace = context.token_finder.get_previous_token_if_open_brace(&node)?;
+  let close_brace = context.token_finder.get_next_token_if_close_brace(&node)?;
+  Some((open_brace, close_brace))
 }
 
 /// Generates text from the file as is. The comments before its end are marked as
@@ -4240,7 +4265,14 @@ fn gen_jsx_opening_element<'a>(node: &JSXOpeningElement<'a>, context: &mut Conte
 
   // generate trailing comments on different lines
   let name_or_type_arg_end = node.type_args.map(|t| t.end()).unwrap_or_else(|| node.name.end());
-  let last_node_end = node.attrs.last().map(|n| n.end()).unwrap_or(name_or_type_arg_end);
+  let last_node_end = node
+    .attrs
+    .last()
+    .map(|n| match get_jsx_spread_attr_braces(n.into(), context) {
+      Some((_, close_brace)) => close_brace.end(),
+      None => n.end(),
+    })
+    .unwrap_or(name_or_type_arg_end);
 
   let generated_comments = gen_comments_as_statements(last_node_end.trailing_comments_fast(context.program), None, context);
   if !generated_comments.is_empty() {

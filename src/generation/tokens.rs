@@ -31,6 +31,10 @@ impl<'a> TokenFinder<'a> {
     self.get_previous_token_if(node, |token| token.token == Token::LBrace)
   }
 
+  pub fn get_next_token_if_close_brace(&self, node: &impl SourceRanged) -> Option<&'a TokenAndSpan> {
+    self.get_next_token_if(node, |token| token.token == Token::RBrace)
+  }
+
   pub fn get_previous_token_if_open_bracket(&self, node: &impl SourceRanged) -> Option<&'a TokenAndSpan> {
     self.get_previous_token_if(node, |token| token.token == Token::LBracket)
   }
