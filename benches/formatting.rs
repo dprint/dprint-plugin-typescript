@@ -138,6 +138,7 @@ fn run_format_text(file_text: &str, config: &Configuration) -> usize {
     text: Arc::from(file_text),
     config,
     external_formatter: None,
+    arena_pool: None,
   })
   .unwrap();
   result.as_deref().unwrap_or(file_text).len()
@@ -149,6 +150,7 @@ fn run_format_parsed_source(parsed_source: &ParsedSource, config: &Configuration
     syntax: parsed_source.syntax(),
     config,
     external_formatter: None,
+    arena_pool: None,
   })
   .unwrap();
   result.as_deref().unwrap_or(parsed_source.text()).len()

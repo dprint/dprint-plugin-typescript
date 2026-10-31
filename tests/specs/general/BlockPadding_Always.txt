@@ -1,0 +1,141 @@
+~~ blockPadding: always ~~
+== should add padding to blocks ==
+function test() {
+    a();
+}
+
+class Test {
+    prop: string;
+}
+
+const a = () => {
+    b();
+};
+
+[expect]
+function test() {
+
+    a();
+
+}
+
+class Test {
+
+    prop: string;
+
+}
+
+const a = () => {
+
+    b();
+
+};
+
+== should keep only one blank line of padding ==
+function test() {
+
+
+    a();
+
+
+}
+
+[expect]
+function test() {
+
+    a();
+
+}
+
+== should add padding to control flow bodies ==
+if (true) {
+    a();
+} else {
+    b();
+}
+
+for (const a of b) {
+    c();
+}
+
+try {
+    a();
+} catch {
+    b();
+} finally {
+    c();
+}
+
+[expect]
+if (true) {
+
+    a();
+
+} else {
+
+    b();
+
+}
+
+for (const a of b) {
+
+    c();
+
+}
+
+try {
+
+    a();
+
+} catch {
+
+    b();
+
+} finally {
+
+    c();
+
+}
+
+== should add padding when braces are added to a body ==
+if (true)
+    a();
+
+[expect]
+if (true) {
+
+    a();
+
+}
+
+== should not add padding to a body without braces ==
+if (true) a();
+
+[expect]
+if (true) a();
+
+== should add padding to blocks with only comments ==
+function test() {
+    // comment
+}
+
+[expect]
+function test() {
+
+    // comment
+
+}
+
+== should not add padding to empty blocks ==
+function test() {
+}
+
+function other() { // comment
+}
+
+[expect]
+function test() {
+}
+
+function other() { // comment
+}

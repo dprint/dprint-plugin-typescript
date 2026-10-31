@@ -9,7 +9,6 @@ use dprint_swc_ext::swc::parser::Syntax;
 use dprint_swc_ext::view::Program;
 use dprint_swc_ext::view::ProgramInfoProvider;
 
-use crate::FormatError;
 use crate::Result;
 
 use super::configuration::Configuration;
@@ -28,6 +27,9 @@ pub struct FormatTextOptions<'a> {
   pub text: Arc<str>,
   pub config: &'a Configuration,
   pub external_formatter: Option<&'a ExternalFormatter>,
+  /// The pool to create the arena for formatting from, which reuses its memory
+  /// between formats. When `None`, the memory is freed once the file is formatted.
+  pub arena_pool: Option<&'a ArenaPool>,
 }
 
 /// Formats a file.
@@ -59,6 +61,7 @@ pub struct FormatTextOptions<'a> {
 ///         text: file_text.into(),
 ///         config: &config,
 ///         external_formatter: None,
+///         arena_pool: None,
 ///     });
 ///     // save result here...
 /// }
@@ -70,6 +73,7 @@ pub fn format_text(options: FormatTextOptions) -> Result<Option<String>> {
     text: file_text,
     config,
     external_formatter,
+    arena_pool,
   } = options;
   if super::utils::file_text_has_ignore_comment(&file_text, &config.ignore_file_comment_text) {
     Ok(None)
@@ -83,7 +87,9 @@ pub fn format_text(options: FormatTextOptions) -> Result<Option<String>> {
       text: file_text,
     })?;
     let syntax = parsed_source.syntax();
-    let formatted = parsed_source.with_view(|program| inner_format_program(program, syntax, config, external_formatter))?;
+    // the arena is created before the ast view so the print items can borrow from it
+    let arena = create_arena(arena_pool);
+    let formatted = parsed_source.with_view(|program| inner_format_program(&arena, program, syntax, config, external_formatter))?;
     match formatted {
       Some(new_text) => Ok(Some(new_text)),
       None => {
@@ -104,6 +110,9 @@ pub struct FormatParsedSourceOptions<'a, TSource: ProgramInfoProvider> {
   pub syntax: Syntax,
   pub config: &'a Configuration,
   pub external_formatter: Option<&'a ExternalFormatter>,
+  /// The pool to create the arena for formatting from, which reuses its memory
+  /// between formats. When `None`, the memory is freed once the file is formatted.
+  pub arena_pool: Option<&'a ArenaPool>,
 }
 
 /// Formats an already parsed source. This is useful as a performance optimization.
@@ -123,13 +132,17 @@ pub fn format_parsed_source<TSource: ProgramInfoProvider>(options: FormatParsedS
     syntax,
     config,
     external_formatter,
+    arena_pool,
   } = options;
+  // the arena is created before the ast view so the print items can borrow from it
+  let arena = create_arena(arena_pool);
   source.with_view(|program| {
     format_program(FormatProgramOptions {
       program,
       syntax,
       config,
       external_formatter,
+      arena: &arena,
     })
   })
 }
@@ -141,6 +154,9 @@ pub struct FormatProgramOptions<'a> {
   pub syntax: Syntax,
   pub config: &'a Configuration,
   pub external_formatter: Option<&'a ExternalFormatter>,
+  /// The arena to allocate the print items in, which needs to be created before
+  /// the ast view so the print items can borrow from the program.
+  pub arena: &'a Arena,
 }
 
 /// Formats an ast view of an already parsed source.
@@ -160,12 +176,14 @@ pub struct FormatProgramOptions<'a> {
 /// # Example
 ///
 /// ```ignore
+/// let arena = Arena::new();
 /// parsed_source.with_view(|program| {
 ///   format_program(FormatProgramOptions {
 ///     program,
 ///     syntax: parsed_source.syntax(),
 ///     config: &config,
 ///     external_formatter: None,
+///     arena: &arena,
 ///   })
 /// })
 /// ```
@@ -175,6 +193,7 @@ pub fn format_program(options: FormatProgramOptions) -> Result<Option<String>> {
     syntax,
     config,
     external_formatter,
+    arena,
   } = options;
   if program.maybe_text_info().is_none() {
     return Err("The text info must be provided in order to format a program.".into());
@@ -189,7 +208,7 @@ pub fn format_program(options: FormatProgramOptions) -> Result<Option<String>> {
   if super::utils::file_text_has_ignore_comment(file_text, &config.ignore_file_comment_text) {
     return Ok(None);
   }
-  inner_format_program(program, syntax, config, external_formatter)
+  inner_format_program(arena, program, syntax, config, external_formatter)
 }
 
 #[cfg(feature = "tracing")]
@@ -201,37 +220,34 @@ pub fn trace_file(file_path: &Path, file_text: &str, config: &Configuration) -> 
   })
   .unwrap();
   let syntax = parsed_source.syntax();
+  let arena = Arena::new();
   dprint_core::formatting::trace_printing(
-    || parsed_source.with_view(|program| generate(program, syntax, config, None)).unwrap(),
+    parsed_source.with_view(|program| generate(&arena, program, syntax, config, None)).unwrap(),
     config_to_print_options(file_text, config),
   )
 }
 
 fn inner_format_program<'a>(
+  arena: &'a Arena,
   program: Program<'a>,
   syntax: Syntax,
   config: &'a Configuration,
   external_formatter: Option<&'a ExternalFormatter>,
 ) -> Result<Option<String>> {
   let file_text = program.text_info().text_str();
-  let mut maybe_err: Box<Option<FormatError>> = Box::new(None);
-  let result = dprint_core::formatting::format(
-    || match generate(program, syntax, config, external_formatter) {
-      Ok(print_items) => print_items,
-      Err(e) => {
-        maybe_err.replace(e);
-        PrintItems::default()
-      }
-    },
-    config_to_print_options(file_text, config),
-  );
-  if let Some(e) = maybe_err.take() {
-    return Err(e);
-  }
+  let print_items = generate(arena, program, syntax, config, external_formatter)?;
+  let result = dprint_core::formatting::print(print_items, config_to_print_options(file_text, config));
   if result == file_text {
     Ok(None)
   } else {
     Ok(Some(result))
+  }
+}
+
+fn create_arena(arena_pool: Option<&ArenaPool>) -> Arena {
+  match arena_pool {
+    Some(arena_pool) => arena_pool.create_arena(),
+    None => Arena::new(),
   }
 }
 
@@ -258,6 +274,7 @@ mod test {
         text: input_text.into(),
         config: &config,
         external_formatter: None,
+        arena_pool: None,
       })
       .unwrap()
       .unwrap();
@@ -277,6 +294,7 @@ mod test {
         assert!(matches!(lang, "html"));
         Err("Syntax error from external formatter".into())
       }),
+      arena_pool: None,
     });
     assert!(result.is_err());
     assert_eq!(
@@ -295,6 +313,7 @@ mod test {
     })
     .unwrap();
     let syntax = parsed_source.syntax();
+    let arena = Arena::new();
     let result = parsed_source
       .with_view(|program| {
         format_program(FormatProgramOptions {
@@ -302,6 +321,7 @@ mod test {
           syntax,
           config: &config,
           external_formatter: None,
+          arena: &arena,
         })
       })
       .unwrap()

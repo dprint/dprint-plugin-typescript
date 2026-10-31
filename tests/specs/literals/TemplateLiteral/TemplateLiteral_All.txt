@@ -192,3 +192,72 @@ const test = `test test test test ${
     ""
     // 6
 }b`;
+
+== should put the closing brace on the next line after an expression with leading comments ==
+`a${
+    // 1
+    a + b
+}b`;
+`a${
+    /* 2 */
+    a + b
+}b`;
+
+[expect]
+`a${
+    // 1
+    a + b
+}b`;
+`a${
+    /* 2 */
+    a + b
+}b`;
+
+== should put the expression on its own line when it has a trailing line comment ==
+const a = `${a + b // comment
+}`;
+const b = `${
+    a + b // comment
+}`;
+const c = `${a // comment
+}`;
+const d = `${a /* c */ // d
+}`;
+
+[expect]
+const a = `${
+    a + b // comment
+}`;
+const b = `${
+    a + b // comment
+}`;
+const c = `${
+    a // comment
+}`;
+const d = `${
+    a /* c */ // d
+}`;
+
+== should put the expression on its own line when it has comments on the next lines ==
+const a = `${a + b
+    // comment
+}`;
+const b = `${a
+    /* comment */
+}`;
+
+[expect]
+const a = `${
+    a + b
+    // comment
+}`;
+const b = `${
+    a
+    /* comment */
+}`;
+
+== should keep the expression on the same line as block comments on the same line ==
+const a = `a${/* 1 */ a /* 2 */}b`;
+
+[expect]
+const a = `a${/* 1 */ a /* 2 */}b`;

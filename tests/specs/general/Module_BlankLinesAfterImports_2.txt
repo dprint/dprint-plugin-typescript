@@ -1,0 +1,88 @@
+~~ module.blankLinesAfterImports: 2 ~~
+== should force two blank lines after the imports ==
+import a from "a";
+import b from "b";
+
+import c from "./c";
+const d = 1;
+
+const e = 2;
+
+[expect]
+import a from "a";
+import b from "b";
+
+import c from "./c";
+
+
+const d = 1;
+
+const e = 2;
+
+== should reduce the blank lines after the imports ==
+import a from "a";
+
+
+
+
+const b = 1;
+
+[expect]
+import a from "a";
+
+
+const b = 1;
+
+== should force the blank lines before a comment after the imports ==
+import a from "a";
+// comment
+const b = 1;
+
+[expect]
+import a from "a";
+
+
+// comment
+const b = 1;
+
+== should force the blank lines after side effect and import equals declarations ==
+import "a";
+import b = require("b");
+const c = 1;
+
+[expect]
+import "a";
+import b = require("b");
+
+
+const c = 1;
+
+== should force the blank lines before exports after the imports ==
+import a from "a";
+export * from "b";
+
+[expect]
+import a from "a";
+
+
+export * from "b";
+
+== should force the blank lines before comments of exports after the imports ==
+import a from "a";
+// comment
+export * from "b";
+
+[expect]
+import a from "a";
+
+
+// comment
+export * from "b";
+
+== should not add blank lines when there are only imports ==
+import a from "a";
+// comment
+
+[expect]
+import a from "a";
+// comment

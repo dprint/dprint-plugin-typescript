@@ -1,3 +1,4 @@
+use dprint_core::formatting::Arena;
 use dprint_core::formatting::ConditionReference;
 use dprint_core::formatting::IndentLevel;
 use dprint_core::formatting::IsStartOfLine;
@@ -13,9 +14,11 @@ use dprint_swc_ext::swc::parser::Syntax;
 use dprint_swc_ext::view::*;
 use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
+use std::borrow::Cow;
 
 use super::*;
 use crate::configuration::*;
+use crate::tailwind;
 use crate::utils::Stack;
 
 /// A callback that will be called when encountering tagged templates.
@@ -52,7 +55,12 @@ pub(crate) struct GenerateDiagnostic {
   pub message: String,
 }
 
+/// A vector allocated in the arena.
+pub type BumpVec<'a, T> = dprint_core::formatting::bumpalo::collections::Vec<'a, T>;
+
 pub struct Context<'a> {
+  /// The arena the print items are allocated in.
+  pub arena: &'a Arena,
   pub syntax: Syntax,
   pub program: Program<'a>,
   pub config: &'a Configuration,
@@ -69,6 +77,12 @@ pub struct Context<'a> {
   stored_ln: FxHashMap<(SourcePos, SourcePos), LineNumber>,
   stored_il: FxHashMap<(SourcePos, SourcePos), IndentLevel>,
   pub skip_iife_body_indent: bool,
+  /// The start of the template literal being generated and how to sort the class names in it.
+  pub tpl_class_names_sort_options: Option<(SourcePos, tailwind::SortOptions)>,
+  /// Whether the blank lines between the values of the list being generated are kept.
+  pub allow_blank_lines_in_list: bool,
+  /// Whether the list being generated forces a blank line between its values.
+  pub force_blank_line_in_list: bool,
   pub end_statement_or_member_lns: Stack<LineNumber>,
   before_comments_start_info_stack: Stack<(SourceRange, LineNumber, IsStartOfLine)>,
   if_stmt_last_brace_condition_ref: Option<ConditionReference>,
@@ -81,7 +95,22 @@ pub struct Context<'a> {
 }
 
 impl<'a> Context<'a> {
+  /// Allocates the text in the arena so it lives as long as the print items.
+  pub fn alloc_str(&self, text: &str) -> &'a str {
+    self.arena.bump().alloc_str(text)
+  }
+
+  /// Gets text that lives as long as the print items, which is only
+  /// allocated in the arena when it's owned.
+  pub fn alloc_cow_str(&self, text: Cow<'a, str>) -> &'a str {
+    match text {
+      Cow::Borrowed(text) => text,
+      Cow::Owned(text) => self.alloc_str(&text),
+    }
+  }
+
   pub fn new(
+    arena: &'a Arena,
     syntax: Syntax,
     tokens: &'a [TokenAndSpan],
     current_node: Node<'a>,
@@ -90,6 +119,7 @@ impl<'a> Context<'a> {
     external_formatter: Option<&'a ExternalFormatter>,
   ) -> Context<'a> {
     Context {
+      arena,
       syntax,
       program,
       config,
@@ -105,6 +135,9 @@ impl<'a> Context<'a> {
       stored_ln: FxHashMap::default(),
       stored_il: FxHashMap::default(),
       skip_iife_body_indent: false,
+      tpl_class_names_sort_options: None,
+      allow_blank_lines_in_list: true,
+      force_blank_line_in_list: false,
       end_statement_or_member_lns: Default::default(),
       before_comments_start_info_stack: Default::default(),
       if_stmt_last_brace_condition_ref: None,
@@ -144,6 +177,10 @@ impl<'a> Context<'a> {
 
   pub fn mark_comment_handled(&mut self, comment: &Comment) {
     self.handled_comments.insert(comment.start());
+  }
+
+  pub fn unmark_comment_handled(&mut self, comment: &Comment) {
+    self.handled_comments.remove(&comment.start());
   }
 
   pub fn store_info_range_for_node(&mut self, node: &impl SourceRanged, lns: (LineNumber, LineNumber)) {

@@ -5,6 +5,7 @@ use dprint_core::configuration::*;
 use dprint_core::generate_str_to_from;
 use serde::Deserialize;
 use serde::Serialize;
+use std::collections::BTreeMap;
 
 use crate::generation::imports::resolved::compile_import_groups;
 use crate::generation::imports::resolved::ResolvedGroups;
@@ -114,6 +115,20 @@ pub enum MemberSpacing {
 }
 
 generate_str_to_from![MemberSpacing, [Maintain, "maintain"], [BlankLine, "blankLine"], [NewLine, "newLine"]];
+
+/// Whether to keep blank lines at the start and end of a block.
+#[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BlockPadding {
+  /// Removes the blank lines at the start and end of a block.
+  Remove,
+  /// Maintains the blank lines at the start and end of a block.
+  Maintain,
+  /// Forces a blank line at the start and end of a block that isn't empty.
+  Always,
+}
+
+generate_str_to_from![BlockPadding, [Remove, "remove"], [Maintain, "maintain"], [Always, "always"]];
 
 /// Where to place the next control flow within a control flow statement.
 #[derive(Debug, Clone, PartialEq, Copy, Serialize, Deserialize)]
@@ -270,6 +285,68 @@ pub enum JsxMultiLineParens {
 }
 
 generate_str_to_from![JsxMultiLineParens, [Never, "never"], [Prefer, "prefer"], [Always, "always"]];
+
+/// How to sort JSX class attribute values.
+#[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum JsxClassNamesSortOrder {
+  /// Maintains the current class name ordering.
+  Maintain,
+  /// Sorts class names using Tailwind CSS ordering.
+  Tailwind,
+}
+
+generate_str_to_from![JsxClassNamesSortOrder, [Maintain, "maintain"], [Tailwind, "tailwind"]];
+
+/// How to sort JSX class attribute values along with what's known about the project's classes.
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct JsxClassNamesSortConfig {
+  /// How to sort the class names.
+  pub kind: JsxClassNamesSortOrder,
+  /// Leading function or tag identifiers whose string arguments and template literals
+  /// should be sorted as class names.
+  pub functions: Vec<String>,
+  /// Attributes whose values should be sorted as class names in addition to `class` and `className`.
+  pub attributes: Vec<String>,
+  /// Whether to keep the whitespace between class names as is when sorting them.
+  pub preserve_whitespace: bool,
+  /// Whether to keep duplicate class names when sorting them.
+  pub preserve_duplicates: bool,
+  /// The prefix the project's Tailwind classes have (ex. `tw` when classes look like `tw:flex`).
+  pub prefix: Option<String>,
+  /// The theme variables the project adds to Tailwind's default theme and their
+  /// values (ex. `--breakpoint-3xl` and `120rem`), which is what's in `@theme` in its CSS.
+  pub theme: BTreeMap<String, String>,
+  /// The names of the project's custom variants in the order they're defined,
+  /// which is what it has an `@custom-variant` for in its CSS.
+  pub variants: Vec<String>,
+  /// The names of the project's custom utilities (ex. `btn` or `tab-*` for one that has a value)
+  /// along with the CSS properties each sets, which is what it has an `@utility` for in its CSS.
+  pub utilities: BTreeMap<String, Vec<String>>,
+}
+
+impl Default for JsxClassNamesSortConfig {
+  fn default() -> Self {
+    JsxClassNamesSortOrder::Maintain.into()
+  }
+}
+
+impl From<JsxClassNamesSortOrder> for JsxClassNamesSortConfig {
+  fn from(kind: JsxClassNamesSortOrder) -> Self {
+    Self {
+      kind,
+      functions: Vec::new(),
+      attributes: Vec::new(),
+      preserve_whitespace: false,
+      preserve_duplicates: false,
+      prefix: None,
+      theme: BTreeMap::new(),
+      variants: Vec::new(),
+      utilities: BTreeMap::new(),
+    }
+  }
+}
 
 /// Whether to use semi-colons or commas.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
@@ -450,6 +527,7 @@ pub struct Configuration {
   pub quote_props: QuoteProps,
   pub semi_colons: SemiColons,
   pub file_indent_level: u32,
+  pub max_blank_lines: u32,
   /* situational */
   #[serde(rename = "arrowFunction.useParentheses")]
   pub arrow_function_use_parentheses: UseParentheses,
@@ -461,6 +539,8 @@ pub struct Configuration {
   pub jsx_quote_style: JsxQuoteStyle,
   #[serde(rename = "jsx.multiLineParens")]
   pub jsx_multi_line_parens: JsxMultiLineParens,
+  #[serde(rename = "jsx.sortClassNames")]
+  pub jsx_sort_class_names: JsxClassNamesSortConfig,
   #[serde(rename = "jsx.forceNewLinesSurroundingContent")]
   pub jsx_force_new_lines_surrounding_content: bool,
   #[serde(rename = "jsxOpeningElement.bracketPosition")]
@@ -476,6 +556,8 @@ pub struct Configuration {
   /* sorting */
   #[serde(rename = "module.sortImportDeclarations")]
   pub module_sort_import_declarations: SortOrder,
+  #[serde(rename = "module.blankLinesAfterImports")]
+  pub module_blank_lines_after_imports: Option<u32>,
   #[serde(rename = "module.sortExportDeclarations")]
   pub module_sort_export_declarations: SortOrder,
   #[serde(rename = "importDeclaration.sortNamedImports")]
@@ -544,6 +626,8 @@ pub struct Configuration {
   pub try_statement_brace_position: BracePosition,
   #[serde(rename = "whileStatement.bracePosition")]
   pub while_statement_brace_position: BracePosition,
+  #[serde(rename = "withStatement.bracePosition")]
+  pub with_statement_brace_position: BracePosition,
   /* prefer hanging */
   #[serde(rename = "arguments.preferHanging")]
   pub arguments_prefer_hanging: PreferHanging,
@@ -593,9 +677,68 @@ pub struct Configuration {
   pub variable_statement_prefer_hanging: bool,
   #[serde(rename = "whileStatement.preferHanging")]
   pub while_statement_prefer_hanging: bool,
+  #[serde(rename = "withStatement.preferHanging")]
+  pub with_statement_prefer_hanging: bool,
   /* member spacing */
+  #[serde(rename = "classDeclaration.memberSpacing")]
+  pub class_declaration_member_spacing: MemberSpacing,
+  #[serde(rename = "classExpression.memberSpacing")]
+  pub class_expression_member_spacing: MemberSpacing,
   #[serde(rename = "enumDeclaration.memberSpacing")]
   pub enum_declaration_member_spacing: MemberSpacing,
+  #[serde(rename = "interfaceDeclaration.memberSpacing")]
+  pub interface_declaration_member_spacing: MemberSpacing,
+  #[serde(rename = "typeLiteral.memberSpacing")]
+  pub type_literal_member_spacing: MemberSpacing,
+  /* block padding */
+  #[serde(rename = "blockPadding")]
+  pub block_padding: BlockPadding,
+  #[serde(rename = "classDeclaration.blockPadding")]
+  pub class_declaration_block_padding: BlockPadding,
+  #[serde(rename = "classExpression.blockPadding")]
+  pub class_expression_block_padding: BlockPadding,
+  #[serde(rename = "enumDeclaration.blockPadding")]
+  pub enum_declaration_block_padding: BlockPadding,
+  #[serde(rename = "interfaceDeclaration.blockPadding")]
+  pub interface_declaration_block_padding: BlockPadding,
+  #[serde(rename = "moduleDeclaration.blockPadding")]
+  pub module_declaration_block_padding: BlockPadding,
+  #[serde(rename = "arrowFunction.blockPadding")]
+  pub arrow_function_block_padding: BlockPadding,
+  #[serde(rename = "constructor.blockPadding")]
+  pub constructor_block_padding: BlockPadding,
+  #[serde(rename = "doWhileStatement.blockPadding")]
+  pub do_while_statement_block_padding: BlockPadding,
+  #[serde(rename = "forInStatement.blockPadding")]
+  pub for_in_statement_block_padding: BlockPadding,
+  #[serde(rename = "forOfStatement.blockPadding")]
+  pub for_of_statement_block_padding: BlockPadding,
+  #[serde(rename = "forStatement.blockPadding")]
+  pub for_statement_block_padding: BlockPadding,
+  #[serde(rename = "functionDeclaration.blockPadding")]
+  pub function_declaration_block_padding: BlockPadding,
+  #[serde(rename = "functionExpression.blockPadding")]
+  pub function_expression_block_padding: BlockPadding,
+  #[serde(rename = "getAccessor.blockPadding")]
+  pub get_accessor_block_padding: BlockPadding,
+  #[serde(rename = "ifStatement.blockPadding")]
+  pub if_statement_block_padding: BlockPadding,
+  #[serde(rename = "method.blockPadding")]
+  pub method_block_padding: BlockPadding,
+  #[serde(rename = "setAccessor.blockPadding")]
+  pub set_accessor_block_padding: BlockPadding,
+  #[serde(rename = "staticBlock.blockPadding")]
+  pub static_block_block_padding: BlockPadding,
+  #[serde(rename = "switchCase.blockPadding")]
+  pub switch_case_block_padding: BlockPadding,
+  #[serde(rename = "switchStatement.blockPadding")]
+  pub switch_statement_block_padding: BlockPadding,
+  #[serde(rename = "tryStatement.blockPadding")]
+  pub try_statement_block_padding: BlockPadding,
+  #[serde(rename = "whileStatement.blockPadding")]
+  pub while_statement_block_padding: BlockPadding,
+  #[serde(rename = "withStatement.blockPadding")]
+  pub with_statement_block_padding: BlockPadding,
   /* next control flow position */
   #[serde(rename = "ifStatement.nextControlFlowPosition")]
   pub if_statement_next_control_flow_position: NextControlFlowPosition,
@@ -621,6 +764,8 @@ pub struct Configuration {
   pub for_of_statement_single_body_position: SameOrNextLinePosition,
   #[serde(rename = "whileStatement.singleBodyPosition")]
   pub while_statement_single_body_position: SameOrNextLinePosition,
+  #[serde(rename = "withStatement.singleBodyPosition")]
+  pub with_statement_single_body_position: SameOrNextLinePosition,
   /* trailing commas */
   #[serde(rename = "arguments.trailingCommas")]
   pub arguments_trailing_commas: TrailingCommas,
@@ -657,6 +802,8 @@ pub struct Configuration {
   pub for_in_statement_use_braces: UseBraces,
   #[serde(rename = "whileStatement.useBraces")]
   pub while_statement_use_braces: UseBraces,
+  #[serde(rename = "withStatement.useBraces")]
+  pub with_statement_use_braces: UseBraces,
   /* prefer single line */
   #[serde(rename = "arrayExpression.preferSingleLine")]
   pub array_expression_prefer_single_line: bool,
@@ -778,6 +925,8 @@ pub struct Configuration {
   pub type_literal_space_surrounding_properties: bool,
   #[serde(rename = "whileStatement.spaceAfterWhileKeyword")]
   pub while_statement_space_after_while_keyword: bool,
+  #[serde(rename = "withStatement.spaceAfterWithKeyword")]
+  pub with_statement_space_after_with_keyword: bool,
   #[serde(rename = "arguments.spaceAround")]
   pub arguments_space_around: bool,
   #[serde(rename = "arrayExpression.spaceAround")]
@@ -806,6 +955,8 @@ pub struct Configuration {
   pub tuple_type_space_around: bool,
   #[serde(rename = "whileStatement.spaceAround")]
   pub while_statement_space_around: bool,
+  #[serde(rename = "withStatement.spaceAround")]
+  pub with_statement_space_around: bool,
 }
 
 fn default_type_imports_mode() -> TypeImportsMode {

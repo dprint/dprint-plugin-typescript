@@ -97,3 +97,35 @@ const a = html`
             <circle r="5" />
         </svg></a>
 `;
+
+== should preserve a lone newline escape, not double it (deno#30103) ==
+html`\n`;
+[expect]
+html`
+    \n
+`;
+
+== should keep escaped backticks and backslashes ==
+html`<p>\`a\` \\ b</p>`;
+[expect]
+html`
+    <p>\`a\` \\ b</p>
+`;
+
+== should unescape the css in a style element ==
+html`<style>.bg-\\[\\#86efac\\] { color: red }</style>`;
+[expect]
+html`
+    <style>
+    .bg-\\[\\#86efac\\] {
+        color: red;
+    }
+    </style>
+`;
+
+== should not format html in an Angular component template ==
+@Component({ template: `<h1>{{title}}</h1>` })
+export class A {}
+[expect]
+@Component({ template: `<h1>{{title}}</h1>` })
+export class A {}

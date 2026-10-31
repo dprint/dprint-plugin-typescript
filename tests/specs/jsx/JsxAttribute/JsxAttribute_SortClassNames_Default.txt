@@ -1,0 +1,6 @@
+-- file.jsx --
+== should keep class names unchanged by default ==
+const value = <div className="p-4 flex" />;
+
+[expect]
+const value = <div className="p-4 flex" />;

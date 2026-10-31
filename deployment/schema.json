@@ -60,6 +60,91 @@
         "description": "Prefers using single quotes except in scenarios where the string contains more single quotes than double quotes."
       }]
     },
+    "jsx.sortClassNames": {
+      "description": "How to sort JSX class attribute values, which is either only the kind of sorting or an object with the kind and its options.",
+      "default": "maintain",
+      "oneOf": [{
+        "$ref": "#/definitions/jsx.sortClassNames.kind"
+      }, {
+        "type": "object",
+        "required": ["kind"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "$ref": "#/definitions/jsx.sortClassNames.kind"
+          },
+          "functions": {
+            "description": "Leading function or tag identifiers whose string arguments and template literals should be sorted as class names (ex. [\"cn\", \"clsx\"]).",
+            "type": "array",
+            "default": [],
+            "items": {
+              "type": "string"
+            }
+          },
+          "attributes": {
+            "description": "Attributes whose values should be sorted as class names in addition to \"class\" and \"className\".",
+            "type": "array",
+            "default": [],
+            "items": {
+              "type": "string"
+            }
+          },
+          "preserveWhitespace": {
+            "description": "Whether to keep the whitespace between class names as is when sorting them.",
+            "type": "boolean",
+            "default": false
+          },
+          "preserveDuplicates": {
+            "description": "Whether to keep duplicate class names when sorting them.",
+            "type": "boolean",
+            "default": false
+          },
+          "prefix": {
+            "description": "The prefix the project's Tailwind classes have (ex. \"tw\" when classes look like \"tw:flex\").",
+            "type": "string"
+          },
+          "theme": {
+            "description": "The theme variables the project adds to Tailwind's default theme and their values, which is what's in \"@theme\" in its CSS (ex. { \"--breakpoint-3xl\": \"120rem\", \"--color-brand\": \"#f00\" }).",
+            "type": "object",
+            "default": {},
+            "additionalProperties": {
+              "type": ["string", "integer"]
+            }
+          },
+          "variants": {
+            "description": "The names of the project's custom variants in the order they're defined, which is what it has an \"@custom-variant\" for in its CSS.",
+            "type": "array",
+            "default": [],
+            "items": {
+              "type": "string"
+            }
+          },
+          "utilities": {
+            "description": "The names of the project's custom utilities along with the CSS properties each sets, which is what it has an \"@utility\" for in its CSS (ex. { \"btn\": [\"display\", \"padding\"], \"tab-*\": [\"tab-size\"] }).",
+            "type": "object",
+            "default": {},
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }]
+    },
+    "jsx.sortClassNames.kind": {
+      "description": "How to sort JSX class attribute values.",
+      "type": "string",
+      "default": "maintain",
+      "oneOf": [{
+        "const": "maintain",
+        "description": "Maintains the current class name ordering."
+      }, {
+        "const": "tailwind",
+        "description": "Sorts class names using Tailwind CSS ordering."
+      }]
+    },
     "quoteProps": {
       "description": "Change when properties in objects are quoted.",
       "type": "string",
@@ -130,9 +215,6 @@
       }, {
         "const": "lf",
         "description": "Uses line feed."
-      }, {
-        "const": "system",
-        "description": "Uses the system standard (ex. crlf on Windows)."
       }]
     },
     "useBraces": {
@@ -390,8 +472,8 @@
         "description": "Maintains the line breaks as written by the programmer."
       }]
     },
-    "enumDeclaration.memberSpacing": {
-      "description": "How to space the members of an enum.",
+    "memberSpacing": {
+      "description": "How to space the members of a class, enum, interface, or type literal.",
       "type": "string",
       "default": "maintain",
       "oneOf": [{
@@ -403,6 +485,21 @@
       }, {
         "const": "maintain",
         "description": "Maintains whether a newline or blankline is used."
+      }]
+    },
+    "blockPadding": {
+      "description": "Whether to keep blank lines at the start and end of a block.",
+      "type": "string",
+      "default": "remove",
+      "oneOf": [{
+        "const": "remove",
+        "description": "Removes the blank lines at the start and end of a block."
+      }, {
+        "const": "maintain",
+        "description": "Maintains the blank lines at the start and end of a block."
+      }, {
+        "const": "always",
+        "description": "Forces a blank line at the start and end of a block that isn't empty."
       }]
     },
     "typeLiteral.separatorKind": {
@@ -574,15 +671,15 @@
       }]
     },
     "forOfStatement.spaceAfterForKeyword": {
-      "description": "Whether to add a space after the `for` keyword in a \"for of\" statement.",
+      "description": "Whether to add a space after the `for` keyword, or the `await` keyword in a `for await`, in a \"for of\" statement.",
       "type": "boolean",
       "default": true,
       "oneOf": [{
         "const": true,
-        "description": "Ex. `for (const value of myArray)`"
+        "description": "Ex. `for (const value of myArray)` or `for await (const value of myArray)`"
       }, {
         "const": false,
-        "description": "Ex. `for(const value of myArray)`"
+        "description": "Ex. `for(const value of myArray)` or `for await(const value of myArray)`"
       }]
     },
     "forStatement.spaceAfterForKeyword": {
@@ -788,13 +885,21 @@
         "const": false,
         "description": "Ex. `while(true)`"
       }]
+    },
+    "withStatement.spaceAfterWithKeyword": {
+      "description": "Whether to add a space after the `with` keyword in a with statement.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `with (obj)`"
+      }, {
+        "const": false,
+        "description": "Ex. `with(obj)`"
+      }]
     }
   },
   "properties": {
-    "locked": {
-      "description": "Whether the configuration is not allowed to be overridden or extended.",
-      "type": "boolean"
-    },
     "lineWidth": {
       "description": "The width of a line the printer will try to stay under. Note that the printer may exceed this width in certain cases.",
       "default": 120,
@@ -825,6 +930,14 @@
     },
     "bracePosition": {
       "$ref": "#/definitions/bracePosition"
+    },
+    "blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "maxBlankLines": {
+      "description": "The maximum number of consecutive blank lines to keep.",
+      "default": 1,
+      "type": "number"
     },
     "singleBodyPosition": {
       "$ref": "#/definitions/singleBodyPosition"
@@ -871,6 +984,9 @@
     "jsx.multiLineParens": {
       "$ref": "#/definitions/jsx.multiLineParens"
     },
+    "jsx.sortClassNames": {
+      "$ref": "#/definitions/jsx.sortClassNames"
+    },
     "memberExpression.linePerExpression": {
       "$ref": "#/definitions/memberExpression.linePerExpression"
     },
@@ -883,8 +999,20 @@
     "typeLiteral.separatorKind.multiLine": {
       "$ref": "#/definitions/typeLiteral.separatorKind"
     },
+    "classDeclaration.memberSpacing": {
+      "$ref": "#/definitions/memberSpacing"
+    },
+    "classExpression.memberSpacing": {
+      "$ref": "#/definitions/memberSpacing"
+    },
     "enumDeclaration.memberSpacing": {
-      "$ref": "#/definitions/enumDeclaration.memberSpacing"
+      "$ref": "#/definitions/memberSpacing"
+    },
+    "interfaceDeclaration.memberSpacing": {
+      "$ref": "#/definitions/memberSpacing"
+    },
+    "typeLiteral.memberSpacing": {
+      "$ref": "#/definitions/memberSpacing"
     },
     "spaceAround": {
       "$ref": "#/definitions/spaceAround"
@@ -929,6 +1057,9 @@
       "$ref": "#/definitions/spaceAround"
     },
     "whileStatement.spaceAround": {
+      "$ref": "#/definitions/spaceAround"
+    },
+    "withStatement.spaceAround": {
       "$ref": "#/definitions/spaceAround"
     },
     "spaceSurroundingProperties": {
@@ -1021,8 +1152,15 @@
     "whileStatement.spaceAfterWhileKeyword": {
       "$ref": "#/definitions/whileStatement.spaceAfterWhileKeyword"
     },
+    "withStatement.spaceAfterWithKeyword": {
+      "$ref": "#/definitions/withStatement.spaceAfterWithKeyword"
+    },
     "module.sortImportDeclarations": {
       "$ref": "#/definitions/sortOrder"
+    },
+    "module.blankLinesAfterImports": {
+      "description": "The number of blank lines to force after the import declarations at the top of a module. When not set, maintains the blank lines up to `maxBlankLines`.",
+      "type": "number"
     },
     "module.sortExportDeclarations": {
       "$ref": "#/definitions/sortOrder"
@@ -1116,8 +1254,80 @@
     "whileStatement.useBraces": {
       "$ref": "#/definitions/useBraces"
     },
+    "withStatement.useBraces": {
+      "$ref": "#/definitions/useBraces"
+    },
     "arrowFunction.bracePosition": {
       "$ref": "#/definitions/bracePosition"
+    },
+    "classDeclaration.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "classExpression.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "enumDeclaration.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "interfaceDeclaration.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "moduleDeclaration.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "arrowFunction.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "constructor.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "doWhileStatement.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "forInStatement.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "forOfStatement.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "forStatement.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "functionDeclaration.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "functionExpression.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "getAccessor.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "ifStatement.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "method.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "setAccessor.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "staticBlock.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "switchCase.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "switchStatement.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "tryStatement.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "whileStatement.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "withStatement.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
     },
     "classDeclaration.bracePosition": {
       "$ref": "#/definitions/bracePosition"
@@ -1182,6 +1392,9 @@
     "whileStatement.bracePosition": {
       "$ref": "#/definitions/bracePosition"
     },
+    "withStatement.bracePosition": {
+      "$ref": "#/definitions/bracePosition"
+    },
     "forInStatement.singleBodyPosition": {
       "$ref": "#/definitions/singleBodyPosition"
     },
@@ -1195,6 +1408,9 @@
       "$ref": "#/definitions/singleBodyPosition"
     },
     "whileStatement.singleBodyPosition": {
+      "$ref": "#/definitions/singleBodyPosition"
+    },
+    "withStatement.singleBodyPosition": {
       "$ref": "#/definitions/singleBodyPosition"
     },
     "ifStatement.nextControlFlowPosition": {
@@ -1321,6 +1537,9 @@
       "$ref": "#/definitions/preferHanging"
     },
     "whileStatement.preferHanging": {
+      "$ref": "#/definitions/preferHanging"
+    },
+    "withStatement.preferHanging": {
       "$ref": "#/definitions/preferHanging"
     },
     "arrayExpression.preferSingleLine": {

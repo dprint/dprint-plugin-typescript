@@ -1,6 +1,7 @@
 use super::builder::*;
 use super::types::*;
 use dprint_core::configuration::*;
+use std::collections::BTreeMap;
 
 /// Resolves configuration from a collection of key value strings.
 ///
@@ -54,6 +55,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
   let trailing_commas = get_value(&mut config, "trailingCommas", TrailingCommas::OnlyMultiLine, &mut diagnostics);
   let use_braces = get_value(&mut config, "useBraces", UseBraces::WhenNotSingleLine, &mut diagnostics);
   let prefer_hanging = get_value(&mut config, "preferHanging", false, &mut diagnostics);
+  let block_padding = get_value(&mut config, "blockPadding", BlockPadding::Remove, &mut diagnostics);
   let prefer_hanging_granular = if prefer_hanging { PreferHanging::Always } else { PreferHanging::Never };
   let prefer_single_line_nullable = get_nullable_value(&mut config, "preferSingleLine", &mut diagnostics);
   let prefer_single_line = prefer_single_line_nullable.unwrap_or(false);
@@ -93,12 +95,14 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     quote_props,
     semi_colons,
     file_indent_level: get_value(&mut config, "fileIndentLevel", 0, &mut diagnostics),
+    max_blank_lines: get_value(&mut config, "maxBlankLines", 1, &mut diagnostics),
     /* situational */
     arrow_function_use_parentheses: get_value(&mut config, "arrowFunction.useParentheses", UseParentheses::Maintain, &mut diagnostics),
     binary_expression_line_per_expression: get_value(&mut config, "binaryExpression.linePerExpression", false, &mut diagnostics),
     conditional_expression_line_per_expression: get_value(&mut config, "conditionalExpression.linePerExpression", true, &mut diagnostics),
     jsx_quote_style: get_value(&mut config, "jsx.quoteStyle", quote_style.to_jsx_quote_style(), &mut diagnostics),
     jsx_multi_line_parens: get_value(&mut config, "jsx.multiLineParens", JsxMultiLineParens::Prefer, &mut diagnostics),
+    jsx_sort_class_names: get_jsx_sort_class_names(&mut config, &mut diagnostics),
     jsx_force_new_lines_surrounding_content: get_value(&mut config, "jsx.forceNewLinesSurroundingContent", false, &mut diagnostics),
     jsx_opening_element_bracket_position: get_value(&mut config, "jsxOpeningElement.bracketPosition", jsx_bracket_position, &mut diagnostics),
     jsx_self_closing_element_bracket_position: get_value(&mut config, "jsxSelfClosingElement.bracketPosition", jsx_bracket_position, &mut diagnostics),
@@ -117,6 +121,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     ),
     /* sorting */
     module_sort_import_declarations: get_value(&mut config, "module.sortImportDeclarations", SortOrder::CaseInsensitive, &mut diagnostics),
+    module_blank_lines_after_imports: get_nullable_value(&mut config, "module.blankLinesAfterImports", &mut diagnostics),
     module_sort_export_declarations: get_value(&mut config, "module.sortExportDeclarations", SortOrder::CaseInsensitive, &mut diagnostics),
     import_declaration_sort_named_imports: get_value(&mut config, "importDeclaration.sortNamedImports", SortOrder::CaseInsensitive, &mut diagnostics),
     export_declaration_sort_named_exports: get_value(&mut config, "exportDeclaration.sortNamedExports", SortOrder::CaseInsensitive, &mut diagnostics),
@@ -163,6 +168,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     switch_statement_brace_position: get_value(&mut config, "switchStatement.bracePosition", brace_position, &mut diagnostics),
     try_statement_brace_position: get_value(&mut config, "tryStatement.bracePosition", brace_position, &mut diagnostics),
     while_statement_brace_position: get_value(&mut config, "whileStatement.bracePosition", brace_position, &mut diagnostics),
+    with_statement_brace_position: get_value(&mut config, "withStatement.bracePosition", brace_position, &mut diagnostics),
     /* prefer hanging */
     arguments_prefer_hanging: get_value(&mut config, "arguments.preferHanging", prefer_hanging_granular, &mut diagnostics),
     array_expression_prefer_hanging: get_value(&mut config, "arrayExpression.preferHanging", prefer_hanging_granular, &mut diagnostics),
@@ -188,8 +194,38 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     union_and_intersection_type_prefer_hanging: get_value(&mut config, "unionAndIntersectionType.preferHanging", prefer_hanging, &mut diagnostics),
     variable_statement_prefer_hanging: get_value(&mut config, "variableStatement.preferHanging", prefer_hanging, &mut diagnostics),
     while_statement_prefer_hanging: get_value(&mut config, "whileStatement.preferHanging", prefer_hanging, &mut diagnostics),
+    with_statement_prefer_hanging: get_value(&mut config, "withStatement.preferHanging", prefer_hanging, &mut diagnostics),
     /* member spacing */
+    class_declaration_member_spacing: get_value(&mut config, "classDeclaration.memberSpacing", MemberSpacing::Maintain, &mut diagnostics),
+    class_expression_member_spacing: get_value(&mut config, "classExpression.memberSpacing", MemberSpacing::Maintain, &mut diagnostics),
     enum_declaration_member_spacing: get_value(&mut config, "enumDeclaration.memberSpacing", MemberSpacing::Maintain, &mut diagnostics),
+    interface_declaration_member_spacing: get_value(&mut config, "interfaceDeclaration.memberSpacing", MemberSpacing::Maintain, &mut diagnostics),
+    type_literal_member_spacing: get_value(&mut config, "typeLiteral.memberSpacing", MemberSpacing::Maintain, &mut diagnostics),
+    /* block padding */
+    block_padding,
+    class_declaration_block_padding: get_value(&mut config, "classDeclaration.blockPadding", block_padding, &mut diagnostics),
+    class_expression_block_padding: get_value(&mut config, "classExpression.blockPadding", block_padding, &mut diagnostics),
+    enum_declaration_block_padding: get_value(&mut config, "enumDeclaration.blockPadding", block_padding, &mut diagnostics),
+    interface_declaration_block_padding: get_value(&mut config, "interfaceDeclaration.blockPadding", block_padding, &mut diagnostics),
+    module_declaration_block_padding: get_value(&mut config, "moduleDeclaration.blockPadding", block_padding, &mut diagnostics),
+    arrow_function_block_padding: get_value(&mut config, "arrowFunction.blockPadding", block_padding, &mut diagnostics),
+    constructor_block_padding: get_value(&mut config, "constructor.blockPadding", block_padding, &mut diagnostics),
+    do_while_statement_block_padding: get_value(&mut config, "doWhileStatement.blockPadding", block_padding, &mut diagnostics),
+    for_in_statement_block_padding: get_value(&mut config, "forInStatement.blockPadding", block_padding, &mut diagnostics),
+    for_of_statement_block_padding: get_value(&mut config, "forOfStatement.blockPadding", block_padding, &mut diagnostics),
+    for_statement_block_padding: get_value(&mut config, "forStatement.blockPadding", block_padding, &mut diagnostics),
+    function_declaration_block_padding: get_value(&mut config, "functionDeclaration.blockPadding", block_padding, &mut diagnostics),
+    function_expression_block_padding: get_value(&mut config, "functionExpression.blockPadding", block_padding, &mut diagnostics),
+    get_accessor_block_padding: get_value(&mut config, "getAccessor.blockPadding", block_padding, &mut diagnostics),
+    if_statement_block_padding: get_value(&mut config, "ifStatement.blockPadding", block_padding, &mut diagnostics),
+    method_block_padding: get_value(&mut config, "method.blockPadding", block_padding, &mut diagnostics),
+    set_accessor_block_padding: get_value(&mut config, "setAccessor.blockPadding", block_padding, &mut diagnostics),
+    static_block_block_padding: get_value(&mut config, "staticBlock.blockPadding", block_padding, &mut diagnostics),
+    switch_case_block_padding: get_value(&mut config, "switchCase.blockPadding", block_padding, &mut diagnostics),
+    switch_statement_block_padding: get_value(&mut config, "switchStatement.blockPadding", block_padding, &mut diagnostics),
+    try_statement_block_padding: get_value(&mut config, "tryStatement.blockPadding", block_padding, &mut diagnostics),
+    while_statement_block_padding: get_value(&mut config, "whileStatement.blockPadding", block_padding, &mut diagnostics),
+    with_statement_block_padding: get_value(&mut config, "withStatement.blockPadding", block_padding, &mut diagnostics),
     /* next control flow position */
     if_statement_next_control_flow_position: get_value(&mut config, "ifStatement.nextControlFlowPosition", next_control_flow_position, &mut diagnostics),
     try_statement_next_control_flow_position: get_value(
@@ -214,6 +250,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     for_in_statement_single_body_position: get_value(&mut config, "forInStatement.singleBodyPosition", single_body_position, &mut diagnostics),
     for_of_statement_single_body_position: get_value(&mut config, "forOfStatement.singleBodyPosition", single_body_position, &mut diagnostics),
     while_statement_single_body_position: get_value(&mut config, "whileStatement.singleBodyPosition", single_body_position, &mut diagnostics),
+    with_statement_single_body_position: get_value(&mut config, "withStatement.singleBodyPosition", single_body_position, &mut diagnostics),
     /* trailing commas */
     arguments_trailing_commas: get_value(&mut config, "arguments.trailingCommas", trailing_commas, &mut diagnostics),
     parameters_trailing_commas: get_value(&mut config, "parameters.trailingCommas", trailing_commas, &mut diagnostics),
@@ -233,6 +270,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     for_in_statement_use_braces: get_value(&mut config, "forInStatement.useBraces", use_braces, &mut diagnostics),
     for_of_statement_use_braces: get_value(&mut config, "forOfStatement.useBraces", use_braces, &mut diagnostics),
     while_statement_use_braces: get_value(&mut config, "whileStatement.useBraces", use_braces, &mut diagnostics),
+    with_statement_use_braces: get_value(&mut config, "withStatement.useBraces", use_braces, &mut diagnostics),
     /* prefer single line */
     array_expression_prefer_single_line: get_value(&mut config, "arrayExpression.preferSingleLine", prefer_single_line, &mut diagnostics),
     array_pattern_prefer_single_line: get_value(&mut config, "arrayPattern.preferSingleLine", prefer_single_line, &mut diagnostics),
@@ -325,6 +363,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
       &mut diagnostics,
     ),
     while_statement_space_after_while_keyword: get_value(&mut config, "whileStatement.spaceAfterWhileKeyword", true, &mut diagnostics),
+    with_statement_space_after_with_keyword: get_value(&mut config, "withStatement.spaceAfterWithKeyword", true, &mut diagnostics),
     arguments_space_around: get_value(&mut config, "arguments.spaceAround", space_around, &mut diagnostics),
     array_expression_space_around: get_value(&mut config, "arrayExpression.spaceAround", space_around, &mut diagnostics),
     array_pattern_space_around: get_value(&mut config, "arrayPattern.spaceAround", space_around, &mut diagnostics),
@@ -339,6 +378,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     switch_statement_space_around: get_value(&mut config, "switchStatement.spaceAround", space_around, &mut diagnostics),
     tuple_type_space_around: get_value(&mut config, "tupleType.spaceAround", space_around, &mut diagnostics),
     while_statement_space_around: get_value(&mut config, "whileStatement.spaceAround", space_around, &mut diagnostics),
+    with_statement_space_around: get_value(&mut config, "withStatement.spaceAround", space_around, &mut diagnostics),
   };
 
   diagnostics.extend(get_unknown_property_diagnostics(config));
@@ -394,6 +434,107 @@ fn parse_import_groups(
       Vec::new()
     }
   }
+}
+
+/// Gets the class name sorting configuration, which is either only the kind
+/// of sorting (ex. `"tailwind"`) or an object with the kind and its options.
+fn get_jsx_sort_class_names(config: &mut ConfigKeyMap, diagnostics: &mut Vec<ConfigurationDiagnostic>) -> JsxClassNamesSortConfig {
+  let key = "jsx.sortClassNames";
+  let mut values = match config.shift_remove(key) {
+    Some(ConfigKeyValue::Object(values)) => values,
+    Some(ConfigKeyValue::Null) | None => return Default::default(),
+    Some(kind) => {
+      config.insert(key.to_string(), kind);
+      return get_value(config, key, JsxClassNamesSortOrder::Maintain, diagnostics).into();
+    }
+  };
+
+  let mut object_diagnostics = Vec::new();
+  if !values.contains_key("kind") {
+    object_diagnostics.push(ConfigurationDiagnostic {
+      property_name: "kind".to_string(),
+      message: "Expected a kind of sorting (ex. \"tailwind\").".to_string(),
+    });
+  }
+  let result = JsxClassNamesSortConfig {
+    kind: get_value(&mut values, "kind", JsxClassNamesSortOrder::Maintain, &mut object_diagnostics),
+    functions: get_string_vec(&mut values, "functions", &mut object_diagnostics),
+    attributes: get_string_vec(&mut values, "attributes", &mut object_diagnostics),
+    preserve_whitespace: get_value(&mut values, "preserveWhitespace", false, &mut object_diagnostics),
+    preserve_duplicates: get_value(&mut values, "preserveDuplicates", false, &mut object_diagnostics),
+    prefix: get_nullable_value(&mut values, "prefix", &mut object_diagnostics),
+    theme: get_map(&mut values, "theme", &mut object_diagnostics, |value| match value {
+      ConfigKeyValue::String(value) => Ok(value),
+      ConfigKeyValue::Number(value) => Ok(value.to_string()),
+      _ => Err("Expected a string or number."),
+    }),
+    variants: get_string_vec(&mut values, "variants", &mut object_diagnostics),
+    utilities: get_map(&mut values, "utilities", &mut object_diagnostics, |value| match value {
+      ConfigKeyValue::Array(values) => values
+        .into_iter()
+        .map(|value| match value {
+          ConfigKeyValue::String(value) => Ok(value),
+          _ => Err("Expected an array of strings."),
+        })
+        .collect(),
+      _ => Err("Expected an array of strings."),
+    }),
+  };
+  object_diagnostics.extend(get_unknown_property_diagnostics(values));
+  diagnostics.extend(object_diagnostics.into_iter().map(|diagnostic| ConfigurationDiagnostic {
+    property_name: format!("{}.{}", key, diagnostic.property_name),
+    message: diagnostic.message,
+  }));
+  result
+}
+
+fn get_string_vec(config: &mut ConfigKeyMap, key: &str, diagnostics: &mut Vec<ConfigurationDiagnostic>) -> Vec<String> {
+  get_nullable_vec(
+    config,
+    key,
+    |value, index, diagnostics| match value {
+      ConfigKeyValue::String(value) => Some(value),
+      _ => {
+        diagnostics.push(ConfigurationDiagnostic {
+          property_name: format!("{}[{}]", key, index),
+          message: "Expected a string.".to_string(),
+        });
+        None
+      }
+    },
+    diagnostics,
+  )
+  .unwrap_or_default()
+}
+
+fn get_map<T>(
+  config: &mut ConfigKeyMap,
+  key: &str,
+  diagnostics: &mut Vec<ConfigurationDiagnostic>,
+  get_value: impl Fn(ConfigKeyValue) -> Result<T, &'static str>,
+) -> BTreeMap<String, T> {
+  let mut result = BTreeMap::new();
+  match config.shift_remove(key) {
+    Some(ConfigKeyValue::Object(values)) => {
+      for (name, value) in values {
+        match get_value(value) {
+          Ok(value) => {
+            result.insert(name, value);
+          }
+          Err(message) => diagnostics.push(ConfigurationDiagnostic {
+            property_name: format!("{}.{}", key, name),
+            message: message.to_string(),
+          }),
+        }
+      }
+    }
+    Some(ConfigKeyValue::Null) | None => {}
+    Some(_) => diagnostics.push(ConfigurationDiagnostic {
+      property_name: key.to_string(),
+      message: "Expected an object.".to_string(),
+    }),
+  }
+  result
 }
 
 #[cfg(test)]
@@ -454,6 +595,73 @@ mod tests {
     assert_eq!(result.config.indent_width, 8);
     assert_eq!(result.config.line_width, expected_config.line_width);
     assert_eq!(result.diagnostics.len(), 0);
+  }
+
+  #[test]
+  fn handle_jsx_sort_class_names_kind() {
+    let mut config = ConfigKeyMap::new();
+    config.insert(String::from("jsx.sortClassNames"), ConfigKeyValue::from_str("tailwind"));
+    let result = resolve_config(config, &GlobalConfiguration::default());
+    assert!(result.config.jsx_sort_class_names == JsxClassNamesSortOrder::Tailwind.into());
+    assert_eq!(result.diagnostics.len(), 0);
+
+    let mut config = ConfigKeyMap::new();
+    config.insert(String::from("jsx.sortClassNames"), ConfigKeyValue::from_str("other"));
+    let result = resolve_config(config, &GlobalConfiguration::default());
+    assert!(result.config.jsx_sort_class_names == JsxClassNamesSortConfig::default());
+    assert_eq!(get_diagnostic_property_names(&result.diagnostics), ["jsx.sortClassNames"]);
+  }
+
+  #[test]
+  fn handle_jsx_sort_class_names_object() {
+    let mut values = ConfigKeyMap::new();
+    values.insert(String::from("kind"), ConfigKeyValue::from_str("tailwind"));
+    values.insert(String::from("functions"), ConfigKeyValue::Array(vec![ConfigKeyValue::from_str("cn")]));
+    values.insert(String::from("preserveDuplicates"), ConfigKeyValue::from_bool(true));
+    values.insert(String::from("prefix"), ConfigKeyValue::from_str("tw"));
+    let mut theme = ConfigKeyMap::new();
+    theme.insert(String::from("--breakpoint-3xl"), ConfigKeyValue::from_str("120rem"));
+    theme.insert(String::from("--font-weight-heavy"), ConfigKeyValue::from_i32(950));
+    values.insert(String::from("theme"), ConfigKeyValue::Object(theme));
+    let mut config = ConfigKeyMap::new();
+    config.insert(String::from("jsx.sortClassNames"), ConfigKeyValue::Object(values));
+    let result = resolve_config(config, &GlobalConfiguration::default());
+    let expected = JsxClassNamesSortConfig {
+      functions: vec![String::from("cn")],
+      preserve_duplicates: true,
+      prefix: Some(String::from("tw")),
+      theme: BTreeMap::from([
+        (String::from("--breakpoint-3xl"), String::from("120rem")),
+        (String::from("--font-weight-heavy"), String::from("950")),
+      ]),
+      ..JsxClassNamesSortOrder::Tailwind.into()
+    };
+    assert!(result.config.jsx_sort_class_names == expected);
+    assert_eq!(result.diagnostics.len(), 0);
+  }
+
+  #[test]
+  fn handle_jsx_sort_class_names_object_diagnostics() {
+    let mut values = ConfigKeyMap::new();
+    values.insert(String::from("functions"), ConfigKeyValue::Array(vec![ConfigKeyValue::from_i32(1)]));
+    values.insert(String::from("theme"), ConfigKeyValue::from_str("value"));
+    values.insert(String::from("other"), ConfigKeyValue::from_bool(true));
+    let mut config = ConfigKeyMap::new();
+    config.insert(String::from("jsx.sortClassNames"), ConfigKeyValue::Object(values));
+    let result = resolve_config(config, &GlobalConfiguration::default());
+    assert_eq!(
+      get_diagnostic_property_names(&result.diagnostics),
+      [
+        "jsx.sortClassNames.kind",
+        "jsx.sortClassNames.functions[0]",
+        "jsx.sortClassNames.theme",
+        "jsx.sortClassNames.other"
+      ]
+    );
+  }
+
+  fn get_diagnostic_property_names(diagnostics: &[ConfigurationDiagnostic]) -> Vec<&str> {
+    diagnostics.iter().map(|diagnostic| diagnostic.property_name.as_str()).collect()
   }
 }
 

@@ -1,0 +1,38 @@
+~~ maxBlankLines: 0, blockPadding: maintain ~~
+== should remove the blank lines between statements, members, and comments ==
+const a = 1;
+
+// comment
+
+const b = 2;
+
+class Test {
+
+    prop: string;
+
+    method() {
+    }
+}
+
+[expect]
+const a = 1;
+// comment
+const b = 2;
+class Test {
+    prop: string;
+    method() {
+    }
+}
+
+== should remove the blank lines in objects ==
+const a = {
+    b: 1,
+
+    c: 2,
+};
+
+[expect]
+const a = {
+    b: 1,
+    c: 2,
+};

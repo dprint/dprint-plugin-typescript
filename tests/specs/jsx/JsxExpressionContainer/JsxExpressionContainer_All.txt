@@ -64,3 +64,23 @@ const t6 = <div>
         t // test
     }
 </div>;
+
+== should not surround an expression with newlines for a block comment on its last line ==
+const a = <div>{{
+    a: 1,
+} /* c */}</div>;
+const b = <div a={{
+    a: 1,
+} /* c */} />;
+
+[expect]
+const a = <div>
+    {{
+        a: 1,
+    } /* c */}
+</div>;
+const b = <div
+    a={{
+        a: 1,
+    } /* c */}
+/>;

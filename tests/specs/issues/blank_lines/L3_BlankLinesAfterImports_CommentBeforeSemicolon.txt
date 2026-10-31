@@ -1,0 +1,11 @@
+~~ module.blankLinesAfterImports: 1, semiColons: asi ~~
+== should be stable with a comment before a leading semicolon ==
+import { a } from "b"
+// comment
+;[1, 2].forEach(a)
+
+[expect]
+import { a } from "b"
+
+// comment
+;[1, 2].forEach(a)

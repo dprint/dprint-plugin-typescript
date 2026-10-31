@@ -1,0 +1,96 @@
+-- file.tsx --
+~~ semiColons: asi ~~
+== should keep a jsdoc before a semicolon at the start of a line with the next statement ==
+import { createRoot } from "react-dom/client"
+
+/**
+ * Initializes the app
+ */
+;(function initReact() {
+  const root = createRoot(document.getElementById("root")!)
+  root.render(<div>hello</div>)
+})()
+
+[expect]
+import { createRoot } from "react-dom/client"
+
+/**
+ * Initializes the app
+ */
+;(function initReact() {
+    const root = createRoot(document.getElementById("root")!)
+    root.render(<div>hello</div>)
+})()
+
+== should keep the comments before a semicolon at the start of a line on their own lines ==
+const x = 1
+// a
+;[1].forEach(a)
+
+const y = 1
+
+// b
+
+// c
+
+;[1].forEach(b)
+
+[expect]
+const x = 1
+// a
+;[1].forEach(a)
+
+const y = 1
+
+// b
+
+// c
+
+;[1].forEach(b)
+
+== should keep a block comment on the same line as the statement before the semicolon ==
+const x = 1 /* c */
+;[1].forEach(a)
+
+[expect]
+const x = 1 /* c */
+;[1].forEach(a)
+
+== should keep the comments before a semicolon at the start of a line in a block ==
+function f() {
+    const x = 1
+
+    // c
+    ;[1].forEach(a)
+}
+
+[expect]
+function f() {
+    const x = 1
+
+    // c
+    ;[1].forEach(a)
+}
+
+== should keep the comments before a semicolon at the start of a line in a class ==
+class A {
+    a = 1
+    // c
+    ;[b]() {}
+}
+
+[expect]
+class A {
+    a = 1;
+    // c
+    [b]() {}
+}
+
+== should keep the comments before a semicolon at the end of the file ==
+const x = 1
+// c
+;
+
+[expect]
+const x = 1
+// c
