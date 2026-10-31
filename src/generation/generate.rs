@@ -3408,11 +3408,7 @@ fn gen_tagged_tpl<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> PrintI
 fn gen_tpl<'a>(node: &Tpl<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
   let class_names_sort_options = get_class_names_sort_options(node.into(), context).map(|options| (node.start(), options));
   let previous_class_names_sort_options = std::mem::replace(&mut context.tpl_class_names_sort_options, class_names_sort_options);
-  let items = gen_template_literal(
-    node.quasis.iter().map(|&n| n.into()).collect(),
-    node.exprs.iter().map(|x| x.into()).collect(),
-    context,
-  );
+  let items = gen_template_literal(node.quasis.iter().map(|&n| n.into()), node.exprs.iter().map(|x| x.into()), context);
   context.tpl_class_names_sort_options = previous_class_names_sort_options;
   items
 }
@@ -3428,7 +3424,11 @@ fn gen_tpl_element<'a>(node: &TplElement<'a>, context: &mut Context<'a>) -> Prin
   }
 }
 
-fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context: &mut Context<'a>) -> PrintItems<'a> {
+fn gen_template_literal<'a>(
+  quasis: impl Iterator<Item = Node<'a>>,
+  exprs: impl Iterator<Item = Node<'a>>,
+  context: &mut Context<'a>,
+) -> PrintItems<'a> {
   let mut items = PrintItems::new(context.arena);
   let mut is_head = true;
   // the indentation of the template's current line when that line starts in the template's text
@@ -3546,37 +3546,21 @@ fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context
     }
   }
 
-  fn get_nodes<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>) -> Vec<Node<'a>> {
-    let mut quasis = quasis;
-    let mut exprs = exprs;
-    let mut nodes = Vec::with_capacity(quasis.len() + exprs.len());
-
-    // reverse the vectors and iterate from the back
-    quasis.reverse();
-    exprs.reverse();
-
-    while !quasis.is_empty() || !exprs.is_empty() {
-      let current_quasis = quasis.last();
-      let current_expr = exprs.last();
-
-      let is_quasis = if let Some(current_quasis) = current_quasis {
-        if let Some(current_expr) = current_expr {
-          current_quasis.start() < current_expr.start()
+  /// Gets the quasis and expressions in the order they're in the text, without allocating.
+  fn get_nodes<'a>(quasis: impl Iterator<Item = Node<'a>>, exprs: impl Iterator<Item = Node<'a>>) -> impl Iterator<Item = Node<'a>> {
+    let mut quasis = quasis.peekable();
+    let mut exprs = exprs.peekable();
+    std::iter::from_fn(move || match (quasis.peek(), exprs.peek()) {
+      (Some(quasi), Some(expr)) => {
+        if quasi.start() < expr.start() {
+          quasis.next()
         } else {
-          true
+          exprs.next()
         }
-      } else {
-        false
-      };
-
-      if is_quasis {
-        nodes.push(quasis.pop().unwrap());
-      } else {
-        nodes.push(exprs.pop().unwrap());
       }
-    }
-
-    nodes
+      (Some(_), None) => quasis.next(),
+      (None, _) => exprs.next(),
+    })
   }
 
   // handle this on a case by case basis for now
@@ -7011,11 +6995,7 @@ fn gen_rest_type<'a>(node: &TsRestType<'a>, context: &mut Context<'a>) -> PrintI
 }
 
 fn gen_tpl_lit_type<'a>(node: &TsTplLitType<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
-  gen_template_literal(
-    node.quasis.iter().map(|&x| x.into()).collect(),
-    node.types.iter().map(|x| x.into()).collect(),
-    context,
-  )
+  gen_template_literal(node.quasis.iter().map(|&x| x.into()), node.types.iter().map(|x| x.into()), context)
 }
 
 fn gen_tuple_type<'a>(node: &TsTupleType<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
