@@ -3445,11 +3445,7 @@ fn gen_tpl_element<'a>(node: &TplElement<'a>, context: &mut Context<'a>) -> Prin
   }
 }
 
-fn gen_template_literal<'a>(
-  quasis: impl Iterator<Item = Node<'a>>,
-  exprs: impl Iterator<Item = Node<'a>>,
-  context: &mut Context<'a>,
-) -> PrintItems<'a> {
+fn gen_template_literal<'a>(quasis: impl Iterator<Item = Node<'a>>, exprs: impl Iterator<Item = Node<'a>>, context: &mut Context<'a>) -> PrintItems<'a> {
   let mut items = PrintItems::new(context.arena);
   let mut is_head = true;
   // the indentation of the template's current line when that line starts in the template's text
