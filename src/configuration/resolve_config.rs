@@ -189,6 +189,8 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     with_statement_prefer_hanging: get_value(&mut config, "withStatement.preferHanging", prefer_hanging, &mut diagnostics),
     /* member spacing */
     enum_declaration_member_spacing: get_value(&mut config, "enumDeclaration.memberSpacing", MemberSpacing::Maintain, &mut diagnostics),
+    /* padding line between statements */
+    padding_line_between_statements: get_value(&mut config, "paddingLineBetweenStatements", false, &mut diagnostics),
     /* next control flow position */
     if_statement_next_control_flow_position: get_value(&mut config, "ifStatement.nextControlFlowPosition", next_control_flow_position, &mut diagnostics),
     try_statement_next_control_flow_position: get_value(
