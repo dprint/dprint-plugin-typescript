@@ -1,0 +1,20 @@
+~~ {
+  "lineWidth": 80,
+  "module.sortImportDeclarations": "caseInsensitive",
+  "module.importGroups": [
+    { "match": "builtin" },
+    { "match": "external" }
+  ]
+} ~~
+== detached license header above first import stays pinned to file start ==
+/* @license MIT */
+
+import { a } from "react";
+import { fs } from "node:fs";
+
+[expect]
+/* @license MIT */
+
+import { fs } from "node:fs";
+
+import { a } from "react";

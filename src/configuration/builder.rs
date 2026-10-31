@@ -636,6 +636,50 @@ impl ConfigurationBuilder {
     self.insert("exportDeclaration.sortTypeOnlyExports", value.to_string().into())
   }
 
+  /// Ordered groups for `module.importGroups`. Empty = feature disabled.
+  ///
+  /// Default: `[]`
+  pub fn module_import_groups(&mut self, value: Vec<ImportGroup>) -> &mut Self {
+    fn matcher_to_value(matcher: ImportMatcher) -> ConfigKeyValue {
+      match matcher {
+        ImportMatcher::Category(category) => category.to_string().into(),
+        ImportMatcher::Pattern { pattern } => {
+          let mut values = ConfigKeyMap::new();
+          values.insert("pattern".to_string(), pattern.into());
+          ConfigKeyValue::Object(values)
+        }
+      }
+    }
+
+    let groups = value
+      .into_iter()
+      .map(|group| {
+        let match_value = match group.matchers {
+          ImportGroupMatch::Single(matcher) => matcher_to_value(matcher),
+          ImportGroupMatch::Multiple(matchers) => ConfigKeyValue::Array(matchers.into_iter().map(matcher_to_value).collect()),
+        };
+        let mut values = ConfigKeyMap::new();
+        values.insert("match".to_string(), match_value);
+        ConfigKeyValue::Object(values)
+      })
+      .collect();
+    self.insert("module.importGroups", ConfigKeyValue::Array(groups))
+  }
+
+  /// How type-only imports are classified.
+  ///
+  /// Default: `Separate`
+  pub fn module_type_imports(&mut self, value: TypeImportsMode) -> &mut Self {
+    self.insert("module.typeImports", value.to_string().into())
+  }
+
+  /// How blank lines are handled between imports when grouping is enabled.
+  ///
+  /// Default: `Always`
+  pub fn module_import_groups_newlines_between(&mut self, value: NewlinesBetween) -> &mut Self {
+    self.insert("module.importGroupsNewlinesBetween", value.to_string().into())
+  }
+
   /* ignore comments */
 
   /// The text to use for an ignore comment (ex. `// dprint-ignore`).

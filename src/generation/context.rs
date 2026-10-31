@@ -91,6 +91,7 @@ pub struct Context<'a> {
   #[cfg(debug_assertions)]
   pub last_generated_node_pos: SourcePos,
   pub diagnostics: Vec<GenerateDiagnostic>,
+  pub resolved_import_groups: Option<&'a crate::generation::imports::resolved::ResolvedGroups>,
 }
 
 impl<'a> Context<'a> {
@@ -144,6 +145,7 @@ impl<'a> Context<'a> {
       #[cfg(debug_assertions)]
       last_generated_node_pos: dprint_swc_ext::common::SourceTextInfoProvider::text_info(&program).range().start.into(),
       diagnostics: Vec::new(),
+      resolved_import_groups: config.module_import_groups_cache.get_or_compile(config),
     }
   }
 

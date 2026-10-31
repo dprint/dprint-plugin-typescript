@@ -1,0 +1,60 @@
+~~ {
+  "lineWidth": 80,
+  "module.sortImportDeclarations": "maintain",
+  "module.importGroups": [
+    { "match": "builtin" },
+    { "match": "external" },
+    { "match": ["sibling", "index"] }
+  ]
+} ~~
+== trailing line comment stays with the import it trails ==
+import { a } from "react"; // trails react
+import { fs } from "node:fs";
+
+[expect]
+import { fs } from "node:fs";
+
+import { a } from "react"; // trails react
+
+== trailing block comment stays with the import it trails ==
+import { a } from "react"; /* trails react */
+import { fs } from "node:fs";
+
+[expect]
+import { fs } from "node:fs";
+
+import { a } from "react"; /* trails react */
+
+== leading comment above an import that's not first in the block travels with it ==
+import { fs } from "node:fs";
+// keep me with react
+import { a } from "react";
+import { path } from "node:path";
+import { c } from "./c";
+
+[expect]
+import { fs } from "node:fs";
+import { path } from "node:path";
+
+// keep me with react
+import { a } from "react";
+
+import { c } from "./c";
+
+== comment separated from the import after it by a blank line ends the block ==
+import { c } from "./c";
+import { a } from "react";
+// section
+
+import { b } from "./b";
+import { fs } from "node:fs";
+
+[expect]
+import { a } from "react";
+
+import { c } from "./c";
+// section
+
+import { fs } from "node:fs";
+
+import { b } from "./b";

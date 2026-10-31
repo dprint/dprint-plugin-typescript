@@ -1,0 +1,19 @@
+~~ {
+  "lineWidth": 80,
+  "module.sortImportDeclarations": "caseInsensitive",
+  "module.importGroups": [
+    { "match": "external" },
+    { "match": { "pattern": "@app/**" } },
+    { "match": "parent" }
+  ]
+} ~~
+== pattern group positioned after external (external wins via first-match) ==
+import { c } from "@app/foo";
+import { a } from "react";
+import { b } from "../shared";
+
+[expect]
+import { c } from "@app/foo";
+import { a } from "react";
+
+import { b } from "../shared";
