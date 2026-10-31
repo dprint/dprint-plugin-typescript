@@ -1,3 +1,4 @@
+use dprint_core::formatting::Arena;
 use dprint_core::formatting::ConditionReference;
 use dprint_core::formatting::IndentLevel;
 use dprint_core::formatting::IsStartOfLine;
@@ -13,6 +14,7 @@ use dprint_swc_ext::swc::parser::Syntax;
 use dprint_swc_ext::view::*;
 use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
+use std::borrow::Cow;
 
 use super::*;
 use crate::configuration::*;
@@ -53,7 +55,12 @@ pub(crate) struct GenerateDiagnostic {
   pub message: String,
 }
 
+/// A vector allocated in the arena.
+pub type BumpVec<'a, T> = dprint_core::formatting::bumpalo::collections::Vec<'a, T>;
+
 pub struct Context<'a> {
+  /// The arena the print items are allocated in.
+  pub arena: &'a Arena,
   pub syntax: Syntax,
   pub program: Program<'a>,
   pub config: &'a Configuration,
@@ -87,7 +94,22 @@ pub struct Context<'a> {
 }
 
 impl<'a> Context<'a> {
+  /// Allocates the text in the arena so it lives as long as the print items.
+  pub fn alloc_str(&self, text: &str) -> &'a str {
+    self.arena.bump().alloc_str(text)
+  }
+
+  /// Gets text that lives as long as the print items, which is only
+  /// allocated in the arena when it's owned.
+  pub fn alloc_cow_str(&self, text: Cow<'a, str>) -> &'a str {
+    match text {
+      Cow::Borrowed(text) => text,
+      Cow::Owned(text) => self.alloc_str(&text),
+    }
+  }
+
   pub fn new(
+    arena: &'a Arena,
     syntax: Syntax,
     tokens: &'a [TokenAndSpan],
     current_node: Node<'a>,
@@ -96,6 +118,7 @@ impl<'a> Context<'a> {
     external_formatter: Option<&'a ExternalFormatter>,
   ) -> Context<'a> {
     Context {
+      arena,
       syntax,
       program,
       config,

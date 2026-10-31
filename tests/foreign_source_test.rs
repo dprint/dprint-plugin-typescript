@@ -33,6 +33,7 @@ fn formats_a_foreign_parsed_source() {
     syntax: source.syntax,
     config: &config,
     external_formatter: None,
+    arena_pool: None,
   })
   .unwrap()
   .unwrap();
@@ -48,6 +49,7 @@ fn respects_the_ignore_file_comment() {
     syntax: source.syntax,
     config: &config,
     external_formatter: None,
+    arena_pool: None,
   })
   .unwrap();
   assert_eq!(result, None);
@@ -74,6 +76,7 @@ fn errors_when_the_provider_does_not_capture_everything() {
     syntax: source.0.syntax,
     config: &config,
     external_formatter: None,
+    arena_pool: None,
   })
   .err()
   .unwrap();

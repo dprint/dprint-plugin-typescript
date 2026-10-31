@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use dprint_core::configuration::*;
+use dprint_core::formatting::ArenaPool;
 use dprint_development::*;
 use dprint_plugin_typescript::configuration::*;
 use dprint_plugin_typescript::*;
@@ -117,6 +118,8 @@ fn main() {
     },
     {
       let global_config = global_config.clone();
+      // reuse the memory between formats like the Wasm plugin does
+      let arena_pool = ArenaPool::new();
       Arc::new(move |file_name, file_text, range, spec_config| {
         assert!(range.is_none(), "range formatting is not supported");
         let spec_config: ConfigKeyMap = serde_json::from_value(spec_config.clone().into()).unwrap();
@@ -129,6 +132,7 @@ fn main() {
           text: file_text.into(),
           config: &config_result.config,
           external_formatter: Some(&external_formatter),
+          arena_pool: Some(&arena_pool),
         })?;
         Ok(result)
       })

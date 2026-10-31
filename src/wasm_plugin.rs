@@ -71,6 +71,7 @@ impl SyncPluginHandler<Configuration> for TypeScriptPluginHandler {
       config: request.config,
       // todo: support this in Wasm
       external_formatter: None,
+      arena_pool: Some(request.arena_pool),
     })
     .map_err(FormatError::new)?;
     Ok(maybe_text.map(|t| t.into_bytes()))
