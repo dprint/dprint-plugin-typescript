@@ -12,10 +12,10 @@ use dprint_swc_ext::view::ProgramInfoProvider;
 use crate::Result;
 
 use super::configuration::Configuration;
-use super::generation::generate;
 pub use super::generation::ExternalFormatter;
-use super::parsing::parse_program;
+use super::generation::generate;
 use super::parsing::ParseOptions;
+use super::parsing::parse_program;
 
 pub struct FormatTextOptions<'a> {
   pub path: &'a Path,
@@ -26,7 +26,7 @@ pub struct FormatTextOptions<'a> {
   /// be shared with the ast view, so a caller that already has one saves a copy.
   pub text: Arc<str>,
   pub config: &'a Configuration,
-  pub external_formatter: Option<&'a ExternalFormatter>,
+  pub external_formatter: Option<&'a ExternalFormatter<'a>>,
   /// The pool to create the arena for formatting from, which reuses its memory
   /// between formats. When `None`, the memory is freed once the file is formatted.
   pub arena_pool: Option<&'a ArenaPool>,
@@ -109,7 +109,7 @@ pub struct FormatParsedSourceOptions<'a, TSource: ProgramInfoProvider> {
   /// use [`ParsedSource::syntax`](crate::parsing::ParsedSource::syntax).
   pub syntax: Syntax,
   pub config: &'a Configuration,
-  pub external_formatter: Option<&'a ExternalFormatter>,
+  pub external_formatter: Option<&'a ExternalFormatter<'a>>,
   /// The pool to create the arena for formatting from, which reuses its memory
   /// between formats. When `None`, the memory is freed once the file is formatted.
   pub arena_pool: Option<&'a ArenaPool>,
@@ -153,7 +153,7 @@ pub struct FormatProgramOptions<'a> {
   /// use [`ParsedSource::syntax`](crate::parsing::ParsedSource::syntax).
   pub syntax: Syntax,
   pub config: &'a Configuration,
-  pub external_formatter: Option<&'a ExternalFormatter>,
+  pub external_formatter: Option<&'a ExternalFormatter<'a>>,
   /// The arena to allocate the print items in, which needs to be created before
   /// the ast view so the print items can borrow from the program.
   pub arena: &'a Arena,
@@ -232,16 +232,12 @@ fn inner_format_program<'a>(
   program: Program<'a>,
   syntax: Syntax,
   config: &'a Configuration,
-  external_formatter: Option<&'a ExternalFormatter>,
+  external_formatter: Option<&'a ExternalFormatter<'a>>,
 ) -> Result<Option<String>> {
   let file_text = program.text_info().text_str();
   let print_items = generate(arena, program, syntax, config, external_formatter)?;
   let result = dprint_core::formatting::print(print_items, config_to_print_options(file_text, config));
-  if result == file_text {
-    Ok(None)
-  } else {
-    Ok(Some(result))
-  }
+  if result == file_text { Ok(None) } else { Ok(Some(result)) }
 }
 
 fn create_arena(arena_pool: Option<&ArenaPool>) -> Arena {

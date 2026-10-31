@@ -183,11 +183,7 @@ fn sort_class_names_preserving_whitespace<'a>(text: &'a str, options: &SortOptio
     previous = is_sorted_class.then_some(class_name);
   }
   result.push_str(pending_whitespace);
-  if result == text {
-    Cow::Borrowed(text)
-  } else {
-    Cow::Owned(result)
-  }
+  if result == text { Cow::Borrowed(text) } else { Cow::Owned(result) }
 }
 
 /// Gets if the text has whitespace that would be removed or replaced with a space.

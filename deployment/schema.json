@@ -472,6 +472,34 @@
         "description": "Maintains the line breaks as written by the programmer."
       }]
     },
+    "taggedTemplate.formatEmbedded": {
+      "description": "Whether to format the text of tagged templates whose tag is in `taggedTemplate.embeddedLanguages` (ex. html`...` and css`...`) with the plugin dprint uses for the language's file extension. A template is left as is when no plugin formats the extension.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Formats the text of the tagged templates in `taggedTemplate.embeddedLanguages`."
+      }, {
+        "const": false,
+        "description": "Leaves the text of tagged templates as is."
+      }]
+    },
+    "taggedTemplate.embeddedLanguages": {
+      "description": "Map of a tagged template's tag to the file extension of the language its text is formatted as, which replaces the defaults. The styled-components patterns (ex. styled.div`...` and styled(Button)`...`) use the `css` entry. The text of css is formatted as Less by default because the placeholders of its expressions are Less variables.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "default": {
+        "css": "less",
+        "gql": "graphql",
+        "graphql": "graphql",
+        "html": "html",
+        "sql": "sql",
+        "svg": "svg",
+        "xml": "xml"
+      }
+    },
     "memberSpacing": {
       "description": "How to space the members of a class, enum, interface, or type literal.",
       "type": "string",
@@ -998,6 +1026,12 @@
     },
     "typeLiteral.separatorKind.multiLine": {
       "$ref": "#/definitions/typeLiteral.separatorKind"
+    },
+    "taggedTemplate.formatEmbedded": {
+      "$ref": "#/definitions/taggedTemplate.formatEmbedded"
+    },
+    "taggedTemplate.embeddedLanguages": {
+      "$ref": "#/definitions/taggedTemplate.embeddedLanguages"
     },
     "classDeclaration.memberSpacing": {
       "$ref": "#/definitions/memberSpacing"

@@ -26,16 +26,16 @@
 use std::collections::BTreeSet;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::Mutex;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
-use std::sync::Mutex;
 use std::time::Duration;
 use std::time::Instant;
 
+use dprint_plugin_typescript::FormatTextOptions;
 use dprint_plugin_typescript::configuration::Configuration;
 use dprint_plugin_typescript::configuration::ConfigurationBuilder;
 use dprint_plugin_typescript::format_text;
-use dprint_plugin_typescript::FormatTextOptions;
 
 const EXTENSIONS: &[&str] = &["ts", "tsx", "js", "jsx", "mts", "cts", "mjs", "cjs"];
 /// The number of times a file is formatted to see if its formatting stops changing.
@@ -209,39 +209,41 @@ fn check_files(files: &[CorpusFile], config: &Configuration) -> Report {
   let thread_count = std::thread::available_parallelism().map(|count| count.get()).unwrap_or(4);
   std::thread::scope(|scope| {
     for _ in 0..thread_count {
-      scope.spawn(|| loop {
-        let index = next_index.fetch_add(1, Ordering::Relaxed);
-        let Some(file) = files.get(index) else {
-          break;
-        };
-        let start = Instant::now();
-        let result = std::panic::catch_unwind(|| check_file(file, config));
-        let elapsed = start.elapsed();
-        let mut report = report.lock().unwrap();
-        match result {
-          Ok(FileResult::Skipped) => report.skipped += 1,
-          Ok(FileResult::Stable(hash)) => {
-            report.checked += 1;
-            report.hashes.push((file.name.clone(), hash));
+      scope.spawn(|| {
+        loop {
+          let index = next_index.fetch_add(1, Ordering::Relaxed);
+          let Some(file) = files.get(index) else {
+            break;
+          };
+          let start = Instant::now();
+          let result = std::panic::catch_unwind(|| check_file(file, config));
+          let elapsed = start.elapsed();
+          let mut report = report.lock().unwrap();
+          match result {
+            Ok(FileResult::Skipped) => report.skipped += 1,
+            Ok(FileResult::Stable(hash)) => {
+              report.checked += 1;
+              report.hashes.push((file.name.clone(), hash));
+            }
+            Ok(FileResult::Unstable(unstable_file, hash)) => {
+              report.checked += 1;
+              report.hashes.push((file.name.clone(), hash));
+              report.unstable.push(unstable_file);
+            }
+            Ok(FileResult::InvalidOutput(hash)) => {
+              report.checked += 1;
+              report.hashes.push((file.name.clone(), hash));
+              report.invalid_output.push(file.name.clone());
+            }
+            Err(_) => {
+              report.checked += 1;
+              report.panicked.push(file.name.clone());
+            }
           }
-          Ok(FileResult::Unstable(unstable_file, hash)) => {
-            report.checked += 1;
-            report.hashes.push((file.name.clone(), hash));
-            report.unstable.push(unstable_file);
-          }
-          Ok(FileResult::InvalidOutput(hash)) => {
-            report.checked += 1;
-            report.hashes.push((file.name.clone(), hash));
-            report.invalid_output.push(file.name.clone());
-          }
-          Err(_) => {
-            report.checked += 1;
-            report.panicked.push(file.name.clone());
-          }
+          report.slowest.push((elapsed, file.name.clone()));
+          report.slowest.sort_by(|a, b| b.0.cmp(&a.0));
+          report.slowest.truncate(5);
         }
-        report.slowest.push((elapsed, file.name.clone()));
-        report.slowest.sort_by(|a, b| b.0.cmp(&a.0));
-        report.slowest.truncate(5);
       });
     }
   });
@@ -417,26 +419,26 @@ mod reduce {
   use std::collections::BTreeMap;
   use std::ops::Range;
   use std::path::Path;
-  use std::sync::atomic::AtomicUsize;
-  use std::sync::atomic::Ordering;
   use std::sync::Arc;
   use std::sync::Mutex;
+  use std::sync::atomic::AtomicUsize;
+  use std::sync::atomic::Ordering;
   use std::time::Duration;
   use std::time::Instant;
 
   use dprint_plugin_typescript::configuration::Configuration;
   use dprint_plugin_typescript::dprint_swc_ext::common::SourceRanged;
   use dprint_plugin_typescript::dprint_swc_ext::common::StartSourcePos;
-  use dprint_plugin_typescript::dprint_swc_ext::view::with_ast_view;
   use dprint_plugin_typescript::dprint_swc_ext::view::NodeKind;
   use dprint_plugin_typescript::dprint_swc_ext::view::NodeTrait;
   use dprint_plugin_typescript::dprint_swc_ext::view::ProgramInfoProvider;
-  use dprint_plugin_typescript::parsing::parse_program;
+  use dprint_plugin_typescript::dprint_swc_ext::view::with_ast_view;
   use dprint_plugin_typescript::parsing::ParseOptions;
+  use dprint_plugin_typescript::parsing::parse_program;
 
+  use super::CorpusFile;
   use super::format;
   use super::get_settled_after;
-  use super::CorpusFile;
 
   /// The longest a file is reduced for, after which what it was reduced to so far is used.
   const MAX_DURATION_PER_FILE: Duration = Duration::from_secs(120);
@@ -479,19 +481,21 @@ mod reduce {
     let thread_count = std::thread::available_parallelism().map(|count| count.get()).unwrap_or(4);
     std::thread::scope(|scope| {
       for _ in 0..thread_count {
-        scope.spawn(|| loop {
-          let index = next_index.fetch_add(1, Ordering::Relaxed);
-          let Some(file) = files.get(index) else {
-            break;
-          };
-          let Ok(text) = std::fs::read_to_string(&file.path) else {
-            continue;
-          };
-          let reduced = reduce(&file.path, text, config);
-          let extension = file.path.extension().unwrap().to_string_lossy().to_string();
-          snippets.lock().unwrap().entry((reduced, extension)).or_default().push(file.name.clone());
-          let done_count = done_count.fetch_add(1, Ordering::Relaxed) + 1;
-          eprintln!("  [{}/{}] {}", done_count, files.len(), file.name);
+        scope.spawn(|| {
+          loop {
+            let index = next_index.fetch_add(1, Ordering::Relaxed);
+            let Some(file) = files.get(index) else {
+              break;
+            };
+            let Ok(text) = std::fs::read_to_string(&file.path) else {
+              continue;
+            };
+            let reduced = reduce(&file.path, text, config);
+            let extension = file.path.extension().unwrap().to_string_lossy().to_string();
+            snippets.lock().unwrap().entry((reduced, extension)).or_default().push(file.name.clone());
+            let done_count = done_count.fetch_add(1, Ordering::Relaxed) + 1;
+            eprintln!("  [{}/{}] {}", done_count, files.len(), file.name);
+          }
         });
       }
     });

@@ -9,8 +9,8 @@ use dprint_swc_ext::common::SourceRange;
 use dprint_swc_ext::common::SourceRanged;
 use dprint_swc_ext::common::SourceRangedForSpanned;
 use dprint_swc_ext::swc::common::comments::Comment;
-use dprint_swc_ext::swc::parser::token::TokenAndSpan;
 use dprint_swc_ext::swc::parser::Syntax;
+use dprint_swc_ext::swc::parser::token::TokenAndSpan;
 use dprint_swc_ext::view::*;
 use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
@@ -21,10 +21,10 @@ use crate::configuration::*;
 use crate::tailwind;
 use crate::utils::Stack;
 
-/// A callback that will be called when encountering tagged templates.
-///
-/// It is up to the caller to decide if a certain tagged template should be formatted
-/// by the external formatter.
+/// A callback that will be called when encountering tagged templates whose tag is in the
+/// `taggedTemplate.embeddedLanguages` configuration. It's called with the file extension of
+/// the language the tag maps to (ex. `"less"` for css\`...\` by default), the text of the
+/// template, and the configuration.
 ///
 /// Examples:
 /// ```ignore
@@ -48,8 +48,9 @@ use crate::utils::Stack;
 /// External formatter should return `None` if it doesn't understand given language, in such
 /// cases the templates will be left as they are.
 ///
-/// Only templates with no interpolation are supported.
-pub type ExternalFormatter = dyn Fn(&str, String, &Configuration) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync + 'static>>;
+/// The expressions of the template are replaced with placeholders in the text (ex. `@dpr1nt_00_d`
+/// for CSS and `dpr1nt_00_d` otherwise), which need to be kept in the formatted text.
+pub type ExternalFormatter<'a> = dyn Fn(&str, String, &Configuration) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync + 'static>> + 'a;
 
 pub(crate) struct GenerateDiagnostic {
   pub message: String,
@@ -65,7 +66,7 @@ pub struct Context<'a> {
   pub program: Program<'a>,
   pub config: &'a Configuration,
   pub comments: CommentTracker<'a>,
-  pub external_formatter: Option<&'a ExternalFormatter>,
+  pub external_formatter: Option<&'a ExternalFormatter<'a>>,
   pub token_finder: TokenFinder<'a>,
   pub current_node: Node<'a>,
   pub parent_stack: Stack<Node<'a>>,
@@ -116,7 +117,7 @@ impl<'a> Context<'a> {
     current_node: Node<'a>,
     program: Program<'a>,
     config: &'a Configuration,
-    external_formatter: Option<&'a ExternalFormatter>,
+    external_formatter: Option<&'a ExternalFormatter<'a>>,
   ) -> Context<'a> {
     Context {
       arena,

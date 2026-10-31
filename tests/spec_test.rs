@@ -11,10 +11,10 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync 
 
 fn external_formatter(lang: &str, text: String, config: &Configuration) -> Result<Option<String>> {
   match lang {
-    "css" => format_embedded_css(&text, config),
+    "less" => format_embedded_css(&text, config),
     "html" => format_html(&text, config),
     "sql" => format_sql(&text, config),
-    "graphql" | "gql" => format_graphql_stub(&text, config),
+    "graphql" => format_graphql_stub(&text, config),
     _ => Ok(None),
   }
 }

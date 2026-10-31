@@ -7,8 +7,8 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::collections::BTreeMap;
 
-use crate::generation::imports::resolved::compile_import_groups;
 use crate::generation::imports::resolved::ResolvedGroups;
+use crate::generation::imports::resolved::compile_import_groups;
 
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -533,6 +533,11 @@ pub struct Configuration {
   pub type_literal_separator_kind_single_line: SemiColonOrComma,
   #[serde(rename = "typeLiteral.separatorKind.multiLine")]
   pub type_literal_separator_kind_multi_line: SemiColonOrComma,
+  #[serde(rename = "taggedTemplate.formatEmbedded")]
+  pub tagged_template_format_embedded: bool,
+  /// Map of a tagged template's tag to the file extension of the language its text is formatted as.
+  #[serde(rename = "taggedTemplate.embeddedLanguages")]
+  pub tagged_template_embedded_languages: BTreeMap<String, String>,
   /* sorting */
   #[serde(rename = "module.sortImportDeclarations")]
   pub module_sort_import_declarations: SortOrder,

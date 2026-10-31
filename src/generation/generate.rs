@@ -13,10 +13,10 @@ use dprint_swc_ext::common::SourceRanged;
 use dprint_swc_ext::common::SourceRangedForSpanned;
 use dprint_swc_ext::swc::common::comments::Comment;
 use dprint_swc_ext::swc::common::comments::CommentKind;
+use dprint_swc_ext::swc::parser::Syntax;
 use dprint_swc_ext::swc::parser::token::BinOpToken;
 use dprint_swc_ext::swc::parser::token::Token;
 use dprint_swc_ext::swc::parser::token::TokenAndSpan;
-use dprint_swc_ext::swc::parser::Syntax;
 use dprint_swc_ext::view::*;
 use std::borrow::Cow;
 
@@ -35,7 +35,7 @@ pub fn generate<'a>(
   program: Program<'a>,
   syntax: Syntax,
   config: &'a Configuration,
-  external_formatter: Option<&'a ExternalFormatter>,
+  external_formatter: Option<&'a ExternalFormatter<'a>>,
 ) -> crate::Result<PrintItems<'a>> {
   let program_node = program.into();
   let mut context = Context::new(
@@ -1267,11 +1267,7 @@ fn gen_export_named_decl<'a>(node: &NamedExport<'a>, context: &mut Context<'a>) 
     items.push_sc(sc!(";"));
   }
 
-  if should_single_line {
-    with_no_new_lines(items)
-  } else {
-    items
-  }
+  if should_single_line { with_no_new_lines(items) } else { items }
 }
 
 fn gen_function_decl<'a>(node: &FnDecl<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
@@ -1482,11 +1478,7 @@ fn gen_import_decl<'a>(node: &ImportDecl<'a>, context: &mut Context<'a>) -> Prin
     items.push_sc(sc!(";"));
   }
 
-  if should_single_line {
-    with_no_new_lines(items)
-  } else {
-    items
-  }
+  if should_single_line { with_no_new_lines(items) } else { items }
 }
 
 fn gen_import_equals_decl<'a>(node: &TsImportEqualsDecl<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
@@ -3193,14 +3185,18 @@ fn gen_spread_element<'a>(node: &SpreadElement<'a>, context: &mut Context<'a>) -
 /// Formats the tagged template literal using an external formatter.
 /// Detects the type of embedded language automatically.
 fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> Option<PrintItems<'a>> {
+  if !context.config.tagged_template_format_embedded {
+    return None;
+  }
   let external_formatter = context.external_formatter.as_ref()?;
-  let embedded_lang = normalize_embedded_language_type(node)?;
+  let tag = get_embedded_language_tag(node)?;
+  let extension = context.config.tagged_template_embedded_languages.get(tag)?.as_str();
 
   let placeholder_css = "@dpr1nt_";
   let placeholder_other = "dpr1nt_";
   // First creates text with placeholders for the expressions.
-  let placeholder_text = match embedded_lang {
-    "css" => placeholder_css,
+  let placeholder_text = match extension {
+    "css" | "less" | "scss" | "sass" => placeholder_css,
     _ => placeholder_other,
   };
   let text = capacity_builder::StringBuilder::<String>::build(|builder| {
@@ -3224,7 +3220,7 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
   // exist because of the template literal unescaped (ex. Tailwind's `\\[\\#86efac\\]`
   // as `\[\#86efac\]`) and the other escapes as is (ex. `\n` and `\e600`).
   let text = unescape_embedded_text(&text)?;
-  let formatted_tpl = match external_formatter(embedded_lang, text, context.config) {
+  let formatted_tpl = match external_formatter(extension, text, context.config) {
     Ok(formatted_tpl) => escape_embedded_text(&formatted_tpl?),
     Err(err) => {
       context.diagnostics.push(context::GenerateDiagnostic {
@@ -3235,18 +3231,28 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
   };
 
   let mut items = PrintItems::new(context.arena);
+  let mut expr_index = 0;
+  let formatted_tpl = context.alloc_str(&formatted_tpl);
   items.push_sc(sc!("`"));
+
+  // a template on a single line stays on a single line when its formatted text does too
+  let single_line_text = formatted_tpl.trim();
+  let is_single_line = !single_line_text.contains('\n') && !node.tpl.quasis.iter().any(|quasi| quasi.raw().as_str().contains('\n'));
+  if is_single_line {
+    gen_embedded_line(single_line_text, 0, placeholder_text, node, &mut expr_index, &mut items, context);
+    items.push_sc(sc!("`"));
+    return Some(items);
+  }
+
   items.push_signal(Signal::NewLine);
   items.push_signal(Signal::StartIndent);
-  let mut index = 0;
   let mut current_indent_level = 0;
   let use_tabs = context.config.use_tabs;
   let indent_width = if use_tabs { 1 } else { context.config.indent_width };
   let indent_char = if use_tabs { '\t' } else { ' ' };
-  let formatted_tpl = context.alloc_str(&formatted_tpl);
   for line in formatted_tpl.lines() {
     // count indent characters
-    let mut pos = line.chars().take_while(|ch| *ch == indent_char).count();
+    let pos = line.chars().take_while(|ch| *ch == indent_char).count();
     let indent_level = if indent_width == 0 { 0 } else { pos / indent_width as usize };
     while indent_level > current_indent_level {
       items.push_signal(Signal::StartIndent);
@@ -3256,6 +3262,28 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
       items.push_signal(Signal::FinishIndent);
       current_indent_level -= 1;
     }
+    gen_embedded_line(line, pos, placeholder_text, node, &mut expr_index, &mut items, context);
+    items.push_signal(Signal::NewLine);
+  }
+  while current_indent_level > 0 {
+    items.push_signal(Signal::FinishIndent);
+    current_indent_level -= 1;
+  }
+  items.push_signal(Signal::FinishIndent);
+  items.push_sc(sc!("`"));
+  return Some(items);
+
+  /// Generates a line of the formatted text from the position, replacing the
+  /// placeholders with the template's expressions.
+  fn gen_embedded_line<'a>(
+    line: &'a str,
+    mut pos: usize,
+    placeholder_text: &str,
+    node: &TaggedTpl<'a>,
+    expr_index: &mut usize,
+    items: &mut PrintItems<'a>,
+    context: &mut Context<'a>,
+  ) {
     let mut parts = line[pos..].split(placeholder_text).enumerate().peekable();
     while let Some((i, part)) = parts.next() {
       let end = pos + part.len();
@@ -3268,25 +3296,18 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
       }
       if parts.peek().is_some() {
         items.push_sc(sc!("${"));
-        items.extend(gen_node(node.tpl.exprs[index].into(), context));
+        items.extend(gen_node(node.tpl.exprs[*expr_index].into(), context));
         items.push_sc(sc!("}"));
         pos = end + placeholder_text.len();
-        index += 1;
+        *expr_index += 1;
       }
     }
-    items.push_signal(Signal::NewLine);
   }
-  while current_indent_level > 0 {
-    items.push_signal(Signal::FinishIndent);
-    current_indent_level -= 1;
-  }
-  items.push_signal(Signal::FinishIndent);
-  items.push_sc(sc!("`"));
-  Some(items)
 }
 
-/// Normalizes the type of embedded language in a tagged template literal.
-fn normalize_embedded_language_type<'a>(node: &TaggedTpl<'a>) -> Option<&'a str> {
+/// Gets the tag that's looked up in the `taggedTemplate.embeddedLanguages` configuration,
+/// which is the tag's name or `"css"` and `"graphql"` for the patterns of those languages.
+fn get_embedded_language_tag<'a>(node: &TaggedTpl<'a>) -> Option<&'a str> {
   match node.tag {
     Expr::Ident(ident) => Some(ident.sym().as_str()),
     Expr::Member(member_expr) => {
@@ -4769,7 +4790,13 @@ fn has_escaped_class_separator(text: &str) -> bool {
 
 fn is_class_names_jsx_attr(attr: &JSXAttr, context: &Context) -> bool {
   let name = attr.name.text_fast(context.program);
-  matches!(name, "class" | "className") || context.config.jsx_sort_class_names.attributes.iter().any(|attribute_name| attribute_name == name)
+  matches!(name, "class" | "className")
+    || context
+      .config
+      .jsx_sort_class_names
+      .attributes
+      .iter()
+      .any(|attribute_name| attribute_name == name)
 }
 
 fn get_tailwind_project<'a>(context: &Context<'a>) -> tailwind::Project<'a> {
@@ -8376,8 +8403,7 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
     let has_subgroup_boundaries = stmt_group.subgroup_boundaries.is_some();
     let sorted_indexes = match stmt_group.sorted_indexes {
       Some(indexes) => Some(indexes),
-      None => get_node_sorter(stmt_group.kind, context)
-        .map(|sorter| sorter.get_sorted_indexes(stmt_group.nodes.iter().map(|n| Some(*n)), context.program)),
+      None => get_node_sorter(stmt_group.kind, context).map(|sorter| sorter.get_sorted_indexes(stmt_group.nodes.iter().map(|n| Some(*n)), context.program)),
     };
     let subgroup_boundaries = stmt_group.subgroup_boundaries.unwrap_or_default();
     // the separator computed at index i ends up before the node at output position i
@@ -8750,19 +8776,19 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> BumpV
         })
         .collect();
       let sorter = get_node_sorter_from_order(context.config.module_sort_import_declarations, NamedTypeImportsExportsOrder::None);
-      let sort_keys =
-        sorter.map(|sorter| (sorter, g.nodes.iter().map(|node| sorter.get_node_sort_key(*node, context.program)).collect::<Vec<_>>()));
-      let (ordered, boundaries) = partition_indices(
-        &classified,
-        resolved.groups.len(),
-        |a_orig: usize, b_orig: usize| -> std::cmp::Ordering {
-          if let Some((sorter, sort_keys)) = &sort_keys {
-            sorter.cmp_node_sort_keys(&sort_keys[a_orig], &sort_keys[b_orig])
-          } else {
-            a_orig.cmp(&b_orig)
-          }
-        },
-      );
+      let sort_keys = sorter.map(|sorter| {
+        (
+          sorter,
+          g.nodes.iter().map(|node| sorter.get_node_sort_key(*node, context.program)).collect::<Vec<_>>(),
+        )
+      });
+      let (ordered, boundaries) = partition_indices(&classified, resolved.groups.len(), |a_orig: usize, b_orig: usize| -> std::cmp::Ordering {
+        if let Some((sorter, sort_keys)) = &sort_keys {
+          sorter.cmp_node_sort_keys(&sort_keys[a_orig], &sort_keys[b_orig])
+        } else {
+          a_orig.cmp(&b_orig)
+        }
+      });
 
       // Hand the reordering to the same mechanism the plain sorter uses: it
       // permutes the *generated* items, so each import keeps the comments it
@@ -9165,11 +9191,7 @@ fn gen_close_paren_with_type<'a>(opts: GenCloseParenWithTypeOptions<'a>, context
       items.extend(generated_type_node);
       items.push_info(type_node_end_ln);
 
-      if use_new_line_group {
-        new_line_group(items)
-      } else {
-        items
-      }
+      if use_new_line_group { new_line_group(items) } else { items }
     } else {
       items
     };

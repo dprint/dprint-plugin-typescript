@@ -385,11 +385,7 @@ fn get_params_or_args_range(
     };
     if let Some(close_paren) = close_paren {
       let end = close_paren.end();
-      if end > start_pos {
-        Some(end)
-      } else {
-        None
-      }
+      if end > start_pos { Some(end) } else { None }
     } else {
       None
     }
@@ -405,11 +401,7 @@ fn get_params_or_args_range(
 
     if let Some(open_paren) = open_paren {
       let pos = open_paren.start();
-      if pos >= start_pos {
-        Some(pos)
-      } else {
-        None
-      }
+      if pos >= start_pos { Some(pos) } else { None }
     } else {
       None
     }

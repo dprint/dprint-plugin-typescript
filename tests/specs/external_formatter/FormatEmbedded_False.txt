@@ -1,0 +1,7 @@
+~~ taggedTemplate.formatEmbedded: false ~~
+== should not format embedded languages ==
+const a = html`<body><main>${main}</main></body>`;
+const b = css`color:red;`;
+[expect]
+const a = html`<body><main>${main}</main></body>`;
+const b = css`color:red;`;
