@@ -12,21 +12,6 @@ function foo() {
     }
 }
 
-== should join an arrow body that was previously broken when it fits ==
-function foo() {
-    for (let i = 0; i < buttonCount; i++) {
-        range.text(i.toString(), (ctx) =>
-            ctx.reply(`${i} selected`));
-    }
-}
-
-[expect]
-function foo() {
-    for (let i = 0; i < buttonCount; i++) {
-        range.text(i.toString(), (ctx) => ctx.reply(`${i} selected`));
-    }
-}
-
 == should not break the arrow body when a single line body moves to the next line ==
 for (let i = 0; i < buttonCount; i++) { range.text(i.toString(), (ctx) => ctx.reply(`${i}`)); }
 
@@ -91,4 +76,32 @@ function foo() {
     if (a) {
         if (b) range.text(i.toString(), (ctx) => ctx.reply(`${i} selected`));
     }
+}
+
+== should break the arguments of a call in a function returned by an arrow the same as elsewhere ==
+const createTestData = () =>
+    function() {
+        const startingFrom = Effect.map(DateTime.now, now =>
+            DateTime.startOf(now, "day", aaaaaaaaaaa));
+    };
+
+function createTestData() {
+    const startingFrom = Effect.map(DateTime.now, now =>
+        DateTime.startOf(now, "day", aaaaaaaaaaaaaaa));
+}
+
+[expect]
+const createTestData = () =>
+    function() {
+        const startingFrom = Effect.map(
+            DateTime.now,
+            now => DateTime.startOf(now, "day", aaaaaaaaaaa),
+        );
+    };
+
+function createTestData() {
+    const startingFrom = Effect.map(
+        DateTime.now,
+        now => DateTime.startOf(now, "day", aaaaaaaaaaaaaaa),
+    );
 }
