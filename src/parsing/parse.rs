@@ -496,6 +496,7 @@ mod test {
       diagnostics: Vec::new(),
     };
     let config = crate::configuration::ConfigurationBuilder::new().build();
+    let arena = dprint_core::formatting::Arena::new();
     let err = parsed_source
       .with_view(|program| {
         crate::format_program(crate::format_text::FormatProgramOptions {
@@ -503,6 +504,7 @@ mod test {
           syntax,
           config: &config,
           external_formatter: None,
+          arena: &arena,
         })
       })
       .err()

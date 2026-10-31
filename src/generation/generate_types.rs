@@ -185,7 +185,8 @@ impl<'a> ParametersRanged for &Function<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
     get_params_or_args_range(
       self.start(),
-      self.params.iter().map(|x| x.range()).collect(),
+      self.params.first().map(|x| x.range()),
+      self.params.last().map(|x| x.range()),
       self
         .return_type
         .map(|t| t.start())
@@ -212,7 +213,8 @@ impl<'a> ParametersRanged for &Constructor<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
     get_params_or_args_range(
       self.start(),
-      self.params.iter().map(|x| x.range()).collect(),
+      self.params.first().map(|x| x.range()),
+      self.params.last().map(|x| x.range()),
       self.body.as_ref().map(|t| t.start()).unwrap_or_else(|| self.end()),
       context,
     )
@@ -229,7 +231,8 @@ impl<'a> ParametersRanged for &GetterProp<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
     get_params_or_args_range(
       self.start(),
-      vec![],
+      None,
+      None,
       self
         .type_ann
         .as_ref()
@@ -245,7 +248,8 @@ impl<'a> ParametersRanged for &SetterProp<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
     get_params_or_args_range(
       self.start(),
-      vec![self.param.range()],
+      Some(self.param.range()),
+      Some(self.param.range()),
       self.body.as_ref().map(|t| t.start()).unwrap_or_else(|| self.end()),
       context,
     )
@@ -256,7 +260,8 @@ impl<'a> ParametersRanged for &ArrowExpr<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
     get_params_or_args_range(
       self.start(),
-      self.params.iter().map(|x| x.range()).collect(),
+      self.params.first().map(|x| x.range()),
+      self.params.last().map(|x| x.range()),
       self.return_type.as_ref().map(|t| t.start()).unwrap_or_else(|| self.body.start()),
       context,
     )
@@ -265,7 +270,13 @@ impl<'a> ParametersRanged for &ArrowExpr<'a> {
 
 impl<'a> ParametersRanged for CallOrOptCallExpr<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
-    get_params_or_args_range(self.start(), self.args().iter().map(|a| a.range()).collect(), self.end(), context)
+    get_params_or_args_range(
+      self.start(),
+      self.args().first().map(|x| x.range()),
+      self.args().last().map(|x| x.range()),
+      self.end(),
+      context,
+    )
   }
 }
 
@@ -273,7 +284,8 @@ impl<'a> ParametersRanged for &NewExpr<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
     get_params_or_args_range(
       self.start(),
-      self.args.as_ref().map(|args| args.iter().map(|a| a.range()).collect()).unwrap_or_default(),
+      self.args.as_ref().and_then(|args| args.first()).map(|x| x.range()),
+      self.args.as_ref().and_then(|args| args.last()).map(|x| x.range()),
       self.end(),
       context,
     )
@@ -284,7 +296,8 @@ impl<'a> ParametersRanged for &TsCallSignatureDecl<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
     get_params_or_args_range(
       self.start(),
-      self.params.iter().map(|x| x.range()).collect(),
+      self.params.first().map(|x| x.range()),
+      self.params.last().map(|x| x.range()),
       self.type_ann.as_ref().map(|t| t.start()).unwrap_or_else(|| self.end()),
       context,
     )
@@ -295,7 +308,8 @@ impl<'a> ParametersRanged for &TsConstructSignatureDecl<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
     get_params_or_args_range(
       self.start(),
-      self.params.iter().map(|x| x.range()).collect(),
+      self.params.first().map(|x| x.range()),
+      self.params.last().map(|x| x.range()),
       self.type_ann.as_ref().map(|t| t.start()).unwrap_or_else(|| self.end()),
       context,
     )
@@ -306,7 +320,8 @@ impl<'a> ParametersRanged for &TsGetterSignature<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
     get_params_or_args_range(
       self.start(),
-      Vec::with_capacity(0),
+      None,
+      None,
       self.type_ann.as_ref().map(|t| t.start()).unwrap_or_else(|| self.end()),
       context,
     )
@@ -315,7 +330,7 @@ impl<'a> ParametersRanged for &TsGetterSignature<'a> {
 
 impl<'a> ParametersRanged for &TsSetterSignature<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
-    get_params_or_args_range(self.start(), vec![self.param.range()], self.end(), context)
+    get_params_or_args_range(self.start(), Some(self.param.range()), Some(self.param.range()), self.end(), context)
   }
 }
 
@@ -323,7 +338,8 @@ impl<'a> ParametersRanged for &TsMethodSignature<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
     get_params_or_args_range(
       self.start(),
-      self.params.iter().map(|x| x.range()).collect(),
+      self.params.first().map(|x| x.range()),
+      self.params.last().map(|x| x.range()),
       self.type_ann.as_ref().map(|t| t.start()).unwrap_or_else(|| self.end()),
       context,
     )
@@ -332,19 +348,37 @@ impl<'a> ParametersRanged for &TsMethodSignature<'a> {
 
 impl<'a> ParametersRanged for &TsConstructorType<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
-    get_params_or_args_range(self.start(), self.params.iter().map(|x| x.range()).collect(), self.type_ann.start(), context)
+    get_params_or_args_range(
+      self.start(),
+      self.params.first().map(|x| x.range()),
+      self.params.last().map(|x| x.range()),
+      self.type_ann.start(),
+      context,
+    )
   }
 }
 
 impl<'a> ParametersRanged for &TsFnType<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
-    get_params_or_args_range(self.start(), self.params.iter().map(|x| x.range()).collect(), self.type_ann.start(), context)
+    get_params_or_args_range(
+      self.start(),
+      self.params.first().map(|x| x.range()),
+      self.params.last().map(|x| x.range()),
+      self.type_ann.start(),
+      context,
+    )
   }
 }
 
-fn get_params_or_args_range(start_pos: SourcePos, params: Vec<SourceRange>, following_pos: SourcePos, context: &mut Context) -> Option<SourceRange> {
+fn get_params_or_args_range(
+  start_pos: SourcePos,
+  first_param: Option<SourceRange>,
+  last_param: Option<SourceRange>,
+  following_pos: SourcePos,
+  context: &mut Context,
+) -> Option<SourceRange> {
   let close_token_end = {
-    let close_paren = if let Some(last_param) = params.last() {
+    let close_paren = if let Some(last_param) = &last_param {
       context.token_finder.get_first_close_paren_after(last_param)
     } else {
       context.token_finder.get_first_close_paren_before(&following_pos)
@@ -362,7 +396,7 @@ fn get_params_or_args_range(start_pos: SourcePos, params: Vec<SourceRange>, foll
   }?;
   let close_token_start = {
     let open_paren = context.token_finder.get_first_open_paren_before(&{
-      if let Some(first_param) = params.first() {
+      if let Some(first_param) = first_param {
         first_param.start()
       } else {
         close_token_end

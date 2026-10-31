@@ -24,7 +24,7 @@ impl<'a> CommentTracker<'a> {
 
   /// Gets the leading comments and all previously unhandled comments.
   pub fn leading_comments_with_previous(&mut self, pos: SourcePos) -> CommentsIterator<'a> {
-    let mut iterator = CommentsIterator::new(Vec::new());
+    let mut iterator = CommentsIterator::empty();
 
     if self.token_index == 0 {
       // get any comments stored at the beginning of the file
@@ -53,7 +53,7 @@ impl<'a> CommentTracker<'a> {
 
   /// Gets the trailing comments and all previously unhandled comments
   pub fn trailing_comments_with_previous(&mut self, end: SourcePos) -> CommentsIterator<'a> {
-    let mut iterator = CommentsIterator::new(Vec::new());
+    let mut iterator = CommentsIterator::empty();
 
     while let Some(token) = self.tokens.get(self.token_index) {
       iterator.extend(token.start().leading_comments_fast(self.program));

@@ -222,9 +222,9 @@ dependencies = [
 
 [[package]]
 name = "dprint-core"
-version = "0.72.0"
+version = "0.73.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c32e7afcc867e65f3dc89eeca1147cba5ce94b09b25e3b45bae3aae548fe9ef9"
+checksum = "2353023fb71b872d7e2cf5283fd241e3144c74d842a0c302fc1fe4e05b4822c1"
 dependencies = [
  "bumpalo",
  "hashbrown 0.15.5",
@@ -275,7 +275,7 @@ name = "dprint-plugin-typescript"
 version = "0.96.1"
 dependencies = [
  "capacity_builder",
- "dprint-core 0.72.0",
+ "dprint-core 0.73.0",
  "dprint-core-macros",
  "dprint-development",
  "dprint-plugin-sql",
@@ -292,9 +292,9 @@ dependencies = [
 
 [[package]]
 name = "dprint-swc-ext"
-version = "0.26.1"
+version = "0.26.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "661f154a87e7459f54a2f4a1c615661a416a822b4a9e3ad0491dce2bd080421f"
+checksum = "c78414cb4ed3a037f12e68231fb0c2b49b6f9cd37367d2157616d2ad472ceaaa"
 dependencies = [
  "allocator-api2",
  "bumpalo",
