@@ -439,13 +439,7 @@ pub enum BuiltinsRuntime {
   None,
 }
 
-generate_str_to_from![
-  BuiltinsRuntime,
-  [Node, "node"],
-  [Deno, "deno"],
-  [Bun, "bun"],
-  [None, "none"]
-];
+generate_str_to_from![BuiltinsRuntime, [Node, "node"], [Deno, "deno"], [Bun, "bun"], [None, "none"]];
 
 /// Built-in category strings allowed in `module.importGroups[].match`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -477,7 +471,9 @@ generate_str_to_from![
 pub enum ImportMatcher {
   Category(BuiltinCategory),
   /// Raw glob pattern string. Compiled lazily by resolve_config into a globset.
-  Pattern { pattern: String },
+  Pattern {
+    pattern: String,
+  },
 }
 
 /// Either a single matcher or a list (list = merged into one group).

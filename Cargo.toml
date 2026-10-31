@@ -21,7 +21,7 @@ overflow-checks = false
 panic = "abort"
 
 [features]
-wasm = ["dprint-core/wasm"]
+wasm = ["serde_json", "dprint-core/wasm"]
 tracing = ["dprint-core/tracing"]
 
 [[test]]
@@ -41,10 +41,9 @@ dprint-core-macros = "0.1.0"
 dprint-swc-ext = { version = "0.26.2", features = ["view"] }
 globset = "0.4"
 percent-encoding = "2.3.1"
-phf = { version = "0.11", features = ["macros"] }
 rustc-hash = "2.1.1"
 serde = { version = "1.0.144", features = ["derive"] }
-serde_json = { version = "1.0" }
+serde_json = { version = "1.0", optional = true }
 thiserror = "2.0.18"
 
 [dev-dependencies]

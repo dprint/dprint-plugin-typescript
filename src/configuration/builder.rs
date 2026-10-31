@@ -640,9 +640,30 @@ impl ConfigurationBuilder {
   ///
   /// Default: `[]`
   pub fn module_import_groups(&mut self, value: Vec<ImportGroup>) -> &mut Self {
-    let json = serde_json::to_value(value).unwrap();
-    let cfg_val: dprint_core::configuration::ConfigKeyValue = serde_json::from_value(json).unwrap();
-    self.insert("module.importGroups", cfg_val)
+    fn matcher_to_value(matcher: ImportMatcher) -> ConfigKeyValue {
+      match matcher {
+        ImportMatcher::Category(category) => category.to_string().into(),
+        ImportMatcher::Pattern { pattern } => {
+          let mut values = ConfigKeyMap::new();
+          values.insert("pattern".to_string(), pattern.into());
+          ConfigKeyValue::Object(values)
+        }
+      }
+    }
+
+    let groups = value
+      .into_iter()
+      .map(|group| {
+        let match_value = match group.matchers {
+          ImportGroupMatch::Single(matcher) => matcher_to_value(matcher),
+          ImportGroupMatch::Multiple(matchers) => ConfigKeyValue::Array(matchers.into_iter().map(matcher_to_value).collect()),
+        };
+        let mut values = ConfigKeyMap::new();
+        values.insert("match".to_string(), match_value);
+        ConfigKeyValue::Object(values)
+      })
+      .collect();
+    self.insert("module.importGroups", ConfigKeyValue::Array(groups))
   }
 
   /// How type-only imports are classified.

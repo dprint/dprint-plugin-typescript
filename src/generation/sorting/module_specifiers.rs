@@ -8,11 +8,7 @@ pub fn cmp_module_specifiers(a: &str, b: &str, cmp_text: impl Fn(&str, &str) -> 
   cmp_module_specifier_infos(&a_info, &b_info, cmp_text)
 }
 
-pub(super) fn cmp_module_specifier_infos(
-  a_info: &ModuleSpecifierInfo,
-  b_info: &ModuleSpecifierInfo,
-  cmp_text: impl Fn(&str, &str) -> Ordering,
-) -> Ordering {
+pub(super) fn cmp_module_specifier_infos(a_info: &ModuleSpecifierInfo, b_info: &ModuleSpecifierInfo, cmp_text: impl Fn(&str, &str) -> Ordering) -> Ordering {
   match a_info {
     ModuleSpecifierInfo::Absolute { text: a_text } => match b_info {
       ModuleSpecifierInfo::Absolute { text: b_text } => cmp_text(a_text, b_text),

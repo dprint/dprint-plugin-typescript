@@ -35,3 +35,13 @@ import { a } from "aaa";
 [expect]
 import { a } from "aaa";
 import { b } from "bbb";
+
+== a blank line isn't added between imports that weren't next to each other ==
+import { a } from "aaa";
+import { fs } from "node:fs";
+import { b } from "bbb";
+
+[expect]
+import { fs } from "node:fs";
+import { a } from "aaa";
+import { b } from "bbb";

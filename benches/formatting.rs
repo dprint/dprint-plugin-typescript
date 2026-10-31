@@ -14,8 +14,8 @@ use dprint_plugin_typescript::configuration::SortOrder;
 use dprint_plugin_typescript::format_parsed_source;
 use dprint_plugin_typescript::format_text;
 use dprint_plugin_typescript::parsing::parse_program;
-use dprint_plugin_typescript::parsing::ParsedSource;
 use dprint_plugin_typescript::parsing::ParseOptions;
+use dprint_plugin_typescript::parsing::ParsedSource;
 use dprint_plugin_typescript::FormatParsedSourceOptions;
 use dprint_plugin_typescript::FormatTextOptions;
 
@@ -61,18 +61,14 @@ fn main() {
   println!("named imports: {named_count}");
   println!("max parent segments: {parent_segments}");
 
-  bench("sorted_import_declarations/full", iterations, || {
-    run_format_text(&sorted_imports_text, &config)
-  });
+  bench("sorted_import_declarations/full", iterations, || run_format_text(&sorted_imports_text, &config));
   bench("sorted_import_declarations/parsed", iterations, || {
     run_format_parsed_source(&sorted_imports_parsed, &config)
   });
   bench("maintain_import_declarations/parsed", iterations, || {
     run_format_parsed_source(&sorted_imports_parsed, &maintain_order_config)
   });
-  bench("sorted_export_declarations/full", iterations, || {
-    run_format_text(&sorted_exports_text, &config)
-  });
+  bench("sorted_export_declarations/full", iterations, || run_format_text(&sorted_exports_text, &config));
   bench("sorted_export_declarations/parsed", iterations, || {
     run_format_parsed_source(&sorted_exports_parsed, &config)
   });
@@ -85,18 +81,14 @@ fn main() {
   bench("grouped_import_declarations/parsed", iterations, || {
     run_format_parsed_source(&grouped_imports_parsed, &grouped_imports_config)
   });
-  bench("sorted_named_imports/full", iterations, || {
-    run_format_text(&sorted_named_imports_text, &config)
-  });
+  bench("sorted_named_imports/full", iterations, || run_format_text(&sorted_named_imports_text, &config));
   bench("sorted_named_imports/parsed", iterations, || {
     run_format_parsed_source(&sorted_named_imports_parsed, &config)
   });
   bench("maintain_named_imports/parsed", iterations, || {
     run_format_parsed_source(&sorted_named_imports_parsed, &maintain_order_config)
   });
-  bench("sorted_named_exports/full", iterations, || {
-    run_format_text(&sorted_named_exports_text, &config)
-  });
+  bench("sorted_named_exports/full", iterations, || run_format_text(&sorted_named_exports_text, &config));
   bench("sorted_named_exports/parsed", iterations, || {
     run_format_parsed_source(&sorted_named_exports_parsed, &config)
   });
@@ -123,12 +115,7 @@ fn bench(name: &str, iterations: usize, mut run: impl FnMut() -> usize) {
   let median = timings[timings.len() / 2];
   let avg = total / timings.len() as u32;
 
-  println!(
-    "{name}: min={:.2}ms median={:.2}ms avg={:.2}ms",
-    ms(min),
-    ms(median),
-    ms(avg),
-  );
+  println!("{name}: min={:.2}ms median={:.2}ms avg={:.2}ms", ms(min), ms(median), ms(avg),);
 }
 
 fn run_format_text(file_text: &str, config: &Configuration) -> usize {
@@ -169,11 +156,7 @@ fn sorted_import_declarations(import_count: usize, max_parent_segments: usize) -
   let mut text = String::new();
   for i in (0..import_count).rev() {
     let parent_count = i % max_parent_segments;
-    let prefix = if parent_count == 0 {
-      ".".to_string()
-    } else {
-      "../".repeat(parent_count)
-    };
+    let prefix = if parent_count == 0 { ".".to_string() } else { "../".repeat(parent_count) };
     text.push_str(&format!(
       "import {{ Z{i}, a{i}, type T{i}, b{i} as B{i} }} from \"{prefix}pkg{}/mod{i}\";\n",
       i % 97,
@@ -192,9 +175,7 @@ fn grouped_import_declarations(import_count: usize, max_parent_segments: usize) 
       2 => format!("{}pkg{}/mod{i}", "../".repeat((i % max_parent_segments) + 1), i % 97),
       _ => format!("./pkg{}/mod{i}", i % 97),
     };
-    text.push_str(&format!(
-      "import {{ Z{i}, a{i}, type T{i}, b{i} as B{i} }} from \"{source}\";\n",
-    ));
+    text.push_str(&format!("import {{ Z{i}, a{i}, type T{i}, b{i} as B{i} }} from \"{source}\";\n",));
   }
   text.push_str("\nexport const value = 1;\n");
   text
@@ -204,11 +185,7 @@ fn sorted_export_declarations(export_count: usize, max_parent_segments: usize) -
   let mut text = String::new();
   for i in (0..export_count).rev() {
     let parent_count = i % max_parent_segments;
-    let prefix = if parent_count == 0 {
-      ".".to_string()
-    } else {
-      "../".repeat(parent_count)
-    };
+    let prefix = if parent_count == 0 { ".".to_string() } else { "../".repeat(parent_count) };
     text.push_str(&format!(
       "export {{ Z{i}, a{i}, type T{i}, b{i} as B{i} }} from \"{prefix}pkg{}/mod{i}\";\n",
       i % 97,

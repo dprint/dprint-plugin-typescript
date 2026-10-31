@@ -137,7 +137,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
       NamedTypeImportsExportsOrder::None,
       &mut diagnostics,
     ),
-    module_import_groups: parse_import_groups(&mut config, &mut diagnostics),
+    module_import_groups: get_import_groups(&mut config, &mut diagnostics),
     module_type_imports: get_value(&mut config, "module.typeImports", TypeImportsMode::Separate, &mut diagnostics),
     module_builtins_runtime: get_value(&mut config, "module.builtinsRuntime", BuiltinsRuntime::Node, &mut diagnostics),
     module_import_groups_newlines_between: get_value(&mut config, "module.importGroupsNewlinesBetween", NewlinesBetween::Always, &mut diagnostics),
@@ -407,32 +407,91 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
   }
 }
 
-fn parse_import_groups(
-  config: &mut ConfigKeyMap,
-  diagnostics: &mut Vec<ConfigurationDiagnostic>,
-) -> Vec<ImportGroup> {
-  let Some(raw) = config.shift_remove("module.importGroups") else {
-    return Vec::new();
-  };
-  let json = match serde_json::to_value(&raw) {
-    Ok(v) => v,
-    Err(err) => {
+/// Gets the `module.importGroups` configuration, which is an array of objects
+/// with a `match` property that's a matcher or an array of matchers.
+fn get_import_groups(config: &mut ConfigKeyMap, diagnostics: &mut Vec<ConfigurationDiagnostic>) -> Vec<ImportGroup> {
+  let key = "module.importGroups";
+  let values = match config.shift_remove(key) {
+    Some(ConfigKeyValue::Array(values)) => values,
+    Some(ConfigKeyValue::Null) | None => return Vec::new(),
+    Some(_) => {
       diagnostics.push(ConfigurationDiagnostic {
-        property_name: "module.importGroups".to_string(),
-        message: format!("Failed to convert config value to JSON: {err}"),
+        property_name: key.to_string(),
+        message: "Expected an array of import groups.".to_string(),
       });
       return Vec::new();
     }
   };
-  match serde_json::from_value::<Vec<ImportGroup>>(json) {
-    Ok(groups) => groups,
-    Err(err) => {
-      diagnostics.push(ConfigurationDiagnostic {
-        property_name: "module.importGroups".to_string(),
-        message: format!("Invalid import groups configuration: {err}"),
-      });
-      Vec::new()
+
+  let mut groups = Vec::with_capacity(values.len());
+  for (index, value) in values.into_iter().enumerate() {
+    let property_name = format!("{}[{}]", key, index);
+    let mut values = match value {
+      ConfigKeyValue::Object(values) => values,
+      _ => {
+        diagnostics.push(ConfigurationDiagnostic {
+          property_name,
+          message: "Expected an object with a \"match\" property.".to_string(),
+        });
+        continue;
+      }
+    };
+    let matchers = match values.shift_remove("match") {
+      Some(ConfigKeyValue::Array(values)) => {
+        let mut matchers = Vec::with_capacity(values.len());
+        for (matcher_index, value) in values.into_iter().enumerate() {
+          match get_import_matcher(value) {
+            Ok(matcher) => matchers.push(matcher),
+            Err(message) => diagnostics.push(ConfigurationDiagnostic {
+              property_name: format!("{}.match[{}]", property_name, matcher_index),
+              message,
+            }),
+          }
+        }
+        Some(ImportGroupMatch::Multiple(matchers))
+      }
+      Some(value) => match get_import_matcher(value) {
+        Ok(matcher) => Some(ImportGroupMatch::Single(matcher)),
+        Err(message) => {
+          diagnostics.push(ConfigurationDiagnostic {
+            property_name: format!("{}.match", property_name),
+            message,
+          });
+          None
+        }
+      },
+      None => {
+        diagnostics.push(ConfigurationDiagnostic {
+          property_name: property_name.clone(),
+          message: "Expected a \"match\" property.".to_string(),
+        });
+        None
+      }
+    };
+    diagnostics.extend(get_unknown_property_diagnostics(values).into_iter().map(|diagnostic| ConfigurationDiagnostic {
+      property_name: format!("{}.{}", property_name, diagnostic.property_name),
+      message: diagnostic.message,
+    }));
+    if let Some(matchers) = matchers {
+      groups.push(ImportGroup { matchers });
     }
+  }
+  groups
+}
+
+fn get_import_matcher(value: ConfigKeyValue) -> Result<ImportMatcher, String> {
+  match value {
+    ConfigKeyValue::String(value) => value.parse::<BuiltinCategory>().map(ImportMatcher::Category).map_err(|_| {
+      format!(
+        "Unknown category \"{}\". Expected one of: \"builtin\", \"external\", \"parent\", \"sibling\", \"index\", \"type\", \"unknown\".",
+        value
+      )
+    }),
+    ConfigKeyValue::Object(mut values) => match values.shift_remove("pattern") {
+      Some(ConfigKeyValue::String(pattern)) if values.is_empty() => Ok(ImportMatcher::Pattern { pattern }),
+      _ => Err("Expected an object with only a string \"pattern\" property.".to_string()),
+    },
+    _ => Err("Expected a category string or an object with a \"pattern\" property.".to_string()),
   }
 }
 
@@ -539,8 +598,8 @@ fn get_map<T>(
 
 #[cfg(test)]
 mod tests {
-  use dprint_core::configuration::NewLineKind;
   use dprint_core::configuration::resolve_global_config;
+  use dprint_core::configuration::NewLineKind;
 
   use super::super::builder::ConfigurationBuilder;
   use super::*;
@@ -693,7 +752,11 @@ mod import_groups_resolution_tests {
         { "match": ["sibling", "index"] }
       ]
     }));
-    assert!(r.diagnostics.is_empty(), "unexpected diagnostics: {:?}", r.diagnostics.iter().map(|d| &d.message).collect::<Vec<_>>());
+    assert!(
+      r.diagnostics.is_empty(),
+      "unexpected diagnostics: {:?}",
+      r.diagnostics.iter().map(|d| &d.message).collect::<Vec<_>>()
+    );
     assert_eq!(r.config.module_import_groups.len(), 3);
   }
 
@@ -710,19 +773,41 @@ mod import_groups_resolution_tests {
   #[test]
   fn unknown_category_string_diagnostic() {
     let r = resolve(serde_json::json!({
-      "module.importGroups": [{ "match": "buildin" }]
+      "module.importGroups": [{ "match": "buildin" }, { "match": ["external", "other"] }]
     }));
-    assert!(!r.diagnostics.is_empty(), "expected diagnostic for typo");
-    assert!(
-      r.diagnostics.iter().any(|d| {
-        let m = d.message.to_lowercase();
-        m.contains("buildin")
-          || m.contains("unknown")
-          || m.contains("did not match any variant")
-          || m.contains("invalid import groups")
-      }),
-      "diagnostic should signal an invalid variant, got: {:?}",
-      r.diagnostics.iter().map(|d| &d.message).collect::<Vec<_>>()
+    assert_eq!(
+      r.diagnostics.iter().map(|d| (d.property_name.as_str(), d.message.as_str())).collect::<Vec<_>>(),
+      [
+        (
+          "module.importGroups[0].match",
+          "Unknown category \"buildin\". Expected one of: \"builtin\", \"external\", \"parent\", \"sibling\", \"index\", \"type\", \"unknown\"."
+        ),
+        (
+          "module.importGroups[1].match[1]",
+          "Unknown category \"other\". Expected one of: \"builtin\", \"external\", \"parent\", \"sibling\", \"index\", \"type\", \"unknown\"."
+        ),
+      ]
+    );
+  }
+
+  #[test]
+  fn invalid_group_diagnostics() {
+    let r = resolve(serde_json::json!({
+      "module.importGroups": [
+        "builtin",
+        {},
+        { "match": { "pattern": 1 } },
+        { "match": { "pattern": "@app/**" }, "other": true }
+      ]
+    }));
+    assert_eq!(
+      r.diagnostics.iter().map(|d| d.property_name.as_str()).collect::<Vec<_>>(),
+      [
+        "module.importGroups[0]",
+        "module.importGroups[1]",
+        "module.importGroups[2].match",
+        "module.importGroups[3].other"
+      ]
     );
   }
 
@@ -734,6 +819,12 @@ mod import_groups_resolution_tests {
         { "match": "builtin" }
       ]
     }));
-    assert!(r.diagnostics.iter().any(|d| d.property_name == "module.importGroups" && d.message.contains("Builtin")), "expected duplicate-category diagnostic, got: {:?}", r.diagnostics.iter().map(|d| &d.message).collect::<Vec<_>>());
+    assert!(
+      r.diagnostics
+        .iter()
+        .any(|d| d.property_name == "module.importGroups" && d.message.contains("\"builtin\"")),
+      "expected duplicate-category diagnostic, got: {:?}",
+      r.diagnostics.iter().map(|d| &d.message).collect::<Vec<_>>()
+    );
   }
 }

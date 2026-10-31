@@ -1189,7 +1189,10 @@
                 "type": "array",
                 "items": {
                   "oneOf": [
-                    { "type": "string", "enum": ["builtin", "external", "parent", "sibling", "index", "type", "unknown"] },
+                    {
+                      "type": "string",
+                      "enum": ["builtin", "external", "parent", "sibling", "index", "type", "unknown"]
+                    },
                     { "type": "object", "required": ["pattern"], "properties": { "pattern": { "type": "string" } } }
                   ]
                 }

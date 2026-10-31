@@ -17,19 +17,14 @@ pub fn classify_import(
     if g.categories.contains(&category) {
       return i;
     }
-    if g.has_globs && g.globs.is_match(src) {
+    if !g.globs.is_empty() && g.globs.is_match(src) {
       return i;
     }
   }
   resolved.unknown_index
 }
 
-fn base_category(
-  src: &str,
-  is_type_only: bool,
-  type_imports_mode: TypeImportsMode,
-  builtins_runtime: BuiltinsRuntime,
-) -> BuiltinCategory {
+fn base_category(src: &str, is_type_only: bool, type_imports_mode: TypeImportsMode, builtins_runtime: BuiltinsRuntime) -> BuiltinCategory {
   if is_type_only && matches!(type_imports_mode, TypeImportsMode::Separate) {
     return BuiltinCategory::Type;
   }
@@ -51,11 +46,7 @@ fn base_category(
 fn is_index_path(src: &str) -> bool {
   matches!(
     src,
-    "." | "./" | "./index"
-      | "./index.ts" | "./index.tsx"
-      | "./index.js" | "./index.jsx"
-      | "./index.mjs" | "./index.cjs"
-      | "./index.mts" | "./index.cts"
+    "." | "./" | "./index" | "./index.ts" | "./index.tsx" | "./index.js" | "./index.jsx" | "./index.mjs" | "./index.cjs" | "./index.mts" | "./index.cts"
   )
 }
 
@@ -148,6 +139,20 @@ mod tests {
       ]
     });
     assert_eq!(classify_with(cfg, "@app/foo", false), 0);
+  }
+
+  #[test]
+  fn pattern_glob_star_does_not_cross_slash() {
+    let cfg = serde_json::json!({
+      "module.importGroups": [
+        { "match": { "pattern": "@app/*" } },
+        { "match": { "pattern": "@lib/**" } },
+        { "match": "external" }
+      ]
+    });
+    assert_eq!(classify_with(cfg.clone(), "@app/foo", false), 0);
+    assert_eq!(classify_with(cfg.clone(), "@app/foo/bar", false), 2);
+    assert_eq!(classify_with(cfg, "@lib/foo/bar", false), 1);
   }
 
   #[test]

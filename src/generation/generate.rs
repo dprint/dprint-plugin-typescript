@@ -7398,20 +7398,21 @@ fn gen_comments_as_statements<'a>(comments: impl Iterator<Item = &'a Comment>, l
   items
 }
 
-/// How many of an import block's leading comments are *detached* from the
-/// first import, meaning a blank line separates them from it (e.g. a file
-/// header). Those stay pinned to the top of the block; the rest are attached
-/// to the first import and travel with it when the block gets reordered.
-fn detached_preamble_len(comments: &[&Comment], node: Node, context: &mut Context) -> usize {
-  let mut next_line = node.start_line_fast(context.program);
+/// How many of an import's leading comments are *detached* from it, meaning a
+/// blank line separates them from it (ex. a file header). Those stay where they
+/// are when the imports get reordered, while the rest are attached to the import
+/// and travel with it.
+fn detached_preamble_len(comments: &[&Comment], node: Node, program: Program) -> usize {
+  let mut next_line = node.start_line_fast(program);
   for (i, comment) in comments.iter().enumerate().rev() {
-    if next_line > comment.end_line_fast(context.program) + 1 {
+    if next_line > comment.end_line_fast(program) + 1 {
       return i + 1;
     }
-    next_line = comment.start_line_fast(context.program);
+    next_line = comment.start_line_fast(program);
   }
   0
 }
+
 fn gen_comments_between_lines_indented<'a>(start_between_pos: SourcePos, context: &mut Context<'a>) -> PrintItems<'a> {
   let trailing_comments = get_comments_between_lines(start_between_pos, context);
   let mut items = PrintItems::new(context.arena);
@@ -8297,7 +8298,7 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
         // (e.g. a file header separated by a blank line) stays pinned here.
         // The attached portion is left for `gen_node` to emit inside the
         // import's own items so that it travels with it.
-        comments.truncate(detached_preamble_len(&comments, first_node, context));
+        comments.truncate(detached_preamble_len(&comments, first_node, context.program));
       }
       let last_comment = comments.iter().filter(|c| !context.has_handled_comment(c)).last().map(|c| c.range());
       let forced_blank_line_count = blank_lines_after_imports.filter(|_| is_after_import && stmt_group.kind == StmtGroupKind::Exports);
@@ -8624,17 +8625,18 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> BumpV
 
   for stmt in stmts {
     let last_end_line = previous_last_end_line.take();
-    let stmt_group_kind = if has_dprint_ignore_comment(stmt, context) {
-      // an ignored declaration is a barrier: it stays where it is and ends the
-      // run around it, the same way a side-effect import does
+    let stmt_group_kind = match stmt {
+      Node::ImportDecl(decl) if !decl.specifiers.is_empty() => StmtGroupKind::Imports,
+      Node::ExportAll(_) => StmtGroupKind::Exports,
+      Node::NamedExport(NamedExport { src: Some(_), .. }) => StmtGroupKind::Exports,
+      _ => StmtGroupKind::Other,
+    };
+    // an ignored declaration is a barrier: it stays where it is and ends the
+    // run around it, the same way a side-effect import does
+    let stmt_group_kind = if stmt_group_kind != StmtGroupKind::Other && has_dprint_ignore_comment(stmt, context) {
       StmtGroupKind::Other
     } else {
-      match stmt {
-        Node::ImportDecl(decl) if !decl.specifiers.is_empty() => StmtGroupKind::Imports,
-        Node::ExportAll(_) => StmtGroupKind::Exports,
-        Node::NamedExport(NamedExport { src: Some(_), .. }) => StmtGroupKind::Exports,
-        _ => StmtGroupKind::Other,
-      }
+      stmt_group_kind
     };
     previous_last_end_line = match stmt_group_kind {
       StmtGroupKind::Imports | StmtGroupKind::Exports => Some(stmt.end_line_fast(context.program)),
@@ -8648,11 +8650,14 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> BumpV
           None => true,
           Some(last_end_line) if stmt_group_kind == StmtGroupKind::Imports && context.resolved_import_groups.is_some() => {
             // when grouping, blank lines between imports are style rather than
-            // structure, so the run only ends at a comment on its own line
-            // (those stay anchored where they are)
-            !stmt
+            // structure, so the run only ends at a comment on its own line that's
+            // detached from the import by a blank line (ex. a section header),
+            // which stays where it is, while attached comments travel with the import
+            let comments = stmt
               .leading_comments_fast(context.program)
-              .any(|comment| comment.start_line_fast(context.program) > last_end_line)
+              .filter(|comment| comment.start_line_fast(context.program) > last_end_line)
+              .collect::<Vec<_>>();
+            comments.is_empty() || detached_preamble_len(&comments, stmt, context.program) == 0
           }
           Some(last_end_line) => last_end_line + 1 >= stmt.start_line_fast(context.program),
         };

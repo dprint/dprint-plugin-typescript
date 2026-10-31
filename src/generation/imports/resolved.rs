@@ -1,6 +1,8 @@
 //! Compiled form of `module.importGroups` ready for fast classification.
 
-use globset::{Glob, GlobSet, GlobSetBuilder};
+use globset::GlobBuilder;
+use globset::GlobSet;
+use globset::GlobSetBuilder;
 use rustc_hash::FxHashSet;
 
 use crate::configuration::{BuiltinCategory, Configuration, ImportGroupMatch, ImportMatcher, TypeImportsMode};
@@ -9,7 +11,6 @@ use crate::configuration::{BuiltinCategory, Configuration, ImportGroupMatch, Imp
 pub struct ResolvedGroup {
   pub categories: Vec<BuiltinCategory>,
   pub globs: GlobSet,
-  pub has_globs: bool,
 }
 
 /// Result of compiling `module.importGroups` into matcher-friendly form.
@@ -42,7 +43,6 @@ pub fn compile_import_groups(config: &Configuration) -> (Option<ResolvedGroups>,
 
     let mut categories = Vec::new();
     let mut builder = GlobSetBuilder::new();
-    let mut has_globs = false;
 
     for m in matchers {
       match m {
@@ -52,7 +52,7 @@ pub fn compile_import_groups(config: &Configuration) -> (Option<ResolvedGroups>,
             continue;
           }
           if !seen_categories.insert(*c) {
-            diagnostics.push(format!("Category {c:?} listed more than once; using first occurrence."));
+            diagnostics.push(format!("Category \"{c}\" listed more than once; using first occurrence."));
             continue;
           }
           if *c == BuiltinCategory::Unknown {
@@ -60,10 +60,10 @@ pub fn compile_import_groups(config: &Configuration) -> (Option<ResolvedGroups>,
           }
           categories.push(*c);
         }
-        ImportMatcher::Pattern { pattern } => match Glob::new(pattern) {
+        // like minimatch, which ESLint uses for its path groups, a `*` doesn't match a `/`
+        ImportMatcher::Pattern { pattern } => match GlobBuilder::new(pattern).literal_separator(true).build() {
           Ok(g) => {
             builder.add(g);
-            has_globs = true;
           }
           Err(e) => diagnostics.push(format!("Invalid glob `{pattern}`: {e}")),
         },
@@ -74,11 +74,10 @@ pub fn compile_import_groups(config: &Configuration) -> (Option<ResolvedGroups>,
       Ok(globs) => globs,
       Err(err) => {
         diagnostics.push(format!("Could not build the glob set for group {i}: {err}"));
-        has_globs = false;
         GlobSet::empty()
       }
     };
-    groups.push(ResolvedGroup { categories, globs, has_globs });
+    groups.push(ResolvedGroup { categories, globs });
   }
 
   let unknown_index = match explicit_unknown {
@@ -87,7 +86,6 @@ pub fn compile_import_groups(config: &Configuration) -> (Option<ResolvedGroups>,
       groups.push(ResolvedGroup {
         categories: vec![BuiltinCategory::Unknown],
         globs: GlobSet::empty(),
-        has_globs: false,
       });
       groups.len() - 1
     }
@@ -149,7 +147,7 @@ mod tests {
     assert_eq!(diags.len(), 1);
     assert!(diags[0].contains("Invalid glob `[unclosed`"), "{:?}", diags[0]);
     assert!(r.groups[0].categories.is_empty());
-    assert!(!r.groups[0].has_globs);
+    assert!(r.groups[0].globs.is_empty());
   }
 
   #[test]

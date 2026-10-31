@@ -50,26 +50,26 @@ This reorders imports across the import block into the listed groups and inserts
 
 ### Options
 
-| Key | Type | Default | Description |
-|---|---|---|---|
-| `module.importGroups` | array | `[]` (off) | Ordered list of groups. Empty disables the feature. |
-| `module.typeImports` | `"separate"` \| `"interleave"` | `"separate"` | Whether `import type` lines form their own category. |
-| `module.builtinsRuntime` | `"node"` \| `"deno"` \| `"bun"` \| `"none"` | `"node"` | Which runtime's built-in module list classifies as `builtin`. |
-| `module.importGroupsNewlinesBetween` | `"always"` \| `"alwaysAndInsideGroups"` \| `"never"` \| `"ignore"` | `"always"` | Blank lines between the grouped imports, mirroring ESLint's `newlines-between`. |
+| Key                                  | Type                                                               | Default      | Description                                                                     |
+| ------------------------------------ | ------------------------------------------------------------------ | ------------ | ------------------------------------------------------------------------------- |
+| `module.importGroups`                | array                                                              | `[]` (off)   | Ordered list of groups. Empty disables the feature.                             |
+| `module.typeImports`                 | `"separate"` \| `"interleave"`                                     | `"separate"` | Whether `import type` lines form their own category.                            |
+| `module.builtinsRuntime`             | `"node"` \| `"deno"` \| `"bun"` \| `"none"`                        | `"node"`     | Which runtime's built-in module list classifies as `builtin`.                   |
+| `module.importGroupsNewlinesBetween` | `"always"` \| `"alwaysAndInsideGroups"` \| `"never"` \| `"ignore"` | `"always"`   | Blank lines between the grouped imports, mirroring ESLint's `newlines-between`. |
 
 ### Built-in categories
 
 Categories are matched against the raw specifier string only — no module resolution happens.
 
-| Category | Matches |
-|---|---|
-| `builtin` | Depends on `module.builtinsRuntime`. `node`: a `node:` prefix or a Node core module name (`fs`, `path/posix`, ...). `deno`: a `node:` prefix only. `bun`: either of those plus a `bun:` prefix. `none`: nothing. |
-| `parent` | `..`, or anything starting with `../`. |
-| `index` | `.`, `./`, or `./index` with an optional `.ts`/`.tsx`/`.js`/`.jsx`/`.mjs`/`.cjs`/`.mts`/`.cts` extension. |
-| `sibling` | Anything else starting with `./`. |
-| `type` | An `import type` declaration, when `module.typeImports` is `"separate"`. Takes precedence over the path-based categories above. |
-| `external` | Everything left over. |
-| `unknown` | Nothing — it is the bucket for imports no listed group claims. See below. |
+| Category   | Matches                                                                                                                                                                                                                   |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `builtin`  | Depends on `module.builtinsRuntime`. `node`: a `node:` prefix or a Node core module name (`fs`, `path/posix`, ...). `deno`: a `node:` prefix only. `bun`: either of those plus `bun` or a `bun:` prefix. `none`: nothing. |
+| `parent`   | `..`, or anything starting with `../`.                                                                                                                                                                                    |
+| `index`    | `.`, `./`, or `./index` with an optional `.ts`/`.tsx`/`.js`/`.jsx`/`.mjs`/`.cjs`/`.mts`/`.cts` extension.                                                                                                                 |
+| `sibling`  | Anything else starting with `./`.                                                                                                                                                                                         |
+| `type`     | An `import type` declaration, when `module.typeImports` is `"separate"`. Takes precedence over the path-based categories above.                                                                                           |
+| `external` | Everything left over.                                                                                                                                                                                                     |
+| `unknown`  | Nothing — it is the bucket for imports no listed group claims. See below.                                                                                                                                                 |
 
 Because `external` is the fallthrough, it also claims specifiers that other tools categorize separately: Deno's `npm:`, `jsr:` and `https://` specifiers, and Node subpath imports like `#internal/foo`. There is no `internal` category; use a pattern group for those.
 
@@ -89,7 +89,7 @@ For pattern-based groups, use a glob:
 
 First-match-wins across the list, so position determines precedence.
 
-Patterns are [globset](https://docs.rs/globset) globs, **not** minimatch. The difference that matters in practice: a single `*` crosses `/`, so `@app/*` also matches `@app/deep/thing`. Write `@app/*/` style patterns only if you have verified the behavior you want; when in doubt use `**`.
+Patterns are [globset](https://docs.rs/globset) globs. Like minimatch, a single `*` doesn't cross a `/`, so `@app/*` matches `@app/thing`, but not `@app/deep/thing`. Use `**` to match across a `/` (ex. `@app/**`).
 
 ### What counts as one import block
 
@@ -98,9 +98,9 @@ Grouping happens within a contiguous run of import declarations. A run ends at:
 - any non-import statement,
 - a side-effect import (`import "./polyfill"`), which is left in place because its position is usually load-order significant,
 - an import preceded by a `// dprint-ignore` comment (see below),
-- **a comment on its own line between two imports.**
+- **a comment on its own line that's separated from the import after it by a blank line** (ex. a section header).
 
-Each run is grouped and reordered independently, so imports never move across one of these. The last one is easy to trip over — a stray `// ...` line in the middle of an import block splits it in two, and each half is grouped separately.
+Each run is grouped and reordered independently, so imports never move across one of these. A comment directly above an import (no blank line between them) doesn't end the run, but instead travels with the import when it gets reordered.
 
 Blank lines do **not** end a run: like ESLint, the formatter treats them as style rather than structure, merges across them, and `module.importGroupsNewlinesBetween` decides what the output looks like:
 
@@ -117,26 +117,26 @@ A `// dprint-ignore` comment on an import pins it: it stays at its position and 
 
 ```ts
 // dprint-ignore
-import { keepMeFirst } from "./bootstrap";
-import { b } from "bbb";
 import { a } from "aaa";
+import { b } from "bbb";
+import { keepMeFirst } from "./bootstrap";
 ```
 
 The pinned import does not move, and `aaa`/`bbb` still group and sort normally. This applies to `module.sortImportDeclarations` and `module.sortExportDeclarations` too, not only to grouping.
 
-`// dprint-ignore-start` and `// dprint-ignore-end` are matched by the same check, so they pin whichever declaration follows them. This plugin has no notion of an ignored *region*, though — the declarations between the two markers are not otherwise protected.
+`// dprint-ignore-start` and `// dprint-ignore-end` are matched by the same check, so they pin whichever declaration follows them. This plugin has no notion of an ignored _region_, though — the declarations between the two markers are not otherwise protected.
 
 ### Migration from ESLint `import/order`
 
-| ESLint option | dprint equivalent |
-|---|---|
-| `groups` | `module.importGroups` (strings; nested arrays merge) |
-| `pathGroups` | `{ "pattern": "..." }` entries placed positionally — but see the glob note above, the pattern syntax is not minimatch |
-| `newlines-between` | `module.importGroupsNewlinesBetween` — same four values, camelCased (`"always-and-inside-groups"` is `"alwaysAndInsideGroups"`) |
-| `alphabetize.order: "asc"` | Existing `module.sortImportDeclarations` |
-| `alphabetize.order: "desc"` | Not supported |
-| `groups: ["internal"]` | No equivalent category; use a `{ "pattern": "..." }` group |
-| `// eslint-disable-next-line import/order` | `// dprint-ignore` on the import |
+| ESLint option                              | dprint equivalent                                                                                                               |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `groups`                                   | `module.importGroups` (strings; nested arrays merge)                                                                            |
+| `pathGroups`                               | `{ "pattern": "..." }` entries placed positionally                                                                              |
+| `newlines-between`                         | `module.importGroupsNewlinesBetween` — same four values, camelCased (`"always-and-inside-groups"` is `"alwaysAndInsideGroups"`) |
+| `alphabetize.order: "asc"`                 | Existing `module.sortImportDeclarations`                                                                                        |
+| `alphabetize.order: "desc"`                | Not supported                                                                                                                   |
+| `groups: ["internal"]`                     | No equivalent category; use a `{ "pattern": "..." }` group                                                                      |
+| `// eslint-disable-next-line import/order` | `// dprint-ignore` on the import                                                                                                |
 
 ### Limitations
 
@@ -146,4 +146,4 @@ The pinned import does not move, and `aaa`/`bbb` still group and sort normally. 
 - TS `import X = require(...)` not reordered.
 - Imports inside nested `declare module "..."` bodies are not classified.
 - `export ... from "..."` declarations are never grouped. `module.sortExportDeclarations` still applies to them.
-- There is no ignored-*region* concept, so `// dprint-ignore-start` / `// dprint-ignore-end` only pins the declaration directly after each marker rather than everything between them.
+- There is no ignored-_region_ concept, so `// dprint-ignore-start` / `// dprint-ignore-end` only pins the declaration directly after each marker rather than everything between them.
