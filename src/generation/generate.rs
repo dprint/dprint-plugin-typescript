@@ -3431,18 +3431,31 @@ fn gen_tpl_element<'a>(node: &TplElement<'a>, context: &mut Context<'a>) -> Prin
 fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context: &mut Context<'a>) -> PrintItems<'a> {
   let mut items = PrintItems::new(context.arena);
   let mut is_head = true;
+  // the indentation of the template's current line when that line starts in the template's text
+  let mut line_indent: Option<TplLineIndent> = None;
+  // the indentation the previous expression was generated at, which its closing brace is written at too
+  let mut expr_line_indent: Option<TplLineIndent> = None;
   for node in get_nodes(quasis, exprs) {
     if let Node::TplElement(node_tpl) = node {
+      let previous_expr_line_indent = expr_line_indent.take();
       items.extend(gen_node_with_inner_gen(node, context, |node_items, _| {
         let mut items = PrintItems::new(context.arena);
         items.push_sc(if is_head { sc!("`") } else { sc!("}") });
+        if let Some(previous_expr_line_indent) = previous_expr_line_indent {
+          previous_expr_line_indent.finish(&mut items);
+        }
         items.push_signal(Signal::StartIgnoringIndent);
         items.extend(node_items);
         items.push_sc(if node_tpl.tail() { sc!("`") } else { sc!("${") });
         items.push_signal(Signal::FinishIgnoringIndent);
         items
       }));
+      let raw = node_tpl.raw().as_str();
+      if let Some(index) = raw.rfind('\n') {
+        line_indent = Some(TplLineIndent::new(&raw[index + 1..], context.config.indent_width));
+      }
     } else {
+      let mut expr_items = PrintItems::new(context.arena);
       let leading_comment_items = gen_leading_comments_on_previous_lines(&node.range(), context);
       let trailing_comment_items = gen_trailing_comments_as_statements(&node.range(), context);
       // a line comment after the expression is generated with it and forces a newline before the closing brace
@@ -3452,23 +3465,23 @@ fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context
       let generated_expr = gen_node(node, context);
       if !leading_comment_items.is_empty() || !trailing_comment_items.is_empty() || has_trailing_line_comment {
         // the comments make it multi-line, so put the expression on its own line
-        items.push_signal(Signal::StartIndent);
+        expr_items.push_signal(Signal::StartIndent);
         if leading_comment_items.is_empty() {
-          items.push_signal(Signal::NewLine);
+          expr_items.push_signal(Signal::NewLine);
         } else {
-          items.extend(surround_with_new_lines(leading_comment_items));
+          expr_items.extend(surround_with_new_lines(leading_comment_items));
         }
-        items.extend(generated_expr);
+        expr_items.extend(generated_expr);
         if trailing_comment_items.is_empty() {
-          items.push_signal(Signal::NewLine);
+          expr_items.push_signal(Signal::NewLine);
         } else {
-          items.extend(trailing_comment_items);
+          expr_items.extend(trailing_comment_items);
         }
-        items.push_signal(Signal::FinishIndent);
+        expr_items.push_signal(Signal::FinishIndent);
       } else {
         let keep_on_one_line = get_keep_on_one_line(node);
         let possible_surround_newlines = get_possible_surround_newlines(node);
-        items.extend(if keep_on_one_line {
+        expr_items.extend(if keep_on_one_line {
           with_no_new_lines(generated_expr)
         } else if possible_surround_newlines {
           ir_helpers::surround_with_newlines_indented_if_multi_line(new_line_group(generated_expr), context.config.indent_width)
@@ -3476,10 +3489,62 @@ fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context
           generated_expr
         });
       }
+
+      // indent the expression relative to the line it's on in the template's text instead of the code
+      if let Some(line_indent) = line_indent {
+        line_indent.start(&mut items);
+        expr_line_indent = Some(line_indent);
+      }
+      items.extend(expr_items);
     }
     is_head = false;
   }
   return items;
+
+  /// The indentation of a line of a template literal's text.
+  #[derive(Clone, Copy)]
+  struct TplLineIndent {
+    indent_levels: u8,
+    align_columns: u8,
+  }
+
+  impl TplLineIndent {
+    fn new(line_text: &str, indent_width: u8) -> Self {
+      let indent_width = std::cmp::max(indent_width, 1) as u32;
+      let columns = line_text
+        .chars()
+        .map_while(|c| match c {
+          ' ' => Some(1),
+          '\t' => Some(indent_width),
+          _ => None,
+        })
+        .sum::<u32>();
+      TplLineIndent {
+        indent_levels: std::cmp::min(columns / indent_width, u8::MAX as u32) as u8,
+        align_columns: (columns % indent_width) as u8,
+      }
+    }
+
+    fn start(&self, items: &mut PrintItems) {
+      items.push_signal(Signal::StartResettingIndent);
+      for _ in 0..self.indent_levels {
+        items.push_signal(Signal::StartIndent);
+      }
+      if self.align_columns > 0 {
+        items.push_signal(Signal::StartAlign(self.align_columns));
+      }
+    }
+
+    fn finish(&self, items: &mut PrintItems) {
+      if self.align_columns > 0 {
+        items.push_signal(Signal::FinishAlign);
+      }
+      for _ in 0..self.indent_levels {
+        items.push_signal(Signal::FinishIndent);
+      }
+      items.push_signal(Signal::FinishResettingIndent);
+    }
+  }
 
   fn get_nodes<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>) -> Vec<Node<'a>> {
     let mut quasis = quasis;
