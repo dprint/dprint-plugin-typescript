@@ -63,11 +63,7 @@ impl NodeSorter {
       (None, Some(_)) => Ordering::Less,
       (None, None) => Ordering::Equal,
     };
-    if result == Ordering::Equal {
-      a.index.cmp(&b.index)
-    } else {
-      result
-    }
+    if result == Ordering::Equal { a.index.cmp(&b.index) } else { result }
   }
 
   pub fn cmp_node_sort_keys(&self, a: &NodeSortKey, b: &NodeSortKey) -> Ordering {
@@ -106,11 +102,7 @@ impl NodeSorter {
       }
     }
 
-    if a.parts.len() < b.parts.len() {
-      Ordering::Less
-    } else {
-      Ordering::Equal
-    }
+    if a.parts.len() < b.parts.len() { Ordering::Less } else { Ordering::Equal }
   }
 
   fn cmp_text(&self, a: &str, b: &str) -> Ordering {

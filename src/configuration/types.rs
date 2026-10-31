@@ -7,8 +7,8 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::collections::BTreeMap;
 
-use crate::generation::imports::resolved::compile_import_groups;
 use crate::generation::imports::resolved::ResolvedGroups;
+use crate::generation::imports::resolved::compile_import_groups;
 
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

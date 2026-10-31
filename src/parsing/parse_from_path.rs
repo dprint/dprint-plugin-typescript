@@ -5,9 +5,9 @@ use dprint_swc_ext::swc::parser::EsSyntax;
 use dprint_swc_ext::swc::parser::Syntax;
 use dprint_swc_ext::swc::parser::TsSyntax;
 
-use super::parse_syntax;
 use super::ParseMode;
 use super::ParsedSource;
+use super::parse_syntax;
 use crate::Result;
 
 pub struct ParseOptions<'a> {

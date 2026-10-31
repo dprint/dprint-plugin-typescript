@@ -13,10 +13,10 @@ use dprint_swc_ext::common::SourceRanged;
 use dprint_swc_ext::common::SourceRangedForSpanned;
 use dprint_swc_ext::swc::common::comments::Comment;
 use dprint_swc_ext::swc::common::comments::CommentKind;
+use dprint_swc_ext::swc::parser::Syntax;
 use dprint_swc_ext::swc::parser::token::BinOpToken;
 use dprint_swc_ext::swc::parser::token::Token;
 use dprint_swc_ext::swc::parser::token::TokenAndSpan;
-use dprint_swc_ext::swc::parser::Syntax;
 use dprint_swc_ext::view::*;
 use std::borrow::Cow;
 
@@ -1267,11 +1267,7 @@ fn gen_export_named_decl<'a>(node: &NamedExport<'a>, context: &mut Context<'a>) 
     items.push_sc(sc!(";"));
   }
 
-  if should_single_line {
-    with_no_new_lines(items)
-  } else {
-    items
-  }
+  if should_single_line { with_no_new_lines(items) } else { items }
 }
 
 fn gen_function_decl<'a>(node: &FnDecl<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
@@ -1482,11 +1478,7 @@ fn gen_import_decl<'a>(node: &ImportDecl<'a>, context: &mut Context<'a>) -> Prin
     items.push_sc(sc!(";"));
   }
 
-  if should_single_line {
-    with_no_new_lines(items)
-  } else {
-    items
-  }
+  if should_single_line { with_no_new_lines(items) } else { items }
 }
 
 fn gen_import_equals_decl<'a>(node: &TsImportEqualsDecl<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
@@ -4814,7 +4806,13 @@ fn has_escaped_class_separator(text: &str) -> bool {
 
 fn is_class_names_jsx_attr(attr: &JSXAttr, context: &Context) -> bool {
   let name = attr.name.text_fast(context.program);
-  matches!(name, "class" | "className") || context.config.jsx_sort_class_names.attributes.iter().any(|attribute_name| attribute_name == name)
+  matches!(name, "class" | "className")
+    || context
+      .config
+      .jsx_sort_class_names
+      .attributes
+      .iter()
+      .any(|attribute_name| attribute_name == name)
 }
 
 fn get_tailwind_project<'a>(context: &Context<'a>) -> tailwind::Project<'a> {
@@ -8425,8 +8423,7 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
     let has_subgroup_boundaries = stmt_group.subgroup_boundaries.is_some();
     let sorted_indexes = match stmt_group.sorted_indexes {
       Some(indexes) => Some(indexes),
-      None => get_node_sorter(stmt_group.kind, context)
-        .map(|sorter| sorter.get_sorted_indexes(stmt_group.nodes.iter().map(|n| Some(*n)), context.program)),
+      None => get_node_sorter(stmt_group.kind, context).map(|sorter| sorter.get_sorted_indexes(stmt_group.nodes.iter().map(|n| Some(*n)), context.program)),
     };
     let subgroup_boundaries = stmt_group.subgroup_boundaries.unwrap_or_default();
     // the separator computed at index i ends up before the node at output position i
@@ -8799,19 +8796,19 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> BumpV
         })
         .collect();
       let sorter = get_node_sorter_from_order(context.config.module_sort_import_declarations, NamedTypeImportsExportsOrder::None);
-      let sort_keys =
-        sorter.map(|sorter| (sorter, g.nodes.iter().map(|node| sorter.get_node_sort_key(*node, context.program)).collect::<Vec<_>>()));
-      let (ordered, boundaries) = partition_indices(
-        &classified,
-        resolved.groups.len(),
-        |a_orig: usize, b_orig: usize| -> std::cmp::Ordering {
-          if let Some((sorter, sort_keys)) = &sort_keys {
-            sorter.cmp_node_sort_keys(&sort_keys[a_orig], &sort_keys[b_orig])
-          } else {
-            a_orig.cmp(&b_orig)
-          }
-        },
-      );
+      let sort_keys = sorter.map(|sorter| {
+        (
+          sorter,
+          g.nodes.iter().map(|node| sorter.get_node_sort_key(*node, context.program)).collect::<Vec<_>>(),
+        )
+      });
+      let (ordered, boundaries) = partition_indices(&classified, resolved.groups.len(), |a_orig: usize, b_orig: usize| -> std::cmp::Ordering {
+        if let Some((sorter, sort_keys)) = &sort_keys {
+          sorter.cmp_node_sort_keys(&sort_keys[a_orig], &sort_keys[b_orig])
+        } else {
+          a_orig.cmp(&b_orig)
+        }
+      });
 
       // Hand the reordering to the same mechanism the plain sorter uses: it
       // permutes the *generated* items, so each import keeps the comments it
@@ -9214,11 +9211,7 @@ fn gen_close_paren_with_type<'a>(opts: GenCloseParenWithTypeOptions<'a>, context
       items.extend(generated_type_node);
       items.push_info(type_node_end_ln);
 
-      if use_new_line_group {
-        new_line_group(items)
-      } else {
-        items
-      }
+      if use_new_line_group { new_line_group(items) } else { items }
     } else {
       items
     };

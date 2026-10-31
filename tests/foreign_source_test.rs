@@ -5,24 +5,24 @@
 
 use std::sync::Arc;
 
+use dprint_plugin_typescript::FormatParsedSourceOptions;
 use dprint_plugin_typescript::configuration::ConfigurationBuilder;
 use dprint_plugin_typescript::dprint_swc_ext::common::SourceTextInfo;
 use dprint_plugin_typescript::dprint_swc_ext::swc::ast::EsVersion;
 use dprint_plugin_typescript::dprint_swc_ext::swc::ast::Module;
 use dprint_plugin_typescript::dprint_swc_ext::swc::common::comments::SingleThreadedComments;
 use dprint_plugin_typescript::dprint_swc_ext::swc::common::comments::SingleThreadedCommentsMapInner;
-use dprint_plugin_typescript::dprint_swc_ext::swc::lexer::common::parser::Parser as _;
 use dprint_plugin_typescript::dprint_swc_ext::swc::lexer::Capturing;
 use dprint_plugin_typescript::dprint_swc_ext::swc::lexer::Lexer;
 use dprint_plugin_typescript::dprint_swc_ext::swc::lexer::Parser;
-use dprint_plugin_typescript::dprint_swc_ext::swc::parser::token::TokenAndSpan;
+use dprint_plugin_typescript::dprint_swc_ext::swc::lexer::common::parser::Parser as _;
 use dprint_plugin_typescript::dprint_swc_ext::swc::parser::Syntax;
 use dprint_plugin_typescript::dprint_swc_ext::swc::parser::TsSyntax;
+use dprint_plugin_typescript::dprint_swc_ext::swc::parser::token::TokenAndSpan;
 use dprint_plugin_typescript::dprint_swc_ext::view::Comments;
 use dprint_plugin_typescript::dprint_swc_ext::view::ProgramInfo;
 use dprint_plugin_typescript::dprint_swc_ext::view::ProgramInfoProvider;
 use dprint_plugin_typescript::dprint_swc_ext::view::ProgramRef;
-use dprint_plugin_typescript::FormatParsedSourceOptions;
 
 #[test]
 fn formats_a_foreign_parsed_source() {

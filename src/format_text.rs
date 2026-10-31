@@ -12,10 +12,10 @@ use dprint_swc_ext::view::ProgramInfoProvider;
 use crate::Result;
 
 use super::configuration::Configuration;
-use super::generation::generate;
 pub use super::generation::ExternalFormatter;
-use super::parsing::parse_program;
+use super::generation::generate;
 use super::parsing::ParseOptions;
+use super::parsing::parse_program;
 
 pub struct FormatTextOptions<'a> {
   pub path: &'a Path,
@@ -237,11 +237,7 @@ fn inner_format_program<'a>(
   let file_text = program.text_info().text_str();
   let print_items = generate(arena, program, syntax, config, external_formatter)?;
   let result = dprint_core::formatting::print(print_items, config_to_print_options(file_text, config));
-  if result == file_text {
-    Ok(None)
-  } else {
-    Ok(Some(result))
-  }
+  if result == file_text { Ok(None) } else { Ok(Some(result)) }
 }
 
 fn create_arena(arena_pool: Option<&ArenaPool>) -> Arena {

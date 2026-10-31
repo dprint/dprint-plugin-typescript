@@ -17,10 +17,10 @@ use dprint_swc_ext::swc::ast::TsNamespaceBody;
 use dprint_swc_ext::swc::common::comments::SingleThreadedComments;
 use dprint_swc_ext::swc::common::input::StringInput;
 use dprint_swc_ext::swc::lexer::common::parser::Parser as _;
+use dprint_swc_ext::swc::parser::Syntax;
 use dprint_swc_ext::swc::parser::error::Error as SwcError;
 use dprint_swc_ext::swc::parser::error::SyntaxError;
 use dprint_swc_ext::swc::parser::token::TokenAndSpan;
-use dprint_swc_ext::swc::parser::Syntax;
 
 use super::ParseDiagnostic;
 use super::ParseDiagnosticsError;

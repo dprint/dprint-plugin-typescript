@@ -30,13 +30,13 @@ pub use parsing::is_unsupported_syntax_error;
 /// Result type used throughout the crate.
 pub(crate) type Result<T> = std::result::Result<T, FormatError>;
 
-pub use format_text::format_parsed_source;
-pub use format_text::format_program;
-pub use format_text::format_text;
 pub use format_text::ExternalFormatter;
 pub use format_text::FormatParsedSourceOptions;
 pub use format_text::FormatProgramOptions;
 pub use format_text::FormatTextOptions;
+pub use format_text::format_parsed_source;
+pub use format_text::format_program;
+pub use format_text::format_text;
 
 #[cfg(feature = "tracing")]
 pub use format_text::trace_file;
