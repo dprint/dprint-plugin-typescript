@@ -472,8 +472,8 @@
         "description": "Maintains the line breaks as written by the programmer."
       }]
     },
-    "enumDeclaration.memberSpacing": {
-      "description": "How to space the members of an enum.",
+    "memberSpacing": {
+      "description": "How to space the members of a class, enum, interface, or type literal.",
       "type": "string",
       "default": "maintain",
       "oneOf": [{
@@ -485,6 +485,21 @@
       }, {
         "const": "maintain",
         "description": "Maintains whether a newline or blankline is used."
+      }]
+    },
+    "blockPadding": {
+      "description": "Whether to keep blank lines at the start and end of a block.",
+      "type": "string",
+      "default": "remove",
+      "oneOf": [{
+        "const": "remove",
+        "description": "Removes the blank lines at the start and end of a block."
+      }, {
+        "const": "maintain",
+        "description": "Maintains the blank lines at the start and end of a block."
+      }, {
+        "const": "always",
+        "description": "Forces a blank line at the start and end of a block that isn't empty."
       }]
     },
     "typeLiteral.separatorKind": {
@@ -916,6 +931,14 @@
     "bracePosition": {
       "$ref": "#/definitions/bracePosition"
     },
+    "blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "maxBlankLines": {
+      "description": "The maximum number of consecutive blank lines to keep.",
+      "default": 1,
+      "type": "number"
+    },
     "singleBodyPosition": {
       "$ref": "#/definitions/singleBodyPosition"
     },
@@ -976,8 +999,20 @@
     "typeLiteral.separatorKind.multiLine": {
       "$ref": "#/definitions/typeLiteral.separatorKind"
     },
+    "classDeclaration.memberSpacing": {
+      "$ref": "#/definitions/memberSpacing"
+    },
+    "classExpression.memberSpacing": {
+      "$ref": "#/definitions/memberSpacing"
+    },
     "enumDeclaration.memberSpacing": {
-      "$ref": "#/definitions/enumDeclaration.memberSpacing"
+      "$ref": "#/definitions/memberSpacing"
+    },
+    "interfaceDeclaration.memberSpacing": {
+      "$ref": "#/definitions/memberSpacing"
+    },
+    "typeLiteral.memberSpacing": {
+      "$ref": "#/definitions/memberSpacing"
     },
     "spaceAround": {
       "$ref": "#/definitions/spaceAround"
@@ -1123,6 +1158,10 @@
     "module.sortImportDeclarations": {
       "$ref": "#/definitions/sortOrder"
     },
+    "module.blankLinesAfterImports": {
+      "description": "The number of blank lines to force after the import declarations at the top of a module. When not set, maintains the blank lines up to `maxBlankLines`.",
+      "type": "number"
+    },
     "module.sortExportDeclarations": {
       "$ref": "#/definitions/sortOrder"
     },
@@ -1168,6 +1207,75 @@
     },
     "arrowFunction.bracePosition": {
       "$ref": "#/definitions/bracePosition"
+    },
+    "classDeclaration.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "classExpression.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "enumDeclaration.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "interfaceDeclaration.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "moduleDeclaration.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "arrowFunction.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "constructor.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "doWhileStatement.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "forInStatement.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "forOfStatement.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "forStatement.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "functionDeclaration.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "functionExpression.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "getAccessor.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "ifStatement.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "method.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "setAccessor.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "staticBlock.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "switchCase.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "switchStatement.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "tryStatement.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "whileStatement.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "withStatement.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
     },
     "classDeclaration.bracePosition": {
       "$ref": "#/definitions/bracePosition"

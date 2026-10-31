@@ -1,0 +1,30 @@
+~~ blockPadding: remove, classDeclaration.blockPadding: maintain ~~
+== should only keep the padding of the configured block ==
+class Test {
+
+    method() {
+
+        a();
+
+    }
+
+}
+
+const Other = class {
+
+    prop: string;
+
+};
+
+[expect]
+class Test {
+
+    method() {
+        a();
+    }
+
+}
+
+const Other = class {
+    prop: string;
+};

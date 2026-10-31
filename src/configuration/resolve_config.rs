@@ -55,6 +55,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
   let trailing_commas = get_value(&mut config, "trailingCommas", TrailingCommas::OnlyMultiLine, &mut diagnostics);
   let use_braces = get_value(&mut config, "useBraces", UseBraces::WhenNotSingleLine, &mut diagnostics);
   let prefer_hanging = get_value(&mut config, "preferHanging", false, &mut diagnostics);
+  let block_padding = get_value(&mut config, "blockPadding", BlockPadding::Remove, &mut diagnostics);
   let prefer_hanging_granular = if prefer_hanging { PreferHanging::Always } else { PreferHanging::Never };
   let prefer_single_line_nullable = get_nullable_value(&mut config, "preferSingleLine", &mut diagnostics);
   let prefer_single_line = prefer_single_line_nullable.unwrap_or(false);
@@ -94,6 +95,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     quote_props,
     semi_colons,
     file_indent_level: get_value(&mut config, "fileIndentLevel", 0, &mut diagnostics),
+    max_blank_lines: get_value(&mut config, "maxBlankLines", 1, &mut diagnostics),
     /* situational */
     arrow_function_use_parentheses: get_value(&mut config, "arrowFunction.useParentheses", UseParentheses::Maintain, &mut diagnostics),
     binary_expression_line_per_expression: get_value(&mut config, "binaryExpression.linePerExpression", false, &mut diagnostics),
@@ -119,6 +121,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     ),
     /* sorting */
     module_sort_import_declarations: get_value(&mut config, "module.sortImportDeclarations", SortOrder::CaseInsensitive, &mut diagnostics),
+    module_blank_lines_after_imports: get_nullable_value(&mut config, "module.blankLinesAfterImports", &mut diagnostics),
     module_sort_export_declarations: get_value(&mut config, "module.sortExportDeclarations", SortOrder::CaseInsensitive, &mut diagnostics),
     import_declaration_sort_named_imports: get_value(&mut config, "importDeclaration.sortNamedImports", SortOrder::CaseInsensitive, &mut diagnostics),
     export_declaration_sort_named_exports: get_value(&mut config, "exportDeclaration.sortNamedExports", SortOrder::CaseInsensitive, &mut diagnostics),
@@ -188,7 +191,36 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     while_statement_prefer_hanging: get_value(&mut config, "whileStatement.preferHanging", prefer_hanging, &mut diagnostics),
     with_statement_prefer_hanging: get_value(&mut config, "withStatement.preferHanging", prefer_hanging, &mut diagnostics),
     /* member spacing */
+    class_declaration_member_spacing: get_value(&mut config, "classDeclaration.memberSpacing", MemberSpacing::Maintain, &mut diagnostics),
+    class_expression_member_spacing: get_value(&mut config, "classExpression.memberSpacing", MemberSpacing::Maintain, &mut diagnostics),
     enum_declaration_member_spacing: get_value(&mut config, "enumDeclaration.memberSpacing", MemberSpacing::Maintain, &mut diagnostics),
+    interface_declaration_member_spacing: get_value(&mut config, "interfaceDeclaration.memberSpacing", MemberSpacing::Maintain, &mut diagnostics),
+    type_literal_member_spacing: get_value(&mut config, "typeLiteral.memberSpacing", MemberSpacing::Maintain, &mut diagnostics),
+    /* block padding */
+    block_padding,
+    class_declaration_block_padding: get_value(&mut config, "classDeclaration.blockPadding", block_padding, &mut diagnostics),
+    class_expression_block_padding: get_value(&mut config, "classExpression.blockPadding", block_padding, &mut diagnostics),
+    enum_declaration_block_padding: get_value(&mut config, "enumDeclaration.blockPadding", block_padding, &mut diagnostics),
+    interface_declaration_block_padding: get_value(&mut config, "interfaceDeclaration.blockPadding", block_padding, &mut diagnostics),
+    module_declaration_block_padding: get_value(&mut config, "moduleDeclaration.blockPadding", block_padding, &mut diagnostics),
+    arrow_function_block_padding: get_value(&mut config, "arrowFunction.blockPadding", block_padding, &mut diagnostics),
+    constructor_block_padding: get_value(&mut config, "constructor.blockPadding", block_padding, &mut diagnostics),
+    do_while_statement_block_padding: get_value(&mut config, "doWhileStatement.blockPadding", block_padding, &mut diagnostics),
+    for_in_statement_block_padding: get_value(&mut config, "forInStatement.blockPadding", block_padding, &mut diagnostics),
+    for_of_statement_block_padding: get_value(&mut config, "forOfStatement.blockPadding", block_padding, &mut diagnostics),
+    for_statement_block_padding: get_value(&mut config, "forStatement.blockPadding", block_padding, &mut diagnostics),
+    function_declaration_block_padding: get_value(&mut config, "functionDeclaration.blockPadding", block_padding, &mut diagnostics),
+    function_expression_block_padding: get_value(&mut config, "functionExpression.blockPadding", block_padding, &mut diagnostics),
+    get_accessor_block_padding: get_value(&mut config, "getAccessor.blockPadding", block_padding, &mut diagnostics),
+    if_statement_block_padding: get_value(&mut config, "ifStatement.blockPadding", block_padding, &mut diagnostics),
+    method_block_padding: get_value(&mut config, "method.blockPadding", block_padding, &mut diagnostics),
+    set_accessor_block_padding: get_value(&mut config, "setAccessor.blockPadding", block_padding, &mut diagnostics),
+    static_block_block_padding: get_value(&mut config, "staticBlock.blockPadding", block_padding, &mut diagnostics),
+    switch_case_block_padding: get_value(&mut config, "switchCase.blockPadding", block_padding, &mut diagnostics),
+    switch_statement_block_padding: get_value(&mut config, "switchStatement.blockPadding", block_padding, &mut diagnostics),
+    try_statement_block_padding: get_value(&mut config, "tryStatement.blockPadding", block_padding, &mut diagnostics),
+    while_statement_block_padding: get_value(&mut config, "whileStatement.blockPadding", block_padding, &mut diagnostics),
+    with_statement_block_padding: get_value(&mut config, "withStatement.blockPadding", block_padding, &mut diagnostics),
     /* next control flow position */
     if_statement_next_control_flow_position: get_value(&mut config, "ifStatement.nextControlFlowPosition", next_control_flow_position, &mut diagnostics),
     try_statement_next_control_flow_position: get_value(

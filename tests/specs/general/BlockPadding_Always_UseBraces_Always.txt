@@ -1,0 +1,20 @@
+~~ blockPadding: always, useBraces: always ~~
+== should add padding when braces are added ==
+if (true)
+    a();
+
+while (true)
+    b();
+
+[expect]
+if (true) {
+
+    a();
+
+}
+
+while (true) {
+
+    b();
+
+}

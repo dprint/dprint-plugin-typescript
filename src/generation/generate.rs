@@ -873,6 +873,7 @@ fn gen_catch_clause<'a>(node: &CatchClause<'a>, context: &mut Context<'a>) -> Pr
         body_node: node.body.into(),
         use_braces: UseBraces::Always,
         brace_position: context.config.try_statement_brace_position,
+        block_padding: context.config.try_statement_block_padding,
         single_body_position,
         requires_braces_condition_ref: None,
         start_header_info: Some((start_header_ln, start_header_lsil)),
@@ -1034,6 +1035,11 @@ fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'
     context,
   ));
 
+  let (member_spacing, block_padding) = if node.is_class_decl {
+    (context.config.class_declaration_member_spacing, context.config.class_declaration_block_padding)
+  } else {
+    (context.config.class_expression_member_spacing, context.config.class_expression_block_padding)
+  };
   items.extend(context.with_maybe_consistent_props(
     node.members,
     |members| use_consistent_quotes_for_members(members.iter().copied()),
@@ -1044,7 +1050,8 @@ fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'
           members,
           start_header_lsil: Some(start_header_lsil),
           brace_position: node.brace_position,
-          should_use_blank_line: move |previous, next, context| node_helpers::has_separating_blank_line(&previous, &next, context.program),
+          block_padding,
+          get_blank_line_count: move |previous, next, context| get_member_spacing_blank_line_count(member_spacing, &previous, &next, context),
           separator: Separator::none(),
         },
         context,
@@ -1126,11 +1133,8 @@ fn gen_enum_decl<'a>(node: &TsEnumDecl<'a>, context: &mut Context<'a>) -> PrintI
       members: node.members.iter().map(|&x| x.into()).collect(),
       start_header_lsil: Some(start_header_lsil),
       brace_position: context.config.enum_declaration_brace_position,
-      should_use_blank_line: move |previous, next, context| match member_spacing {
-        MemberSpacing::BlankLine => true,
-        MemberSpacing::NewLine => false,
-        MemberSpacing::Maintain => node_helpers::has_separating_blank_line(&previous, &next, context.program),
-      },
+      block_padding: context.config.enum_declaration_block_padding,
+      get_blank_line_count: move |previous, next, context| get_member_spacing_blank_line_count(member_spacing, &previous, &next, context),
       separator: context.config.enum_declaration_trailing_commas.into(),
     },
     context,
@@ -1541,7 +1545,8 @@ fn gen_module_or_namespace_decl<'a, 'b>(node: ModuleOrNamespaceDecl<'a, 'b>, con
               members: block.body.iter().map(|x| x.into()).collect(),
               start_header_lsil: Some(start_header_lsil),
               brace_position: context.config.module_declaration_brace_position,
-              should_use_blank_line: move |previous, next, context| node_helpers::has_separating_blank_line(&previous, &next, context.program),
+              block_padding: context.config.module_declaration_block_padding,
+              get_blank_line_count: move |previous, next, context| get_maintained_blank_line_count(&previous, &next, context),
               separator: Separator::none(),
             },
             context,
@@ -1617,7 +1622,7 @@ fn gen_named_import_or_export_specifiers<'a>(opts: GenNamedImportOrExportSpecifi
       force_single_line: opts.force_single_line,
       force_multi_line: opts.force_multi_line_specifiers,
       surround_single_line_with_spaces: get_use_space(opts.parent, context),
-      allow_blank_lines: false,
+      blank_lines: ListBlankLines::Remove,
       node_sorter: get_node_sorter(opts.parent, context),
     },
     context,
@@ -2048,7 +2053,7 @@ fn gen_assignment_expr<'a>(node: &AssignExpr<'a>, context: &mut Context<'a>) -> 
           ir_helpers::GenSeparatedValuesOptions {
             prefer_hanging: false,
             force_use_new_lines,
-            allow_blank_lines: false,
+            max_blank_lines: 0,
             indent_width,
             single_line_options: ir_helpers::SingleLineOptions::separated_same_line(Signal::SpaceOrNewLine.into()),
             multi_line_options: ir_helpers::MultiLineOptions::same_line_start_hanging_indent(),
@@ -2225,7 +2230,7 @@ fn gen_binary_expr<'a>(node: &BinExpr<'a>, context: &mut Context<'a>) -> PrintIt
       ir_helpers::GenSeparatedValuesOptions {
         prefer_hanging: false,
         force_use_new_lines,
-        allow_blank_lines: false,
+        max_blank_lines: 0,
         indent_width,
         single_line_options: ir_helpers::SingleLineOptions::separated_same_line(if use_space_surrounding_operator {
           Signal::SpaceOrNewLine.into()
@@ -2927,7 +2932,7 @@ fn gen_object_lit<'a>(node: &ObjectLit<'a>, context: &mut Context<'a>) -> PrintI
           force_single_line: false,
           force_multi_line: is_node_definitely_above_line_width(node.range(), context),
           surround_single_line_with_spaces: context.config.object_expression_space_surrounding_properties,
-          allow_blank_lines: true,
+          blank_lines: ListBlankLines::Maintain,
           node_sorter: None,
         },
         context,
@@ -3083,7 +3088,7 @@ fn gen_sequence_expr<'a>(node: &SeqExpr<'a>, context: &mut Context<'a>) -> Print
       nodes: node.exprs.iter().map(|x| NodeOrSeparator::Node(x.into())).collect(),
       prefer_hanging: context.config.sequence_expression_prefer_hanging,
       force_use_new_lines: is_node_definitely_above_line_width(node.range(), context),
-      allow_blank_lines: false,
+      blank_lines: ListBlankLines::Remove,
       separator: TrailingCommas::Never.into(),
       single_line_options: ir_helpers::SingleLineOptions::same_line_maybe_space_separated(),
       multi_line_options: ir_helpers::MultiLineOptions::same_line_start_hanging_indent(),
@@ -3899,7 +3904,10 @@ fn gen_interface_body<'a>(node: &TsInterfaceBody<'a>, context: &mut Context<'a>)
           members: node.body.iter().map(|x| x.into()).collect(),
           start_header_lsil,
           brace_position: context.config.interface_declaration_brace_position,
-          should_use_blank_line: move |previous, next, context| node_helpers::has_separating_blank_line(&previous, &next, context.program),
+          block_padding: context.config.interface_declaration_block_padding,
+          get_blank_line_count: move |previous, next, context| {
+            get_member_spacing_blank_line_count(context.config.interface_declaration_member_spacing, &previous, &next, context)
+          },
           separator: context.config.semi_colons.into(),
         },
         context,
@@ -3984,7 +3992,7 @@ fn gen_type_lit<'a>(node: &TsTypeLit<'a>, context: &mut Context<'a>) -> PrintIte
           force_single_line: false,
           force_multi_line: false,
           surround_single_line_with_spaces: context.config.type_literal_space_surrounding_properties,
-          allow_blank_lines: true,
+          blank_lines: context.config.type_literal_member_spacing.into(),
           node_sorter: None,
         },
         context,
@@ -4272,7 +4280,7 @@ fn gen_jsx_opening_element<'a>(node: &JSXOpeningElement<'a>, context: &mut Conte
         nodes: node.attrs.iter().map(|p| NodeOrSeparator::Node(p.into())).collect(),
         prefer_hanging: context.config.jsx_attributes_prefer_hanging,
         force_use_new_lines,
-        allow_blank_lines: false,
+        blank_lines: ListBlankLines::Remove,
         separator: Separator::none(),
         single_line_options: ir_helpers::SingleLineOptions::separated_line_starting_with_space(),
         multi_line_options,
@@ -4836,9 +4844,10 @@ fn gen_program<'a, 'b>(node: ProgramInfo<'a, 'b>, context: &mut Context<'a>) -> 
     items.push_string(shebang.to_string());
     items.push_signal(Signal::ExpectNewLine);
     if let Some(first_statement) = node.statements.first() {
-      if node_helpers::has_separating_blank_line(&node.range.start, first_statement, context.program) {
+      let blank_line_count = get_maintained_blank_line_count(&node.range.start, first_statement, context);
+      if blank_line_count > 0 {
         items.push_signal(Signal::NewLine);
-        items.push_signal(Signal::NewLine);
+        push_blank_lines(&mut items, blank_line_count);
       }
     } else {
       let shebang_end = node.range.start + "#!".len() + shebang.len();
@@ -4916,7 +4925,7 @@ fn gen_object_pat<'a>(node: &ObjectPat<'a>, context: &mut Context<'a>) -> PrintI
       force_single_line: false,
       force_multi_line: is_node_definitely_above_line_width(node.range(), context),
       surround_single_line_with_spaces: context.config.object_pattern_space_surrounding_properties,
-      allow_blank_lines: true,
+      blank_lines: ListBlankLines::Maintain,
       node_sorter: None,
     },
     context,
@@ -5121,9 +5130,43 @@ fn gen_block_stmt<'a>(node: &BlockStmt<'a>, context: &mut Context<'a>) -> PrintI
     GenBlockOptions {
       range: Some(node.range()),
       children: node.stmts.iter().map(|x| x.into()).collect(),
+      block_padding: get_block_stmt_block_padding(node, context),
     },
     context,
   )
+}
+
+fn get_block_stmt_block_padding(node: &BlockStmt, context: &Context) -> BlockPadding {
+  let config = &context.config;
+  let get_method_block_padding = |kind: MethodKind| match kind {
+    MethodKind::Method => config.method_block_padding,
+    MethodKind::Getter => config.get_accessor_block_padding,
+    MethodKind::Setter => config.set_accessor_block_padding,
+  };
+  match node.parent() {
+    Node::Function(function) => match function.parent() {
+      Node::FnDecl(_) => config.function_declaration_block_padding,
+      Node::FnExpr(expr) => {
+        if expr.parent().kind() == NodeKind::ExportDefaultDecl && expr.ident.is_some() {
+          config.function_declaration_block_padding
+        } else {
+          config.function_expression_block_padding
+        }
+      }
+      Node::ClassMethod(method) => get_method_block_padding(method.method_kind()),
+      Node::PrivateMethod(method) => get_method_block_padding(method.method_kind()),
+      Node::MethodProp(_) => config.method_block_padding,
+      _ => config.block_padding,
+    },
+    Node::Constructor(_) => config.constructor_block_padding,
+    Node::GetterProp(_) => config.get_accessor_block_padding,
+    Node::SetterProp(_) => config.set_accessor_block_padding,
+    Node::ArrowExpr(_) => config.arrow_function_block_padding,
+    Node::StaticBlock(_) => config.static_block_block_padding,
+    Node::DoWhileStmt(_) => config.do_while_statement_block_padding,
+    Node::SwitchCase(_) => config.switch_case_block_padding,
+    _ => config.block_padding,
+  }
 }
 
 fn gen_break_stmt<'a>(node: &BreakStmt<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -5459,7 +5502,7 @@ fn gen_for_stmt<'a>(node: &ForStmt<'a>, context: &mut Context<'a>) -> PrintItems
         ir_helpers::GenSeparatedValuesOptions {
           prefer_hanging: context.config.for_statement_prefer_hanging,
           force_use_new_lines,
-          allow_blank_lines: false,
+          max_blank_lines: 0,
           indent_width: context.config.indent_width,
           single_line_options: ir_helpers::SingleLineOptions::separated_same_line(separator_after_semi_colons.into()),
           multi_line_options: ir_helpers::MultiLineOptions::same_line_no_indent(),
@@ -5485,6 +5528,7 @@ fn gen_for_stmt<'a>(node: &ForStmt<'a>, context: &mut Context<'a>) -> PrintItems
         body_node: node.body.into(),
         use_braces: context.config.for_statement_use_braces,
         brace_position: context.config.for_statement_brace_position,
+        block_padding: context.config.for_statement_block_padding,
         single_body_position: Some(context.config.for_statement_single_body_position),
         requires_braces_condition_ref: None,
         start_header_info: Some((start_header_ln, start_header_lsil)),
@@ -5553,6 +5597,7 @@ fn gen_for_in_stmt<'a>(node: &ForInStmt<'a>, context: &mut Context<'a>) -> Print
         body_node: node.body.into(),
         use_braces: context.config.for_in_statement_use_braces,
         brace_position: context.config.for_in_statement_brace_position,
+        block_padding: context.config.for_in_statement_block_padding,
         single_body_position: Some(context.config.for_in_statement_single_body_position),
         requires_braces_condition_ref: None,
         start_header_info: Some((start_header_ln, start_header_lsil)),
@@ -5620,6 +5665,7 @@ fn gen_for_of_stmt<'a>(node: &ForOfStmt<'a>, context: &mut Context<'a>) -> Print
         body_node: node.body.into(),
         use_braces: context.config.for_of_statement_use_braces,
         brace_position: context.config.for_of_statement_brace_position,
+        block_padding: context.config.for_of_statement_block_padding,
         single_body_position: Some(context.config.for_of_statement_single_body_position),
         requires_braces_condition_ref: None,
         start_header_info: Some((start_header_ln, start_header_lsil)),
@@ -5662,6 +5708,7 @@ fn gen_if_stmt<'a>(node: &IfStmt<'a>, context: &mut Context<'a>) -> PrintItems {
       },
       use_braces: context.config.if_statement_use_braces,
       brace_position: context.config.if_statement_brace_position,
+      block_padding: context.config.if_statement_block_padding,
       single_body_position: Some(context.config.if_statement_single_body_position),
       requires_braces_condition_ref: context.take_if_stmt_last_brace_condition_ref(),
     },
@@ -5717,6 +5764,7 @@ fn gen_if_stmt<'a>(node: &IfStmt<'a>, context: &mut Context<'a>) -> PrintItems {
             body_node: alt.into(),
             use_braces: context.config.if_statement_use_braces,
             brace_position: context.config.if_statement_brace_position,
+            block_padding: context.config.if_statement_block_padding,
             single_body_position: Some(context.config.if_statement_single_body_position),
             requires_braces_condition_ref: Some(result.open_brace_condition_ref),
             start_header_info: Some((start_else_header_ln, start_else_header_lsil)),
@@ -5785,11 +5833,12 @@ fn gen_switch_stmt<'a>(node: &SwitchStmt<'a>, context: &mut Context<'a>) -> Prin
       members: node.cases.iter().map(|&x| x.into()).collect(),
       start_header_lsil: Some(start_header_lsil),
       brace_position: context.config.switch_statement_brace_position,
-      should_use_blank_line: |previous, next, context| {
+      block_padding: context.config.switch_statement_block_padding,
+      get_blank_line_count: |previous, next, context| {
         // do not put a blank line when the previous case has no body
         if let Node::SwitchCase(previous) = previous {
           if previous.cons.is_empty() {
-            return false;
+            return 0;
           }
         }
 
@@ -5802,7 +5851,7 @@ fn gen_switch_stmt<'a>(node: &SwitchStmt<'a>, context: &mut Context<'a>) -> Prin
         } else {
           previous.end_line_fast(context.program)
         };
-        previous_end_line + 1 < next.start_line_fast(context.program)
+        cap_blank_line_count(next.start_line_fast(context.program).saturating_sub(previous_end_line + 1), context)
       },
       separator: Separator::none(),
     },
@@ -5925,6 +5974,7 @@ fn gen_try_stmt<'a>(node: &TryStmt<'a>, context: &mut Context<'a>) -> PrintItems
         body_node: node.block.into(),
         use_braces: UseBraces::Always, // braces required
         brace_position: context.config.try_statement_brace_position,
+        block_padding: context.config.try_statement_block_padding,
         single_body_position: Some(SameOrNextLinePosition::NextLine),
         requires_braces_condition_ref: None,
         start_header_info: None,
@@ -5969,6 +6019,7 @@ fn gen_try_stmt<'a>(node: &TryStmt<'a>, context: &mut Context<'a>) -> PrintItems
           body_node: finalizer.into(),
           use_braces: UseBraces::Always, // braces required
           brace_position,
+          block_padding: context.config.try_statement_block_padding,
           single_body_position: Some(SameOrNextLinePosition::NextLine),
           requires_braces_condition_ref: None,
           start_header_info: None,
@@ -6035,7 +6086,7 @@ fn gen_var_declarators<'a>(parent: Node<'a>, decls: &[&'a VarDeclarator<'a>], co
         nodes: decls.iter().map(|&p| NodeOrSeparator::Node(p.into())).collect(),
         prefer_hanging: context.config.variable_statement_prefer_hanging,
         force_use_new_lines,
-        allow_blank_lines: false,
+        blank_lines: ListBlankLines::Remove,
         separator: TrailingCommas::Never.into(),
         single_line_options: ir_helpers::SingleLineOptions::same_line_maybe_space_separated(),
         multi_line_options: ir_helpers::MultiLineOptions::same_line_start_hanging_indent(),
@@ -6114,6 +6165,7 @@ fn gen_while_stmt<'a>(node: &WhileStmt<'a>, context: &mut Context<'a>) -> PrintI
         body_node: node.body.into(),
         use_braces: context.config.while_statement_use_braces,
         brace_position: context.config.while_statement_brace_position,
+        block_padding: context.config.while_statement_block_padding,
         single_body_position: Some(context.config.while_statement_single_body_position),
         requires_braces_condition_ref: None,
         start_header_info: Some((start_header_ln, start_header_lsil)),
@@ -6156,6 +6208,7 @@ fn gen_with_stmt<'a>(node: &WithStmt<'a>, context: &mut Context<'a>) -> PrintIte
         body_node: node.body.into(),
         use_braces: context.config.with_statement_use_braces,
         brace_position: context.config.with_statement_brace_position,
+        block_padding: context.config.with_statement_block_padding,
         single_body_position: Some(context.config.with_statement_single_body_position),
         requires_braces_condition_ref: None,
         start_header_info: Some((start_header_ln, start_header_lsil)),
@@ -6570,6 +6623,7 @@ fn gen_ts_import_call_options<'a>(node: &TsImportCallOptions<'a>, context: &mut 
       prefer_single_line_when_empty: false,
       allow_open_token_trailing_comments: true,
       single_line_space_around: false,
+      comments_only_padding: BlockPaddingBlankLines::default(),
     },
     context,
   )
@@ -6719,6 +6773,7 @@ fn gen_mapped_type<'a>(node: &TsMappedType<'a>, context: &mut Context<'a>) -> Pr
       prefer_single_line_when_empty: false,
       allow_open_token_trailing_comments: true,
       single_line_space_around: false,
+      comments_only_padding: BlockPaddingBlankLines::default(),
     },
     context,
   ));
@@ -6879,7 +6934,7 @@ fn gen_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -
       nodes: params.into_iter().map(NodeOrSeparator::Node).collect(),
       prefer_hanging,
       force_use_new_lines,
-      allow_blank_lines: false,
+      blank_lines: ListBlankLines::Remove,
       separator: get_trailing_commas(node, context).into(),
       single_line_options: ir_helpers::SingleLineOptions::same_line_maybe_space_separated(),
       multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(),
@@ -7083,7 +7138,7 @@ fn gen_union_or_intersection_type<'a, 'b>(node: UnionOrIntersectionType<'a, 'b>,
     ir_helpers::GenSeparatedValuesOptions {
       prefer_hanging,
       force_use_new_lines,
-      allow_blank_lines: false,
+      max_blank_lines: 0,
       indent_width,
       single_line_options: ir_helpers::SingleLineOptions::separated_same_line(Signal::SpaceOrNewLine.into()),
       multi_line_options,
@@ -7131,10 +7186,7 @@ fn gen_comments_as_leading<'a>(node: &SourceRange, comments: CommentsIterator<'a
           {
             let mut items = PrintItems::new();
             items.push_signal(Signal::NewLine);
-
-            if node_start_line - 1 > last_comment_end_line {
-              items.push_signal(Signal::NewLine);
-            }
+            push_blank_lines(&mut items, cap_blank_line_count(node_start_line - last_comment_end_line - 1, context));
             items
           },
         ));
@@ -7388,10 +7440,10 @@ fn gen_comment_based_on_last_node(
 
     if opts.separate_with_newlines || comment_start_line > last_node_end_line {
       items.push_signal(Signal::NewLine);
-
-      if comment_start_line > last_node_end_line + 1 {
-        items.push_signal(Signal::NewLine);
-      }
+      push_blank_lines(
+        &mut items,
+        cap_blank_line_count(comment_start_line.saturating_sub(last_node_end_line + 1), context),
+      );
     } else if comment.kind == CommentKind::Line {
       items.push_signal(Signal::StartForceNoNewLines);
       items.push_space();
@@ -7737,8 +7789,9 @@ fn gen_comments_after_comma<'a>(previous: &SourceRange, comments: Vec<&'a Commen
     } else if is_on_later_line {
       items.push_signal(Signal::NewLine);
       // only where the list keeps blank lines, as formatting again would otherwise remove it
-      if context.allow_blank_lines_in_list && comment.start_line_fast(program) > previous.end_line_fast(program) + 1 {
-        items.push_signal(Signal::NewLine);
+      if context.allow_blank_lines_in_list {
+        let blank_line_count = comment.start_line_fast(program).saturating_sub(previous.end_line_fast(program) + 1);
+        push_blank_lines(&mut items, cap_blank_line_count(blank_line_count, context));
       }
       items.extend(gen_comment(comment, context).unwrap_or_default());
     } else {
@@ -7804,7 +7857,7 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
           nodes,
           prefer_hanging,
           force_use_new_lines,
-          allow_blank_lines: true,
+          blank_lines: ListBlankLines::Maintain,
           separator: trailing_commas.into(),
           single_line_options: SingleLineOptions {
             space_at_start: space_around,
@@ -7827,6 +7880,7 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
       prefer_single_line_when_empty: true,
       allow_open_token_trailing_comments: true,
       single_line_space_around: false,
+      comments_only_padding: BlockPaddingBlankLines::default(),
     },
     context,
   ));
@@ -7862,21 +7916,22 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
   }
 }
 
-struct GenMemberedBodyOptions<'a, FShouldUseBlankLine>
+struct GenMemberedBodyOptions<'a, FGetBlankLineCount>
 where
-  FShouldUseBlankLine: Fn(Node, Node, &mut Context) -> bool,
+  FGetBlankLineCount: Fn(Node, Node, &mut Context) -> usize,
 {
   node: Node<'a>,
   members: Vec<Node<'a>>,
   start_header_lsil: Option<LineStartIndentLevel>,
   brace_position: BracePosition,
-  should_use_blank_line: FShouldUseBlankLine,
+  block_padding: BlockPadding,
+  get_blank_line_count: FGetBlankLineCount,
   separator: Separator,
 }
 
-fn gen_membered_body<'a, FShouldUseBlankLine>(opts: GenMemberedBodyOptions<'a, FShouldUseBlankLine>, context: &mut Context<'a>) -> PrintItems
+fn gen_membered_body<'a, FGetBlankLineCount>(opts: GenMemberedBodyOptions<'a, FGetBlankLineCount>, context: &mut Context<'a>) -> PrintItems
 where
-  FShouldUseBlankLine: Fn(Node, Node, &mut Context) -> bool,
+  FGetBlankLineCount: Fn(Node, Node, &mut Context) -> usize,
 {
   let mut items = PrintItems::new();
   let child_tokens = get_tokens_from_children_with_tokens(opts.node, context.program);
@@ -7903,7 +7958,7 @@ where
     context,
   ));
 
-  let should_use_blank_line = opts.should_use_blank_line;
+  let get_blank_line_count = opts.get_blank_line_count;
   let separator = opts.separator;
 
   items.extend(gen_block(
@@ -7914,7 +7969,7 @@ where
           items: members.into_iter().map(|node| (node, None)).collect(),
           should_use_space: None,
           should_use_new_line: None,
-          should_use_blank_line,
+          get_blank_line_count,
           separator,
           is_jsx_children: false,
         },
@@ -7924,6 +7979,7 @@ where
     GenBlockOptions {
       range: Some(SourceRange::new(open_brace_token.start(), close_brace_token.end())),
       children: opts.members,
+      block_padding: opts.block_padding,
     },
     context,
   ));
@@ -7931,22 +7987,124 @@ where
   items
 }
 
+fn get_member_spacing_blank_line_count(member_spacing: MemberSpacing, previous: &impl SourceRanged, next: &impl SourceRanged, context: &Context) -> usize {
+  match member_spacing {
+    MemberSpacing::BlankLine => 1,
+    MemberSpacing::NewLine => 0,
+    MemberSpacing::Maintain => get_maintained_blank_line_count(previous, next, context),
+  }
+}
+
+/// Gets the number of blank lines to keep between two nodes, which is the
+/// number in the source capped at the `maxBlankLines` configuration.
+fn get_maintained_blank_line_count(first: &impl SourceRanged, second: &impl SourceRanged, context: &Context) -> usize {
+  cap_blank_line_count(node_helpers::get_separating_blank_line_count(first, second, context.program), context)
+}
+
+fn cap_blank_line_count(count: usize, context: &Context) -> usize {
+  count.min(context.config.max_blank_lines as usize)
+}
+
+fn push_blank_lines(items: &mut PrintItems, count: usize) {
+  for _ in 0..count {
+    items.push_signal(Signal::NewLine);
+  }
+}
+
+/// The number of blank lines to keep after the open brace and before the close brace of a block.
+#[derive(Default, Clone, Copy)]
+struct BlockPaddingBlankLines {
+  start: usize,
+  end: usize,
+}
+
+fn get_block_padding_blank_lines(open_brace: SourceRange, close_brace: SourceRange, block_padding: BlockPadding, context: &Context) -> BlockPaddingBlankLines {
+  if block_padding == BlockPadding::Remove {
+    return BlockPaddingBlankLines::default();
+  }
+
+  let program = context.program;
+  let open_brace_line = open_brace.end_line_fast(program);
+  // a line comment on the open brace's line stays on that line, but other comments move to the next line
+  let first_comment_start_line = open_brace
+    .end
+    .trailing_comments_fast(program)
+    .find(|c| c.kind == CommentKind::Block || c.start_line_fast(program) > open_brace_line)
+    .map(|c| c.start_line_fast(program));
+  let content_start_line = match first_comment_start_line {
+    Some(line) => line,
+    None => {
+      let next_token_pos = context.token_finder.get_next_token_pos_after(&open_brace);
+      if next_token_pos >= close_brace.start {
+        return BlockPaddingBlankLines::default(); // nothing between the braces
+      }
+      next_token_pos.start_line_fast(program)
+    }
+  };
+  let previous_token_end_line = context.token_finder.get_previous_token_end_before(&close_brace).end_line_fast(program);
+  let content_end_line = match close_brace.start.leading_comments_fast(program).peek_last_comment() {
+    Some(comment) => comment.end_line_fast(program).max(previous_token_end_line),
+    None => previous_token_end_line,
+  };
+  let close_brace_start_line = close_brace.start_line_fast(program);
+
+  match block_padding {
+    BlockPadding::Remove => BlockPaddingBlankLines::default(),
+    BlockPadding::Maintain => BlockPaddingBlankLines {
+      start: cap_blank_line_count(content_start_line.saturating_sub(open_brace_line + 1), context),
+      end: cap_blank_line_count(close_brace_start_line.saturating_sub(content_end_line + 1), context),
+    },
+    BlockPadding::Always => BlockPaddingBlankLines { start: 1, end: 1 },
+  }
+}
+
+/// Generates the blank lines of a conditional body's padding, which only
+/// apply when the body has braces and starts on a new line.
+fn gen_blank_lines_if_braces_on_new_line(count: usize, open_brace_condition_ref: ConditionReference, newline_condition_ref: ConditionReference) -> PrintItems {
+  if count == 0 {
+    return PrintItems::new();
+  }
+  let mut blank_lines = PrintItems::new();
+  push_blank_lines(&mut blank_lines, count);
+  if_true(
+    "blankLinesIfBracesOnNewLine",
+    Rc::new(move |context| Some(context.resolved_condition(&open_brace_condition_ref)? && context.resolved_condition(&newline_condition_ref)?)),
+    blank_lines,
+  )
+  .into()
+}
+
 fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> PrintItems {
   let stmt_groups = get_stmt_groups(stmts, context);
   let mut items = PrintItems::new();
   let mut last_node: Option<SourceRange> = None;
   let stmt_group_len = stmt_groups.len();
+  let blank_lines_after_imports = context.config.module_blank_lines_after_imports.map(|count| count as usize);
+  let mut is_after_import = false;
 
   for (stmt_group_index, stmt_group) in stmt_groups.into_iter().enumerate() {
     if stmt_group.kind == StmtGroupKind::Imports || stmt_group.kind == StmtGroupKind::Exports {
       // keep the leading comments of the stmt group on the same line
       let comments = get_leading_comments_on_previous_lines(&stmt_group.nodes.first().as_ref().unwrap().start().range(), context);
       let last_comment = comments.iter().filter(|c| !context.has_handled_comment(c)).last().map(|c| c.range());
-      items.extend(gen_comments_as_statements(
-        comments.into_iter(),
-        last_node.as_ref().map(|x| x as &SourceRange),
-        context,
-      ));
+      let forced_blank_line_count = blank_lines_after_imports.filter(|_| is_after_import && stmt_group.kind == StmtGroupKind::Exports);
+      match forced_blank_line_count {
+        Some(count) if last_comment.is_some() && last_node.is_some() => {
+          items.push_signal(Signal::NewLine);
+          push_blank_lines(&mut items, count);
+          items.extend(gen_comments_as_statements(comments.into_iter(), None, context));
+        }
+        _ => {
+          items.extend(gen_comments_as_statements(
+            comments.into_iter(),
+            last_node.as_ref().map(|x| x as &SourceRange),
+            context,
+          ));
+        }
+      }
+      if last_comment.is_some() {
+        is_after_import = false;
+      }
       last_node = last_comment.or(last_node);
     }
 
@@ -7961,14 +8119,18 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
     for (i, node) in stmt_group.nodes.into_iter().enumerate() {
       let is_empty_stmt = node.is::<EmptyStmt>();
       if !is_empty_stmt {
+        let is_import = matches!(node, Node::ImportDecl(_) | Node::TsImportEqualsDecl(_));
         let mut separator_items = PrintItems::new();
         if let Some(last_node) = &last_node {
           separator_items.push_signal(Signal::NewLine);
-          if node_helpers::has_separating_blank_line(&last_node, &node, context.program) {
-            separator_items.push_signal(Signal::NewLine);
-          }
+          let blank_line_count = match blank_lines_after_imports {
+            Some(count) if is_after_import && !is_import => count,
+            _ => get_maintained_blank_line_count(last_node, &node, context),
+          };
+          push_blank_lines(&mut separator_items, blank_line_count);
           generated_line_separators.insert(i, separator_items);
         }
+        is_after_import = is_import;
 
         let mut items = PrintItems::new();
         let end_ln = LineNumber::new("endStatement");
@@ -8181,22 +8343,22 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<S
   groups
 }
 
-struct GenMembersOptions<'a, FShouldUseBlankLine>
+struct GenMembersOptions<'a, FGetBlankLineCount>
 where
-  FShouldUseBlankLine: Fn(Node<'a>, Node<'a>, &mut Context<'a>) -> bool,
+  FGetBlankLineCount: Fn(Node<'a>, Node<'a>, &mut Context<'a>) -> usize,
 {
   inner_range: SourceRange,
   items: Vec<(Node<'a>, Option<PrintItems>)>,
   should_use_space: Option<Box<dyn Fn(Node<'a>, Node<'a>, &mut Context<'a>) -> bool>>, // todo: Remove putting functions on heap by using type parameters?
   should_use_new_line: Option<Box<dyn Fn(Node<'a>, Node<'a>, &mut Context<'a>) -> bool>>,
-  should_use_blank_line: FShouldUseBlankLine,
+  get_blank_line_count: FGetBlankLineCount,
   separator: Separator,
   is_jsx_children: bool,
 }
 
-fn gen_members<'a, FShouldUseBlankLine>(opts: GenMembersOptions<'a, FShouldUseBlankLine>, context: &mut Context<'a>) -> PrintItems
+fn gen_members<'a, FGetBlankLineCount>(opts: GenMembersOptions<'a, FGetBlankLineCount>, context: &mut Context<'a>) -> PrintItems
 where
-  FShouldUseBlankLine: Fn(Node<'a>, Node<'a>, &mut Context<'a>) -> bool,
+  FGetBlankLineCount: Fn(Node<'a>, Node<'a>, &mut Context<'a>) -> usize,
 {
   let mut last_node: Option<Node> = None;
   // the comments that were before a semicolon on a later line, which are generated after the member
@@ -8216,13 +8378,11 @@ where
         } else if should_use_new_line(&opts.should_use_new_line, last_node, node, context) {
           items.push_signal(Signal::NewLine);
 
-          let use_blank_line = match &last_comment_range {
-            Some(last_comment_range) => node_helpers::has_separating_blank_line(last_comment_range, &node, context.program),
-            None => (opts.should_use_blank_line)(last_node, node, context),
+          let blank_line_count = match &last_comment_range {
+            Some(last_comment_range) => get_maintained_blank_line_count(last_comment_range, &node, context),
+            None => (opts.get_blank_line_count)(last_node, node, context),
           };
-          if use_blank_line {
-            items.push_signal(Signal::NewLine);
-          }
+          push_blank_lines(&mut items, blank_line_count);
         } else if let Some(should_use_space) = &opts.should_use_space {
           if should_use_space(last_node, node, context) {
             if opts.is_jsx_children {
@@ -8376,7 +8536,7 @@ where
             nodes: nodes.into_iter().map(NodeOrSeparator::Node).collect(),
             prefer_hanging,
             force_use_new_lines,
-            allow_blank_lines: false,
+            blank_lines: ListBlankLines::Remove,
             separator: trailing_commas.into(),
             single_line_options: SingleLineOptions {
               space_at_start: space_around,
@@ -8410,6 +8570,7 @@ where
       prefer_single_line_when_empty: true,
       allow_open_token_trailing_comments: true,
       single_line_space_around: false,
+      comments_only_padding: BlockPaddingBlankLines::default(),
     },
     context,
   );
@@ -8604,12 +8765,33 @@ struct GenSeparatedValuesParams<'a> {
   nodes: Vec<NodeOrSeparator<'a>>,
   prefer_hanging: bool,
   force_use_new_lines: bool,
-  allow_blank_lines: bool,
+  blank_lines: ListBlankLines,
   separator: Separator,
   single_line_options: ir_helpers::SingleLineOptions,
   multi_line_options: ir_helpers::MultiLineOptions,
   force_possible_newline_at_start: bool,
   node_sorter: Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), Program<'a>) -> std::cmp::Ordering>>,
+}
+
+/// How to handle the blank lines between the values of a list.
+#[derive(Clone, Copy, PartialEq)]
+enum ListBlankLines {
+  /// Removes the blank lines.
+  Remove,
+  /// Maintains the blank lines up to the `maxBlankLines` configuration.
+  Maintain,
+  /// Forces a blank line between each value when the list is multi-line.
+  Force,
+}
+
+impl From<MemberSpacing> for ListBlankLines {
+  fn from(member_spacing: MemberSpacing) -> Self {
+    match member_spacing {
+      MemberSpacing::Maintain => ListBlankLines::Maintain,
+      MemberSpacing::NewLine => ListBlankLines::Remove,
+      MemberSpacing::BlankLine => ListBlankLines::Force,
+    }
+  }
 }
 
 enum NodeOrSeparator<'a> {
@@ -8651,12 +8833,17 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
   let nodes = opts.nodes;
   let separator = opts.separator;
   let indent_width = context.config.indent_width;
-  let compute_lines_span = opts.allow_blank_lines; // save time otherwise
+  let blank_lines = opts.blank_lines;
+  let max_blank_lines = match blank_lines {
+    ListBlankLines::Remove => 0,
+    ListBlankLines::Maintain => context.config.max_blank_lines,
+    ListBlankLines::Force => 1,
+  };
   let node_sorter = opts.node_sorter;
 
   // would need to make this take into account the new position of the nodes
   #[cfg(debug_assertions)]
-  if node_sorter.is_some() && compute_lines_span {
+  if node_sorter.is_some() && blank_lines == ListBlankLines::Maintain {
     panic!("Not implemented scenario. Cannot computed lines span and allow blank lines");
   }
   let sorted_indexes = node_sorter.map(|sorter| get_sorted_indexes(nodes.iter().map(|d| d.as_node()), sorter, context));
@@ -8678,13 +8865,17 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
         } else {
           (false, false)
         };
-        let lines_span = if compute_lines_span {
-          value.as_node().map(|x| ir_helpers::LinesSpan {
+        let lines_span = match blank_lines {
+          ListBlankLines::Remove => None,
+          ListBlankLines::Maintain => value.as_node().map(|x| ir_helpers::LinesSpan {
             start_line: x.start_line_with_comments(context),
             end_line: x.end_line_with_comments(context),
-          })
-        } else {
-          None
+          }),
+          // a span that's one blank line after the previous value's
+          ListBlankLines::Force => value.as_node().map(|_| ir_helpers::LinesSpan {
+            start_line: node_index * 2,
+            end_line: node_index * 2,
+          }),
         };
 
         let items = if separator.is_none() {
@@ -8697,7 +8888,7 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
           let generated_separator = get_generated_separator(&separator, node_index == nodes_count - 1, &is_multi_line_or_hanging);
           match value {
             NodeOrSeparator::Node(value) => {
-              let previous_allow_blank_lines = std::mem::replace(&mut context.allow_blank_lines_in_list, opts.allow_blank_lines);
+              let previous_allow_blank_lines = std::mem::replace(&mut context.allow_blank_lines_in_list, blank_lines != ListBlankLines::Remove);
               let items = gen_node_with_separator(value, generated_separator, context);
               context.allow_blank_lines_in_list = previous_allow_blank_lines;
               items
@@ -8739,7 +8930,7 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
     ir_helpers::GenSeparatedValuesOptions {
       prefer_hanging: opts.prefer_hanging,
       force_use_new_lines: opts.force_use_new_lines,
-      allow_blank_lines: opts.allow_blank_lines,
+      max_blank_lines,
       indent_width,
       single_line_options: opts.single_line_options,
       multi_line_options: opts.multi_line_options,
@@ -8957,6 +9148,7 @@ fn gen_node_in_parens<'a>(gen_node: impl FnOnce(&mut Context<'a>) -> PrintItems,
       prefer_single_line_when_empty: true,
       allow_open_token_trailing_comments: opts.allow_open_paren_trailing_comments,
       single_line_space_around: opts.single_line_space_around,
+      comments_only_padding: BlockPaddingBlankLines::default(),
     },
     context,
   );
@@ -9017,7 +9209,7 @@ fn gen_extends_or_implements<'a>(opts: GenExtendsOrImplementsOptions<'a>, contex
         nodes: opts.type_items.into_iter().map(NodeOrSeparator::Node).collect(),
         prefer_hanging: opts.prefer_hanging,
         force_use_new_lines: false,
-        allow_blank_lines: false,
+        blank_lines: ListBlankLines::Remove,
         separator: TrailingCommas::Never.into(),
         single_line_options: ir_helpers::SingleLineOptions::separated_line_starting_with_space(),
         multi_line_options: ir_helpers::MultiLineOptions::new_line_start(),
@@ -9041,7 +9233,7 @@ struct GenObjectLikeNodeOptions<'a> {
   force_single_line: bool,
   force_multi_line: bool,
   surround_single_line_with_spaces: bool,
-  allow_blank_lines: bool,
+  blank_lines: ListBlankLines,
   node_sorter: Option<Box<dyn Fn((usize, Option<Node<'a>>), (usize, Option<Node<'a>>), Program<'a>) -> std::cmp::Ordering>>,
 }
 
@@ -9071,7 +9263,7 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
             nodes: opts.members.into_iter().map(NodeOrSeparator::Node).collect(),
             prefer_hanging: opts.prefer_hanging,
             force_use_new_lines: force_multi_line,
-            allow_blank_lines: opts.allow_blank_lines,
+            blank_lines: opts.blank_lines,
             separator: opts.separator,
             single_line_options: ir_helpers::SingleLineOptions {
               space_at_start: opts.surround_single_line_with_spaces,
@@ -9095,6 +9287,7 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
       prefer_single_line_when_empty: true,
       allow_open_token_trailing_comments: true,
       single_line_space_around: false,
+      comments_only_padding: BlockPaddingBlankLines::default(),
     },
     context,
   ));
@@ -9243,6 +9436,7 @@ fn gen_computed_prop_like<'a>(
       prefer_single_line_when_empty: false,
       allow_open_token_trailing_comments: true,
       single_line_space_around: false,
+      comments_only_padding: BlockPaddingBlankLines::default(),
     },
     context,
   ));
@@ -9279,7 +9473,7 @@ fn gen_decorators<'a>(decorators: &[&'a Decorator<'a>], is_inline: bool, context
       nodes: decorators.iter().map(|&p| NodeOrSeparator::Node(p.into())).collect(),
       prefer_hanging: false, // would need to think about the design because prefer_hanging causes a hanging indent
       force_use_new_lines,
-      allow_blank_lines: false,
+      blank_lines: ListBlankLines::Remove,
       separator: Separator::none(),
       single_line_options: ir_helpers::SingleLineOptions {
         space_at_start: false,
@@ -9364,6 +9558,7 @@ struct GenHeaderWithConditionalBraceBodyOptions<'a> {
   generated_header: PrintItems,
   use_braces: UseBraces,
   brace_position: BracePosition,
+  block_padding: BlockPadding,
   single_body_position: Option<SameOrNextLinePosition>,
   requires_braces_condition_ref: Option<ConditionReference>,
 }
@@ -9397,6 +9592,7 @@ fn gen_header_with_conditional_brace_body<'a>(
         opts.use_braces
       },
       brace_position: opts.brace_position,
+      block_padding: opts.block_padding,
       single_body_position: opts.single_body_position,
       requires_braces_condition_ref: opts.requires_braces_condition_ref,
       start_header_info: Some((start_header_ln, start_header_lsil)),
@@ -9443,6 +9639,7 @@ struct GenConditionalBraceBodyOptions<'a> {
   body_node: Node<'a>,
   use_braces: UseBraces,
   brace_position: BracePosition,
+  block_padding: BlockPadding,
   single_body_position: Option<SameOrNextLinePosition>,
   requires_braces_condition_ref: Option<ConditionReference>,
   start_header_info: Option<(LineNumber, LineStartIndentLevel)>,
@@ -9605,12 +9802,26 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
     ));
   }
 
+  let padding = match opts.body_node {
+    Node::BlockStmt(body_node) => get_block_padding_blank_lines(
+      SourceRange::new(body_node.start(), body_node.start() + 1),
+      SourceRange::new(body_node.end() - 1, body_node.end()),
+      opts.block_padding,
+      context,
+    ),
+    // braces may be added to the body, so pad it the same as when it has them
+    _ if opts.block_padding == BlockPadding::Always && !is_body_empty_stmt => BlockPaddingBlankLines { start: 1, end: 1 },
+    _ => BlockPaddingBlankLines::default(),
+  };
+  let gen_padding = |count| gen_blank_lines_if_braces_on_new_line(count, open_brace_condition_ref, newline_condition_ref);
+
   if let Node::BlockStmt(body_node) = opts.body_node {
     items.extend(ir_helpers::with_indent({
       let mut items = PrintItems::new();
       // generate the remaining trailing comments inside because some of them are generated already
       // by parsing the header trailing comments
       items.extend(gen_leading_comments(&body_node.range(), context));
+      items.extend(gen_padding(padding.start));
       let inner_range = body_node.get_inner_range(context);
       if body_node.stmts.is_empty() {
         let trailing_comments_same_line = get_trailing_comments_on_same_line(&inner_range.start().range(), context);
@@ -9624,14 +9835,17 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
       } else {
         items.extend(gen_statements(inner_range, body_node.stmts.iter().map(|x| x.into()).collect(), context));
       }
+      items.extend(gen_padding(padding.end));
       items
     }));
   } else {
     items.extend(ir_helpers::with_indent({
       let mut items = PrintItems::new();
       let body_node_range = opts.body_node.range();
+      items.extend(gen_padding(padding.start));
       items.extend(gen_node(opts.body_node, context));
       items.extend(gen_trailing_comments(&body_node_range, context));
+      items.extend(gen_padding(padding.end));
       items
     }));
   }
@@ -10026,8 +10240,8 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
             true
           }
         })),
-        should_use_blank_line: |previous, next, context| {
-          if has_jsx_space_between(previous, next, context.program) {
+        get_blank_line_count: |previous, next, context| {
+          let has_blank_line = if has_jsx_space_between(previous, next, context.program) {
             false // prefer collapsing
           } else if let Node::JSXText(previous) = previous {
             utils::get_jsx_trailing_whitespace(previous.text_fast(context.program)).matches('\n').count() >= 2
@@ -10035,7 +10249,9 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
             utils::get_jsx_leading_whitespace(next.text_fast(context.program)).matches('\n').count() >= 2
           } else {
             node_helpers::has_separating_blank_line(&previous, &next, context.program)
-          }
+          };
+          // keep at most one blank line between jsx children
+          cap_blank_line_count(usize::from(has_blank_line), context)
         },
         separator: Separator::none(),
         is_jsx_children: true,
@@ -10308,6 +10524,7 @@ fn gen_assignment_like_with_token<'a>(expr: Node<'a>, op: &'static StringContain
 struct GenBlockOptions<'a> {
   range: Option<SourceRange>,
   children: Vec<Node<'a>>,
+  block_padding: BlockPadding,
 }
 
 fn gen_block<'a>(gen_inner: impl FnOnce(Vec<Node<'a>>, &mut Context<'a>) -> PrintItems, opts: GenBlockOptions<'a>, context: &mut Context<'a>) -> PrintItems {
@@ -10317,6 +10534,15 @@ fn gen_block<'a>(gen_inner: impl FnOnce(Vec<Node<'a>>, &mut Context<'a>) -> Prin
   let before_open_token_ln = LineNumber::new("after_open_token_info");
   let first_member_range = opts.children.first().map(|x| x.range());
   let range = opts.range;
+  let padding = match range {
+    Some(range) => get_block_padding_blank_lines(
+      SourceRange::new(range.start, range.start + 1),
+      SourceRange::new(range.end - 1, range.end),
+      opts.block_padding,
+      context,
+    ),
+    None => BlockPaddingBlankLines::default(),
+  };
   items.push_info(before_open_token_ln);
   items.extend(gen_surrounded_by_tokens(
     |context| {
@@ -10330,10 +10556,12 @@ fn gen_block<'a>(gen_inner: impl FnOnce(Vec<Node<'a>>, &mut Context<'a>) -> Prin
       };
       if !is_tokens_same_line_and_empty {
         items.push_signal(Signal::NewLine);
+        push_blank_lines(&mut items, padding.start);
       }
       items.push_line_and_column(start_inner_lc);
       let inner = gen_inner(opts.children, context);
       items.extend(if skip_indent { inner } else { ir_helpers::with_indent(inner) });
+      push_blank_lines(&mut items, padding.end);
       items.push_line_and_column(end_inner_lc);
 
       if is_tokens_same_line_and_empty {
@@ -10360,6 +10588,7 @@ fn gen_block<'a>(gen_inner: impl FnOnce(Vec<Node<'a>>, &mut Context<'a>) -> Prin
       prefer_single_line_when_empty: false,
       allow_open_token_trailing_comments: true,
       single_line_space_around: false,
+      comments_only_padding: padding,
     },
     context,
   ));
@@ -10375,6 +10604,8 @@ struct GenSurroundedByTokensOptions {
   prefer_single_line_when_empty: bool,
   allow_open_token_trailing_comments: bool,
   single_line_space_around: bool,
+  /// The blank lines to keep around the comments when there are only comments between the tokens.
+  comments_only_padding: BlockPaddingBlankLines,
 }
 
 fn gen_surrounded_by_tokens<'a>(
@@ -10451,6 +10682,7 @@ fn gen_surrounded_by_tokens<'a>(
         if comments.clone().any(|c| !context.has_handled_comment(c)) {
           if is_single_line {
             let indent_width = context.config.indent_width;
+            let max_blank_lines = context.config.max_blank_lines;
             items.extend(
               ir_helpers::gen_separated_values(
                 |_| {
@@ -10473,7 +10705,7 @@ fn gen_surrounded_by_tokens<'a>(
                 ir_helpers::GenSeparatedValuesOptions {
                   prefer_hanging: false,
                   force_use_new_lines: !is_single_line,
-                  allow_blank_lines: true,
+                  max_blank_lines,
                   indent_width,
                   single_line_options: SingleLineOptions {
                     space_at_start: opts.single_line_space_around,
@@ -10488,8 +10720,10 @@ fn gen_surrounded_by_tokens<'a>(
             );
           } else {
             items.push_signal(Signal::NewLine);
+            push_blank_lines(&mut items, opts.comments_only_padding.start);
             items.extend(with_indent(gen_comments_as_statements(comments, None, context)));
             items.push_signal(Signal::NewLine);
+            push_blank_lines(&mut items, opts.comments_only_padding.end);
           }
         }
       } else if !is_single_line && !opts.prefer_single_line_when_empty {

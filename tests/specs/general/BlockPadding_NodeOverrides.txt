@@ -1,0 +1,126 @@
+~~ blockPadding: remove, arrowFunction.blockPadding: always, method.blockPadding: maintain, constructor.blockPadding: always, getAccessor.blockPadding: always, ifStatement.blockPadding: always, staticBlock.blockPadding: always, switchStatement.blockPadding: always, functionExpression.blockPadding: always ~~
+== should use the padding of the node ==
+function test() {
+
+    a();
+
+}
+
+const a = () => {
+    b();
+};
+
+const b = function() {
+    c();
+};
+
+class Test {
+    constructor() {
+        a();
+    }
+
+    method() {
+
+        a();
+    }
+
+    other() {
+        a();
+    }
+
+    get prop() {
+        return 1;
+    }
+
+    set prop(value) {
+
+        a();
+
+    }
+
+    static {
+        a();
+    }
+}
+
+if (true) {
+    a();
+}
+
+while (true) {
+
+    a();
+
+}
+
+switch (a) {
+    case 1:
+        break;
+}
+
+[expect]
+function test() {
+    a();
+}
+
+const a = () => {
+
+    b();
+
+};
+
+const b = function() {
+
+    c();
+
+};
+
+class Test {
+    constructor() {
+
+        a();
+
+    }
+
+    method() {
+
+        a();
+    }
+
+    other() {
+        a();
+    }
+
+    get prop() {
+
+        return 1;
+
+    }
+
+    set prop(value) {
+        a();
+    }
+
+    static {
+
+        a();
+
+    }
+}
+
+if (true) {
+
+    a();
+
+}
+
+while (true) {
+    a();
+}
+
+switch (a) {
+
+    case 1:
+        break;
+
+}
