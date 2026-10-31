@@ -1,7 +1,6 @@
 //! Built-in module classification.
 //!
-//! The Node core list is a snapshot of `module.builtinModules` from Node 22 LTS,
-//! excluding the internal modules that start with an underscore.
+//! The Node core list is a snapshot of `module.builtinModules` from Node 26.
 
 use crate::configuration::BuiltinsRuntime;
 
@@ -28,10 +27,18 @@ fn is_node_core_module(src: &str) -> bool {
   NODE_CORE_MODULES.binary_search(&src).is_ok()
 }
 
-/// Node 22 LTS `module.builtinModules` snapshot (no `node:` prefix), sorted so
+/// Node 26 `module.builtinModules` snapshot (no `node:` prefix), sorted so
 /// it can be binary searched. Modules that can only be imported with the `node:`
 /// prefix (ex. `node:test`) are covered by the prefix check instead.
 static NODE_CORE_MODULES: &[&str] = &[
+  "_http_agent",
+  "_http_client",
+  "_http_common",
+  "_http_incoming",
+  "_http_outgoing",
+  "_http_server",
+  "_tls_common",
+  "_tls_wrap",
   "assert",
   "assert/strict",
   "async_hooks",
