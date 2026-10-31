@@ -29,6 +29,11 @@ name = "specs"
 path = "tests/spec_test.rs"
 harness = false
 
+[[test]]
+name = "corpus"
+path = "tests/corpus_test.rs"
+harness = false
+
 [dependencies]
 capacity_builder = "0.5.0"
 dprint-core = { version = "0.74.0", features = ["formatting"] }
