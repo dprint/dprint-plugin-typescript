@@ -425,22 +425,6 @@ generate_str_to_from![
   [Ignore, "ignore"]
 ];
 
-/// Which runtime's built-in modules count as `builtin` for grouping.
-#[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum BuiltinsRuntime {
-  /// `node:` prefix or Node core module list (default).
-  Node,
-  /// `node:` prefix only.
-  Deno,
-  /// `node:` prefix, `bun:` prefix, or Node core module list.
-  Bun,
-  /// Nothing matches `builtin`.
-  None,
-}
-
-generate_str_to_from![BuiltinsRuntime, [Node, "node"], [Deno, "deno"], [Bun, "bun"], [None, "none"]];
-
 /// Built-in category strings allowed in `module.importGroups[].match`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -568,8 +552,6 @@ pub struct Configuration {
   pub module_import_groups: Vec<ImportGroup>,
   #[serde(rename = "module.typeImports", default = "default_type_imports_mode")]
   pub module_type_imports: TypeImportsMode,
-  #[serde(rename = "module.builtinsRuntime", default = "default_builtins_runtime")]
-  pub module_builtins_runtime: BuiltinsRuntime,
   #[serde(rename = "module.importGroupsNewlinesBetween", default = "default_newlines_between")]
   pub module_import_groups_newlines_between: NewlinesBetween,
   #[serde(skip)]
@@ -963,10 +945,6 @@ fn default_newlines_between() -> NewlinesBetween {
   NewlinesBetween::Always
 }
 
-fn default_builtins_runtime() -> BuiltinsRuntime {
-  BuiltinsRuntime::Node
-}
-
 #[cfg(test)]
 mod import_group_enum_tests {
   use super::*;
@@ -977,15 +955,6 @@ mod import_group_enum_tests {
     assert!(matches!(TypeImportsMode::from_str("separate"), Ok(TypeImportsMode::Separate)));
     assert!(matches!(TypeImportsMode::from_str("interleave"), Ok(TypeImportsMode::Interleave)));
     assert_eq!(TypeImportsMode::Separate.to_string(), "separate");
-  }
-
-  #[test]
-  fn builtins_runtime_round_trip() {
-    assert!(matches!(BuiltinsRuntime::from_str("node"), Ok(BuiltinsRuntime::Node)));
-    assert!(matches!(BuiltinsRuntime::from_str("deno"), Ok(BuiltinsRuntime::Deno)));
-    assert!(matches!(BuiltinsRuntime::from_str("bun"), Ok(BuiltinsRuntime::Bun)));
-    assert!(matches!(BuiltinsRuntime::from_str("none"), Ok(BuiltinsRuntime::None)));
-    assert_eq!(BuiltinsRuntime::Node.to_string(), "node");
   }
 
   #[test]

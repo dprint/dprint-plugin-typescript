@@ -1,22 +1,28 @@
 ~~ {
   "lineWidth": 80,
-  "module.builtinsRuntime": "none",
   "module.sortImportDeclarations": "caseInsensitive",
   "module.importGroups": [
     { "match": "builtin" },
     { "match": "external" }
   ]
 } ~~
-== none runtime: nothing classifies as builtin ==
+== node, bun, and cloudflare builtins are builtin ==
 import fs from "fs";
+import { serve } from "bun";
+import { DurableObject } from "cloudflare:workers";
 import { test } from "bun:test";
 import { x } from "node:path";
 import { y } from "npm:react";
+import { t } from "test";
 import { z } from "react";
 
 [expect]
+import { serve } from "bun";
 import { test } from "bun:test";
+import { DurableObject } from "cloudflare:workers";
 import fs from "fs";
 import { x } from "node:path";
+
 import { y } from "npm:react";
 import { z } from "react";
+import { t } from "test";

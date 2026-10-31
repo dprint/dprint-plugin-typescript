@@ -139,7 +139,6 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     ),
     module_import_groups: get_import_groups(&mut config, &mut diagnostics),
     module_type_imports: get_value(&mut config, "module.typeImports", TypeImportsMode::Separate, &mut diagnostics),
-    module_builtins_runtime: get_value(&mut config, "module.builtinsRuntime", BuiltinsRuntime::Node, &mut diagnostics),
     module_import_groups_newlines_between: get_value(&mut config, "module.importGroupsNewlinesBetween", NewlinesBetween::Always, &mut diagnostics),
     module_import_groups_cache: Default::default(),
     /* ignore comments */
@@ -739,7 +738,6 @@ mod import_groups_resolution_tests {
     let r = resolve(serde_json::json!({}));
     assert!(r.config.module_import_groups.is_empty());
     assert!(matches!(r.config.module_type_imports, TypeImportsMode::Separate));
-    assert!(matches!(r.config.module_builtins_runtime, BuiltinsRuntime::Node));
     assert!(r.diagnostics.is_empty());
   }
 

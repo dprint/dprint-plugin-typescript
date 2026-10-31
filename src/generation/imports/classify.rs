@@ -1,18 +1,12 @@
 //! Pure classification of an import declaration into one of the resolved groups.
 
-use crate::configuration::{BuiltinCategory, BuiltinsRuntime, TypeImportsMode};
+use crate::configuration::{BuiltinCategory, TypeImportsMode};
 use crate::generation::imports::resolved::ResolvedGroups;
 use crate::utils::builtins::is_builtin;
 
 /// Classify a single import: return the index in `resolved.groups`.
-pub fn classify_import(
-  src: &str,
-  is_type_only: bool,
-  type_imports_mode: TypeImportsMode,
-  builtins_runtime: BuiltinsRuntime,
-  resolved: &ResolvedGroups,
-) -> usize {
-  let category = base_category(src, is_type_only, type_imports_mode, builtins_runtime);
+pub fn classify_import(src: &str, is_type_only: bool, type_imports_mode: TypeImportsMode, resolved: &ResolvedGroups) -> usize {
+  let category = base_category(src, is_type_only, type_imports_mode);
   for (i, g) in resolved.groups.iter().enumerate() {
     if g.categories.contains(&category) {
       return i;
@@ -24,11 +18,11 @@ pub fn classify_import(
   resolved.unknown_index
 }
 
-fn base_category(src: &str, is_type_only: bool, type_imports_mode: TypeImportsMode, builtins_runtime: BuiltinsRuntime) -> BuiltinCategory {
+fn base_category(src: &str, is_type_only: bool, type_imports_mode: TypeImportsMode) -> BuiltinCategory {
   if is_type_only && matches!(type_imports_mode, TypeImportsMode::Separate) {
     return BuiltinCategory::Type;
   }
-  if is_builtin(src, builtins_runtime) {
+  if is_builtin(src) {
     return BuiltinCategory::Builtin;
   }
   if src.starts_with("../") || src == ".." {
@@ -61,7 +55,7 @@ mod tests {
     let map: ConfigKeyMap = serde_json::from_value(json).unwrap();
     let cfg = resolve_config(map, &Default::default()).config;
     let r = compile_import_groups(&cfg).0.unwrap();
-    classify_import(src, is_type, cfg.module_type_imports, cfg.module_builtins_runtime, &r)
+    classify_import(src, is_type, cfg.module_type_imports, &r)
   }
 
   fn eslint_mirror() -> serde_json::Value {

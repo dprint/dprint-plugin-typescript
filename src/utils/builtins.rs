@@ -2,25 +2,10 @@
 //!
 //! The Node core list is a snapshot of `module.builtinModules` from Node 26.
 
-use crate::configuration::BuiltinsRuntime;
-
 /// Returns true if `src` (the bare specifier string, without surrounding
-/// quotes) is a built-in module under the given runtime.
-pub fn is_builtin(src: &str, runtime: BuiltinsRuntime) -> bool {
-  match runtime {
-    BuiltinsRuntime::Node => has_node_prefix(src) || is_node_core_module(src),
-    BuiltinsRuntime::Deno => has_node_prefix(src),
-    BuiltinsRuntime::Bun => has_node_prefix(src) || is_bun_module(src) || is_node_core_module(src),
-    BuiltinsRuntime::None => false,
-  }
-}
-
-fn has_node_prefix(src: &str) -> bool {
-  src.starts_with("node:")
-}
-
-fn is_bun_module(src: &str) -> bool {
-  src == "bun" || src.starts_with("bun:")
+/// quotes) is a built-in module of Node, Deno, Bun, or Cloudflare Workers.
+pub fn is_builtin(src: &str) -> bool {
+  src.starts_with("node:") || src == "bun" || src.starts_with("bun:") || src.starts_with("cloudflare:") || is_node_core_module(src)
 }
 
 fn is_node_core_module(src: &str) -> bool {
@@ -100,21 +85,35 @@ mod tests {
   use super::*;
 
   #[test]
-  fn node_runtime_recognizes_node_prefix() {
-    assert!(is_builtin("node:fs", BuiltinsRuntime::Node));
-    assert!(is_builtin("node:path/posix", BuiltinsRuntime::Node));
+  fn recognizes_prefixes() {
+    assert!(is_builtin("node:fs"));
+    assert!(is_builtin("node:path/posix"));
+    assert!(is_builtin("node:test"));
+    assert!(is_builtin("bun"));
+    assert!(is_builtin("bun:test"));
+    assert!(is_builtin("bun:sqlite"));
+    assert!(is_builtin("cloudflare:workers"));
+    assert!(is_builtin("cloudflare:sockets"));
   }
 
   #[test]
-  fn node_runtime_recognizes_bare_core() {
-    assert!(is_builtin("fs", BuiltinsRuntime::Node));
-    assert!(is_builtin("path", BuiltinsRuntime::Node));
-    assert!(is_builtin("util/types", BuiltinsRuntime::Node));
-    assert!(!is_builtin("react", BuiltinsRuntime::Node));
+  fn recognizes_bare_node_core_modules() {
+    assert!(is_builtin("fs"));
+    assert!(is_builtin("path"));
+    assert!(is_builtin("util/types"));
+    assert!(is_builtin("_http_agent"));
     // only available with the prefix
-    assert!(!is_builtin("test", BuiltinsRuntime::Node));
-    assert!(is_builtin("node:test", BuiltinsRuntime::Node));
-    assert!(!is_builtin("bun", BuiltinsRuntime::Node));
+    assert!(!is_builtin("test"));
+  }
+
+  #[test]
+  fn other_specifiers_are_not_builtin() {
+    assert!(!is_builtin("react"));
+    assert!(!is_builtin("bunyan"));
+    assert!(!is_builtin("fs-extra"));
+    assert!(!is_builtin("npm:react"));
+    assert!(!is_builtin("jsr:@std/path"));
+    assert!(!is_builtin("https://deno.land/x/foo/mod.ts"));
   }
 
   #[test]
@@ -122,30 +121,5 @@ mod tests {
     let mut sorted = NODE_CORE_MODULES.to_vec();
     sorted.sort_unstable();
     assert_eq!(sorted, NODE_CORE_MODULES);
-  }
-
-  #[test]
-  fn deno_runtime_only_node_prefix() {
-    assert!(is_builtin("node:fs", BuiltinsRuntime::Deno));
-    assert!(!is_builtin("fs", BuiltinsRuntime::Deno));
-    assert!(!is_builtin("npm:react", BuiltinsRuntime::Deno));
-    assert!(!is_builtin("jsr:@std/path", BuiltinsRuntime::Deno));
-    assert!(!is_builtin("https://deno.land/x/foo/mod.ts", BuiltinsRuntime::Deno));
-  }
-
-  #[test]
-  fn bun_runtime_recognizes_bun_prefix() {
-    assert!(is_builtin("bun", BuiltinsRuntime::Bun));
-    assert!(is_builtin("bun:test", BuiltinsRuntime::Bun));
-    assert!(is_builtin("bun:sqlite", BuiltinsRuntime::Bun));
-    assert!(is_builtin("node:fs", BuiltinsRuntime::Bun));
-    assert!(is_builtin("fs", BuiltinsRuntime::Bun));
-  }
-
-  #[test]
-  fn none_runtime_matches_nothing() {
-    assert!(!is_builtin("fs", BuiltinsRuntime::None));
-    assert!(!is_builtin("node:fs", BuiltinsRuntime::None));
-    assert!(!is_builtin("bun:test", BuiltinsRuntime::None));
   }
 }

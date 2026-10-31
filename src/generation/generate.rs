@@ -8702,7 +8702,6 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> BumpV
             d.src.value().as_str().unwrap_or(""),
             d.type_only(),
             context.config.module_type_imports,
-            context.config.module_builtins_runtime,
             resolved,
           );
           (idx, i)

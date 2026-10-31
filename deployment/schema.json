@@ -1208,12 +1208,6 @@
       "default": "separate",
       "enum": ["separate", "interleave"]
     },
-    "module.builtinsRuntime": {
-      "description": "Which runtime's built-in modules count as `builtin`.",
-      "type": "string",
-      "default": "node",
-      "enum": ["node", "deno", "bun", "none"]
-    },
     "module.importGroupsNewlinesBetween": {
       "description": "How blank lines are handled between imports when module.importGroups is enabled. Mirrors ESLint import/order's newlines-between.",
       "type": "string",

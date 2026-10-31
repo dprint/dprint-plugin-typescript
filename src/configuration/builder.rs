@@ -680,13 +680,6 @@ impl ConfigurationBuilder {
     self.insert("module.importGroupsNewlinesBetween", value.to_string().into())
   }
 
-  /// Which runtime's built-in modules count as `builtin`.
-  ///
-  /// Default: `Node`
-  pub fn module_builtins_runtime(&mut self, value: BuiltinsRuntime) -> &mut Self {
-    self.insert("module.builtinsRuntime", value.to_string().into())
-  }
-
   /* ignore comments */
 
   /// The text to use for an ignore comment (ex. `// dprint-ignore`).
