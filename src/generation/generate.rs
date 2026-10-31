@@ -6659,7 +6659,7 @@ fn gen_ts_import_call_options<'a>(node: &TsImportCallOptions<'a>, context: &mut 
     |context| {
       let mut items = PrintItems::new(context.arena);
       let start_ln = LineNumber::new("objectStart");
-      let end_ln = LineNumber::new("objectStart");
+      let end_ln = LineNumber::new("objectEnd");
       if force_multi_line {
         items.push_signal(Signal::NewLine);
       } else {
@@ -11191,7 +11191,7 @@ fn gen_surrounded_by_tokens<'a>(
                 },
                 ir_helpers::GenSeparatedValuesOptions {
                   prefer_hanging: false,
-                  force_use_new_lines: !is_single_line,
+                  force_use_new_lines: false,
                   max_blank_lines,
                   indent_width,
                   single_line_options: SingleLineOptions {
