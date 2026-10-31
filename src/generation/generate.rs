@@ -1205,7 +1205,7 @@ fn gen_export_named_decl<'a>(node: &NamedExport<'a>, context: &mut Context<'a>) 
   // fill specifiers
   let mut default_export: Option<&ExportDefaultSpecifier> = None;
   let mut namespace_export: Option<&ExportNamespaceSpecifier> = None;
-  let mut named_exports: Vec<&ExportNamedSpecifier> = Vec::new();
+  let mut named_exports: Vec<&ExportNamedSpecifier> = Vec::with_capacity(node.specifiers.len());
 
   for specifier in node.specifiers {
     match specifier {
@@ -1396,7 +1396,7 @@ fn gen_import_decl<'a>(node: &ImportDecl<'a>, context: &mut Context<'a>) -> Prin
   // fill specifiers
   let mut default_import: Option<&ImportDefaultSpecifier> = None;
   let mut namespace_import: Option<&ImportStarAsSpecifier> = None;
-  let mut named_imports: Vec<&ImportNamedSpecifier> = Vec::new();
+  let mut named_imports: Vec<&ImportNamedSpecifier> = Vec::with_capacity(node.specifiers.len());
 
   for specifier in node.specifiers {
     match specifier {
@@ -1772,7 +1772,7 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
     let mut last_header_start_lsil = None;
     let mut force_use_new_lines = false;
     let last_arrow = node.last_arrow();
-    let mut lines = Vec::new();
+    let mut lines = Vec::with_capacity(node.signatures.len());
     for item in node.signatures.into_iter() {
       let range = item.range(context);
       let comment_items = gen_leading_comments_on_previous_lines(&range, context);
@@ -2082,7 +2082,7 @@ fn gen_assignment_expr<'a>(node: &AssignExpr<'a>, context: &mut Context<'a>) -> 
         let arena = context.arena;
         return ir_helpers::gen_separated_values(
           |_| {
-            let mut generated_nodes = BumpVec::new_in(context.arena.bump());
+            let mut generated_nodes = BumpVec::with_capacity_in(flattened_items.len(), context.arena.bump());
             for item in flattened_items.into_iter() {
               let lines_span = Some(ir_helpers::LinesSpan {
                 start_line: item.expr.range().start_line_fast(context.program),
@@ -2183,7 +2183,7 @@ fn gen_binary_expr<'a>(node: &BinExpr<'a>, context: &mut Context<'a>) -> PrintIt
   items.extend(
     ir_helpers::gen_separated_values(
       |_| {
-        let mut generated_nodes = BumpVec::new_in(context.arena.bump());
+        let mut generated_nodes = BumpVec::with_capacity_in(flattened_binary_expr.len(), context.arena.bump());
         let mut bin_expr_items_iter = flattened_binary_expr.into_iter().peekable();
         while let Some(bin_expr_item) = bin_expr_items_iter.next() {
           let lines_span = Some(ir_helpers::LinesSpan {
@@ -3484,7 +3484,7 @@ fn gen_template_literal<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>, context
   fn get_nodes<'a>(quasis: Vec<Node<'a>>, exprs: Vec<Node<'a>>) -> Vec<Node<'a>> {
     let mut quasis = quasis;
     let mut exprs = exprs;
-    let mut nodes = Vec::new();
+    let mut nodes = Vec::with_capacity(quasis.len() + exprs.len());
 
     // reverse the vectors and iterate from the back
     quasis.reverse();
@@ -5570,7 +5570,7 @@ fn gen_for_stmt<'a>(node: &ForStmt<'a>, context: &mut Context<'a>) -> PrintItems
       let arena = context.arena;
       ir_helpers::gen_separated_values(
         move |_| {
-          let mut generated_nodes = BumpVec::new_in(arena.bump());
+          let mut generated_nodes = BumpVec::with_capacity_in(3, arena.bump());
           generated_nodes.push(ir_helpers::GeneratedValue::from_items(generated_init));
           if let Some(generated_test) = generated_test {
             generated_nodes.push(ir_helpers::GeneratedValue::from_items(generated_test));
@@ -7191,7 +7191,7 @@ fn gen_union_or_intersection_type<'a, 'b>(node: UnionOrIntersectionType<'a, 'b>,
     |is_multi_line_or_hanging_ref| {
       let is_multi_line_or_hanging = is_multi_line_or_hanging_ref.create_resolver(context.arena);
       let types_count = node.types.len();
-      let mut generated_nodes = BumpVec::new_in(context.arena.bump());
+      let mut generated_nodes = BumpVec::with_capacity_in(types_count, context.arena.bump());
       for (i, type_node) in node.types.iter().enumerate() {
         let (allow_inline_multi_line, allow_inline_single_line) = {
           let is_last_value = i + 1 == types_count; // allow the last type to be single line
@@ -7751,22 +7751,19 @@ fn gen_js_doc_or_multiline_block<'a>(comment: &'a Comment, context: &mut Context
       if i > 0 {
         items.push_signal(Signal::NewLine);
       }
-      let mut text = String::new();
-      // leading asterisk on the first line for jsdoc only
-      if is_js_doc && i == 0 {
-        text.push('*');
-      } else if i > 0 {
-        text.push_str(" *");
-      }
-
-      // line start space
+      // leading asterisk on the first line for jsdoc only, then the line start space
       let is_space_or_asterisk = matches!(line.chars().next(), Some('*' | ' '));
-      if !line.is_empty() && !is_space_or_asterisk {
-        text.push(' ');
-      }
+      let has_line_start_space = !line.is_empty() && !is_space_or_asterisk;
+      items.push_sc(match (is_js_doc && i == 0, i > 0, has_line_start_space) {
+        (true, _, false) => sc!("*"),
+        (true, _, true) => sc!("* "),
+        (false, true, false) => sc!(" *"),
+        (false, true, true) => sc!(" * "),
+        (false, false, false) => sc!(""),
+        (false, false, true) => sc!(" "),
+      });
 
       // line text
-      items.push_string(text);
       if !line.is_empty() {
         items.extend(gen_from_raw_string(arena, line));
       }
@@ -9282,8 +9279,8 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
   ir_helpers::gen_separated_values(
     |is_multi_line_or_hanging_ref| {
       let is_multi_line_or_hanging = is_multi_line_or_hanging_ref.create_resolver(context.arena);
-      let mut generated_nodes = BumpVec::new_in(context.arena.bump());
       let nodes_count = nodes.len();
+      let mut generated_nodes = BumpVec::with_capacity_in(nodes_count, context.arena.bump());
       let mut forced_lines_span_line = 0;
 
       for (i, value) in nodes.into_iter().enumerate() {
@@ -11176,7 +11173,7 @@ fn gen_surrounded_by_tokens<'a>(
             items.extend(
               ir_helpers::gen_separated_values(
                 |_| {
-                  let mut generated_comments = BumpVec::new_in(arena.bump());
+                  let mut generated_comments = BumpVec::with_capacity_in(comments.size_hint().0, arena.bump());
                   for c in comments {
                     let start_line = c.start_line_fast(context.program);
                     let end_line = c.end_line_fast(context.program);
