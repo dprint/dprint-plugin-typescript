@@ -1,0 +1,13 @@
+~~ module.blankLinesAfterImports: 0 ~~
+== should remove the blank lines after the imports ==
+import a from "a";
+
+const b = 1;
+
+const c = 2;
+
+[expect]
+import a from "a";
+const b = 1;
+
+const c = 2;

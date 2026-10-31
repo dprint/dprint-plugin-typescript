@@ -110,6 +110,20 @@ pub enum MemberSpacing {
 
 generate_str_to_from![MemberSpacing, [Maintain, "maintain"], [BlankLine, "blankLine"], [NewLine, "newLine"]];
 
+/// Whether to keep blank lines at the start and end of a block.
+#[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BlockPadding {
+  /// Removes the blank lines at the start and end of a block.
+  Remove,
+  /// Maintains the blank lines at the start and end of a block.
+  Maintain,
+  /// Forces a blank line at the start and end of a block that isn't empty.
+  Always,
+}
+
+generate_str_to_from![BlockPadding, [Remove, "remove"], [Maintain, "maintain"], [Always, "always"]];
+
 /// Where to place the next control flow within a control flow statement.
 #[derive(Debug, Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -381,6 +395,7 @@ pub struct Configuration {
   pub quote_props: QuoteProps,
   pub semi_colons: SemiColons,
   pub file_indent_level: u32,
+  pub max_blank_lines: u32,
   /* situational */
   #[serde(rename = "arrowFunction.useParentheses")]
   pub arrow_function_use_parentheses: UseParentheses,
@@ -409,6 +424,8 @@ pub struct Configuration {
   /* sorting */
   #[serde(rename = "module.sortImportDeclarations")]
   pub module_sort_import_declarations: SortOrder,
+  #[serde(rename = "module.blankLinesAfterImports")]
+  pub module_blank_lines_after_imports: Option<u32>,
   #[serde(rename = "module.sortExportDeclarations")]
   pub module_sort_export_declarations: SortOrder,
   #[serde(rename = "importDeclaration.sortNamedImports")]
@@ -521,8 +538,65 @@ pub struct Configuration {
   #[serde(rename = "withStatement.preferHanging")]
   pub with_statement_prefer_hanging: bool,
   /* member spacing */
+  #[serde(rename = "classDeclaration.memberSpacing")]
+  pub class_declaration_member_spacing: MemberSpacing,
+  #[serde(rename = "classExpression.memberSpacing")]
+  pub class_expression_member_spacing: MemberSpacing,
   #[serde(rename = "enumDeclaration.memberSpacing")]
   pub enum_declaration_member_spacing: MemberSpacing,
+  #[serde(rename = "interfaceDeclaration.memberSpacing")]
+  pub interface_declaration_member_spacing: MemberSpacing,
+  #[serde(rename = "typeLiteral.memberSpacing")]
+  pub type_literal_member_spacing: MemberSpacing,
+  /* block padding */
+  #[serde(rename = "blockPadding")]
+  pub block_padding: BlockPadding,
+  #[serde(rename = "classDeclaration.blockPadding")]
+  pub class_declaration_block_padding: BlockPadding,
+  #[serde(rename = "classExpression.blockPadding")]
+  pub class_expression_block_padding: BlockPadding,
+  #[serde(rename = "enumDeclaration.blockPadding")]
+  pub enum_declaration_block_padding: BlockPadding,
+  #[serde(rename = "interfaceDeclaration.blockPadding")]
+  pub interface_declaration_block_padding: BlockPadding,
+  #[serde(rename = "moduleDeclaration.blockPadding")]
+  pub module_declaration_block_padding: BlockPadding,
+  #[serde(rename = "arrowFunction.blockPadding")]
+  pub arrow_function_block_padding: BlockPadding,
+  #[serde(rename = "constructor.blockPadding")]
+  pub constructor_block_padding: BlockPadding,
+  #[serde(rename = "doWhileStatement.blockPadding")]
+  pub do_while_statement_block_padding: BlockPadding,
+  #[serde(rename = "forInStatement.blockPadding")]
+  pub for_in_statement_block_padding: BlockPadding,
+  #[serde(rename = "forOfStatement.blockPadding")]
+  pub for_of_statement_block_padding: BlockPadding,
+  #[serde(rename = "forStatement.blockPadding")]
+  pub for_statement_block_padding: BlockPadding,
+  #[serde(rename = "functionDeclaration.blockPadding")]
+  pub function_declaration_block_padding: BlockPadding,
+  #[serde(rename = "functionExpression.blockPadding")]
+  pub function_expression_block_padding: BlockPadding,
+  #[serde(rename = "getAccessor.blockPadding")]
+  pub get_accessor_block_padding: BlockPadding,
+  #[serde(rename = "ifStatement.blockPadding")]
+  pub if_statement_block_padding: BlockPadding,
+  #[serde(rename = "method.blockPadding")]
+  pub method_block_padding: BlockPadding,
+  #[serde(rename = "setAccessor.blockPadding")]
+  pub set_accessor_block_padding: BlockPadding,
+  #[serde(rename = "staticBlock.blockPadding")]
+  pub static_block_block_padding: BlockPadding,
+  #[serde(rename = "switchCase.blockPadding")]
+  pub switch_case_block_padding: BlockPadding,
+  #[serde(rename = "switchStatement.blockPadding")]
+  pub switch_statement_block_padding: BlockPadding,
+  #[serde(rename = "tryStatement.blockPadding")]
+  pub try_statement_block_padding: BlockPadding,
+  #[serde(rename = "whileStatement.blockPadding")]
+  pub while_statement_block_padding: BlockPadding,
+  #[serde(rename = "withStatement.blockPadding")]
+  pub with_statement_block_padding: BlockPadding,
   /* next control flow position */
   #[serde(rename = "ifStatement.nextControlFlowPosition")]
   pub if_statement_next_control_flow_position: NextControlFlowPosition,

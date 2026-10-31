@@ -24,10 +24,19 @@ pub fn is_first_node_on_line(node: &impl SourceRanged, program: Program) -> bool
 }
 
 pub fn has_separating_blank_line(first_node: &impl SourceRanged, second_node: &impl SourceRanged, program: Program) -> bool {
+  get_separating_blank_line_count(first_node, second_node, program) > 0
+}
+
+/// Gets the number of blank lines between two nodes, where the second node starts
+/// at its first leading comment on a later line than the first node.
+pub fn get_separating_blank_line_count(first_node: &impl SourceRanged, second_node: &impl SourceRanged, program: Program) -> usize {
   let second_start_line = get_second_start_line(first_node, second_node, program);
-  // the first check is a cheaper one that's needed for the second to be true
-  return second_start_line > first_node.end_line_fast(program) + 1
-    && second_start_line > get_first_end_line_with_comments_before_comma(first_node, program) + 1;
+  // this is a cheaper check that's needed for there to be a blank line
+  if second_start_line <= first_node.end_line_fast(program) + 1 {
+    return 0;
+  }
+  let first_end_line = get_first_end_line_with_comments_before_comma(first_node, program);
+  return second_start_line.saturating_sub(first_end_line + 1);
 
   /// The comments between the first node and a comma after it go after the comma,
   /// so they're with the first node (ex. `// c` in `A\n// c\n, B`).
