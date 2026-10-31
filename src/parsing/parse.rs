@@ -1,10 +1,19 @@
 use std::cell::OnceCell;
+use std::ops::Range;
 use std::sync::Arc;
 
+use dprint_swc_ext::common::SourcePos;
+use dprint_swc_ext::common::SourceRangedForSpanned;
 use dprint_swc_ext::common::SourceTextInfo;
 use dprint_swc_ext::common::StartSourcePos;
+use dprint_swc_ext::swc::ast::Decl;
 use dprint_swc_ext::swc::ast::EsVersion;
+use dprint_swc_ext::swc::ast::ExportDecl;
+use dprint_swc_ext::swc::ast::ModuleDecl;
+use dprint_swc_ext::swc::ast::ModuleItem;
 use dprint_swc_ext::swc::ast::Program;
+use dprint_swc_ext::swc::ast::Stmt;
+use dprint_swc_ext::swc::ast::TsNamespaceBody;
 use dprint_swc_ext::swc::common::comments::SingleThreadedComments;
 use dprint_swc_ext::swc::common::input::StringInput;
 use dprint_swc_ext::swc::lexer::common::parser::Parser as _;
@@ -43,10 +52,14 @@ pub(super) fn parse_syntax(specifier: Arc<str>, text: Arc<str>, syntax: Syntax, 
     StartSourcePos::START_SOURCE_POS.as_byte_pos(),
     (StartSourcePos::START_SOURCE_POS + text.len()).as_byte_pos(),
   );
-  let (comments, program, tokens, errors) = parse_string_input(input, syntax, mode).map_err(|err| {
+  let (comments, program, tokens, mut errors) = parse_string_input(input, syntax, mode).map_err(|err| {
     let text_info = SourceTextInfo::new(text.clone());
     ParseDiagnostic::from_swc_error(err, &specifier, text_info)
   })?;
+  if syntax.typescript() {
+    let dropped_errors = get_speculative_export_decl_errors(&text, syntax, &program, &tokens, &errors);
+    errors.extend(dropped_errors);
+  }
   // pre-populate the text info when it had to be created for diagnostics anyway
   let text_info: OnceCell<SourceTextInfo> = Default::default();
   let diagnostics = if errors.is_empty() {
@@ -137,9 +150,203 @@ fn parse_string_input(
   Ok((comments, program, tokens, errors))
 }
 
+/// Gets the syntax errors swc dropped while parsing the `export` declarations
+/// that it parses speculatively.
+///
+/// swc parses `export namespace`, `export module`, `export enum`,
+/// `export interface`, `export type`, and `export abstract class` with
+/// recoverable errors ignored, then keeps the result when that succeeds, so any
+/// errors it recovered from within them are lost (ex. a missing close brace at
+/// the end of the file). Without the `export` keyword swc parses these normally,
+/// so this re-parses each of these declarations from its keyword and returns the
+/// errors that only show up then.
+fn get_speculative_export_decl_errors(text: &str, syntax: Syntax, program: &Program, tokens: &[TokenAndSpan], errors: &[SwcError]) -> Vec<SwcError> {
+  let mut collector = SpeculativeExportDeclCollector {
+    text,
+    tokens,
+    decls: Vec::new(),
+    current_decl: None,
+    is_ambient: false,
+  };
+  let mode = match program {
+    Program::Module(module) => {
+      collector.visit_module_items(&module.body);
+      ParseMode::Module
+    }
+    Program::Script(script) => {
+      for stmt in &script.body {
+        if let Stmt::Decl(decl) = stmt {
+          collector.visit_decl(decl);
+        }
+      }
+      ParseMode::Script
+    }
+  };
+
+  let mut new_errors = Vec::new();
+  for decl in collector.decls {
+    for err in decl.parse_errors(text, syntax, mode) {
+      if !errors.contains(&err) {
+        new_errors.push(err);
+      }
+    }
+  }
+  new_errors
+}
+
+/// An `export` declaration that swc parsed speculatively and isn't within another one.
+struct SpeculativeExportDecl {
+  /// The text range from the keyword after `export` to the end of the declaration.
+  range: Range<usize>,
+  /// The text ranges within the declaration to replace with spaces so that swc
+  /// parses it and the speculatively parsed declarations within it normally.
+  blank_ranges: Vec<Range<usize>>,
+  /// Whether the declaration is in an ambient context (ex. `declare module "x" { ... }`).
+  is_ambient: bool,
+}
+
+impl SpeculativeExportDecl {
+  fn parse_errors(&self, text: &str, syntax: Syntax, mode: ParseMode) -> Vec<SwcError> {
+    let mut decl_text = text.as_bytes()[self.range.clone()].to_vec();
+    for range in &self.blank_ranges {
+      decl_text[range.start - self.range.start..range.end - self.range.start].fill(b' ');
+    }
+    // only whole tokens, whitespace, and comments were replaced, so this is still utf-8
+    let decl_text = String::from_utf8(decl_text).unwrap();
+    // the declaration is parsed on its own, so keep it in an ambient context when it was in one
+    let prefix = if self.is_ambient { "declare " } else { "" };
+    let start = self.range.start - prefix.len();
+    let input_text = format!("{prefix}{decl_text}");
+    // start at the declaration's position so that the errors have the same positions as in the text
+    let input = StringInput::new(
+      &input_text,
+      (StartSourcePos::START_SOURCE_POS + start).as_byte_pos(),
+      (StartSourcePos::START_SOURCE_POS + self.range.end).as_byte_pos(),
+    );
+    match parse_errors_only(input, syntax, mode) {
+      Ok(errors) => errors,
+      Err(err) => vec![err],
+    }
+  }
+}
+
+/// Collects the `export` declarations that swc parses speculatively.
+struct SpeculativeExportDeclCollector<'a> {
+  text: &'a str,
+  tokens: &'a [TokenAndSpan],
+  decls: Vec<SpeculativeExportDecl>,
+  /// The outermost speculatively parsed declaration being visited.
+  current_decl: Option<SpeculativeExportDecl>,
+  is_ambient: bool,
+}
+
+impl SpeculativeExportDeclCollector<'_> {
+  /// Visits the module items of a module or of a namespace body, which are the
+  /// only places an export declaration can be.
+  fn visit_module_items(&mut self, items: &[ModuleItem]) {
+    for item in items {
+      match item {
+        ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(export_decl)) => self.visit_export_decl(export_decl),
+        ModuleItem::Stmt(Stmt::Decl(decl)) => self.visit_decl(decl),
+        _ => {}
+      }
+    }
+  }
+
+  fn visit_export_decl(&mut self, export_decl: &ExportDecl) {
+    let Some(ranges) = self.get_speculative_export_ranges(export_decl) else {
+      self.visit_decl(&export_decl.decl);
+      return;
+    };
+    match &mut self.current_decl {
+      // it's parsed normally within the outer declaration once its `export` keyword is blanked out
+      Some(current_decl) => {
+        current_decl.blank_ranges.push(ranges.export);
+        current_decl.blank_ranges.push(ranges.after_keyword);
+        self.visit_decl(&export_decl.decl);
+      }
+      None => {
+        self.current_decl = Some(SpeculativeExportDecl {
+          range: ranges.keyword_start..to_text_index(export_decl.end()),
+          blank_ranges: vec![ranges.after_keyword],
+          is_ambient: self.is_ambient,
+        });
+        self.visit_decl(&export_decl.decl);
+        self.decls.extend(self.current_decl.take());
+      }
+    }
+  }
+
+  fn visit_decl(&mut self, decl: &Decl) {
+    if let Decl::TsModule(module_decl) = decl
+      && let Some(body) = &module_decl.body
+    {
+      let was_ambient = self.is_ambient;
+      self.is_ambient |= module_decl.declare;
+      self.visit_namespace_body(body);
+      self.is_ambient = was_ambient;
+    }
+  }
+
+  fn visit_namespace_body(&mut self, body: &TsNamespaceBody) {
+    match body {
+      TsNamespaceBody::TsModuleBlock(block) => self.visit_module_items(&block.body),
+      TsNamespaceBody::TsNamespaceDecl(decl) => self.visit_namespace_body(&decl.body),
+    }
+  }
+
+  /// Gets the text ranges of the `export` keyword and of what's after the keyword
+  /// following it when swc parses the declaration speculatively.
+  fn get_speculative_export_ranges(&self, export_decl: &ExportDecl) -> Option<SpeculativeExportRanges> {
+    // the declaration starts at the `export` keyword, after any decorators
+    let export_index = self.tokens.partition_point(|t| t.start() < export_decl.start());
+    let [export, keyword, after_keyword, ..] = self.tokens.get(export_index..)? else {
+      return None;
+    };
+    // `export declare` and the rest are parsed normally
+    if self.token_text(export) != "export" || !matches!(self.token_text(keyword), "namespace" | "module" | "enum" | "interface" | "type" | "abstract") {
+      return None;
+    }
+    Some(SpeculativeExportRanges {
+      export: to_text_index(export.start())..to_text_index(keyword.start()),
+      keyword_start: to_text_index(keyword.start()),
+      // without `export`, swc doesn't allow a line break after the keyword (ex. `type\nT = string`)
+      after_keyword: to_text_index(keyword.end())..to_text_index(after_keyword.start()),
+    })
+  }
+
+  fn token_text(&self, token: &TokenAndSpan) -> &str {
+    &self.text[to_text_index(token.start())..to_text_index(token.end())]
+  }
+}
+
+struct SpeculativeExportRanges {
+  /// The `export` keyword and what's after it up to the next keyword.
+  export: Range<usize>,
+  keyword_start: usize,
+  after_keyword: Range<usize>,
+}
+
+/// Parses the input only for its syntax errors, which skips capturing the tokens and comments.
+fn parse_errors_only(input: StringInput, syntax: Syntax, mode: ParseMode) -> std::result::Result<Vec<SwcError>, SwcError> {
+  let lexer = dprint_swc_ext::swc::lexer::Lexer::new(syntax, ES_VERSION, input, None);
+  let mut parser = dprint_swc_ext::swc::lexer::Parser::new_from(lexer);
+  match mode {
+    ParseMode::Program => drop(parser.parse_program()?),
+    ParseMode::Module => drop(parser.parse_module()?),
+    ParseMode::Script => drop(parser.parse_script()?),
+  }
+  Ok(parser.take_errors())
+}
+
+fn to_text_index(pos: SourcePos) -> usize {
+  pos - StartSourcePos::START_SOURCE_POS
+}
+
 #[cfg(test)]
 mod test {
   use dprint_swc_ext::common::SourceRanged;
+  use dprint_swc_ext::swc::parser::TsSyntax;
   use dprint_swc_ext::view::ProgramInfoProvider;
   use pretty_assertions::assert_eq;
 
@@ -195,6 +402,115 @@ mod test {
   }
 
   #[test]
+  fn errors_for_diagnostics_swc_drops_in_speculatively_parsed_exports() {
+    // swc parses these speculatively and drops the errors it recovers from in
+    // them, but they lose text the same as without the `export` keyword
+    let err = parse_ts("export namespace Foo {\n  const x = 1;\n").err().unwrap();
+    assert_eq!(
+      err.to_string(),
+      concat!(
+        "Expected '}', got '<eof>' at file:///my_file.ts:2:13\n\n",
+        "    const x = 1;\n",
+        "              ~"
+      )
+    );
+    for (text, message) in [
+      ("export module Foo {\n  const x = 1;\n", "Expected '}', got '<eof>'"),
+      ("export namespace A.B {\n  const x = 1;\n", "Expected '}', got '<eof>'"),
+      ("export namespace\nFoo {\n  const x = 1;\n", "Expected '}', got '<eof>'"),
+      ("export namespace Foo {\n  function f() {\n}\n", "Expected '}', got '<eof>'"),
+      ("export namespace Foo {\n  const a = 1 const b = 2;\n}\n", "Expected a semicolon"),
+      ("export interface I {\n  a: 'test\n}\n", "Unterminated string constant"),
+      ("export type T = 'test\n", "Unterminated string constant"),
+      ("export enum E {\n  A = 'test\n}\n", "Unterminated string constant"),
+      ("export abstract class X {\n  a = 'test\n}\n", "Unterminated string constant"),
+      ("@dec export abstract class X {\n  a = 'test\n}\n", "Unterminated string constant"),
+      // in a script
+      ("namespace A {\n  export namespace B {\n    'test;\n  }\n}\n", "Unterminated string constant"),
+      // nested in another speculatively parsed declaration
+      (
+        "export namespace A {\n  export namespace B {\n    'test;\n  }\n}\n",
+        "Unterminated string constant",
+      ),
+      (
+        "declare module 'x' {\n  export namespace B {\n    'test;\n  }\n}\n",
+        "Unterminated string constant",
+      ),
+    ] {
+      let err = parse_ts(text).err().unwrap_or_else(|| panic!("expected an error for {text:?}"));
+      assert!(err.to_string().starts_with(message), "unexpected error for {text:?}: {err}");
+    }
+  }
+
+  #[test]
+  fn keeps_speculatively_parsed_exports_that_have_no_diagnostics() {
+    // blanking out the `export` keyword to re-parse these must not cause errors
+    for text in [
+      "export type\nT = keyof X;",
+      "export abstract\nclass X {}",
+      "export interface\nI {}",
+      "export namespace\nFoo {}",
+      "export module\nFoo {}",
+      "export enum\nE {}",
+      "export /* a */ namespace /* b\n */ Foo {}",
+      "@dec export abstract class X {}",
+      "@dec\nexport abstract class X {}",
+      "export type { A } from './a';\nexport type * from './b';",
+      "export namespace Foo {\n  export namespace Bar {}\n}",
+      // these are parsed on their own, so the text before them doesn't matter
+      "let namespace = 1;\nnamespace\nexport namespace A {}",
+      "let namespace = 1;\nnamespace /* c */\nexport type T = 1;",
+      "let x = await\nexport interface I {}",
+      // these stay in an ambient context
+      "declare module 'x' {\n  export namespace B {\n    const x: number;\n  }\n}",
+      "declare namespace A {\n  namespace B {\n    export namespace C {\n      const x: number;\n    }\n  }\n}",
+      "declare global {\n  export namespace B {\n    const x: number;\n  }\n}",
+    ] {
+      let parsed_source = parse_ts(text).unwrap();
+      let diagnostics = parsed_source.diagnostics();
+      assert!(diagnostics.is_empty(), "unexpected diagnostics for {text:?}: {diagnostics:?}");
+    }
+  }
+
+  #[test]
+  fn format_errors_for_missing_brace_swc_does_not_report() {
+    // a program parsed elsewhere (ex. by deno_ast) still has swc drop this error,
+    // so generation must error instead of panicking
+    let text = "export namespace Foo {\n  const x = 1;\n";
+    let syntax = Syntax::Typescript(Default::default());
+    let input = StringInput::new(
+      text,
+      StartSourcePos::START_SOURCE_POS.as_byte_pos(),
+      (StartSourcePos::START_SOURCE_POS + text.len()).as_byte_pos(),
+    );
+    let (comments, program, tokens, errors) = parse_string_input(input, syntax, ParseMode::Program).unwrap();
+    assert!(errors.is_empty());
+    let parsed_source = ParsedSource {
+      specifier: "file:///my_file.ts".into(),
+      text: text.into(),
+      syntax,
+      text_info: Default::default(),
+      program,
+      comments: ParsedComments::from_single_threaded(comments),
+      tokens,
+      diagnostics: Vec::new(),
+    };
+    let config = crate::configuration::ConfigurationBuilder::new().build();
+    let err = parsed_source
+      .with_view(|program| {
+        crate::format_program(crate::format_text::FormatProgramOptions {
+          program,
+          syntax,
+          config: &config,
+          external_formatter: None,
+        })
+      })
+      .err()
+      .unwrap();
+    assert_eq!(err.to_string(), "Expected to find the open and close brace tokens of the body at line 1");
+  }
+
+  #[test]
   fn errors_for_fatal_diagnostic() {
     let err = parse_ts(
       "test;
@@ -237,7 +553,11 @@ as#;",
     parse_syntax(
       "file:///my_file.ts".into(),
       text.into(),
-      Syntax::Typescript(Default::default()),
+      // the same as for a .ts file
+      Syntax::Typescript(TsSyntax {
+        decorators: true,
+        ..Default::default()
+      }),
       ParseMode::Program,
     )
   }
