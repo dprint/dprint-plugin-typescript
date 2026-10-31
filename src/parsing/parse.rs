@@ -267,7 +267,7 @@ impl SpeculativeExportDeclCollector<'_> {
       }
       None => {
         self.current_decl = Some(SpeculativeExportDecl {
-          range: ranges.keyword.start..to_text_index(export_decl.end()),
+          range: ranges.keyword_start..to_text_index(export_decl.end()),
           blank_ranges: vec![ranges.after_keyword],
           is_ambient: self.is_ambient,
         });
@@ -309,7 +309,7 @@ impl SpeculativeExportDeclCollector<'_> {
     }
     Some(SpeculativeExportRanges {
       export: to_text_index(export.start())..to_text_index(keyword.start()),
-      keyword: to_text_index(keyword.start())..to_text_index(keyword.end()),
+      keyword_start: to_text_index(keyword.start()),
       // without `export`, swc doesn't allow a line break after the keyword (ex. `type\nT = string`)
       after_keyword: to_text_index(keyword.end())..to_text_index(after_keyword.start()),
     })
@@ -323,7 +323,7 @@ impl SpeculativeExportDeclCollector<'_> {
 struct SpeculativeExportRanges {
   /// The `export` keyword and what's after it up to the next keyword.
   export: Range<usize>,
-  keyword: Range<usize>,
+  keyword_start: usize,
   after_keyword: Range<usize>,
 }
 
