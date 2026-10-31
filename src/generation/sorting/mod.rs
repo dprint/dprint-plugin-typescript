@@ -1,4 +1,4 @@
-pub(crate) mod module_specifiers;
+mod module_specifiers;
 use module_specifiers::*;
 
 use dprint_swc_ext::common::SourceRange;
