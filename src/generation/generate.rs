@@ -1801,10 +1801,7 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
       let start_ln = LineNumber::new("startCurry");
       let end_ln = LineNumber::new("endCurry");
       items.push_info(start_ln);
-
-      items.extend(actions::if_column_number_changes(context.arena, move |context| {
-        context.clear_info(end_ln);
-      }));
+      items.extend(gen_line_numbers_region_start(context.arena, &[end_ln]));
       let lines = lines.into_iter().map(|l| l.into_rc_path()).collect::<Vec<_>>();
       items.push_condition(if_true_or(
         "multipleLinesCurrying",
@@ -1894,7 +1891,7 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
       if should_not_newline_after_arrow(&node.body, context) {
         items.push_space();
       } else {
-        items.extend(reset_stale_line_number(context.arena, end_body_ln));
+        items.extend(gen_line_numbers_region_start(context.arena, &[end_body_ln]));
         items.push_condition(conditions::if_above_width_or(
           context.config.indent_width,
           if_true_or(
@@ -2533,6 +2530,9 @@ fn gen_conditional_expr<'a>(node: &CondExpr<'a>, context: &mut Context<'a>) -> P
 
   items.extend(question_comment_items.previous_lines);
 
+  // these are only shifted when the expression moves to another line and not cleared when it moves
+  // to another column like in `gen_line_numbers_region_start`, which formats a conditional expression
+  // in arguments differently (see the specs for issue036 and deno's issue014291)
   items.push_anchor(LineNumberAnchor::new(end_ln));
   items.push_anchor(LineNumberAnchor::new(before_alternate_ln));
 
@@ -4119,7 +4119,7 @@ fn handle_jsx_surrounding_parens<'a>(inner_items: PrintItems<'a>, context: &mut 
   let inner_items_rc = inner_items.into_rc_path();
 
   items.push_info(start_ln);
-  items.extend(reset_stale_line_number(context.arena, end_ln));
+  items.extend(gen_line_numbers_region_start(context.arena, &[end_ln]));
   let mut condition = if_true_or(
     "parensOrNewlinesIfMultipleLines",
     context
@@ -10024,7 +10024,7 @@ fn gen_header_with_conditional_brace_body<'a>(
   let mut items = PrintItems::new(context.arena);
 
   items.push_info(start_header_ln);
-  items.push_anchor(LineNumberAnchor::new(end_header_ln));
+  items.extend(gen_line_numbers_region_start(context.arena, &[end_header_ln]));
   items.push_info(start_header_lsil);
   items.extend(new_line_group(opts.generated_header));
   items.push_info(end_header_ln);
@@ -10227,7 +10227,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
   // generate body
   let mut items = PrintItems::new(context.arena);
   items.push_line_and_column(start_lc);
-  items.push_anchor(LineNumberAnchor::new(end_ln));
+  items.extend(gen_line_numbers_region_start(context.arena, &[end_ln]));
   items.push_condition(open_brace_condition);
   items.push_line_and_column(start_inner_text_lc);
   let generated_comments = gen_comment_collection(header_trailing_comments.into_iter(), None, None, context);
@@ -10488,13 +10488,7 @@ fn gen_jsx_with_opening_and_closing<'a>(opts: GenJsxWithOpeningAndClosingOptions
   let mut items = PrintItems::new(context.arena);
   let inner_range = SourceRange::new(opts.opening_element.end(), opts.closing_element.start());
 
-  items.extend(actions::action(context.arena, "clearEndIfPosChanges", move |context| {
-    if let Some((line, column)) = context.resolved_line_and_column(start_lc) {
-      if context.writer_info.line_number != line || context.writer_info.column_number != column {
-        context.clear_info(end_ln);
-      }
-    }
-  }));
+  items.extend(gen_line_numbers_region_start(context.arena, &[end_ln]));
   items.push_line_and_column(start_lc);
   items.extend(gen_node(opts.opening_element, context));
   let children_result = gen_jsx_children(
@@ -10871,7 +10865,7 @@ fn jsx_space_separator<'a>(previous_node: Node<'a>, current_node: Node<'a>, cont
     let start_line = LineNumber::new("jsxSpaceStartLine");
     let end_line = LineNumber::new("jsxSpaceEndLine");
     items.push_info(start_line);
-    items.extend(reset_stale_line_number(context.arena, end_line));
+    items.extend(gen_line_numbers_region_start(context.arena, &[end_line]));
 
     let mut condition = if_true_or(
       "jsxSpaceOrNewLineIsMultipleLines",
@@ -11279,15 +11273,14 @@ fn use_new_line_group_for_arrow_body<'a>(arrow_expr: &'a ArrowExpr<'a>, context:
 /// resolved infos when it goes back and prints something again, so a stale end line could
 /// make a condition think its node is multi-line, which then makes it multi-line.
 ///
-/// The line number is shifted when the printing moves to another line and cleared when it
-/// moves to another column.
-fn reset_stale_line_number<'a>(arena: &'a Arena, line_number: LineNumber) -> PrintItems<'a> {
-  let mut items = PrintItems::new(arena);
-  items.push_anchor(LineNumberAnchor::new(line_number));
-  items.extend(actions::if_column_number_changes(arena, move |context| {
-    context.clear_info(line_number);
-  }));
-  items
+/// Keeps the line numbers resolved after this correct when the printer comes back here
+/// at a different position (see `InfoRegion`).
+fn gen_line_numbers_region_start<'a>(arena: &'a Arena, line_numbers: &[LineNumber]) -> PrintItems<'a> {
+  let region = ir_helpers::InfoRegion::new(arena);
+  for line_number in line_numbers {
+    region.add(*line_number);
+  }
+  region.gen_start(arena)
 }
 
 fn surround_with_parens<'a>(items: PrintItems<'a>) -> PrintItems<'a> {
