@@ -7887,7 +7887,7 @@ where
   let (Some(open_brace_token), Some(close_brace_token)) = (open_brace_token, close_brace_token) else {
     context.diagnostics.push(context::GenerateDiagnostic {
       message: format!(
-        "Expected to find the open and close brace tokens of the body starting on line {}.",
+        "Expected to find the open and close brace tokens of the body at line {}",
         opts.node.start_line_fast(context.program) + 1
       ),
     });
