@@ -1,0 +1,14 @@
+~~ blockPadding: maintain ~~
+== should keep the padding with a comment before the open brace ==
+if (a) /* c */ {
+
+    b();
+
+}
+
+[expect]
+if (a) {
+
+    /* c */ b();
+
+}

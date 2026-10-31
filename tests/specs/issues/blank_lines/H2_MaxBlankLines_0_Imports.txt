@@ -1,0 +1,24 @@
+~~ maxBlankLines: 0 ~~
+== should keep the blank lines between import groups ==
+import { b } from "b";
+import { c } from "c";
+
+import { a } from "a";
+
+[expect]
+import { b } from "b";
+import { c } from "c";
+
+import { a } from "a";
+
+== should keep the blank lines between export groups ==
+export * from "b";
+export * from "c";
+
+export * from "a";
+
+[expect]
+export * from "b";
+export * from "c";
+
+export * from "a";

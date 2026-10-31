@@ -1051,7 +1051,7 @@ fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'
           start_header_lsil: Some(start_header_lsil),
           brace_position: node.brace_position,
           block_padding,
-          get_blank_line_count: move |previous, next, context| get_member_spacing_blank_line_count(member_spacing, &previous, &next, context),
+          get_forced_blank_line_count: move |_, _, _| get_member_spacing_forced_blank_line_count(member_spacing),
           separator: Separator::none(),
         },
         context,
@@ -1134,7 +1134,7 @@ fn gen_enum_decl<'a>(node: &TsEnumDecl<'a>, context: &mut Context<'a>) -> PrintI
       start_header_lsil: Some(start_header_lsil),
       brace_position: context.config.enum_declaration_brace_position,
       block_padding: context.config.enum_declaration_block_padding,
-      get_blank_line_count: move |previous, next, context| get_member_spacing_blank_line_count(member_spacing, &previous, &next, context),
+      get_forced_blank_line_count: move |_, _, _| get_member_spacing_forced_blank_line_count(member_spacing),
       separator: context.config.enum_declaration_trailing_commas.into(),
     },
     context,
@@ -1546,7 +1546,7 @@ fn gen_module_or_namespace_decl<'a, 'b>(node: ModuleOrNamespaceDecl<'a, 'b>, con
               start_header_lsil: Some(start_header_lsil),
               brace_position: context.config.module_declaration_brace_position,
               block_padding: context.config.module_declaration_block_padding,
-              get_blank_line_count: move |previous, next, context| get_maintained_blank_line_count(&previous, &next, context),
+              get_forced_blank_line_count: |_, _, _| None,
               separator: Separator::none(),
             },
             context,
@@ -3905,9 +3905,7 @@ fn gen_interface_body<'a>(node: &TsInterfaceBody<'a>, context: &mut Context<'a>)
           start_header_lsil,
           brace_position: context.config.interface_declaration_brace_position,
           block_padding: context.config.interface_declaration_block_padding,
-          get_blank_line_count: move |previous, next, context| {
-            get_member_spacing_blank_line_count(context.config.interface_declaration_member_spacing, &previous, &next, context)
-          },
+          get_forced_blank_line_count: |_, _, context| get_member_spacing_forced_blank_line_count(context.config.interface_declaration_member_spacing),
           separator: context.config.semi_colons.into(),
         },
         context,
@@ -5834,11 +5832,11 @@ fn gen_switch_stmt<'a>(node: &SwitchStmt<'a>, context: &mut Context<'a>) -> Prin
       start_header_lsil: Some(start_header_lsil),
       brace_position: context.config.switch_statement_brace_position,
       block_padding: context.config.switch_statement_block_padding,
-      get_blank_line_count: |previous, next, context| {
+      get_forced_blank_line_count: |previous, next, context| {
         // do not put a blank line when the previous case has no body
         if let Node::SwitchCase(previous) = previous {
           if previous.cons.is_empty() {
-            return 0;
+            return Some(0);
           }
         }
 
@@ -5851,7 +5849,10 @@ fn gen_switch_stmt<'a>(node: &SwitchStmt<'a>, context: &mut Context<'a>) -> Prin
         } else {
           previous.end_line_fast(context.program)
         };
-        cap_blank_line_count(next.start_line_fast(context.program).saturating_sub(previous_end_line + 1), context)
+        Some(cap_blank_line_count(
+          next.start_line_fast(context.program).saturating_sub(previous_end_line + 1),
+          context,
+        ))
       },
       separator: Separator::none(),
     },
@@ -7769,11 +7770,35 @@ fn use_space_after_keyword(is_configured: bool, open_paren_token: Option<&TokenA
 
 /// Generates comments that were before or beside a comma for when the comma is printed
 /// before them, where the ones on a line after what's before them go on their own line.
+/// Gets if a comment between the node and the comma after it is on its own line,
+/// which is generated after the comma (ex. `// c` in `a\n// c\n, b`).
+fn has_comment_on_later_line_before_comma(node: Node, program: Program) -> bool {
+  // the comma is within some nodes (ex. type literal members)
+  let (comma_token, mut previous_end_line) = match node.tokens_fast(program) {
+    [.., previous_token, last_token] if last_token.token == Token::Comma => (last_token, previous_token.end_line_fast(program)),
+    _ => match node.next_token_fast(program) {
+      Some(token) if token.token == Token::Comma => (token, node.end_line_fast(program)),
+      _ => return false,
+    },
+  };
+  let next_token_start_line = comma_token.next_token_fast(program).map(|token| token.start_line_fast(program));
+  for comment in comma_token.start().leading_comments_fast(program) {
+    let is_on_later_line = comment.start_line_fast(program) > previous_end_line;
+    let is_beside_next_token = Some(comment.end_line_fast(program)) == next_token_start_line;
+    if is_on_later_line && !(comment.kind == CommentKind::Block && is_beside_next_token) {
+      return true;
+    }
+    previous_end_line = comment.end_line_fast(program);
+  }
+  false
+}
+
 fn gen_comments_after_comma<'a>(previous: &SourceRange, comments: Vec<&'a Comment>, comma_token: &TokenAndSpan, context: &mut Context<'a>) -> PrintItems {
   let program = context.program;
   let next_token_start_line = comma_token.next_token_fast(program).map(|token| token.start_line_fast(program));
   let mut items = PrintItems::new();
   let mut previous = previous.range();
+  let mut has_comment_on_later_line = false;
   for comment in comments {
     if context.has_handled_comment(comment) {
       continue;
@@ -7788,11 +7813,16 @@ fn gen_comments_after_comma<'a>(previous: &SourceRange, comments: Vec<&'a Commen
       }
     } else if is_on_later_line {
       items.push_signal(Signal::NewLine);
-      // only where the list keeps blank lines, as formatting again would otherwise remove it
-      if context.allow_blank_lines_in_list {
+      if context.force_blank_line_in_list && !has_comment_on_later_line {
+        // the forced blank line to the next value goes before the comments, since they're
+        // with the next value when formatted again
+        items.push_signal(Signal::NewLine);
+      } else if context.allow_blank_lines_in_list {
+        // only where the list keeps blank lines, as formatting again would otherwise remove it
         let blank_line_count = comment.start_line_fast(program).saturating_sub(previous.end_line_fast(program) + 1);
         push_blank_lines(&mut items, cap_blank_line_count(blank_line_count, context));
       }
+      has_comment_on_later_line = true;
       items.extend(gen_comment(comment, context).unwrap_or_default());
     } else {
       let opts = GenCommentBasedOnLastNodeOptions { separate_with_newlines: false };
@@ -7916,22 +7946,23 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
   }
 }
 
-struct GenMemberedBodyOptions<'a, FGetBlankLineCount>
+struct GenMemberedBodyOptions<'a, FGetForcedBlankLineCount>
 where
-  FGetBlankLineCount: Fn(Node, Node, &mut Context) -> usize,
+  FGetForcedBlankLineCount: Fn(Node, Node, &mut Context) -> Option<usize>,
 {
   node: Node<'a>,
   members: Vec<Node<'a>>,
   start_header_lsil: Option<LineStartIndentLevel>,
   brace_position: BracePosition,
   block_padding: BlockPadding,
-  get_blank_line_count: FGetBlankLineCount,
+  /// Gets the number of blank lines to force between two members, or `None` to maintain them.
+  get_forced_blank_line_count: FGetForcedBlankLineCount,
   separator: Separator,
 }
 
-fn gen_membered_body<'a, FGetBlankLineCount>(opts: GenMemberedBodyOptions<'a, FGetBlankLineCount>, context: &mut Context<'a>) -> PrintItems
+fn gen_membered_body<'a, FGetForcedBlankLineCount>(opts: GenMemberedBodyOptions<'a, FGetForcedBlankLineCount>, context: &mut Context<'a>) -> PrintItems
 where
-  FGetBlankLineCount: Fn(Node, Node, &mut Context) -> usize,
+  FGetForcedBlankLineCount: Fn(Node, Node, &mut Context) -> Option<usize>,
 {
   let mut items = PrintItems::new();
   let child_tokens = get_tokens_from_children_with_tokens(opts.node, context.program);
@@ -7958,7 +7989,7 @@ where
     context,
   ));
 
-  let get_blank_line_count = opts.get_blank_line_count;
+  let get_forced_blank_line_count = opts.get_forced_blank_line_count;
   let separator = opts.separator;
 
   items.extend(gen_block(
@@ -7969,7 +8000,7 @@ where
           items: members.into_iter().map(|node| (node, None)).collect(),
           should_use_space: None,
           should_use_new_line: None,
-          get_blank_line_count,
+          get_forced_blank_line_count,
           separator,
           is_jsx_children: false,
         },
@@ -7987,11 +8018,11 @@ where
   items
 }
 
-fn get_member_spacing_blank_line_count(member_spacing: MemberSpacing, previous: &impl SourceRanged, next: &impl SourceRanged, context: &Context) -> usize {
+fn get_member_spacing_forced_blank_line_count(member_spacing: MemberSpacing) -> Option<usize> {
   match member_spacing {
-    MemberSpacing::BlankLine => 1,
-    MemberSpacing::NewLine => 0,
-    MemberSpacing::Maintain => get_maintained_blank_line_count(previous, next, context),
+    MemberSpacing::BlankLine => Some(1),
+    MemberSpacing::NewLine => Some(0),
+    MemberSpacing::Maintain => None,
   }
 }
 
@@ -8016,6 +8047,28 @@ fn push_blank_lines(items: &mut PrintItems, count: usize) {
 struct BlockPaddingBlankLines {
   start: usize,
   end: usize,
+}
+
+impl BlockPaddingBlankLines {
+  fn is_empty(&self) -> bool {
+    self.start == 0 && self.end == 0
+  }
+}
+
+/// Generates blank lines that only apply when something was printed between the
+/// line and columns (ex. a block that only has empty statements prints nothing).
+fn gen_blank_lines_if_has_content(count: usize, start_lc: LineAndColumn, end_lc: LineAndColumn) -> PrintItems {
+  if count == 0 {
+    return PrintItems::new();
+  }
+  let mut blank_lines = PrintItems::new();
+  push_blank_lines(&mut blank_lines, count);
+  if_true(
+    "blankLinesIfHasContent",
+    Rc::new(move |context| condition_helpers::are_line_and_columns_not_equal(context, start_lc, end_lc)),
+    blank_lines,
+  )
+  .into()
 }
 
 fn get_block_padding_blank_lines(open_brace: SourceRange, close_brace: SourceRange, block_padding: BlockPadding, context: &Context) -> BlockPaddingBlankLines {
@@ -8058,31 +8111,57 @@ fn get_block_padding_blank_lines(open_brace: SourceRange, close_brace: SourceRan
   }
 }
 
-/// Generates the blank lines of a conditional body's padding, which only
-/// apply when the body has braces and starts on a new line.
-fn gen_blank_lines_if_braces_on_new_line(count: usize, open_brace_condition_ref: ConditionReference, newline_condition_ref: ConditionReference) -> PrintItems {
+#[derive(Clone, Copy)]
+struct GenConditionalBodyPaddingConditions {
+  open_brace_condition_ref: ConditionReference,
+  newline_condition_ref: ConditionReference,
+  start_statements_lc: LineAndColumn,
+  end_statements_lc: LineAndColumn,
+}
+
+/// Generates the blank lines of a conditional body's padding, which only apply
+/// when the body has braces, starts on a new line, and has statements or comments.
+fn gen_conditional_body_padding(count: usize, conditions: GenConditionalBodyPaddingConditions) -> PrintItems {
   if count == 0 {
     return PrintItems::new();
   }
   let mut blank_lines = PrintItems::new();
   push_blank_lines(&mut blank_lines, count);
   if_true(
-    "blankLinesIfBracesOnNewLine",
-    Rc::new(move |context| Some(context.resolved_condition(&open_brace_condition_ref)? && context.resolved_condition(&newline_condition_ref)?)),
+    "conditionalBodyPadding",
+    Rc::new(move |context| {
+      if !context.resolved_condition(&conditions.open_brace_condition_ref)? || !context.resolved_condition(&conditions.newline_condition_ref)? {
+        return Some(false);
+      }
+      condition_helpers::are_line_and_columns_not_equal(context, conditions.start_statements_lc, conditions.end_statements_lc)
+    }),
     blank_lines,
   )
   .into()
 }
 
 fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> PrintItems {
+  let blank_lines_after_imports = context.config.module_blank_lines_after_imports.map(|count| count as usize);
+  let is_import_stmts = if blank_lines_after_imports.is_some() {
+    stmts
+      .iter()
+      .filter(|stmt| !stmt.is::<EmptyStmt>())
+      .map(|stmt| is_import_stmt(*stmt))
+      .collect::<Vec<_>>()
+  } else {
+    Vec::new()
+  };
   let stmt_groups = get_stmt_groups(stmts, context);
   let mut items = PrintItems::new();
   let mut last_node: Option<SourceRange> = None;
   let stmt_group_len = stmt_groups.len();
-  let blank_lines_after_imports = context.config.module_blank_lines_after_imports.map(|count| count as usize);
   let mut is_after_import = false;
+  // the index of the statement within the statements that aren't empty
+  let mut stmt_index = 0;
+  let mut previous_stmt_group_kind = None;
 
   for (stmt_group_index, stmt_group) in stmt_groups.into_iter().enumerate() {
+    let mut has_stmt_group_comments = false;
     if stmt_group.kind == StmtGroupKind::Imports || stmt_group.kind == StmtGroupKind::Exports {
       // keep the leading comments of the stmt group on the same line
       let comments = get_leading_comments_on_previous_lines(&stmt_group.nodes.first().as_ref().unwrap().start().range(), context);
@@ -8104,9 +8183,15 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
       }
       if last_comment.is_some() {
         is_after_import = false;
+        has_stmt_group_comments = true;
       }
       last_node = last_comment.or(last_node);
     }
+    // the blank line between groups of imports or exports separates them when sorting, so keep it
+    let keep_blank_line_before_group = !has_stmt_group_comments
+      && matches!(stmt_group.kind, StmtGroupKind::Imports | StmtGroupKind::Exports)
+      && previous_stmt_group_kind == Some(stmt_group.kind);
+    previous_stmt_group_kind = Some(stmt_group.kind);
 
     let nodes_len = stmt_group.nodes.len();
     let mut generated_nodes = Vec::with_capacity(nodes_len);
@@ -8119,23 +8204,33 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
     for (i, node) in stmt_group.nodes.into_iter().enumerate() {
       let is_empty_stmt = node.is::<EmptyStmt>();
       if !is_empty_stmt {
-        let is_import = matches!(node, Node::ImportDecl(_) | Node::TsImportEqualsDecl(_));
+        let is_import = is_import_stmt(node);
         let mut separator_items = PrintItems::new();
         if let Some(last_node) = &last_node {
           separator_items.push_signal(Signal::NewLine);
-          let blank_line_count = match blank_lines_after_imports {
+          let mut blank_line_count = match blank_lines_after_imports {
             Some(count) if is_after_import && !is_import => count,
             _ => get_maintained_blank_line_count(last_node, &node, context),
           };
+          if i == 0 && keep_blank_line_before_group {
+            blank_line_count = blank_line_count.max(1);
+          }
           push_blank_lines(&mut separator_items, blank_line_count);
           generated_line_separators.insert(i, separator_items);
         }
-        is_after_import = is_import;
+        // the forced blank lines after the imports go before the comments that are before the
+        // semicolon on a later line, since those comments are with the next statement when formatted again
+        let is_next_stmt_import = is_import_stmts.get(stmt_index + 1).copied();
+        let blank_lines_before_comments = blank_lines_after_imports.filter(|_| is_import && is_next_stmt_import == Some(false));
+        stmt_index += 1;
 
         let mut items = PrintItems::new();
         let end_ln = LineNumber::new("endStatement");
         context.end_statement_or_member_lns.push(end_ln);
-        let generated = gen_node_with_comments_before_semicolon_on_later_line(node, |node, context| gen_node(node, context), context);
+        let generated =
+          gen_node_with_comments_before_semicolon_on_later_line(node, |node, context| gen_node(node, context), blank_lines_before_comments, context);
+        // the blank lines were already added before the comments
+        is_after_import = is_import && !(generated.comment_range.is_some() && blank_lines_before_comments.is_some());
         items.extend(generated.node_items);
         items.push_info(end_ln);
         items.extend(generated.comment_items);
@@ -8231,6 +8326,8 @@ impl GeneratedNodeWithCommentsAfter {
 fn gen_node_with_comments_before_semicolon_on_later_line<'a>(
   node: Node<'a>,
   gen_inner: impl FnOnce(Node<'a>, &mut Context<'a>) -> PrintItems,
+  // the number of blank lines to force before the comments instead of maintaining them
+  blank_lines_before_comments: Option<usize>,
   context: &mut Context<'a>,
 ) -> GeneratedNodeWithCommentsAfter {
   let program = context.program;
@@ -8253,7 +8350,16 @@ fn gen_node_with_comments_before_semicolon_on_later_line<'a>(
   }
   let node_range = SourceRange::new(node.start(), previous_token.end());
   let comment_range = comments.last().map(|c| c.range());
-  let comment_items = gen_comments_as_statements(comments.into_iter(), Some(&node_range), context);
+  let comment_items = match blank_lines_before_comments {
+    Some(count) if !comments.is_empty() => {
+      let mut items = PrintItems::new();
+      items.push_signal(Signal::NewLine);
+      push_blank_lines(&mut items, count);
+      items.extend(gen_comments_as_statements(comments.into_iter(), None, context));
+      items
+    }
+    _ => gen_comments_as_statements(comments.into_iter(), Some(&node_range), context),
+  };
   GeneratedNodeWithCommentsAfter {
     node_items,
     comment_items,
@@ -8286,7 +8392,7 @@ fn gen_member_or_member_expr_stmt_comments(node: Node, context: &mut Context) ->
   items
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 enum StmtGroupKind {
   Imports,
   Exports,
@@ -8296,6 +8402,10 @@ enum StmtGroupKind {
 struct StmtGroup<'a> {
   kind: StmtGroupKind,
   nodes: Vec<Node<'a>>,
+}
+
+fn is_import_stmt(node: Node) -> bool {
+  matches!(node, Node::ImportDecl(_) | Node::TsImportEqualsDecl(_))
 }
 
 fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<StmtGroup<'a>> {
@@ -8343,26 +8453,29 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> Vec<S
   groups
 }
 
-struct GenMembersOptions<'a, FGetBlankLineCount>
+struct GenMembersOptions<'a, FGetForcedBlankLineCount>
 where
-  FGetBlankLineCount: Fn(Node<'a>, Node<'a>, &mut Context<'a>) -> usize,
+  FGetForcedBlankLineCount: Fn(Node<'a>, Node<'a>, &mut Context<'a>) -> Option<usize>,
 {
   inner_range: SourceRange,
   items: Vec<(Node<'a>, Option<PrintItems>)>,
   should_use_space: Option<Box<dyn Fn(Node<'a>, Node<'a>, &mut Context<'a>) -> bool>>, // todo: Remove putting functions on heap by using type parameters?
   should_use_new_line: Option<Box<dyn Fn(Node<'a>, Node<'a>, &mut Context<'a>) -> bool>>,
-  get_blank_line_count: FGetBlankLineCount,
+  /// Gets the number of blank lines to force between two members, or `None` to maintain them.
+  get_forced_blank_line_count: FGetForcedBlankLineCount,
   separator: Separator,
   is_jsx_children: bool,
 }
 
-fn gen_members<'a, FGetBlankLineCount>(opts: GenMembersOptions<'a, FGetBlankLineCount>, context: &mut Context<'a>) -> PrintItems
+fn gen_members<'a, FGetForcedBlankLineCount>(opts: GenMembersOptions<'a, FGetForcedBlankLineCount>, context: &mut Context<'a>) -> PrintItems
 where
-  FGetBlankLineCount: Fn(Node<'a>, Node<'a>, &mut Context<'a>) -> usize,
+  FGetForcedBlankLineCount: Fn(Node<'a>, Node<'a>, &mut Context<'a>) -> Option<usize>,
 {
   let mut last_node: Option<Node> = None;
   // the comments that were before a semicolon on a later line, which are generated after the member
   let mut last_comment_range: Option<SourceRange> = None;
+  // whether the forced blank lines to the next member were added before those comments
+  let mut forced_blank_lines_before_comments = false;
   let mut items = PrintItems::new();
   let children_len = opts.items.len();
 
@@ -8378,9 +8491,16 @@ where
         } else if should_use_new_line(&opts.should_use_new_line, last_node, node, context) {
           items.push_signal(Signal::NewLine);
 
-          let blank_line_count = match &last_comment_range {
-            Some(last_comment_range) => get_maintained_blank_line_count(last_comment_range, &node, context),
-            None => (opts.get_blank_line_count)(last_node, node, context),
+          let blank_line_count = if forced_blank_lines_before_comments {
+            0 // already added before the comments after the last member
+          } else {
+            match (opts.get_forced_blank_line_count)(last_node, node, context) {
+              Some(count) => count,
+              None => match &last_comment_range {
+                Some(last_comment_range) => get_maintained_blank_line_count(last_comment_range, &node, context),
+                None => get_maintained_blank_line_count(&last_node, &node, context),
+              },
+            }
           };
           push_blank_lines(&mut items, blank_line_count);
         } else if let Some(should_use_space) = &opts.should_use_space {
@@ -8394,9 +8514,22 @@ where
         }
       }
 
-      let next_node = member_items.peek().map(|(_, (n, _))| n);
+      let next_node = member_items.peek().map(|(_, (n, _))| *n);
+      // the forced blank lines go before the comments that are before the semicolon on a
+      // later line, since those comments are with the next member when formatted again
+      let blank_lines_before_comments = match next_node {
+        Some(next_node) if !next_node.is::<EmptyStmt>() => (opts.get_forced_blank_line_count)(node, next_node, context),
+        _ => None,
+      };
       let end_ln = LineNumber::new("endMember");
       context.end_statement_or_member_lns.push(end_ln);
+      // the same goes for the comments that are before the comma on a later line
+      let previous_list_blank_lines = blank_lines_before_comments.map(|count| {
+        (
+          std::mem::replace(&mut context.allow_blank_lines_in_list, false),
+          std::mem::replace(&mut context.force_blank_line_in_list, count > 0),
+        )
+      });
       let generated = match optional_print_items {
         Some(print_items) => GeneratedNodeWithCommentsAfter::new(print_items, node),
         None => gen_node_with_comments_before_semicolon_on_later_line(
@@ -8409,14 +8542,21 @@ where
               gen_node_with_separator(node, generated_separator, context)
             }
           },
+          blank_lines_before_comments,
           context,
         ),
       };
+      if let Some((allow_blank_lines, force_blank_line)) = previous_list_blank_lines {
+        context.allow_blank_lines_in_list = allow_blank_lines;
+        context.force_blank_line_in_list = force_blank_line;
+      }
       items.extend(generated.node_items);
       items.push_info(end_ln);
       items.extend(generated.comment_items);
       context.end_statement_or_member_lns.pop();
 
+      forced_blank_lines_before_comments =
+        blank_lines_before_comments.is_some() && (generated.comment_range.is_some() || has_comment_on_later_line_before_comma(node, context.program));
       last_comment_range = generated.comment_range;
       last_node = Some(node);
     } else {
@@ -8853,6 +8993,7 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
       let is_multi_line_or_hanging = is_multi_line_or_hanging_ref.create_resolver();
       let mut generated_nodes = Vec::new();
       let nodes_count = nodes.len();
+      let mut forced_lines_span_line = 0;
 
       for (i, value) in nodes.into_iter().enumerate() {
         let node_index = match &sorted_indexes {
@@ -8871,10 +9012,19 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
             start_line: x.start_line_with_comments(context),
             end_line: x.end_line_with_comments(context),
           }),
-          // a span that's one blank line after the previous value's
-          ListBlankLines::Force => value.as_node().map(|_| ir_helpers::LinesSpan {
-            start_line: node_index * 2,
-            end_line: node_index * 2,
+          // a span that's one blank line after the previous value's, unless the blank line
+          // was already added before the comments after the previous value's comma
+          ListBlankLines::Force => value.as_node().map(|node| {
+            let start_line = forced_lines_span_line;
+            forced_lines_span_line += if has_comment_on_later_line_before_comma(node, context.program) {
+              1
+            } else {
+              2
+            };
+            ir_helpers::LinesSpan {
+              start_line,
+              end_line: start_line,
+            }
           }),
         };
 
@@ -8889,8 +9039,10 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
           match value {
             NodeOrSeparator::Node(value) => {
               let previous_allow_blank_lines = std::mem::replace(&mut context.allow_blank_lines_in_list, blank_lines != ListBlankLines::Remove);
+              let previous_force_blank_line = std::mem::replace(&mut context.force_blank_line_in_list, blank_lines == ListBlankLines::Force);
               let items = gen_node_with_separator(value, generated_separator, context);
               context.allow_blank_lines_in_list = previous_allow_blank_lines;
+              context.force_blank_line_in_list = previous_force_blank_line;
               items
             }
             NodeOrSeparator::Separator(separator_token) => {
@@ -9793,16 +9945,12 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
     items.push_signal(Signal::FinishForceNoNewLines);
   }
   items.push_condition(newline_condition);
-  items.push_line_and_column(start_statements_lc);
-  if !is_body_empty_stmt {
-    items.push_condition(if_true(
-      "spaceIfAtStart",
-      Rc::new(move |context| condition_helpers::is_at_same_position(context, start_lc)),
-      Signal::SpaceOrNewLine.into(),
-    ));
-  }
-
+  // The padding is outside the statements so it doesn't affect whether they're multi-line.
+  // It's only added when the braces can't be removed, as removing them would otherwise move
+  // the statements to a different line after they're printed.
+  let can_remove_braces = use_braces == UseBraces::PreferNone && !force_braces && !body_should_be_multi_line;
   let padding = match opts.body_node {
+    _ if can_remove_braces => BlockPaddingBlankLines::default(),
     Node::BlockStmt(body_node) => get_block_padding_blank_lines(
       SourceRange::new(body_node.start(), body_node.start() + 1),
       SourceRange::new(body_node.end() - 1, body_node.end()),
@@ -9813,7 +9961,26 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
     _ if opts.block_padding == BlockPadding::Always && !is_body_empty_stmt => BlockPaddingBlankLines { start: 1, end: 1 },
     _ => BlockPaddingBlankLines::default(),
   };
-  let gen_padding = |count| gen_blank_lines_if_braces_on_new_line(count, open_brace_condition_ref, newline_condition_ref);
+  let gen_padding = |count| {
+    gen_conditional_body_padding(
+      count,
+      GenConditionalBodyPaddingConditions {
+        open_brace_condition_ref,
+        newline_condition_ref,
+        start_statements_lc,
+        end_statements_lc,
+      },
+    )
+  };
+  items.extend(gen_padding(padding.start));
+  items.push_line_and_column(start_statements_lc);
+  if !is_body_empty_stmt {
+    items.push_condition(if_true(
+      "spaceIfAtStart",
+      Rc::new(move |context| condition_helpers::is_at_same_position(context, start_lc)),
+      Signal::SpaceOrNewLine.into(),
+    ));
+  }
 
   if let Node::BlockStmt(body_node) = opts.body_node {
     items.extend(ir_helpers::with_indent({
@@ -9821,7 +9988,6 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
       // generate the remaining trailing comments inside because some of them are generated already
       // by parsing the header trailing comments
       items.extend(gen_leading_comments(&body_node.range(), context));
-      items.extend(gen_padding(padding.start));
       let inner_range = body_node.get_inner_range(context);
       if body_node.stmts.is_empty() {
         let trailing_comments_same_line = get_trailing_comments_on_same_line(&inner_range.start().range(), context);
@@ -9835,22 +10001,20 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
       } else {
         items.extend(gen_statements(inner_range, body_node.stmts.iter().map(|x| x.into()).collect(), context));
       }
-      items.extend(gen_padding(padding.end));
       items
     }));
   } else {
     items.extend(ir_helpers::with_indent({
       let mut items = PrintItems::new();
       let body_node_range = opts.body_node.range();
-      items.extend(gen_padding(padding.start));
       items.extend(gen_node(opts.body_node, context));
       items.extend(gen_trailing_comments(&body_node_range, context));
-      items.extend(gen_padding(padding.end));
       items
     }));
   }
 
   items.push_line_and_column(end_statements_lc);
+  items.extend(gen_padding(padding.end));
   let mut close_brace_condition = if_true(
     "closeBrace",
     Rc::new(move |condition_context| condition_context.resolved_condition(&open_brace_condition_ref)),
@@ -10240,7 +10404,7 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
             true
           }
         })),
-        get_blank_line_count: |previous, next, context| {
+        get_forced_blank_line_count: |previous, next, context| {
           let has_blank_line = if has_jsx_space_between(previous, next, context.program) {
             false // prefer collapsing
           } else if let Node::JSXText(previous) = previous {
@@ -10251,7 +10415,7 @@ fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'
             node_helpers::has_separating_blank_line(&previous, &next, context.program)
           };
           // keep at most one blank line between jsx children
-          cap_blank_line_count(usize::from(has_blank_line), context)
+          Some(cap_blank_line_count(usize::from(has_blank_line), context))
         },
         separator: Separator::none(),
         is_jsx_children: true,
@@ -10556,12 +10720,11 @@ fn gen_block<'a>(gen_inner: impl FnOnce(Vec<Node<'a>>, &mut Context<'a>) -> Prin
       };
       if !is_tokens_same_line_and_empty {
         items.push_signal(Signal::NewLine);
-        push_blank_lines(&mut items, padding.start);
+        items.extend(gen_blank_lines_if_has_content(padding.start, start_inner_lc, end_inner_lc));
       }
       items.push_line_and_column(start_inner_lc);
       let inner = gen_inner(opts.children, context);
       items.extend(if skip_indent { inner } else { ir_helpers::with_indent(inner) });
-      push_blank_lines(&mut items, padding.end);
       items.push_line_and_column(end_inner_lc);
 
       if is_tokens_same_line_and_empty {
@@ -10576,6 +10739,7 @@ fn gen_block<'a>(gen_inner: impl FnOnce(Vec<Node<'a>>, &mut Context<'a>) -> Prin
           Rc::new(move |context| condition_helpers::are_line_and_columns_equal(context, start_inner_lc, end_inner_lc)),
           Signal::NewLine.into(),
         ));
+        items.extend(gen_blank_lines_if_has_content(padding.end, start_inner_lc, end_inner_lc));
       }
       items
     },
@@ -10666,7 +10830,8 @@ fn gen_surrounded_by_tokens<'a>(
       ));
     } else {
       let comments = open_token_end.trailing_comments_fast(context.program);
-      is_single_line = open_token_start_line == close_token_start.start_line_fast(context.program);
+      // the padding goes on its own lines, so a block with only comments is multi-line when padded
+      is_single_line = open_token_start_line == close_token_start.start_line_fast(context.program) && opts.comments_only_padding.is_empty();
 
       if is_single_line && opts.single_line_space_around {
         items.push_space();
