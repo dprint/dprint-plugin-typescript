@@ -70,7 +70,7 @@ impl NodeSorter {
     }
   }
 
-  pub(crate) fn cmp_node_sort_keys(&self, a: &NodeSortKey, b: &NodeSortKey) -> Ordering {
+  pub fn cmp_node_sort_keys(&self, a: &NodeSortKey, b: &NodeSortKey) -> Ordering {
     for (i, a) in a.parts.iter().enumerate() {
       let Some(b) = b.parts.get(i) else {
         return Ordering::Greater;
@@ -121,7 +121,7 @@ impl NodeSorter {
     }
   }
 
-  pub(crate) fn get_node_sort_key<'a>(&self, node: Node<'a>, program: Program<'a>) -> NodeSortKey<'a> {
+  pub fn get_node_sort_key<'a>(&self, node: Node<'a>, program: Program<'a>) -> NodeSortKey<'a> {
     NodeSortKey {
       parts: get_comparison_parts(node, is_import_or_export_declaration(node), program),
     }
@@ -133,7 +133,7 @@ struct SortItem<'a> {
   key: Option<NodeSortKey<'a>>,
 }
 
-pub(crate) struct NodeSortKey<'a> {
+pub struct NodeSortKey<'a> {
   parts: Vec<ComparisonPart<'a>>,
 }
 
@@ -216,7 +216,7 @@ fn cmp_text_case_sensitive(a: &str, b: &str) -> Ordering {
   a.cmp(b)
 }
 
-pub(crate) fn cmp_text_case_insensitive(a: &str, b: &str) -> Ordering {
+fn cmp_text_case_insensitive(a: &str, b: &str) -> Ordering {
   let case_insensitive_result = if a.is_ascii() && b.is_ascii() {
     cmp_ascii_case_insensitive(a.as_bytes(), b.as_bytes())
   } else {
