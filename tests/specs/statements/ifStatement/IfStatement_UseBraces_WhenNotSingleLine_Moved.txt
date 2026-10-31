@@ -1,0 +1,15 @@
+~~ indentWidth: 2, lineWidth: 120 ~~
+== should not add braces to a body that fits on one line after the code before it moved ==
+function b(t,a,e){if(e){if(typeof a=="string"&&"query"in e)return Promise.reject(new Error('[@octokit/graphql] "query" cannot be used as variable name'));for(let r in e)if(g.includes(r))return Promise.reject(new Error(`[@octokit/graphql] "${r}" cannot be used as variable name`))}}
+
+[expect]
+function b(t, a, e) {
+  if (e) {
+    if (typeof a == "string" && "query" in e) {
+      return Promise.reject(new Error("[@octokit/graphql] \"query\" cannot be used as variable name"));
+    }
+    for (let r in e) {
+      if (g.includes(r)) return Promise.reject(new Error(`[@octokit/graphql] "${r}" cannot be used as variable name`));
+    }
+  }
+}
