@@ -74,6 +74,8 @@ pub struct Context<'a> {
   pub tpl_class_names_sort_options: Option<(SourcePos, tailwind::SortOptions)>,
   /// Whether the blank lines between the values of the list being generated are kept.
   pub allow_blank_lines_in_list: bool,
+  /// Whether the list being generated forces a blank line between its values.
+  pub force_blank_line_in_list: bool,
   pub end_statement_or_member_lns: Stack<LineNumber>,
   before_comments_start_info_stack: Stack<(SourceRange, LineNumber, IsStartOfLine)>,
   if_stmt_last_brace_condition_ref: Option<ConditionReference>,
@@ -111,6 +113,7 @@ impl<'a> Context<'a> {
       skip_iife_body_indent: false,
       tpl_class_names_sort_options: None,
       allow_blank_lines_in_list: true,
+      force_blank_line_in_list: false,
       end_statement_or_member_lns: Default::default(),
       before_comments_start_info_stack: Default::default(),
       if_stmt_last_brace_condition_ref: None,

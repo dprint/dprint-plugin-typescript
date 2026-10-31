@@ -1,0 +1,10 @@
+~~ lineWidth: 40, blockPadding: always ~~
+== should be stable for a single line comment block that wraps ==
+class Test {/* testing this out to go above 40 */}
+
+[expect]
+class Test {
+
+    /* testing this out to go above 40 */
+
+}

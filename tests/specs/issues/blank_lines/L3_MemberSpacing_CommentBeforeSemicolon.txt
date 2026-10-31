@@ -1,0 +1,46 @@
+~~ classDeclaration.memberSpacing: blankLine, interfaceDeclaration.memberSpacing: blankLine, typeLiteral.memberSpacing: blankLine, enumDeclaration.memberSpacing: blankLine, semiColons: asi ~~
+== should be stable with a comment before a semicolon ==
+class A {
+    b = 2
+    // c
+    ;
+    c = 3
+}
+
+[expect]
+class A {
+    b = 2
+
+    // c
+    c = 3
+}
+
+== should be stable with a comment before a comma in a type literal ==
+type T = {
+    a: string
+    // c
+    , b: string
+};
+
+[expect]
+type T = {
+    a: string
+
+    // c
+    b: string
+}
+
+== should be stable with a comment before a comma in an enum ==
+enum E {
+    A
+    // c
+    , B
+}
+
+[expect]
+enum E {
+    A,
+
+    // c
+    B,
+}
