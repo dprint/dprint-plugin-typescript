@@ -1,0 +1,22 @@
+~~ lineWidth: 80, indentWidth: 4, useTabs: true ~~
+== should indent with tabs then align with spaces ==
+function a() {
+	return `
+		<div>
+		  ${tooltip ? `<my-tooltip>content content content content</my-tooltip>` : nothing}
+		</div>
+	`;
+}
+
+[expect]
+function a() {
+	return `
+		<div>
+		  ${
+			  tooltip
+				  ? `<my-tooltip>content content content content</my-tooltip>`
+				  : nothing
+		  }
+		</div>
+	`;
+}
