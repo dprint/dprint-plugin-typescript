@@ -35,7 +35,7 @@ pub fn generate<'a>(
   program: Program<'a>,
   syntax: Syntax,
   config: &'a Configuration,
-  external_formatter: Option<&'a ExternalFormatter>,
+  external_formatter: Option<&'a ExternalFormatter<'a>>,
 ) -> crate::Result<PrintItems<'a>> {
   let program_node = program.into();
   let mut context = Context::new(
@@ -3193,14 +3193,18 @@ fn gen_spread_element<'a>(node: &SpreadElement<'a>, context: &mut Context<'a>) -
 /// Formats the tagged template literal using an external formatter.
 /// Detects the type of embedded language automatically.
 fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, context: &mut Context<'a>) -> Option<PrintItems<'a>> {
+  if !context.config.tagged_template_format_embedded {
+    return None;
+  }
   let external_formatter = context.external_formatter.as_ref()?;
-  let embedded_lang = normalize_embedded_language_type(node)?;
+  let tag = get_embedded_language_tag(node)?;
+  let extension = context.config.tagged_template_embedded_languages.get(tag)?.as_str();
 
   let placeholder_css = "@dpr1nt_";
   let placeholder_other = "dpr1nt_";
   // First creates text with placeholders for the expressions.
-  let placeholder_text = match embedded_lang {
-    "css" => placeholder_css,
+  let placeholder_text = match extension {
+    "css" | "less" | "scss" | "sass" => placeholder_css,
     _ => placeholder_other,
   };
   let text = capacity_builder::StringBuilder::<String>::build(|builder| {
@@ -3224,7 +3228,7 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
   // exist because of the template literal unescaped (ex. Tailwind's `\\[\\#86efac\\]`
   // as `\[\#86efac\]`) and the other escapes as is (ex. `\n` and `\e600`).
   let text = unescape_embedded_text(&text)?;
-  let formatted_tpl = match external_formatter(embedded_lang, text, context.config) {
+  let formatted_tpl = match external_formatter(extension, text, context.config) {
     Ok(formatted_tpl) => escape_embedded_text(&formatted_tpl?),
     Err(err) => {
       context.diagnostics.push(context::GenerateDiagnostic {
@@ -3235,18 +3239,28 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
   };
 
   let mut items = PrintItems::new(context.arena);
+  let mut expr_index = 0;
+  let formatted_tpl = context.alloc_str(&formatted_tpl);
   items.push_sc(sc!("`"));
+
+  // a template on a single line stays on a single line when its formatted text does too
+  let single_line_text = formatted_tpl.trim();
+  let is_single_line = !single_line_text.contains('\n') && !node.tpl.quasis.iter().any(|quasi| quasi.raw().as_str().contains('\n'));
+  if is_single_line {
+    gen_embedded_line(single_line_text, 0, placeholder_text, node, &mut expr_index, &mut items, context);
+    items.push_sc(sc!("`"));
+    return Some(items);
+  }
+
   items.push_signal(Signal::NewLine);
   items.push_signal(Signal::StartIndent);
-  let mut index = 0;
   let mut current_indent_level = 0;
   let use_tabs = context.config.use_tabs;
   let indent_width = if use_tabs { 1 } else { context.config.indent_width };
   let indent_char = if use_tabs { '\t' } else { ' ' };
-  let formatted_tpl = context.alloc_str(&formatted_tpl);
   for line in formatted_tpl.lines() {
     // count indent characters
-    let mut pos = line.chars().take_while(|ch| *ch == indent_char).count();
+    let pos = line.chars().take_while(|ch| *ch == indent_char).count();
     let indent_level = if indent_width == 0 { 0 } else { pos / indent_width as usize };
     while indent_level > current_indent_level {
       items.push_signal(Signal::StartIndent);
@@ -3256,6 +3270,28 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
       items.push_signal(Signal::FinishIndent);
       current_indent_level -= 1;
     }
+    gen_embedded_line(line, pos, placeholder_text, node, &mut expr_index, &mut items, context);
+    items.push_signal(Signal::NewLine);
+  }
+  while current_indent_level > 0 {
+    items.push_signal(Signal::FinishIndent);
+    current_indent_level -= 1;
+  }
+  items.push_signal(Signal::FinishIndent);
+  items.push_sc(sc!("`"));
+  return Some(items);
+
+  /// Generates a line of the formatted text from the position, replacing the
+  /// placeholders with the template's expressions.
+  fn gen_embedded_line<'a>(
+    line: &'a str,
+    mut pos: usize,
+    placeholder_text: &str,
+    node: &TaggedTpl<'a>,
+    expr_index: &mut usize,
+    items: &mut PrintItems<'a>,
+    context: &mut Context<'a>,
+  ) {
     let mut parts = line[pos..].split(placeholder_text).enumerate().peekable();
     while let Some((i, part)) = parts.next() {
       let end = pos + part.len();
@@ -3268,25 +3304,18 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
       }
       if parts.peek().is_some() {
         items.push_sc(sc!("${"));
-        items.extend(gen_node(node.tpl.exprs[index].into(), context));
+        items.extend(gen_node(node.tpl.exprs[*expr_index].into(), context));
         items.push_sc(sc!("}"));
         pos = end + placeholder_text.len();
-        index += 1;
+        *expr_index += 1;
       }
     }
-    items.push_signal(Signal::NewLine);
   }
-  while current_indent_level > 0 {
-    items.push_signal(Signal::FinishIndent);
-    current_indent_level -= 1;
-  }
-  items.push_signal(Signal::FinishIndent);
-  items.push_sc(sc!("`"));
-  Some(items)
 }
 
-/// Normalizes the type of embedded language in a tagged template literal.
-fn normalize_embedded_language_type<'a>(node: &TaggedTpl<'a>) -> Option<&'a str> {
+/// Gets the tag that's looked up in the `taggedTemplate.embeddedLanguages` configuration,
+/// which is the tag's name or `"css"` and `"graphql"` for the patterns of those languages.
+fn get_embedded_language_tag<'a>(node: &TaggedTpl<'a>) -> Option<&'a str> {
   match node.tag {
     Expr::Ident(ident) => Some(ident.sym().as_str()),
     Expr::Member(member_expr) => {

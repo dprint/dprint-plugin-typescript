@@ -31,9 +31,7 @@ function foo() {
 == should format css in styled.tag`...` ==
 styled.div`padding: 1px;`;
 [expect]
-styled.div`
-    padding: 1px;
-`;
+styled.div`padding: 1px;`;
 
 == should format full css (not only properties) in css`...` ==
 css`.foo-bar { height: ${height}px; }`;
@@ -144,9 +142,7 @@ css`
 == should format expression only template literal ==
 css`${expr}`
 [expect]
-css`
-    ${expr};
-`;
+css`${expr};`;
 
 == should format css that includes \\ ==
 css`.bg-\\[\\#86efac\\] { background-color: #86efac; }`
@@ -168,9 +164,7 @@ styled.button.attrs({})`
 == should format css in styled(Component).attrs({})`...` ==
 styled(Button).attrs({})`color : #222 ;`;
 [expect]
-styled(Button).attrs({})`
-    color: #222;
-`;
+styled(Button).attrs({})`color: #222;`;
 
 == should format css in <UpperIdent>.extend`...` (styled-components extend) ==
 const Tomato = Button.extend`color : tomato ; border-color: tomato ;`;
@@ -183,9 +177,7 @@ const Tomato = Button.extend`
 == should format css in <UpperIdent>.extend.attrs({})`...` ==
 Button.extend.attrs({})`border-color : black ;`;
 [expect]
-Button.extend.attrs({})`
-    border-color: black;
-`;
+Button.extend.attrs({})`border-color: black;`;
 
 == should not treat lowercase ident with .extend as css ==
 foo.extend`color: red;`;
@@ -222,9 +214,7 @@ const { className } = css.resolve`
 == should format css in a method call on styled.tag`...` ==
 styled.div.withConfig({ displayName: "A" })`color : red ;`;
 [expect]
-styled.div.withConfig({ displayName: "A" })`
-    color: red;
-`;
+styled.div.withConfig({ displayName: "A" })`color: red;`;
 
 == should not format css in other members of css ==
 css.foo`color : red ;`;

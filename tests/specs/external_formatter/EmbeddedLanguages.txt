@@ -1,0 +1,25 @@
+~~ { "taggedTemplate.embeddedLanguages": { "markup": "html", "styled": "less" } } ~~
+== should format the configured tags ==
+const a = markup`<body><header>HEADER</header><main>${main}</main><footer>FOOTER</footer></body>`;
+[expect]
+const a = markup`
+    <body>
+        <header>HEADER</header>
+        <main>${main}</main>
+        <footer>FOOTER</footer>
+    </body>
+`;
+
+== should format the styled-components patterns with the css entry ==
+const a = styled.div`color:red;`;
+const b = styled`color:red;`;
+[expect]
+const a = styled.div`color:red;`;
+const b = styled`color: red;`;
+
+== should not format the tags that aren't configured ==
+const a = html`<body><main>${main}</main></body>`;
+const b = css`color:red;`;
+[expect]
+const a = html`<body><main>${main}</main></body>`;
+const b = css`color:red;`;

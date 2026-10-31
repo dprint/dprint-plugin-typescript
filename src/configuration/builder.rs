@@ -570,6 +570,31 @@ impl ConfigurationBuilder {
     self.insert("memberExpression.linePerExpression", value.into())
   }
 
+  /// Whether to format the text of tagged templates whose tag is in `tagged_template_embedded_languages`
+  /// (ex. html\`...\` and css\`...\`) with an external formatter.
+  ///
+  /// Default: `true`
+  pub fn tagged_template_format_embedded(&mut self, value: bool) -> &mut Self {
+    self.insert("taggedTemplate.formatEmbedded", value.into())
+  }
+
+  /// Map of a tagged template's tag to the file extension of the language its text is formatted
+  /// as (ex. `"html"` to `"html"`), which replaces the defaults. The styled-components patterns
+  /// (ex. styled.div\`...\`) use the `"css"` entry.
+  ///
+  /// Default: `css` is formatted as `less`, `gql` and `graphql` as `graphql`, and `html`, `sql`,
+  /// `svg`, and `xml` as themselves.
+  pub fn tagged_template_embedded_languages<TTag: Into<String>, TExtension: Into<String>>(
+    &mut self,
+    value: impl IntoIterator<Item = (TTag, TExtension)>,
+  ) -> &mut Self {
+    let values = value
+      .into_iter()
+      .map(|(tag, extension)| (tag.into(), ConfigKeyValue::String(extension.into())))
+      .collect();
+    self.insert("taggedTemplate.embeddedLanguages", ConfigKeyValue::Object(values))
+  }
+
   /// The kind of separator to use in type literals.
   pub fn type_literal_separator_kind(&mut self, value: SemiColonOrComma) -> &mut Self {
     self.insert("typeLiteral.separatorKind", value.to_string().into())
@@ -1352,6 +1377,8 @@ mod tests {
         ..JsxClassNamesSortOrder::Tailwind.into()
       })
       .jsx_force_new_lines_surrounding_content(true)
+      .tagged_template_format_embedded(false)
+      .tagged_template_embedded_languages([("html", "html"), ("styled", "less")])
       .jsx_bracket_position(SameOrNextLinePosition::Maintain)
       .jsx_opening_element_bracket_position(SameOrNextLinePosition::Maintain)
       .jsx_self_closing_element_bracket_position(SameOrNextLinePosition::Maintain)
@@ -1581,7 +1608,7 @@ mod tests {
       .with_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 219);
+    assert_eq!(inner_config.len(), 221);
     let diagnostics = resolve_config(inner_config, &Default::default()).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

@@ -11,6 +11,8 @@
 #![deny(clippy::print_stdout)]
 
 pub mod configuration;
+#[cfg(any(all(feature = "wasm", target_arch = "wasm32", target_os = "unknown"), test))]
+mod embedded_file;
 mod error;
 mod format_text;
 mod generation;

@@ -119,6 +119,8 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
       type_literal_separator_kind,
       &mut diagnostics,
     ),
+    tagged_template_format_embedded: get_value(&mut config, "taggedTemplate.formatEmbedded", true, &mut diagnostics),
+    tagged_template_embedded_languages: get_tagged_template_embedded_languages(&mut config, &mut diagnostics),
     /* sorting */
     module_sort_import_declarations: get_value(&mut config, "module.sortImportDeclarations", SortOrder::CaseInsensitive, &mut diagnostics),
     module_blank_lines_after_imports: get_nullable_value(&mut config, "module.blankLinesAfterImports", &mut diagnostics),
@@ -546,6 +548,47 @@ fn get_jsx_sort_class_names(config: &mut ConfigKeyMap, diagnostics: &mut Vec<Con
   result
 }
 
+/// Gets the map of a tagged template's tag to the file extension of the language
+/// its text is formatted as, which replaces the defaults when it's specified.
+fn get_tagged_template_embedded_languages(config: &mut ConfigKeyMap, diagnostics: &mut Vec<ConfigurationDiagnostic>) -> BTreeMap<String, String> {
+  let key = "taggedTemplate.embeddedLanguages";
+  if matches!(config.get(key), None | Some(ConfigKeyValue::Null)) {
+    config.shift_remove(key);
+    return default_tagged_template_embedded_languages();
+  }
+  get_map(config, key, diagnostics, |value| match value {
+    ConfigKeyValue::String(value) => {
+      let value = value.trim_start_matches('.');
+      if value.is_empty() || value.contains(['/', '\\']) {
+        Err("Expected a file extension (ex. \"css\").")
+      } else {
+        Ok(value.to_string())
+      }
+    }
+    _ => Err("Expected a file extension (ex. \"css\")."),
+  })
+}
+
+/// The tags whose text is formatted by default and the file extension of their language.
+///
+/// The text of a css tag (and of the styled-components patterns) is formatted as Less
+/// because the placeholders of its expressions are Less variables (ex. `@dpr1nt_00_d`),
+/// which can be in positions plain CSS doesn't allow (ex. in a value).
+fn default_tagged_template_embedded_languages() -> BTreeMap<String, String> {
+  [
+    ("css", "less"),
+    ("gql", "graphql"),
+    ("graphql", "graphql"),
+    ("html", "html"),
+    ("sql", "sql"),
+    ("svg", "svg"),
+    ("xml", "xml"),
+  ]
+  .into_iter()
+  .map(|(tag, extension)| (tag.to_string(), extension.to_string()))
+  .collect()
+}
+
 fn get_string_vec(config: &mut ConfigKeyMap, key: &str, diagnostics: &mut Vec<ConfigurationDiagnostic>) -> Vec<String> {
   get_nullable_vec(
     config,
@@ -714,6 +757,47 @@ mod tests {
         "jsx.sortClassNames.functions[0]",
         "jsx.sortClassNames.theme",
         "jsx.sortClassNames.other"
+      ]
+    );
+  }
+
+  #[test]
+  fn handle_tagged_template_embedded_languages_default() {
+    let result = resolve_config(ConfigKeyMap::new(), &GlobalConfiguration::default());
+    assert!(result.config.tagged_template_format_embedded);
+    assert_eq!(result.config.tagged_template_embedded_languages.get("css").unwrap(), "less");
+    assert_eq!(result.config.tagged_template_embedded_languages.get("gql").unwrap(), "graphql");
+    assert_eq!(result.config.tagged_template_embedded_languages.get("html").unwrap(), "html");
+
+    let mut config = ConfigKeyMap::new();
+    config.insert(String::from("taggedTemplate.embeddedLanguages"), ConfigKeyValue::Null);
+    let result = resolve_config(config, &GlobalConfiguration::default());
+    assert_eq!(result.config.tagged_template_embedded_languages.get("css").unwrap(), "less");
+    assert_eq!(result.diagnostics.len(), 0);
+  }
+
+  #[test]
+  fn handle_tagged_template_embedded_languages() {
+    let mut values = ConfigKeyMap::new();
+    values.insert(String::from("markup"), ConfigKeyValue::from_str("html"));
+    values.insert(String::from("styles"), ConfigKeyValue::from_str(".scss"));
+    values.insert(String::from("empty"), ConfigKeyValue::from_str(""));
+    values.insert(String::from("path"), ConfigKeyValue::from_str("a/b"));
+    values.insert(String::from("number"), ConfigKeyValue::from_i32(1));
+    let mut config = ConfigKeyMap::new();
+    config.insert(String::from("taggedTemplate.embeddedLanguages"), ConfigKeyValue::Object(values));
+    let result = resolve_config(config, &GlobalConfiguration::default());
+    // replaces the defaults
+    assert_eq!(
+      result.config.tagged_template_embedded_languages,
+      BTreeMap::from([(String::from("markup"), String::from("html")), (String::from("styles"), String::from("scss")),])
+    );
+    assert_eq!(
+      get_diagnostic_property_names(&result.diagnostics),
+      [
+        "taggedTemplate.embeddedLanguages.empty",
+        "taggedTemplate.embeddedLanguages.path",
+        "taggedTemplate.embeddedLanguages.number"
       ]
     );
   }

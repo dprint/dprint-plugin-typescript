@@ -101,16 +101,12 @@ const a = html`
 == should preserve a lone newline escape, not double it (deno#30103) ==
 html`\n`;
 [expect]
-html`
-    \n
-`;
+html`\n`;
 
 == should keep escaped backticks and backslashes ==
 html`<p>\`a\` \\ b</p>`;
 [expect]
-html`
-    <p>\`a\` \\ b</p>
-`;
+html`<p>\`a\` \\ b</p>`;
 
 == should unescape the css in a style element ==
 html`<style>.bg-\\[\\#86efac\\] { color: red }</style>`;
@@ -129,3 +125,32 @@ export class A {}
 [expect]
 @Component({ template: `<h1>{{title}}</h1>` })
 export class A {}
+
+== should indent multi-line expressions at the indentation of their line (#776) ==
+function render_html_template() {
+    return html`
+      <div>
+        ${tooltip ? 
+          html`<my-tooltip>content content content content</my-tooltip>`:  nothing}
+        <div>
+          ${tooltip ? 
+              html`<my-tooltip>content content content content</my-tooltip>`:  nothing}
+        </div>
+      </div>
+    `;
+}
+[expect]
+function render_html_template() {
+    return html`
+        <div>
+            ${tooltip
+                ? html`<my-tooltip>content content content content</my-tooltip>`
+                : nothing}
+            <div>
+                ${tooltip
+                    ? html`<my-tooltip>content content content content</my-tooltip>`
+                    : nothing}
+            </div>
+        </div>
+    `;
+}
