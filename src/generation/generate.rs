@@ -9170,13 +9170,7 @@ fn gen_for_flattened_member_like_expr<'a>(node: FlattenedMemberLikeExpr<'a>, con
   if total_items_len > 1 {
     items.push_info(member_expr_start_ln);
     if context.config.member_expression_line_per_expression {
-      // the last item's line number is still resolved from an earlier printing of this
-      // expression when the printer goes back and prints it again, so keep it relative
-      // to the start when the expression moves lines and forget it when it moves columns
-      items.push_anchor(LineNumberAnchor::new(member_expr_last_item_start_ln));
-      items.extend(actions::if_column_number_changes(move |context| {
-        context.clear_info(member_expr_last_item_start_ln);
-      }));
+      items.extend(reset_stale_line_number(member_expr_last_item_start_ln));
     }
   }
 
