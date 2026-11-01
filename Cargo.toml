@@ -38,7 +38,7 @@ harness = false
 capacity_builder = "0.5.0"
 dprint-core = { version = "0.74.0", features = ["formatting"] }
 dprint-core-macros = "0.1.0"
-dprint-swc-ext = { version = "0.26.2", features = ["view"] }
+dprint-swc-ext = { version = "0.27.0", features = ["view"] }
 globset = "0.4"
 percent-encoding = "2.3.1"
 rustc-hash = "2.1.1"

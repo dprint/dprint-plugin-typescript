@@ -1,0 +1,33 @@
+~~ indentWidth: 2 ~~
+== should keep the this parameter of functions, methods, getters, and setters ==
+function f(this:Foo,a:string){}
+const g=function(this :Window){};
+class A{m(this:A,b){} #p(this:A){} get x(this:A){return 1} set x(this:A,v){}}
+const o={m(this:Foo){},get y(this:Foo){return 1},set y(this:Foo,v:number){}};
+function h(this:{a:string;b:number}, // comment
+  c: number){}
+declare function d(this: void): void;
+
+[expect]
+function f(this: Foo, a: string) {}
+const g = function(this: Window) {};
+class A {
+  m(this: A, b) {}
+  #p(this: A) {}
+  get x(this: A) {
+    return 1;
+  }
+  set x(this: A, v) {}
+}
+const o = {
+  m(this: Foo) {},
+  get y(this: Foo) {
+    return 1;
+  },
+  set y(this: Foo, v: number) {},
+};
+function h(
+  this: { a: string; b: number }, // comment
+  c: number,
+) {}
+declare function d(this: void): void;

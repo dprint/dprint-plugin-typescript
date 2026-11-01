@@ -132,6 +132,12 @@ impl<'a> InnerRanged for &BlockStmt<'a> {
   }
 }
 
+impl<'a> InnerRanged for &FunctionBody<'a> {
+  fn get_inner_range(&self, _: &mut Context) -> SourceRange {
+    get_inner_range_for_object_like(&self.range())
+  }
+}
+
 impl<'a> InnerRanged for &ObjectLit<'a> {
   fn get_inner_range(&self, _: &mut Context) -> SourceRange {
     get_inner_range_for_object_like(&self.range())
@@ -183,17 +189,7 @@ pub trait ParametersRanged {
 
 impl<'a> ParametersRanged for &Function<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
-    get_params_or_args_range(
-      self.start(),
-      self.params.first().map(|x| x.range()),
-      self.params.last().map(|x| x.range()),
-      self
-        .return_type
-        .map(|t| t.start())
-        .or_else(|| self.body.as_ref().map(|b| b.start()))
-        .unwrap_or_else(|| self.end()),
-      context,
-    )
+    get_function_parameters_range(self.start(), self, context)
   }
 }
 
@@ -229,30 +225,13 @@ impl<'a> ParametersRanged for &MethodProp<'a> {
 
 impl<'a> ParametersRanged for &GetterProp<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
-    get_params_or_args_range(
-      self.start(),
-      None,
-      None,
-      self
-        .type_ann
-        .as_ref()
-        .map(|t| t.start())
-        .or_else(|| self.body.as_ref().map(|t| t.start()))
-        .unwrap_or_else(|| self.end()),
-      context,
-    )
+    get_function_parameters_range(self.start(), self.function, context)
   }
 }
 
 impl<'a> ParametersRanged for &SetterProp<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
-    get_params_or_args_range(
-      self.start(),
-      Some(self.param.range()),
-      Some(self.param.range()),
-      self.body.as_ref().map(|t| t.start()).unwrap_or_else(|| self.end()),
-      context,
-    )
+    get_function_parameters_range(self.start(), self.function, context)
   }
 }
 
@@ -368,6 +347,22 @@ impl<'a> ParametersRanged for &TsFnType<'a> {
       context,
     )
   }
+}
+
+/// Gets the range of a function's parameters, which includes its `this` parameter.
+fn get_function_parameters_range(start_pos: SourcePos, function: &Function, context: &mut Context) -> Option<SourceRange> {
+  let this_param_range = function.this_param.map(|p| p.range());
+  get_params_or_args_range(
+    start_pos,
+    this_param_range.or_else(|| function.params.first().map(|x| x.range())),
+    function.params.last().map(|x| x.range()).or(this_param_range),
+    function
+      .return_type
+      .map(|t| t.start())
+      .or_else(|| function.body.map(|b| b.start()))
+      .unwrap_or_else(|| function.end()),
+    context,
+  )
 }
 
 fn get_params_or_args_range(

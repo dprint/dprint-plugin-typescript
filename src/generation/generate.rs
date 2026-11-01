@@ -324,6 +324,7 @@ fn gen_node_with_inner_gen<'a>(
       Node::MethodProp(node) => gen_method_prop(node, context),
       /* statements */
       Node::BlockStmt(node) => gen_block_stmt(node, context),
+      Node::FunctionBody(node) => gen_function_body(node, context),
       Node::BreakStmt(node) => gen_break_stmt(node, context),
       Node::ContinueStmt(node) => gen_continue_stmt(node, context),
       Node::DebuggerStmt(node) => gen_debugger_stmt(node, context),
@@ -368,6 +369,7 @@ fn gen_node_with_inner_gen<'a>(
       Node::TsParenthesizedType(node) => gen_parenthesized_type(node, context),
       Node::TsRestType(node) => gen_rest_type(node, context),
       Node::TsThisType(_) => "this".into_print_items(context.arena),
+      Node::TsThisParam(node) => gen_ts_this_param(node, context),
       Node::TsTplLitType(node) => gen_tpl_lit_type(node, context),
       Node::TsTupleType(node) => gen_tuple_type(node, context),
       Node::TsTupleElement(node) => gen_tuple_element(node, context),
@@ -612,7 +614,7 @@ fn gen_class_method<'a>(node: &'a ClassMethod<'a>, context: &mut Context<'a>) ->
       is_override: node.is_override(),
       key: node.key.into(),
       type_params: node.function.type_params.map(|x| x.into()),
-      params: node.function.params.iter().map(|&x| x.into()).collect_in(context.arena.bump()),
+      params: get_function_params(node.function, context),
       return_type: node.function.return_type.map(|x| x.into()),
       body: node.function.body.map(|x| x.into()),
     },
@@ -659,7 +661,7 @@ fn gen_private_method<'a>(node: &PrivateMethod<'a>, context: &mut Context<'a>) -
       is_override: node.is_override(),
       key: node.key.into(),
       type_params: node.function.type_params.map(|x| x.into()),
-      params: node.function.params.iter().map(|&x| x.into()).collect_in(context.arena.bump()),
+      params: get_function_params(node.function, context),
       return_type: node.function.return_type.map(|x| x.into()),
       body: node.function.body.map(|x| x.into()),
     },
@@ -1330,7 +1332,7 @@ fn gen_function_decl_or_expr<'a>(node: FunctionDeclOrExprNode<'a>, context: &mut
   items.extend(gen_parameters_or_arguments(
     GenParametersOrArgumentsOptions {
       node: node.node,
-      nodes: func.params.iter().map(|&node| node.into()).collect_in(context.arena.bump()),
+      nodes: get_function_params(func, context),
       range: func.get_parameters_range(context),
       custom_close_paren: |context| {
         Some(gen_close_paren_with_type(
@@ -1338,7 +1340,7 @@ fn gen_function_decl_or_expr<'a>(node: FunctionDeclOrExprNode<'a>, context: &mut
             start_lsil: start_header_lsil,
             type_node: func.return_type.map(|x| x.into()),
             type_node_separator: None,
-            param_count: func.params.len(),
+            param_count: func.params.len() + usize::from(func.this_param.is_some()),
           },
           context,
         ))
@@ -1860,7 +1862,7 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
     }
     .into_rc_path();
     let open_brace_token = match &node.body {
-      BlockStmtOrExpr::BlockStmt(stmt) => context.token_finder.get_first_open_brace_token_within(*stmt),
+      ArrowFunctionBody::FunctionBody(body) => context.token_finder.get_first_open_brace_token_within(*body),
       _ => None,
     };
 
@@ -1954,10 +1956,10 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
     (header_start_lsil, items)
   }
 
-  fn should_not_newline_after_arrow<'a>(body: &BlockStmtOrExpr<'a>, context: &Context<'a>) -> bool {
+  fn should_not_newline_after_arrow<'a>(body: &ArrowFunctionBody<'a>, context: &Context<'a>) -> bool {
     match body {
-      BlockStmtOrExpr::BlockStmt(_) => true,
-      BlockStmtOrExpr::Expr(expr) => match expr {
+      ArrowFunctionBody::FunctionBody(_) => true,
+      ArrowFunctionBody::Expr(expr) => match expr {
         Expr::Paren(_) | Expr::Array(_) => true,
         Expr::Tpl(tpl) => tpl.quasis[0].raw().starts_with(['\n', '\r']),
         _ => is_jsx_paren_expr_handled_node(expr.into(), context),
@@ -2900,9 +2902,9 @@ fn gen_getter_prop<'a>(node: &GetterProp<'a>, context: &mut Context<'a>) -> Prin
       is_override: false,
       key: node.key.into(),
       type_params: None,
-      params: BumpVec::new_in(context.arena.bump()),
-      return_type: node.type_ann.map(|x| x.into()),
-      body: node.body.map(|x| x.into()),
+      params: get_function_params(node.function, context),
+      return_type: node.function.return_type.map(|x| x.into()),
+      body: node.function.body.map(|x| x.into()),
     },
     context,
   )
@@ -3167,9 +3169,9 @@ fn gen_setter_prop<'a>(node: &SetterProp<'a>, context: &mut Context<'a>) -> Prin
       is_override: false,
       key: node.key.into(),
       type_params: None,
-      params: bumpalo::vec![in context.arena.bump(); node.param.into()],
-      return_type: None,
-      body: node.body.map(|x| x.into()),
+      params: get_function_params(node.function, context),
+      return_type: node.function.return_type.map(|x| x.into()),
+      body: node.function.body.map(|x| x.into()),
     },
     context,
   )
@@ -5115,7 +5117,7 @@ fn gen_method_prop<'a>(node: &MethodProp<'a>, context: &mut Context<'a>) -> Prin
       is_optional: false,
       key: node.key.into(),
       type_params: node.function.type_params.map(|x| x.into()),
-      params: node.function.params.iter().map(|&x| x.into()).collect_in(context.arena.bump()),
+      params: get_function_params(node.function, context),
       return_type: node.function.return_type.map(|x| x.into()),
       body: node.function.body.map(|x| x.into()),
     },
@@ -5290,6 +5292,28 @@ fn gen_block_stmt<'a>(node: &BlockStmt<'a>, context: &mut Context<'a>) -> PrintI
 
 fn get_block_stmt_block_padding<'a>(node: &BlockStmt, context: &Context<'a>) -> BlockPadding {
   let config = &context.config;
+  match node.parent() {
+    Node::StaticBlock(_) => config.static_block_block_padding,
+    Node::DoWhileStmt(_) => config.do_while_statement_block_padding,
+    Node::SwitchCase(_) => config.switch_case_block_padding,
+    _ => config.block_padding,
+  }
+}
+
+fn gen_function_body<'a>(node: &FunctionBody<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
+  gen_block(
+    |stmts, context| gen_statements(node.get_inner_range(context), stmts, context),
+    GenBlockOptions {
+      range: Some(node.range()),
+      children: node.stmts.iter().map(|x| x.into()).collect(),
+      block_padding: get_function_body_block_padding(node, context),
+    },
+    context,
+  )
+}
+
+fn get_function_body_block_padding<'a>(node: &FunctionBody, context: &Context<'a>) -> BlockPadding {
+  let config = &context.config;
   let get_method_block_padding = |kind: MethodKind| match kind {
     MethodKind::Method => config.method_block_padding,
     MethodKind::Getter => config.get_accessor_block_padding,
@@ -5308,15 +5332,12 @@ fn get_block_stmt_block_padding<'a>(node: &BlockStmt, context: &Context<'a>) -> 
       Node::ClassMethod(method) => get_method_block_padding(method.method_kind()),
       Node::PrivateMethod(method) => get_method_block_padding(method.method_kind()),
       Node::MethodProp(_) => config.method_block_padding,
+      Node::GetterProp(_) => config.get_accessor_block_padding,
+      Node::SetterProp(_) => config.set_accessor_block_padding,
       _ => config.block_padding,
     },
     Node::Constructor(_) => config.constructor_block_padding,
-    Node::GetterProp(_) => config.get_accessor_block_padding,
-    Node::SetterProp(_) => config.set_accessor_block_padding,
     Node::ArrowExpr(_) => config.arrow_function_block_padding,
-    Node::StaticBlock(_) => config.static_block_block_padding,
-    Node::DoWhileStmt(_) => config.do_while_statement_block_padding,
-    Node::SwitchCase(_) => config.switch_case_block_padding,
     _ => config.block_padding,
   }
 }
@@ -7014,6 +7035,13 @@ fn gen_rest_type<'a>(node: &TsRestType<'a>, context: &mut Context<'a>) -> PrintI
   let mut items = PrintItems::new(context.arena);
   items.push_sc(sc!("..."));
   items.extend(gen_node(node.type_ann.into(), context));
+  items
+}
+
+fn gen_ts_this_param<'a>(node: &TsThisParam<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
+  let mut items = PrintItems::new(context.arena);
+  items.push_sc(sc!("this"));
+  items.extend(gen_type_ann_with_colon_if_exists(node.type_ann, context));
   items
 }
 
@@ -11320,7 +11348,7 @@ fn assert_has_op<'a>(op: &str, op_token: Option<&TokenAndSpan>, context: &mut Co
 
 fn use_new_line_group_for_arrow_body<'a>(arrow_expr: &'a ArrowExpr<'a>, context: &Context<'a>) -> bool {
   match &arrow_expr.body {
-    BlockStmtOrExpr::Expr(expr) => match expr {
+    ArrowFunctionBody::Expr(expr) => match expr {
       Expr::Paren(paren) => match paren.expr {
         Expr::Object(_) => false,
         _ => !is_jsx_paren_expr_handled_node(paren.expr.into(), context),
@@ -11344,6 +11372,16 @@ fn gen_line_numbers_region_start<'a>(arena: &'a Arena, line_numbers: &[LineNumbe
     region.add(*line_number);
   }
   region.gen_start(arena)
+}
+
+/// Gets the parameters of a function, which starts with its `this` parameter.
+fn get_function_params<'a>(function: &Function<'a>, context: &Context<'a>) -> BumpVec<'a, Node<'a>> {
+  let mut params = BumpVec::with_capacity_in(function.params.len() + 1, context.arena.bump());
+  if let Some(this_param) = function.this_param {
+    params.push(this_param.into());
+  }
+  params.extend(function.params.iter().map(|&param| Node::from(param)));
+  params
 }
 
 fn surround_with_parens<'a>(items: PrintItems<'a>) -> PrintItems<'a> {
@@ -11428,7 +11466,7 @@ fn binary_op_sc(binary_op: BinaryOp) -> &'static StringContainer<'static> {
 fn is_arrow_function_with_expr_body(node: Node) -> bool {
   match node {
     Node::ExprOrSpread(expr_or_spread) => match expr_or_spread.expr {
-      Expr::Arrow(arrow) => matches!(&arrow.body, BlockStmtOrExpr::Expr(_)),
+      Expr::Arrow(arrow) => matches!(&arrow.body, ArrowFunctionBody::Expr(_)),
       _ => false,
     },
     _ => false,
