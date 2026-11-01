@@ -1,5 +1,5 @@
 # Files in https://github.com/denoland/deno at 87c5ddbdc92ed65385dc0800dc66645620331080 that are still
-# changing after being formatted 10 times, whose formatted text does not parse, or that panic.
+# changing after being formatted 20 times, whose formatted text does not parse, or that panic.
 #
 # The corpus is that commit with these submodules initialized at the commits it records:
 #   tests/bench/testdata/lsp_benchdata, tests/node_compat/runner/suite, tests/util/std, tests/wpt/suite

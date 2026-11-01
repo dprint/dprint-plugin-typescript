@@ -10193,26 +10193,6 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
     Signal::SpaceOrNewLine.into_print_items(context.arena),
   );
   let inner_brace_space_condition_ref = inner_brace_space_condition.create_reference();
-  let mut newline_condition = if_true(
-    "newLineCondition",
-    context.arena.alloc_resolver(move |condition_context| {
-      if is_body_empty_stmt {
-        return Some(false);
-      }
-
-      if should_use_new_line {
-        return Some(true);
-      }
-      let end_header_ln = condition_context.resolved_line_number(end_header_ln?)?;
-      if end_header_ln < condition_context.writer_info.line_number {
-        return Some(true);
-      }
-      let resolved_end_statements_ln = condition_context.resolved_line_number(end_statements_lc.line)?;
-      Some(resolved_end_statements_ln > end_header_ln)
-    }),
-    Signal::NewLine.into_print_items(context.arena),
-  );
-  let newline_condition_ref = newline_condition.create_reference();
   let force_braces = get_force_braces(opts.body_node);
   let mut open_brace_condition = if_true(
     "openBrace",
@@ -10281,6 +10261,44 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
   );
   let open_brace_condition_reevaluation = open_brace_condition.create_reevaluation();
   let open_brace_condition_ref = open_brace_condition.create_reference();
+  // whether the body prints anything, where a block with only empty statements doesn't
+  let body_has_content = match opts.body_node {
+    Node::BlockStmt(block) => {
+      block.stmts.iter().any(|stmt| stmt.kind() != NodeKind::EmptyStmt)
+        || block.get_inner_range(context).start().trailing_comments_fast(context.program).next().is_some()
+    }
+    _ => !is_body_empty_stmt,
+  };
+  let mut newline_condition = if_true(
+    "newLineCondition",
+    context.arena.alloc_resolver(move |condition_context| {
+      if is_body_empty_stmt {
+        return Some(false);
+      }
+
+      if should_use_new_line {
+        return Some(true);
+      }
+      // A body with braces needs a space or newline after the open brace. The space was resolved
+      // earlier, so when it isn't there the statements go on the next line. Otherwise, after going
+      // back to an earlier point, this could be resolved from where the statements ended before and
+      // the statements would be right after the open brace (ex. `{if (a) {`).
+      if body_has_content
+        && condition_context.resolved_condition(&open_brace_condition_ref) == Some(true)
+        && condition_context.resolved_condition(&inner_brace_space_condition_ref) == Some(false)
+      {
+        return Some(true);
+      }
+      let end_header_ln = condition_context.resolved_line_number(end_header_ln?)?;
+      if end_header_ln < condition_context.writer_info.line_number {
+        return Some(true);
+      }
+      let resolved_end_statements_ln = condition_context.resolved_line_number(end_statements_lc.line)?;
+      Some(resolved_end_statements_ln > end_header_ln)
+    }),
+    Signal::NewLine.into_print_items(context.arena),
+  );
+  let newline_condition_ref = newline_condition.create_reference();
 
   // store the brace condition if ASI and the body is an expression statement
   if context.config.semi_colons == SemiColons::Asi && node_helpers::is_expr_stmt_or_body_with_single_expr_stmt(opts.body_node) {

@@ -14,7 +14,7 @@ See [here](https://github.com/dprint/dprint/tree/main/crates/development#test-sp
 
 ## Corpus test
 
-The specs are small, so the corpus test also formats real files and reports the files that are still changing after being formatted 10 times, whose formatted text doesn't parse, or that panic. It only counts the files that change when formatted again but stop changing after a few formats. It's skipped unless the `DPRINT_TS_CORPUS` environment variable is set to the corpus directories.
+The specs are small, so the corpus test also formats real files and reports the files that are still changing after being formatted 20 times, whose formatted text doesn't parse, or that panic. It only counts the files that change when formatted again but stop changing after a few formats. It's skipped unless the `DPRINT_TS_CORPUS` environment variable is set to the corpus directories.
 
 For example, with deno checked out at the commit in `tests/corpus_baselines/deno.txt`:
 

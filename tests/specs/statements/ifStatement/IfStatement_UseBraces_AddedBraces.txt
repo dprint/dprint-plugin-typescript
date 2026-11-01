@@ -1,0 +1,81 @@
+~~ indentWidth: 2 ~~
+== should put the statements on the next line when braces are added without a space ==
+function forEachResolution(resolutionCache, callback, file) {
+  var _a2;
+  if (file) (_a2 = resolutionCache == null ? void 0 : resolutionCache.get(file.path)) == null ? void 0 : _a2.forEach((resolution, name, mode) => callback(resolution, name, mode, file.path));
+  else resolutionCache == null ? void 0 : resolutionCache.forEach((resolutions, filePath) => resolutions.forEach((resolution, name, mode) => callback(resolution, name, mode, filePath)));
+}
+
+[expect]
+function forEachResolution(resolutionCache, callback, file) {
+  var _a2;
+  if (file) {
+    (_a2 = resolutionCache == null ? void 0 : resolutionCache.get(file.path)) == null
+      ? void 0
+      : _a2.forEach((resolution, name, mode) => callback(resolution, name, mode, file.path));
+  } else {
+    resolutionCache == null
+      ? void 0
+      : resolutionCache.forEach((resolutions, filePath) =>
+        resolutions.forEach((resolution, name, mode) => callback(resolution, name, mode, filePath))
+      );
+  }
+}
+
+== should not keep flipping between adding braces and the arguments being multi-line ==
+function f(){x({x:[function(t,i,n){x=function(t){for(var i;x;++e){x,x?(("if(%s!=null&&Object.hasOwnProperty.call(m,%j)){")("for(var ks=Object.keys(%s),i=0;i<ks.length;++i){")("w.uint32(%i).fork().uint32(%i).%s(ks[i])",(s.id<<3|2)>>>0,8|c.mapKey[s.keyType],s.keyType)):x}};}],x:[function(t,i,n){function c(t,i,n,r){if(x)if(x){x;x}else t("{")("var e=types[%i].verify(%s);",n,r)("if(e)")("return%j+e",i.name+".")("}");else switch(x){case"int32":case"uint32":case"sint32":case"fixed32":case"sfixed32":case"int64":case"uint64":case"sint64":case"fixed64":case"sfixed64":case"float":case"double":case"bool":case"string":case"bytes":}}}]},x,x)}
+
+[expect]
+function f() {
+  x(
+    {
+      x: [function(t, i, n) {
+        x = function(t) {
+          for (var i; x; ++e) {
+            x,
+              x
+                ? (("if(%s!=null&&Object.hasOwnProperty.call(m,%j)){")(
+                  "for(var ks=Object.keys(%s),i=0;i<ks.length;++i){",
+                )(
+                  "w.uint32(%i).fork().uint32(%i).%s(ks[i])",
+                  (s.id << 3 | 2) >>> 0,
+                  8 | c.mapKey[s.keyType],
+                  s.keyType,
+                ))
+                : x;
+          }
+        };
+      }],
+      x: [function(t, i, n) {
+        function c(t, i, n, r) {
+          if (x) {
+            if (x) {
+              x;
+              x;
+            } else t("{")("var e=types[%i].verify(%s);", n, r)("if(e)")("return%j+e", i.name + ".")("}");
+          } else {
+            switch (x) {
+              case "int32":
+              case "uint32":
+              case "sint32":
+              case "fixed32":
+              case "sfixed32":
+              case "int64":
+              case "uint64":
+              case "sint64":
+              case "fixed64":
+              case "sfixed64":
+              case "float":
+              case "double":
+              case "bool":
+              case "string":
+              case "bytes":
+            }
+          }
+        }
+      }],
+    },
+    x,
+    x,
+  );
+}

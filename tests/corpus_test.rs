@@ -39,7 +39,7 @@ use dprint_plugin_typescript::format_text;
 
 const EXTENSIONS: &[&str] = &["ts", "tsx", "js", "jsx", "mts", "cts", "mjs", "cjs"];
 /// The number of times a file is formatted to see if its formatting stops changing.
-const MAX_FORMATS: usize = 10;
+const MAX_FORMATS: usize = 20;
 const SKIPPED_DIR_NAMES: &[&str] = &["node_modules", ".git", "target"];
 
 fn main() {
