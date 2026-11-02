@@ -11101,19 +11101,23 @@ fn gen_assignment_like_with_token<'a>(
   let had_op_trailing_comments = !op_trailing_comments.is_empty();
   items.extend(op_trailing_comments);
 
+  let right_start_ln = LineNumber::new("assignmentRightStart");
+  let is_newline_decided_top_down = !had_op_trailing_comments && should_decide_assignment_newline_top_down(expr, op);
   let generated_assignment = {
     let mut items = PrintItems::new(context.arena);
     if !had_op_trailing_comments {
       items.push_condition(conditions::if_above_width_or(
         context.config.indent_width,
-        {
-          let mut items = PrintItems::new(context.arena);
-          items.push_signal(Signal::SpaceIfNotTrailing);
-          items.push_signal(Signal::PossibleNewLine);
-          items
+        if is_newline_decided_top_down {
+          gen_newline_if_right_first_line_does_not_fit(right_start_ln, context)
+        } else {
+          gen_space_or_possible_newline(context)
         },
         Signal::SpaceIfNotTrailing.into_print_items(context.arena),
       ));
+    }
+    if is_newline_decided_top_down {
+      items.push_info(right_start_ln);
     }
     let assignment = gen_node(expr, context);
     let assignment = if had_op_trailing_comments {
@@ -11143,6 +11147,71 @@ fn gen_assignment_like_with_token<'a>(
   fn get_use_new_line_group(expr: Node) -> bool {
     matches!(expr, Node::MemberExpr(_))
   }
+}
+
+/// Gets if the newline after an assignment's operator is decided before printing the right side.
+///
+/// Otherwise the line breaks there when the right side is printed and goes past the line width,
+/// even when the right side would have broken within itself anyway. Like prettier, the right
+/// sides that break after their operators, and the ones that can't break usefully, still do.
+fn should_decide_assignment_newline_top_down(expr: Node, op: &StringContainer) -> bool {
+  // not for type annotations or properties
+  let is_assignment = op.text != ":"
+    && expr
+      .parent()
+      .is_some_and(|parent| matches!(parent.kind(), NodeKind::VarDeclarator | NodeKind::AssignExpr));
+  let breaks_after_operator = match expr {
+    Node::BinExpr(_) | Node::CondExpr(_) | Node::Str(_) | Node::Tpl(_) => true,
+    // a curried arrow function puts each arrow on its own line after the operator
+    Node::ArrowExpr(arrow) => matches!(arrow.body, ArrowFunctionBody::Expr(Expr::Arrow(_))),
+    // a member expression that ends with a property can only break before it, which isn't better
+    _ => is_member_expr_ending_with_property(expr),
+  };
+  is_assignment && !breaks_after_operator
+}
+
+fn is_member_expr_ending_with_property(node: Node) -> bool {
+  match node {
+    Node::TsAsExpr(expr) => is_member_expr_ending_with_property(expr.expr.into()),
+    Node::TsSatisfiesExpr(expr) => is_member_expr_ending_with_property(expr.expr.into()),
+    Node::TsNonNullExpr(expr) => is_member_expr_ending_with_property(expr.expr.into()),
+    Node::MemberExpr(_) => true,
+    _ => false,
+  }
+}
+
+/// Generates a newline after an assignment's operator when the first line of the right side,
+/// up to where it could break, doesn't fit after it.
+fn gen_newline_if_right_first_line_does_not_fit<'a>(right_start_ln: LineNumber, context: &mut Context<'a>) -> PrintItems<'a> {
+  let decided_top_down = if_true_or(
+    "newLineIfRightFirstLineDoesNotFit",
+    context
+      .arena
+      .alloc_resolver(move |context| context.fits_on_line_until_first_break(right_start_ln).map(|fits| !fits)),
+    Signal::NewLine.into_print_items(context.arena),
+    {
+      let mut items = PrintItems::new(context.arena);
+      items.push_signal(Signal::SpaceIfNotTrailing);
+      // it stays on this line, so a later line that's too long shouldn't break before here
+      items.push_signal(Signal::KeepLineBeforeHere);
+      items
+    },
+  );
+  // the line breaks earlier first when it can, which is only found out by printing
+  if_true_or(
+    "assignmentCanBreakEarlierOnLine",
+    context.arena.alloc_resolver(|context| Some(context.can_break_earlier_on_line())),
+    gen_space_or_possible_newline(context),
+    decided_top_down.into_print_items(context.arena),
+  )
+  .into_print_items(context.arena)
+}
+
+fn gen_space_or_possible_newline<'a>(context: &Context<'a>) -> PrintItems<'a> {
+  let mut items = PrintItems::new(context.arena);
+  items.push_signal(Signal::SpaceIfNotTrailing);
+  items.push_signal(Signal::PossibleNewLine);
+  items
 }
 
 struct GenBlockOptions<'a> {

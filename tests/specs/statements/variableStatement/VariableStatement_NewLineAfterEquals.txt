@@ -1,0 +1,24 @@
+~~ lineWidth: 80, indentWidth: 2 ~~
+== should not break after the equals sign when the first line of the right side fits after it ==
+var requireShim = (e => typeof require < "u" ? require : typeof Proxy < "u" ? new Proxy(e, {}) : e)(function(e) { throw Error("Dynamic require of " + e); });
+
+[expect]
+var requireShim = (e =>
+  typeof require < "u" ? require : typeof Proxy < "u" ? new Proxy(e, {}) : e)(
+    function(e) {
+      throw Error("Dynamic require of " + e);
+    },
+  );
+
+== should break after the equals sign when the right side is a member expression ==
+this.anticipatedConcurrentIncomingBidirectionalStreams = options.anticipatedConcurrentIncomingBidirectionalStreams;
+
+[expect]
+this.anticipatedConcurrentIncomingBidirectionalStreams =
+  options.anticipatedConcurrentIncomingBidirectionalStreams;
+
+== should not count a trailing comment towards the line width ==
+const ACRONYM_REGEXP = /\p{Lu}+(?=(\p{Lu}\p{Ll})|\P{L}|\b)/u; // e.g. ID, URL, handles an acronym followed by a word
+
+[expect]
+const ACRONYM_REGEXP = /\p{Lu}+(?=(\p{Lu}\p{Ll})|\P{L}|\b)/u; // e.g. ID, URL, handles an acronym followed by a word
