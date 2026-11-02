@@ -7195,13 +7195,23 @@ fn gen_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -
   }
 
   fn get_use_new_lines<'a>(node: &TypeParamNode, params: &[Node], context: &mut Context<'a>) -> bool {
-    if context.config.type_parameters_prefer_single_line || params.is_empty() {
+    if context.config.type_parameters_prefer_single_line || params.is_empty() || is_in_tpl_lit_type_substitution(node) {
       false
     } else {
       let first_param = &params[0];
       let angle_bracket_pos = node.start();
       node_helpers::get_use_new_lines_for_nodes(&angle_bracket_pos, first_param, context.program)
     }
+  }
+
+  /// A substitution in a template literal type goes on its own line when it doesn't fit, so its
+  /// type arguments don't keep the line breaks that older versions put in them instead.
+  fn is_in_tpl_lit_type_substitution(node: &TypeParamNode) -> bool {
+    let TypeParamNode::Instantiation(node) = node else {
+      return false;
+    };
+    let parent = node.parent();
+    matches!(parent.kind(), NodeKind::TsTypeRef | NodeKind::TsTypeQuery) && parent.parent().is_some_and(|p| p.kind() == NodeKind::TsTplLitType)
   }
 }
 
