@@ -233,7 +233,7 @@ dependencies = [
 [[package]]
 name = "dprint-core"
 version = "0.75.0"
-source = "git+https://github.com/dprint/dprint?branch=core-fits-on-line#653e1bd0c09c08992e2f559adac4ccff9ab0b4b3"
+source = "git+https://github.com/dprint/dprint?branch=core-fits-on-line#6ff023bb15089246cdb8a900d29c9cf5e8ca35d9"
 dependencies = [
  "bumpalo",
  "hashbrown 0.15.5",

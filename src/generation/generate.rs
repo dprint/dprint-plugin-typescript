@@ -11538,6 +11538,10 @@ impl<'a> LastItemLine<'a> {
   /// Generates the items for the start of the member expression.
   fn gen_start(self, arena: &'a Arena) -> PrintItems<'a> {
     actions::action(arena, "memberExprLastItemLineStart", move |context| {
+      if context.is_measuring() {
+        // what's resolved while measuring is undone, so this state shouldn't change either
+        return;
+      }
       let start = (context.writer_info.line_number, context.writer_info.column_number);
       let last_start = self.start.replace(Some(start));
       if last_start.is_none() || last_start == Some(start) {
@@ -11559,6 +11563,9 @@ impl<'a> LastItemLine<'a> {
   /// Generates the items for right after the line number is resolved.
   fn gen_resolved(self, arena: &'a Arena) -> PrintItems<'a> {
     actions::action(arena, "memberExprLastItemLineResolved", move |context| {
+      if context.is_measuring() {
+        return;
+      }
       let Some((start_line, start_column)) = self.start.get() else {
         return;
       };
