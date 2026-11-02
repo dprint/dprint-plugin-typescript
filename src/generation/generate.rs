@@ -8622,11 +8622,20 @@ fn gen_node_with_comments_before_semicolon_on_later_line<'a>(
     }
     _ => gen_comments_as_statements(comments.into_iter(), Some(&node_range), context),
   };
+  // the semicolon is the start of the next statement's line (ex. `;(a)()`), unless nothing
+  // comes after it on its line, which is then the last line of this node
+  let is_semicolon_on_own_line = semicolon
+    .next_token_fast(program)
+    .is_none_or(|token| token.start_line_fast(program) > semicolon.end_line_fast(program));
   GeneratedNodeWithCommentsAfter {
     node_items,
     comment_items,
     comment_range,
-    last_range: comment_range.unwrap_or(node_range),
+    last_range: if is_semicolon_on_own_line {
+      SourceRange::new(node.start(), semicolon.end())
+    } else {
+      comment_range.unwrap_or(node_range)
+    },
   }
 }
 
@@ -8851,7 +8860,8 @@ where
   FGetForcedBlankLineCount: Fn(Node<'a>, Node<'a>, &mut Context<'a>) -> Option<usize>,
 {
   let mut last_node: Option<Node> = None;
-  // the comments that were before a semicolon on a later line, which are generated after the member
+  // where the comments that were before a semicolon on a later line end, which are generated after
+  // the member (it's the semicolon when it's on its own line)
   let mut last_comment_range: Option<SourceRange> = None;
   // whether the forced blank lines to the next member were added before those comments
   let mut forced_blank_lines_before_comments = false;
@@ -8936,7 +8946,7 @@ where
 
       forced_blank_lines_before_comments =
         blank_lines_before_comments.is_some() && (generated.comment_range.is_some() || has_comment_on_later_line_before_comma(node, context.program));
-      last_comment_range = generated.comment_range;
+      last_comment_range = generated.comment_range.map(|_| generated.last_range);
       last_node = Some(node);
     } else {
       items.extend(gen_member_or_member_expr_stmt_comments(node, context));
