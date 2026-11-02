@@ -1,0 +1,15 @@
+-- file.tsx --
+~~ trailingCommas: never ~~
+== should keep the trailing comma in expression type parameters when it's needed in a jsx file ==
+const Test1 = <T,>() => false;
+const Test2 = function<T,>() {};
+const Test3 = <T, U,>() => false;
+function test<T,>() {
+}
+
+[expect]
+const Test1 = <T,>() => false;
+const Test2 = function<T,>() {};
+const Test3 = <T, U>() => false;
+function test<T>() {
+}
