@@ -9890,6 +9890,7 @@ fn gen_for_member_like_expr_item<'a>(item: &MemberLikeExprItem<'a>, context: &mu
 fn gen_for_flattened_member_like_expr<'a>(node: FlattenedMemberLikeExpr<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
   let mut items = PrintItems::new(context.arena);
   let member_expr_start_ln = LineNumber::new("memberExprStart");
+  let member_expr_start_cn = ColumnNumber::new("memberExprStartColumn");
   let member_expr_last_item_start_ln = LineNumber::new("memberExprStartLastItem");
   let total_items_len = node.nodes.len();
   let last_item_line = if context.config.member_expression_line_per_expression && total_items_len > 1 {
@@ -9901,13 +9902,15 @@ fn gen_for_flattened_member_like_expr<'a>(node: FlattenedMemberLikeExpr<'a>, con
   if total_items_len > 1 {
     items.push_info(member_expr_start_ln);
     if let Some(last_item_line) = last_item_line {
+      items.push_info(member_expr_start_cn);
       items.extend(last_item_line.gen_start(context.arena));
     }
   }
 
   items.extend(gen_for_member_like_expr_item(&node.nodes[0], context, 0, total_items_len));
 
-  let mut first_multi_line_reevaluation = None;
+  // the first condition might not be printed when the first item is short, so check the first two
+  let mut multi_line_reevaluations = Vec::with_capacity(2);
   for (i, item) in node.nodes.iter().enumerate().skip(1) {
     let force_use_new_line =
       !context.config.member_expression_prefer_single_line && node_helpers::get_use_new_lines_for_nodes(&node.nodes[i - 1], &node.nodes[i], context.program);
@@ -9928,10 +9931,26 @@ fn gen_for_flattened_member_like_expr<'a>(node: FlattenedMemberLikeExpr<'a>, con
           Signal::NewLine.into_print_items(context.arena),
           Signal::PossibleNewLine.into_print_items(context.arena),
         );
-        if first_multi_line_reevaluation.is_none() {
-          first_multi_line_reevaluation = Some(condition.create_reevaluation());
+        if multi_line_reevaluations.len() < 2 {
+          multi_line_reevaluations.push(condition.create_reevaluation());
         }
-        items.push_condition(condition);
+        if i == 1 {
+          // keep the second item on the first line when the first item isn't wider than
+          // the indent, because breaking after it wouldn't make the lines any shorter
+          let indent_width = context.config.indent_width as u32;
+          items.push_condition(if_false(
+            "isFirstItemNarrowerThanIndent",
+            context.arena.alloc_resolver(move |context| {
+              let start_line = context.resolved_line_number(member_expr_start_ln)?;
+              let start_column = context.resolved_column_number(member_expr_start_cn)?;
+              let writer_info = &context.writer_info;
+              Some(writer_info.line_number == start_line && writer_info.column_number - start_column <= indent_width)
+            }),
+            condition.into_print_items(context.arena),
+          ));
+        } else {
+          items.push_condition(condition);
+        }
       }
     }
 
@@ -9944,7 +9963,7 @@ fn gen_for_flattened_member_like_expr<'a>(node: FlattenedMemberLikeExpr<'a>, con
       }
       // when only the last item exceeds the line width, it moves to the next line after the
       // conditions were resolved, so check again to put every item on its own line
-      if let Some(reevaluation) = first_multi_line_reevaluation.take() {
+      for reevaluation in multi_line_reevaluations.drain(..) {
         items.push_reevaluation(reevaluation);
       }
     }

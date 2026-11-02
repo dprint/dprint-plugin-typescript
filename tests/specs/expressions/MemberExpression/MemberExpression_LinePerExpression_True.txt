@@ -30,10 +30,22 @@ testing
 foo.bar(a0.b0(a1.b1(a2.b2(z.y)))).end.more;
 
 [expect]
-foo
-    .bar(a0.b0(a1.b1(a2.b2(z.y))))
+foo.bar(a0.b0(a1.b1(a2.b2(z.y))))
     .end
     .more;
+
+== should keep the second item on the first line when the first item isn't wider than the indent ==
+this.someService.someRepository.findAllItems;
+foo.someService.someRepository.findAllItems.byIdentifier;
+
+[expect]
+this.someService
+    .someRepository
+    .findAllItems;
+foo.someService
+    .someRepository
+    .findAllItems
+    .byIdentifier;
 
 == should maintain single line when it fits after moving to the next line at the same column ==
 function f() {
