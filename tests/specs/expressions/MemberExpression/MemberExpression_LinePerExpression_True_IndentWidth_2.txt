@@ -1,0 +1,19 @@
+~~ lineWidth: 40, indentWidth: 2, memberExpression.linePerExpression: true ~~
+== should put the second item on its own line when the first item is wider than the indent ==
+foo.someService.someRepository.findAllItems.byId;
+
+[expect]
+foo
+  .someService
+  .someRepository
+  .findAllItems
+  .byId;
+
+== should keep the second item on the first line when the first item isn't wider than the indent ==
+ab.someService.someRepository.findAllItems.byId;
+
+[expect]
+ab.someService
+  .someRepository
+  .findAllItems
+  .byId;

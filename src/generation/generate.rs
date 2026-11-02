@@ -19,6 +19,8 @@ use dprint_swc_ext::swc::parser::token::Token;
 use dprint_swc_ext::swc::parser::token::TokenAndSpan;
 use dprint_swc_ext::view::*;
 use std::borrow::Cow;
+use std::cell::Cell;
+use std::cell::RefCell;
 
 use super::imports::classify::classify_import;
 use super::imports::partition::partition_indices;
@@ -9888,15 +9890,27 @@ fn gen_for_member_like_expr_item<'a>(item: &MemberLikeExprItem<'a>, context: &mu
 fn gen_for_flattened_member_like_expr<'a>(node: FlattenedMemberLikeExpr<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
   let mut items = PrintItems::new(context.arena);
   let member_expr_start_ln = LineNumber::new("memberExprStart");
+  let member_expr_start_cn = ColumnNumber::new("memberExprStartColumn");
   let member_expr_last_item_start_ln = LineNumber::new("memberExprStartLastItem");
   let total_items_len = node.nodes.len();
+  let last_item_line = if context.config.member_expression_line_per_expression && total_items_len > 1 {
+    Some(LastItemLine::new(member_expr_last_item_start_ln, context.arena))
+  } else {
+    None
+  };
 
   if total_items_len > 1 {
     items.push_info(member_expr_start_ln);
+    if let Some(last_item_line) = last_item_line {
+      items.push_info(member_expr_start_cn);
+      items.extend(last_item_line.gen_start(context.arena));
+    }
   }
 
   items.extend(gen_for_member_like_expr_item(&node.nodes[0], context, 0, total_items_len));
 
+  // the first condition might not be printed when the first item is short, so check the first two
+  let mut multi_line_reevaluations = Vec::with_capacity(2);
   for (i, item) in node.nodes.iter().enumerate().skip(1) {
     let force_use_new_line =
       !context.config.member_expression_prefer_single_line && node_helpers::get_use_new_lines_for_nodes(&node.nodes[i - 1], &node.nodes[i], context.program);
@@ -9909,14 +9923,34 @@ fn gen_for_flattened_member_like_expr<'a>(node: FlattenedMemberLikeExpr<'a>, con
           Signal::PossibleNewLine.into_print_items(context.arena),
         ));
       } else {
-        items.push_condition(if_true_or(
+        let mut condition = if_true_or(
           "isMultipleLines",
           context
             .arena
             .alloc_resolver(move |context| condition_helpers::is_multiple_lines(context, member_expr_start_ln, member_expr_last_item_start_ln)),
           Signal::NewLine.into_print_items(context.arena),
           Signal::PossibleNewLine.into_print_items(context.arena),
-        ));
+        );
+        if multi_line_reevaluations.len() < 2 {
+          multi_line_reevaluations.push(condition.create_reevaluation());
+        }
+        if i == 1 {
+          // keep the second item on the first line when the first item isn't wider than
+          // the indent, because breaking after it wouldn't make the lines any shorter
+          let indent_width = context.config.indent_width as u32;
+          items.push_condition(if_false(
+            "isFirstItemNarrowerThanIndent",
+            context.arena.alloc_resolver(move |context| {
+              let start_line = context.resolved_line_number(member_expr_start_ln)?;
+              let start_column = context.resolved_column_number(member_expr_start_cn)?;
+              let writer_info = &context.writer_info;
+              Some(writer_info.line_number == start_line && writer_info.column_number - start_column <= indent_width)
+            }),
+            condition.into_print_items(context.arena),
+          ));
+        } else {
+          items.push_condition(condition);
+        }
       }
     }
 
@@ -9924,6 +9958,14 @@ fn gen_for_flattened_member_like_expr<'a>(node: FlattenedMemberLikeExpr<'a>, con
     if is_last_item {
       // store this right before the last right expression
       items.push_info(member_expr_last_item_start_ln);
+      if let Some(last_item_line) = last_item_line {
+        items.extend(last_item_line.gen_resolved(context.arena));
+      }
+      // when only the last item exceeds the line width, it moves to the next line after the
+      // conditions were resolved, so check again to put every item on its own line
+      for reevaluation in multi_line_reevaluations.drain(..) {
+        items.push_reevaluation(reevaluation);
+      }
     }
 
     let generated_item = gen_for_member_like_expr_item(item, context, i, total_items_len);
@@ -11390,6 +11432,78 @@ fn gen_line_numbers_region_start<'a>(arena: &'a Arena, line_numbers: &[LineNumbe
     region.add(*line_number);
   }
   region.gen_start(arena)
+}
+
+/// The line of the last item of a member expression, which `isMultipleLines` conditions
+/// compare with the line the member expression starts on.
+///
+/// The printer keeps resolved infos when it goes back to an earlier point, so when the
+/// member expression is printed again at a different position, this line is from where it
+/// was printed before. If it was on a later line, the stale value would keep the member
+/// expression broken, which then keeps it on a later line, so it needs to be worked out
+/// again. If it was on the same line, the member expression fit there and the line width
+/// breaks it if it no longer does, so it can be moved instead, which avoids printing
+/// member expressions nested in it again each time.
+#[derive(Clone, Copy)]
+struct LastItemLine<'a> {
+  line_number: LineNumber,
+  start: &'a Cell<Option<(u32, u32)>>,
+  /// The column numbers where it started on the same line as its last item.
+  single_line_columns: &'a RefCell<BumpVec<'a, u32>>,
+  /// The resolved line number, without looking ahead to it.
+  resolved: &'a Cell<Option<u32>>,
+}
+
+impl<'a> LastItemLine<'a> {
+  fn new(line_number: LineNumber, arena: &'a Arena) -> Self {
+    Self {
+      line_number,
+      start: arena.bump().alloc(Cell::new(None)),
+      single_line_columns: arena.bump().alloc(RefCell::new(BumpVec::new_in(arena.bump()))),
+      resolved: arena.bump().alloc(Cell::new(None)),
+    }
+  }
+
+  /// Generates the items for the start of the member expression.
+  fn gen_start(self, arena: &'a Arena) -> PrintItems<'a> {
+    actions::action(arena, "memberExprLastItemLineStart", move |context| {
+      let start = (context.writer_info.line_number, context.writer_info.column_number);
+      let last_start = self.start.replace(Some(start));
+      if last_start.is_none() || last_start == Some(start) {
+        return;
+      }
+      let Some(resolved) = self.resolved.get() else {
+        return;
+      };
+      if self.single_line_columns.borrow().contains(&start.1) {
+        context.shift_line_number(self.line_number, start.0 as isize - resolved as isize);
+        self.resolved.set(Some(start.0));
+      } else {
+        context.clear_info(self.line_number);
+        self.resolved.set(None);
+      }
+    })
+  }
+
+  /// Generates the items for right after the line number is resolved.
+  fn gen_resolved(self, arena: &'a Arena) -> PrintItems<'a> {
+    actions::action(arena, "memberExprLastItemLineResolved", move |context| {
+      let Some((start_line, start_column)) = self.start.get() else {
+        return;
+      };
+      let line_number = context.writer_info.line_number;
+      self.resolved.set(Some(line_number));
+      let mut single_line_columns = self.single_line_columns.borrow_mut();
+      let index = single_line_columns.iter().position(|column| *column == start_column);
+      match (line_number == start_line, index) {
+        (true, None) => single_line_columns.push(start_column),
+        (false, Some(index)) => {
+          single_line_columns.swap_remove(index);
+        }
+        _ => {}
+      }
+    })
+  }
 }
 
 /// Gets the parameters of a function, which starts with its `this` parameter.
