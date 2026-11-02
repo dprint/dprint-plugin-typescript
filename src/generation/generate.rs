@@ -7156,9 +7156,6 @@ fn gen_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -
 
   fn get_trailing_commas<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -> TrailingCommas {
     let trailing_commas = context.config.type_parameters_trailing_commas;
-    if trailing_commas == TrailingCommas::Never {
-      return trailing_commas;
-    }
 
     // trailing commas should be allowed in type parameters only—not arguments
     if let Some(type_params) = node.parent().get_type_parameters() {
@@ -7195,13 +7192,23 @@ fn gen_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -
   }
 
   fn get_use_new_lines<'a>(node: &TypeParamNode, params: &[Node], context: &mut Context<'a>) -> bool {
-    if context.config.type_parameters_prefer_single_line || params.is_empty() {
+    if context.config.type_parameters_prefer_single_line || params.is_empty() || is_in_tpl_lit_type_substitution(node) {
       false
     } else {
       let first_param = &params[0];
       let angle_bracket_pos = node.start();
       node_helpers::get_use_new_lines_for_nodes(&angle_bracket_pos, first_param, context.program)
     }
+  }
+
+  /// A substitution in a template literal type goes on its own line when it doesn't fit, so its
+  /// type arguments don't keep the line breaks that older versions put in them instead.
+  fn is_in_tpl_lit_type_substitution(node: &TypeParamNode) -> bool {
+    let TypeParamNode::Instantiation(node) = node else {
+      return false;
+    };
+    let parent = node.parent();
+    matches!(parent.kind(), NodeKind::TsTypeRef | NodeKind::TsTypeQuery) && parent.parent().is_some_and(|p| p.kind() == NodeKind::TsTplLitType)
   }
 }
 
@@ -8622,11 +8629,20 @@ fn gen_node_with_comments_before_semicolon_on_later_line<'a>(
     }
     _ => gen_comments_as_statements(comments.into_iter(), Some(&node_range), context),
   };
+  // the semicolon is the start of the next statement's line (ex. `;(a)()`), unless nothing
+  // comes after it on its line, which is then the last line of this node
+  let is_semicolon_on_own_line = semicolon
+    .next_token_fast(program)
+    .is_none_or(|token| token.start_line_fast(program) > semicolon.end_line_fast(program));
   GeneratedNodeWithCommentsAfter {
     node_items,
     comment_items,
     comment_range,
-    last_range: comment_range.unwrap_or(node_range),
+    last_range: if is_semicolon_on_own_line {
+      SourceRange::new(node.start(), semicolon.end())
+    } else {
+      comment_range.unwrap_or(node_range)
+    },
   }
 }
 
@@ -8851,7 +8867,8 @@ where
   FGetForcedBlankLineCount: Fn(Node<'a>, Node<'a>, &mut Context<'a>) -> Option<usize>,
 {
   let mut last_node: Option<Node> = None;
-  // the comments that were before a semicolon on a later line, which are generated after the member
+  // where the comments that were before a semicolon on a later line end, which are generated after
+  // the member (it's the semicolon when it's on its own line)
   let mut last_comment_range: Option<SourceRange> = None;
   // whether the forced blank lines to the next member were added before those comments
   let mut forced_blank_lines_before_comments = false;
@@ -8936,7 +8953,7 @@ where
 
       forced_blank_lines_before_comments =
         blank_lines_before_comments.is_some() && (generated.comment_range.is_some() || has_comment_on_later_line_before_comma(node, context.program));
-      last_comment_range = generated.comment_range;
+      last_comment_range = generated.comment_range.map(|_| generated.last_range);
       last_node = Some(node);
     } else {
       items.extend(gen_member_or_member_expr_stmt_comments(node, context));

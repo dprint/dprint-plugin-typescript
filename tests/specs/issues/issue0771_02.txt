@@ -72,3 +72,50 @@ class A {
     // c
     [b]() {}
 }
+
+== should not add a blank line after a semicolon on its own line ==
+const a = (b // c
+  .d) // e
+;
+const f = 1;
+
+const g = h
+;
+
+const i = 1;
+
+[expect]
+const a = b // c
+    .d // e
+;
+const f = 1;
+
+const g = h;
+
+const i = 1;
+
+== should not add a blank line after the comments before a semicolon on its own line ==
+const j = k
+// l
+;
+const m = 1;
+
+[expect]
+const j = k;
+// l
+const m = 1;
+
+== should not add a blank line after the comments before a semicolon on its own line in a class ==
+class A {
+    a = 1
+    // c
+    ;
+    b = 2
+}
+
+[expect]
+class A {
+    a = 1;
+    // c
+    b = 2;
+}
