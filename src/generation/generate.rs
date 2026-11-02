@@ -7156,9 +7156,6 @@ fn gen_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -
 
   fn get_trailing_commas<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -> TrailingCommas {
     let trailing_commas = context.config.type_parameters_trailing_commas;
-    if trailing_commas == TrailingCommas::Never {
-      return trailing_commas;
-    }
 
     // trailing commas should be allowed in type parameters only—not arguments
     if let Some(type_params) = node.parent().get_type_parameters() {
