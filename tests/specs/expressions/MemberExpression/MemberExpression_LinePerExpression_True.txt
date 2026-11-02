@@ -78,3 +78,11 @@ testing
 testing
     .this
     .out;
+
+== should not break a member expression that fits after a shebang ==
+#!/usr/bin/env node
+console.log("1.0.0");
+
+[expect]
+#!/usr/bin/env node
+console.log("1.0.0");

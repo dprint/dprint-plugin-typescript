@@ -4997,14 +4997,16 @@ fn gen_program<'a, 'b>(node: ProgramInfo<'a, 'b>, context: &mut Context<'a>) -> 
   if let Some(shebang) = node.shebang {
     items.push_sc(sc!("#!"));
     items.push_str(shebang);
-    items.push_signal(Signal::ExpectNewLine);
     if let Some(first_statement) = node.statements.first() {
+      // write the newline now instead of expecting one, so the infos at the start of
+      // the first statement are on its line
+      items.push_signal(Signal::NewLine);
       let blank_line_count = get_maintained_blank_line_count(&node.range.start, first_statement, context);
       if blank_line_count > 0 {
-        items.push_signal(Signal::NewLine);
         push_blank_lines(&mut items, blank_line_count);
       }
     } else {
+      items.push_signal(Signal::ExpectNewLine);
       let shebang_end = node.range.start + "#!".len() + shebang.len();
       items.extend(gen_trailing_comments_as_statements(&shebang_end.range(), context));
     }
