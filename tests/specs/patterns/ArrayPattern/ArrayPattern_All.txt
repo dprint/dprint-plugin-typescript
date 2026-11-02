@@ -54,3 +54,27 @@ export declare class EventInit {
 export declare class EventInit {
     constructor([t]?: string[]);
 }
+
+== should keep a comment before the close bracket when there's a type annotation ==
+function f([
+    a,
+    b,
+    // c
+]: T) {}
+function g([
+    a,
+    // c
+]?: [number, number]) {}
+const [x /* c */]: [number] = z;
+
+[expect]
+function f([
+    a,
+    b,
+    // c
+]: T) {}
+function g([
+    a,
+    // c
+]?: [number, number]) {}
+const [x /* c */]: [number] = z;

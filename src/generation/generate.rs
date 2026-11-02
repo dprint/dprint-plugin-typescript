@@ -1737,6 +1737,7 @@ fn gen_array_expr<'a>(node: &ArrayLit<'a>, context: &mut Context<'a>) -> PrintIt
   gen_array_like_nodes(
     GenArrayLikeNodesOptions {
       node: node.into(),
+      range: node.range(),
       nodes: node.elems.iter().map(|&x| x.map(|elem| elem.into())).collect(),
       prefer_hanging,
       prefer_single_line: context.config.array_expression_prefer_single_line,
@@ -5024,6 +5025,7 @@ fn gen_array_pat<'a>(node: &ArrayPat<'a>, context: &mut Context<'a>) -> PrintIte
   items.extend(gen_array_like_nodes(
     GenArrayLikeNodesOptions {
       node: node.into(),
+      range: get_brackets_range(node, context),
       nodes: node.elems.iter().map(|x| x.as_ref().map(|elem| elem.into())).collect(),
       prefer_hanging: context.config.array_pattern_prefer_hanging,
       prefer_single_line: context.config.array_pattern_prefer_single_line,
@@ -5036,7 +5038,23 @@ fn gen_array_pat<'a>(node: &ArrayPat<'a>, context: &mut Context<'a>) -> PrintIte
     items.push_sc(sc!("?"));
   }
   items.extend(gen_type_ann_with_colon_if_exists(node.type_ann, context));
-  items
+  return items;
+
+  /// Gets the range of the brackets, which the pattern's range goes past when it's
+  /// optional or has a type annotation (ex. `[a, b]?: T`).
+  fn get_brackets_range<'a>(node: &ArrayPat<'a>, context: &Context<'a>) -> SourceRange {
+    if !node.optional() && node.type_ann.is_none() {
+      return node.range();
+    }
+    // the type annotation is a child node, so a `]` in it isn't one of these tokens
+    let tokens = get_tokens_from_children_with_tokens(node.into(), context.program);
+    let open_bracket = tokens.iter().find(|t| t.token == Token::LBracket);
+    let close_bracket = tokens.iter().rev().find(|t| t.token == Token::RBracket);
+    match (open_bracket, close_bracket) {
+      (Some(open_bracket), Some(close_bracket)) => SourceRange::new(open_bracket.start(), close_bracket.end()),
+      _ => node.range(),
+    }
+  }
 }
 
 fn gen_assign_pat<'a>(node: &AssignPat<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
@@ -7062,6 +7080,7 @@ fn gen_tuple_type<'a>(node: &TsTupleType<'a>, context: &mut Context<'a>) -> Prin
   gen_array_like_nodes(
     GenArrayLikeNodesOptions {
       node: node.into(),
+      range: node.range(),
       nodes: node.elem_types.iter().map(|&x| Some(x.into())).collect(),
       prefer_hanging,
       prefer_single_line: context.config.tuple_type_prefer_single_line,
@@ -8067,6 +8086,8 @@ fn get_jsx_empty_expr_comments<'a>(node: &JSXEmptyExpr, context: &Context<'a>) -
 
 struct GenArrayLikeNodesOptions<'a> {
   node: Node<'a>,
+  /// The range from the open bracket to the close bracket.
+  range: SourceRange,
   nodes: Vec<Option<Node<'a>>>,
   prefer_hanging: bool,
   prefer_single_line: bool,
@@ -8075,7 +8096,6 @@ struct GenArrayLikeNodesOptions<'a> {
 }
 
 fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
-  let node = opts.node;
   let nodes = opts.nodes;
   let nodes = if nodes.iter().any(|n| n.is_none()) {
     let commas = get_comma_tokens_from_children_with_tokens(opts.node, context.program);
@@ -8102,7 +8122,8 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
   };
   let prefer_hanging = opts.prefer_hanging;
   let space_around = opts.space_around;
-  let force_use_new_lines = get_force_use_new_lines(&node.range(), &nodes, opts.prefer_single_line, context);
+  let range = opts.range;
+  let force_use_new_lines = get_force_use_new_lines(range, &nodes, opts.prefer_single_line, context);
   let mut items = PrintItems::new(context.arena);
   let first_member = nodes.first().map(|x| x.range());
 
@@ -8131,7 +8152,7 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
     GenSurroundedByTokensOptions {
       open_token: sc!("["),
       close_token: sc!("]"),
-      range: Some(node.range()),
+      range: Some(range),
       first_member,
       prefer_single_line_when_empty: true,
       allow_open_token_trailing_comments: true,
@@ -8143,21 +8164,18 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
 
   return items;
 
-  fn get_force_use_new_lines<'a>(node: &SourceRange, nodes: &[NodeOrSeparator], prefer_single_line: bool, context: &mut Context<'a>) -> bool {
+  fn get_force_use_new_lines<'a>(range: SourceRange, nodes: &[NodeOrSeparator], prefer_single_line: bool, context: &mut Context<'a>) -> bool {
     if nodes.is_empty() {
       false
     } else if prefer_single_line {
       // if any comments exist on separate lines, then everything becomes multi-line
       has_any_node_comment_on_different_line(nodes, context)
     } else {
-      let open_bracket_token = node
-        .tokens_fast(context.program)
-        .iter()
-        .find(|t| t.token == Token::LBracket)
-        .expect("Expected to find an open bracket token.");
+      // the range starts with the open bracket
+      let open_bracket_range = SourceRange::new(range.start, range.start + 1);
 
       // todo: tests for this (ex. [\n,] -> [\n    ,\n])
-      node_helpers::get_use_new_lines_for_nodes(&open_bracket_token.range(), &nodes[0], context.program)
+      node_helpers::get_use_new_lines_for_nodes(&open_bracket_range, &nodes[0], context.program)
     }
   }
 
