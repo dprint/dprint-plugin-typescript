@@ -13,6 +13,40 @@ testing
     .thelineWidth
     .someMore;
 
+== should go full multi-line when only the last item exceeds the width ==
+testing.this.out.for.when.it.passes.longer;
+
+[expect]
+testing
+    .this
+    .out
+    .for
+    .when
+    .it
+    .passes
+    .longer;
+
+== should go full multi-line when only the last item exceeds the width with nested member expressions ==
+foo.bar(a0.b0(a1.b1(a2.b2(z.y)))).end.more;
+
+[expect]
+foo
+    .bar(a0.b0(a1.b1(a2.b2(z.y))))
+    .end
+    .more;
+
+== should maintain single line when it fits after moving to the next line at the same column ==
+function f() {
+    abc(aaaaa.bbbbb.ccccc.ddddd.eeeee.f);
+}
+
+[expect]
+function f() {
+    abc(
+        aaaaa.bbbbb.ccccc.ddddd.eeeee.f,
+    );
+}
+
 == should maintain single line when below the width ==
 testing.this.out;
 
