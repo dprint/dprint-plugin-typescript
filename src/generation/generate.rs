@@ -1958,7 +1958,10 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
       let end_body_ln = LineNumber::new("endBody");
       items.push_info(start_body_ln);
 
-      if should_not_newline_after_arrow(&node.body, context) {
+      if is_hugging_call_body(&node.body, context) {
+        // stays on the same line unless the text before the last argument doesn't fit
+        items.push_signal(Signal::SpaceOrNewLine);
+      } else if should_not_newline_after_arrow(&node.body, context) {
         items.push_space();
       } else {
         items.extend(gen_line_numbers_region_start(context.arena, &[end_body_ln]));
@@ -2033,14 +2036,49 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
   }
 
   fn should_not_newline_after_arrow<'a>(body: &ArrowFunctionBody<'a>, context: &Context<'a>) -> bool {
-    match body {
+    return match body {
       ArrowFunctionBody::FunctionBody(_) => true,
       ArrowFunctionBody::Expr(expr) => match expr {
         Expr::Paren(_) | Expr::Array(_) => true,
-        Expr::Tpl(tpl) => tpl.quasis[0].raw().starts_with(['\n', '\r']),
+        // the text of a template literal isn't indented when it moves to the next line
+        Expr::Tpl(tpl) => is_multi_line_tpl(tpl),
+        Expr::TaggedTpl(tagged_tpl) => is_multi_line_tpl(tagged_tpl.tpl),
         _ => is_jsx_paren_expr_handled_node(expr.into(), context),
       },
+    };
+
+    fn is_multi_line_tpl(tpl: &Tpl) -> bool {
+      tpl.quasis.iter().any(|quasi| quasi.raw().contains('\n'))
     }
+  }
+
+  /// Gets if the body is a call on the same line as the arrow with its last argument starting on that
+  /// line and continuing on the next ones (ex. `a => b({\n  c,\n})`), which keeps its line breaks.
+  fn is_hugging_call_body<'a>(body: &ArrowFunctionBody<'a>, context: &Context<'a>) -> bool {
+    let ArrowFunctionBody::Expr(expr) = body else {
+      return false;
+    };
+    let args = match expr {
+      Expr::Call(call_expr) => call_expr.args,
+      Expr::New(new_expr) => match new_expr.args {
+        Some(args) => args,
+        None => return false,
+      },
+      _ => return false,
+    };
+    let Some(last_arg) = args.last() else {
+      return false;
+    };
+    let program = context.program;
+    let start_line = expr.start_line_fast(program);
+    let is_on_arrow_line = context
+      .token_finder
+      .get_previous_token(expr)
+      .is_some_and(|arrow_token| arrow_token.end_line_fast(program) == start_line);
+    is_on_arrow_line
+      && last_arg.start_line_fast(program) == start_line
+      && last_arg.end_line_fast(program) > start_line
+      && allows_inline_multi_line((*last_arg).into(), context, args.len() > 1)
   }
 
   fn get_should_use_parens<'a>(node: &ArrowSignature<'a>, context: &Context<'a>) -> bool {
