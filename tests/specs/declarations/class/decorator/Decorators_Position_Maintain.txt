@@ -54,3 +54,17 @@ const E = @dec class {};
 class F {
     constructor(@Inject(X) private readonly x: X) {}
 }
+
+== should position a class after its decorators after export ==
+export @dec class A {}
+export default @dec class {}
+export @a @b class B {}
+export @dec
+class C {}
+
+[expect]
+export @dec class A {}
+export default @dec class {}
+export @a @b class B {}
+export @dec
+class C {}
