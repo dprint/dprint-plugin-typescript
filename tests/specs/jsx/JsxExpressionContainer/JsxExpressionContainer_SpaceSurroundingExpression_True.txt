@@ -195,3 +195,13 @@ return (
         />
     }
 />;
+
+== should not move the expression to the next line when it doesn't fit after the open brace ==
+const a = <div aVeryLongAttributeNameThatGoesOnAndOnAndOnAndOnAndOnAndOnAndOnAndOnAndOnAndOnAndOnAndOnAndOnAndOnAndOnAn={value} />;
+
+[expect]
+const a = (
+    <div
+        aVeryLongAttributeNameThatGoesOnAndOnAndOnAndOnAndOnAndOnAndOnAndOnAndOnAndOnAndOnAndOnAndOnAndOnAndOnAn={ value }
+    />
+);
