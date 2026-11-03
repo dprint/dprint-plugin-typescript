@@ -35,20 +35,19 @@ export const Layout = (props: Props) => html`
   </html>
   `;
 [expect]
-export const Layout = (props: Props) =>
-    html`
-        <html>
-            <body>
-                ${props.title.endsWith("example")
-                    ? html`
-                        <a href="/">Reactive Mastro examples</a>
-                        <h1>${props.title}</h1>
-                    `
-                    : ""}
-                <main>${props.children}</main>
-            </body>
-        </html>
-    `;
+export const Layout = (props: Props) => html`
+    <html>
+        <body>
+            ${props.title.endsWith("example")
+                ? html`
+                    <a href="/">Reactive Mastro examples</a>
+                    <h1>${props.title}</h1>
+                `
+                : ""}
+            <main>${props.children}</main>
+        </body>
+    </html>
+`;
 
 == should format html with multi-level indent jumps (regression for deno#29963) ==
 const a = html`<a><svg viewBox="0 0 16 16" width="20" height="20" fill="currentColor">
