@@ -1,0 +1,7 @@
+~~ lineWidth: 40, unionAndIntersectionType.operatorPosition: sameLine, unionAndIntersectionType.preferHanging: true ~~
+== should place the operator at the end of the line when hanging ==
+type T = "aaaa" | "bbbbbbbb" | "cccccccccc" | "dddddddddd" | "e";
+
+[expect]
+type T = "aaaa" | "bbbbbbbb" |
+    "cccccccccc" | "dddddddddd" | "e";

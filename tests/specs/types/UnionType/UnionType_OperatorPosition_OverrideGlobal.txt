@@ -1,0 +1,12 @@
+~~ lineWidth: 40, operatorPosition: sameLine, unionAndIntersectionType.operatorPosition: nextLine ~~
+== should use the union override over the global operatorPosition ==
+type T = "aaaaaaaaaa" | "bbbbbbbbbbbbbb" | "cccccccccc";
+const value = someLongIdentifierName + anotherLongIdentifier;
+
+[expect]
+type T =
+    | "aaaaaaaaaa"
+    | "bbbbbbbbbbbbbb"
+    | "cccccccccc";
+const value = someLongIdentifierName +
+    anotherLongIdentifier;

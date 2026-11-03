@@ -1,0 +1,28 @@
+~~ lineWidth: 40, unionAndIntersectionType.operatorPosition: sameLine ~~
+== should place `&` at end of line when wrapping ==
+export type T = string & test & string & test;
+
+[expect]
+export type T =
+    string &
+    test &
+    string &
+    test;
+
+== should keep single line when it fits ==
+export type T = string & number;
+
+[expect]
+export type T = string & number;
+
+== should rewrite leading `&` style to trailing ==
+export type T =
+    & string
+    & test
+    & other;
+
+[expect]
+export type T =
+    string &
+    test &
+    other;

@@ -54,6 +54,7 @@ impl ConfigurationBuilder {
       .binary_expression_operator_position(OperatorPosition::SameLine)
       .conditional_expression_operator_position(OperatorPosition::NextLine)
       .conditional_type_operator_position(OperatorPosition::NextLine)
+      .union_and_intersection_type_operator_position(OperatorPosition::NextLine)
       .brace_position(BracePosition::SameLine)
       .comment_line_force_space_after_slashes(false)
       .construct_signature_space_after_new_keyword(true)
@@ -1088,6 +1089,10 @@ impl ConfigurationBuilder {
     self.insert("conditionalType.operatorPosition", value.to_string().into())
   }
 
+  pub fn union_and_intersection_type_operator_position(&mut self, value: OperatorPosition) -> &mut Self {
+    self.insert("unionAndIntersectionType.operatorPosition", value.to_string().into())
+  }
+
   /* single body position */
 
   pub fn if_statement_single_body_position(&mut self, value: SameOrNextLinePosition) -> &mut Self {
@@ -1509,6 +1514,7 @@ mod tests {
       .binary_expression_operator_position(OperatorPosition::SameLine)
       .conditional_expression_operator_position(OperatorPosition::SameLine)
       .conditional_type_operator_position(OperatorPosition::SameLine)
+      .union_and_intersection_type_operator_position(OperatorPosition::SameLine)
       /* single body position */
       .if_statement_single_body_position(SameOrNextLinePosition::SameLine)
       .for_statement_single_body_position(SameOrNextLinePosition::SameLine)
@@ -1616,7 +1622,7 @@ mod tests {
       .with_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 222);
+    assert_eq!(inner_config.len(), 223);
     let diagnostics = resolve_config(inner_config, &Default::default()).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

@@ -1,0 +1,114 @@
+~~ lineWidth: 40, unionAndIntersectionType.operatorPosition: sameLine ~~
+== should format with operator at end of line when wrapping ==
+export type T = string | test | string | number;
+
+[expect]
+export type T =
+    string |
+    test |
+    string |
+    number;
+
+== should keep single line when it fits ==
+export type T = string | number;
+
+[expect]
+export type T = string | number;
+
+== should rewrite leading operator style to trailing ==
+export type T =
+    | string
+    | test
+    | other;
+
+[expect]
+export type T =
+    string |
+    test |
+    other;
+
+== should keep trailing operator style as-is ==
+export type T =
+    string |
+    test |
+    other;
+
+[expect]
+export type T =
+    string |
+    test |
+    other;
+
+== should produce trailing operators for the example from issue #759 ==
+export type T = (
+    "option_a" |
+    "option_b" |
+    "option_c" |
+    "option_d"
+);
+
+[expect]
+export type T =
+    "option_a" |
+    "option_b" |
+    "option_c" |
+    "option_d";
+
+== should keep the comments around the operator ==
+type C = "aaaaaaaaaaaa" | // comment
+    "bbbbbbbbbbbbbbbbbb" |
+    /* block */ "cccccccccccc";
+type D = "aaaaaaaaaaaa" /* before */ | /* after */ "bbbbbbbbbbbbbbbbbb";
+type E =
+    // leading
+    | "aaaaaaaaaaaa"
+    // between
+    | "bbbbbbbbbbbbbbbbbb";
+
+[expect]
+type C =
+    "aaaaaaaaaaaa" | // comment
+    "bbbbbbbbbbbbbbbbbb" |
+    /* block */ "cccccccccccc";
+type D =
+    "aaaaaaaaaaaa" /* before */ | /* after */
+    "bbbbbbbbbbbbbbbbbb";
+type E =
+    // leading
+    "aaaaaaaaaaaa" |
+    // between
+    "bbbbbbbbbbbbbbbbbb";
+
+== should place the operators at the end of the line in other positions ==
+type T = AAAAAAAAAAAA & BBBBBBBBBB | CCCCCCCCCC & DDDDDDDDDDDD;
+function f(param: "aaaaaaaa" | "bbbbbbbbbbbb" | "cccccccc") {}
+const x: Promise<"aaaaaaaaaaa" | "bbbbbbbbbbbbb" | "cc"> = y;
+interface I {
+    prop: "aaaaaaaaaa" | "bbbbbbbbbbbbb" | "cccc";
+}
+type O = { aaaaaaaaaa: string } | { bbbbbbbbbbbbb: number };
+
+[expect]
+type T =
+    AAAAAAAAAAAA & BBBBBBBBBB |
+    CCCCCCCCCC & DDDDDDDDDDDD;
+function f(
+    param:
+        "aaaaaaaa" |
+        "bbbbbbbbbbbb" |
+        "cccccccc",
+) {}
+const x: Promise<
+    "aaaaaaaaaaa" |
+    "bbbbbbbbbbbbb" |
+    "cc"
+> = y;
+interface I {
+    prop:
+        "aaaaaaaaaa" |
+        "bbbbbbbbbbbbb" |
+        "cccc";
+}
+type O = { aaaaaaaaaa: string } | {
+    bbbbbbbbbbbbb: number;
+};
