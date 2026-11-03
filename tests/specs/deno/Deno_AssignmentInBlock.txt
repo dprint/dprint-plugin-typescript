@@ -1,0 +1,26 @@
+~~ deno: true ~~
+== should format an assignment in an if statement's block the same as in a function's body ==
+function f() {
+  result = (options?.compare ? new BinarySearchTree(options.compare) : new BinarySearchTree()) as Tree<U>;
+  other = value;
+}
+if (a) {
+  result = (options?.compare ? new BinarySearchTree(options.compare) : new BinarySearchTree()) as Tree<U>;
+  other = value;
+}
+
+[expect]
+function f() {
+  result =
+    (options?.compare
+      ? new BinarySearchTree(options.compare)
+      : new BinarySearchTree()) as Tree<U>;
+  other = value;
+}
+if (a) {
+  result =
+    (options?.compare
+      ? new BinarySearchTree(options.compare)
+      : new BinarySearchTree()) as Tree<U>;
+  other = value;
+}

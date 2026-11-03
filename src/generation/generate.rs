@@ -10378,10 +10378,16 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
   let open_brace_token = get_open_brace_token(opts.body_node, context);
   let use_braces = opts.use_braces;
   let is_body_empty_stmt = opts.body_node.kind() == NodeKind::EmptyStmt;
+  // statements are on separate lines, so a block with more than one is known to be multi-line
+  // without looking ahead to its end
+  let has_multiple_statements = match opts.body_node {
+    Node::BlockStmt(block) => block.stmts.iter().filter(|stmt| stmt.kind() != NodeKind::EmptyStmt).nth(1).is_some(),
+    _ => false,
+  };
   let mut inner_brace_space_condition = if_true(
     "spaceCondition",
     context.arena.alloc_resolver(move |condition_context| {
-      if is_body_empty_stmt {
+      if is_body_empty_stmt || has_multiple_statements {
         return Some(false);
       }
       let (start_inner_line, start_inner_column) = condition_context.resolved_line_and_column(start_inner_text_lc)?;
@@ -10407,7 +10413,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
 
         match use_braces {
           UseBraces::WhenNotSingleLine => {
-            if force_braces {
+            if force_braces || has_multiple_statements {
               Some(true)
             } else {
               let is_multiple_lines = condition_helpers::is_multiple_lines(condition_context, end_header_ln.unwrap_or(start_lc.line), end_ln)?;
