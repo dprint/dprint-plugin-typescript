@@ -10594,13 +10594,18 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
       items
     }));
   } else {
-    items.extend(ir_helpers::with_indent({
-      let mut items = PrintItems::new(context.arena);
-      let body_node_range = opts.body_node.range();
-      items.extend(gen_node(opts.body_node, context));
-      items.extend(gen_trailing_comments(&body_node_range, context));
-      items
-    }));
+    let mut body_items = PrintItems::new(context.arena);
+    let body_node_range = opts.body_node.range();
+    body_items.extend(gen_node(opts.body_node, context));
+    body_items.extend(gen_trailing_comments(&body_node_range, context));
+    // When braces might be added, the body is first printed after the header and then again
+    // on the next line. A new line group prefers putting the body on the next line instead of
+    // breaking it after the header, which would otherwise stay broken when printed again.
+    let can_be_on_next_line = opts.single_body_position != Some(SameOrNextLinePosition::SameLine);
+    if use_braces != UseBraces::Always && can_be_on_next_line {
+      body_items = new_line_group(body_items);
+    }
+    items.extend(ir_helpers::with_indent(body_items));
   }
 
   items.push_line_and_column(end_statements_lc);
