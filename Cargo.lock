@@ -232,9 +232,9 @@ dependencies = [
 
 [[package]]
 name = "dprint-core"
-version = "0.75.0"
+version = "0.75.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ed4386acb25cfa05db70b9f831f872fc1455d444d2d4d536c58285b762df5ba"
+checksum = "b2cbf41d415e37faaf077cbd9435530d5dc8abb78e2fc35ea64a9b513171f0b7"
 dependencies = [
  "bumpalo",
  "hashbrown 0.15.5",
@@ -285,7 +285,7 @@ name = "dprint-plugin-typescript"
 version = "0.96.1"
 dependencies = [
  "capacity_builder",
- "dprint-core 0.75.0",
+ "dprint-core 0.75.1",
  "dprint-core-macros",
  "dprint-development",
  "dprint-plugin-sql",
