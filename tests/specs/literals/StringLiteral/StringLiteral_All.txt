@@ -2,11 +2,13 @@
 const t = "\t"  ;
 const u = "";
 const v = "1";
+const w = "\uD800";
 
 [expect]
 const t = "\t";
 const u = "";
 const v = "1";
+const w = "\uD800";
 
 == should not replace actual character with escaped character ==
 const t = "	";

@@ -48,10 +48,10 @@ export const AID = {
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "organizationArn" } }, {
-            "kd": "Field",
-            "name": { "kd": "Name", "value": "principalArn" },
-          }],
+          "selections": [
+            { "kd": "Field", "name": { "kd": "Name", "value": "organizationArn" } },
+            { "kd": "Field", "name": { "kd": "Name", "value": "principalArn" } },
+          ],
         },
       }],
     },
@@ -63,21 +63,24 @@ export const AcD = {
     "kd": "OperationDefinition",
     "operation": "query",
     "name": { "kd": "Name", "value": "Ac" },
-    "variableDefinitions": [{
-      "kd": "VariableDefinition",
-      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "arns" } },
-      "type": {
-        "kd": "NonNullType",
+    "variableDefinitions": [
+      {
+        "kd": "VariableDefinition",
+        "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "arns" } },
         "type": {
-          "kd": "ListType",
-          "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "Arn" } } },
+          "kd": "NonNullType",
+          "type": {
+            "kd": "ListType",
+            "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "Arn" } } },
+          },
         },
       },
-    }, {
-      "kd": "VariableDefinition",
-      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "filter" } },
-      "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "AcFilterInput" } },
-    }],
+      {
+        "kd": "VariableDefinition",
+        "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "filter" } },
+        "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "AcFilterInput" } },
+      },
+    ],
     "selectionSet": {
       "kd": "SelectionSet",
       "selections": [{
@@ -90,46 +93,49 @@ export const AcD = {
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
-            "kd": "Field",
-            "name": { "kd": "Name", "value": "appliedAces" },
-            "arguments": [{
-              "kd": "Argument",
-              "name": { "kd": "Name", "value": "filter" },
-              "value": { "kd": "Variable", "name": { "kd": "Name", "value": "filter" } },
-            }],
-            "selectionSet": {
-              "kd": "SelectionSet",
-              "selections": [{
-                "kd": "Field",
-                "name": { "kd": "Name", "value": "access" },
-                "selectionSet": {
-                  "kd": "SelectionSet",
-                  "selections": [
-                    { "kd": "Field", "name": { "kd": "Name", "value": "arn" } },
-                    {
-                      "kd": "Field",
-                      "name": { "kd": "Name", "value": "assignedPrincipals" },
-                      "selectionSet": {
-                        "kd": "SelectionSet",
-                        "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }],
-                      },
-                    },
-                    { "kd": "Field", "name": { "kd": "Name", "value": "description" } },
-                    { "kd": "Field", "name": { "kd": "Name", "value": "name" } },
-                    {
-                      "kd": "Field",
-                      "name": { "kd": "Name", "value": "target" },
-                      "selectionSet": {
-                        "kd": "SelectionSet",
-                        "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }],
-                      },
-                    },
-                  ],
-                },
+          "selections": [
+            { "kd": "Field", "name": { "kd": "Name", "value": "arn" } },
+            {
+              "kd": "Field",
+              "name": { "kd": "Name", "value": "appliedAces" },
+              "arguments": [{
+                "kd": "Argument",
+                "name": { "kd": "Name", "value": "filter" },
+                "value": { "kd": "Variable", "name": { "kd": "Name", "value": "filter" } },
               }],
+              "selectionSet": {
+                "kd": "SelectionSet",
+                "selections": [{
+                  "kd": "Field",
+                  "name": { "kd": "Name", "value": "access" },
+                  "selectionSet": {
+                    "kd": "SelectionSet",
+                    "selections": [
+                      { "kd": "Field", "name": { "kd": "Name", "value": "arn" } },
+                      {
+                        "kd": "Field",
+                        "name": { "kd": "Name", "value": "assignedPrincipals" },
+                        "selectionSet": {
+                          "kd": "SelectionSet",
+                          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }],
+                        },
+                      },
+                      { "kd": "Field", "name": { "kd": "Name", "value": "description" } },
+                      { "kd": "Field", "name": { "kd": "Name", "value": "name" } },
+                      {
+                        "kd": "Field",
+                        "name": { "kd": "Name", "value": "target" },
+                        "selectionSet": {
+                          "kd": "SelectionSet",
+                          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }],
+                        },
+                      },
+                    ],
+                  },
+                }],
+              },
             },
-          }],
+          ],
         },
       }],
     },
@@ -202,15 +208,18 @@ export const OAcD = {
     "kd": "OperationDefinition",
     "operation": "query",
     "name": { "kd": "Name", "value": "OAc" },
-    "variableDefinitions": [{
-      "kd": "VariableDefinition",
-      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "arn" } },
-      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "Arn" } } },
-    }, {
-      "kd": "VariableDefinition",
-      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "filter" } },
-      "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "AcFilterInput" } },
-    }],
+    "variableDefinitions": [
+      {
+        "kd": "VariableDefinition",
+        "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "arn" } },
+        "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "Arn" } } },
+      },
+      {
+        "kd": "VariableDefinition",
+        "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "filter" } },
+        "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "AcFilterInput" } },
+      },
+    ],
     "selectionSet": {
       "kd": "SelectionSet",
       "selections": [{
@@ -223,46 +232,49 @@ export const OAcD = {
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
-            "kd": "Field",
-            "name": { "kd": "Name", "value": "appliedAces" },
-            "arguments": [{
-              "kd": "Argument",
-              "name": { "kd": "Name", "value": "filter" },
-              "value": { "kd": "Variable", "name": { "kd": "Name", "value": "filter" } },
-            }],
-            "selectionSet": {
-              "kd": "SelectionSet",
-              "selections": [{
-                "kd": "Field",
-                "name": { "kd": "Name", "value": "access" },
-                "selectionSet": {
-                  "kd": "SelectionSet",
-                  "selections": [
-                    { "kd": "Field", "name": { "kd": "Name", "value": "arn" } },
-                    {
-                      "kd": "Field",
-                      "name": { "kd": "Name", "value": "assignedPrincipals" },
-                      "selectionSet": {
-                        "kd": "SelectionSet",
-                        "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }],
-                      },
-                    },
-                    { "kd": "Field", "name": { "kd": "Name", "value": "description" } },
-                    { "kd": "Field", "name": { "kd": "Name", "value": "name" } },
-                    {
-                      "kd": "Field",
-                      "name": { "kd": "Name", "value": "target" },
-                      "selectionSet": {
-                        "kd": "SelectionSet",
-                        "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }],
-                      },
-                    },
-                  ],
-                },
+          "selections": [
+            { "kd": "Field", "name": { "kd": "Name", "value": "arn" } },
+            {
+              "kd": "Field",
+              "name": { "kd": "Name", "value": "appliedAces" },
+              "arguments": [{
+                "kd": "Argument",
+                "name": { "kd": "Name", "value": "filter" },
+                "value": { "kd": "Variable", "name": { "kd": "Name", "value": "filter" } },
               }],
+              "selectionSet": {
+                "kd": "SelectionSet",
+                "selections": [{
+                  "kd": "Field",
+                  "name": { "kd": "Name", "value": "access" },
+                  "selectionSet": {
+                    "kd": "SelectionSet",
+                    "selections": [
+                      { "kd": "Field", "name": { "kd": "Name", "value": "arn" } },
+                      {
+                        "kd": "Field",
+                        "name": { "kd": "Name", "value": "assignedPrincipals" },
+                        "selectionSet": {
+                          "kd": "SelectionSet",
+                          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }],
+                        },
+                      },
+                      { "kd": "Field", "name": { "kd": "Name", "value": "description" } },
+                      { "kd": "Field", "name": { "kd": "Name", "value": "name" } },
+                      {
+                        "kd": "Field",
+                        "name": { "kd": "Name", "value": "target" },
+                        "selectionSet": {
+                          "kd": "SelectionSet",
+                          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }],
+                        },
+                      },
+                    ],
+                  },
+                }],
+              },
             },
-          }],
+          ],
         },
       }],
     },
@@ -307,10 +319,11 @@ export const GetAcD = {
               "name": { "kd": "Name", "value": "role" },
               "selectionSet": {
                 "kd": "SelectionSet",
-                "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "roleId" } }, {
-                  "kd": "Field",
-                  "name": { "kd": "Name", "value": "applicationName" },
-                }, { "kd": "Field", "name": { "kd": "Name", "value": "roleName" } }],
+                "selections": [
+                  { "kd": "Field", "name": { "kd": "Name", "value": "roleId" } },
+                  { "kd": "Field", "name": { "kd": "Name", "value": "applicationName" } },
+                  { "kd": "Field", "name": { "kd": "Name", "value": "roleName" } },
+                ],
               },
             },
             {
@@ -361,10 +374,10 @@ export const UnassignAcD = {
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "principalArn" } }, {
-            "kd": "Field",
-            "name": { "kd": "Name", "value": "accessArn" },
-          }],
+          "selections": [
+            { "kd": "Field", "name": { "kd": "Name", "value": "principalArn" } },
+            { "kd": "Field", "name": { "kd": "Name", "value": "accessArn" } },
+          ],
         },
       }],
     },
@@ -383,20 +396,21 @@ export const ApsD = {
         "name": { "kd": "Name", "value": "applications" },
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "id" } }, {
-            "kd": "Field",
-            "name": { "kd": "Name", "value": "name" },
-          }, {
-            "kd": "Field",
-            "name": { "kd": "Name", "value": "roles" },
-            "selectionSet": {
-              "kd": "SelectionSet",
-              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "id" } }, {
-                "kd": "Field",
-                "name": { "kd": "Name", "value": "name" },
-              }],
+          "selections": [
+            { "kd": "Field", "name": { "kd": "Name", "value": "id" } },
+            { "kd": "Field", "name": { "kd": "Name", "value": "name" } },
+            {
+              "kd": "Field",
+              "name": { "kd": "Name", "value": "roles" },
+              "selectionSet": {
+                "kd": "SelectionSet",
+                "selections": [
+                  { "kd": "Field", "name": { "kd": "Name", "value": "id" } },
+                  { "kd": "Field", "name": { "kd": "Name", "value": "name" } },
+                ],
+              },
             },
-          }],
+          ],
         },
       }],
     },
@@ -576,10 +590,10 @@ export const InviteXPrincipalD = {
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "invitationArn" } }, {
-            "kd": "Field",
-            "name": { "kd": "Name", "value": "principalArn" },
-          }],
+          "selections": [
+            { "kd": "Field", "name": { "kd": "Name", "value": "invitationArn" } },
+            { "kd": "Field", "name": { "kd": "Name", "value": "principalArn" } },
+          ],
         },
       }],
     },
@@ -598,24 +612,28 @@ export const ListIsD = {
         "name": { "kd": "Name", "value": "invitations" },
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "invitationArn" } }, {
-            "kd": "Field",
-            "name": { "kd": "Name", "value": "inviter" },
-            "selectionSet": {
-              "kd": "SelectionSet",
-              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "email" } }],
+          "selections": [
+            { "kd": "Field", "name": { "kd": "Name", "value": "invitationArn" } },
+            {
+              "kd": "Field",
+              "name": { "kd": "Name", "value": "inviter" },
+              "selectionSet": {
+                "kd": "SelectionSet",
+                "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "email" } }],
+              },
             },
-          }, {
-            "kd": "Field",
-            "name": { "kd": "Name", "value": "organization" },
-            "selectionSet": {
-              "kd": "SelectionSet",
-              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
-                "kd": "Field",
-                "name": { "kd": "Name", "value": "name" },
-              }],
+            {
+              "kd": "Field",
+              "name": { "kd": "Name", "value": "organization" },
+              "selectionSet": {
+                "kd": "SelectionSet",
+                "selections": [
+                  { "kd": "Field", "name": { "kd": "Name", "value": "arn" } },
+                  { "kd": "Field", "name": { "kd": "Name", "value": "name" } },
+                ],
+              },
             },
-          }],
+          ],
         },
       }],
     },
@@ -644,17 +662,20 @@ export const MstmApsD = {
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
-            "kd": "Field",
-            "name": { "kd": "Name", "value": "mySystemAps" },
-            "selectionSet": {
-              "kd": "SelectionSet",
-              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "name" } }, {
-                "kd": "Field",
-                "name": { "kd": "Name", "value": "url" },
-              }],
+          "selections": [
+            { "kd": "Field", "name": { "kd": "Name", "value": "arn" } },
+            {
+              "kd": "Field",
+              "name": { "kd": "Name", "value": "mySystemAps" },
+              "selectionSet": {
+                "kd": "SelectionSet",
+                "selections": [
+                  { "kd": "Field", "name": { "kd": "Name", "value": "name" } },
+                  { "kd": "Field", "name": { "kd": "Name", "value": "url" } },
+                ],
+              },
             },
-          }],
+          ],
         },
       }],
     },
@@ -683,27 +704,28 @@ export const OD = {
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
-            "kd": "Field",
-            "name": { "kd": "Name", "value": "name" },
-          }, {
-            "kd": "Field",
-            "name": { "kd": "Name", "value": "children" },
-            "selectionSet": {
-              "kd": "SelectionSet",
-              "selections": [{
-                "kd": "Field",
-                "name": { "kd": "Name", "value": "children" },
-                "selectionSet": {
-                  "kd": "SelectionSet",
-                  "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
-                    "kd": "Field",
-                    "name": { "kd": "Name", "value": "name" },
-                  }],
-                },
-              }],
+          "selections": [
+            { "kd": "Field", "name": { "kd": "Name", "value": "arn" } },
+            { "kd": "Field", "name": { "kd": "Name", "value": "name" } },
+            {
+              "kd": "Field",
+              "name": { "kd": "Name", "value": "children" },
+              "selectionSet": {
+                "kd": "SelectionSet",
+                "selections": [{
+                  "kd": "Field",
+                  "name": { "kd": "Name", "value": "children" },
+                  "selectionSet": {
+                    "kd": "SelectionSet",
+                    "selections": [
+                      { "kd": "Field", "name": { "kd": "Name", "value": "arn" } },
+                      { "kd": "Field", "name": { "kd": "Name", "value": "name" } },
+                    ],
+                  },
+                }],
+              },
             },
-          }],
+          ],
         },
       }],
     },
@@ -727,10 +749,10 @@ export const OsD = {
             "name": { "kd": "Name", "value": "organizations" },
             "selectionSet": {
               "kd": "SelectionSet",
-              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
-                "kd": "Field",
-                "name": { "kd": "Name", "value": "name" },
-              }],
+              "selections": [
+                { "kd": "Field", "name": { "kd": "Name", "value": "arn" } },
+                { "kd": "Field", "name": { "kd": "Name", "value": "name" } },
+              ],
             },
           }],
         },
@@ -761,14 +783,17 @@ export const ResourceTreeD = {
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
-            "kd": "Field",
-            "name": { "kd": "Name", "value": "resourceTree" },
-            "selectionSet": {
-              "kd": "SelectionSet",
-              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "resourceTree" } }],
+          "selections": [
+            { "kd": "Field", "name": { "kd": "Name", "value": "arn" } },
+            {
+              "kd": "Field",
+              "name": { "kd": "Name", "value": "resourceTree" },
+              "selectionSet": {
+                "kd": "SelectionSet",
+                "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "resourceTree" } }],
+              },
             },
-          }],
+          ],
         },
       }],
     },
@@ -800,17 +825,21 @@ export const SetUPrsD = {
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "principalArn" } }, {
-            "kd": "Field",
-            "name": { "kd": "Name", "value": "properties" },
-            "selectionSet": {
-              "kd": "SelectionSet",
-              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "isOwner" } }, {
-                "kd": "Field",
-                "name": { "kd": "Name", "value": "isAcAdmin" },
-              }, { "kd": "Field", "name": { "kd": "Name", "value": "isPrincipalAdmin" } }],
+          "selections": [
+            { "kd": "Field", "name": { "kd": "Name", "value": "principalArn" } },
+            {
+              "kd": "Field",
+              "name": { "kd": "Name", "value": "properties" },
+              "selectionSet": {
+                "kd": "SelectionSet",
+                "selections": [
+                  { "kd": "Field", "name": { "kd": "Name", "value": "isOwner" } },
+                  { "kd": "Field", "name": { "kd": "Name", "value": "isAcAdmin" } },
+                  { "kd": "Field", "name": { "kd": "Name", "value": "isPrincipalAdmin" } },
+                ],
+              },
             },
-          }],
+          ],
         },
       }],
     },
@@ -842,10 +871,10 @@ export const UpdateDescD = {
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
-            "kd": "Field",
-            "name": { "kd": "Name", "value": "description" },
-          }],
+          "selections": [
+            { "kd": "Field", "name": { "kd": "Name", "value": "arn" } },
+            { "kd": "Field", "name": { "kd": "Name", "value": "description" } },
+          ],
         },
       }],
     },
@@ -877,10 +906,10 @@ export const UpdateNameD = {
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
-            "kd": "Field",
-            "name": { "kd": "Name", "value": "name" },
-          }],
+          "selections": [
+            { "kd": "Field", "name": { "kd": "Name", "value": "arn" } },
+            { "kd": "Field", "name": { "kd": "Name", "value": "name" } },
+          ],
         },
       }],
     },
@@ -909,133 +938,146 @@ export const UsAndItsD = {
         }],
         "selectionSet": {
           "kd": "SelectionSet",
-          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
-            "kd": "Field",
-            "name": { "kd": "Name", "value": "invitations" },
-            "selectionSet": {
-              "kd": "SelectionSet",
-              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "invitationArn" } }, {
-                "kd": "Field",
-                "name": { "kd": "Name", "value": "createdAt" },
-              }, {
-                "kd": "Field",
-                "name": { "kd": "Name", "value": "invitee" },
-                "selectionSet": {
-                  "kd": "SelectionSet",
-                  "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "email" } }, {
+          "selections": [
+            { "kd": "Field", "name": { "kd": "Name", "value": "arn" } },
+            {
+              "kd": "Field",
+              "name": { "kd": "Name", "value": "invitations" },
+              "selectionSet": {
+                "kd": "SelectionSet",
+                "selections": [
+                  { "kd": "Field", "name": { "kd": "Name", "value": "invitationArn" } },
+                  { "kd": "Field", "name": { "kd": "Name", "value": "createdAt" } },
+                  {
                     "kd": "Field",
-                    "name": { "kd": "Name", "value": "principalArn" },
-                  }],
-                },
-              }],
-            },
-          }, {
-            "kd": "Field",
-            "name": { "kd": "Name", "value": "principals" },
-            "selectionSet": {
-              "kd": "SelectionSet",
-              "selections": [{
-                "kd": "Field",
-                "name": { "kd": "Name", "value": "principals" },
-                "selectionSet": {
-                  "kd": "SelectionSet",
-                  "selections": [{
-                    "kd": "InlineFragment",
-                    "typeCondition": { "kd": "NamedType", "name": { "kd": "Name", "value": "XPrincipal" } },
+                    "name": { "kd": "Name", "value": "invitee" },
                     "selectionSet": {
                       "kd": "SelectionSet",
                       "selections": [
-                        { "kd": "Field", "name": { "kd": "Name", "value": "__typename" } },
-                        {
-                          "kd": "Field",
-                          "name": { "kd": "Name", "value": "contactInfo" },
-                          "selectionSet": {
-                            "kd": "SelectionSet",
-                            "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "name" } }, {
-                              "kd": "Field",
-                              "name": { "kd": "Name", "value": "email" },
-                            }],
-                          },
-                        },
-                        { "kd": "Field", "name": { "kd": "Name", "value": "arn" } },
-                        { "kd": "Field", "name": { "kd": "Name", "value": "createdAt" } },
-                        {
-                          "kd": "Field",
-                          "name": { "kd": "Name", "value": "properties" },
-                          "selectionSet": {
-                            "kd": "SelectionSet",
-                            "selections": [
-                              { "kd": "Field", "name": { "kd": "Name", "value": "isOwner" } },
-                              { "kd": "Field", "name": { "kd": "Name", "value": "isPrincipalAdmin" } },
-                              { "kd": "Field", "name": { "kd": "Name", "value": "isPrincipalViewer" } },
-                              { "kd": "Field", "name": { "kd": "Name", "value": "isAcAdmin" } },
-                              { "kd": "Field", "name": { "kd": "Name", "value": "isAcViewer" } },
-                            ],
-                          },
-                        },
-                        { "kd": "Field", "name": { "kd": "Name", "value": "invitationStatus" } },
-                        {
-                          "kd": "Field",
-                          "name": { "kd": "Name", "value": "accesses" },
-                          "selectionSet": {
-                            "kd": "SelectionSet",
-                            "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
-                              "kd": "Field",
-                              "name": { "kd": "Name", "value": "name" },
-                            }],
-                          },
-                        },
+                        { "kd": "Field", "name": { "kd": "Name", "value": "email" } },
+                        { "kd": "Field", "name": { "kd": "Name", "value": "principalArn" } },
                       ],
                     },
-                  }],
-                },
-              }],
+                  },
+                ],
+              },
             },
-          }, {
-            "kd": "Field",
-            "name": { "kd": "Name", "value": "self" },
-            "selectionSet": {
-              "kd": "SelectionSet",
-              "selections": [{
-                "kd": "Field",
-                "name": { "kd": "Name", "value": "principal" },
-                "selectionSet": {
-                  "kd": "SelectionSet",
-                  "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
-                    "kd": "InlineFragment",
-                    "typeCondition": { "kd": "NamedType", "name": { "kd": "Name", "value": "XPrincipal" } },
-                    "selectionSet": {
-                      "kd": "SelectionSet",
-                      "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "__typename" } }, {
-                        "kd": "Field",
-                        "name": { "kd": "Name", "value": "contactInfo" },
-                        "selectionSet": {
-                          "kd": "SelectionSet",
-                          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "name" } }, {
+            {
+              "kd": "Field",
+              "name": { "kd": "Name", "value": "principals" },
+              "selectionSet": {
+                "kd": "SelectionSet",
+                "selections": [{
+                  "kd": "Field",
+                  "name": { "kd": "Name", "value": "principals" },
+                  "selectionSet": {
+                    "kd": "SelectionSet",
+                    "selections": [{
+                      "kd": "InlineFragment",
+                      "typeCondition": { "kd": "NamedType", "name": { "kd": "Name", "value": "XPrincipal" } },
+                      "selectionSet": {
+                        "kd": "SelectionSet",
+                        "selections": [
+                          { "kd": "Field", "name": { "kd": "Name", "value": "__typename" } },
+                          {
                             "kd": "Field",
-                            "name": { "kd": "Name", "value": "email" },
-                          }],
-                        },
-                      }, {
-                        "kd": "Field",
-                        "name": { "kd": "Name", "value": "properties" },
+                            "name": { "kd": "Name", "value": "contactInfo" },
+                            "selectionSet": {
+                              "kd": "SelectionSet",
+                              "selections": [
+                                { "kd": "Field", "name": { "kd": "Name", "value": "name" } },
+                                { "kd": "Field", "name": { "kd": "Name", "value": "email" } },
+                              ],
+                            },
+                          },
+                          { "kd": "Field", "name": { "kd": "Name", "value": "arn" } },
+                          { "kd": "Field", "name": { "kd": "Name", "value": "createdAt" } },
+                          {
+                            "kd": "Field",
+                            "name": { "kd": "Name", "value": "properties" },
+                            "selectionSet": {
+                              "kd": "SelectionSet",
+                              "selections": [
+                                { "kd": "Field", "name": { "kd": "Name", "value": "isOwner" } },
+                                { "kd": "Field", "name": { "kd": "Name", "value": "isPrincipalAdmin" } },
+                                { "kd": "Field", "name": { "kd": "Name", "value": "isPrincipalViewer" } },
+                                { "kd": "Field", "name": { "kd": "Name", "value": "isAcAdmin" } },
+                                { "kd": "Field", "name": { "kd": "Name", "value": "isAcViewer" } },
+                              ],
+                            },
+                          },
+                          { "kd": "Field", "name": { "kd": "Name", "value": "invitationStatus" } },
+                          {
+                            "kd": "Field",
+                            "name": { "kd": "Name", "value": "accesses" },
+                            "selectionSet": {
+                              "kd": "SelectionSet",
+                              "selections": [
+                                { "kd": "Field", "name": { "kd": "Name", "value": "arn" } },
+                                { "kd": "Field", "name": { "kd": "Name", "value": "name" } },
+                              ],
+                            },
+                          },
+                        ],
+                      },
+                    }],
+                  },
+                }],
+              },
+            },
+            {
+              "kd": "Field",
+              "name": { "kd": "Name", "value": "self" },
+              "selectionSet": {
+                "kd": "SelectionSet",
+                "selections": [{
+                  "kd": "Field",
+                  "name": { "kd": "Name", "value": "principal" },
+                  "selectionSet": {
+                    "kd": "SelectionSet",
+                    "selections": [
+                      { "kd": "Field", "name": { "kd": "Name", "value": "arn" } },
+                      {
+                        "kd": "InlineFragment",
+                        "typeCondition": { "kd": "NamedType", "name": { "kd": "Name", "value": "XPrincipal" } },
                         "selectionSet": {
                           "kd": "SelectionSet",
                           "selections": [
-                            { "kd": "Field", "name": { "kd": "Name", "value": "isOwner" } },
-                            { "kd": "Field", "name": { "kd": "Name", "value": "isPrincipalAdmin" } },
-                            { "kd": "Field", "name": { "kd": "Name", "value": "isPrincipalViewer" } },
-                            { "kd": "Field", "name": { "kd": "Name", "value": "isAcAdmin" } },
-                            { "kd": "Field", "name": { "kd": "Name", "value": "isAcViewer" } },
+                            { "kd": "Field", "name": { "kd": "Name", "value": "__typename" } },
+                            {
+                              "kd": "Field",
+                              "name": { "kd": "Name", "value": "contactInfo" },
+                              "selectionSet": {
+                                "kd": "SelectionSet",
+                                "selections": [
+                                  { "kd": "Field", "name": { "kd": "Name", "value": "name" } },
+                                  { "kd": "Field", "name": { "kd": "Name", "value": "email" } },
+                                ],
+                              },
+                            },
+                            {
+                              "kd": "Field",
+                              "name": { "kd": "Name", "value": "properties" },
+                              "selectionSet": {
+                                "kd": "SelectionSet",
+                                "selections": [
+                                  { "kd": "Field", "name": { "kd": "Name", "value": "isOwner" } },
+                                  { "kd": "Field", "name": { "kd": "Name", "value": "isPrincipalAdmin" } },
+                                  { "kd": "Field", "name": { "kd": "Name", "value": "isPrincipalViewer" } },
+                                  { "kd": "Field", "name": { "kd": "Name", "value": "isAcAdmin" } },
+                                  { "kd": "Field", "name": { "kd": "Name", "value": "isAcViewer" } },
+                                ],
+                              },
+                            },
                           ],
                         },
-                      }],
-                    },
-                  }],
-                },
-              }],
+                      },
+                    ],
+                  },
+                }],
+              },
             },
-          }],
+          ],
         },
       }],
     },

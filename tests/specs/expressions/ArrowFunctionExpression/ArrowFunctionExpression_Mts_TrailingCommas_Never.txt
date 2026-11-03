@@ -1,0 +1,9 @@
+-- file.mts --
+~~ trailingCommas: never ~~
+== should keep the trailing comma for a type parameter with only an identifier ==
+const x = <T,>(value: T): T => value;
+const y = <T extends string,>(value: T): T => value;
+
+[expect]
+const x = <T,>(value: T): T => value;
+const y = <T extends string>(value: T): T => value;

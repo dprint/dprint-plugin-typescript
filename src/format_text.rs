@@ -1,24 +1,35 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use anyhow::Result;
-use deno_ast::ParsedSource;
 use dprint_core::configuration::resolve_new_line_kind;
 use dprint_core::formatting::*;
+use dprint_swc_ext::common::RootNode;
+use dprint_swc_ext::common::SourceTextInfoProvider;
+use dprint_swc_ext::swc::parser::Syntax;
+use dprint_swc_ext::view::Program;
+use dprint_swc_ext::view::ProgramInfoProvider;
 
-use crate::swc::ensure_no_specific_syntax_errors;
+use crate::Result;
 
 use super::configuration::Configuration;
-use super::generation::generate;
 pub use super::generation::ExternalFormatter;
-use super::swc::parse_swc_ast;
+use super::generation::generate;
+use super::parsing::ParseOptions;
+use super::parsing::parse_program;
 
 pub struct FormatTextOptions<'a> {
   pub path: &'a Path,
   pub extension: Option<&'a str>,
-  pub text: String,
+  /// Text of the file. Any byte order mark is stripped before parsing.
+  ///
+  /// This is an `Arc<str>` because the text has to end up in one in order to
+  /// be shared with the ast view, so a caller that already has one saves a copy.
+  pub text: Arc<str>,
   pub config: &'a Configuration,
-  pub external_formatter: Option<&'a ExternalFormatter>,
+  pub external_formatter: Option<&'a ExternalFormatter<'a>>,
+  /// The pool to create the arena for formatting from, which reuses its memory
+  /// between formats. When `None`, the memory is freed once the file is formatted.
+  pub arena_pool: Option<&'a ArenaPool>,
 }
 
 /// Formats a file.
@@ -50,6 +61,7 @@ pub struct FormatTextOptions<'a> {
 ///         text: file_text.into(),
 ///         config: &config,
 ///         external_formatter: None,
+///         arena_pool: None,
 ///     });
 ///     // save result here...
 /// }
@@ -61,15 +73,24 @@ pub fn format_text(options: FormatTextOptions) -> Result<Option<String>> {
     text: file_text,
     config,
     external_formatter,
+    arena_pool,
   } = options;
   if super::utils::file_text_has_ignore_comment(&file_text, &config.ignore_file_comment_text) {
     Ok(None)
   } else {
-    let had_bom = file_text.starts_with("\u{FEFF}");
-    let file_text = if had_bom { file_text[3..].to_string() } else { file_text };
-    let file_text: Arc<str> = file_text.into();
-    let parsed_source = parse_swc_ast(file_path, file_extension, file_text)?;
-    match inner_format(&parsed_source, config, external_formatter)? {
+    // stripping the byte order mark is the only thing that copies the text here
+    let had_bom = file_text.starts_with('\u{FEFF}');
+    let file_text = if had_bom { file_text['\u{FEFF}'.len_utf8()..].into() } else { file_text };
+    let parsed_source = parse_program(ParseOptions {
+      path: file_path,
+      extension: file_extension,
+      text: file_text,
+    })?;
+    let syntax = parsed_source.syntax();
+    // the arena is created before the ast view so the print items can borrow from it
+    let arena = create_arena(arena_pool);
+    let formatted = parsed_source.with_view(|program| inner_format_program(&arena, program, syntax, config, external_formatter))?;
+    match formatted {
       Some(new_text) => Ok(Some(new_text)),
       None => {
         if had_bom {
@@ -82,43 +103,148 @@ pub fn format_text(options: FormatTextOptions) -> Result<Option<String>> {
   }
 }
 
-/// Formats an already parsed source. This is useful as a performance optimization.
-pub fn format_parsed_source(source: &ParsedSource, config: &Configuration, external_formatter: Option<&ExternalFormatter>) -> Result<Option<String>> {
-  if super::utils::file_text_has_ignore_comment(source.text(), &config.ignore_file_comment_text) {
-    Ok(None)
-  } else {
-    ensure_no_specific_syntax_errors(source)?;
-    inner_format(source, config, external_formatter)
-  }
+pub struct FormatParsedSourceOptions<'a, TSource: ProgramInfoProvider> {
+  pub source: &'a TSource,
+  /// Syntax the program was parsed with. For a source parsed by this crate
+  /// use [`ParsedSource::syntax`](crate::parsing::ParsedSource::syntax).
+  pub syntax: Syntax,
+  pub config: &'a Configuration,
+  pub external_formatter: Option<&'a ExternalFormatter<'a>>,
+  /// The pool to create the arena for formatting from, which reuses its memory
+  /// between formats. When `None`, the memory is freed once the file is formatted.
+  pub arena_pool: Option<&'a ArenaPool>,
 }
 
-fn inner_format(parsed_source: &ParsedSource, config: &Configuration, external_formatter: Option<&ExternalFormatter>) -> Result<Option<String>> {
-  let mut maybe_err: Box<Option<anyhow::Error>> = Box::new(None);
-  let result = dprint_core::formatting::format(
-    || match generate(parsed_source, config, external_formatter) {
-      Ok(print_items) => print_items,
-      Err(e) => {
-        maybe_err.replace(e);
-        PrintItems::default()
-      }
-    },
-    config_to_print_options(parsed_source.text(), config),
-  );
-  if let Some(e) = maybe_err.take() {
-    return Err(e);
+/// Formats an already parsed source. This is useful as a performance optimization.
+///
+/// Any parsed source implementing `ProgramInfoProvider` works here, including
+/// `deno_ast::ParsedSource`, so that the text does not need to be parsed twice.
+///
+/// Note that for a source this crate did not parse, it's up to the caller to
+/// first check its parse diagnostics with
+/// [`is_unsupported_syntax_error`](crate::is_unsupported_syntax_error).
+/// Formatting a program that swc recovered text-losing errors from will mangle
+/// the file. A [`ParsedSource`](crate::parsing::ParsedSource) from this crate is
+/// already checked at parse time.
+pub fn format_parsed_source<TSource: ProgramInfoProvider>(options: FormatParsedSourceOptions<TSource>) -> Result<Option<String>> {
+  let FormatParsedSourceOptions {
+    source,
+    syntax,
+    config,
+    external_formatter,
+    arena_pool,
+  } = options;
+  // the arena is created before the ast view so the print items can borrow from it
+  let arena = create_arena(arena_pool);
+  source.with_view(|program| {
+    format_program(FormatProgramOptions {
+      program,
+      syntax,
+      config,
+      external_formatter,
+      arena: &arena,
+    })
+  })
+}
+
+pub struct FormatProgramOptions<'a> {
+  pub program: Program<'a>,
+  /// Syntax the program was parsed with. For a source parsed by this crate
+  /// use [`ParsedSource::syntax`](crate::parsing::ParsedSource::syntax).
+  pub syntax: Syntax,
+  pub config: &'a Configuration,
+  pub external_formatter: Option<&'a ExternalFormatter<'a>>,
+  /// The arena to allocate the print items in, which needs to be created before
+  /// the ast view so the print items can borrow from the program.
+  pub arena: &'a Arena,
+}
+
+/// Formats an ast view of an already parsed source.
+///
+/// Use this when the source was parsed elsewhere (ex. with `deno_ast`). The
+/// program must have been parsed with tokens and comments captured.
+///
+/// The program must have been parsed with the text info, tokens, and comments
+/// all captured, otherwise this errors.
+///
+/// Note that unlike [`format_text`] this does not check for syntax errors that
+/// swc recovered from, because it has no diagnostics to check. Use
+/// [`is_unsupported_syntax_error`](crate::is_unsupported_syntax_error) on the
+/// parse diagnostics beforehand in order to do that — formatting a program that
+/// swc recovered text-losing errors from will mangle the file.
+///
+/// # Example
+///
+/// ```ignore
+/// let arena = Arena::new();
+/// parsed_source.with_view(|program| {
+///   format_program(FormatProgramOptions {
+///     program,
+///     syntax: parsed_source.syntax(),
+///     config: &config,
+///     external_formatter: None,
+///     arena: &arena,
+///   })
+/// })
+/// ```
+pub fn format_program(options: FormatProgramOptions) -> Result<Option<String>> {
+  let FormatProgramOptions {
+    program,
+    syntax,
+    config,
+    external_formatter,
+    arena,
+  } = options;
+  if program.maybe_text_info().is_none() {
+    return Err("The text info must be provided in order to format a program.".into());
   }
-  if result == parsed_source.text().as_ref() {
-    Ok(None)
-  } else {
-    Ok(Some(result))
+  if program.maybe_token_container().is_none() {
+    return Err("The tokens must be captured in order to format a program.".into());
   }
+  if program.maybe_comment_container().is_none() {
+    return Err("The comments must be captured in order to format a program.".into());
+  }
+  let file_text = program.text_info().text_str();
+  if super::utils::file_text_has_ignore_comment(file_text, &config.ignore_file_comment_text) {
+    return Ok(None);
+  }
+  inner_format_program(arena, program, syntax, config, external_formatter)
 }
 
 #[cfg(feature = "tracing")]
 pub fn trace_file(file_path: &Path, file_text: &str, config: &Configuration) -> dprint_core::formatting::TracingResult {
-  let parsed_source = parse_swc_ast(file_path, None, file_text.into()).unwrap();
-  ensure_no_specific_syntax_errors(&parsed_source).unwrap();
-  dprint_core::formatting::trace_printing(|| generate(&parsed_source, config, None), config_to_print_options(file_text, config))
+  let parsed_source = parse_program(ParseOptions {
+    path: file_path,
+    extension: None,
+    text: file_text.into(),
+  })
+  .unwrap();
+  let syntax = parsed_source.syntax();
+  let arena = Arena::new();
+  dprint_core::formatting::trace_printing(
+    parsed_source.with_view(|program| generate(&arena, program, syntax, config, None)).unwrap(),
+    config_to_print_options(file_text, config),
+  )
+}
+
+fn inner_format_program<'a>(
+  arena: &'a Arena,
+  program: Program<'a>,
+  syntax: Syntax,
+  config: &'a Configuration,
+  external_formatter: Option<&'a ExternalFormatter<'a>>,
+) -> Result<Option<String>> {
+  let file_text = program.text_info().text_str();
+  let print_items = generate(arena, program, syntax, config, external_formatter)?;
+  let result = dprint_core::formatting::print(print_items, config_to_print_options(file_text, config));
+  if result == file_text { Ok(None) } else { Ok(Some(result)) }
+}
+
+fn create_arena(arena_pool: Option<&ArenaPool>) -> Arena {
+  match arena_pool {
+    Some(arena_pool) => arena_pool.create_arena(),
+    None => Arena::new(),
+  }
 }
 
 fn config_to_print_options(file_text: &str, config: &Configuration) -> PrintOptions {
@@ -144,6 +270,7 @@ mod test {
         text: input_text.into(),
         config: &config,
         external_formatter: None,
+        arena_pool: None,
       })
       .unwrap()
       .unwrap();
@@ -161,13 +288,40 @@ mod test {
       config: &config,
       external_formatter: Some(&|lang, _text, _config| {
         assert!(matches!(lang, "html"));
-        Err(anyhow::anyhow!("Syntax error from external formatter"))
+        Err("Syntax error from external formatter".into())
       }),
+      arena_pool: None,
     });
     assert!(result.is_err());
     assert_eq!(
       result.unwrap_err().to_string(),
       "Error formatting tagged template literal at line 1: Syntax error from external formatter"
     );
+  }
+
+  #[test]
+  fn format_program_from_ast_view() {
+    let config = crate::configuration::ConfigurationBuilder::new().build();
+    let parsed_source = parse_program(ParseOptions {
+      path: &std::path::PathBuf::from("test.ts"),
+      extension: None,
+      text: "const  t  =  5 ;".into(),
+    })
+    .unwrap();
+    let syntax = parsed_source.syntax();
+    let arena = Arena::new();
+    let result = parsed_source
+      .with_view(|program| {
+        format_program(FormatProgramOptions {
+          program,
+          syntax,
+          config: &config,
+          external_formatter: None,
+          arena: &arena,
+        })
+      })
+      .unwrap()
+      .unwrap();
+    assert_eq!(result, "const t = 5;\n");
   }
 }

@@ -169,10 +169,8 @@ import asdf from "testing.json" with {
 
 == source phase imports ==
 import source    a from "a";
-import   defer b from "b";
-import    defer { c } from "c";
+import defer * as b from "b";
 
 [expect]
 import source a from "a";
-import defer b from "b";
-import defer { c } from "c";
+import defer * as b from "b";

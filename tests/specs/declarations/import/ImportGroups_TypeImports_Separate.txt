@@ -1,0 +1,27 @@
+~~ {
+  "lineWidth": 80,
+  "module.sortImportDeclarations": "caseInsensitive",
+  "module.importGroups": [
+    { "match": "external" },
+    { "match": "type" }
+  ]
+} ~~
+== typeImports separate (default) pulls import type into its own group ==
+import { a } from "alpha";
+import type { B } from "beta";
+import { c } from "gamma";
+
+[expect]
+import { a } from "alpha";
+import { c } from "gamma";
+
+import type { B } from "beta";
+
+== mixed default plus type specifier stays value ==
+import Foo, { type Bar } from "alpha";
+import type { Baz } from "beta";
+
+[expect]
+import Foo, { type Bar } from "alpha";
+
+import type { Baz } from "beta";

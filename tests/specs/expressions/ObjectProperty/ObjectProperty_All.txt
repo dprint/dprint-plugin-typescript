@@ -29,3 +29,25 @@ function test() {
         },
     };
 }
+
+== should remove needless parens ==
+const obj = {
+    prop: ({ a, b } = obj)
+}
+
+const obj = {
+    prop   , // test
+    prop2   :    (2),
+    prop3 : (foo()),
+};
+
+[expect]
+const obj = {
+    prop: ({ a, b } = obj),
+};
+
+const obj = {
+    prop, // test
+    prop2: 2,
+    prop3: foo(),
+};

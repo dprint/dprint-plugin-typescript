@@ -1,0 +1,33 @@
+~~ blockPadding: always, useBraces: preferNone ~~
+== should be stable when the body exceeds the line width ==
+if (a) someVeryLongFunctionName(argumentNumberOne, argumentNumberTwo, argumentNumberThree, four, five, six, seven, eight);
+
+[expect]
+if (a)
+    someVeryLongFunctionName(argumentNumberOne, argumentNumberTwo, argumentNumberThree, four, five, six, seven, eight);
+
+== should be stable for a while statement exceeding the line width ==
+while (a) someVeryLongFunctionName(argumentNumberOne, argumentNumberTwo, argumentNumberThree, four, five, six, seven);
+
+[expect]
+while (a) someVeryLongFunctionName(argumentNumberOne, argumentNumberTwo, argumentNumberThree, four, five, six, seven);
+
+== should be stable when the body has an arrow function ==
+for (let i = 0; i < buttonCount; i++) { range.text(i.toString(), (ctx) => (other) => ctx.reply(other)); }
+
+[expect]
+for (let i = 0; i < buttonCount; i++) range.text(i.toString(), (ctx) => (other) => ctx.reply(other));
+
+== should pad a body with braces that can't be removed ==
+if (a) {
+    b();
+    c();
+}
+
+[expect]
+if (a) {
+
+    b();
+    c();
+
+}
