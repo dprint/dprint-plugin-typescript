@@ -9512,10 +9512,11 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
   }
   let sorted_indexes = node_sorter.map(|sorter| sorter.get_sorted_indexes(nodes.iter().map(|d| d.as_node()), context.program));
 
-  ir_helpers::gen_separated_values(
+  return ir_helpers::gen_separated_values(
     |is_multi_line_or_hanging_ref| {
       let is_multi_line_or_hanging = is_multi_line_or_hanging_ref.create_resolver(context.arena);
       let nodes_count = nodes.len();
+      let has_same_kind_neighbor = get_has_same_kind_neighbor(&nodes);
       let mut generated_nodes = BumpVec::with_capacity_in(nodes_count, context.arena.bump());
       let mut forced_lines_span_line = 0;
 
@@ -9526,7 +9527,10 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
         };
         let (allow_inline_multi_line, allow_inline_single_line) = if let NodeOrSeparator::Node(value) = value {
           let is_last_value = node_index + 1 == nodes_count; // allow the last node to be single line
-          (allows_inline_multi_line(value, context, nodes_count > 1), is_last_value)
+          (
+            !has_same_kind_neighbor[i] && allows_inline_multi_line(value, context, nodes_count > 1),
+            is_last_value,
+          )
         } else {
           (false, false)
         };
@@ -9612,7 +9616,41 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
       multi_line_options: opts.multi_line_options,
       force_possible_newline_at_start: opts.force_possible_newline_at_start,
     },
-  )
+  );
+
+  /// Gets if each value has a value beside it of the same kind, which isn't inline multi-line
+  /// so the container breaks instead (ex. `[{ a }, { b }]` instead of expanding the last object).
+  fn get_has_same_kind_neighbor(nodes: &[NodeOrSeparator]) -> Vec<bool> {
+    let mut result = vec![false; nodes.len()];
+    let mut previous: Option<(usize, Option<NodeKind>)> = None;
+    for (i, value) in nodes.iter().enumerate() {
+      let NodeOrSeparator::Node(node) = value else {
+        continue;
+      };
+      let kind = get_kind(*node);
+      if let Some((previous_index, previous_kind)) = previous {
+        if kind.is_some() && kind == previous_kind {
+          result[previous_index] = true;
+          result[i] = true;
+        }
+      }
+      previous = Some((i, kind));
+    }
+    result
+  }
+
+  fn get_kind(node: Node) -> Option<NodeKind> {
+    let node = match node {
+      Node::ExprOrSpread(expr_or_spread) if expr_or_spread.spread().is_none() => expr_or_spread.expr.into(),
+      Node::TsTupleElement(element) => element.ty.into(),
+      node => node,
+    };
+    match node {
+      Node::ObjectLit(_) | Node::ObjectPat(_) | Node::TsTypeLit(_) => Some(NodeKind::ObjectLit),
+      Node::ArrayLit(_) | Node::ArrayPat(_) | Node::TsTupleType(_) => Some(NodeKind::ArrayLit),
+      _ => None,
+    }
+  }
 }
 
 fn sort_by_sorted_indexes<'b, T>(items: BumpVec<'b, T>, sorted_indexes: utils::VecMap<usize>) -> BumpVec<'b, T> {
