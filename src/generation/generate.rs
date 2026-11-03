@@ -11319,7 +11319,9 @@ fn gen_assignment_like_with_token<'a>(
         {
           let mut items = PrintItems::new(context.arena);
           items.push_signal(Signal::SpaceIfNotTrailing);
-          items.push_signal(Signal::PossibleNewLine);
+          if context.config.variable_statement_prefer_single_line {
+              items.push_signal(Signal::PossibleNewLine);
+          }
           items
         },
         Signal::SpaceIfNotTrailing.into_print_items(context.arena),
