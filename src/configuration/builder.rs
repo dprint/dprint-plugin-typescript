@@ -169,6 +169,13 @@ impl ConfigurationBuilder {
     self.insert("jsx.bracketPosition", value.to_string().into())
   }
 
+  /// Whether a class or class member should be on the same or next line as its decorators.
+  ///
+  /// Default: `maintain`
+  pub fn decorators_position(&mut self, value: SameOrNextLinePosition) -> &mut Self {
+    self.insert("decorators.position", value.to_string().into())
+  }
+
   /// If the end angle bracket of a jsx opening element should be on the same
   /// or next line when the attributes span multiple lines.
   ///
@@ -1382,6 +1389,7 @@ mod tests {
       .jsx_bracket_position(SameOrNextLinePosition::Maintain)
       .jsx_opening_element_bracket_position(SameOrNextLinePosition::Maintain)
       .jsx_self_closing_element_bracket_position(SameOrNextLinePosition::Maintain)
+      .decorators_position(SameOrNextLinePosition::Maintain)
       .semi_colons(SemiColons::Prefer)
       .brace_position(BracePosition::NextLine)
       .next_control_flow_position(NextControlFlowPosition::SameLine)
@@ -1608,7 +1616,7 @@ mod tests {
       .with_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 221);
+    assert_eq!(inner_config.len(), 222);
     let diagnostics = resolve_config(inner_config, &Default::default()).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

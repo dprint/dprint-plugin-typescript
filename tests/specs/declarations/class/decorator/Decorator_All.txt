@@ -118,24 +118,15 @@ class T {
 
 [expect]
 class T {
-    @((t, c) => {})
-    a: any;
-    @(super.decorator)
-    b() {}
-    @(x?.["y"])
-    c: any;
-    @(await dec)
-    d: any;
-    @(a["b"])
-    e: any;
-    @(a().b)
-    f: any;
-    @(a().b(c))
-    g: any;
-    @(a?.b)
-    h: any;
-    @([a])
-    i: any;
+    @((t, c) => {}) a: any;
+    @(super.decorator) b() {}
+    @(x?.["y"]) c: any;
+    @(await dec) d: any;
+    @(a["b"]) e: any;
+    @(a().b) f: any;
+    @(a().b(c)) g: any;
+    @(a?.b) h: any;
+    @([a]) i: any;
 }
 
 == should remove the parens around a decorator expression when unnecessary ==
@@ -150,16 +141,10 @@ class T {
 
 [expect]
 class T {
-    @a
-    a: any;
-    @a.b.#c
-    b: any;
-    @a.b()
-    c: any;
-    @a(b)
-    d: any;
-    @a.b
-    e: any;
-    @a.b
-    f: any;
+    @a a: any;
+    @a.b.#c b: any;
+    @a.b() c: any;
+    @a(b) d: any;
+    @a.b e: any;
+    @a.b f: any;
 }

@@ -100,6 +100,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     arrow_function_use_parentheses: get_value(&mut config, "arrowFunction.useParentheses", UseParentheses::Maintain, &mut diagnostics),
     binary_expression_line_per_expression: get_value(&mut config, "binaryExpression.linePerExpression", false, &mut diagnostics),
     conditional_expression_line_per_expression: get_value(&mut config, "conditionalExpression.linePerExpression", true, &mut diagnostics),
+    decorators_position: get_value(&mut config, "decorators.position", SameOrNextLinePosition::Maintain, &mut diagnostics),
     jsx_quote_style: get_value(&mut config, "jsx.quoteStyle", quote_style.to_jsx_quote_style(), &mut diagnostics),
     jsx_multi_line_parens: get_value(&mut config, "jsx.multiLineParens", JsxMultiLineParens::Prefer, &mut diagnostics),
     jsx_sort_class_names: get_jsx_sort_class_names(&mut config, &mut diagnostics),

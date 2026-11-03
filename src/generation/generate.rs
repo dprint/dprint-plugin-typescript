@@ -402,11 +402,11 @@ fn gen_node_with_inner_gen<'a>(
     // decorators in these cases will have starts before their parent so they need to be handled specially
     if let Node::ExportDecl(decl) = node {
       if let Decl::Class(class_decl) = &decl.decl {
-        items.extend(gen_decorators(class_decl.class.decorators, false, context));
+        items.extend(gen_decorators(class_decl.class.decorators, DecoratorsSeparator::NewLine, context));
       }
     } else if let Node::ExportDefaultDecl(decl) = node {
       if let DefaultDecl::Class(class_expr) = &decl.decl {
-        items.extend(gen_decorators(class_expr.class.decorators, false, context));
+        items.extend(gen_decorators(class_expr.class.decorators, DecoratorsSeparator::NewLine, context));
       }
     }
 
@@ -762,7 +762,7 @@ fn is_bare_decorator_expr(expr: Expr) -> bool {
 
 fn gen_parameter_prop<'a>(node: &TsParamProp<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
   let mut items = PrintItems::new(context.arena);
-  items.extend(gen_decorators(node.decorators, true, context));
+  items.extend(gen_decorators(node.decorators, DecoratorsSeparator::Space, context));
   if let Some(accessibility) = node.accessibility() {
     items.push_str_runtime_width_computed(accessibility_to_str(accessibility));
     items.push_space();
@@ -827,7 +827,7 @@ struct GenClassPropCommon<'a, 'b> {
 
 fn gen_class_prop_common<'a, 'b>(node: GenClassPropCommon<'a, 'b>, context: &mut Context<'a>) -> PrintItems<'a> {
   let mut items = PrintItems::new(context.arena);
-  items.extend(gen_decorators(node.decorators, true, context));
+  items.extend(gen_decl_decorators(node.decorators, context));
   if node.is_declare {
     items.push_sc(sc!("declare "));
   }
@@ -1055,8 +1055,11 @@ fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'
   // generate decorators
   let parent_kind = node.node.parent().unwrap().kind();
   if parent_kind != NodeKind::ExportDecl && parent_kind != NodeKind::ExportDefaultDecl {
-    let is_inline = !node.is_class_decl;
-    items.extend(gen_decorators(node.decorators, is_inline, context));
+    if node.is_class_decl {
+      items.extend(gen_decl_decorators(node.decorators, context));
+    } else {
+      items.extend(gen_decorators(node.decorators, DecoratorsSeparator::Space, context));
+    }
   }
 
   // generate header and body
@@ -1434,7 +1437,7 @@ fn gen_function_decl_or_expr<'a>(node: FunctionDeclOrExprNode<'a>, context: &mut
 
 fn gen_param<'a>(node: &Param<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
   let mut items = PrintItems::new(context.arena);
-  items.extend(gen_decorators(node.decorators, true, context));
+  items.extend(gen_decorators(node.decorators, DecoratorsSeparator::Space, context));
   items.extend(gen_node(node.pat.into(), context));
   items
 }
@@ -5272,7 +5275,7 @@ impl From<MethodKind> for ClassOrObjectMethodKind {
 fn gen_class_or_object_method<'a>(node: ClassOrObjectMethod<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
   let mut items = PrintItems::new(context.arena);
   if let Some(decorators) = node.decorators.as_ref() {
-    items.extend(gen_decorators(decorators, false, context));
+    items.extend(gen_decl_decorators(decorators, context));
   }
 
   let start_header_lsil = LineStartIndentLevel::new("methodStartHeader");
@@ -10224,7 +10227,41 @@ fn gen_computed_prop_like<'a>(
   }
 }
 
-fn gen_decorators<'a>(decorators: &[&'a Decorator<'a>], is_inline: bool, context: &mut Context<'a>) -> PrintItems<'a> {
+/// Generates the decorators of a class or class member, which is on the same or next line
+/// depending on `decorators.position`.
+fn gen_decl_decorators<'a>(decorators: &[&'a Decorator<'a>], context: &mut Context<'a>) -> PrintItems<'a> {
+  let Some(last_decorator) = decorators.last() else {
+    return PrintItems::new(context.arena);
+  };
+  let program = context.program;
+  // a line comment after the decorators ends the line
+  let has_line_comment = last_decorator.end().trailing_comments_fast(program).any(|c| c.kind == CommentKind::Line);
+  let is_same_line = !has_line_comment
+    && match context.config.decorators_position {
+      SameOrNextLinePosition::SameLine => true,
+      SameOrNextLinePosition::NextLine => false,
+      SameOrNextLinePosition::Maintain => {
+        let next_token_pos = context.token_finder.get_next_token_pos_after(*last_decorator);
+        last_decorator.end_line_fast(program) == next_token_pos.start_line_fast(program)
+      }
+    };
+  let separator = if is_same_line {
+    DecoratorsSeparator::SpaceOrNewLine
+  } else {
+    DecoratorsSeparator::NewLine
+  };
+  gen_decorators(decorators, separator, context)
+}
+
+/// What goes between decorators and what they decorate.
+#[derive(Clone, Copy, PartialEq)]
+enum DecoratorsSeparator {
+  Space,
+  SpaceOrNewLine,
+  NewLine,
+}
+
+fn gen_decorators<'a>(decorators: &[&'a Decorator<'a>], separator: DecoratorsSeparator, context: &mut Context<'a>) -> PrintItems<'a> {
   let mut items = PrintItems::new(context.arena);
   if decorators.is_empty() {
     return items;
@@ -10243,7 +10280,7 @@ fn gen_decorators<'a>(decorators: &[&'a Decorator<'a>], is_inline: bool, context
       separator: Separator::none(),
       single_line_options: ir_helpers::SingleLineOptions {
         space_at_start: false,
-        space_at_end: is_inline,
+        space_at_end: separator == DecoratorsSeparator::Space,
         separator: Signal::SpaceOrNewLine.into_print_items(context.arena),
       },
       multi_line_options: ir_helpers::MultiLineOptions::same_line_no_indent(),
@@ -10255,11 +10292,21 @@ fn gen_decorators<'a>(decorators: &[&'a Decorator<'a>], is_inline: bool, context
 
   items.extend(separated_values_result.items);
 
-  if is_inline {
-    let is_multi_line = separated_values_result.is_multi_line_condition_ref.create_resolver(context.arena);
-    items.push_condition(if_true("inlineMultiLineSpace", is_multi_line, Signal::NewLine.into_print_items(context.arena)));
-  } else {
-    items.push_signal(Signal::NewLine);
+  match separator {
+    DecoratorsSeparator::Space => {
+      let is_multi_line = separated_values_result.is_multi_line_condition_ref.create_resolver(context.arena);
+      items.push_condition(if_true("inlineMultiLineSpace", is_multi_line, Signal::NewLine.into_print_items(context.arena)));
+    }
+    DecoratorsSeparator::SpaceOrNewLine => {
+      let is_multi_line = separated_values_result.is_multi_line_condition_ref.create_resolver(context.arena);
+      items.push_condition(if_true_or(
+        "inlineMultiLineSpaceOrNewLine",
+        is_multi_line,
+        Signal::NewLine.into_print_items(context.arena),
+        Signal::SpaceOrNewLine.into_print_items(context.arena),
+      ));
+    }
+    DecoratorsSeparator::NewLine => items.push_signal(Signal::NewLine),
   }
 
   // generate the comments between the last decorator and the next token

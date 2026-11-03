@@ -202,6 +202,21 @@
         "description": "Forces the end angle bracket to be on the next line."
       }]
     },
+    "decorators.position": {
+      "description": "Whether a class or class member should be on the same or next line as its decorators.",
+      "type": "string",
+      "default": "maintain",
+      "oneOf": [{
+        "const": "maintain",
+        "description": "Maintains whether it's on the same line as its decorators."
+      }, {
+        "const": "sameLine",
+        "description": "Forces it to be on the same line as its decorators."
+      }, {
+        "const": "nextLine",
+        "description": "Forces it to be on the next line after its decorators."
+      }]
+    },
     "newLineKind": {
       "description": "The kind of newline to use.",
       "type": "string",
@@ -1002,6 +1017,9 @@
     },
     "jsxSelfClosingElement.bracketPosition": {
       "$ref": "#/definitions/jsx.bracketPosition"
+    },
+    "decorators.position": {
+      "$ref": "#/definitions/decorators.position"
     },
     "jsx.forceNewLinesSurroundingContent": {
       "$ref": "#/definitions/jsx.forceNewLinesSurroundingContent"
