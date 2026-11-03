@@ -1,0 +1,41 @@
+== should put schemed imports first ==
+import a from "./test";
+import b from "npm:test";
+import c from "test";
+import d from "node:test";
+import e from "https://example.com/test.ts";
+import f from "jsr:@std/test";
+import g from "../test";
+import h from "@scope/test";
+
+[expect]
+import e from "https://example.com/test.ts";
+import f from "jsr:@std/test";
+import d from "node:test";
+import b from "npm:test";
+import h from "@scope/test";
+import c from "test";
+import g from "../test";
+import a from "./test";
+
+== should sort schemed imports by their text ==
+import a from "node:bbb";
+import b from "node:aaa";
+import c from "npm:aaa";
+import d from "node:ccc";
+
+[expect]
+import b from "node:aaa";
+import a from "node:bbb";
+import d from "node:ccc";
+import c from "npm:aaa";
+
+== should only consider letters followed by a colon to be a scheme ==
+import a from "b2:test";
+import b from "a:test";
+import c from "@scope/a:test";
+
+[expect]
+import b from "a:test";
+import c from "@scope/a:test";
+import a from "b2:test";

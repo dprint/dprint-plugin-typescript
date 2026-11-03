@@ -17,11 +17,11 @@ import { t } from "test";
 import { z } from "react";
 
 [expect]
-import { serve } from "bun";
 import { test } from "bun:test";
 import { DurableObject } from "cloudflare:workers";
-import fs from "fs";
 import { x } from "node:path";
+import { serve } from "bun";
+import fs from "fs";
 
 import { y } from "npm:react";
 import { z } from "react";
