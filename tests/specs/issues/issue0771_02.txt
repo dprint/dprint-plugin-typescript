@@ -1,0 +1,121 @@
+-- file.ts --
+== should keep a jsdoc before a semicolon at the start of a line with the next statement ==
+import { a } from "b"
+
+/**
+ * Initializes the app
+ */
+;(function initReact() {
+  a()
+})()
+
+[expect]
+import { a } from "b";
+
+/**
+ * Initializes the app
+ */
+(function initReact() {
+    a();
+})();
+
+== should keep the comments before a semicolon at the start of a line on their own lines ==
+const x = 1
+// a
+;[1].forEach(a)
+
+const y = 1
+
+// b
+
+;[1].forEach(b)
+
+[expect]
+const x = 1;
+// a
+[1].forEach(a);
+
+const y = 1;
+
+// b
+
+[1].forEach(b);
+
+== should keep a block comment on the same line as the statement before the semicolon ==
+const x = 1 /* c */
+;[1].forEach(a)
+
+[expect]
+const x = 1 /* c */;
+[1].forEach(a);
+
+== should keep a blank line before a semicolon at the start of a line ==
+const x = 1
+
+;(a)()
+
+[expect]
+const x = 1;
+
+a();
+
+== should keep the comments before a semicolon at the start of a line in a class ==
+class A {
+    a = 1
+    // c
+    ;[b]() {}
+}
+
+[expect]
+class A {
+    a = 1;
+    // c
+    [b]() {}
+}
+
+== should not add a blank line after a semicolon on its own line ==
+const a = (b // c
+  .d) // e
+;
+const f = 1;
+
+const g = h
+;
+
+const i = 1;
+
+[expect]
+const a = b // c
+    .d // e
+;
+const f = 1;
+
+const g = h;
+
+const i = 1;
+
+== should not add a blank line after the comments before a semicolon on its own line ==
+const j = k
+// l
+;
+const m = 1;
+
+[expect]
+const j = k;
+// l
+const m = 1;
+
+== should not add a blank line after the comments before a semicolon on its own line in a class ==
+class A {
+    a = 1
+    // c
+    ;
+    b = 2
+}
+
+[expect]
+class A {
+    a = 1;
+    // c
+    b = 2;
+}

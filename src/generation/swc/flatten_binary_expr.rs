@@ -1,4 +1,5 @@
 use super::super::Context;
+use crate::generation::context::BumpVec;
 use dprint_swc_ext::common::SourceRanged;
 use dprint_swc_ext::common::SourceRangedForSpanned;
 use dprint_swc_ext::swc::parser::token::TokenAndSpan;
@@ -19,8 +20,8 @@ pub struct BinExprOp<'a> {
   pub op: BinaryOp,
 }
 
-pub fn get_flattened_bin_expr<'a, 'b>(node: &'b BinExpr<'a>, context: &mut Context<'a>) -> Vec<BinExprItem<'a>> {
-  let mut items = Vec::new();
+pub fn get_flattened_bin_expr<'a, 'b>(node: &'b BinExpr<'a>, context: &mut Context<'a>) -> BumpVec<'a, BinExprItem<'a>> {
+  let mut items = BumpVec::new_in(context.arena.bump());
   let operator_token = BinExprOp {
     token: find_operator_token_after(&node.left, node.op(), context),
     op: node.op(),

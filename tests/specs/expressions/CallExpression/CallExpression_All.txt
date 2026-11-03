@@ -33,3 +33,27 @@ const x = await import  .source("<specifier>");
 const x = await import.source("<specifier>");
 // not yet supported in swc
 // const y = await import.defer("<specifier>");
+
+== should keep a last function argument on the same line after multiple object or array arguments ==
+cy.intercept({ method: "GET" }, { fixture: "x" }, (req) => {
+    req.reply();
+    doOther();
+});
+test.each([1, 2], [3, 4], (a, b) => {
+    expect(a).toBe(b);
+});
+register({ name: "a" }, { lazy: true }, function(value) {
+    return value;
+});
+
+[expect]
+cy.intercept({ method: "GET" }, { fixture: "x" }, (req) => {
+    req.reply();
+    doOther();
+});
+test.each([1, 2], [3, 4], (a, b) => {
+    expect(a).toBe(b);
+});
+register({ name: "a" }, { lazy: true }, function(value) {
+    return value;
+});

@@ -1,0 +1,35 @@
+-- file.tsx --
+~~ trailingCommas: never ~~
+== should keep the trailing comma in type parameters only when it's needed in a jsx file ==
+const test1: <T,>(t: T) => T = <T,>(t: T) => t;
+export default <T,>(t: T) => t;
+[].filter(<T,>() => false);
+const test2 = <T, U,>() => false;
+const test3 = <const T,>() => false;
+const test4 = function<T,>(t: T) { };
+const test5 = class<T,> { };
+function test6<T,>() {
+}
+
+// a constraint or default is enough to resolve the ambiguity
+const test7 = <T extends unknown,>() => false;
+const test8 = <T = unknown,>() => false;
+const test9 = function<T extends unknown>(t: T) {};
+const test10 = class<T extends unknown> {};
+
+[expect]
+const test1: <T>(t: T) => T = <T,>(t: T) => t;
+export default <T,>(t: T) => t;
+[].filter(<T,>() => false);
+const test2 = <T, U>() => false;
+const test3 = <const T,>() => false;
+const test4 = function<T>(t: T) {};
+const test5 = class<T> {};
+function test6<T>() {
+}
+
+// a constraint or default is enough to resolve the ambiguity
+const test7 = <T extends unknown>() => false;
+const test8 = <T = unknown>() => false;
+const test9 = function<T extends unknown>(t: T) {};
+const test10 = class<T extends unknown> {};

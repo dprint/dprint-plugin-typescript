@@ -472,8 +472,36 @@
         "description": "Maintains the line breaks as written by the programmer."
       }]
     },
-    "enumDeclaration.memberSpacing": {
-      "description": "How to space the members of an enum.",
+    "taggedTemplate.formatEmbedded": {
+      "description": "Whether to format the text of tagged templates whose tag is in `taggedTemplate.embeddedLanguages` (ex. html`...` and css`...`) with the plugin dprint uses for the language's file extension. A template is left as is when no plugin formats the extension.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Formats the text of the tagged templates in `taggedTemplate.embeddedLanguages`."
+      }, {
+        "const": false,
+        "description": "Leaves the text of tagged templates as is."
+      }]
+    },
+    "taggedTemplate.embeddedLanguages": {
+      "description": "Map of a tagged template's tag to the file extension of the language its text is formatted as, which replaces the defaults. The styled-components patterns (ex. styled.div`...` and styled(Button)`...`) use the `css` entry. The text of css is formatted as Less by default because the placeholders of its expressions are Less variables.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "default": {
+        "css": "less",
+        "gql": "graphql",
+        "graphql": "graphql",
+        "html": "html",
+        "sql": "sql",
+        "svg": "svg",
+        "xml": "xml"
+      }
+    },
+    "memberSpacing": {
+      "description": "How to space the members of a class, enum, interface, or type literal.",
       "type": "string",
       "default": "maintain",
       "oneOf": [{
@@ -485,6 +513,21 @@
       }, {
         "const": "maintain",
         "description": "Maintains whether a newline or blankline is used."
+      }]
+    },
+    "blockPadding": {
+      "description": "Whether to keep blank lines at the start and end of a block.",
+      "type": "string",
+      "default": "remove",
+      "oneOf": [{
+        "const": "remove",
+        "description": "Removes the blank lines at the start and end of a block."
+      }, {
+        "const": "maintain",
+        "description": "Maintains the blank lines at the start and end of a block."
+      }, {
+        "const": "always",
+        "description": "Forces a blank line at the start and end of a block that isn't empty."
       }]
     },
     "typeLiteral.separatorKind": {
@@ -916,6 +959,14 @@
     "bracePosition": {
       "$ref": "#/definitions/bracePosition"
     },
+    "blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "maxBlankLines": {
+      "description": "The maximum number of consecutive blank lines to keep.",
+      "default": 1,
+      "type": "number"
+    },
     "singleBodyPosition": {
       "$ref": "#/definitions/singleBodyPosition"
     },
@@ -976,8 +1027,26 @@
     "typeLiteral.separatorKind.multiLine": {
       "$ref": "#/definitions/typeLiteral.separatorKind"
     },
+    "taggedTemplate.formatEmbedded": {
+      "$ref": "#/definitions/taggedTemplate.formatEmbedded"
+    },
+    "taggedTemplate.embeddedLanguages": {
+      "$ref": "#/definitions/taggedTemplate.embeddedLanguages"
+    },
+    "classDeclaration.memberSpacing": {
+      "$ref": "#/definitions/memberSpacing"
+    },
+    "classExpression.memberSpacing": {
+      "$ref": "#/definitions/memberSpacing"
+    },
     "enumDeclaration.memberSpacing": {
-      "$ref": "#/definitions/enumDeclaration.memberSpacing"
+      "$ref": "#/definitions/memberSpacing"
+    },
+    "interfaceDeclaration.memberSpacing": {
+      "$ref": "#/definitions/memberSpacing"
+    },
+    "typeLiteral.memberSpacing": {
+      "$ref": "#/definitions/memberSpacing"
     },
     "spaceAround": {
       "$ref": "#/definitions/spaceAround"
@@ -1123,8 +1192,61 @@
     "module.sortImportDeclarations": {
       "$ref": "#/definitions/sortOrder"
     },
+    "module.blankLinesAfterImports": {
+      "description": "The number of blank lines to force after the import declarations at the top of a module. When not set, maintains the blank lines up to `maxBlankLines`.",
+      "type": "number"
+    },
     "module.sortExportDeclarations": {
       "$ref": "#/definitions/sortOrder"
+    },
+    "module.importGroups": {
+      "description": "Ordered list of import groups, separated by blank lines. Empty disables the feature.",
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "object",
+        "properties": {
+          "match": {
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": ["builtin", "external", "parent", "sibling", "index", "type", "unknown"]
+              },
+              {
+                "type": "object",
+                "required": ["pattern"],
+                "properties": {
+                  "pattern": { "type": "string" }
+                }
+              },
+              {
+                "type": "array",
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "string",
+                      "enum": ["builtin", "external", "parent", "sibling", "index", "type", "unknown"]
+                    },
+                    { "type": "object", "required": ["pattern"], "properties": { "pattern": { "type": "string" } } }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "module.typeImports": {
+      "description": "How type-only imports are classified by module.importGroups.",
+      "type": "string",
+      "default": "separate",
+      "enum": ["separate", "interleave"]
+    },
+    "module.importGroupsNewlinesBetween": {
+      "description": "How blank lines are handled between imports when module.importGroups is enabled. Mirrors ESLint import/order's newlines-between.",
+      "type": "string",
+      "default": "always",
+      "enum": ["always", "alwaysAndInsideGroups", "never", "ignore"]
     },
     "exportDeclaration.sortNamedExports": {
       "$ref": "#/definitions/sortOrder"
@@ -1168,6 +1290,75 @@
     },
     "arrowFunction.bracePosition": {
       "$ref": "#/definitions/bracePosition"
+    },
+    "classDeclaration.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "classExpression.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "enumDeclaration.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "interfaceDeclaration.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "moduleDeclaration.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "arrowFunction.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "constructor.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "doWhileStatement.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "forInStatement.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "forOfStatement.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "forStatement.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "functionDeclaration.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "functionExpression.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "getAccessor.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "ifStatement.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "method.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "setAccessor.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "staticBlock.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "switchCase.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "switchStatement.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "tryStatement.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "whileStatement.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
+    },
+    "withStatement.blockPadding": {
+      "$ref": "#/definitions/blockPadding"
     },
     "classDeclaration.bracePosition": {
       "$ref": "#/definitions/bracePosition"

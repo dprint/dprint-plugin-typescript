@@ -60,3 +60,22 @@ const u = <MyComponent></MyComponent>;
 [expect]
 const t = <MyComponent someProp={value} />;
 const u = <MyComponent></MyComponent>;
+
+== should keep the bracket on the line of the close brace of a jsx spread attribute ==
+const a = (
+    <div
+        a="b"
+        {...b
+        }>
+        text
+    </div>
+);
+
+[expect]
+const a = (
+    <div
+        a="b"
+        {...b}>
+        text
+    </div>
+);

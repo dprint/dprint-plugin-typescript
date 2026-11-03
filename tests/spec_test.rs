@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use dprint_core::configuration::*;
+use dprint_core::formatting::ArenaPool;
 use dprint_development::*;
 use dprint_plugin_typescript::configuration::*;
 use dprint_plugin_typescript::*;
@@ -10,11 +11,29 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync 
 
 fn external_formatter(lang: &str, text: String, config: &Configuration) -> Result<Option<String>> {
   match lang {
-    "css" => format_embedded_css(&text, config),
+    "less" => format_embedded_css(&text, config),
     "html" => format_html(&text, config),
     "sql" => format_sql(&text, config),
+    "graphql" => format_graphql_stub(&text, config),
     _ => Ok(None),
   }
+}
+
+/// Stub formatter for graphql that collapses the whitespace on each line, which is
+/// enough to test that `graphql`, `gql`, and `graphql.experimental` reach it.
+fn format_graphql_stub(text: &str, _config: &Configuration) -> Result<Option<String>> {
+  // collect non-empty collapsed lines so the second formatting pass is idempotent
+  let lines: Vec<String> = text
+    .lines()
+    .map(|l| l.split_whitespace().collect::<Vec<_>>().join(" "))
+    .filter(|l| !l.is_empty())
+    .collect();
+  if lines.is_empty() {
+    return Ok(Some(String::new()));
+  }
+  let mut out = lines.join("\n");
+  out.push('\n');
+  Ok(Some(out))
 }
 
 fn format_embedded_css(text: &str, config: &Configuration) -> Result<Option<String>> {
@@ -99,6 +118,8 @@ fn main() {
     },
     {
       let global_config = global_config.clone();
+      // reuse the memory between formats like the Wasm plugin does
+      let arena_pool = ArenaPool::new();
       Arc::new(move |file_name, file_text, range, spec_config| {
         assert!(range.is_none(), "range formatting is not supported");
         let spec_config: ConfigKeyMap = serde_json::from_value(spec_config.clone().into()).unwrap();
@@ -111,6 +132,7 @@ fn main() {
           text: file_text.into(),
           config: &config_result.config,
           external_formatter: Some(&external_formatter),
+          arena_pool: Some(&arena_pool),
         })?;
         Ok(result)
       })

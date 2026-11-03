@@ -1,0 +1,16 @@
+~~ lineWidth: 80, ifStatement.useBraces: maintain, ifStatement.singleBodyPosition: sameLine ~~
+== should be stable for a conditional expression body that does not fit on the same line as the header ==
+if (someCondition) value ? someFunctionName(argumentNumber1) : otherFunction(argumentNumber2);
+if (a) b;
+else if (someCondition) someValue ? someFunctionName(argument1) : otherFunction(argument2);
+
+[expect]
+if (someCondition)
+    value
+        ? someFunctionName(argumentNumber1)
+        : otherFunction(argumentNumber2);
+if (a) b;
+else if (someCondition)
+    someValue
+        ? someFunctionName(argument1)
+        : otherFunction(argument2);
