@@ -1231,7 +1231,19 @@ fn gen_enum_decl<'a>(node: &TsEnumDecl<'a>, context: &mut Context<'a>) -> PrintI
 
 fn gen_enum_member<'a>(node: &TsEnumMember<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
   let mut items = PrintItems::new(context.arena);
-  items.extend(gen_node(node.id.into(), context));
+  match node.id {
+    // the parser gives a computed key that isn't a literal (an error) an empty
+    // identifier spanning the brackets, so keep the key's text as is
+    TsEnumMemberId::Ident(ident) if ident.sym().is_empty() => {
+      items.extend(gen_file_text_as_is(ident.text_fast(context.program), ident.end(), TrimLineEnds::No, context));
+    }
+    // the parser gives a template literal key (ex. [`a`]) a string spanning only its content
+    TsEnumMemberId::Str(str) if node.start() < str.start() && !str.text_fast(context.program).starts_with(['"', '\'']) => {
+      let text = context.alloc_str(&format!("[`{}`]", str.text_fast(context.program)));
+      items.extend(ir_helpers::gen_from_raw_string(context.arena, text));
+    }
+    _ => items.extend(gen_node(node.id.into(), context)),
+  }
 
   if let Some(init) = &node.init {
     items.extend(gen_assignment(init.into(), sc!("="), context));
