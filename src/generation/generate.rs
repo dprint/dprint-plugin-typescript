@@ -721,8 +721,43 @@ fn gen_constructor<'a>(node: &Constructor<'a>, context: &mut Context<'a>) -> Pri
 fn gen_decorator<'a>(node: &Decorator<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
   let mut items = PrintItems::new(context.arena);
   items.push_sc(sc!("@"));
+  // the parser doesn't keep the parens of `@(expr)`, so add them back when the expression
+  // isn't valid without them (a paren expr here is from extra parens and handles itself)
+  let needs_parens = !matches!(node.expr, Expr::Paren(_)) && !is_bare_decorator_expr(node.expr);
+  if needs_parens {
+    items.push_sc(sc!("("));
+  }
   items.extend(gen_node(node.expr.into(), context));
+  if needs_parens {
+    items.push_sc(sc!(")"));
+  }
   items
+}
+
+/// Gets if the expression can be used in a decorator without parens, which is an identifier,
+/// a chain of property accesses on one (ex. `a.b.#c`), or such a chain followed by a call.
+fn is_bare_decorator_expr(expr: Expr) -> bool {
+  return match expr {
+    Expr::Call(call_expr) => match call_expr.callee {
+      Callee::Expr(callee) => is_member_chain(callee, false),
+      Callee::Super(_) | Callee::Import(_) => false,
+    },
+    _ => is_member_chain(expr, false),
+  };
+
+  fn is_member_chain(expr: Expr, is_member_obj: bool) -> bool {
+    match expr {
+      Expr::Ident(_) => true,
+      Expr::Member(member_expr) => matches!(member_expr.prop, MemberProp::Ident(_) | MemberProp::PrivateName(_)) && is_member_chain(member_expr.obj, true),
+      // these parens are removed when generating (see should_skip_paren_expr)
+      Expr::Paren(paren_expr) => match paren_expr.expr {
+        Expr::Ident(_) => true,
+        Expr::Member(_) if is_member_obj => is_member_chain(paren_expr.expr, true),
+        _ => false,
+      },
+      _ => false,
+    }
+  }
 }
 
 fn gen_parameter_prop<'a>(node: &TsParamProp<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
@@ -3070,6 +3105,10 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
   let parent = node.parent();
   if parent.kind() == NodeKind::UpdateExpr && matches!(node.expr.kind(), NodeKind::TsAsExpr | NodeKind::TsTypeAssertion) {
     return false;
+  }
+
+  if parent.kind() == NodeKind::Decorator {
+    return is_bare_decorator_expr(node.expr);
   }
 
   if matches!(node.expr.kind(), NodeKind::ArrayLit) || matches!(node.expr, Expr::Ident(_)) {
