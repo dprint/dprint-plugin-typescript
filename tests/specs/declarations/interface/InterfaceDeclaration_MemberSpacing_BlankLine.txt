@@ -1,0 +1,18 @@
+~~ interfaceDeclaration.memberSpacing: blankLine ~~
+== should format with blank lines between members ==
+interface Test {
+    a: string;
+    /** docs */
+    b: string;
+    method(): void;
+}
+
+[expect]
+interface Test {
+    a: string;
+
+    /** docs */
+    b: string;
+
+    method(): void;
+}

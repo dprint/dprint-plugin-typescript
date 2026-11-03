@@ -1,0 +1,22 @@
+-- file.d.ts --
+~~ {
+  "lineWidth": 80,
+  "module.importGroups": [{ "match": "builtin" }, { "match": "external" }],
+  "module.sortImportDeclarations": "caseInsensitive"
+} ~~
+== .d.ts file: imports grouped same as .ts ==
+import { x } from "react";
+import { fs } from "node:fs";
+
+declare module "foo" {
+    import { internal } from "bar";
+}
+
+[expect]
+import { fs } from "node:fs";
+
+import { x } from "react";
+
+declare module "foo" {
+    import { internal } from "bar";
+}

@@ -1,7 +1,7 @@
 {
   "exec": {
     "commands": [{
-      "command": "rustfmt",
+      "command": "rustfmt --edition 2024",
       "exts": ["rs"]
     }]
   },

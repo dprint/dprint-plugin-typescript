@@ -119,11 +119,7 @@ impl<'a> TokenFinder<'a> {
 
   pub fn get_next_token_pos_after(&self, node: &impl SourceRanged) -> SourcePos {
     let next_token = self.get_next_token(node);
-    if let Some(token) = next_token {
-      token.start()
-    } else {
-      self.program.end()
-    }
+    if let Some(token) = next_token { token.start() } else { self.program.end() }
   }
 
   #[inline]

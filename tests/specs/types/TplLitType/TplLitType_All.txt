@@ -157,3 +157,17 @@ type A = `${
 type B = `${
     typeof X | typeof Y // comment
 }`;
+
+== should not keep the line breaks in the type arguments of a type ==
+type A = `${Prefix<Section>}${Prefix<
+    AddressKind
+>}${Field}${Postfix<CredentialField>}`;
+type B = `${Prefix<Section>}${Prefix<AddressKind>}${Field}${Postfix<CredentialField>}`;
+
+[expect]
+type A = `${Prefix<Section>}${
+    Prefix<AddressKind>
+}${Field}${Postfix<CredentialField>}`;
+type B = `${Prefix<Section>}${
+    Prefix<AddressKind>
+}${Field}${Postfix<CredentialField>}`;

@@ -1,0 +1,30 @@
+~~ blockPadding: always ~~
+== should not pad blocks with only empty statements ==
+function f() {
+    ;
+}
+
+class A { ; ; }
+
+if (true) {;;}
+
+switch (a) {
+    case 1: { ; }
+}
+
+[expect]
+function f() {
+}
+
+class A {
+}
+
+if (true) {
+}
+
+switch (a) {
+
+    case 1: {
+    }
+
+}
