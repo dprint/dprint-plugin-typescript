@@ -74,3 +74,29 @@ something(arg1, arg2, () => {
 something(arg1, arg2, () => {
     doStuff();
 });
+
+== should keep hugging the last object when the value before it isn't an object ==
+const user = Object.assign({}, collaborators.get(socketId), { isCurrentUser: socketId === currentId });
+
+[expect]
+const user = Object.assign({}, collaborators.get(socketId), {
+    isCurrentUser: socketId === currentId,
+});
+
+== should keep hugging when the values beside each other are different kinds ==
+const blob = new Blob([encryptedData.iv, new Uint8Array(encryptedData.encryptedBuffer)], { type: MIME_TYPES.binary });
+
+[expect]
+const blob = new Blob([
+    encryptedData.iv,
+    new Uint8Array(encryptedData.encryptedBuffer),
+], { type: MIME_TYPES.binary });
+
+== should fully break when two arrays are beside each other ==
+const mapper = createTypeMapper([getTypeParameterFromMappedType(source)], [getTypeParameterFromMappedType(target)]);
+
+[expect]
+const mapper = createTypeMapper(
+    [getTypeParameterFromMappedType(source)],
+    [getTypeParameterFromMappedType(target)],
+);
