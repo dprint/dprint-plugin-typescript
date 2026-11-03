@@ -303,9 +303,9 @@ dependencies = [
 
 [[package]]
 name = "dprint-swc-ext"
-version = "0.27.0"
+version = "0.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa7c5396ac7f10d34df8a414276aace875b55cd73138530ab4c729ec9d25517f"
+checksum = "f6e08b6b321ac0cfdf26e090dcd11be35952aa0d6c44562f6a5e082a2e782ea6"
 dependencies = [
  "allocator-api2",
  "bumpalo",
