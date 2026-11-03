@@ -7117,7 +7117,17 @@ fn should_skip_parenthesized_type<'a>(node: &TsParenthesizedType<'a>, context: &
     return false;
   }
 
-  matches!(node.parent().kind(), NodeKind::TsTypeAnn | NodeKind::TsTypeAliasDecl)
+  // keep for `() => (infer U extends string) ? A : B` because the constraint would otherwise be part of a conditional type
+  if let TsType::TsInferType(infer_type) = node.type_ann {
+    if infer_type.type_param.constraint.is_some() {
+      return false;
+    }
+  }
+
+  matches!(
+    node.parent().kind(),
+    NodeKind::TsTypeAnn | NodeKind::TsTypeAliasDecl | NodeKind::TsParenthesizedType
+  )
 }
 
 fn gen_rest_type<'a>(node: &TsRestType<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
