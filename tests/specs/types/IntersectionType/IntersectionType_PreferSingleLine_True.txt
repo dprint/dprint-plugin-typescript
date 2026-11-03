@@ -20,3 +20,24 @@ export type T =
 
 [expect]
 export type T = string & test & other;
+
+== should not use new lines for a comment before the type ==
+type Test<U, V> =
+    // a
+    keyof U & keyof V;
+
+[expect]
+type Test<U, V> =
+    // a
+    keyof U & keyof V;
+
+== should use new lines for a comment before the first type after a leading separator ==
+type Test<U, V> =
+    & // a
+    keyof U & keyof V;
+
+[expect]
+type Test<U, V> =
+    & // a
+    keyof U
+    & keyof V;

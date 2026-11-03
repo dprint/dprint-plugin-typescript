@@ -1,0 +1,112 @@
+~~ functionDeclaration.blockPadding: always, setAccessor.blockPadding: always, doWhileStatement.blockPadding: always, switchCase.blockPadding: always, forStatement.blockPadding: always, forInStatement.blockPadding: always, tryStatement.blockPadding: always, withStatement.blockPadding: always ~~
+== should use the padding of the node ==
+function test() {
+    a();
+}
+
+export default function named() {
+    a();
+}
+
+const obj = {
+    set prop(value) {
+        a();
+    },
+    method() {
+        a();
+    },
+};
+
+do {
+    a();
+} while (true);
+
+switch (a) {
+    case 1: {
+        b();
+    }
+}
+
+for (let i = 0; i < 1; i++) {
+    a();
+}
+
+for (const a in b) {
+    c();
+}
+
+try {
+    a();
+} catch {
+    b();
+}
+
+with (a) {
+    b();
+}
+
+[expect]
+function test() {
+
+    a();
+
+}
+
+export default function named() {
+
+    a();
+
+}
+
+const obj = {
+    set prop(value) {
+
+        a();
+
+    },
+    method() {
+        a();
+    },
+};
+
+do {
+
+    a();
+
+} while (true);
+
+switch (a) {
+    case 1: {
+
+        b();
+
+    }
+}
+
+for (let i = 0; i < 1; i++) {
+
+    a();
+
+}
+
+for (const a in b) {
+
+    c();
+
+}
+
+try {
+
+    a();
+
+} catch {
+
+    b();
+
+}
+
+with (a) {
+
+    b();
+
+}

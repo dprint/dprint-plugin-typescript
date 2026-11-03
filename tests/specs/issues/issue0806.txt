@@ -1,0 +1,39 @@
+== should keep parens around an object at the start of an expression statement ==
+({} satisfies any);
+({} as any);
+({ a: 1 } satisfies Required<typeof rest>);
+(({} satisfies any));
+({} as const);
+({})!.a;
+
+[expect]
+({}) satisfies any;
+({}) as any;
+({ a: 1 }) satisfies Required<typeof rest>;
+({}) satisfies any;
+({}) as const;
+({})!.a;
+
+== should keep parens around a function or class at the start of an expression statement ==
+(function () {} as any);
+(async function () {} as any);
+(class {} satisfies any);
+(class {});
+(function () {})`x`;
+
+[expect]
+(function() {}) as any;
+(async function() {}) as any;
+(class {}) satisfies any;
+(class {});
+(function() {})`x`;
+
+== should not add parens when not at the start of an expression statement ==
+const x = ({} satisfies any);
+foo(({} as any));
+(a satisfies any);
+
+[expect]
+const x = {} satisfies any;
+foo({} as any);
+a satisfies any;

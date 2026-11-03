@@ -1,0 +1,18 @@
+~~ lineWidth: 80, ifStatement.useBraces: always ~~
+== should not break the header when the body is a conditional expression that doesn't fit ==
+if (someCondition) value ? someFunctionName(argumentNumber1) : otherFunction(argumentNumber2);
+if (a) b;
+else if (someCondition) someValue ? someFunctionName(argument1) : otherFunction(argument2);
+
+[expect]
+if (someCondition) {
+    value
+        ? someFunctionName(argumentNumber1)
+        : otherFunction(argumentNumber2);
+}
+if (a) { b; }
+else if (someCondition) {
+    someValue
+        ? someFunctionName(argument1)
+        : otherFunction(argument2);
+}

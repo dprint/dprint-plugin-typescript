@@ -1,0 +1,18 @@
+~~ deno: true ~~
+== should keep a conditional expression body stable when braces are added (not re-wrap the ternary) ==
+function w(n) {
+  if ("play" === n) {
+    var w = 1;
+    play({ ids: [b] });
+  } else if ("queue" === n) playing() ? queue({ ids: [b] }) : queue({ ids: [b] });
+}
+
+[expect]
+function w(n) {
+  if ("play" === n) {
+    var w = 1;
+    play({ ids: [b] });
+  } else if ("queue" === n) {
+    playing() ? queue({ ids: [b] }) : queue({ ids: [b] });
+  }
+}

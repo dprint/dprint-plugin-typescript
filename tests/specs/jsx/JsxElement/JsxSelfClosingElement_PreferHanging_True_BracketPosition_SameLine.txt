@@ -1,0 +1,19 @@
+-- file.tsx --
+~~ lineWidth: 50, jsxAttributes.preferHanging: true, jsxSelfClosingElement.bracketPosition: sameLine ~~
+== should keep the bracket on the same line when the attributes are hanging ==
+const t = <Test attrib={5} other="test" />;
+const u = <Test attrib={5} otherAttrib="test" anotherVeryLongAttrib={234234} />;
+const v = (
+    <Test attrib={5} otherVeryLongAttrib="test" anotherVeryLongAttrib={234234} />
+);
+
+[expect]
+const t = <Test attrib={5} other="test" />;
+const u = (
+    <Test attrib={5} otherAttrib="test"
+        anotherVeryLongAttrib={234234} />
+);
+const v = (
+    <Test attrib={5} otherVeryLongAttrib="test"
+        anotherVeryLongAttrib={234234} />
+);

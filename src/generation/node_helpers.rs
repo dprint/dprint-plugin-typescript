@@ -1,11 +1,12 @@
-use deno_ast::swc::common::comments::Comment;
-use deno_ast::swc::common::comments::CommentKind;
-use deno_ast::view::*;
-use deno_ast::SourcePos;
-use deno_ast::SourceRange;
-use deno_ast::SourceRanged;
-use deno_ast::SourceRangedForSpanned;
-use deno_ast::SourceTextInfoProvider;
+use dprint_swc_ext::common::SourcePos;
+use dprint_swc_ext::common::SourceRange;
+use dprint_swc_ext::common::SourceRanged;
+use dprint_swc_ext::common::SourceRangedForSpanned;
+use dprint_swc_ext::common::SourceTextInfoProvider;
+use dprint_swc_ext::swc::common::comments::Comment;
+use dprint_swc_ext::swc::common::comments::CommentKind;
+use dprint_swc_ext::swc::parser::token::Token;
+use dprint_swc_ext::view::*;
 
 pub fn is_first_node_on_line(node: &impl SourceRanged, program: Program) -> bool {
   let text_info = program.text_info();
@@ -23,7 +24,32 @@ pub fn is_first_node_on_line(node: &impl SourceRanged, program: Program) -> bool
 }
 
 pub fn has_separating_blank_line(first_node: &impl SourceRanged, second_node: &impl SourceRanged, program: Program) -> bool {
-  return get_second_start_line(first_node, second_node, program) > first_node.end_line_fast(program) + 1;
+  get_separating_blank_line_count(first_node, second_node, program) > 0
+}
+
+/// Gets the number of blank lines between two nodes, where the second node starts
+/// at its first leading comment on a later line than the first node.
+pub fn get_separating_blank_line_count(first_node: &impl SourceRanged, second_node: &impl SourceRanged, program: Program) -> usize {
+  let second_start_line = get_second_start_line(first_node, second_node, program);
+  // this is a cheaper check that's needed for there to be a blank line
+  if second_start_line <= first_node.end_line_fast(program) + 1 {
+    return 0;
+  }
+  let first_end_line = get_first_end_line_with_comments_before_comma(first_node, program);
+  return second_start_line.saturating_sub(first_end_line + 1);
+
+  /// The comments between the first node and a comma after it go after the comma,
+  /// so they're with the first node (ex. `// c` in `A\n// c\n, B`).
+  fn get_first_end_line_with_comments_before_comma(first_node: &impl SourceRanged, program: Program) -> usize {
+    let end_line = first_node.end_line_fast(program);
+    match first_node.next_token_fast(program) {
+      Some(token) if token.token == Token::Comma => match token.start().leading_comments_fast(program).peek_last_comment() {
+        Some(comment) => comment.end_line_fast(program).max(end_line),
+        None => end_line,
+      },
+      _ => end_line,
+    }
+  }
 
   fn get_second_start_line(first_node: &impl SourceRanged, second_node: &impl SourceRanged, program: Program) -> usize {
     let leading_comments = second_node.leading_comments_fast(program);
@@ -98,15 +124,13 @@ pub fn has_surrounding_different_line_comments<'a>(node: Node<'a>, program: Prog
 
 pub fn nodes_have_only_spaces_between<'a>(previous_node: Node<'a>, next_node: Node<'a>, program: Program<'a>) -> bool {
   if let Node::JSXText(previous_node) = previous_node {
-    let previous_node_text = previous_node.text_fast(program);
-    crate::utils::has_no_new_lines_in_trailing_whitespace(previous_node_text) && previous_node_text.ends_with(' ')
+    crate::utils::has_jsx_trailing_space(previous_node.text_fast(program))
   } else if let Node::JSXText(next_node) = next_node {
-    let next_node_text = next_node.text_fast(program);
-    crate::utils::has_no_new_lines_in_leading_whitespace(next_node_text) && next_node_text.starts_with(' ')
+    crate::utils::has_jsx_leading_space(next_node.text_fast(program))
   } else {
     let text_info = program.text_info();
     let range = SourceRange::new(previous_node.end(), next_node.start());
-    crate::utils::is_not_empty_and_only_spaces(text_info.range_text(&range))
+    crate::utils::is_jsx_space(text_info.range_text(&range))
   }
 }
 
@@ -115,11 +139,11 @@ pub fn get_siblings_between<'a, 'b>(node_a: Node<'a>, node_b: Node<'b>) -> Vec<N
   parent_children.drain(node_a.child_index() + 1..node_b.child_index()).collect()
 }
 
-pub fn has_jsx_space_expr_text(node: Node) -> bool {
-  get_jsx_space_expr_space_count(node) > 0
+pub fn has_jsx_space_expr_text(node: Node, program: Program) -> bool {
+  get_jsx_space_expr_space_count(node, program) > 0
 }
 
-pub fn get_jsx_space_expr_space_count(node: Node) -> usize {
+pub fn get_jsx_space_expr_space_count(node: Node, program: Program) -> usize {
   // A "JSX space expression" is a JSXExprContainer with
   // a string literal containing only spaces.
   // * {" "}
@@ -130,7 +154,8 @@ pub fn get_jsx_space_expr_space_count(node: Node) -> usize {
       ..
     }) => {
       let mut space_count = 0;
-      for c in text.value().chars() {
+      let text = remove_quotes_from_str(text.text_fast(program));
+      for c in text.chars() {
         if c == ' ' {
           space_count += 1;
         } else {
@@ -143,19 +168,29 @@ pub fn get_jsx_space_expr_space_count(node: Node) -> usize {
   }
 }
 
+fn remove_quotes_from_str(text: &str) -> &str {
+  if text.is_empty() {
+    text
+  } else if text.starts_with("'") && text.ends_with("'") || text.starts_with("\"") && text.ends_with("\"") {
+    &text[1..text.len() - 1]
+  } else {
+    text
+  }
+}
+
 pub fn count_spaces_between_jsx_children<'a>(previous_node: Node<'a>, next_node: Node<'a>, program: Program<'a>) -> usize {
   let all_siblings_between = get_siblings_between(previous_node, next_node);
   let siblings_between = all_siblings_between
     .into_iter()
     // ignore empty JSXText
-    .filter(|n| !n.text_fast(program).trim().is_empty())
+    .filter(|n| !crate::utils::is_jsx_whitespace(n.text_fast(program)))
     .collect::<Vec<_>>();
 
   let mut count = 0;
   let mut previous_node = previous_node;
 
   for node in siblings_between {
-    count += get_jsx_space_expr_space_count(node);
+    count += get_jsx_space_expr_space_count(node, program);
 
     if nodes_have_only_spaces_between(previous_node, node, program) {
       count += 1;

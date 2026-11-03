@@ -1,0 +1,34 @@
+~~ module.sortImportDeclarations: caseSensitive, module.sortExportDeclarations: caseSensitive ~~
+== an ignored import is not moved ==
+// dprint-ignore
+import { m } from "mmm.ts";
+import { z } from "zzz.ts";
+import { a } from "aaa.ts";
+
+[expect]
+// dprint-ignore
+import { m } from "mmm.ts";
+import { a } from "aaa.ts";
+import { z } from "zzz.ts";
+
+== declarations before the ignored one still sort ==
+import { z } from "zzz.ts";
+import { a } from "aaa.ts";
+// dprint-ignore
+import { m } from "mmm.ts";
+
+[expect]
+import { a } from "aaa.ts";
+import { z } from "zzz.ts";
+// dprint-ignore
+import { m } from "mmm.ts";
+
+== an ignored export is not moved ==
+// dprint-ignore
+export { z } from "zzz.ts";
+export { a } from "aaa.ts";
+
+[expect]
+// dprint-ignore
+export { z } from "zzz.ts";
+export { a } from "aaa.ts";

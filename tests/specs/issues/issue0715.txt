@@ -1,0 +1,63 @@
+-- file.tsx --
+~~ lineWidth: 80, indentWidth: 2, memberExpression.linePerExpression: true, semiColons: asi ~~
+== should not break a member expression that fits in a jsx attribute ==
+const func = () => {
+  return coooooooooooooooooooooooooodition && (
+    <div style={{ marginTop: '20px' }}>
+      <Text size={TextSize.L}>
+        Lorem ipsum
+      </Text>
+    </div>
+  )
+}
+
+[expect]
+const func = () => {
+  return coooooooooooooooooooooooooodition && (
+    <div style={{ marginTop: "20px" }}>
+      <Text size={TextSize.L}>
+        Lorem ipsum
+      </Text>
+    </div>
+  )
+}
+
+== should not break member expressions that fit in jsx attributes and children ==
+const func = () => {
+  return coooooooooooooooooooooooooodition && (
+    <div style={{ marginTop: '20px' }}>
+      <Text size={TextSize.L} color={Color.Primary}>
+        {props.value.text}
+      </Text>
+    </div>
+  )
+}
+
+[expect]
+const func = () => {
+  return coooooooooooooooooooooooooodition && (
+    <div style={{ marginTop: "20px" }}>
+      <Text size={TextSize.L} color={Color.Primary}>
+        {props.value.text}
+      </Text>
+    </div>
+  )
+}
+
+== should not break a member expression that fits in a jsx attribute outside a return ==
+const element = coooooooooooooooooooooooooooooooooooooooooooooooondition && (
+  <div style={{ marginTop: '20px' }}>
+    <Text size={TextSize.L}>
+      Lorem ipsum
+    </Text>
+  </div>
+)
+
+[expect]
+const element = coooooooooooooooooooooooooooooooooooooooooooooooondition && (
+  <div style={{ marginTop: "20px" }}>
+    <Text size={TextSize.L}>
+      Lorem ipsum
+    </Text>
+  </div>
+)

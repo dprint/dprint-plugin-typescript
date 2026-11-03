@@ -1,0 +1,189 @@
+~~ maxBlankLines: 2, blockPadding: maintain ~~
+== should keep up to two blank lines between statements ==
+import a from "a";
+
+
+
+const b = 1;
+
+
+const c = 2;
+
+[expect]
+import a from "a";
+
+
+const b = 1;
+
+
+const c = 2;
+
+== should keep up to two blank lines around comments ==
+a;
+
+
+
+// comment
+
+
+
+b;
+/* other */
+
+
+c;
+
+[expect]
+a;
+
+
+// comment
+
+
+b;
+/* other */
+
+
+c;
+
+== should keep up to two blank lines between members ==
+class Test {
+
+
+
+    prop: string;
+
+
+
+    method() {
+    }
+
+
+}
+
+interface Test {
+    a: string;
+
+
+    b: string;
+}
+
+enum Test {
+    A,
+
+
+    B,
+}
+
+[expect]
+class Test {
+
+
+    prop: string;
+
+
+    method() {
+    }
+
+
+}
+
+interface Test {
+    a: string;
+
+
+    b: string;
+}
+
+enum Test {
+    A,
+
+
+    B,
+}
+
+== should keep up to two blank lines between switch cases ==
+switch (a) {
+    case 1:
+        break;
+
+
+
+    case 2:
+        break;
+}
+
+[expect]
+switch (a) {
+    case 1:
+        break;
+
+
+    case 2:
+        break;
+}
+
+== should keep only one blank line in jsx children ==
+const a = (
+    <div>
+        <A />
+
+
+
+        <B />
+    </div>
+);
+
+[expect]
+const a = (
+    <div>
+        <A />
+
+        <B />
+    </div>
+);
+
+== should keep up to two blank lines in objects and arrays ==
+const a = {
+    b: 1,
+
+
+
+    c: 2,
+
+
+    // comment
+
+
+
+    d: 3,
+};
+
+const b = [
+    1,
+
+
+
+    2,
+];
+
+[expect]
+const a = {
+    b: 1,
+
+
+    c: 2,
+
+
+    // comment
+
+
+    d: 3,
+};
+
+const b = [
+    1,
+
+
+    2,
+];

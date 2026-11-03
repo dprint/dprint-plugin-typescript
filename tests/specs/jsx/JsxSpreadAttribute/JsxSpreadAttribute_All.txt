@@ -4,3 +4,117 @@ const t = <test {...test} />;
 
 [expect]
 const t = <test {...test} />;
+
+== should keep the comments between jsx spread attributes ==
+const a = (
+    <div
+        {...a} // a
+        // b
+        {...b} /* c */ {...c}
+    />
+);
+
+[expect]
+const a = (
+    <div
+        {...a} // a
+        // b
+        {...b} /* c */
+        {...c}
+    />
+);
+
+== should keep a comment after the element name before a jsx spread attribute ==
+const a = (
+    <div // a
+        {...b}
+    />
+);
+
+[expect]
+const a = (
+    <div // a
+        {...b}
+    />
+);
+
+== should keep the comments around a jsx spread attribute after type arguments ==
+const a = <Foo<string> /* a */ {...b} /* c */ />;
+
+[expect]
+const a = <Foo<string> /* a */ {...b} /* c */ />;
+
+== should keep a comment in a spread within a jsx spread attribute ==
+const a = <div {...{ ...b /* c */ }} />;
+
+[expect]
+const a = <div {...{ ...b /* c */ }} />;
+
+== should keep a line comment after a jsx spread attribute before children ==
+const a = (
+    <div
+        {...b} // c
+    >
+        text
+    </div>
+);
+
+[expect]
+const a = (
+    <div
+        {...b} // c
+    >
+        text
+    </div>
+);
+
+== should keep comments on the lines before a jsx spread attribute ==
+const a = (
+    <div
+        /* a */
+        {...b}
+    />
+);
+const b = (
+    <div
+        // a
+        // b
+        {...b}
+    />
+);
+
+[expect]
+const a = (
+    <div
+        /* a */
+        {...b}
+    />
+);
+const b = (
+    <div
+        // a
+        // b
+        {...b}
+    />
+);
+
+== should keep a jsx spread attribute on the line of the element name when its brace is ==
+const a = <div {
+    ...b} />;
+
+[expect]
+const a = <div {...b} />;
+
+== should not surround a jsx spread attribute with newlines for a block comment on its last line ==
+const a = <div {...{
+    a: 1,
+} /* c */} />;
+
+[expect]
+const a = (
+    <div
+        {...{
+            a: 1,
+        } /* c */}
+    />
+);

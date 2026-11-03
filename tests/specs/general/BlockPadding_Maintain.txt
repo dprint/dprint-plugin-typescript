@@ -1,0 +1,373 @@
+~~ blockPadding: maintain ~~
+== should keep the blank lines at the start and end of statement blocks ==
+function test() {
+
+    a();
+
+    b();
+
+}
+
+function other() {
+    a();
+}
+
+[expect]
+function test() {
+
+    a();
+
+    b();
+
+}
+
+function other() {
+    a();
+}
+
+== should keep only one blank line by default ==
+function test() {
+
+
+    a();
+
+
+}
+
+[expect]
+function test() {
+
+    a();
+
+}
+
+== should keep the padding of only one side ==
+function test() {
+
+    a();
+}
+
+function other() {
+    a();
+
+}
+
+[expect]
+function test() {
+
+    a();
+}
+
+function other() {
+    a();
+
+}
+
+== should keep the padding of control flow bodies ==
+if (true) {
+
+    a();
+
+} else {
+
+    b();
+}
+
+for (const a of b) {
+
+    c();
+
+}
+
+while (true) {
+    a();
+
+}
+
+[expect]
+if (true) {
+
+    a();
+
+} else {
+
+    b();
+}
+
+for (const a of b) {
+
+    c();
+
+}
+
+while (true) {
+    a();
+
+}
+
+== should keep the padding of arrow function bodies ==
+describe("test", () => {
+
+    it("works", () => {
+        a();
+
+        b();
+    });
+
+});
+
+[expect]
+describe("test", () => {
+
+    it("works", () => {
+        a();
+
+        b();
+    });
+
+});
+
+== should keep the padding of class, interface, enum, and namespace bodies ==
+class Test {
+
+    prop: string;
+
+}
+
+interface Test {
+
+    prop: string;
+
+}
+
+enum Test {
+
+    A,
+
+}
+
+namespace Test {
+
+    const a = 1;
+
+}
+
+[expect]
+class Test {
+
+    prop: string;
+
+}
+
+interface Test {
+
+    prop: string;
+
+}
+
+enum Test {
+
+    A,
+
+}
+
+namespace Test {
+
+    const a = 1;
+
+}
+
+== should keep the padding of switch statements and static blocks ==
+switch (a) {
+
+    case 1:
+        break;
+
+}
+
+class Test {
+    static {
+
+        a();
+
+    }
+}
+
+[expect]
+switch (a) {
+
+    case 1:
+        break;
+
+}
+
+class Test {
+    static {
+
+        a();
+
+    }
+}
+
+== should keep the padding around comments ==
+function test() {
+
+    // comment
+    a();
+    // trailing
+
+}
+
+function other() { // brace comment
+
+    a(); // trailing
+
+}
+
+function another() {
+    /* comment */
+
+}
+
+[expect]
+function test() {
+
+    // comment
+    a();
+    // trailing
+
+}
+
+function other() { // brace comment
+
+    a(); // trailing
+
+}
+
+function another() {
+    /* comment */
+
+}
+
+== should not add padding to empty blocks ==
+function test() {
+
+}
+
+function other() { // comment
+
+}
+
+[expect]
+function test() {
+}
+
+function other() { // comment
+}
+
+== should keep the padding of blocks with only comments ==
+class Test {
+
+    // comment
+
+}
+
+if (true) {
+
+    // comment
+
+}
+
+function test() {
+
+    // comment
+}
+
+[expect]
+class Test {
+
+    // comment
+
+}
+
+if (true) {
+
+    // comment
+
+}
+
+function test() {
+
+    // comment
+}
+
+== should keep the padding of try statements ==
+try {
+
+    a();
+} catch {
+
+    b();
+} finally {
+    c();
+
+}
+
+[expect]
+try {
+
+    a();
+} catch {
+
+    b();
+} finally {
+    c();
+
+}
+
+== should not add padding to single line blocks ==
+function test() { a(); }
+
+[expect]
+function test() {
+    a();
+}
+
+== should keep the padding of iife bodies ==
+(function() {
+
+    a();
+
+})();
+
+[expect]
+(function() {
+
+    a();
+
+})();
+
+== should keep the padding after a line comment on the open brace line ==
+if (true) { // comment
+
+    // other
+
+}
+
+function test() { /* comment */
+
+    a();
+}
+
+[expect]
+if (true) { // comment
+
+    // other
+
+}
+
+function test() {
+    /* comment */
+
+    a();
+}

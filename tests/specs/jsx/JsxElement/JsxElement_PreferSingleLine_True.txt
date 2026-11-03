@@ -54,3 +54,17 @@ const t = (
         </Test>
     </Test>
 );
+
+== should keep the edge spaces ==
+const t1 = <Test> {a} </Test>;
+const t2 = <Test> some text that is long enough to wrap past the width </Test>;
+
+[expect]
+const t1 = <Test> {a} </Test>;
+const t2 = (
+    <Test>
+        {" "}
+        some text that is long enough to wrap past
+        the width{" "}
+    </Test>
+);

@@ -49,3 +49,108 @@ export const Layout = (props: Props) =>
             </body>
         </html>
     `;
+
+== should format html with multi-level indent jumps (regression for deno#29963) ==
+const a = html`<a><svg viewBox="0 0 16 16" width="20" height="20" fill="currentColor">
+  <path d="" />
+</svg></a>`;
+[expect]
+const a = html`
+    <a><svg viewBox="0 0 16 16" width="20" height="20" fill="currentColor">
+            <path d="" />
+        </svg></a>
+`;
+
+== should format html with multi-level indent jumps and an expression placeholder ==
+const a = html`<a><svg viewBox="0 0 16 16" width="20" height="20" fill="currentColor">
+  <path d="${pathData}" />
+</svg></a>`;
+[expect]
+const a = html`
+    <a><svg viewBox="0 0 16 16" width="20" height="20" fill="currentColor">
+            <path d="${pathData}" />
+        </svg></a>
+`;
+
+== should format html with three-level indent jump in a single transition ==
+const a = html`<a><b><svg viewBox="0 0 16 16" width="20" height="20" fill="currentColor">
+  <path d="" />
+</svg></b></a>`;
+[expect]
+const a = html`
+    <a><b><svg viewBox="0 0 16 16" width="20" height="20" fill="currentColor">
+                <path d="" />
+            </svg></b></a>
+`;
+
+== should format html with multiple multi-level indent jumps in the same template ==
+const a = html`<a><svg viewBox="0 0 16 16" width="20" height="20" fill="currentColor">
+  <path d="" />
+</svg><svg viewBox="0 0 32 32" width="30" height="30" fill="blue">
+  <circle r="5" />
+</svg></a>`;
+[expect]
+const a = html`
+    <a><svg viewBox="0 0 16 16" width="20" height="20" fill="currentColor">
+            <path d="" />
+        </svg><svg viewBox="0 0 32 32" width="30" height="30" fill="blue">
+            <circle r="5" />
+        </svg></a>
+`;
+
+== should preserve a lone newline escape, not double it (deno#30103) ==
+html`\n`;
+[expect]
+html`\n`;
+
+== should keep escaped backticks and backslashes ==
+html`<p>\`a\` \\ b</p>`;
+[expect]
+html`<p>\`a\` \\ b</p>`;
+
+== should unescape the css in a style element ==
+html`<style>.bg-\\[\\#86efac\\] { color: red }</style>`;
+[expect]
+html`
+    <style>
+    .bg-\\[\\#86efac\\] {
+        color: red;
+    }
+    </style>
+`;
+
+== should not format html in an Angular component template ==
+@Component({ template: `<h1>{{title}}</h1>` })
+export class A {}
+[expect]
+@Component({ template: `<h1>{{title}}</h1>` })
+export class A {}
+
+== should indent multi-line expressions at the indentation of their line (#776) ==
+function render_html_template() {
+    return html`
+      <div>
+        ${tooltip ? 
+          html`<my-tooltip>content content content content</my-tooltip>`:  nothing}
+        <div>
+          ${tooltip ? 
+              html`<my-tooltip>content content content content</my-tooltip>`:  nothing}
+        </div>
+      </div>
+    `;
+}
+[expect]
+function render_html_template() {
+    return html`
+        <div>
+            ${tooltip
+                ? html`<my-tooltip>content content content content</my-tooltip>`
+                : nothing}
+            <div>
+                ${tooltip
+                    ? html`<my-tooltip>content content content content</my-tooltip>`
+                    : nothing}
+            </div>
+        </div>
+    `;
+}

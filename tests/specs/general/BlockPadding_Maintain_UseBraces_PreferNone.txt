@@ -1,0 +1,32 @@
+~~ blockPadding: maintain, useBraces: preferNone ~~
+== should remove the padding when the braces are removed ==
+if (true) {
+
+    a();
+}
+
+if (true) {
+    a();
+
+}
+
+[expect]
+if (true)
+    a();
+
+if (true)
+    a();
+
+== should keep the padding when the braces are kept ==
+if (true) {
+
+    a();
+    b();
+}
+
+[expect]
+if (true) {
+
+    a();
+    b();
+}

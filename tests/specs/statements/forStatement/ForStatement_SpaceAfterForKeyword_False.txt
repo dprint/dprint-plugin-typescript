@@ -10,3 +10,11 @@ for(let i = 0; i < 5; i++) {
     a;
     b;
 }
+
+== should keep a space before a comment before the paren ==
+for /* c */ (let i = 0; i < 5; i++) {
+}
+
+[expect]
+for /* c */ (let i = 0; i < 5; i++) {
+}
