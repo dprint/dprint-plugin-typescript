@@ -1,0 +1,43 @@
+~~ classDeclaration.memberSpacing: blankLine ~~
+== should format with blank lines between members ==
+class Test {
+    @Dec1
+    prop1!: number;
+    @Dec2
+    prop2!: string;
+
+
+    method() {
+    }
+    // comment
+    other() {
+    }
+}
+
+[expect]
+class Test {
+    @Dec1
+    prop1!: number;
+
+    @Dec2
+    prop2!: string;
+
+    method() {
+    }
+
+    // comment
+    other() {
+    }
+}
+
+== should not affect class expressions ==
+const Test = class {
+    prop1: number;
+    prop2: string;
+};
+
+[expect]
+const Test = class {
+    prop1: number;
+    prop2: string;
+};

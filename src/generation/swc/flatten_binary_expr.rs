@@ -1,8 +1,9 @@
 use super::super::Context;
-use deno_ast::swc::parser::token::TokenAndSpan;
-use deno_ast::view::*;
-use deno_ast::SourceRanged;
-use deno_ast::SourceRangedForSpanned;
+use crate::generation::context::BumpVec;
+use dprint_swc_ext::common::SourceRanged;
+use dprint_swc_ext::common::SourceRangedForSpanned;
+use dprint_swc_ext::swc::parser::token::TokenAndSpan;
+use dprint_swc_ext::view::*;
 
 use super::extensions::*;
 use crate::configuration::*;
@@ -19,10 +20,10 @@ pub struct BinExprOp<'a> {
   pub op: BinaryOp,
 }
 
-pub fn get_flattened_bin_expr<'a, 'b>(node: &'b BinExpr<'a>, context: &mut Context<'a>) -> Vec<BinExprItem<'a>> {
-  let mut items = Vec::new();
+pub fn get_flattened_bin_expr<'a, 'b>(node: &'b BinExpr<'a>, context: &mut Context<'a>) -> BumpVec<'a, BinExprItem<'a>> {
+  let mut items = BumpVec::new_in(context.arena.bump());
   let operator_token = BinExprOp {
-    token: context.token_finder.get_first_operator_after(&node.left, node.op().as_str()).unwrap(),
+    token: find_operator_token_after(&node.left, node.op(), context),
     op: node.op(),
   };
   let is_op_same_line = get_operator_position(node, operator_token.token, context) == OperatorPosition::SameLine;
@@ -67,6 +68,29 @@ pub fn get_flattened_bin_expr<'a, 'b>(node: &'b BinExpr<'a>, context: &mut Conte
   }
 
   return items;
+
+  /// Locate the binary operator's leading token, immediately after the left
+  /// operand. Most of the time this is just `get_first_operator_after` with
+  /// the operator's full text (e.g. `<=`), but the SWC lexer can split
+  /// multi-character operators into separate tokens when the operator
+  /// follows a TypeScript type position. For example `0 as number <= 1`
+  /// tokenizes `<=` as `<` then `=`. In that case we fall back to matching
+  /// just the operator's first character (`<`), which is always a single
+  /// token whose start position is what callers actually need (e.g. for
+  /// `start_line_fast`).
+  fn find_operator_token_after<'a>(left: &impl SourceRanged, op: BinaryOp, context: &mut Context<'a>) -> &'a TokenAndSpan {
+    let op_text = op.as_str();
+    if let Some(tok) = context.token_finder.get_first_operator_after(left, op_text) {
+      return tok;
+    }
+    if op_text.len() > 1 {
+      let first_char_text = &op_text[..1];
+      if let Some(tok) = context.token_finder.get_first_operator_after(left, first_char_text) {
+        return tok;
+      }
+    }
+    panic!("could not locate operator token for binary op `{op_text}`");
+  }
 
   fn is_expression_breakable(top_op: BinaryOp, op: BinaryOp) -> bool {
     if top_op.is_add_sub() {

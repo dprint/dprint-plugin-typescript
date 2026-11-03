@@ -95,3 +95,11 @@ for (const t of test)
 
 [expect]
 for (const t of test);
+
+== should keep the comments around the await keyword ==
+for /* a */ await /* b */ (x of y) {
+}
+
+[expect]
+for /* a */ await /* b */ (x of y) {
+}

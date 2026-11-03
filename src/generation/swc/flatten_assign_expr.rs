@@ -1,6 +1,6 @@
 use super::super::Context;
-use deno_ast::swc::parser::token::TokenAndSpan;
-use deno_ast::view::*;
+use dprint_swc_ext::swc::parser::token::TokenAndSpan;
+use dprint_swc_ext::view::*;
 
 pub struct AssignExprItem<'a> {
   pub post_op: Option<&'a TokenAndSpan>,

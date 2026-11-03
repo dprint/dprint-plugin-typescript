@@ -1,0 +1,46 @@
+~~ lineWidth: 80, indentWidth: 2, memberExpression.linePerExpression: true ~~
+== should break the arguments of a call in a function expression the same as at the top level ==
+const startingFrom = Mylib.map(DateTime.now, now => DateTime.startOf(now, "day"))
+
+const func = () =>
+  function() {
+    const startingFrom = Mylib.map(DateTime.now, now => DateTime.startOf(now, "day"))
+  }
+
+
+[expect]
+const startingFrom = Mylib.map(
+  DateTime.now,
+  now => DateTime.startOf(now, "day"),
+);
+
+const func = () =>
+  function() {
+    const startingFrom = Mylib.map(
+      DateTime.now,
+      now => DateTime.startOf(now, "day"),
+    );
+  };
+
+== should break the arguments of a call in a function expression the same as at the top level when the lines are the same length ==
+const startingFroom = Mylib.map(DateTime.now, now => DateTime.startOf(now, "day"))
+
+const func = () =>
+  function() {
+    const startingF = Mylib.map(DateTime.now, now => DateTime.startOf(now, "day"))
+  }
+
+
+[expect]
+const startingFroom = Mylib.map(
+  DateTime.now,
+  now => DateTime.startOf(now, "day"),
+);
+
+const func = () =>
+  function() {
+    const startingF = Mylib.map(
+      DateTime.now,
+      now => DateTime.startOf(now, "day"),
+    );
+  };

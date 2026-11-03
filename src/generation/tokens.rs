@@ -1,10 +1,10 @@
-use deno_ast::swc::parser::token::Token;
-use deno_ast::swc::parser::token::TokenAndSpan;
-use deno_ast::view::*;
-use deno_ast::SourcePos;
-use deno_ast::SourceRanged;
-use deno_ast::SourceRangedForSpanned;
-use deno_ast::SourceTextInfoProvider;
+use dprint_swc_ext::common::SourcePos;
+use dprint_swc_ext::common::SourceRanged;
+use dprint_swc_ext::common::SourceRangedForSpanned;
+use dprint_swc_ext::common::SourceTextInfoProvider;
+use dprint_swc_ext::swc::parser::token::Token;
+use dprint_swc_ext::swc::parser::token::TokenAndSpan;
+use dprint_swc_ext::view::*;
 use std::str;
 
 // todo: This is legacy from when swc-ecma-ast-view wasn't used.
@@ -29,6 +29,10 @@ impl<'a> TokenFinder<'a> {
 
   pub fn get_previous_token_if_open_brace(&self, node: &impl SourceRanged) -> Option<&'a TokenAndSpan> {
     self.get_previous_token_if(node, |token| token.token == Token::LBrace)
+  }
+
+  pub fn get_next_token_if_close_brace(&self, node: &impl SourceRanged) -> Option<&'a TokenAndSpan> {
+    self.get_next_token_if(node, |token| token.token == Token::RBrace)
   }
 
   pub fn get_previous_token_if_open_bracket(&self, node: &impl SourceRanged) -> Option<&'a TokenAndSpan> {
@@ -115,11 +119,7 @@ impl<'a> TokenFinder<'a> {
 
   pub fn get_next_token_pos_after(&self, node: &impl SourceRanged) -> SourcePos {
     let next_token = self.get_next_token(node);
-    if let Some(token) = next_token {
-      token.start()
-    } else {
-      self.program.end()
-    }
+    if let Some(token) = next_token { token.start() } else { self.program.end() }
   }
 
   #[inline]

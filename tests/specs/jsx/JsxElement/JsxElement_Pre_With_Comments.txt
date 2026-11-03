@@ -1,0 +1,87 @@
+-- file.tsx --
+~~ deno: true ~~
+== should not duplicate jsx empty expression block comment inside pre ==
+function ErrorPage500(props: ErrorPageProps) {
+  return (
+    <pre>
+      {props.url}
+      {/* {props.url} */}
+    </pre>
+  );
+}
+
+[expect]
+function ErrorPage500(props: ErrorPageProps) {
+  return (
+    <pre>
+      {props.url}
+      {/* {props.url} */}
+    </pre>
+  );
+}
+
+== should not duplicate adjacent jsx empty expression comments inside pre ==
+const t = (
+  <pre>
+    {/* a */}
+    {/* b */}
+  </pre>
+);
+
+[expect]
+const t = (
+  <pre>
+    {/* a */}
+    {/* b */}
+  </pre>
+);
+
+== should keep a line comment in an expression container ==
+const a = (
+  <pre>
+    {
+      // c
+      x
+    }
+  </pre>
+);
+
+[expect]
+const a = (
+  <pre>
+    {
+      // c
+      x
+    }
+  </pre>
+);
+
+== should keep a comment in an attribute of a nested element ==
+const a = <pre><b title={/* c */ x}>y</b></pre>;
+
+[expect]
+const a = <pre><b title={/* c */ x}>y</b></pre>;
+
+== should keep comments in the opening and closing tags ==
+const a = <pre /* c */>x</pre>;
+const b = <pre a={/* c */ x}>y</pre>;
+
+[expect]
+const a = <pre /* c */>x</pre>;
+const b = <pre a={/* c */ x}>y</pre>;
+
+== should keep the comments in sibling pre elements ==
+const a = (
+  <div>
+    <pre>{/* a */}</pre>
+    <pre>{/* b */}</pre>
+  </div>
+);
+
+[expect]
+const a = (
+  <div>
+    <pre>{/* a */}</pre>
+    <pre>{/* b */}</pre>
+  </div>
+);

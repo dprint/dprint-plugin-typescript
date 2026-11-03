@@ -1,0 +1,13 @@
+~~ interfaceDeclaration.memberSpacing: newLine ~~
+== should format with new lines between members ==
+interface Test {
+    a: string;
+
+    b: string;
+}
+
+[expect]
+interface Test {
+    a: string;
+    b: string;
+}
