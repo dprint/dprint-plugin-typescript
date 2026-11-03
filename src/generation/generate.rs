@@ -12024,6 +12024,7 @@ fn allows_inline_multi_line<'a>(node: Node<'a>, context: &Context<'a>, has_sibli
     Node::TaggedTpl(_) | Node::Tpl(_) => !has_siblings,
     Node::CallExpr(node) => !has_siblings && allow_inline_for_call_expr(node.into()),
     Node::OptCall(node) => !has_siblings && allow_inline_for_call_expr(node.into()),
+    Node::NewExpr(node) => !has_siblings && allow_inline_for_callee_expr(&node.callee),
     Node::BindingIdent(node) => match &node.type_ann {
       Some(type_ann) => allows_inline_multi_line(type_ann.type_ann.into(), context, has_siblings),
       None => false,
@@ -12037,26 +12038,22 @@ fn allows_inline_multi_line<'a>(node: Node<'a>, context: &Context<'a>, has_sibli
   };
 
   fn allow_inline_for_call_expr(node: CallOrOptCallExpr) -> bool {
-    // do not allow call exprs with nested call exprs in the member expr to be inline
-    return allow_for_callee(&node.callee());
-
-    fn allow_for_callee(callee: &Callee) -> bool {
-      match callee {
-        Callee::Expr(expr) => allow_for_expr(expr),
-        Callee::Import(_) => false,
-        Callee::Super(_) => true,
-      }
+    match &node.callee() {
+      Callee::Expr(expr) => allow_inline_for_callee_expr(expr),
+      Callee::Import(_) => false,
+      Callee::Super(_) => true,
     }
+  }
 
-    fn allow_for_expr(expr: &Expr) -> bool {
-      match expr {
-        Expr::Member(member_expr) => allow_for_expr(&member_expr.obj),
-        Expr::Call(_)
-        | Expr::OptChain(OptChainExpr {
-          base: OptChainBase::Call(_), ..
-        }) => false,
-        _ => true,
-      }
+  /// Do not allow call or new exprs with nested call exprs in the member expr to be inline.
+  fn allow_inline_for_callee_expr(expr: &Expr) -> bool {
+    match expr {
+      Expr::Member(member_expr) => allow_inline_for_callee_expr(&member_expr.obj),
+      Expr::Call(_)
+      | Expr::OptChain(OptChainExpr {
+        base: OptChainBase::Call(_), ..
+      }) => false,
+      _ => true,
     }
   }
 }
