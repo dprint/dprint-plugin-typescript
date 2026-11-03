@@ -7297,7 +7297,7 @@ struct UnionOrIntersectionType<'a, 'b> {
 fn gen_union_or_intersection_type<'a, 'b>(node: UnionOrIntersectionType<'a, 'b>, context: &mut Context<'a>) -> PrintItems<'a> {
   // todo: configuration for operator position
   let mut items = PrintItems::new(context.arena);
-  let force_use_new_lines = get_use_new_lines_for_nodes(node.types, context.config.union_and_intersection_type_prefer_single_line, context);
+  let force_use_new_lines = get_force_use_new_lines(&node, context);
   let separator = if node.is_union { sc!("|") } else { sc!("&") };
 
   let indent_width = context.config.indent_width;
@@ -7383,6 +7383,18 @@ fn gen_union_or_intersection_type<'a, 'b>(node: UnionOrIntersectionType<'a, 'b>,
   items.extend(gen_result.items);
 
   return items;
+
+  fn get_force_use_new_lines<'a>(node: &UnionOrIntersectionType<'a, '_>, context: &mut Context<'a>) -> bool {
+    let types = node.types;
+    if !context.config.union_and_intersection_type_prefer_single_line || types.len() < 2 {
+      return get_use_new_lines_for_nodes(types, false, context);
+    }
+    // only look at the comments within the type because the ones before
+    // or after it might move (ex. a separator or semi-colon gets added)
+    let has_leading_separator = node.node.start() < types[0].start();
+    (has_leading_separator && has_leading_comment_on_previous_line(&types[0], context))
+      || has_any_node_trailing_comment_on_different_line(&types[..types.len() - 1], context)
+  }
 
   fn use_surround_newlines<'a>(node: Node<'a>, context: &mut Context<'a>) -> bool {
     let parent = node.parent().unwrap();
@@ -11758,17 +11770,25 @@ fn get_use_new_lines_for_nodes<'a>(nodes: &[impl SourceRanged], prefer_single_li
 
 /// Gets if any of the provided nodes have leading or trailing comments on a different line.
 fn has_any_node_comment_on_different_line<'a>(nodes: &[impl SourceRanged], context: &mut Context<'a>) -> bool {
-  for (i, node) in nodes.iter().enumerate() {
-    if i == 0 {
-      let first_node_start_line = node.start_line_fast(context.program);
-      let mut comments_previous_lines = node
-        .leading_comments_fast(context.program)
-        .take_while(|c| c.kind == CommentKind::Line || c.start_line_fast(context.program) < first_node_start_line);
-      if comments_previous_lines.next().is_some() {
-        return true;
-      }
-    }
+  match nodes.first() {
+    Some(first_node) => has_leading_comment_on_previous_line(first_node, context) || has_any_node_trailing_comment_on_different_line(nodes, context),
+    None => false,
+  }
+}
 
+/// Gets if the node has a line comment before it or a comment on a previous line.
+fn has_leading_comment_on_previous_line<'a>(node: &impl SourceRanged, context: &mut Context<'a>) -> bool {
+  let node_start_line = node.start_line_fast(context.program);
+  node
+    .leading_comments_fast(context.program)
+    .take_while(|c| c.kind == CommentKind::Line || c.start_line_fast(context.program) < node_start_line)
+    .next()
+    .is_some()
+}
+
+/// Gets if any of the provided nodes have trailing comments on a different line.
+fn has_any_node_trailing_comment_on_different_line<'a>(nodes: &[impl SourceRanged], context: &mut Context<'a>) -> bool {
+  for (i, node) in nodes.iter().enumerate() {
     let node_end = node.end();
     let next_node_pos = nodes.get(i + 1).map(|n| n.start());
     if check_pos_has_trailing_comments(node_end, next_node_pos, context) {
