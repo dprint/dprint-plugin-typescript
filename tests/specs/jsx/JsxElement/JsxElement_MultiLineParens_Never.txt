@@ -122,3 +122,13 @@ const t = test.map((a, b) =>
 const u = test.map((a, b) =>
     <testing a={b} b={test} />
 );
+
+== should use jsx space expressions for the edge spaces when multi-line ==
+const t = <div> some text that is long enough to wrap past the width </div>;
+
+[expect]
+const t = <div>
+    {" "}
+    some text that is long enough to wrap past the
+    width{" "}
+</div>;

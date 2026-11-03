@@ -1,0 +1,8 @@
+~~ deno: true ~~
+== should surround a union in a template literal type with newlines when too long ==
+export type SortSelector = `${typeof Descending | typeof Ascending}${SortItems}`;
+
+[expect]
+export type SortSelector = `${
+  typeof Descending | typeof Ascending
+}${SortItems}`;

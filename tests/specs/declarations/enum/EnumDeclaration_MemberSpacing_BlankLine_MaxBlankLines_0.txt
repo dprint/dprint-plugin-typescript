@@ -1,0 +1,13 @@
+~~ enumDeclaration.memberSpacing: blankLine, maxBlankLines: 0 ~~
+== should keep the forced blank lines ==
+enum Test {
+    A,
+    B,
+}
+
+[expect]
+enum Test {
+    A,
+
+    B,
+}

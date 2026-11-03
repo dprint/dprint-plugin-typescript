@@ -1,0 +1,20 @@
+~~ withStatement.bracePosition: nextLine, lineWidth: 40, withStatement.preferHanging: true ~~
+== should use the next line for the brace position ==
+with (true) {
+}
+
+[expect]
+with (true)
+{
+}
+
+== should use the next line for the brace position when hanging ==
+with (someCondition && otherOtherOtherThing)
+{
+}
+
+[expect]
+with (someCondition
+    && otherOtherOtherThing)
+{
+}
