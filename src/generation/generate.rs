@@ -7513,6 +7513,8 @@ fn gen_union_or_intersection_type<'a, 'b>(node: UnionOrIntersectionType<'a, 'b>,
           let is_last_value = i + 1 == types_count; // allow the last type to be single line
           (allows_inline_multi_line(type_node.into(), context, types_count > 1), is_last_value)
         };
+        // the comments on the same line as a separator at the end of the previous line are
+        // generated with it, so only the ones on other lines are generated here for it
         let separator_token = context.token_finder.get_previous_token_if_operator(&type_node.range(), separator.text);
         let start_lc = LineAndColumn::new("start");
         let after_separator_ln = LineNumber::new("afterSeparator");
@@ -7539,20 +7541,36 @@ fn gen_union_or_intersection_type<'a, 'b>(node: UnionOrIntersectionType<'a, 'b>,
         }
         items.push_info(after_separator_ln);
 
-        items.push_condition(if_true(
-          "afterSeparatorSpace",
-          context.arena.alloc_resolver(move |condition_context| {
-            let is_on_same_line = condition_helpers::is_on_same_line(condition_context, after_separator_ln)?;
-            let is_at_same_position = condition_helpers::is_at_same_position(condition_context, start_lc)?;
-            Some(is_on_same_line && !is_at_same_position)
-          }),
-          Signal::SpaceIfNotTrailing.into_print_items(context.arena),
-        ));
+        // the separator is at the end of the previous line for the same line position
+        let has_separator_before = i == 0 || !matches!(pair_positions[i], OperatorPosition::SameLine);
+        if has_separator_before {
+          items.push_condition(if_true(
+            "afterSeparatorSpace",
+            context.arena.alloc_resolver(move |condition_context| {
+              let is_on_same_line = condition_helpers::is_on_same_line(condition_context, after_separator_ln)?;
+              let is_at_same_position = condition_helpers::is_at_same_position(condition_context, start_lc)?;
+              Some(is_on_same_line && !is_at_same_position)
+            }),
+            Signal::SpaceIfNotTrailing.into_print_items(context.arena),
+          ));
+        }
         items.extend(gen_node(type_node.into(), context));
 
         let next_is_same_line = i + 1 < types_count && matches!(pair_positions[i + 1], OperatorPosition::SameLine);
         if next_is_same_line {
+          let next_separator_token = context.token_finder.get_previous_token_if_operator(&node.types[i + 1].range(), separator.text);
+          if let Some(next_separator_token) = next_separator_token {
+            let comments = get_leading_comments_on_same_line(&next_separator_token.range(), context);
+            let comment_items = gen_comments_same_line(comments, context);
+            if !comment_items.is_empty() {
+              items.push_space();
+              items.extend(comment_items);
+            }
+          }
           items.push_sc(trailing_separator);
+          if let Some(next_separator_token) = next_separator_token {
+            items.extend(gen_trailing_comments_same_line(&next_separator_token.range(), context));
+          }
         }
 
         generated_nodes.push(ir_helpers::GeneratedValue {

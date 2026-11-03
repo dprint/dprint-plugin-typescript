@@ -53,3 +53,28 @@ export type T =
     "option_b" |
     "option_c" |
     "option_d";
+
+== should keep the comments around the operator ==
+type C = "aaaaaaaaaaaa" | // comment
+    "bbbbbbbbbbbbbbbbbb" |
+    /* block */ "cccccccccccc";
+type D = "aaaaaaaaaaaa" /* before */ | /* after */ "bbbbbbbbbbbbbbbbbb";
+type E =
+    // leading
+    | "aaaaaaaaaaaa"
+    // between
+    | "bbbbbbbbbbbbbbbbbb";
+
+[expect]
+type C =
+    "aaaaaaaaaaaa" | // comment
+    "bbbbbbbbbbbbbbbbbb" |
+    /* block */ "cccccccccccc";
+type D =
+    "aaaaaaaaaaaa" /* before */ | /* after */
+    "bbbbbbbbbbbbbbbbbb";
+type E =
+    // leading
+    "aaaaaaaaaaaa" |
+    // between
+    "bbbbbbbbbbbbbbbbbb";
