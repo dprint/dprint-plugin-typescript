@@ -3059,6 +3059,11 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
     return false;
   }
 
+  // keep for `(let)[0] = 1;` or `(let[0] = 1);` because `let[0] = 1;` starts a declaration
+  if starts_with_let_ident(node.expr, context) {
+    return false;
+  }
+
   // keep when there is a JSDoc because it could be a type assertion or satisfies
   for c in node.leading_comments_fast(context.program) {
     if c.kind == CommentKind::Block && c.text.starts_with('*') {
@@ -3137,6 +3142,17 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
   }
 
   false
+}
+
+/// Gets if the expression is the `let` identifier or starts with it followed by a `[`.
+fn starts_with_let_ident<'a>(expr: Expr<'a>, context: &Context<'a>) -> bool {
+  match expr {
+    Expr::Ident(ident) => ident.sym().as_str() == "let",
+    _ => expr
+      .text_fast(context.program)
+      .strip_prefix("let")
+      .is_some_and(|rest| rest.trim_start().starts_with('[')),
+  }
 }
 
 fn gen_sequence_expr<'a>(node: &SeqExpr<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
