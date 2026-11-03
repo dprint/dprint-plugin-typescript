@@ -11509,15 +11509,17 @@ fn gen_surrounded_by_tokens<'a>(
 
     // generate
     let open_token_start_line = open_token_end.start_line_fast(context.program);
+    let is_single_line;
 
     items.extend(gen_leading_comments(&range, context));
     items.push_sc(opts.open_token);
     if let Some(first_member) = opts.first_member {
       let first_member_start_line = first_member.start_line_fast(context.program);
-      let is_single_line = open_token_start_line == first_member_start_line;
+      is_single_line = open_token_start_line == first_member_start_line;
 
       if is_single_line && opts.single_line_space_around {
-        items.push_signal(Signal::SpaceOrNewLine);
+        // no space when the inner text starts on the next line
+        items.push_signal(Signal::SpaceIfNotTrailing);
       }
 
       if opts.allow_open_token_trailing_comments && !is_single_line {
@@ -11548,10 +11550,11 @@ fn gen_surrounded_by_tokens<'a>(
     } else {
       let comments = open_token_end.trailing_comments_fast(context.program);
       // the padding goes on its own lines, so a block with only comments is multi-line when padded
-      let is_single_line = open_token_start_line == close_token_start.start_line_fast(context.program) && opts.comments_only_padding.is_empty();
+      is_single_line = open_token_start_line == close_token_start.start_line_fast(context.program) && opts.comments_only_padding.is_empty();
 
       if is_single_line && opts.single_line_space_around {
-        items.push_signal(Signal::SpaceOrNewLine);
+        // no space when the inner text starts on the next line
+        items.push_signal(Signal::SpaceIfNotTrailing);
       }
 
       if !comments.is_empty() {
@@ -11614,8 +11617,13 @@ fn gen_surrounded_by_tokens<'a>(
       }
     }
 
-    if opts.single_line_space_around {
-      items.push_condition(if_false("addSpaceIfNotStartOfLine", condition_resolvers::is_start_of_line(), " ".into_print_items(context.arena)));
+    if is_single_line && opts.single_line_space_around {
+      // no space when the close token starts the line
+      items.push_condition(if_false(
+        "spaceIfNotStartOfLine",
+        condition_resolvers::is_start_of_line(),
+        Signal::SpaceIfNotTrailing.into_print_items(context.arena),
+      ));
     }
   } else {
     // todo: have a warning here when this happens
