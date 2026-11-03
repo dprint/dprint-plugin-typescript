@@ -399,14 +399,22 @@ fn gen_node_with_inner_gen<'a>(
   fn handle_decorators_if_necessary<'a>(node: Node<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
     let mut items = PrintItems::new(context.arena);
 
-    // decorators in these cases will have starts before their parent so they need to be handled specially
-    if let Node::ExportDecl(decl) = node {
-      if let Decl::Class(class_decl) = &decl.decl {
-        items.extend(gen_decorators(class_decl.class.decorators, false, context));
-      }
-    } else if let Node::ExportDefaultDecl(decl) = node {
-      if let DefaultDecl::Class(class_expr) = &decl.decl {
-        items.extend(gen_decorators(class_expr.class.decorators, false, context));
+    // decorators before `export` (ex. `@dec export class A {}`) have starts before their parent
+    // so they need to be handled specially, unlike ones after it (ex. `export @dec class A {}`)
+    let decorators = match node {
+      Node::ExportDecl(decl) => match &decl.decl {
+        Decl::Class(class_decl) => Some(class_decl.class.decorators),
+        _ => None,
+      },
+      Node::ExportDefaultDecl(decl) => match &decl.decl {
+        DefaultDecl::Class(class_expr) => Some(class_expr.class.decorators),
+        _ => None,
+      },
+      _ => None,
+    };
+    if let Some(decorators) = decorators {
+      if are_decorators_before(decorators, node.start()) {
+        items.extend(gen_decorators(decorators, DecoratorsSeparator::NewLine, context));
       }
     }
 
@@ -762,7 +770,7 @@ fn is_bare_decorator_expr(expr: Expr) -> bool {
 
 fn gen_parameter_prop<'a>(node: &TsParamProp<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
   let mut items = PrintItems::new(context.arena);
-  items.extend(gen_decorators(node.decorators, true, context));
+  items.extend(gen_decorators(node.decorators, DecoratorsSeparator::Space, context));
   if let Some(accessibility) = node.accessibility() {
     items.push_str_runtime_width_computed(accessibility_to_str(accessibility));
     items.push_space();
@@ -827,7 +835,7 @@ struct GenClassPropCommon<'a, 'b> {
 
 fn gen_class_prop_common<'a, 'b>(node: GenClassPropCommon<'a, 'b>, context: &mut Context<'a>) -> PrintItems<'a> {
   let mut items = PrintItems::new(context.arena);
-  items.extend(gen_decorators(node.decorators, false, context));
+  items.extend(gen_decl_decorators(node.decorators, context));
   if node.is_declare {
     items.push_sc(sc!("declare "));
   }
@@ -1052,11 +1060,14 @@ fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'
   let mut items = PrintItems::new(context.arena);
   let (start_before_owned_comments_ln, start_before_owned_comments_isol) = context.get_or_create_current_before_comments_start_info();
 
-  // generate decorators
+  // generate decorators (an exported class's are generated with the export)
   let parent_kind = node.node.parent().unwrap().kind();
   if parent_kind != NodeKind::ExportDecl && parent_kind != NodeKind::ExportDefaultDecl {
-    let is_inline = !node.is_class_decl;
-    items.extend(gen_decorators(node.decorators, is_inline, context));
+    if node.is_class_decl {
+      items.extend(gen_decl_decorators(node.decorators, context));
+    } else {
+      items.extend(gen_decorators(node.decorators, DecoratorsSeparator::Space, context));
+    }
   }
 
   // generate header and body
@@ -1167,18 +1178,33 @@ fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'
 
 fn gen_export_decl<'a>(node: &ExportDecl<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
   let mut items = PrintItems::new(context.arena);
-  // decorators are handled in gen_node because their starts come before the ExportDecl
   items.push_sc(sc!("export "));
+  // decorators before `export` are handled in gen_node because their starts come before the ExportDecl
+  if let Decl::Class(class_decl) = &node.decl {
+    items.extend(gen_decorators_after_export(class_decl.class.decorators, node.start(), context));
+  }
   items.extend(gen_node(node.decl.into(), context));
   items
 }
 
 fn gen_export_default_decl<'a>(node: &ExportDefaultDecl<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
   let mut items = PrintItems::new(context.arena);
-  // decorators are handled in gen_node because their starts come before the ExportDefaultDecl
   items.push_sc(sc!("export default "));
+  // decorators before `export` are handled in gen_node because their starts come before the ExportDefaultDecl
+  if let DefaultDecl::Class(class_expr) = &node.decl {
+    items.extend(gen_decorators_after_export(class_expr.class.decorators, node.start(), context));
+  }
   items.extend(gen_node(node.decl.into(), context));
   items
+}
+
+/// Generates the decorators of an exported class when they're after `export` (ex. `export @dec class A {}`).
+fn gen_decorators_after_export<'a>(decorators: &[&'a Decorator<'a>], export_start: SourcePos, context: &mut Context<'a>) -> PrintItems<'a> {
+  if are_decorators_before(decorators, export_start) {
+    PrintItems::new(context.arena)
+  } else {
+    gen_decl_decorators(decorators, context)
+  }
 }
 
 fn gen_export_default_expr<'a>(node: &ExportDefaultExpr<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
@@ -1434,7 +1460,7 @@ fn gen_function_decl_or_expr<'a>(node: FunctionDeclOrExprNode<'a>, context: &mut
 
 fn gen_param<'a>(node: &Param<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
   let mut items = PrintItems::new(context.arena);
-  items.extend(gen_decorators(node.decorators, true, context));
+  items.extend(gen_decorators(node.decorators, DecoratorsSeparator::Space, context));
   items.extend(gen_node(node.pat.into(), context));
   items
 }
@@ -5272,7 +5298,7 @@ impl From<MethodKind> for ClassOrObjectMethodKind {
 fn gen_class_or_object_method<'a>(node: ClassOrObjectMethod<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
   let mut items = PrintItems::new(context.arena);
   if let Some(decorators) = node.decorators.as_ref() {
-    items.extend(gen_decorators(decorators, false, context));
+    items.extend(gen_decl_decorators(decorators, context));
   }
 
   let start_header_lsil = LineStartIndentLevel::new("methodStartHeader");
@@ -8373,6 +8399,27 @@ fn get_member_spacing_forced_blank_line_count(member_spacing: MemberSpacing) -> 
 
 /// Gets the number of blank lines to keep between two nodes, which is the
 /// number in the source capped at the `maxBlankLines` configuration.
+/// Gets the range of a statement including the decorators before `export` (ex. `@dec export class A {}`),
+/// which come before the statement's start.
+fn get_stmt_range_with_decorators(node: Node) -> SourceRange {
+  let decorators = match node {
+    Node::ExportDecl(decl) => match decl.decl {
+      Decl::Class(class_decl) => Some(class_decl.class.decorators),
+      _ => None,
+    },
+    Node::ExportDefaultDecl(decl) => match decl.decl {
+      DefaultDecl::Class(class_expr) => Some(class_expr.class.decorators),
+      _ => None,
+    },
+    _ => None,
+  };
+  let start = match decorators.and_then(|decorators| decorators.first()) {
+    Some(decorator) if decorator.start() < node.start() => decorator.start(),
+    _ => node.start(),
+  };
+  SourceRange::new(start, node.end())
+}
+
 fn get_maintained_blank_line_count<'a>(first: &impl SourceRanged, second: &impl SourceRanged, context: &Context<'a>) -> usize {
   cap_blank_line_count(node_helpers::get_separating_blank_line_count(first, second, context.program), context)
 }
@@ -8579,9 +8626,11 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
           let source_index = source_index_by_output_index[output_index];
           // only keep a blank line when the nodes around it are still next to each other
           match previous_source_index {
-            Some(previous_source_index) if previous_source_index + 1 == source_index => {
-              get_maintained_blank_line_count(&stmt_group.nodes[previous_source_index], &stmt_group.nodes[source_index], context)
-            }
+            Some(previous_source_index) if previous_source_index + 1 == source_index => get_maintained_blank_line_count(
+              &stmt_group.nodes[previous_source_index],
+              &get_stmt_range_with_decorators(stmt_group.nodes[source_index]),
+              context,
+            ),
             _ => 0,
           }
         })
@@ -8601,7 +8650,7 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
           } else {
             match blank_lines_after_imports {
               Some(count) if is_after_import && !is_import => count,
-              _ => get_maintained_blank_line_count(last_node, &node, context),
+              _ => get_maintained_blank_line_count(last_node, &get_stmt_range_with_decorators(node), context),
             }
           };
           if i == 0 && keep_blank_line_before_group {
@@ -10224,7 +10273,46 @@ fn gen_computed_prop_like<'a>(
   }
 }
 
-fn gen_decorators<'a>(decorators: &[&'a Decorator<'a>], is_inline: bool, context: &mut Context<'a>) -> PrintItems<'a> {
+/// Generates the decorators of a class or class member, which is on the same or next line
+/// depending on `decorators.position`.
+fn gen_decl_decorators<'a>(decorators: &[&'a Decorator<'a>], context: &mut Context<'a>) -> PrintItems<'a> {
+  let Some(last_decorator) = decorators.last() else {
+    return PrintItems::new(context.arena);
+  };
+  let program = context.program;
+  // a line comment after the decorators ends the line
+  let has_line_comment = last_decorator.end().trailing_comments_fast(program).any(|c| c.kind == CommentKind::Line);
+  let is_same_line = !has_line_comment
+    && match context.config.decorators_position {
+      SameOrNextLinePosition::SameLine => true,
+      SameOrNextLinePosition::NextLine => false,
+      SameOrNextLinePosition::Maintain => {
+        let next_token_pos = context.token_finder.get_next_token_pos_after(*last_decorator);
+        last_decorator.end_line_fast(program) == next_token_pos.start_line_fast(program)
+      }
+    };
+  let separator = if is_same_line {
+    DecoratorsSeparator::SpaceOrNewLine
+  } else {
+    DecoratorsSeparator::NewLine
+  };
+  gen_decorators(decorators, separator, context)
+}
+
+/// Gets if the decorators start before the position (ex. before `export` in `@dec export class A {}`).
+fn are_decorators_before(decorators: &[&Decorator], pos: SourcePos) -> bool {
+  decorators.first().is_some_and(|decorator| decorator.start() < pos)
+}
+
+/// What goes between decorators and what they decorate.
+#[derive(Clone, Copy, PartialEq)]
+enum DecoratorsSeparator {
+  Space,
+  SpaceOrNewLine,
+  NewLine,
+}
+
+fn gen_decorators<'a>(decorators: &[&'a Decorator<'a>], separator: DecoratorsSeparator, context: &mut Context<'a>) -> PrintItems<'a> {
   let mut items = PrintItems::new(context.arena);
   if decorators.is_empty() {
     return items;
@@ -10243,7 +10331,7 @@ fn gen_decorators<'a>(decorators: &[&'a Decorator<'a>], is_inline: bool, context
       separator: Separator::none(),
       single_line_options: ir_helpers::SingleLineOptions {
         space_at_start: false,
-        space_at_end: is_inline,
+        space_at_end: separator == DecoratorsSeparator::Space,
         separator: Signal::SpaceOrNewLine.into_print_items(context.arena),
       },
       multi_line_options: ir_helpers::MultiLineOptions::same_line_no_indent(),
@@ -10255,11 +10343,21 @@ fn gen_decorators<'a>(decorators: &[&'a Decorator<'a>], is_inline: bool, context
 
   items.extend(separated_values_result.items);
 
-  if is_inline {
-    let is_multi_line = separated_values_result.is_multi_line_condition_ref.create_resolver(context.arena);
-    items.push_condition(if_true("inlineMultiLineSpace", is_multi_line, Signal::NewLine.into_print_items(context.arena)));
-  } else {
-    items.push_signal(Signal::NewLine);
+  match separator {
+    DecoratorsSeparator::Space => {
+      let is_multi_line = separated_values_result.is_multi_line_condition_ref.create_resolver(context.arena);
+      items.push_condition(if_true("inlineMultiLineSpace", is_multi_line, Signal::NewLine.into_print_items(context.arena)));
+    }
+    DecoratorsSeparator::SpaceOrNewLine => {
+      let is_multi_line = separated_values_result.is_multi_line_condition_ref.create_resolver(context.arena);
+      items.push_condition(if_true_or(
+        "inlineMultiLineSpaceOrNewLine",
+        is_multi_line,
+        Signal::NewLine.into_print_items(context.arena),
+        Signal::SpaceOrNewLine.into_print_items(context.arena),
+      ));
+    }
+    DecoratorsSeparator::NewLine => items.push_signal(Signal::NewLine),
   }
 
   // generate the comments between the last decorator and the next token

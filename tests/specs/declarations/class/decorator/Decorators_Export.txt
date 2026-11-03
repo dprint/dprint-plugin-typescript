@@ -1,0 +1,22 @@
+== should not add a blank line before decorators before export ==
+const a = 1;
+@dec export class A {}
+class B {}
+@dec
+export default class {}
+
+// comment
+@dec
+export class C {}
+
+[expect]
+const a = 1;
+@dec
+export class A {}
+class B {}
+@dec
+export default class {}
+
+// comment
+@dec
+export class C {}
