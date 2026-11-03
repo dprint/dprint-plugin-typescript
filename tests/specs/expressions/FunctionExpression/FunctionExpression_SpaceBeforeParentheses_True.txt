@@ -8,6 +8,11 @@ const w = function test<T>(testing, thisOut){
 const x = function*() {};
 const y = function ident() {};
 
+export default function test() {
+}
+export default function() {
+}
+
 [expect]
 const t = function (p, u) {};
 const u = function<T> (p, u) {};
@@ -19,3 +24,8 @@ const w = function test<T> (
 };
 const x = function* () {};
 const y = function ident () {};
+
+export default function test() {
+}
+export default function () {
+}

@@ -1,0 +1,13 @@
+~~ {
+  "lineWidth": 80,
+  "module.importGroups": [{ "match": "unknown" }, { "match": "builtin" }],
+  "module.sortImportDeclarations": "caseInsensitive"
+} ~~
+== explicit unknown at start places unmatched imports first ==
+import { x } from "react";
+import { fs } from "node:fs";
+
+[expect]
+import { x } from "react";
+
+import { fs } from "node:fs";

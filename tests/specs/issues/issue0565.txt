@@ -1,0 +1,17 @@
+== should format multi-line string and keep start of string indented ==
+asdf(
+    "Testing \
+    this out",
+    async () => {
+        // test
+    }
+);
+
+[expect]
+asdf(
+    "Testing \
+    this out",
+    async () => {
+        // test
+    },
+);

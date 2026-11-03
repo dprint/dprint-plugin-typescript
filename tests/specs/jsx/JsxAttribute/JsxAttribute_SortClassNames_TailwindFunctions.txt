@@ -1,0 +1,55 @@
+-- file.jsx --
+~~ { "jsx.sortClassNames": { "kind": "tailwind", "functions": ["cn", "classnames", "tw"] } } ~~
+== should sort configured function call string arguments ==
+const value = cn("p-4 flex", classnames("p-2 inline"));
+
+[expect]
+const value = cn("flex p-4", classnames("inline p-2"));
+
+== should sort configured member expression calls by leading function name ==
+const value = cn.foo("p-4 flex");
+
+[expect]
+const value = cn.foo("flex p-4");
+
+== should sort configured tagged template literals ==
+const value = tw`p-4 flex`;
+
+[expect]
+const value = tw`flex p-4`;
+
+== should sort configured calls on a call ==
+const value = cn("p-4 flex")("p-2 inline");
+
+[expect]
+const value = cn("flex p-4")("inline p-2");
+
+== should sort configured optional calls ==
+const value = cn?.("p-4 flex");
+
+[expect]
+const value = cn?.("flex p-4");
+
+== should not sort the callee of a configured call ==
+const value = cn["p-4 flex"]("p-4 flex");
+
+[expect]
+const value = cn["p-4 flex"]("flex p-4");
+
+== should not sort calls that aren't configured ==
+const value = other("p-4 flex", other.cn("p-4 flex"));
+
+[expect]
+const value = other("p-4 flex", other.cn("p-4 flex"));
+
+== should only sort the text of a configured tagged template literal ==
+const value = tw`p-4 flex ${"p-4 flex"} p-2 inline`;
+
+[expect]
+const value = tw`flex p-4 ${"p-4 flex"} inline p-2`;
+
+== should not sort tagged template literals that aren't configured ==
+const value = other`p-4 flex`;
+
+[expect]
+const value = other`p-4 flex`;

@@ -1,0 +1,16 @@
+~~ importDeclaration.forceMultiLine: whenMultiple, lineWidth: 40 ~~
+== should break imports when more than one ==
+import { a, b } from "./test.ts";
+
+[expect]
+import {
+    a,
+    b,
+} from "./test.ts";
+
+== should not break single-line imports ==
+import { a } from "./test.ts";
+
+
+[expect]
+import { a } from "./test.ts";

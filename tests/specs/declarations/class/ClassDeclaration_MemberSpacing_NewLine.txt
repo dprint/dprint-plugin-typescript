@@ -1,0 +1,18 @@
+~~ classDeclaration.memberSpacing: newLine ~~
+== should format with new lines between members ==
+class Test {
+    prop1: number;
+
+    prop2: string;
+
+    method() {
+    }
+}
+
+[expect]
+class Test {
+    prop1: number;
+    prop2: string;
+    method() {
+    }
+}

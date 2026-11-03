@@ -1,0 +1,39 @@
+== should properly parenthesize ! operator in in ==
+!foo in bar;
+(!foo in bar);
+!(foo in bar);
+(!foo) in bar;
+!!foo in bar;
+
+[expect]
+(!foo) in bar;
+(!foo) in bar;
+!(foo in bar);
+(!foo) in bar;
+(!!foo) in bar;
+
+== should properly parenthesize ! operator in instanceof ==
+!foo instanceof Bar;
+(!foo instanceof Bar);
+!(foo instanceof Bar);
+(!foo) instanceof Bar;
+!!foo instanceof bar;
+
+[expect]
+(!foo) instanceof Bar;
+(!foo) instanceof Bar;
+!(foo instanceof Bar);
+(!foo) instanceof Bar;
+(!!foo) instanceof bar;
+
+== should properly parenthesize void operator in instanceof ==
+void 0 in bar;
+(void 0 in bar);
+void (0 in bar);
+(void 0) in bar;
+
+[expect]
+(void 0) in bar;
+(void 0) in bar;
+void (0 in bar);
+(void 0) in bar;

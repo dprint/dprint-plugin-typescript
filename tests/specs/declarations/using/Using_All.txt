@@ -1,0 +1,58 @@
+~~ lineWidth: 40 ~~
+== should format ==
+using a!: string;
+using b = 5;
+using c: number = 5;
+using d = 5, e = 20;
+using f = 2, g = 3, testingTheLimitOut = 4;
+
+function test() {
+    using f = 2, g = 3, testingTheLimitOut = 4;
+}
+
+for (using test of something) {
+}
+for (using test in something) {
+}
+
+[expect]
+using a!: string;
+using b = 5;
+using c: number = 5;
+using d = 5, e = 20;
+using f = 2,
+    g = 3,
+    testingTheLimitOut = 4;
+
+function test() {
+    using f = 2,
+        g = 3,
+        testingTheLimitOut = 4;
+}
+
+for (using test of something) {
+}
+for (using test in something) {
+}
+
+== should not wrap within a variable declaration ==
+using t: Testing, testingThis: outALittleBit;
+
+[expect]
+using t: Testing,
+    testingThis: outALittleBit;
+
+== should handle declarations that span multiple lines ==
+using testing = testtttttttt && testtttttttt, other = testtttttttt && testttttttttttt;
+
+[expect]
+using testing = testtttttttt
+        && testtttttttt,
+    other = testtttttttt
+        && testttttttttttt;
+
+== async ==
+await using a = 5, b = 6;
+
+[expect]
+await using a = 5, b = 6;

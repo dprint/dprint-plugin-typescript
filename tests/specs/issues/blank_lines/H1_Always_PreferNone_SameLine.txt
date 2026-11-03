@@ -1,0 +1,9 @@
+~~ blockPadding: always, useBraces: preferNone, singleBodyPosition: sameLine ~~
+== should be stable with a comment after the open brace ==
+if (true) { // 1
+    true;
+}
+
+[expect]
+if (true) // 1
+    true;

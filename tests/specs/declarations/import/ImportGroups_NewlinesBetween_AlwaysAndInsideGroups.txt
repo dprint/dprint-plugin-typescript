@@ -1,0 +1,21 @@
+~~ {
+  "lineWidth": 80,
+  "module.sortImportDeclarations": "maintain",
+  "module.importGroupsNewlinesBetween": "alwaysAndInsideGroups",
+  "module.importGroups": [
+    { "match": "builtin" },
+    { "match": "external" }
+  ]
+} ~~
+== boundaries forced, blank lines inside a group kept ==
+import { a } from "react";
+
+import { c } from "lodash";
+import { fs } from "node:fs";
+
+[expect]
+import { fs } from "node:fs";
+
+import { a } from "react";
+
+import { c } from "lodash";

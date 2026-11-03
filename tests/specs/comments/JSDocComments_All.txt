@@ -164,3 +164,315 @@ const test = 5;
  * Testing
  * **UNSTABLE** test */
 const test = 5;
+
+== should keep a markdown hard line break ==
+/**
+ * Does something.  
+ * Details here.
+ */
+const test = 5;
+
+[expect]
+/**
+ * Does something.  
+ * Details here.
+ */
+const test = 5;
+
+== should keep two spaces of a markdown hard line break with more spaces ==
+/**
+ * Does something.     
+ * Details here.
+ */
+const test = 5;
+
+[expect]
+/**
+ * Does something.  
+ * Details here.
+ */
+const test = 5;
+
+== should keep markdown hard line breaks on consecutive lines ==
+/**
+ * a  
+ * b  
+ * c
+ */
+const test = 5;
+
+[expect]
+/**
+ * a  
+ * b  
+ * c
+ */
+const test = 5;
+
+== should keep a markdown hard line break on the first line ==
+/** Does something.  
+ * Details here. */
+const test = 5;
+
+[expect]
+/** Does something.  
+ * Details here. */
+const test = 5;
+
+== should not keep trailing spaces on the last js doc content line ==
+/**
+ * Does something.  
+ */
+const test = 5;
+
+[expect]
+/**
+ * Does something.
+ */
+const test = 5;
+
+== should not keep trailing spaces before a blank line ==
+/**
+ * Summary.  
+ *
+ * More details.
+ */
+const test = 5;
+
+[expect]
+/**
+ * Summary.
+ *
+ * More details.
+ */
+const test = 5;
+
+== should not keep trailing spaces before a block tag ==
+/**
+ * Adds numbers.  
+ * @param a The first number.
+ */
+const test = 5;
+
+[expect]
+/**
+ * Adds numbers.
+ * @param a The first number.
+ */
+const test = 5;
+
+== should keep a markdown hard line break in a block tag ==
+/**
+ * @param a The first number.  
+ * More about it.
+ * @param b The second number.  
+ * @returns The sum.
+ */
+const test = 5;
+
+[expect]
+/**
+ * @param a The first number.  
+ * More about it.
+ * @param b The second number.
+ * @returns The sum.
+ */
+const test = 5;
+
+== should not keep trailing spaces in js doc fenced code blocks ==
+/**
+ * ```ts
+ * const value = "x";  
+ * other();
+ * ```
+ * ~~~
+ * const value = "x";  
+ * other();
+ * ~~~
+ */
+const test = 5;
+
+[expect]
+/**
+ * ```ts
+ * const value = "x";
+ * other();
+ * ```
+ * ~~~
+ * const value = "x";
+ * other();
+ * ~~~
+ */
+const test = 5;
+
+== should keep a markdown hard line break after a fenced code block ==
+/**
+ * ```ts
+ * a();  
+ * ```
+ * Text.  
+ * More.
+ */
+const test = 5;
+
+[expect]
+/**
+ * ```ts
+ * a();
+ * ```
+ * Text.  
+ * More.
+ */
+const test = 5;
+
+== should not end a fenced code block at a shorter fence ==
+/**
+ * ````md
+ * ```ts
+ * a();  
+ * ```
+ * b  
+ * ````
+ * Text.  
+ * More.
+ */
+const test = 5;
+
+[expect]
+/**
+ * ````md
+ * ```ts
+ * a();
+ * ```
+ * b
+ * ````
+ * Text.  
+ * More.
+ */
+const test = 5;
+
+== should not end a fenced code block at a fence with an info string ==
+/**
+ * ```ts
+ * a();  
+ * ```ts
+ * b();  
+ * ```
+ * Text.  
+ * More.
+ */
+const test = 5;
+
+[expect]
+/**
+ * ```ts
+ * a();
+ * ```ts
+ * b();
+ * ```
+ * Text.  
+ * More.
+ */
+const test = 5;
+
+== should not keep trailing spaces in an example without a fence ==
+/**
+ * @example
+ * const x = 1;  
+ * foo(x);
+ * @remarks
+ * Text.  
+ * More.
+ */
+const test = 5;
+
+[expect]
+/**
+ * @example
+ * const x = 1;
+ * foo(x);
+ * @remarks
+ * Text.  
+ * More.
+ */
+const test = 5;
+
+== should keep a markdown hard line break in a nested list item ==
+/**
+ * - item
+ *     - nested item  
+ *       continued
+ */
+const test = 5;
+
+[expect]
+/**
+ * - item
+ *     - nested item  
+ *       continued
+ */
+const test = 5;
+
+== should keep a markdown hard line break after a backslash ==
+/**
+ * Path is C:\  
+ * next
+ */
+const test = 5;
+
+[expect]
+/**
+ * Path is C:\  
+ * next
+ */
+const test = 5;
+
+== should not keep a trailing tab ==
+/**
+ * Does something.	
+ * Details here.
+ */
+const test = 5;
+
+[expect]
+/**
+ * Does something.
+ * Details here.
+ */
+const test = 5;
+
+== should not keep trailing spaces that end with a tab ==
+/**
+ * Does something.  	
+ * Details here.
+ */
+const test = 5;
+
+[expect]
+/**
+ * Does something.
+ * Details here.
+ */
+const test = 5;
+
+== should keep a backslash markdown hard line break ==
+/**
+ * Does something.\
+ * Details here.\
+ *
+ * More.\
+ * @param a The first number.\
+ * More about it.
+ */
+const test = 5;
+
+[expect]
+/**
+ * Does something.\
+ * Details here.\
+ *
+ * More.\
+ * @param a The first number.\
+ * More about it.
+ */
+const test = 5;
