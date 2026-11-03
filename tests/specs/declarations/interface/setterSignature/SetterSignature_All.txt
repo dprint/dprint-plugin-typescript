@@ -2,7 +2,7 @@
 == should format ==
 type T = {
     set m1 ( a : t );
-    set m2  ? ( b: string)  ;
+    set m2  ( b: string)  ;
     set [ m3  ](c)
 };
 
@@ -13,7 +13,7 @@ interface T {
 [expect]
 type T = {
     set m1(a: t);
-    set m2?(b: string);
+    set m2(b: string);
     set [m3](c);
 };
 

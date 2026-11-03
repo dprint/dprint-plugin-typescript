@@ -29,3 +29,30 @@ const t = (
         {myAwesomeContent}
     </Test>
 );
+
+== should use jsx space expressions for the edge spaces ==
+const t1 = <Test> {myAwesomeContent} </Test>;
+const t2 = <Test> </Test>;
+
+[expect]
+const t1 = (
+    <Test>
+        {" "}
+        {myAwesomeContent}
+        {" "}
+    </Test>
+);
+const t2 = (
+    <Test>
+        {" "}
+    </Test>
+);
+
+== should keep the closing tag beside ignored text that ends with spaces ==
+const t = <Test>{/* dprint-ignore */} some   text </Test>;
+
+[expect]
+const t = (
+    <Test>
+        {/* dprint-ignore */} some   text </Test>
+);

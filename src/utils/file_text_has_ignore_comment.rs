@@ -1,10 +1,8 @@
 use crate::utils::char_iterator::IteratorCharExt;
 use std::iter::Iterator;
-use std::iter::Peekable;
-use std::str::Chars;
 
 pub fn file_text_has_ignore_comment(file_text: &str, ignore_text: &str) -> bool {
-  let mut chars = file_text.chars().peekable();
+  let mut chars = IteratorCharExt::new(file_text.chars().peekable());
 
   // skip over the shebang
   if file_text.starts_with("#!") {
@@ -35,7 +33,7 @@ pub fn file_text_has_ignore_comment(file_text: &str, ignore_text: &str) -> bool 
   }
   return false;
 
-  fn check_single_line_comment(chars: &mut Peekable<Chars>, ignore_text: &str) -> bool {
+  fn check_single_line_comment(chars: &mut IteratorCharExt, ignore_text: &str) -> bool {
     chars.skip_spaces(); // only spaces, not whitespace
     if chars.check_text(ignore_text) {
       return true;
@@ -44,7 +42,7 @@ pub fn file_text_has_ignore_comment(file_text: &str, ignore_text: &str) -> bool 
     false
   }
 
-  fn check_multi_line_comment(chars: &mut Peekable<Chars>, ignore_text: &str) -> bool {
+  fn check_multi_line_comment(chars: &mut IteratorCharExt, ignore_text: &str) -> bool {
     chars.skip_whitespace();
     if chars.check_text(ignore_text) {
       return true;

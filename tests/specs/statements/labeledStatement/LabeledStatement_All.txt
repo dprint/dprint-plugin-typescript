@@ -1,12 +1,23 @@
-== should format ==
+== should format when on same line ==
 label  : console.log(5);
+
+[expect]
+label: console.log(5);
+
+== should format when on next line ==
+label  :
+console.log(5);
 
 [expect]
 label:
 console.log(5);
 
-== should format a block on the same line ==
+== should maintain blocks too ==
 label  :{
+    console.log(5);
+}
+label  :
+{
     console.log(5);
 }
 
@@ -14,3 +25,57 @@ label  :{
 label: {
     console.log(5);
 }
+label:
+{
+    console.log(5);
+}
+
+== for loop ==
+label: for (;;) {
+    // body
+}
+
+[expect]
+label: for (;;) {
+    // body
+}
+
+== for in loop ==
+label: for (const foo in bar) {
+    // body
+}
+
+[expect]
+label: for (const foo in bar) {
+    // body
+}
+
+== for of loop ==
+label: for (const foo of bar) {
+    // body
+}
+
+[expect]
+label: for (const foo of bar) {
+    // body
+}
+
+== while loop ==
+label: while (true) {
+    // body
+}
+
+[expect]
+label: while (true) {
+    // body
+}
+
+== do while loop ==
+label: do {
+    break    label;
+} while (true);
+
+[expect]
+label: do {
+    break label;
+} while (true);

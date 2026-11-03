@@ -1,7 +1,7 @@
-use deno_ast::view::*;
-use deno_ast::SourceRange;
-use deno_ast::SourceRanged;
-use deno_ast::SourceRangedForSpanned;
+use dprint_swc_ext::common::SourceRange;
+use dprint_swc_ext::common::SourceRanged;
+use dprint_swc_ext::common::SourceRangedForSpanned;
+use dprint_swc_ext::view::*;
 
 use crate::generation::context::Context;
 
@@ -30,8 +30,8 @@ impl<'a> ArrowSignature<'a> {
     self.inner.is_async()
   }
 
-  pub fn params(&self) -> &Vec<Pat<'a>> {
-    &self.inner.params
+  pub fn params(&self) -> &[Pat<'a>] {
+    self.inner.params
   }
 
   pub fn type_params(&self) -> Option<&'a TsTypeParamDecl<'a>> {
@@ -45,15 +45,15 @@ impl<'a> ArrowSignature<'a> {
   pub fn range(&self, context: &Context<'a>) -> SourceRange {
     let start = self.inner.start();
     let last_token = self.inner.body.previous_token_fast(context.program).unwrap();
-    debug_assert_eq!(last_token.token, deno_ast::swc::parser::token::Token::Arrow);
+    debug_assert_eq!(last_token.token, dprint_swc_ext::swc::parser::token::Token::Arrow);
     SourceRange::new(start, last_token.end())
   }
 }
 
-pub fn get_curried_arrow_expr<'a>(mut arrow_func: &'a ArrowExpr) -> Option<CurriedArrowExpr<'a>> {
+pub fn get_curried_arrow_expr<'a>(mut arrow_func: &'a ArrowExpr<'a>) -> Option<CurriedArrowExpr<'a>> {
   let mut signatures = Vec::new();
 
-  while let BlockStmtOrExpr::Expr(Expr::Arrow(inner)) = arrow_func.body {
+  while let ArrowFunctionBody::Expr(Expr::Arrow(inner)) = arrow_func.body {
     signatures.push(ArrowSignature::new(arrow_func));
     arrow_func = inner;
   }

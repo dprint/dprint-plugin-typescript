@@ -1,0 +1,83 @@
+-- file.tsx --
+== should keep the comments around a jsx spread attribute outside its braces ==
+function Test() {
+  return (
+    <div
+      // bug 1: goes inside the parenthesis
+      {...(process.env.NODE_ENV !== `production` && { strict: true })} // bug 2: goes inside JSX
+    ></div>
+  )
+}
+
+[expect]
+function Test() {
+    return (
+        <div
+            // bug 1: goes inside the parenthesis
+            {...(process.env.NODE_ENV !== `production` && { strict: true })} // bug 2: goes inside JSX
+        >
+        </div>
+    );
+}
+
+== should keep the comments inside the braces of a jsx spread attribute inside them ==
+const a = <div {/* a */ ...b /* c */} />;
+
+[expect]
+const a = <div {/* a */ ...b /* c */} />;
+
+== should keep block comments around a jsx spread attribute outside its braces ==
+const a = <div /* a */ {...b} /* c */ />;
+
+[expect]
+const a = <div /* a */ {...b} /* c */ />;
+
+== should keep a line comment after a jsx spread attribute before another attribute ==
+const a = (
+    <div
+        {...b} // c
+        d="e"
+    />
+);
+
+[expect]
+const a = (
+    <div
+        {...b} // c
+        d="e"
+    />
+);
+
+== should keep a line comment before a jsx spread attribute after another attribute ==
+const a = (
+    <div
+        d="e"
+        // c
+        {...b}
+    />
+);
+
+[expect]
+const a = (
+    <div
+        d="e"
+        // c
+        {...b}
+    />
+);
+
+== should keep a comment on the line after the last jsx spread attribute in the element ==
+const a = (
+    <div
+        {...b}
+        // c
+    />
+);
+
+[expect]
+const a = (
+    <div
+        {...b}
+        // c
+    />
+);

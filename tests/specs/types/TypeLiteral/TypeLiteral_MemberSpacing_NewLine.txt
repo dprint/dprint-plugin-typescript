@@ -1,0 +1,13 @@
+~~ typeLiteral.memberSpacing: newLine ~~
+== should remove the blank lines between members ==
+type Test = {
+    a: string;
+
+    b: string;
+};
+
+[expect]
+type Test = {
+    a: string;
+    b: string;
+};

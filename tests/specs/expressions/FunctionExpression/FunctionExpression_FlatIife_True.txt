@@ -1,0 +1,154 @@
+~~ functionExpression.flatIife: true ~~
+== should not indent body of IIFE ==
+(function() {
+    const a = "foobar";
+    return { a };
+})();
+
+[expect]
+(function() {
+const a = "foobar";
+return { a };
+})();
+
+== should not indent body of named IIFE ==
+(function init() {
+    const a = "foobar";
+    return { a };
+})();
+
+[expect]
+(function init() {
+const a = "foobar";
+return { a };
+})();
+
+== should not indent body of IIFE with args ==
+(function(x) {
+    const a = x;
+    return { a };
+})(42);
+
+[expect]
+(function(x) {
+const a = x;
+return { a };
+})(42);
+
+== should still indent body of regular function expression ==
+const fn = function() {
+    const a = "foobar";
+    return { a };
+};
+
+[expect]
+const fn = function() {
+    const a = "foobar";
+    return { a };
+};
+
+== should still indent body of function expression in call argument ==
+call(function() {
+    const a = "foobar";
+    return { a };
+});
+
+[expect]
+call(function() {
+    const a = "foobar";
+    return { a };
+});
+
+== should not affect arrow function IIFE ==
+(() => {
+    const a = "foobar";
+    return { a };
+})();
+
+[expect]
+(() => {
+    const a = "foobar";
+    return { a };
+})();
+
+== should handle IIFE with nested function ==
+(function() {
+    function inner() {
+        return 1;
+    }
+    return inner();
+})();
+
+[expect]
+(function() {
+function inner() {
+    return 1;
+}
+return inner();
+})();
+
+== should handle empty IIFE ==
+(function() {})();
+
+[expect]
+(function() {})();
+
+== should not indent body of IIFE wrapped in extra parens ==
+((function() {
+    const a = "foobar";
+    return { a };
+}))();
+
+[expect]
+(function() {
+const a = "foobar";
+return { a };
+})();
+
+== should not indent body of optional IIFE ==
+(function() {
+    const a = "foobar";
+    return { a };
+})?.();
+
+[expect]
+(function() {
+const a = "foobar";
+return { a };
+})?.();
+
+== should not indent body of bare-callee IIFE ==
+void function() {
+    const a = "foobar";
+    return { a };
+}();
+
+[expect]
+void function() {
+const a = "foobar";
+return { a };
+}();
+
+== should still indent body of function expression in member call ==
+(function() {
+    const a = "foobar";
+    return { a };
+}).call(null);
+
+[expect]
+(function() {
+    const a = "foobar";
+    return { a };
+}).call(null);
+
+== should still indent body of function expression as call argument ==
+foo((function() {
+    const a = "foobar";
+    return { a };
+}));
+
+[expect]
+foo(function() {
+    const a = "foobar";
+    return { a };
+});

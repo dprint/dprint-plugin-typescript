@@ -15,6 +15,12 @@ const Test3 = <div></div>;
 function test<T,>() {
 }
 
+// or export default
+export default function test<T,>() {
+}
+export default function<T,>() {
+}
+
 // generic constraints are not ambiguous either
 const Test4 = <P extends R<S, T>,>() => {};
 const Test5 = <P extends R<S, T>>() => {};
@@ -26,6 +32,12 @@ const Test3 = <div></div>;
 
 // not for declarations though
 function test<T>() {
+}
+
+// or export default
+export default function test<T>() {
+}
+export default function<T>() {
 }
 
 // generic constraints are not ambiguous either

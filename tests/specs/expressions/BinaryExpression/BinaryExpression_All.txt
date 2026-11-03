@@ -199,6 +199,12 @@ if (
 ) {
 }
 
+== swc issue where it didn't tokenize << correctly here ==
+const test = a << 1;
+
+[expect]
+const test = a << 1;
+
 == should format bitshift inline ==
 if (
     tttttttttttt >> ttttttttttt
@@ -280,3 +286,15 @@ const test =
 const test =
     // testing
     a + b + c;
+
+== should format multi-character comparison after a TS as-expression (LtEq) ==
+0 as number <= 1;
+
+[expect]
+0 as number <= 1;
+
+== should format multi-character comparison after a TS as-expression (GtEq) ==
+0 as number >= 1;
+
+[expect]
+0 as number >= 1;

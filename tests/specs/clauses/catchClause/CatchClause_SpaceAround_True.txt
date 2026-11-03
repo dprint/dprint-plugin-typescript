@@ -1,0 +1,42 @@
+~~ catchClause.spaceAround: true ~~
+== should output without param ==
+try{
+    a;
+} catch
+{
+    b;
+}
+
+[expect]
+try {
+    a;
+} catch {
+    b;
+}
+
+== should output with param ==
+try{
+    a;
+}
+catch(ex){
+    b;
+}
+
+[expect]
+try {
+    a;
+} catch ( ex ) {
+    b;
+}
+
+== should output with type on param ==
+try {
+    a
+} catch (  ex    :unknown ) {
+}
+
+[expect]
+try {
+    a;
+} catch ( ex: unknown ) {
+}

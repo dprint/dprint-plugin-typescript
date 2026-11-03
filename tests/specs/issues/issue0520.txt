@@ -1,0 +1,1043 @@
+~~ indentWidth: 2 ~~
+== should format quickly ==
+export const AID = {"kd":"D","definitions":[{"kd":"OperationDefinition","operation":"mutation","name":{"kd":"Name","value":"AI"},"variableDefinitions":[{"kd":"VariableDefinition","variable":{"kd":"Variable","name":{"kd":"Name","value":"input"}},"type":{"kd":"NonNullType","type":{"kd":"NamedType","name":{"kd":"Name","value":"AIInput"}}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"acceptI"},"arguments":[{"kd":"Argument","name":{"kd":"Name","value":"input"},"value":{"kd":"Variable","name":{"kd":"Name","value":"input"}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"organizationArn"}},{"kd":"Field","name":{"kd":"Name","value":"principalArn"}}]}}]}}]} ;
+export const AcD = {"kd":"D","definitions":[{"kd":"OperationDefinition","operation":"query","name":{"kd":"Name","value":"Ac"},"variableDefinitions":[{"kd":"VariableDefinition","variable":{"kd":"Variable","name":{"kd":"Name","value":"arns"}},"type":{"kd":"NonNullType","type":{"kd":"ListType","type":{"kd":"NonNullType","type":{"kd":"NamedType","name":{"kd":"Name","value":"Arn"}}}}}},{"kd":"VariableDefinition","variable":{"kd":"Variable","name":{"kd":"Name","value":"filter"}},"type":{"kd":"NamedType","name":{"kd":"Name","value":"AcFilterInput"}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"resourceGroups"},"arguments":[{"kd":"Argument","name":{"kd":"Name","value":"arns"},"value":{"kd":"Variable","name":{"kd":"Name","value":"arns"}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"arn"}},{"kd":"Field","name":{"kd":"Name","value":"appliedAces"},"arguments":[{"kd":"Argument","name":{"kd":"Name","value":"filter"},"value":{"kd":"Variable","name":{"kd":"Name","value":"filter"}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"access"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"arn"}},{"kd":"Field","name":{"kd":"Name","value":"assignedPrincipals"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"arn"}}]}},{"kd":"Field","name":{"kd":"Name","value":"description"}},{"kd":"Field","name":{"kd":"Name","value":"name"}},{"kd":"Field","name":{"kd":"Name","value":"target"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"arn"}}]}}]}}]}}]}}]}}]} ;
+export const CrAcD = {"kd":"D","definitions":[{"kd":"OperationDefinition","operation":"mutation","name":{"kd":"Name","value":"createAc"},"variableDefinitions":[{"kd":"VariableDefinition","variable":{"kd":"Variable","name":{"kd":"Name","value":"input"}},"type":{"kd":"NonNullType","type":{"kd":"NamedType","name":{"kd":"Name","value":"CrAcInput"}}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"createAc"},"arguments":[{"kd":"Argument","name":{"kd":"Name","value":"input"},"value":{"kd":"Variable","name":{"kd":"Name","value":"input"}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"accessArn"}}]}}]}}]} ;
+export const DelAcD = {"kd":"D","definitions":[{"kd":"OperationDefinition","operation":"mutation","name":{"kd":"Name","value":"deleteAc"},"variableDefinitions":[{"kd":"VariableDefinition","variable":{"kd":"Variable","name":{"kd":"Name","value":"input"}},"type":{"kd":"NonNullType","type":{"kd":"NamedType","name":{"kd":"Name","value":"BatchDelAcInput"}}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"batchDelAc"},"arguments":[{"kd":"Argument","name":{"kd":"Name","value":"input"},"value":{"kd":"Variable","name":{"kd":"Name","value":"input"}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"arns"}}]}}]}}]} ;
+export const OAcD = {"kd":"D","definitions":[{"kd":"OperationDefinition","operation":"query","name":{"kd":"Name","value":"OAc"},"variableDefinitions":[{"kd":"VariableDefinition","variable":{"kd":"Variable","name":{"kd":"Name","value":"arn"}},"type":{"kd":"NonNullType","type":{"kd":"NamedType","name":{"kd":"Name","value":"Arn"}}}},{"kd":"VariableDefinition","variable":{"kd":"Variable","name":{"kd":"Name","value":"filter"}},"type":{"kd":"NamedType","name":{"kd":"Name","value":"AcFilterInput"}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"organization"},"arguments":[{"kd":"Argument","name":{"kd":"Name","value":"organizationArn"},"value":{"kd":"Variable","name":{"kd":"Name","value":"arn"}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"arn"}},{"kd":"Field","name":{"kd":"Name","value":"appliedAces"},"arguments":[{"kd":"Argument","name":{"kd":"Name","value":"filter"},"value":{"kd":"Variable","name":{"kd":"Name","value":"filter"}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"access"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"arn"}},{"kd":"Field","name":{"kd":"Name","value":"assignedPrincipals"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"arn"}}]}},{"kd":"Field","name":{"kd":"Name","value":"description"}},{"kd":"Field","name":{"kd":"Name","value":"name"}},{"kd":"Field","name":{"kd":"Name","value":"target"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"arn"}}]}}]}}]}}]}}]}}]} ;
+export const GetAcD = {"kd":"D","definitions":[{"kd":"OperationDefinition","operation":"query","name":{"kd":"Name","value":"GetAc"},"variableDefinitions":[{"kd":"VariableDefinition","variable":{"kd":"Variable","name":{"kd":"Name","value":"arns"}},"type":{"kd":"NonNullType","type":{"kd":"ListType","type":{"kd":"NonNullType","type":{"kd":"NamedType","name":{"kd":"Name","value":"Arn"}}}}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"access"},"arguments":[{"kd":"Argument","name":{"kd":"Name","value":"arns"},"value":{"kd":"Variable","name":{"kd":"Name","value":"arns"}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"arn"}},{"kd":"Field","name":{"kd":"Name","value":"name"}},{"kd":"Field","name":{"kd":"Name","value":"description"}},{"kd":"Field","name":{"kd":"Name","value":"createdAt"}},{"kd":"Field","name":{"kd":"Name","value":"role"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"roleId"}},{"kd":"Field","name":{"kd":"Name","value":"applicationName"}},{"kd":"Field","name":{"kd":"Name","value":"roleName"}}]}},{"kd":"Field","name":{"kd":"Name","value":"target"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"arn"}}]}},{"kd":"Field","name":{"kd":"Name","value":"assignedPrincipals"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"arn"}}]}}]}}]}}]} ;
+export const UnassignAcD = {"kd":"D","definitions":[{"kd":"OperationDefinition","operation":"mutation","name":{"kd":"Name","value":"UnassignAc"},"variableDefinitions":[{"kd":"VariableDefinition","variable":{"kd":"Variable","name":{"kd":"Name","value":"input"}},"type":{"kd":"NonNullType","type":{"kd":"NamedType","name":{"kd":"Name","value":"UnassignAcInput"}}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"unassignAc"},"arguments":[{"kd":"Argument","name":{"kd":"Name","value":"input"},"value":{"kd":"Variable","name":{"kd":"Name","value":"input"}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"principalArn"}},{"kd":"Field","name":{"kd":"Name","value":"accessArn"}}]}}]}}]} ;
+export const ApsD = {"kd":"D","definitions":[{"kd":"OperationDefinition","operation":"query","name":{"kd":"Name","value":"Aps"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"applications"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"id"}},{"kd":"Field","name":{"kd":"Name","value":"name"}},{"kd":"Field","name":{"kd":"Name","value":"roles"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"id"}},{"kd":"Field","name":{"kd":"Name","value":"name"}}]}}]}}]}}]} ;
+export const CancelID = {"kd":"D","definitions":[{"kd":"OperationDefinition","operation":"mutation","name":{"kd":"Name","value":"CancelI"},"variableDefinitions":[{"kd":"VariableDefinition","variable":{"kd":"Variable","name":{"kd":"Name","value":"input"}},"type":{"kd":"NonNullType","type":{"kd":"NamedType","name":{"kd":"Name","value":"CancelIInput"}}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"cancelI"},"arguments":[{"kd":"Argument","name":{"kd":"Name","value":"input"},"value":{"kd":"Variable","name":{"kd":"Name","value":"input"}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"invitationArn"}}]}}]}}]} ;
+export const CrOD = {"kd":"D","definitions":[{"kd":"OperationDefinition","operation":"mutation","name":{"kd":"Name","value":"createO"},"variableDefinitions":[{"kd":"VariableDefinition","variable":{"kd":"Variable","name":{"kd":"Name","value":"input"}},"type":{"kd":"NonNullType","type":{"kd":"NamedType","name":{"kd":"Name","value":"CrOInput"}}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"createO"},"arguments":[{"kd":"Argument","name":{"kd":"Name","value":"input"},"value":{"kd":"Variable","name":{"kd":"Name","value":"input"}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"organizationArn"}}]}}]}}]} ;
+export const CrRgD = {"kd":"D","definitions":[{"kd":"OperationDefinition","operation":"mutation","name":{"kd":"Name","value":"createRg"},"variableDefinitions":[{"kd":"VariableDefinition","variable":{"kd":"Variable","name":{"kd":"Name","value":"input"}},"type":{"kd":"NonNullType","type":{"kd":"NamedType","name":{"kd":"Name","value":"CrRgInput"}}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"createRg"},"arguments":[{"kd":"Argument","name":{"kd":"Name","value":"input"},"value":{"kd":"Variable","name":{"kd":"Name","value":"input"}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"resourceGroupArn"}}]}}]}}]} ;
+export const DelRgD = {"kd":"D","definitions":[{"kd":"OperationDefinition","operation":"mutation","name":{"kd":"Name","value":"deleteRg"},"variableDefinitions":[{"kd":"VariableDefinition","variable":{"kd":"Variable","name":{"kd":"Name","value":"input"}},"type":{"kd":"NonNullType","type":{"kd":"NamedType","name":{"kd":"Name","value":"DelRgInput"}}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"deleteRg"},"arguments":[{"kd":"Argument","name":{"kd":"Name","value":"input"},"value":{"kd":"Variable","name":{"kd":"Name","value":"input"}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"resourceGroupArn"}}]}}]}}]} ;
+export const DelUD = {"kd":"D","definitions":[{"kd":"OperationDefinition","operation":"mutation","name":{"kd":"Name","value":"DelU"},"variableDefinitions":[{"kd":"VariableDefinition","variable":{"kd":"Variable","name":{"kd":"Name","value":"input"}},"type":{"kd":"NonNullType","type":{"kd":"NamedType","name":{"kd":"Name","value":"DelPrincipalInput"}}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"deletePrincipal"},"arguments":[{"kd":"Argument","name":{"kd":"Name","value":"input"},"value":{"kd":"Variable","name":{"kd":"Name","value":"input"}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"principalArn"}}]}}]}}]} ;
+export const InviteXPrincipalD = {"kd":"D","definitions":[{"kd":"OperationDefinition","operation":"mutation","name":{"kd":"Name","value":"InviteXPrincipal"},"variableDefinitions":[{"kd":"VariableDefinition","variable":{"kd":"Variable","name":{"kd":"Name","value":"input"}},"type":{"kd":"NonNullType","type":{"kd":"NamedType","name":{"kd":"Name","value":"InviteXPrincipalInput"}}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"inviteXPrincipal"},"arguments":[{"kd":"Argument","name":{"kd":"Name","value":"input"},"value":{"kd":"Variable","name":{"kd":"Name","value":"input"}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"invitationArn"}},{"kd":"Field","name":{"kd":"Name","value":"principalArn"}}]}}]}}]} ;
+export const ListIsD = {"kd":"D","definitions":[{"kd":"OperationDefinition","operation":"query","name":{"kd":"Name","value":"ListIs"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"invitations"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"invitationArn"}},{"kd":"Field","name":{"kd":"Name","value":"inviter"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"email"}}]}},{"kd":"Field","name":{"kd":"Name","value":"organization"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"arn"}},{"kd":"Field","name":{"kd":"Name","value":"name"}}]}}]}}]}}]} ;
+export const MstmApsD = {"kd":"D","definitions":[{"kd":"OperationDefinition","operation":"query","name":{"kd":"Name","value":"MstmAps"},"variableDefinitions":[{"kd":"VariableDefinition","variable":{"kd":"Variable","name":{"kd":"Name","value":"arn"}},"type":{"kd":"NonNullType","type":{"kd":"NamedType","name":{"kd":"Name","value":"Arn"}}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"organization"},"arguments":[{"kd":"Argument","name":{"kd":"Name","value":"organizationArn"},"value":{"kd":"Variable","name":{"kd":"Name","value":"arn"}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"arn"}},{"kd":"Field","name":{"kd":"Name","value":"mySystemAps"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"name"}},{"kd":"Field","name":{"kd":"Name","value":"url"}}]}}]}}]}}]} ;
+export const OD = {"kd":"D","definitions":[{"kd":"OperationDefinition","operation":"query","name":{"kd":"Name","value":"O"},"variableDefinitions":[{"kd":"VariableDefinition","variable":{"kd":"Variable","name":{"kd":"Name","value":"arn"}},"type":{"kd":"NonNullType","type":{"kd":"NamedType","name":{"kd":"Name","value":"Arn"}}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"organization"},"arguments":[{"kd":"Argument","name":{"kd":"Name","value":"organizationArn"},"value":{"kd":"Variable","name":{"kd":"Name","value":"arn"}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"arn"}},{"kd":"Field","name":{"kd":"Name","value":"name"}},{"kd":"Field","name":{"kd":"Name","value":"children"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"children"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"arn"}},{"kd":"Field","name":{"kd":"Name","value":"name"}}]}}]}}]}}]}}]} ;
+export const OsD = {"kd":"D","definitions":[{"kd":"OperationDefinition","operation":"query","name":{"kd":"Name","value":"Os"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"organizations"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"organizations"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"arn"}},{"kd":"Field","name":{"kd":"Name","value":"name"}}]}}]}}]}}]} ;
+export const ResourceTreeD = {"kd":"D","definitions":[{"kd":"OperationDefinition","operation":"query","name":{"kd":"Name","value":"ResourceTree"},"variableDefinitions":[{"kd":"VariableDefinition","variable":{"kd":"Variable","name":{"kd":"Name","value":"organizationArn"}},"type":{"kd":"NonNullType","type":{"kd":"NamedType","name":{"kd":"Name","value":"Arn"}}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"organization"},"arguments":[{"kd":"Argument","name":{"kd":"Name","value":"organizationArn"},"value":{"kd":"Variable","name":{"kd":"Name","value":"organizationArn"}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"arn"}},{"kd":"Field","name":{"kd":"Name","value":"resourceTree"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"resourceTree"}}]}}]}}]}}]} ;
+export const SetUPrsD = {"kd":"D","definitions":[{"kd":"OperationDefinition","operation":"mutation","name":{"kd":"Name","value":"SetUPrs"},"variableDefinitions":[{"kd":"VariableDefinition","variable":{"kd":"Variable","name":{"kd":"Name","value":"input"}},"type":{"kd":"NonNullType","type":{"kd":"NamedType","name":{"kd":"Name","value":"SetPrincipalPrsInput"}}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"setPrincipalPrs"},"arguments":[{"kd":"Argument","name":{"kd":"Name","value":"input"},"value":{"kd":"Variable","name":{"kd":"Name","value":"input"}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"principalArn"}},{"kd":"Field","name":{"kd":"Name","value":"properties"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"isOwner"}},{"kd":"Field","name":{"kd":"Name","value":"isAcAdmin"}},{"kd":"Field","name":{"kd":"Name","value":"isPrincipalAdmin"}}]}}]}}]}}]} ;
+export const UpdateDescD = {"kd":"D","definitions":[{"kd":"OperationDefinition","operation":"mutation","name":{"kd":"Name","value":"UpdateDesc"},"variableDefinitions":[{"kd":"VariableDefinition","variable":{"kd":"Variable","name":{"kd":"Name","value":"input"}},"type":{"kd":"NonNullType","type":{"kd":"NamedType","name":{"kd":"Name","value":"UpdateDescInput"}}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"updateDesc"},"arguments":[{"kd":"Argument","name":{"kd":"Name","value":"input"},"value":{"kd":"Variable","name":{"kd":"Name","value":"input"}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"arn"}},{"kd":"Field","name":{"kd":"Name","value":"description"}}]}}]}}]} ;
+export const UpdateNameD = {"kd":"D","definitions":[{"kd":"OperationDefinition","operation":"mutation","name":{"kd":"Name","value":"updateName"},"variableDefinitions":[{"kd":"VariableDefinition","variable":{"kd":"Variable","name":{"kd":"Name","value":"input"}},"type":{"kd":"NonNullType","type":{"kd":"NamedType","name":{"kd":"Name","value":"UpdateNameInput"}}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"updateName"},"arguments":[{"kd":"Argument","name":{"kd":"Name","value":"input"},"value":{"kd":"Variable","name":{"kd":"Name","value":"input"}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"arn"}},{"kd":"Field","name":{"kd":"Name","value":"name"}}]}}]}}]} ;
+export const UsAndItsD = {"kd":"D","definitions":[{"kd":"OperationDefinition","operation":"query","name":{"kd":"Name","value":"UsAndIts"},"variableDefinitions":[{"kd":"VariableDefinition","variable":{"kd":"Variable","name":{"kd":"Name","value":"organizationArn"}},"type":{"kd":"NonNullType","type":{"kd":"NamedType","name":{"kd":"Name","value":"Arn"}}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"organization"},"arguments":[{"kd":"Argument","name":{"kd":"Name","value":"organizationArn"},"value":{"kd":"Variable","name":{"kd":"Name","value":"organizationArn"}}}],"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"arn"}},{"kd":"Field","name":{"kd":"Name","value":"invitations"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"invitationArn"}},{"kd":"Field","name":{"kd":"Name","value":"createdAt"}},{"kd":"Field","name":{"kd":"Name","value":"invitee"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"email"}},{"kd":"Field","name":{"kd":"Name","value":"principalArn"}}]}}]}},{"kd":"Field","name":{"kd":"Name","value":"principals"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"principals"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"InlineFragment","typeCondition":{"kd":"NamedType","name":{"kd":"Name","value":"XPrincipal"}},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"__typename"}},{"kd":"Field","name":{"kd":"Name","value":"contactInfo"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"name"}},{"kd":"Field","name":{"kd":"Name","value":"email"}}]}},{"kd":"Field","name":{"kd":"Name","value":"arn"}},{"kd":"Field","name":{"kd":"Name","value":"createdAt"}},{"kd":"Field","name":{"kd":"Name","value":"properties"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"isOwner"}},{"kd":"Field","name":{"kd":"Name","value":"isPrincipalAdmin"}},{"kd":"Field","name":{"kd":"Name","value":"isPrincipalViewer"}},{"kd":"Field","name":{"kd":"Name","value":"isAcAdmin"}},{"kd":"Field","name":{"kd":"Name","value":"isAcViewer"}}]}},{"kd":"Field","name":{"kd":"Name","value":"invitationStatus"}},{"kd":"Field","name":{"kd":"Name","value":"accesses"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"arn"}},{"kd":"Field","name":{"kd":"Name","value":"name"}}]}}]}}]}}]}},{"kd":"Field","name":{"kd":"Name","value":"self"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"principal"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"arn"}},{"kd":"InlineFragment","typeCondition":{"kd":"NamedType","name":{"kd":"Name","value":"XPrincipal"}},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"__typename"}},{"kd":"Field","name":{"kd":"Name","value":"contactInfo"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"name"}},{"kd":"Field","name":{"kd":"Name","value":"email"}}]}},{"kd":"Field","name":{"kd":"Name","value":"properties"},"selectionSet":{"kd":"SelectionSet","selections":[{"kd":"Field","name":{"kd":"Name","value":"isOwner"}},{"kd":"Field","name":{"kd":"Name","value":"isPrincipalAdmin"}},{"kd":"Field","name":{"kd":"Name","value":"isPrincipalViewer"}},{"kd":"Field","name":{"kd":"Name","value":"isAcAdmin"}},{"kd":"Field","name":{"kd":"Name","value":"isAcViewer"}}]}}]}}]}}]}}]}}]}}]} ;
+
+[expect]
+export const AID = {
+  "kd": "D",
+  "definitions": [{
+    "kd": "OperationDefinition",
+    "operation": "mutation",
+    "name": { "kd": "Name", "value": "AI" },
+    "variableDefinitions": [{
+      "kd": "VariableDefinition",
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "AIInput" } } },
+    }],
+    "selectionSet": {
+      "kd": "SelectionSet",
+      "selections": [{
+        "kd": "Field",
+        "name": { "kd": "Name", "value": "acceptI" },
+        "arguments": [{
+          "kd": "Argument",
+          "name": { "kd": "Name", "value": "input" },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+        }],
+        "selectionSet": {
+          "kd": "SelectionSet",
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "organizationArn" } }, {
+            "kd": "Field",
+            "name": { "kd": "Name", "value": "principalArn" },
+          }],
+        },
+      }],
+    },
+  }],
+};
+export const AcD = {
+  "kd": "D",
+  "definitions": [{
+    "kd": "OperationDefinition",
+    "operation": "query",
+    "name": { "kd": "Name", "value": "Ac" },
+    "variableDefinitions": [{
+      "kd": "VariableDefinition",
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "arns" } },
+      "type": {
+        "kd": "NonNullType",
+        "type": {
+          "kd": "ListType",
+          "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "Arn" } } },
+        },
+      },
+    }, {
+      "kd": "VariableDefinition",
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "filter" } },
+      "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "AcFilterInput" } },
+    }],
+    "selectionSet": {
+      "kd": "SelectionSet",
+      "selections": [{
+        "kd": "Field",
+        "name": { "kd": "Name", "value": "resourceGroups" },
+        "arguments": [{
+          "kd": "Argument",
+          "name": { "kd": "Name", "value": "arns" },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "arns" } },
+        }],
+        "selectionSet": {
+          "kd": "SelectionSet",
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
+            "kd": "Field",
+            "name": { "kd": "Name", "value": "appliedAces" },
+            "arguments": [{
+              "kd": "Argument",
+              "name": { "kd": "Name", "value": "filter" },
+              "value": { "kd": "Variable", "name": { "kd": "Name", "value": "filter" } },
+            }],
+            "selectionSet": {
+              "kd": "SelectionSet",
+              "selections": [{
+                "kd": "Field",
+                "name": { "kd": "Name", "value": "access" },
+                "selectionSet": {
+                  "kd": "SelectionSet",
+                  "selections": [
+                    { "kd": "Field", "name": { "kd": "Name", "value": "arn" } },
+                    {
+                      "kd": "Field",
+                      "name": { "kd": "Name", "value": "assignedPrincipals" },
+                      "selectionSet": {
+                        "kd": "SelectionSet",
+                        "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }],
+                      },
+                    },
+                    { "kd": "Field", "name": { "kd": "Name", "value": "description" } },
+                    { "kd": "Field", "name": { "kd": "Name", "value": "name" } },
+                    {
+                      "kd": "Field",
+                      "name": { "kd": "Name", "value": "target" },
+                      "selectionSet": {
+                        "kd": "SelectionSet",
+                        "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }],
+                      },
+                    },
+                  ],
+                },
+              }],
+            },
+          }],
+        },
+      }],
+    },
+  }],
+};
+export const CrAcD = {
+  "kd": "D",
+  "definitions": [{
+    "kd": "OperationDefinition",
+    "operation": "mutation",
+    "name": { "kd": "Name", "value": "createAc" },
+    "variableDefinitions": [{
+      "kd": "VariableDefinition",
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "CrAcInput" } } },
+    }],
+    "selectionSet": {
+      "kd": "SelectionSet",
+      "selections": [{
+        "kd": "Field",
+        "name": { "kd": "Name", "value": "createAc" },
+        "arguments": [{
+          "kd": "Argument",
+          "name": { "kd": "Name", "value": "input" },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+        }],
+        "selectionSet": {
+          "kd": "SelectionSet",
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "accessArn" } }],
+        },
+      }],
+    },
+  }],
+};
+export const DelAcD = {
+  "kd": "D",
+  "definitions": [{
+    "kd": "OperationDefinition",
+    "operation": "mutation",
+    "name": { "kd": "Name", "value": "deleteAc" },
+    "variableDefinitions": [{
+      "kd": "VariableDefinition",
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+      "type": {
+        "kd": "NonNullType",
+        "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "BatchDelAcInput" } },
+      },
+    }],
+    "selectionSet": {
+      "kd": "SelectionSet",
+      "selections": [{
+        "kd": "Field",
+        "name": { "kd": "Name", "value": "batchDelAc" },
+        "arguments": [{
+          "kd": "Argument",
+          "name": { "kd": "Name", "value": "input" },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+        }],
+        "selectionSet": {
+          "kd": "SelectionSet",
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arns" } }],
+        },
+      }],
+    },
+  }],
+};
+export const OAcD = {
+  "kd": "D",
+  "definitions": [{
+    "kd": "OperationDefinition",
+    "operation": "query",
+    "name": { "kd": "Name", "value": "OAc" },
+    "variableDefinitions": [{
+      "kd": "VariableDefinition",
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "arn" } },
+      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "Arn" } } },
+    }, {
+      "kd": "VariableDefinition",
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "filter" } },
+      "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "AcFilterInput" } },
+    }],
+    "selectionSet": {
+      "kd": "SelectionSet",
+      "selections": [{
+        "kd": "Field",
+        "name": { "kd": "Name", "value": "organization" },
+        "arguments": [{
+          "kd": "Argument",
+          "name": { "kd": "Name", "value": "organizationArn" },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "arn" } },
+        }],
+        "selectionSet": {
+          "kd": "SelectionSet",
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
+            "kd": "Field",
+            "name": { "kd": "Name", "value": "appliedAces" },
+            "arguments": [{
+              "kd": "Argument",
+              "name": { "kd": "Name", "value": "filter" },
+              "value": { "kd": "Variable", "name": { "kd": "Name", "value": "filter" } },
+            }],
+            "selectionSet": {
+              "kd": "SelectionSet",
+              "selections": [{
+                "kd": "Field",
+                "name": { "kd": "Name", "value": "access" },
+                "selectionSet": {
+                  "kd": "SelectionSet",
+                  "selections": [
+                    { "kd": "Field", "name": { "kd": "Name", "value": "arn" } },
+                    {
+                      "kd": "Field",
+                      "name": { "kd": "Name", "value": "assignedPrincipals" },
+                      "selectionSet": {
+                        "kd": "SelectionSet",
+                        "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }],
+                      },
+                    },
+                    { "kd": "Field", "name": { "kd": "Name", "value": "description" } },
+                    { "kd": "Field", "name": { "kd": "Name", "value": "name" } },
+                    {
+                      "kd": "Field",
+                      "name": { "kd": "Name", "value": "target" },
+                      "selectionSet": {
+                        "kd": "SelectionSet",
+                        "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }],
+                      },
+                    },
+                  ],
+                },
+              }],
+            },
+          }],
+        },
+      }],
+    },
+  }],
+};
+export const GetAcD = {
+  "kd": "D",
+  "definitions": [{
+    "kd": "OperationDefinition",
+    "operation": "query",
+    "name": { "kd": "Name", "value": "GetAc" },
+    "variableDefinitions": [{
+      "kd": "VariableDefinition",
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "arns" } },
+      "type": {
+        "kd": "NonNullType",
+        "type": {
+          "kd": "ListType",
+          "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "Arn" } } },
+        },
+      },
+    }],
+    "selectionSet": {
+      "kd": "SelectionSet",
+      "selections": [{
+        "kd": "Field",
+        "name": { "kd": "Name", "value": "access" },
+        "arguments": [{
+          "kd": "Argument",
+          "name": { "kd": "Name", "value": "arns" },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "arns" } },
+        }],
+        "selectionSet": {
+          "kd": "SelectionSet",
+          "selections": [
+            { "kd": "Field", "name": { "kd": "Name", "value": "arn" } },
+            { "kd": "Field", "name": { "kd": "Name", "value": "name" } },
+            { "kd": "Field", "name": { "kd": "Name", "value": "description" } },
+            { "kd": "Field", "name": { "kd": "Name", "value": "createdAt" } },
+            {
+              "kd": "Field",
+              "name": { "kd": "Name", "value": "role" },
+              "selectionSet": {
+                "kd": "SelectionSet",
+                "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "roleId" } }, {
+                  "kd": "Field",
+                  "name": { "kd": "Name", "value": "applicationName" },
+                }, { "kd": "Field", "name": { "kd": "Name", "value": "roleName" } }],
+              },
+            },
+            {
+              "kd": "Field",
+              "name": { "kd": "Name", "value": "target" },
+              "selectionSet": {
+                "kd": "SelectionSet",
+                "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }],
+              },
+            },
+            {
+              "kd": "Field",
+              "name": { "kd": "Name", "value": "assignedPrincipals" },
+              "selectionSet": {
+                "kd": "SelectionSet",
+                "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }],
+              },
+            },
+          ],
+        },
+      }],
+    },
+  }],
+};
+export const UnassignAcD = {
+  "kd": "D",
+  "definitions": [{
+    "kd": "OperationDefinition",
+    "operation": "mutation",
+    "name": { "kd": "Name", "value": "UnassignAc" },
+    "variableDefinitions": [{
+      "kd": "VariableDefinition",
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+      "type": {
+        "kd": "NonNullType",
+        "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "UnassignAcInput" } },
+      },
+    }],
+    "selectionSet": {
+      "kd": "SelectionSet",
+      "selections": [{
+        "kd": "Field",
+        "name": { "kd": "Name", "value": "unassignAc" },
+        "arguments": [{
+          "kd": "Argument",
+          "name": { "kd": "Name", "value": "input" },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+        }],
+        "selectionSet": {
+          "kd": "SelectionSet",
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "principalArn" } }, {
+            "kd": "Field",
+            "name": { "kd": "Name", "value": "accessArn" },
+          }],
+        },
+      }],
+    },
+  }],
+};
+export const ApsD = {
+  "kd": "D",
+  "definitions": [{
+    "kd": "OperationDefinition",
+    "operation": "query",
+    "name": { "kd": "Name", "value": "Aps" },
+    "selectionSet": {
+      "kd": "SelectionSet",
+      "selections": [{
+        "kd": "Field",
+        "name": { "kd": "Name", "value": "applications" },
+        "selectionSet": {
+          "kd": "SelectionSet",
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "id" } }, {
+            "kd": "Field",
+            "name": { "kd": "Name", "value": "name" },
+          }, {
+            "kd": "Field",
+            "name": { "kd": "Name", "value": "roles" },
+            "selectionSet": {
+              "kd": "SelectionSet",
+              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "id" } }, {
+                "kd": "Field",
+                "name": { "kd": "Name", "value": "name" },
+              }],
+            },
+          }],
+        },
+      }],
+    },
+  }],
+};
+export const CancelID = {
+  "kd": "D",
+  "definitions": [{
+    "kd": "OperationDefinition",
+    "operation": "mutation",
+    "name": { "kd": "Name", "value": "CancelI" },
+    "variableDefinitions": [{
+      "kd": "VariableDefinition",
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "CancelIInput" } } },
+    }],
+    "selectionSet": {
+      "kd": "SelectionSet",
+      "selections": [{
+        "kd": "Field",
+        "name": { "kd": "Name", "value": "cancelI" },
+        "arguments": [{
+          "kd": "Argument",
+          "name": { "kd": "Name", "value": "input" },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+        }],
+        "selectionSet": {
+          "kd": "SelectionSet",
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "invitationArn" } }],
+        },
+      }],
+    },
+  }],
+};
+export const CrOD = {
+  "kd": "D",
+  "definitions": [{
+    "kd": "OperationDefinition",
+    "operation": "mutation",
+    "name": { "kd": "Name", "value": "createO" },
+    "variableDefinitions": [{
+      "kd": "VariableDefinition",
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "CrOInput" } } },
+    }],
+    "selectionSet": {
+      "kd": "SelectionSet",
+      "selections": [{
+        "kd": "Field",
+        "name": { "kd": "Name", "value": "createO" },
+        "arguments": [{
+          "kd": "Argument",
+          "name": { "kd": "Name", "value": "input" },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+        }],
+        "selectionSet": {
+          "kd": "SelectionSet",
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "organizationArn" } }],
+        },
+      }],
+    },
+  }],
+};
+export const CrRgD = {
+  "kd": "D",
+  "definitions": [{
+    "kd": "OperationDefinition",
+    "operation": "mutation",
+    "name": { "kd": "Name", "value": "createRg" },
+    "variableDefinitions": [{
+      "kd": "VariableDefinition",
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "CrRgInput" } } },
+    }],
+    "selectionSet": {
+      "kd": "SelectionSet",
+      "selections": [{
+        "kd": "Field",
+        "name": { "kd": "Name", "value": "createRg" },
+        "arguments": [{
+          "kd": "Argument",
+          "name": { "kd": "Name", "value": "input" },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+        }],
+        "selectionSet": {
+          "kd": "SelectionSet",
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "resourceGroupArn" } }],
+        },
+      }],
+    },
+  }],
+};
+export const DelRgD = {
+  "kd": "D",
+  "definitions": [{
+    "kd": "OperationDefinition",
+    "operation": "mutation",
+    "name": { "kd": "Name", "value": "deleteRg" },
+    "variableDefinitions": [{
+      "kd": "VariableDefinition",
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "DelRgInput" } } },
+    }],
+    "selectionSet": {
+      "kd": "SelectionSet",
+      "selections": [{
+        "kd": "Field",
+        "name": { "kd": "Name", "value": "deleteRg" },
+        "arguments": [{
+          "kd": "Argument",
+          "name": { "kd": "Name", "value": "input" },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+        }],
+        "selectionSet": {
+          "kd": "SelectionSet",
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "resourceGroupArn" } }],
+        },
+      }],
+    },
+  }],
+};
+export const DelUD = {
+  "kd": "D",
+  "definitions": [{
+    "kd": "OperationDefinition",
+    "operation": "mutation",
+    "name": { "kd": "Name", "value": "DelU" },
+    "variableDefinitions": [{
+      "kd": "VariableDefinition",
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+      "type": {
+        "kd": "NonNullType",
+        "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "DelPrincipalInput" } },
+      },
+    }],
+    "selectionSet": {
+      "kd": "SelectionSet",
+      "selections": [{
+        "kd": "Field",
+        "name": { "kd": "Name", "value": "deletePrincipal" },
+        "arguments": [{
+          "kd": "Argument",
+          "name": { "kd": "Name", "value": "input" },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+        }],
+        "selectionSet": {
+          "kd": "SelectionSet",
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "principalArn" } }],
+        },
+      }],
+    },
+  }],
+};
+export const InviteXPrincipalD = {
+  "kd": "D",
+  "definitions": [{
+    "kd": "OperationDefinition",
+    "operation": "mutation",
+    "name": { "kd": "Name", "value": "InviteXPrincipal" },
+    "variableDefinitions": [{
+      "kd": "VariableDefinition",
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+      "type": {
+        "kd": "NonNullType",
+        "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "InviteXPrincipalInput" } },
+      },
+    }],
+    "selectionSet": {
+      "kd": "SelectionSet",
+      "selections": [{
+        "kd": "Field",
+        "name": { "kd": "Name", "value": "inviteXPrincipal" },
+        "arguments": [{
+          "kd": "Argument",
+          "name": { "kd": "Name", "value": "input" },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+        }],
+        "selectionSet": {
+          "kd": "SelectionSet",
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "invitationArn" } }, {
+            "kd": "Field",
+            "name": { "kd": "Name", "value": "principalArn" },
+          }],
+        },
+      }],
+    },
+  }],
+};
+export const ListIsD = {
+  "kd": "D",
+  "definitions": [{
+    "kd": "OperationDefinition",
+    "operation": "query",
+    "name": { "kd": "Name", "value": "ListIs" },
+    "selectionSet": {
+      "kd": "SelectionSet",
+      "selections": [{
+        "kd": "Field",
+        "name": { "kd": "Name", "value": "invitations" },
+        "selectionSet": {
+          "kd": "SelectionSet",
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "invitationArn" } }, {
+            "kd": "Field",
+            "name": { "kd": "Name", "value": "inviter" },
+            "selectionSet": {
+              "kd": "SelectionSet",
+              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "email" } }],
+            },
+          }, {
+            "kd": "Field",
+            "name": { "kd": "Name", "value": "organization" },
+            "selectionSet": {
+              "kd": "SelectionSet",
+              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
+                "kd": "Field",
+                "name": { "kd": "Name", "value": "name" },
+              }],
+            },
+          }],
+        },
+      }],
+    },
+  }],
+};
+export const MstmApsD = {
+  "kd": "D",
+  "definitions": [{
+    "kd": "OperationDefinition",
+    "operation": "query",
+    "name": { "kd": "Name", "value": "MstmAps" },
+    "variableDefinitions": [{
+      "kd": "VariableDefinition",
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "arn" } },
+      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "Arn" } } },
+    }],
+    "selectionSet": {
+      "kd": "SelectionSet",
+      "selections": [{
+        "kd": "Field",
+        "name": { "kd": "Name", "value": "organization" },
+        "arguments": [{
+          "kd": "Argument",
+          "name": { "kd": "Name", "value": "organizationArn" },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "arn" } },
+        }],
+        "selectionSet": {
+          "kd": "SelectionSet",
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
+            "kd": "Field",
+            "name": { "kd": "Name", "value": "mySystemAps" },
+            "selectionSet": {
+              "kd": "SelectionSet",
+              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "name" } }, {
+                "kd": "Field",
+                "name": { "kd": "Name", "value": "url" },
+              }],
+            },
+          }],
+        },
+      }],
+    },
+  }],
+};
+export const OD = {
+  "kd": "D",
+  "definitions": [{
+    "kd": "OperationDefinition",
+    "operation": "query",
+    "name": { "kd": "Name", "value": "O" },
+    "variableDefinitions": [{
+      "kd": "VariableDefinition",
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "arn" } },
+      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "Arn" } } },
+    }],
+    "selectionSet": {
+      "kd": "SelectionSet",
+      "selections": [{
+        "kd": "Field",
+        "name": { "kd": "Name", "value": "organization" },
+        "arguments": [{
+          "kd": "Argument",
+          "name": { "kd": "Name", "value": "organizationArn" },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "arn" } },
+        }],
+        "selectionSet": {
+          "kd": "SelectionSet",
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
+            "kd": "Field",
+            "name": { "kd": "Name", "value": "name" },
+          }, {
+            "kd": "Field",
+            "name": { "kd": "Name", "value": "children" },
+            "selectionSet": {
+              "kd": "SelectionSet",
+              "selections": [{
+                "kd": "Field",
+                "name": { "kd": "Name", "value": "children" },
+                "selectionSet": {
+                  "kd": "SelectionSet",
+                  "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
+                    "kd": "Field",
+                    "name": { "kd": "Name", "value": "name" },
+                  }],
+                },
+              }],
+            },
+          }],
+        },
+      }],
+    },
+  }],
+};
+export const OsD = {
+  "kd": "D",
+  "definitions": [{
+    "kd": "OperationDefinition",
+    "operation": "query",
+    "name": { "kd": "Name", "value": "Os" },
+    "selectionSet": {
+      "kd": "SelectionSet",
+      "selections": [{
+        "kd": "Field",
+        "name": { "kd": "Name", "value": "organizations" },
+        "selectionSet": {
+          "kd": "SelectionSet",
+          "selections": [{
+            "kd": "Field",
+            "name": { "kd": "Name", "value": "organizations" },
+            "selectionSet": {
+              "kd": "SelectionSet",
+              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
+                "kd": "Field",
+                "name": { "kd": "Name", "value": "name" },
+              }],
+            },
+          }],
+        },
+      }],
+    },
+  }],
+};
+export const ResourceTreeD = {
+  "kd": "D",
+  "definitions": [{
+    "kd": "OperationDefinition",
+    "operation": "query",
+    "name": { "kd": "Name", "value": "ResourceTree" },
+    "variableDefinitions": [{
+      "kd": "VariableDefinition",
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "organizationArn" } },
+      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "Arn" } } },
+    }],
+    "selectionSet": {
+      "kd": "SelectionSet",
+      "selections": [{
+        "kd": "Field",
+        "name": { "kd": "Name", "value": "organization" },
+        "arguments": [{
+          "kd": "Argument",
+          "name": { "kd": "Name", "value": "organizationArn" },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "organizationArn" } },
+        }],
+        "selectionSet": {
+          "kd": "SelectionSet",
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
+            "kd": "Field",
+            "name": { "kd": "Name", "value": "resourceTree" },
+            "selectionSet": {
+              "kd": "SelectionSet",
+              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "resourceTree" } }],
+            },
+          }],
+        },
+      }],
+    },
+  }],
+};
+export const SetUPrsD = {
+  "kd": "D",
+  "definitions": [{
+    "kd": "OperationDefinition",
+    "operation": "mutation",
+    "name": { "kd": "Name", "value": "SetUPrs" },
+    "variableDefinitions": [{
+      "kd": "VariableDefinition",
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+      "type": {
+        "kd": "NonNullType",
+        "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "SetPrincipalPrsInput" } },
+      },
+    }],
+    "selectionSet": {
+      "kd": "SelectionSet",
+      "selections": [{
+        "kd": "Field",
+        "name": { "kd": "Name", "value": "setPrincipalPrs" },
+        "arguments": [{
+          "kd": "Argument",
+          "name": { "kd": "Name", "value": "input" },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+        }],
+        "selectionSet": {
+          "kd": "SelectionSet",
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "principalArn" } }, {
+            "kd": "Field",
+            "name": { "kd": "Name", "value": "properties" },
+            "selectionSet": {
+              "kd": "SelectionSet",
+              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "isOwner" } }, {
+                "kd": "Field",
+                "name": { "kd": "Name", "value": "isAcAdmin" },
+              }, { "kd": "Field", "name": { "kd": "Name", "value": "isPrincipalAdmin" } }],
+            },
+          }],
+        },
+      }],
+    },
+  }],
+};
+export const UpdateDescD = {
+  "kd": "D",
+  "definitions": [{
+    "kd": "OperationDefinition",
+    "operation": "mutation",
+    "name": { "kd": "Name", "value": "UpdateDesc" },
+    "variableDefinitions": [{
+      "kd": "VariableDefinition",
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+      "type": {
+        "kd": "NonNullType",
+        "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "UpdateDescInput" } },
+      },
+    }],
+    "selectionSet": {
+      "kd": "SelectionSet",
+      "selections": [{
+        "kd": "Field",
+        "name": { "kd": "Name", "value": "updateDesc" },
+        "arguments": [{
+          "kd": "Argument",
+          "name": { "kd": "Name", "value": "input" },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+        }],
+        "selectionSet": {
+          "kd": "SelectionSet",
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
+            "kd": "Field",
+            "name": { "kd": "Name", "value": "description" },
+          }],
+        },
+      }],
+    },
+  }],
+};
+export const UpdateNameD = {
+  "kd": "D",
+  "definitions": [{
+    "kd": "OperationDefinition",
+    "operation": "mutation",
+    "name": { "kd": "Name", "value": "updateName" },
+    "variableDefinitions": [{
+      "kd": "VariableDefinition",
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+      "type": {
+        "kd": "NonNullType",
+        "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "UpdateNameInput" } },
+      },
+    }],
+    "selectionSet": {
+      "kd": "SelectionSet",
+      "selections": [{
+        "kd": "Field",
+        "name": { "kd": "Name", "value": "updateName" },
+        "arguments": [{
+          "kd": "Argument",
+          "name": { "kd": "Name", "value": "input" },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "input" } },
+        }],
+        "selectionSet": {
+          "kd": "SelectionSet",
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
+            "kd": "Field",
+            "name": { "kd": "Name", "value": "name" },
+          }],
+        },
+      }],
+    },
+  }],
+};
+export const UsAndItsD = {
+  "kd": "D",
+  "definitions": [{
+    "kd": "OperationDefinition",
+    "operation": "query",
+    "name": { "kd": "Name", "value": "UsAndIts" },
+    "variableDefinitions": [{
+      "kd": "VariableDefinition",
+      "variable": { "kd": "Variable", "name": { "kd": "Name", "value": "organizationArn" } },
+      "type": { "kd": "NonNullType", "type": { "kd": "NamedType", "name": { "kd": "Name", "value": "Arn" } } },
+    }],
+    "selectionSet": {
+      "kd": "SelectionSet",
+      "selections": [{
+        "kd": "Field",
+        "name": { "kd": "Name", "value": "organization" },
+        "arguments": [{
+          "kd": "Argument",
+          "name": { "kd": "Name", "value": "organizationArn" },
+          "value": { "kd": "Variable", "name": { "kd": "Name", "value": "organizationArn" } },
+        }],
+        "selectionSet": {
+          "kd": "SelectionSet",
+          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
+            "kd": "Field",
+            "name": { "kd": "Name", "value": "invitations" },
+            "selectionSet": {
+              "kd": "SelectionSet",
+              "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "invitationArn" } }, {
+                "kd": "Field",
+                "name": { "kd": "Name", "value": "createdAt" },
+              }, {
+                "kd": "Field",
+                "name": { "kd": "Name", "value": "invitee" },
+                "selectionSet": {
+                  "kd": "SelectionSet",
+                  "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "email" } }, {
+                    "kd": "Field",
+                    "name": { "kd": "Name", "value": "principalArn" },
+                  }],
+                },
+              }],
+            },
+          }, {
+            "kd": "Field",
+            "name": { "kd": "Name", "value": "principals" },
+            "selectionSet": {
+              "kd": "SelectionSet",
+              "selections": [{
+                "kd": "Field",
+                "name": { "kd": "Name", "value": "principals" },
+                "selectionSet": {
+                  "kd": "SelectionSet",
+                  "selections": [{
+                    "kd": "InlineFragment",
+                    "typeCondition": { "kd": "NamedType", "name": { "kd": "Name", "value": "XPrincipal" } },
+                    "selectionSet": {
+                      "kd": "SelectionSet",
+                      "selections": [
+                        { "kd": "Field", "name": { "kd": "Name", "value": "__typename" } },
+                        {
+                          "kd": "Field",
+                          "name": { "kd": "Name", "value": "contactInfo" },
+                          "selectionSet": {
+                            "kd": "SelectionSet",
+                            "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "name" } }, {
+                              "kd": "Field",
+                              "name": { "kd": "Name", "value": "email" },
+                            }],
+                          },
+                        },
+                        { "kd": "Field", "name": { "kd": "Name", "value": "arn" } },
+                        { "kd": "Field", "name": { "kd": "Name", "value": "createdAt" } },
+                        {
+                          "kd": "Field",
+                          "name": { "kd": "Name", "value": "properties" },
+                          "selectionSet": {
+                            "kd": "SelectionSet",
+                            "selections": [
+                              { "kd": "Field", "name": { "kd": "Name", "value": "isOwner" } },
+                              { "kd": "Field", "name": { "kd": "Name", "value": "isPrincipalAdmin" } },
+                              { "kd": "Field", "name": { "kd": "Name", "value": "isPrincipalViewer" } },
+                              { "kd": "Field", "name": { "kd": "Name", "value": "isAcAdmin" } },
+                              { "kd": "Field", "name": { "kd": "Name", "value": "isAcViewer" } },
+                            ],
+                          },
+                        },
+                        { "kd": "Field", "name": { "kd": "Name", "value": "invitationStatus" } },
+                        {
+                          "kd": "Field",
+                          "name": { "kd": "Name", "value": "accesses" },
+                          "selectionSet": {
+                            "kd": "SelectionSet",
+                            "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
+                              "kd": "Field",
+                              "name": { "kd": "Name", "value": "name" },
+                            }],
+                          },
+                        },
+                      ],
+                    },
+                  }],
+                },
+              }],
+            },
+          }, {
+            "kd": "Field",
+            "name": { "kd": "Name", "value": "self" },
+            "selectionSet": {
+              "kd": "SelectionSet",
+              "selections": [{
+                "kd": "Field",
+                "name": { "kd": "Name", "value": "principal" },
+                "selectionSet": {
+                  "kd": "SelectionSet",
+                  "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "arn" } }, {
+                    "kd": "InlineFragment",
+                    "typeCondition": { "kd": "NamedType", "name": { "kd": "Name", "value": "XPrincipal" } },
+                    "selectionSet": {
+                      "kd": "SelectionSet",
+                      "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "__typename" } }, {
+                        "kd": "Field",
+                        "name": { "kd": "Name", "value": "contactInfo" },
+                        "selectionSet": {
+                          "kd": "SelectionSet",
+                          "selections": [{ "kd": "Field", "name": { "kd": "Name", "value": "name" } }, {
+                            "kd": "Field",
+                            "name": { "kd": "Name", "value": "email" },
+                          }],
+                        },
+                      }, {
+                        "kd": "Field",
+                        "name": { "kd": "Name", "value": "properties" },
+                        "selectionSet": {
+                          "kd": "SelectionSet",
+                          "selections": [
+                            { "kd": "Field", "name": { "kd": "Name", "value": "isOwner" } },
+                            { "kd": "Field", "name": { "kd": "Name", "value": "isPrincipalAdmin" } },
+                            { "kd": "Field", "name": { "kd": "Name", "value": "isPrincipalViewer" } },
+                            { "kd": "Field", "name": { "kd": "Name", "value": "isAcAdmin" } },
+                            { "kd": "Field", "name": { "kd": "Name", "value": "isAcViewer" } },
+                          ],
+                        },
+                      }],
+                    },
+                  }],
+                },
+              }],
+            },
+          }],
+        },
+      }],
+    },
+  }],
+};
