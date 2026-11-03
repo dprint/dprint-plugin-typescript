@@ -4403,16 +4403,21 @@ fn gen_as_jsx_expr_container<'a>(inner_range: SourceRange, inner_items: PrintIte
   if surround_with_new_lines {
     items.push_signal(Signal::NewLine);
     items.push_signal(Signal::StartIndent);
-  } else if surround_with_space {
-    items.push_space();
-  }
-  items.extend(inner_items);
-  if surround_with_new_lines {
+    items.extend(inner_items);
     items.extend(gen_trailing_comments_as_statements(&inner_range, context));
     items.push_signal(Signal::NewLine);
     items.push_signal(Signal::FinishIndent);
   } else if surround_with_space {
-    items.push_space();
+    // no space at the end or start of a line (ex. when the expression starts or ends on another line)
+    items.push_signal(Signal::SpaceIfNotTrailing);
+    items.extend(inner_items);
+    items.push_condition(if_false(
+      "spaceIfNotStartOfLine",
+      condition_resolvers::is_start_of_line(),
+      Signal::SpaceIfNotTrailing.into_print_items(context.arena),
+    ));
+  } else {
+    items.extend(inner_items);
   }
   items.push_sc(sc!("}"));
 
