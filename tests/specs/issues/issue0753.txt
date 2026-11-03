@@ -1,5 +1,5 @@
 ~~ lineWidth: 80, indentWidth: 2, memberExpression.linePerExpression: true ~~
-== function args ==
+== should break the arguments of a call in a function expression the same as at the top level ==
 const startingFrom = Mylib.map(DateTime.now, now => DateTime.startOf(now, "day"))
 
 const func = () =>
@@ -22,7 +22,7 @@ const func = () =>
     );
   };
 
-== function args same line length ==
+== should break the arguments of a call in a function expression the same as at the top level when the lines are the same length ==
 const startingFroom = Mylib.map(DateTime.now, now => DateTime.startOf(now, "day"))
 
 const func = () =>

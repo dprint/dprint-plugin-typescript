@@ -39,3 +39,13 @@ call(
     // 2
     // 3
 );
+
+== should keep a comment after the comma of an arrow function argument on the same line ==
+call(v => v, /* 1 */);
+call(v => v, // 2
+);
+
+[expect]
+call(v => v /* 1 */);
+call(v => v // 2
+);

@@ -1,22 +1,24 @@
-use deno_ast::swc::parser::token::Token;
-use deno_ast::swc::parser::token::TokenAndSpan;
-use deno_ast::view::*;
-use deno_ast::SourcePos;
-use deno_ast::SourceRanged;
-use deno_ast::SourceRangedForSpanned;
+use dprint_swc_ext::common::SourcePos;
+use dprint_swc_ext::common::SourceRanged;
+use dprint_swc_ext::common::SourceRangedForSpanned;
+use dprint_swc_ext::swc::parser::token::Token;
+use dprint_swc_ext::swc::parser::token::TokenAndSpan;
+use dprint_swc_ext::view::*;
 
 use crate::generation::generate_types::CallOrOptCallExpr;
 
 use super::super::node_helpers;
+use crate::generation::context::BumpVec;
+use dprint_core::formatting::bumpalo::Bump;
 
 pub struct FlattenedMemberLikeExpr<'a> {
-  pub nodes: Vec<MemberLikeExprItem<'a>>,
+  pub nodes: BumpVec<'a, MemberLikeExprItem<'a>>,
 }
 
 pub enum MemberLikeExprItem<'a> {
   Node(Node<'a>),
   Token(&'a TokenAndSpan),
-  CallExpr(Box<MemberLikeExprItemCallExpr<'a>>),
+  CallExpr(&'a MemberLikeExprItemCallExpr<'a>),
 }
 
 impl<'a> SourceRanged for MemberLikeExprItem<'a> {
@@ -68,14 +70,14 @@ pub struct MemberLikeExprItemCallExpr<'a> {
 
 /// Takes a member expression and flattens it out.
 /// This is done to prevent a stack overflow when someone has many chained member expressions.
-pub fn flatten_member_like_expr<'a>(node: Node<'a>, program: Program<'a>) -> FlattenedMemberLikeExpr<'a> {
-  let mut nodes = Vec::new();
+pub fn flatten_member_like_expr<'a>(node: Node<'a>, program: Program<'a>, bump: &'a Bump) -> FlattenedMemberLikeExpr<'a> {
+  let mut nodes = BumpVec::new_in(bump);
   push_descendant_nodes(node, &mut nodes, program);
 
   FlattenedMemberLikeExpr { nodes }
 }
 
-fn push_descendant_nodes<'a>(node: Node<'a>, nodes: &mut Vec<MemberLikeExprItem<'a>>, program: Program<'a>) {
+fn push_descendant_nodes<'a>(node: Node<'a>, nodes: &mut BumpVec<'a, MemberLikeExprItem<'a>>, program: Program<'a>) {
   match node {
     Node::MemberExpr(member_expr) => {
       push_descendant_nodes(member_expr.obj.into(), nodes, program);
@@ -130,11 +132,12 @@ fn push_descendant_nodes<'a>(node: Node<'a>, nodes: &mut Vec<MemberLikeExprItem<
   }
 }
 
-fn push_descendant_nodes_for_call_expr<'a>(call_expr: CallOrOptCallExpr<'a>, nodes: &mut Vec<MemberLikeExprItem<'a>>, program: Program<'a>) {
+fn push_descendant_nodes_for_call_expr<'a>(call_expr: CallOrOptCallExpr<'a>, nodes: &mut BumpVec<'a, MemberLikeExprItem<'a>>, program: Program<'a>) {
   push_descendant_nodes(call_expr.callee().into(), nodes, program);
   let new_call_expr_callee = nodes.pop().unwrap();
-  nodes.push(MemberLikeExprItem::CallExpr(Box::new(MemberLikeExprItemCallExpr {
+  let call_expr = nodes.bump().alloc(MemberLikeExprItemCallExpr {
     original_call_expr: call_expr,
     callee: new_call_expr_callee,
-  })));
+  });
+  nodes.push(MemberLikeExprItem::CallExpr(call_expr));
 }

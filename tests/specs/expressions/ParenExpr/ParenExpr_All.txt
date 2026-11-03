@@ -231,3 +231,17 @@ test = /* 1 */ other /* 2 */;
 [expect]
 (<number> thing)--;
 (thing as number)--;
+
+== should keep the parens around a let identifier ==
+(let)[0] = 100;
+(let[0] = 100);
+(let [0]).x = 1;
+(let).x = 1;
+(letter[0] = 100);
+
+[expect]
+(let)[0] = 100;
+(let[0] = 100);
+(let[0]).x = 1;
+(let).x = 1;
+letter[0] = 100;

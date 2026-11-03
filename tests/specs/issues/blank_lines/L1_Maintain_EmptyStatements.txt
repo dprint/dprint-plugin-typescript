@@ -1,0 +1,11 @@
+~~ blockPadding: maintain ~~
+== should not pad blocks with only empty statements ==
+class A {
+
+    ;
+
+}
+
+[expect]
+class A {
+}

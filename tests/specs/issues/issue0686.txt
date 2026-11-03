@@ -1,12 +1,12 @@
-~~ lineWidth: 80, indentWidth: 2, memberExpression.linePerExpression: true ~~
-== generator ==
+~~ lineWidth: 80, indentWidth: 2, memberExpression.linePerExpression: true, semiColons: asi ~~
+== should not break a member expression that fits after a multi-line statement ==
 const createTestData = () =>
   function*() {
-    const startingFrom = yield* Effect.map(DateTime.now, now => DateTime.startOf(now, "day"))
+    const startingFrom = yield* Effect.map(DateTime.now, now =>
+      DateTime.startOf(now, 'day'))
 
     return HashSet.make(DateTime.toEpochMillis(startingFrom))
-  };
-
+  }
 
 [expect]
 const createTestData = () =>
@@ -14,32 +14,53 @@ const createTestData = () =>
     const startingFrom = yield* Effect.map(
       DateTime.now,
       now => DateTime.startOf(now, "day"),
-    );
+    )
 
-    return HashSet.make(DateTime.toEpochMillis(startingFrom));
-  };
+    return HashSet.make(DateTime.toEpochMillis(startingFrom))
+  }
 
-== function ==
-const func = () =>
-  function() {
-    const startingFrom = Effect.map(DateTime.now, now => DateTime.startOf(now, 'day'))
+== should not break a member expression that fits in a declaration after a multi-line statement ==
+const createTestData = () =>
+  function*() {
+    const startingFrom = yield* Effect.map(DateTime.now, now =>
+      DateTime.startOf(now, 'day'))
 
-    return myObj
-      .myMethod({
-        missionType: otherObj.prop.nested,
-      });
-  };
+    const value = HashSet.make(DateTime.toEpochMillis(startingFrom)).value
+    return value.other
+  }
 
 [expect]
-const func = () =>
-  function() {
-    const startingFrom = Effect.map(
+const createTestData = () =>
+  function*() {
+    const startingFrom = yield* Effect.map(
       DateTime.now,
       now => DateTime.startOf(now, "day"),
-    );
+    )
 
-    return myObj
-      .myMethod({
-        missionType: otherObj.prop.nested,
-      });
-  };
+    const value = HashSet.make(DateTime.toEpochMillis(startingFrom)).value
+    return value.other
+  }
+
+== should still break a member expression that doesn't fit after a multi-line statement ==
+const createTestData = () =>
+  function*() {
+    const startingFrom = yield* Effect.map(DateTime.now, now =>
+      DateTime.startOf(now, 'day'))
+
+    return HashSet.make(DateTime.toEpochMillis(startingFrom)).testing.this.output
+  }
+
+[expect]
+const createTestData = () =>
+  function*() {
+    const startingFrom = yield* Effect.map(
+      DateTime.now,
+      now => DateTime.startOf(now, "day"),
+    )
+
+    return HashSet
+      .make(DateTime.toEpochMillis(startingFrom))
+      .testing
+      .this
+      .output
+  }
