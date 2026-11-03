@@ -44,3 +44,24 @@ export type T =
     string |
     test
     | other;
+
+== should keep the comments around the operator ==
+type C = "aaaaaaaaaaaa" | // comment
+    "bbbbbbbbbbbbbbbbbb" |
+    /* block */ "cccccccccccc";
+type E =
+    // leading
+    | "aaaaaaaaaaaa"
+    // between
+    | "bbbbbbbbbbbbbbbbbb";
+
+[expect]
+type C =
+    "aaaaaaaaaaaa" | // comment
+    "bbbbbbbbbbbbbbbbbb" |
+    /* block */ "cccccccccccc";
+type E =
+    // leading
+    | "aaaaaaaaaaaa"
+    // between
+    | "bbbbbbbbbbbbbbbbbb";

@@ -78,3 +78,37 @@ type E =
     "aaaaaaaaaaaa" |
     // between
     "bbbbbbbbbbbbbbbbbb";
+
+== should place the operators at the end of the line in other positions ==
+type T = AAAAAAAAAAAA & BBBBBBBBBB | CCCCCCCCCC & DDDDDDDDDDDD;
+function f(param: "aaaaaaaa" | "bbbbbbbbbbbb" | "cccccccc") {}
+const x: Promise<"aaaaaaaaaaa" | "bbbbbbbbbbbbb" | "cc"> = y;
+interface I {
+    prop: "aaaaaaaaaa" | "bbbbbbbbbbbbb" | "cccc";
+}
+type O = { aaaaaaaaaa: string } | { bbbbbbbbbbbbb: number };
+
+[expect]
+type T =
+    AAAAAAAAAAAA & BBBBBBBBBB |
+    CCCCCCCCCC & DDDDDDDDDDDD;
+function f(
+    param:
+        "aaaaaaaa" |
+        "bbbbbbbbbbbb" |
+        "cccccccc",
+) {}
+const x: Promise<
+    "aaaaaaaaaaa" |
+    "bbbbbbbbbbbbb" |
+    "cc"
+> = y;
+interface I {
+    prop:
+        "aaaaaaaaaa" |
+        "bbbbbbbbbbbbb" |
+        "cccc";
+}
+type O = { aaaaaaaaaa: string } | {
+    bbbbbbbbbbbbb: number;
+};
