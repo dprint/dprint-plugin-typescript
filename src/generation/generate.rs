@@ -3056,6 +3056,18 @@ fn gen_object_lit<'a>(node: &ObjectLit<'a>, context: &mut Context<'a>) -> PrintI
 }
 
 fn gen_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
+  let end_ln = match context.assignment_paren_end_ln {
+    Some((start, end_ln)) if start == node.start() => context.assignment_paren_end_ln.take().map(|_| end_ln),
+    _ => None,
+  };
+  let mut items = gen_paren_expr_inner(node, context);
+  if let Some(end_ln) = end_ln {
+    items.push_info(end_ln);
+  }
+  items
+}
+
+fn gen_paren_expr_inner<'a>(node: &'a ParenExpr<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
   if should_skip_paren_expr(node, context) {
     return gen_node(node.expr.into(), context);
   }
@@ -11232,9 +11244,35 @@ fn gen_assignment_like_with_token<'a>(
 
   let generated_assignment = {
     let mut items = PrintItems::new(context.arena);
+    let mut reevaluation = None;
     if !had_op_trailing_comments {
-      items.push_condition(conditions::if_above_width_or(
-        context.config.indent_width,
+      let start_ln = LineNumber::new("assignmentStart");
+      let paren_end_ln = get_paren_with_kept_line_breaks(expr, context.config).map(|paren| {
+        let end_ln = LineNumber::new("assignmentParenEnd");
+        context.assignment_paren_end_ln = Some((paren.start(), end_ln));
+        end_ln
+      });
+      let indent_width = context.config.indent_width as u32;
+      let mut condition = if_true_or(
+        "possibleNewLineIfAboveWidth",
+        context.arena.alloc_resolver(move |condition_context| {
+          let writer_info = &condition_context.writer_info;
+          if writer_info.column_number <= writer_info.line_start_column_number() + indent_width {
+            return Some(false);
+          }
+          // The line breaks in the parenthesized expression are kept when formatting again, so
+          // don't move it to the next line when it doesn't fit on one line there anyway.
+          if let Some(paren_end_ln) = paren_end_ln {
+            let start_line = condition_context.resolved_line_number(start_ln);
+            let paren_end_line = condition_context.resolved_line_number(paren_end_ln);
+            if let (Some(start_line), Some(paren_end_line)) = (start_line, paren_end_line) {
+              if paren_end_line > start_line {
+                return Some(false);
+              }
+            }
+          }
+          Some(true)
+        }),
         {
           let mut items = PrintItems::new(context.arena);
           items.push_signal(Signal::SpaceIfNotTrailing);
@@ -11242,7 +11280,12 @@ fn gen_assignment_like_with_token<'a>(
           items
         },
         Signal::SpaceIfNotTrailing.into_print_items(context.arena),
-      ));
+      );
+      if paren_end_ln.is_some() {
+        reevaluation = Some(condition.create_reevaluation());
+      }
+      items.push_condition(condition);
+      items.push_info(start_ln);
     }
     let assignment = gen_node(expr, context);
     let assignment = if had_op_trailing_comments {
@@ -11252,6 +11295,9 @@ fn gen_assignment_like_with_token<'a>(
     };
     let assignment = if use_new_line_group { new_line_group(assignment) } else { assignment };
     items.extend(assignment);
+    if let Some(reevaluation) = reevaluation {
+      items.push_reevaluation(reevaluation);
+    }
     items
   }
   .into_rc_path();
@@ -11271,6 +11317,31 @@ fn gen_assignment_like_with_token<'a>(
 
   fn get_use_new_line_group(expr: Node) -> bool {
     matches!(expr, Node::MemberExpr(_))
+  }
+
+  /// Gets the parenthesized expression at the start of the right side when it has an
+  /// expression that keeps its line breaks (ex. `(a ? b : c) as T` or `!!(a && b)`).
+  fn get_paren_with_kept_line_breaks<'a>(expr: Node<'a>, config: &Configuration) -> Option<&'a ParenExpr<'a>> {
+    let mut node = expr;
+    loop {
+      node = match node {
+        Node::TsAsExpr(expr) => expr.expr.into(),
+        Node::TsSatisfiesExpr(expr) => expr.expr.into(),
+        Node::TsNonNullExpr(expr) => expr.expr.into(),
+        Node::MemberExpr(expr) => expr.obj.into(),
+        Node::UnaryExpr(expr) => expr.arg.into(),
+        Node::AwaitExpr(expr) => expr.arg.into(),
+        Node::ParenExpr(paren) => {
+          let keeps_line_breaks = match paren.expr {
+            Expr::Cond(_) => !config.conditional_expression_prefer_single_line,
+            Expr::Bin(_) => !config.binary_expression_prefer_single_line,
+            _ => false,
+          };
+          return keeps_line_breaks.then_some(paren);
+        }
+        _ => return None,
+      };
+    }
   }
 }
 

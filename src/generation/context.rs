@@ -88,6 +88,9 @@ pub struct Context<'a> {
   before_comments_start_info_stack: Stack<(SourceRange, LineNumber, IsStartOfLine)>,
   if_stmt_last_brace_condition_ref: Option<ConditionReference>,
   expr_stmt_single_line_parent_brace_ref: Option<ConditionReference>,
+  /// The start of a parenthesized expression on the right side of an assignment and
+  /// the line number to put after it.
+  pub assignment_paren_end_ln: Option<(SourcePos, LineNumber)>,
   /// Used for ensuring nodes are parsed in order.
   #[cfg(debug_assertions)]
   pub last_generated_node_pos: SourcePos,
@@ -143,6 +146,7 @@ impl<'a> Context<'a> {
       before_comments_start_info_stack: Default::default(),
       if_stmt_last_brace_condition_ref: None,
       expr_stmt_single_line_parent_brace_ref: None,
+      assignment_paren_end_ln: None,
       #[cfg(debug_assertions)]
       last_generated_node_pos: dprint_swc_ext::common::SourceTextInfoProvider::text_info(&program).range().start.into(),
       diagnostics: Vec::new(),
