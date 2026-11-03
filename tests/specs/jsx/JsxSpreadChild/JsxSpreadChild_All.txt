@@ -4,3 +4,35 @@ const t = <test>{   ...test }</test>;
 
 [expect]
 const t = <test>{...test}</test>;
+
+== should keep the comments before the spread operator before it ==
+const a = <div>{/* a */ ...b /* c */}</div>;
+
+[expect]
+const a = <div>{/* a */ ...b /* c */}</div>;
+
+== should keep a comment after the spread operator after it ==
+const a = <div>{... /* a */ b}</div>;
+
+[expect]
+const a = <div>{.../* a */ b}</div>;
+
+== should surround a jsx spread child with newlines when a line comment is before the spread operator ==
+const a = (
+    <div>
+        {
+            // a
+            ...b
+        }
+    </div>
+);
+
+[expect]
+const a = (
+    <div>
+        {
+            // a
+            ...b
+        }
+    </div>
+);

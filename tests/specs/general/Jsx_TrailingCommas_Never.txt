@@ -1,23 +1,31 @@
 -- file.tsx --
 ~~ trailingCommas: never ~~
-== should never trim trailing commas from single type parameters in expressions ==
+== should keep the trailing comma in type parameters only when it's needed in a jsx file ==
 const test1: <T,>(t: T) => T = <T,>(t: T) => t;
 export default <T,>(t: T) => t;
 [].filter(<T,>() => false);
-const test2 = function<T,>(t: T) { };
-const test3 = class<T,> { };
+const test2 = <T, U,>() => false;
+const test3 = function<T,>(t: T) { };
+const test4 = class<T,> { };
+function test5<T,>() {
+}
 
-// an extends clause ought to be enough to resolve the ambiguity
-const test4 = function<T extends unknown>(t: T) {};
-const test5 = class<T extends unknown> {};
+// an extends clause is enough to resolve the ambiguity
+const test6 = <T extends unknown,>() => false;
+const test7 = function<T extends unknown>(t: T) {};
+const test8 = class<T extends unknown> {};
 
 [expect]
 const test1: <T>(t: T) => T = <T,>(t: T) => t;
 export default <T,>(t: T) => t;
 [].filter(<T,>() => false);
-const test2 = function<T>(t: T) {};
-const test3 = class<T> {};
+const test2 = <T, U>() => false;
+const test3 = function<T>(t: T) {};
+const test4 = class<T> {};
+function test5<T>() {
+}
 
-// an extends clause ought to be enough to resolve the ambiguity
-const test4 = function<T extends unknown>(t: T) {};
-const test5 = class<T extends unknown> {};
+// an extends clause is enough to resolve the ambiguity
+const test6 = <T extends unknown>() => false;
+const test7 = function<T extends unknown>(t: T) {};
+const test8 = class<T extends unknown> {};

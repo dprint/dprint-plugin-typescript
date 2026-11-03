@@ -10,3 +10,11 @@ if(true) {
 } else if(false) {
 } else {
 }
+
+== should keep a space before a comment before the paren ==
+if /* c */ (true) {
+}
+
+[expect]
+if /* c */ (true) {
+}

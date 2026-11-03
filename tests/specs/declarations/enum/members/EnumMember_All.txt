@@ -28,3 +28,19 @@ enum Test {
     member2 = "some" + "test"
         + "withLotsOfThese",
 }
+
+== should keep computed keys ==
+enum Test {
+    [e] = 1,
+    ["a"] = 2,
+    [`b`] = 3,
+    [/* c */ f + g] = 4,
+}
+
+[expect]
+enum Test {
+    [e] = 1,
+    "a" = 2,
+    [`b`] = 3,
+    [/* c */ f + g] = 4,
+}
