@@ -74,3 +74,30 @@ const getText = () => outdent`first line
     second line`;
 const message = () => `first line
 second line`;
+
+== should keep a new expression argument on the same line when its last argument is on multiple lines like a call ==
+foo(new Obj({
+    a: foo,
+    b: bar,
+}));
+foo(new Obj(x, {
+    a: foo,
+}));
+foo(x, new Obj({
+    a: foo,
+}));
+
+[expect]
+foo(new Obj({
+    a: foo,
+    b: bar,
+}));
+foo(new Obj(x, {
+    a: foo,
+}));
+foo(
+    x,
+    new Obj({
+        a: foo,
+    }),
+);
