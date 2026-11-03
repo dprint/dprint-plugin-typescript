@@ -9062,7 +9062,15 @@ where
       if !force_use_new_lines && nodes.len() == 1 && is_arrow_function_with_expr_body(nodes[0]) {
         let start_ln = LineNumber::new("startArrow");
         let start_lsil = LineStartIndentLevel::new("startArrow");
-        let generated_node = gen_node(nodes.into_iter().next().unwrap(), context);
+        let node = nodes.into_iter().next().unwrap();
+        let comma_token = context.token_finder.get_next_token_if_comma(&node);
+        // like the other arguments, the comma is used whether or not the arrow function's body goes
+        // on the next line, and it goes before the comments after it
+        let generated_node = if trailing_commas == TrailingCommas::Always {
+          gen_node_with_separator(node, sc!(",").into_print_items(context.arena), context)
+        } else {
+          gen_node(node, context)
+        };
 
         items.push_info(start_ln);
         items.push_info(start_lsil);
@@ -9071,14 +9079,10 @@ where
           items.push_signal(Signal::SpaceIfNotTrailing);
         }
         items.push_condition(conditions::indent_if_start_of_line(generated_node));
-        let trailing_break_items = {
-          let mut break_items = PrintItems::new(context.arena);
-          if matches!(trailing_commas, TrailingCommas::Always) {
-            break_items.push_sc(sc!(","));
-          }
-          break_items.push_signal(Signal::NewLine);
-          break_items
-        };
+        // the comma may disappear, so generate any trailing comments on the same line
+        if let Some(comma_token) = comma_token {
+          items.extend(gen_trailing_comments_same_line(&comma_token.range(), context));
+        }
         items.push_condition(if_true_or(
           "isDifferentLineAndStartLineIndentation",
           context.arena.alloc_resolver(move |context| {
@@ -9088,7 +9092,7 @@ where
             let is_different_start_line_indentation = start_lsil != context.writer_info.line_start_indent_level;
             Some(is_different_line && is_different_start_line_indentation)
           }),
-          trailing_break_items,
+          Signal::NewLine.into_print_items(context.arena),
           if space_around {
             Signal::SpaceIfNotTrailing.into_print_items(context.arena)
           } else {

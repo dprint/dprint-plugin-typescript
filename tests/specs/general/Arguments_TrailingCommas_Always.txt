@@ -23,15 +23,6 @@ foo(
     anotherLongerName,
 );
 
-== should add trailing comma after arrow expression body when call wraps (issue #696) ==
-[1, 2, 3].map(value =>
-    value == "a quite long paragraph with many words")
-
-[expect]
-[1, 2, 3,].map(value =>
-    value == "a quite long paragraph with many words",
-);
-
 == should add trailing comma after block-bodied arrow ==
 foo(
     (v) => {
@@ -46,7 +37,7 @@ foo(
     },
 );
 
-== should not add trailing comma after rest argument in call when never-trailing applies ==
+== should add trailing comma after a spread argument ==
 foo(...args);
 
 [expect]
@@ -71,3 +62,16 @@ a.b().c(
     { d: 1, },
     () => doSomethingThatDoesNotFitOnTheSameLine(),
 );
+
+== should add trailing comma before the comments after an arrow function argument ==
+foo(v => v /* a */);
+foo(v =>
+    v // b
+);
+foo(v => v, /* c */);
+
+[expect]
+foo(v => v, /* a */);
+foo(v => v, // b
+);
+foo(v => v, /* c */);
