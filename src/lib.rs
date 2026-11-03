@@ -1,20 +1,41 @@
 #![allow(clippy::bool_assert_comparison)]
+#![allow(clippy::bool_to_int_with_if)]
 #![allow(clippy::comparison_chain)]
 #![allow(clippy::if_same_then_else)]
 #![allow(clippy::vec_init_then_push)]
 #![allow(clippy::type_complexity)]
+#![allow(clippy::needless_lifetimes)]
 #![deny(clippy::disallowed_methods)]
 #![deny(clippy::disallowed_types)]
-
-extern crate dprint_core;
+#![deny(clippy::print_stderr)]
+#![deny(clippy::print_stdout)]
 
 pub mod configuration;
+#[cfg(any(all(feature = "wasm", target_arch = "wasm32", target_os = "unknown"), test))]
+mod embedded_file;
+mod error;
 mod format_text;
 mod generation;
-mod swc;
+pub mod parsing;
+mod tailwind;
 mod utils;
 
+/// Re-export of the crate used for the AST in order to
+/// help consumers ensure they're using the same version.
+pub use dprint_swc_ext;
+
+pub use error::FormatError;
+pub use parsing::is_unsupported_syntax_error;
+
+/// Result type used throughout the crate.
+pub(crate) type Result<T> = std::result::Result<T, FormatError>;
+
+pub use format_text::ExternalFormatter;
+pub use format_text::FormatParsedSourceOptions;
+pub use format_text::FormatProgramOptions;
+pub use format_text::FormatTextOptions;
 pub use format_text::format_parsed_source;
+pub use format_text::format_program;
 pub use format_text::format_text;
 
 #[cfg(feature = "tracing")]
@@ -23,7 +44,3 @@ pub use format_text::trace_file;
 #[cfg(feature = "wasm")]
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 mod wasm_plugin;
-
-#[cfg(feature = "wasm")]
-#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
-pub use wasm_plugin::*;

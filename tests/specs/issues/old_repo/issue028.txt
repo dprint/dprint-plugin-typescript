@@ -1,0 +1,19 @@
+~~ lineWidth: 80, arguments.preferHanging: never, quoteStyle: alwaysSingle ~~
+== should format ==
+export class Testing {
+    constructor() {
+        asdfasdfasdfasdf.getProxyByNameAsync<IViewModel>('asdfasdfasdfasdf', $scope).then((data) => {
+        });
+    }
+}
+
+[expect]
+export class Testing {
+    constructor() {
+        asdfasdfasdfasdf.getProxyByNameAsync<IViewModel>(
+            'asdfasdfasdfasdf',
+            $scope,
+        ).then((data) => {
+        });
+    }
+}

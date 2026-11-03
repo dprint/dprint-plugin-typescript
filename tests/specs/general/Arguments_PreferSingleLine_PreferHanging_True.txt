@@ -1,4 +1,4 @@
-~~ arguments.preferSingleLine: true, arguments.preferHanging: true, lineWidth: 40 ~~
+~~ arguments.preferSingleLine: true, arguments.preferHanging: always, lineWidth: 40 ~~
 == should not keep multi-line when multi-line and below the line width ==
 call(
     testing,

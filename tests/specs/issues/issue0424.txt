@@ -1,0 +1,16 @@
+~~ conditionalExpression.linePerExpression: false, operatorPosition: maintain ~~
+== should maintain operator positions independently ==
+const x = a ? b
+    : c ? d
+    : e;
+type Test = a extends b ? c
+    : d extends e ? f
+    : g;
+
+[expect]
+const x = a ? b
+    : c ? d
+    : e;
+type Test = a extends b ? c
+    : d extends e ? f
+    : g;

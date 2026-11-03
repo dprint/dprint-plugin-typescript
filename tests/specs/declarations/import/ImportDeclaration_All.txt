@@ -156,3 +156,21 @@ import test from "a" assert { type: "json" };
 import asdf from "testing.json" assert {
     type: "json",
 };
+
+== should support import attributes ==
+import test from "a" with {type: "json"};
+import asdf from "testing.json" with {type:"json"};
+
+[expect]
+import test from "a" with { type: "json" };
+import asdf from "testing.json" with {
+    type: "json",
+};
+
+== source phase imports ==
+import source    a from "a";
+import defer * as b from "b";
+
+[expect]
+import source a from "a";
+import defer * as b from "b";

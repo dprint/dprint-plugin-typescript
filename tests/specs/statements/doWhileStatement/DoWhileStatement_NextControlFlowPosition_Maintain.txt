@@ -1,0 +1,22 @@
+~~ doWhileStatement.nextControlFlowPosition: maintain, lineWidth: 40 ~~
+== should maintain the position when on same line ==
+do {
+    console.log("hello")
+} while (1 === 1);
+
+[expect]
+do {
+    console.log("hello");
+} while (1 === 1);
+
+== should maintain the position when else if on next line ==
+do {
+    console.log("hello");
+}
+while (1 === 1);
+
+[expect]
+do {
+    console.log("hello");
+}
+while (1 === 1);

@@ -1,0 +1,15 @@
+~~ conditionalType.operatorPosition: maintain, lineWidth: 60 ~~
+== should maintain the operator position ==
+type T = test extends string ? testing : testingtestingtesting;
+type T = A extends B ? /* 0 */ testing /* 1 */
+  /* 2 */ : /* 3 */ asdfasdf;
+type T = A extends B ? /* 0 */ testing /* 1 */ : /* 2 */
+  /* 3 */ asdfasdf;
+
+[expect]
+type T = test extends string ? testing
+    : testingtestingtesting;
+type T = A extends B ? /* 0 */ testing /* 1 */
+    /* 2 */ : /* 3 */ asdfasdf;
+type T = A extends B ? /* 0 */ testing /* 1 */ : /* 2 */
+    /* 3 */ asdfasdf;

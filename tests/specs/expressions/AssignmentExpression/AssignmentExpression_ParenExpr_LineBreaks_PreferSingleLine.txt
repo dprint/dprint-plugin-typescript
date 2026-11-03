@@ -1,0 +1,32 @@
+~~ lineWidth: 80, conditionalExpression.preferSingleLine: true, binaryExpression.preferSingleLine: true ~~
+== should move a parenthesized expression to the next line when its line breaks aren't kept ==
+result = (options?.compare ? new BinarySearchTree(options.compare) : new BinarySearchTree()) as Tree<U>;
+result = (options?.compare ? new BinarySearchTree(options.compare) : new BinarySearchTree()).value;
+const value = (options?.compare ? new BinarySearchTree(options.compare) : new Tree()) satisfies T;
+result = await (options?.compare ? new BinarySearchTree(options.compare) : new BinarySearchTree());
+result = (someLongVariableName + anotherLongVariableName + yetAnotherVariableName) as number;
+result = !!(someLongVariableName && anotherLongVariableName && yetAnotherVariableName);
+
+[expect]
+result =
+    (options?.compare
+        ? new BinarySearchTree(options.compare)
+        : new BinarySearchTree()) as Tree<U>;
+result =
+    (options?.compare
+        ? new BinarySearchTree(options.compare)
+        : new BinarySearchTree()).value;
+const value =
+    (options?.compare
+        ? new BinarySearchTree(options.compare)
+        : new Tree()) satisfies T;
+result =
+    await (options?.compare
+        ? new BinarySearchTree(options.compare)
+        : new BinarySearchTree());
+result =
+    (someLongVariableName + anotherLongVariableName
+        + yetAnotherVariableName) as number;
+result =
+    !!(someLongVariableName && anotherLongVariableName
+        && yetAnotherVariableName);

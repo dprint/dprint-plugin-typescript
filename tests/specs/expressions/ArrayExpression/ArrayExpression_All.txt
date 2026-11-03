@@ -155,3 +155,13 @@ const t = [
 
 [expect]
 const t = [];
+
+== should leave commas ==
+const test = [,,,,];
+const test = [,,,,asdf,];
+const test = [,,,,asdf];
+
+[expect]
+const test = [, , , ,];
+const test = [, , , , asdf];
+const test = [, , , , asdf];

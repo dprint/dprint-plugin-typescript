@@ -1,0 +1,27 @@
+== should format ==
+switch (x) {
+    case SyntaxKind.A:
+        if (condition) {
+            return 1234;
+        }
+        // Something something something
+        // Something else
+        // falls-through
+
+    case SyntaxKind.B:
+        return "cool"
+}
+
+[expect]
+switch (x) {
+    case SyntaxKind.A:
+        if (condition) {
+            return 1234;
+        }
+        // Something something something
+        // Something else
+        // falls-through
+
+    case SyntaxKind.B:
+        return "cool";
+}

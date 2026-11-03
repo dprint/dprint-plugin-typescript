@@ -83,12 +83,11 @@ log(myTag `some text`);
 [expect]
 log(myTag`some text`);
 
-== should do a tagged template literal that goes over line width ==
+== should not do a tagged template literal that goes over line width ==
 myCustomTag `testing this out with an str`;
 
 [expect]
-myCustomTag
-    `testing this out with an str`;
+myCustomTag`testing this out with an str`;
 
 == should not do newlines for a member expression ==
 `tttttttttttttest ${testing.this.out.testing}`;
@@ -164,3 +163,101 @@ const test = `test test test test ${
 const test = `test test test test ${
     1 + 25 + 2
 }`;
+
+== should print comments in template literals substitutions ==
+
+`a${/* 1 */""/* 2 */}b`;
+`a${/* testing this out */"testing test testing"/* testing this out */}b`;
+`a${
+    /* 3 */
+    ""
+    /* 4 */
+}b`;
+`a${
+    // 5
+    ""
+    // 6
+}b`
+
+[expect]
+`a${/* 1 */ "" /* 2 */}b`;
+`a${/* testing this out */ "testing test testing" /* testing this out */}b`;
+`a${
+    /* 3 */
+    ""
+    /* 4 */
+}b`;
+`a${
+    // 5
+    ""
+    // 6
+}b`;
+
+== should put the closing brace on the next line after an expression with leading comments ==
+`a${
+    // 1
+    a + b
+}b`;
+`a${
+    /* 2 */
+    a + b
+}b`;
+
+[expect]
+`a${
+    // 1
+    a + b
+}b`;
+`a${
+    /* 2 */
+    a + b
+}b`;
+
+== should put the expression on its own line when it has a trailing line comment ==
+const a = `${a + b // comment
+}`;
+const b = `${
+    a + b // comment
+}`;
+const c = `${a // comment
+}`;
+const d = `${a /* c */ // d
+}`;
+
+[expect]
+const a = `${
+    a + b // comment
+}`;
+const b = `${
+    a + b // comment
+}`;
+const c = `${
+    a // comment
+}`;
+const d = `${
+    a /* c */ // d
+}`;
+
+== should put the expression on its own line when it has comments on the next lines ==
+const a = `${a + b
+    // comment
+}`;
+const b = `${a
+    /* comment */
+}`;
+
+[expect]
+const a = `${
+    a + b
+    // comment
+}`;
+const b = `${
+    a
+    /* comment */
+}`;
+
+== should keep the expression on the same line as block comments on the same line ==
+const a = `a${/* 1 */ a /* 2 */}b`;
+
+[expect]
+const a = `a${/* 1 */ a /* 2 */}b`;

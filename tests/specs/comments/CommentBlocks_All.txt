@@ -73,6 +73,34 @@ class Test {
 class Test {
 }
 
+== should handle changing indentation of block comments ==
+      /*
+             * A
+        * B
+             */
+const t;
+
+[expect]
+/*
+ * A
+ * B
+ */
+const t;
+
+== should not convert markdown hard line breaks in non-jsdoc block comments ==
+/*
+ * Does something.  
+ * Details here.
+ */
+const t;
+
+[expect]
+/*
+ * Does something.
+ * Details here.
+ */
+const t;
+
 == should format comments in arguments ==
 call(/* test */5);
 

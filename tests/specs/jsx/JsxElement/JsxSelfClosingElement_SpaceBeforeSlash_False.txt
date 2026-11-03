@@ -1,0 +1,43 @@
+-- file.tsx --
+~~ jsxSelfClosingElement.spaceBeforeSlash: false, lineWidth: 40 ~~
+== should avoid space before self closing tag when there are no attributes ==
+const t = <Test />;
+
+[expect]
+const t = <Test/>;
+
+== should avoid space before self closing tag when there are attributes =
+const t = <Test first="foo" />;
+
+[expect]
+const t = <Test first="foo"/>;
+
+== should format appropriately for multi-line ==
+const t = <Test first="foo" second="bar" third={12345} />;
+
+[expect]
+const t = (
+    <Test
+        first="foo"
+        second="bar"
+        third={12345}
+    />
+);
+
+== should format when exceeds line width and no attributes ==
+const t = <TestingTestingTestingTestingTesting />;
+
+[expect]
+const t = (
+    <TestingTestingTestingTestingTesting/>
+);
+
+== should support a comment on the same line as the name ==
+const t = <View // comment
+    />;
+
+[expect]
+const t = (
+    <View // comment
+    />
+);

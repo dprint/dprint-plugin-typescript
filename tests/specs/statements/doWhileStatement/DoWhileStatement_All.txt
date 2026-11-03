@@ -58,3 +58,13 @@ do {
 [expect]
 do {
 } while (true);
+
+== should handle do while with an if stmt ==
+do if (true) {
+    console.log(5);
+} while (true);
+
+[expect]
+do if (true) {
+    console.log(5);
+} while (true);

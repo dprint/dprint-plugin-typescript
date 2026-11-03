@@ -1,0 +1,11 @@
+-- file: main.js --
+~~ lineWidth: 30 ~~
+== should support decorators in javascript ==
+    @dec
+class T {
+}
+
+[expect]
+@dec
+class T {
+}

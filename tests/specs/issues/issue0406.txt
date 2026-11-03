@@ -1,0 +1,21 @@
+== should not add newline after second comment ==
+switch (foo) {
+    // Types
+    case SyntaxKind.A:
+        return 1234;
+
+    // Values
+    case SyntaxKind.B:
+        return 1234;
+}
+
+[expect]
+switch (foo) {
+    // Types
+    case SyntaxKind.A:
+        return 1234;
+
+    // Values
+    case SyntaxKind.B:
+        return 1234;
+}

@@ -1,0 +1,18 @@
+~~ lineWidth: 40, exportDeclaration.sortTypeOnlyExports: first ~~
+== should sort first ==
+export {
+    type a,
+    testing,
+    other,
+    outttttttttttttttt,
+    type z,
+} from "asdf";
+
+[expect]
+export {
+    type a,
+    type z,
+    other,
+    outttttttttttttttt,
+    testing,
+} from "asdf";

@@ -1,2 +1,2 @@
-/** Gets a buffer representing the WASM module. */
-export function getBuffer(): ArrayBuffer;
+/** Gets an absolute path to the Wasm module. */
+export function getPath(): string;

@@ -1,0 +1,19 @@
+== should not remove the braces in an if/while statement when the body contains empty statements ==
+if (true) {;}
+while (true) {;}
+
+// these going multi-line is ok... nobody should be writing this
+// and fixing it just adds more complexity
+if (true) {;;}
+while (true) {;;}
+
+[expect]
+if (true) {}
+while (true) {}
+
+// these going multi-line is ok... nobody should be writing this
+// and fixing it just adds more complexity
+if (true) {
+}
+while (true) {
+}

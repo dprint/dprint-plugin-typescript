@@ -1,0 +1,198 @@
+~~ parenExpression.spaceAround: true ~~
+== should format allowing comment on header line ==
+const test = ( // test
+    test
+);
+
+[expect]
+const test = ( // test
+    test
+);
+
+== should keep comment inside ==
+const test = (
+    // test
+    test
+);
+
+[expect]
+const test = (
+    // test
+    test
+);
+
+== should keep paren expr on left hand side of assignment ==
+(x.test as unknown) = 6;
+
+[expect]
+( x.test as unknown ) = 6;
+
+== should not keep paren expr on right hand side of assignment ==
+const a = (1);
+const b = ((((1))));
+const c = (1 + 1) + 1;
+const d = 1 + (1 + 1);
+// except here it should because of the type assertion
+const e = /** @type {number} */ (((1)));
+// keep this too as some people like it for clarity
+const a = (b = 5);
+
+[expect]
+const a = 1;
+const b = 1;
+const c = ( 1 + 1 ) + 1;
+const d = 1 + ( 1 + 1 );
+// except here it should because of the type assertion
+const e = /** @type {number} */ ( 1 );
+// keep this too as some people like it for clarity
+const a = ( b = 5 );
+
+== should keep for IIFE ==
+(function foo() {
+    test;
+})();
+
+(() => {
+    test;
+})();
+
+((() => {
+    test;
+}))();
+
+(function foo() {
+    test;
+})((function test() {}));
+
+[expect]
+( function foo() {
+    test;
+} )();
+
+( () => {
+    test;
+} )();
+
+( () => {
+    test;
+} )();
+
+( function foo() {
+    test;
+} )(function test() {});
+
+== should keep for property access expr where appropriate ==
+(function test() {
+    test;
+}).prop;
+
+(() => {
+    test;
+}).prop;
+
+({
+    prop: 5,
+}).prop;
+
+([5]).prop;
+
+[expect]
+( function test() {
+    test;
+} ).prop;
+
+( () => {
+    test;
+} ).prop;
+
+( {
+    prop: 5,
+} ).prop;
+
+[5].prop;
+
+== should handle wrapped exprs for function expressions ==
+(function test() {}());
+(function test() {}?.());
+(function test() {}.prop);
+(function test() {}?.prop);
+(function test() {}[56]);
+(function test() {} + 2);
+(2 + function test() {});
+1 + (function test() {} + 2);
+obj[(function test() {})];
+(function test() {}) ? true : false;
+true ? function test() {} : false;
+true ? true : function test() {};
+
+[expect]
+( function test() {} )();
+( function test() {} )?.();
+( function test() {} ).prop;
+( function test() {} )?.prop;
+( function test() {} )[56];
+( function test() {} ) + 2;
+2 + function test() {};
+1 + ( function test() {} + 2 );
+obj[function test() {}];
+( function test() {} ) ? true : false;
+true ? function test() {} : false;
+true ? true : function test() {};
+
+== should handle wrapped exprs for arrow fn expressions ==
+(() => {})();
+(() => {})?.();
+(() => {}).prop;
+(() => {})?.prop;
+(() => {})[56];
+(() => {}) + 2;
+1 + ((() => {}) + 2);
+obj[() => {}];
+(() => {}) ? true : false;
+true ? () => {} : false;
+true ? true : () => {};
+new (() => {})();
+test = (() => {});
+test = () => {};
+
+[expect]
+( () => {} )();
+( () => {} )?.();
+( () => {} ).prop;
+( () => {} )?.prop;
+( () => {} )[56];
+( () => {} ) + 2;
+1 + ( ( () => {} ) + 2 );
+obj[() => {}];
+( () => {} ) ? true : false;
+true ? () => {} : false;
+true ? true : () => {};
+new ( () => {} )();
+test = () => {};
+test = () => {};
+
+== should handle object literal expr in paren expr in expr stmt ==
+({ prop: 5 }.prop);
+({ prop: 5 }).prop;
+
+[expect]
+( { prop: 5 } ).prop;
+( { prop: 5 } ).prop;
+
+== should not remove when there's a JS doc type assertion ==
+typeAssertedNumber = /** @type {number} */ (numberOrString)
+// not a js doc so won't keep it
+typeAssertedNumber = /* @type {number} */ (numberOrString);
+
+[expect]
+typeAssertedNumber = /** @type {number} */ ( numberOrString );
+// not a js doc so won't keep it
+typeAssertedNumber = /* @type {number} */ numberOrString;
+
+== should add spaces for update expr with assertion ==
+(<number>thing)--;
+(thing as number)--;
+
+[expect]
+( <number> thing )--;
+( thing as number )--;

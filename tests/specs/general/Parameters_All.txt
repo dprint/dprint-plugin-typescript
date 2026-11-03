@@ -70,3 +70,27 @@ export async function acceptWebSocket(req = {
     other: 7,
 }): Promise<WebSocket> {
 }
+
+== should keep comment and remove trailing comma on single line ==
+function test(test, /* test */) {
+}
+
+[expect]
+function test(test /* test */) {
+}
+
+== should handle comments on next line ==
+function test(
+    test, /* test */
+    /* test */
+    // test
+) {
+}
+
+[expect]
+function test(
+    test, /* test */
+    /* test */
+    // test
+) {
+}

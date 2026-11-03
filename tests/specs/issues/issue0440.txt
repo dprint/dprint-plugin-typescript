@@ -1,0 +1,14 @@
+~~ indentWidth: 2, quoteStyle: alwaysSingle, semiColons: always, trailingCommas: always ~~
+== should handle comment in place of parameter ==
+function hasDeepProp(target /* , param1, param2, ... */) {
+}
+
+function hasDeepProp(target, /* , param1, param2, ... */) {
+}
+
+[expect]
+function hasDeepProp(target, /* , param1, param2, ... */) {
+}
+
+function hasDeepProp(target, /* , param1, param2, ... */) {
+}

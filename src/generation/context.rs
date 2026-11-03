@@ -1,75 +1,179 @@
-use deno_ast::swc::common::comments::Comment;
-use deno_ast::swc::parser::token::TokenAndSpan;
-use deno_ast::view::*;
-use deno_ast::MediaType;
-use deno_ast::SourcePos;
-use deno_ast::SourceRange;
-use deno_ast::SourceRanged;
-use deno_ast::SourceRangedForSpanned;
+use dprint_core::formatting::Arena;
 use dprint_core::formatting::ConditionReference;
 use dprint_core::formatting::IndentLevel;
 use dprint_core::formatting::IsStartOfLine;
 use dprint_core::formatting::LineNumber;
 use dprint_core::formatting::LineStartIndentLevel;
+use dprint_swc_ext::common::SourcePos;
+use dprint_swc_ext::common::SourceRange;
+use dprint_swc_ext::common::SourceRanged;
+use dprint_swc_ext::common::SourceRangedForSpanned;
+use dprint_swc_ext::swc::common::comments::Comment;
+use dprint_swc_ext::swc::parser::Syntax;
+use dprint_swc_ext::swc::parser::token::TokenAndSpan;
+use dprint_swc_ext::view::*;
 use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
+use std::borrow::Cow;
 
 use super::*;
 use crate::configuration::*;
+use crate::tailwind;
 use crate::utils::Stack;
 
+/// A callback that will be called when encountering tagged templates whose tag is in the
+/// `taggedTemplate.embeddedLanguages` configuration. It's called with the file extension of
+/// the language the tag maps to (ex. `"less"` for css\`...\` by default), the text of the
+/// template, and the configuration.
+///
+/// Examples:
+/// ```ignore
+/// const styles = css`color: red;`;
+///
+/// const markup = html`<html>
+///   <body>
+///     <h1>Hello!<h1>
+///   </body>
+/// </html>`;
+///
+/// const query = sql`
+/// SELECT
+///   *
+/// FROM
+///   users
+/// WHERE
+///   active IS TRUE;
+/// ```
+///
+/// External formatter should return `None` if it doesn't understand given language, in such
+/// cases the templates will be left as they are.
+///
+/// The expressions of the template are replaced with placeholders in the text (ex. `@dpr1nt_00_d`
+/// for CSS and `dpr1nt_00_d` otherwise), which need to be kept in the formatted text.
+pub type ExternalFormatter<'a> = dyn Fn(&str, String, &Configuration) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync + 'static>> + 'a;
+
+pub(crate) struct GenerateDiagnostic {
+  pub message: String,
+}
+
+/// A vector allocated in the arena.
+pub type BumpVec<'a, T> = dprint_core::formatting::bumpalo::collections::Vec<'a, T>;
+
 pub struct Context<'a> {
-  pub media_type: MediaType,
-  pub program: &'a Program<'a>,
+  /// The arena the print items are allocated in.
+  pub arena: &'a Arena,
+  pub syntax: Syntax,
+  pub program: Program<'a>,
   pub config: &'a Configuration,
   pub comments: CommentTracker<'a>,
+  pub external_formatter: Option<&'a ExternalFormatter<'a>>,
   pub token_finder: TokenFinder<'a>,
   pub current_node: Node<'a>,
   pub parent_stack: Stack<Node<'a>>,
+  /// Stores whether the parent requires all properties have consistent quoting.
+  consistent_quote_props_stack: Stack<bool>,
   handled_comments: FxHashSet<SourcePos>,
   stored_ln_ranges: FxHashMap<(SourcePos, SourcePos), (LineNumber, LineNumber)>,
   stored_lsil: FxHashMap<(SourcePos, SourcePos), LineStartIndentLevel>,
   stored_ln: FxHashMap<(SourcePos, SourcePos), LineNumber>,
   stored_il: FxHashMap<(SourcePos, SourcePos), IndentLevel>,
+  pub skip_iife_body_indent: bool,
+  /// The start of the template literal being generated and how to sort the class names in it.
+  pub tpl_class_names_sort_options: Option<(SourcePos, tailwind::SortOptions)>,
+  /// Whether the blank lines between the values of the list being generated are kept.
+  pub allow_blank_lines_in_list: bool,
+  /// Whether the list being generated forces a blank line between its values.
+  pub force_blank_line_in_list: bool,
   pub end_statement_or_member_lns: Stack<LineNumber>,
   before_comments_start_info_stack: Stack<(SourceRange, LineNumber, IsStartOfLine)>,
   if_stmt_last_brace_condition_ref: Option<ConditionReference>,
   expr_stmt_single_line_parent_brace_ref: Option<ConditionReference>,
+  /// The start of a parenthesized expression on the right side of an assignment and
+  /// the line number to put after it.
+  pub assignment_paren_end_ln: Option<(SourcePos, LineNumber)>,
   /// Used for ensuring nodes are parsed in order.
   #[cfg(debug_assertions)]
   pub last_generated_node_pos: SourcePos,
+  pub diagnostics: Vec<GenerateDiagnostic>,
+  pub resolved_import_groups: Option<&'a crate::generation::imports::resolved::ResolvedGroups>,
 }
 
 impl<'a> Context<'a> {
-  pub fn new(media_type: MediaType, tokens: &'a [TokenAndSpan], current_node: Node<'a>, program: &'a Program<'a>, config: &'a Configuration) -> Context<'a> {
+  /// Allocates the text in the arena so it lives as long as the print items.
+  pub fn alloc_str(&self, text: &str) -> &'a str {
+    self.arena.bump().alloc_str(text)
+  }
+
+  /// Gets text that lives as long as the print items, which is only
+  /// allocated in the arena when it's owned.
+  pub fn alloc_cow_str(&self, text: Cow<'a, str>) -> &'a str {
+    match text {
+      Cow::Borrowed(text) => text,
+      Cow::Owned(text) => self.alloc_str(&text),
+    }
+  }
+
+  pub fn new(
+    arena: &'a Arena,
+    syntax: Syntax,
+    tokens: &'a [TokenAndSpan],
+    current_node: Node<'a>,
+    program: Program<'a>,
+    config: &'a Configuration,
+    external_formatter: Option<&'a ExternalFormatter<'a>>,
+  ) -> Context<'a> {
     Context {
-      media_type,
+      arena,
+      syntax,
       program,
       config,
       comments: CommentTracker::new(program, tokens),
+      external_formatter,
       token_finder: TokenFinder::new(program),
       current_node,
-      parent_stack: Stack::new(),
+      parent_stack: Default::default(),
+      consistent_quote_props_stack: Default::default(),
       handled_comments: FxHashSet::default(),
       stored_ln_ranges: FxHashMap::default(),
       stored_lsil: FxHashMap::default(),
       stored_ln: FxHashMap::default(),
       stored_il: FxHashMap::default(),
-      end_statement_or_member_lns: Stack::new(),
-      before_comments_start_info_stack: Stack::new(),
+      skip_iife_body_indent: false,
+      tpl_class_names_sort_options: None,
+      allow_blank_lines_in_list: true,
+      force_blank_line_in_list: false,
+      end_statement_or_member_lns: Default::default(),
+      before_comments_start_info_stack: Default::default(),
       if_stmt_last_brace_condition_ref: None,
       expr_stmt_single_line_parent_brace_ref: None,
+      assignment_paren_end_ln: None,
       #[cfg(debug_assertions)]
-      last_generated_node_pos: deno_ast::SourceTextInfoProvider::text_info(program).range().start.into(),
+      last_generated_node_pos: dprint_swc_ext::common::SourceTextInfoProvider::text_info(&program).range().start.into(),
+      diagnostics: Vec::new(),
+      resolved_import_groups: config.module_import_groups_cache.get_or_compile(config),
     }
   }
 
+  /// Whether the file was parsed with jsx enabled, which makes `<T>() => {}`
+  /// ambiguous with a jsx element.
   pub fn is_jsx(&self) -> bool {
-    matches!(self.media_type, MediaType::Tsx | MediaType::Jsx | MediaType::JavaScript)
+    match self.syntax {
+      Syntax::Typescript(syntax) => syntax.tsx,
+      Syntax::Es(syntax) => syntax.jsx,
+    }
   }
 
-  pub fn parent(&self) -> &Node<'a> {
-    self.parent_stack.peek().unwrap()
+  /// Whether jsx-like syntax is reserved, which is the case for `.cts` and
+  /// `.mts` files.
+  pub fn disallows_ambiguous_jsx_like(&self) -> bool {
+    match self.syntax {
+      Syntax::Typescript(syntax) => syntax.disallow_ambiguous_jsx_like,
+      Syntax::Es(_) => false,
+    }
+  }
+
+  pub fn parent(&self) -> Node<'a> {
+    *self.parent_stack.peek().unwrap()
   }
 
   pub fn has_handled_comment(&self, comment: &Comment) -> bool {
@@ -80,35 +184,39 @@ impl<'a> Context<'a> {
     self.handled_comments.insert(comment.start());
   }
 
-  pub fn store_info_range_for_node(&mut self, node: &dyn SourceRanged, lns: (LineNumber, LineNumber)) {
+  pub fn unmark_comment_handled(&mut self, comment: &Comment) {
+    self.handled_comments.remove(&comment.start());
+  }
+
+  pub fn store_info_range_for_node(&mut self, node: &impl SourceRanged, lns: (LineNumber, LineNumber)) {
     self.stored_ln_ranges.insert((node.start(), node.end()), lns);
   }
 
-  pub fn get_ln_range_for_node(&self, node: &dyn SourceRanged) -> Option<(LineNumber, LineNumber)> {
+  pub fn get_ln_range_for_node(&self, node: &impl SourceRanged) -> Option<(LineNumber, LineNumber)> {
     self.stored_ln_ranges.get(&(node.start(), node.end())).map(|x| x.to_owned())
   }
 
-  pub fn store_lsil_for_node(&mut self, node: &dyn SourceRanged, lsil: LineStartIndentLevel) {
+  pub fn store_lsil_for_node(&mut self, node: &impl SourceRanged, lsil: LineStartIndentLevel) {
     self.stored_lsil.insert((node.start(), node.end()), lsil);
   }
 
-  pub fn get_lsil_for_node(&self, node: &dyn SourceRanged) -> Option<LineStartIndentLevel> {
+  pub fn get_lsil_for_node(&self, node: &impl SourceRanged) -> Option<LineStartIndentLevel> {
     self.stored_lsil.get(&(node.start(), node.end())).map(|x| x.to_owned())
   }
 
-  pub fn store_ln_for_node(&mut self, node: &dyn SourceRanged, ln: LineNumber) {
+  pub fn store_ln_for_node(&mut self, node: &impl SourceRanged, ln: LineNumber) {
     self.stored_ln.insert((node.start(), node.end()), ln);
   }
 
-  pub fn get_ln_for_node(&self, node: &dyn SourceRanged) -> Option<LineNumber> {
+  pub fn get_ln_for_node(&self, node: &impl SourceRanged) -> Option<LineNumber> {
     self.stored_ln.get(&(node.start(), node.end())).map(|x| x.to_owned())
   }
 
-  pub fn store_il_for_node(&mut self, node: &dyn SourceRanged, il: IndentLevel) {
+  pub fn store_il_for_node(&mut self, node: &impl SourceRanged, il: IndentLevel) {
     self.stored_il.insert((node.start(), node.end()), il);
   }
 
-  pub fn get_il_for_node(&self, node: &dyn SourceRanged) -> Option<IndentLevel> {
+  pub fn get_il_for_node(&self, node: &impl SourceRanged) -> Option<IndentLevel> {
     self.stored_il.get(&(node.start(), node.end())).map(|x| x.to_owned())
   }
 
@@ -158,6 +266,26 @@ impl<'a> Context<'a> {
     }
   }
 
+  pub fn use_consistent_quote_props(&self) -> Option<bool> {
+    self.consistent_quote_props_stack.peek().copied()
+  }
+
+  pub fn with_maybe_consistent_props<TState, TReturn>(
+    &mut self,
+    state: TState,
+    use_consistent_quotes: impl FnOnce(&TState) -> bool,
+    action: impl FnOnce(&mut Self, TState) -> TReturn,
+  ) -> TReturn {
+    if self.config.quote_props == QuoteProps::Consistent {
+      self.consistent_quote_props_stack.push((use_consistent_quotes)(&state));
+      let result = action(self, state);
+      self.consistent_quote_props_stack.pop();
+      result
+    } else {
+      action(self, state)
+    }
+  }
+
   // do any assertions for how the state of this context should be at the end of the file
   #[cfg(debug_assertions)]
   pub fn assert_end_of_file_state(&self) {
@@ -170,7 +298,7 @@ impl<'a> Context<'a> {
   pub fn assert_text(&self, range: SourceRange, expected_text: &str) {
     let actual_text = range.text_fast(self.program);
     if actual_text != expected_text {
-      panic!("Debug Panic Expected text `{}`, but found `{}`", expected_text, actual_text)
+      panic!("Debug Panic Expected text `{expected_text}`, but found `{actual_text}`")
     }
   }
 }

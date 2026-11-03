@@ -1,0 +1,30 @@
+~~ deno: true ~~
+== should handle parens wrapping in pre tags ==
+function Example() {
+  return (
+    <pre>
+      Hello
+    </pre>
+  );
+}
+function Example() {
+  return <pre>
+    Hello
+  </pre>;
+}
+
+[expect]
+function Example() {
+  return (
+    <pre>
+      Hello
+    </pre>
+  );
+}
+function Example() {
+  return (
+    <pre>
+    Hello
+    </pre>
+  );
+}

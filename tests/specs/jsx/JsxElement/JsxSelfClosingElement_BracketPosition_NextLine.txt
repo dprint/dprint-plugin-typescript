@@ -1,0 +1,38 @@
+-- file.tsx --
+~~  lineWidth: 50, jsxSelfClosingElement.bracketPosition: nextLine ~~
+== should move the bracket position to the next line ==
+const t = (
+    <Test
+    prop={5}
+    other={10}>
+        Test
+    </Test>
+);
+const w = (
+    <Test
+        prop={5}
+        other={10}
+    />
+);
+
+[expect]
+const t = (
+    <Test
+        prop={5}
+        other={10}
+    >
+        Test
+    </Test>
+);
+const w = (
+    <Test
+        prop={5}
+        other={10}
+    />
+);
+
+== should maintain for single line ==
+const t = <MyComponent someProp={value} />;
+
+[expect]
+const t = <MyComponent someProp={value} />;

@@ -1,7 +1,28 @@
+use std::sync::Arc;
+use std::sync::OnceLock;
+
 use dprint_core::configuration::*;
 use dprint_core::generate_str_to_from;
 use serde::Deserialize;
 use serde::Serialize;
+use std::collections::BTreeMap;
+
+use crate::generation::imports::resolved::ResolvedGroups;
+use crate::generation::imports::resolved::compile_import_groups;
+
+#[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PreferHanging {
+  /// Always prefer multi-line indentation
+  Never,
+  /// Prefer hanging indentation for sequences with only a single item, but if there are multiple
+  /// items then use multi-line indentation
+  OnlySingleItem,
+  /// Always prefer hanging indentation
+  Always,
+}
+
+generate_str_to_from![PreferHanging, [Never, "never"], [OnlySingleItem, "onlySingleItem"], [Always, "always"]];
 
 /// Semi colon possibilities.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
@@ -43,6 +64,20 @@ pub enum TrailingCommas {
 
 generate_str_to_from![TrailingCommas, [Always, "always"], [Never, "never"], [OnlyMultiLine, "onlyMultiLine"]];
 
+/// Force multilines possibilities.
+#[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ForceMultiLine {
+  /// Multiline imports/exports should not be forced.
+  Never,
+  /// Always force multiline imports/exports.
+  Always,
+  /// Mulitline imports/exports should be forced only when importing/exporting multiple items.
+  WhenMultiple,
+}
+
+generate_str_to_from![ForceMultiLine, [Always, "always"], [Never, "never"], [WhenMultiple, "whenMultiple"]];
+
 /// Where to place the opening brace.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -81,8 +116,22 @@ pub enum MemberSpacing {
 
 generate_str_to_from![MemberSpacing, [Maintain, "maintain"], [BlankLine, "blankLine"], [NewLine, "newLine"]];
 
-/// Where to place the next control flow within a control flow statement.
+/// Whether to keep blank lines at the start and end of a block.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BlockPadding {
+  /// Removes the blank lines at the start and end of a block.
+  Remove,
+  /// Maintains the blank lines at the start and end of a block.
+  Maintain,
+  /// Forces a blank line at the start and end of a block that isn't empty.
+  Always,
+}
+
+generate_str_to_from![BlockPadding, [Remove, "remove"], [Maintain, "maintain"], [Always, "always"]];
+
+/// Where to place the next control flow within a control flow statement.
+#[derive(Debug, Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum NextControlFlowPosition {
   /// Maintains the next control flow being on the next line or the same line.
@@ -96,7 +145,7 @@ pub enum NextControlFlowPosition {
 generate_str_to_from![NextControlFlowPosition, [Maintain, "maintain"], [SameLine, "sameLine"], [NextLine, "nextLine"]];
 
 /// Where to place the operator for expressions that span multiple lines.
-#[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum OperatorPosition {
   /// Maintains the operator being on the next line or the same line.
@@ -109,10 +158,10 @@ pub enum OperatorPosition {
 
 generate_str_to_from![OperatorPosition, [Maintain, "maintain"], [SameLine, "sameLine"], [NextLine, "nextLine"]];
 
-/// Where to place the expression of a statement that could possibly be on one line (ex. `if (true) console.log(5);`).
+/// Where to place a node that could be on the same line or next line.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum SingleBodyPosition {
+pub enum SameOrNextLinePosition {
   /// Maintains the position of the expression.
   Maintain,
   /// Forces the whole statement to be on one line.
@@ -121,7 +170,7 @@ pub enum SingleBodyPosition {
   NextLine,
 }
 
-generate_str_to_from![SingleBodyPosition, [Maintain, "maintain"], [SameLine, "sameLine"], [NextLine, "nextLine"]];
+generate_str_to_from![SameOrNextLinePosition, [Maintain, "maintain"], [SameLine, "sameLine"], [NextLine, "nextLine"]];
 
 /// If braces should be used or not in certain scenarios.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
@@ -211,13 +260,15 @@ generate_str_to_from![JsxQuoteStyle, [PreferDouble, "preferDouble"], [PreferSing
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum QuoteProps {
-  /// Preserve quotes around property names.
-  Preserve,
   /// Remove unnecessary quotes around property names.
   AsNeeded,
+  /// Same as `AsNeeded`, but if one property requires quotes then quote them all.
+  Consistent,
+  /// Preserve quotes around property names.
+  Preserve,
 }
 
-generate_str_to_from![QuoteProps, [Preserve, "preserve"], [AsNeeded, "asNeeded"]];
+generate_str_to_from![QuoteProps, [AsNeeded, "asNeeded"], [Consistent, "consistent"], [Preserve, "preserve"]];
 
 /// Whether to surround a JSX element or fragment with parentheses
 /// when it's the top JSX node and it spans multiple lines.
@@ -234,6 +285,68 @@ pub enum JsxMultiLineParens {
 }
 
 generate_str_to_from![JsxMultiLineParens, [Never, "never"], [Prefer, "prefer"], [Always, "always"]];
+
+/// How to sort JSX class attribute values.
+#[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum JsxClassNamesSortOrder {
+  /// Maintains the current class name ordering.
+  Maintain,
+  /// Sorts class names using Tailwind CSS ordering.
+  Tailwind,
+}
+
+generate_str_to_from![JsxClassNamesSortOrder, [Maintain, "maintain"], [Tailwind, "tailwind"]];
+
+/// How to sort JSX class attribute values along with what's known about the project's classes.
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct JsxClassNamesSortConfig {
+  /// How to sort the class names.
+  pub kind: JsxClassNamesSortOrder,
+  /// Leading function or tag identifiers whose string arguments and template literals
+  /// should be sorted as class names.
+  pub functions: Vec<String>,
+  /// Attributes whose values should be sorted as class names in addition to `class` and `className`.
+  pub attributes: Vec<String>,
+  /// Whether to keep the whitespace between class names as is when sorting them.
+  pub preserve_whitespace: bool,
+  /// Whether to keep duplicate class names when sorting them.
+  pub preserve_duplicates: bool,
+  /// The prefix the project's Tailwind classes have (ex. `tw` when classes look like `tw:flex`).
+  pub prefix: Option<String>,
+  /// The theme variables the project adds to Tailwind's default theme and their
+  /// values (ex. `--breakpoint-3xl` and `120rem`), which is what's in `@theme` in its CSS.
+  pub theme: BTreeMap<String, String>,
+  /// The names of the project's custom variants in the order they're defined,
+  /// which is what it has an `@custom-variant` for in its CSS.
+  pub variants: Vec<String>,
+  /// The names of the project's custom utilities (ex. `btn` or `tab-*` for one that has a value)
+  /// along with the CSS properties each sets, which is what it has an `@utility` for in its CSS.
+  pub utilities: BTreeMap<String, Vec<String>>,
+}
+
+impl Default for JsxClassNamesSortConfig {
+  fn default() -> Self {
+    JsxClassNamesSortOrder::Maintain.into()
+  }
+}
+
+impl From<JsxClassNamesSortOrder> for JsxClassNamesSortConfig {
+  fn from(kind: JsxClassNamesSortOrder) -> Self {
+    Self {
+      kind,
+      functions: Vec::new(),
+      attributes: Vec::new(),
+      preserve_whitespace: false,
+      preserve_duplicates: false,
+      prefix: None,
+      theme: BTreeMap::new(),
+      variants: Vec::new(),
+      utilities: BTreeMap::new(),
+    }
+  }
+}
 
 /// Whether to use semi-colons or commas.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
@@ -266,6 +379,123 @@ generate_str_to_from![
   [CaseInsensitive, "caseInsensitive"]
 ];
 
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum NamedTypeImportsExportsOrder {
+  First,
+  Last,
+  #[default]
+  None,
+}
+
+generate_str_to_from![NamedTypeImportsExportsOrder, [First, "first"], [Last, "last"], [None, "none"]];
+
+/// How type-only imports are classified by `module.importGroups`.
+#[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TypeImportsMode {
+  /// Type-only imports form a distinct implicit category `type`.
+  Separate,
+  /// Type-only imports are classified by source path like value imports.
+  Interleave,
+}
+
+generate_str_to_from![TypeImportsMode, [Separate, "separate"], [Interleave, "interleave"]];
+
+/// How blank lines are handled between imports when `module.importGroups` is
+/// enabled. Mirrors ESLint `import/order`'s `newlines-between`.
+#[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum NewlinesBetween {
+  /// Exactly one blank line between groups, none inside a group.
+  Always,
+  /// One blank line between groups; blank lines inside a group are kept.
+  AlwaysAndInsideGroups,
+  /// No blank lines anywhere in the import block.
+  Never,
+  /// Blank lines are neither added nor removed.
+  Ignore,
+}
+
+generate_str_to_from![
+  NewlinesBetween,
+  [Always, "always"],
+  [AlwaysAndInsideGroups, "alwaysAndInsideGroups"],
+  [Never, "never"],
+  [Ignore, "ignore"]
+];
+
+/// Built-in category strings allowed in `module.importGroups[].match`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BuiltinCategory {
+  Builtin,
+  External,
+  Parent,
+  Sibling,
+  Index,
+  Type,
+  Unknown,
+}
+
+generate_str_to_from![
+  BuiltinCategory,
+  [Builtin, "builtin"],
+  [External, "external"],
+  [Parent, "parent"],
+  [Sibling, "sibling"],
+  [Index, "index"],
+  [Type, "type"],
+  [Unknown, "unknown"]
+];
+
+/// A single matcher inside a group's `match` value.
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ImportMatcher {
+  Category(BuiltinCategory),
+  /// Raw glob pattern string. Compiled lazily by resolve_config into a globset.
+  Pattern {
+    pattern: String,
+  },
+}
+
+/// Either a single matcher or a list (list = merged into one group).
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ImportGroupMatch {
+  Single(ImportMatcher),
+  Multiple(Vec<ImportMatcher>),
+}
+
+/// One resolved import group, in user-listed order.
+#[derive(Clone, Serialize, Deserialize)]
+pub struct ImportGroup {
+  #[serde(rename = "match")]
+  pub matchers: ImportGroupMatch,
+}
+
+/// Holds `module.importGroups` in the form the formatter matches against.
+///
+/// Compiling it means building a glob set, which is expensive enough that
+/// doing it per file shows up in a profile, so it happens once per resolved
+/// configuration and is shared from there. Not part of the serialized
+/// configuration — it is derived from `module.importGroups`.
+#[derive(Clone, Default)]
+pub struct ImportGroupsCache(Arc<OnceLock<Option<ResolvedGroups>>>);
+
+impl ImportGroupsCache {
+  pub(crate) fn set(&self, groups: Option<ResolvedGroups>) {
+    let _ = self.0.set(groups);
+  }
+
+  /// Compiles on first use, in case this configuration was built without
+  /// going through `resolve_config`.
+  pub(crate) fn get_or_compile(&self, config: &Configuration) -> Option<&ResolvedGroups> {
+    self.0.get_or_init(|| compile_import_groups(config).0).as_ref()
+  }
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Configuration {
@@ -276,32 +506,61 @@ pub struct Configuration {
   pub quote_style: QuoteStyle,
   pub quote_props: QuoteProps,
   pub semi_colons: SemiColons,
+  pub file_indent_level: u32,
+  pub max_blank_lines: u32,
   /* situational */
   #[serde(rename = "arrowFunction.useParentheses")]
   pub arrow_function_use_parentheses: UseParentheses,
   #[serde(rename = "binaryExpression.linePerExpression")]
   pub binary_expression_line_per_expression: bool,
+  #[serde(rename = "conditionalExpression.linePerExpression")]
+  pub conditional_expression_line_per_expression: bool,
   #[serde(rename = "jsx.quoteStyle")]
   pub jsx_quote_style: JsxQuoteStyle,
   #[serde(rename = "jsx.multiLineParens")]
   pub jsx_multi_line_parens: JsxMultiLineParens,
+  #[serde(rename = "jsx.sortClassNames")]
+  pub jsx_sort_class_names: JsxClassNamesSortConfig,
   #[serde(rename = "jsx.forceNewLinesSurroundingContent")]
   pub jsx_force_new_lines_surrounding_content: bool,
+  #[serde(rename = "jsxOpeningElement.bracketPosition")]
+  pub jsx_opening_element_bracket_position: SameOrNextLinePosition,
+  #[serde(rename = "jsxSelfClosingElement.bracketPosition")]
+  pub jsx_self_closing_element_bracket_position: SameOrNextLinePosition,
   #[serde(rename = "memberExpression.linePerExpression")]
   pub member_expression_line_per_expression: bool,
   #[serde(rename = "typeLiteral.separatorKind.singleLine")]
   pub type_literal_separator_kind_single_line: SemiColonOrComma,
   #[serde(rename = "typeLiteral.separatorKind.multiLine")]
   pub type_literal_separator_kind_multi_line: SemiColonOrComma,
+  #[serde(rename = "taggedTemplate.formatEmbedded")]
+  pub tagged_template_format_embedded: bool,
+  /// Map of a tagged template's tag to the file extension of the language its text is formatted as.
+  #[serde(rename = "taggedTemplate.embeddedLanguages")]
+  pub tagged_template_embedded_languages: BTreeMap<String, String>,
   /* sorting */
   #[serde(rename = "module.sortImportDeclarations")]
   pub module_sort_import_declarations: SortOrder,
+  #[serde(rename = "module.blankLinesAfterImports")]
+  pub module_blank_lines_after_imports: Option<u32>,
   #[serde(rename = "module.sortExportDeclarations")]
   pub module_sort_export_declarations: SortOrder,
   #[serde(rename = "importDeclaration.sortNamedImports")]
   pub import_declaration_sort_named_imports: SortOrder,
+  #[serde(rename = "importDeclaration.sortTypeOnlyImports")]
+  pub import_declaration_sort_type_only_imports: NamedTypeImportsExportsOrder,
   #[serde(rename = "exportDeclaration.sortNamedExports")]
   pub export_declaration_sort_named_exports: SortOrder,
+  #[serde(rename = "exportDeclaration.sortTypeOnlyExports")]
+  pub export_declaration_sort_type_only_exports: NamedTypeImportsExportsOrder,
+  #[serde(rename = "module.importGroups", default, skip_serializing_if = "Vec::is_empty")]
+  pub module_import_groups: Vec<ImportGroup>,
+  #[serde(rename = "module.typeImports", default = "default_type_imports_mode")]
+  pub module_type_imports: TypeImportsMode,
+  #[serde(rename = "module.importGroupsNewlinesBetween", default = "default_newlines_between")]
+  pub module_import_groups_newlines_between: NewlinesBetween,
+  #[serde(skip)]
+  pub module_import_groups_cache: ImportGroupsCache,
   /* ignore comments */
   pub ignore_node_comment_text: String,
   pub ignore_file_comment_text: String,
@@ -350,11 +609,13 @@ pub struct Configuration {
   pub try_statement_brace_position: BracePosition,
   #[serde(rename = "whileStatement.bracePosition")]
   pub while_statement_brace_position: BracePosition,
+  #[serde(rename = "withStatement.bracePosition")]
+  pub with_statement_brace_position: BracePosition,
   /* prefer hanging */
   #[serde(rename = "arguments.preferHanging")]
-  pub arguments_prefer_hanging: bool,
+  pub arguments_prefer_hanging: PreferHanging,
   #[serde(rename = "arrayExpression.preferHanging")]
-  pub array_expression_prefer_hanging: bool,
+  pub array_expression_prefer_hanging: PreferHanging,
   #[serde(rename = "arrayPattern.preferHanging")]
   pub array_pattern_prefer_hanging: bool,
   #[serde(rename = "doWhileStatement.preferHanging")]
@@ -382,47 +643,112 @@ pub struct Configuration {
   #[serde(rename = "objectPattern.preferHanging")]
   pub object_pattern_prefer_hanging: bool,
   #[serde(rename = "parameters.preferHanging")]
-  pub parameters_prefer_hanging: bool,
+  pub parameters_prefer_hanging: PreferHanging,
   #[serde(rename = "sequenceExpression.preferHanging")]
   pub sequence_expression_prefer_hanging: bool,
   #[serde(rename = "switchStatement.preferHanging")]
   pub switch_statement_prefer_hanging: bool,
   #[serde(rename = "tupleType.preferHanging")]
-  pub tuple_type_prefer_hanging: bool,
+  pub tuple_type_prefer_hanging: PreferHanging,
   #[serde(rename = "typeLiteral.preferHanging")]
   pub type_literal_prefer_hanging: bool,
   #[serde(rename = "typeParameters.preferHanging")]
-  pub type_parameters_prefer_hanging: bool,
+  pub type_parameters_prefer_hanging: PreferHanging,
   #[serde(rename = "unionAndIntersectionType.preferHanging")]
   pub union_and_intersection_type_prefer_hanging: bool,
   #[serde(rename = "variableStatement.preferHanging")]
   pub variable_statement_prefer_hanging: bool,
   #[serde(rename = "whileStatement.preferHanging")]
   pub while_statement_prefer_hanging: bool,
+  #[serde(rename = "withStatement.preferHanging")]
+  pub with_statement_prefer_hanging: bool,
   /* member spacing */
+  #[serde(rename = "classDeclaration.memberSpacing")]
+  pub class_declaration_member_spacing: MemberSpacing,
+  #[serde(rename = "classExpression.memberSpacing")]
+  pub class_expression_member_spacing: MemberSpacing,
   #[serde(rename = "enumDeclaration.memberSpacing")]
   pub enum_declaration_member_spacing: MemberSpacing,
+  #[serde(rename = "interfaceDeclaration.memberSpacing")]
+  pub interface_declaration_member_spacing: MemberSpacing,
+  #[serde(rename = "typeLiteral.memberSpacing")]
+  pub type_literal_member_spacing: MemberSpacing,
+  /* block padding */
+  #[serde(rename = "blockPadding")]
+  pub block_padding: BlockPadding,
+  #[serde(rename = "classDeclaration.blockPadding")]
+  pub class_declaration_block_padding: BlockPadding,
+  #[serde(rename = "classExpression.blockPadding")]
+  pub class_expression_block_padding: BlockPadding,
+  #[serde(rename = "enumDeclaration.blockPadding")]
+  pub enum_declaration_block_padding: BlockPadding,
+  #[serde(rename = "interfaceDeclaration.blockPadding")]
+  pub interface_declaration_block_padding: BlockPadding,
+  #[serde(rename = "moduleDeclaration.blockPadding")]
+  pub module_declaration_block_padding: BlockPadding,
+  #[serde(rename = "arrowFunction.blockPadding")]
+  pub arrow_function_block_padding: BlockPadding,
+  #[serde(rename = "constructor.blockPadding")]
+  pub constructor_block_padding: BlockPadding,
+  #[serde(rename = "doWhileStatement.blockPadding")]
+  pub do_while_statement_block_padding: BlockPadding,
+  #[serde(rename = "forInStatement.blockPadding")]
+  pub for_in_statement_block_padding: BlockPadding,
+  #[serde(rename = "forOfStatement.blockPadding")]
+  pub for_of_statement_block_padding: BlockPadding,
+  #[serde(rename = "forStatement.blockPadding")]
+  pub for_statement_block_padding: BlockPadding,
+  #[serde(rename = "functionDeclaration.blockPadding")]
+  pub function_declaration_block_padding: BlockPadding,
+  #[serde(rename = "functionExpression.blockPadding")]
+  pub function_expression_block_padding: BlockPadding,
+  #[serde(rename = "getAccessor.blockPadding")]
+  pub get_accessor_block_padding: BlockPadding,
+  #[serde(rename = "ifStatement.blockPadding")]
+  pub if_statement_block_padding: BlockPadding,
+  #[serde(rename = "method.blockPadding")]
+  pub method_block_padding: BlockPadding,
+  #[serde(rename = "setAccessor.blockPadding")]
+  pub set_accessor_block_padding: BlockPadding,
+  #[serde(rename = "staticBlock.blockPadding")]
+  pub static_block_block_padding: BlockPadding,
+  #[serde(rename = "switchCase.blockPadding")]
+  pub switch_case_block_padding: BlockPadding,
+  #[serde(rename = "switchStatement.blockPadding")]
+  pub switch_statement_block_padding: BlockPadding,
+  #[serde(rename = "tryStatement.blockPadding")]
+  pub try_statement_block_padding: BlockPadding,
+  #[serde(rename = "whileStatement.blockPadding")]
+  pub while_statement_block_padding: BlockPadding,
+  #[serde(rename = "withStatement.blockPadding")]
+  pub with_statement_block_padding: BlockPadding,
   /* next control flow position */
   #[serde(rename = "ifStatement.nextControlFlowPosition")]
   pub if_statement_next_control_flow_position: NextControlFlowPosition,
   #[serde(rename = "tryStatement.nextControlFlowPosition")]
   pub try_statement_next_control_flow_position: NextControlFlowPosition,
+  #[serde(rename = "doWhileStatement.nextControlFlowPosition")]
+  pub do_while_statement_next_control_flow_position: NextControlFlowPosition,
   /* operator position */
   #[serde(rename = "binaryExpression.operatorPosition")]
   pub binary_expression_operator_position: OperatorPosition,
   #[serde(rename = "conditionalExpression.operatorPosition")]
   pub conditional_expression_operator_position: OperatorPosition,
+  #[serde(rename = "conditionalType.operatorPosition")]
+  pub conditional_type_operator_position: OperatorPosition,
   /* single body position */
   #[serde(rename = "ifStatement.singleBodyPosition")]
-  pub if_statement_single_body_position: SingleBodyPosition,
+  pub if_statement_single_body_position: SameOrNextLinePosition,
   #[serde(rename = "forStatement.singleBodyPosition")]
-  pub for_statement_single_body_position: SingleBodyPosition,
+  pub for_statement_single_body_position: SameOrNextLinePosition,
   #[serde(rename = "forInStatement.singleBodyPosition")]
-  pub for_in_statement_single_body_position: SingleBodyPosition,
+  pub for_in_statement_single_body_position: SameOrNextLinePosition,
   #[serde(rename = "forOfStatement.singleBodyPosition")]
-  pub for_of_statement_single_body_position: SingleBodyPosition,
+  pub for_of_statement_single_body_position: SameOrNextLinePosition,
   #[serde(rename = "whileStatement.singleBodyPosition")]
-  pub while_statement_single_body_position: SingleBodyPosition,
+  pub while_statement_single_body_position: SameOrNextLinePosition,
+  #[serde(rename = "withStatement.singleBodyPosition")]
+  pub with_statement_single_body_position: SameOrNextLinePosition,
   /* trailing commas */
   #[serde(rename = "arguments.trailingCommas")]
   pub arguments_trailing_commas: TrailingCommas,
@@ -459,6 +785,8 @@ pub struct Configuration {
   pub for_in_statement_use_braces: UseBraces,
   #[serde(rename = "whileStatement.useBraces")]
   pub while_statement_use_braces: UseBraces,
+  #[serde(rename = "withStatement.useBraces")]
+  pub with_statement_use_braces: UseBraces,
   /* prefer single line */
   #[serde(rename = "arrayExpression.preferSingleLine")]
   pub array_expression_prefer_single_line: bool,
@@ -513,6 +841,11 @@ pub struct Configuration {
   pub import_declaration_force_single_line: bool,
   #[serde(rename = "exportDeclaration.forceSingleLine")]
   pub export_declaration_force_single_line: bool,
+  /* force multi line specifiers */
+  #[serde(rename = "exportDeclaration.forceMultiLine")]
+  pub export_declaration_force_multi_line: ForceMultiLine,
+  #[serde(rename = "importDeclaration.forceMultiLine")]
+  pub import_declaration_force_multi_line: ForceMultiLine,
 
   /* use space separator */
   #[serde(rename = "binaryExpression.spaceSurroundingBitwiseAndArithmeticOperator")]
@@ -543,6 +876,8 @@ pub struct Configuration {
   pub function_expression_space_before_parentheses: bool,
   #[serde(rename = "functionExpression.spaceAfterFunctionKeyword")]
   pub function_expression_space_after_function_keyword: bool,
+  #[serde(rename = "functionExpression.flatIife")]
+  pub function_expression_flat_iife: bool,
   #[serde(rename = "getAccessor.spaceBeforeParentheses")]
   pub get_accessor_space_before_parentheses: bool,
   #[serde(rename = "ifStatement.spaceAfterIfKeyword")]
@@ -551,8 +886,8 @@ pub struct Configuration {
   pub import_declaration_space_surrounding_named_imports: bool,
   #[serde(rename = "jsxExpressionContainer.spaceSurroundingExpression")]
   pub jsx_expression_container_space_surrounding_expression: bool,
-  #[serde(rename = "jsxElement.spaceBeforeSelfClosingTagSlash")]
-  pub jsx_element_space_before_self_closing_tag_slash: bool,
+  #[serde(rename = "jsxSelfClosingElement.spaceBeforeSlash")]
+  pub jsx_self_closing_element_space_before_slash: bool,
   #[serde(rename = "method.spaceBeforeParentheses")]
   pub method_space_before_parentheses: bool,
   #[serde(rename = "objectExpression.spaceSurroundingProperties")]
@@ -573,12 +908,16 @@ pub struct Configuration {
   pub type_literal_space_surrounding_properties: bool,
   #[serde(rename = "whileStatement.spaceAfterWhileKeyword")]
   pub while_statement_space_after_while_keyword: bool,
+  #[serde(rename = "withStatement.spaceAfterWithKeyword")]
+  pub with_statement_space_after_with_keyword: bool,
   #[serde(rename = "arguments.spaceAround")]
   pub arguments_space_around: bool,
   #[serde(rename = "arrayExpression.spaceAround")]
   pub array_expression_space_around: bool,
   #[serde(rename = "arrayPattern.spaceAround")]
   pub array_pattern_space_around: bool,
+  #[serde(rename = "catchClause.spaceAround")]
+  pub catch_clause_space_around: bool,
   #[serde(rename = "doWhileStatement.spaceAround")]
   pub do_while_statement_space_around: bool,
   #[serde(rename = "forInStatement.spaceAround")]
@@ -591,10 +930,54 @@ pub struct Configuration {
   pub if_statement_space_around: bool,
   #[serde(rename = "parameters.spaceAround")]
   pub parameters_space_around: bool,
+  #[serde(rename = "parenExpression.spaceAround")]
+  pub paren_expression_space_around: bool,
   #[serde(rename = "switchStatement.spaceAround")]
   pub switch_statement_space_around: bool,
   #[serde(rename = "tupleType.spaceAround")]
   pub tuple_type_space_around: bool,
   #[serde(rename = "whileStatement.spaceAround")]
   pub while_statement_space_around: bool,
+  #[serde(rename = "withStatement.spaceAround")]
+  pub with_statement_space_around: bool,
+}
+
+fn default_type_imports_mode() -> TypeImportsMode {
+  TypeImportsMode::Separate
+}
+
+fn default_newlines_between() -> NewlinesBetween {
+  NewlinesBetween::Always
+}
+
+#[cfg(test)]
+mod import_group_enum_tests {
+  use super::*;
+  use std::str::FromStr;
+
+  #[test]
+  fn type_imports_mode_round_trip() {
+    assert!(matches!(TypeImportsMode::from_str("separate"), Ok(TypeImportsMode::Separate)));
+    assert!(matches!(TypeImportsMode::from_str("interleave"), Ok(TypeImportsMode::Interleave)));
+    assert_eq!(TypeImportsMode::Separate.to_string(), "separate");
+  }
+
+  #[test]
+  fn import_matcher_variants() {
+    let c = ImportMatcher::Category(BuiltinCategory::External);
+    let p = ImportMatcher::Pattern { pattern: "foo/*".to_string() };
+    assert!(matches!(c, ImportMatcher::Category(BuiltinCategory::External)));
+    assert!(matches!(p, ImportMatcher::Pattern { pattern: _ }));
+  }
+
+  #[test]
+  fn builtin_category_round_trip() {
+    assert!(matches!(BuiltinCategory::from_str("builtin"), Ok(BuiltinCategory::Builtin)));
+    assert!(matches!(BuiltinCategory::from_str("external"), Ok(BuiltinCategory::External)));
+    assert!(matches!(BuiltinCategory::from_str("parent"), Ok(BuiltinCategory::Parent)));
+    assert!(matches!(BuiltinCategory::from_str("sibling"), Ok(BuiltinCategory::Sibling)));
+    assert!(matches!(BuiltinCategory::from_str("index"), Ok(BuiltinCategory::Index)));
+    assert!(matches!(BuiltinCategory::from_str("type"), Ok(BuiltinCategory::Type)));
+    assert!(matches!(BuiltinCategory::from_str("unknown"), Ok(BuiltinCategory::Unknown)));
+  }
 }

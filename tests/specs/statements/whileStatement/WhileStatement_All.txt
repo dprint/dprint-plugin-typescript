@@ -65,16 +65,35 @@ while (true) {
 while (true) {
 }
 
-== should print empty with inner comment on same line ==
+== should handle empty with comments ==
 while (true) { /* 1 */ }
 while (true) {
 /* test */}
+while (true) { // 1
+//2
+/* 3*/}
 
 [expect]
 while (true) { /* 1 */ }
 while (true) {
     /* test */
 }
+while (true) { // 1
+    // 2
+    /* 3*/
+}
+
+== should handle block comment on first line with statement ==
+while (true) { /* 1 */
+s;}
+while (true) { /* 1 */ s; /* 2 */}
+
+[expect]
+while (true) {
+    /* 1 */
+    s;
+}
+while (true) /* 1 */ s; /* 2 */
 
 == should print when only has an empty statement ==
 while (true);

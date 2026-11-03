@@ -1,13 +1,14 @@
-use deno_ast::swc::common::comments::Comment;
-use deno_ast::swc::common::comments::CommentKind;
-use deno_ast::view::*;
-use deno_ast::SourcePos;
-use deno_ast::SourceRange;
-use deno_ast::SourceRanged;
-use deno_ast::SourceRangedForSpanned;
-use deno_ast::SourceTextInfoProvider;
+use dprint_swc_ext::common::SourcePos;
+use dprint_swc_ext::common::SourceRange;
+use dprint_swc_ext::common::SourceRanged;
+use dprint_swc_ext::common::SourceRangedForSpanned;
+use dprint_swc_ext::common::SourceTextInfoProvider;
+use dprint_swc_ext::swc::common::comments::Comment;
+use dprint_swc_ext::swc::common::comments::CommentKind;
+use dprint_swc_ext::swc::parser::token::Token;
+use dprint_swc_ext::view::*;
 
-pub fn is_first_node_on_line(node: &dyn SourceRanged, program: &Program) -> bool {
+pub fn is_first_node_on_line(node: &impl SourceRanged, program: Program) -> bool {
   let text_info = program.text_info();
   let start = node.start().as_byte_index(text_info.range().start);
   let source_file_text = text_info.text_str().as_bytes();
@@ -22,10 +23,35 @@ pub fn is_first_node_on_line(node: &dyn SourceRanged, program: &Program) -> bool
   true
 }
 
-pub fn has_separating_blank_line(first_node: &dyn SourceRanged, second_node: &dyn SourceRanged, program: &Program) -> bool {
-  return get_second_start_line(first_node, second_node, program) > first_node.end_line_fast(program) + 1;
+pub fn has_separating_blank_line(first_node: &impl SourceRanged, second_node: &impl SourceRanged, program: Program) -> bool {
+  get_separating_blank_line_count(first_node, second_node, program) > 0
+}
 
-  fn get_second_start_line(first_node: &dyn SourceRanged, second_node: &dyn SourceRanged, program: &Program) -> usize {
+/// Gets the number of blank lines between two nodes, where the second node starts
+/// at its first leading comment on a later line than the first node.
+pub fn get_separating_blank_line_count(first_node: &impl SourceRanged, second_node: &impl SourceRanged, program: Program) -> usize {
+  let second_start_line = get_second_start_line(first_node, second_node, program);
+  // this is a cheaper check that's needed for there to be a blank line
+  if second_start_line <= first_node.end_line_fast(program) + 1 {
+    return 0;
+  }
+  let first_end_line = get_first_end_line_with_comments_before_comma(first_node, program);
+  return second_start_line.saturating_sub(first_end_line + 1);
+
+  /// The comments between the first node and a comma after it go after the comma,
+  /// so they're with the first node (ex. `// c` in `A\n// c\n, B`).
+  fn get_first_end_line_with_comments_before_comma(first_node: &impl SourceRanged, program: Program) -> usize {
+    let end_line = first_node.end_line_fast(program);
+    match first_node.next_token_fast(program) {
+      Some(token) if token.token == Token::Comma => match token.start().leading_comments_fast(program).peek_last_comment() {
+        Some(comment) => comment.end_line_fast(program).max(end_line),
+        None => end_line,
+      },
+      _ => end_line,
+    }
+  }
+
+  fn get_second_start_line(first_node: &impl SourceRanged, second_node: &impl SourceRanged, program: Program) -> usize {
     let leading_comments = second_node.leading_comments_fast(program);
 
     for comment in leading_comments {
@@ -39,18 +65,18 @@ pub fn has_separating_blank_line(first_node: &dyn SourceRanged, second_node: &dy
   }
 }
 
-pub fn get_use_new_lines_for_nodes(first_node: &dyn SourceRanged, second_node: &dyn SourceRanged, program: &Program) -> bool {
+pub fn get_use_new_lines_for_nodes(first_node: &impl SourceRanged, second_node: &impl SourceRanged, program: Program) -> bool {
   first_node.end_line_fast(program) != second_node.start_line_fast(program)
 }
 
-pub fn has_leading_comment_on_different_line<'a>(node: &dyn SourceRanged, comments_to_ignore: Option<&[&'a Comment]>, program: &Program<'a>) -> bool {
+pub fn has_leading_comment_on_different_line<'a>(node: &impl SourceRanged, comments_to_ignore: Option<&[&'a Comment]>, program: Program<'a>) -> bool {
   get_leading_comment_on_different_line(node, comments_to_ignore, program).is_some()
 }
 
 pub fn get_leading_comment_on_different_line<'a>(
-  node: &dyn SourceRanged,
+  node: &impl SourceRanged,
   comments_to_ignore: Option<&[&'a Comment]>,
-  program: &Program<'a>,
+  program: Program<'a>,
 ) -> Option<&'a Comment> {
   let comments_to_ignore: Option<Vec<SourcePos>> = comments_to_ignore.map(|x| x.iter().map(|c| c.start()).collect());
   let node_start_line = node.start_line_fast(program);
@@ -69,11 +95,11 @@ pub fn get_leading_comment_on_different_line<'a>(
   None
 }
 
-pub fn has_surrounding_comments(node: &Node, program: &Program) -> bool {
+pub fn has_surrounding_comments<'a>(node: Node<'a>, program: Program<'a>) -> bool {
   !node.leading_comments_fast(program).is_empty() || !node.trailing_comments_fast(program).is_empty()
 }
 
-pub fn has_surrounding_different_line_comments(node: &Node, program: &Program) -> bool {
+pub fn has_surrounding_different_line_comments<'a>(node: Node<'a>, program: Program<'a>) -> bool {
   let leading_comments = node.leading_comments_fast(program);
   if !leading_comments.is_empty() {
     let start_line = node.start_line_fast(program);
@@ -96,30 +122,28 @@ pub fn has_surrounding_different_line_comments(node: &Node, program: &Program) -
   false
 }
 
-pub fn nodes_have_only_spaces_between(previous_node: &Node, next_node: &Node, program: &Program) -> bool {
+pub fn nodes_have_only_spaces_between<'a>(previous_node: Node<'a>, next_node: Node<'a>, program: Program<'a>) -> bool {
   if let Node::JSXText(previous_node) = previous_node {
-    let previous_node_text = previous_node.text_fast(program);
-    crate::utils::has_no_new_lines_in_trailing_whitespace(previous_node_text) && previous_node_text.ends_with(' ')
+    crate::utils::has_jsx_trailing_space(previous_node.text_fast(program))
   } else if let Node::JSXText(next_node) = next_node {
-    let next_node_text = next_node.text_fast(program);
-    crate::utils::has_no_new_lines_in_leading_whitespace(next_node_text) && next_node_text.starts_with(' ')
+    crate::utils::has_jsx_leading_space(next_node.text_fast(program))
   } else {
     let text_info = program.text_info();
     let range = SourceRange::new(previous_node.end(), next_node.start());
-    crate::utils::is_not_empty_and_only_spaces(text_info.range_text(&range))
+    crate::utils::is_jsx_space(text_info.range_text(&range))
   }
 }
 
-pub fn get_siblings_between<'a>(node_a: &Node<'a>, node_b: &Node<'a>) -> Vec<Node<'a>> {
+pub fn get_siblings_between<'a, 'b>(node_a: Node<'a>, node_b: Node<'b>) -> Vec<Node<'a>> {
   let mut parent_children = node_a.parent().unwrap().children();
   parent_children.drain(node_a.child_index() + 1..node_b.child_index()).collect()
 }
 
-pub fn has_jsx_space_expr_text(node: &Node) -> bool {
-  get_jsx_space_expr_space_count(node) > 0
+pub fn has_jsx_space_expr_text(node: Node, program: Program) -> bool {
+  get_jsx_space_expr_space_count(node, program) > 0
 }
 
-pub fn get_jsx_space_expr_space_count(node: &Node) -> usize {
+pub fn get_jsx_space_expr_space_count(node: Node, program: Program) -> usize {
   // A "JSX space expression" is a JSXExprContainer with
   // a string literal containing only spaces.
   // * {" "}
@@ -130,7 +154,8 @@ pub fn get_jsx_space_expr_space_count(node: &Node) -> usize {
       ..
     }) => {
       let mut space_count = 0;
-      for c in text.value().chars() {
+      let text = remove_quotes_from_str(text.text_fast(program));
+      for c in text.chars() {
         if c == ' ' {
           space_count += 1;
         } else {
@@ -143,19 +168,29 @@ pub fn get_jsx_space_expr_space_count(node: &Node) -> usize {
   }
 }
 
-pub fn count_spaces_between_jsx_children(previous_node: &Node, next_node: &Node, program: &Program) -> usize {
+fn remove_quotes_from_str(text: &str) -> &str {
+  if text.is_empty() {
+    text
+  } else if text.starts_with("'") && text.ends_with("'") || text.starts_with("\"") && text.ends_with("\"") {
+    &text[1..text.len() - 1]
+  } else {
+    text
+  }
+}
+
+pub fn count_spaces_between_jsx_children<'a>(previous_node: Node<'a>, next_node: Node<'a>, program: Program<'a>) -> usize {
   let all_siblings_between = get_siblings_between(previous_node, next_node);
   let siblings_between = all_siblings_between
-    .iter()
+    .into_iter()
     // ignore empty JSXText
-    .filter(|n| !n.text_fast(program).trim().is_empty())
+    .filter(|n| !crate::utils::is_jsx_whitespace(n.text_fast(program)))
     .collect::<Vec<_>>();
 
   let mut count = 0;
   let mut previous_node = previous_node;
 
   for node in siblings_between {
-    count += get_jsx_space_expr_space_count(node);
+    count += get_jsx_space_expr_space_count(node, program);
 
     if nodes_have_only_spaces_between(previous_node, node, program) {
       count += 1;
@@ -173,7 +208,7 @@ pub fn count_spaces_between_jsx_children(previous_node: &Node, next_node: &Node,
 }
 
 /// Tests if this is a call expression from common test libraries.
-pub fn is_test_library_call_expr(node: &CallExpr, program: &Program) -> bool {
+pub fn is_test_library_call_expr<'a>(node: &CallExpr<'a>, program: Program<'a>) -> bool {
   // Be very strict here to allow the user to opt out if they'd like.
   if node.args.len() != 2 || node.type_args.is_some() || !is_valid_callee(&node.callee) {
     return false;
@@ -193,8 +228,8 @@ pub fn is_test_library_call_expr(node: &CallExpr, program: &Program) -> bool {
         return false;
       }
       // allow something like `Deno.test("desc", (t) => {})`
-      if let Some(param) = arrow_expr.params.get(0) {
-        if has_surrounding_comments(&param.into(), program) {
+      if let Some(param) = arrow_expr.params.first() {
+        if has_surrounding_comments(param.into(), program) {
           return false;
         }
       }
@@ -204,7 +239,7 @@ pub fn is_test_library_call_expr(node: &CallExpr, program: &Program) -> bool {
 
   return node.start_line_fast(program) == node.args[1].start_line_fast(program);
 
-  fn is_valid_callee(callee: &Callee) -> bool {
+  fn is_valid_callee<'a>(callee: &Callee<'a>) -> bool {
     return match get_first_identifier_text_from_callee(callee) {
       Some("it") | Some("describe") | Some("test") => true,
       _ => {
@@ -213,36 +248,36 @@ pub fn is_test_library_call_expr(node: &CallExpr, program: &Program) -> bool {
       }
     };
 
-    fn get_first_identifier_text_from_callee<'a>(callee: &'a Callee<'a>) -> Option<&'a str> {
+    fn get_first_identifier_text_from_callee<'a>(callee: &Callee<'a>) -> Option<&'a str> {
       match callee {
         Callee::Super(_) | Callee::Import(_) => None,
         Callee::Expr(expr) => get_first_identifier_text_from_expr(expr),
       }
     }
 
-    fn get_first_identifier_text_from_expr<'a>(expr: &'a Expr<'a>) -> Option<&'a str> {
+    fn get_first_identifier_text_from_expr<'a>(expr: &Expr<'a>) -> Option<&'a str> {
       match expr {
         Expr::Ident(ident) => Some(ident.sym()),
-        Expr::Member(member) if member.prop.kind() == NodeKind::Ident => get_first_identifier_text_from_expr(&member.obj),
+        Expr::Member(member) if matches!(member.prop, MemberProp::Ident(_)) => get_first_identifier_text_from_expr(&member.obj),
         _ => None,
       }
     }
 
-    fn get_last_identifier_text<'a>(callee: &'a Callee<'a>) -> Option<&'a str> {
+    fn get_last_identifier_text<'a>(callee: &Callee<'a>) -> Option<&'a str> {
       return match callee {
         Callee::Expr(expr) => from_expr(expr),
         Callee::Super(_) | Callee::Import(_) => None,
       };
 
-      fn from_expr<'a>(expr: &'a Expr<'a>) -> Option<&'a str> {
+      fn from_expr<'a>(expr: &Expr<'a>) -> Option<&'a str> {
         match expr {
           Expr::Ident(ident) => Some(ident.sym()),
-          Expr::Member(member) if (member.obj).kind() == NodeKind::Ident => from_member_prop(&member.prop),
+          Expr::Member(member) if matches!(member.obj, Expr::Ident(_)) => from_member_prop(&member.prop),
           _ => None,
         }
       }
 
-      fn from_member_prop<'a>(member_prop: &'a MemberProp<'a>) -> Option<&'a str> {
+      fn from_member_prop<'a>(member_prop: &MemberProp<'a>) -> Option<&'a str> {
         match member_prop {
           MemberProp::Ident(ident) => Some(ident.sym()),
           _ => None,

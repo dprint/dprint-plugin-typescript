@@ -6,3 +6,11 @@ do {
 [expect]
 do {
 } while(false);
+
+== should keep a space before a comment before the paren ==
+do {
+} while /* c */ (true);
+
+[expect]
+do {
+} while /* c */ (true);

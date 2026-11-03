@@ -1,0 +1,6 @@
+~~ importDeclaration.forceMultiLine: never, lineWidth: 40 ~~
+== should never add a new line between ==
+import { a, b } from "./test.ts";
+
+[expect]
+import { a, b } from "./test.ts";

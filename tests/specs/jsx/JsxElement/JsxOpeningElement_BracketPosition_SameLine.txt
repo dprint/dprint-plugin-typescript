@@ -1,0 +1,61 @@
+-- file.tsx --
+~~  lineWidth: 50, jsxOpeningElement.bracketPosition: sameLine ~~
+== should move the bracket position to the same line ==
+const t = (
+    <Test
+    prop={5}
+    other={10}>
+        Test
+    </Test>
+);
+const u = (
+    <Test
+        prop={5}
+        other={10}
+    >
+    </Test>
+);
+const v = (
+    <Test
+    >
+    </Test>
+);
+const w = (
+    <Test
+        prop={5}
+        other={10}
+    />
+);
+
+[expect]
+const t = (
+    <Test
+        prop={5}
+        other={10}>
+        Test
+    </Test>
+);
+const u = (
+    <Test
+        prop={5}
+        other={10}>
+    </Test>
+);
+const v = (
+    <Test>
+    </Test>
+);
+const w = (
+    <Test
+        prop={5}
+        other={10}
+    />
+);
+
+== should maintain for single line ==
+const t = <MyComponent someProp={value} />;
+const u = <MyComponent></MyComponent>;
+
+[expect]
+const t = <MyComponent someProp={value} />;
+const u = <MyComponent></MyComponent>;

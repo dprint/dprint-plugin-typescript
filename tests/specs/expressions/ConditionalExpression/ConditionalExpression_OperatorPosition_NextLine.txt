@@ -1,4 +1,4 @@
-~~ conditionalExpression.operatorPosition: nextLine, conditionalExpression.preferSingleLine: false ~~
+~~ conditionalExpression.operatorPosition: nextLine, conditionalExpression.preferSingleLine: false, lineWidth: 40 ~~
 == should format ==
 test? 1: 2;
 test
@@ -15,16 +15,30 @@ test
     ? 1
     : 2;
 
-== should indent if the first line is a comment ==
+== should move standalone comments of token up to previous line ==
 test
-    ? // comment
-        test
-    : // comment
-        test
+    ? // comment 1
+        test1
+    : // comment 2
+        test2
 
 [expect]
 test
-    ? // comment
-        test
-    : // comment
-        test;
+    // comment 1
+    ? test1
+    // comment 2
+    : test2;
+
+== should handle comments moving ==
+test /* 0 */ ? /* 1 */ test /* 2 */ : /* 3 */ asdf /* 4 */;
+test /* 0 */ ? /* 1 */
+    /* 2 */ test /* 3 */ : /* 4 */
+    /* 5 */ asdf /* 6 */;
+
+[expect]
+test /* 0 */
+    ? /* 1 */ test /* 2 */
+    : /* 3 */ asdf /* 4 */;
+test /* 0 */ /* 1 */
+    ? /* 2 */ test /* 3 */ /* 4 */
+    : /* 5 */ asdf /* 6 */;

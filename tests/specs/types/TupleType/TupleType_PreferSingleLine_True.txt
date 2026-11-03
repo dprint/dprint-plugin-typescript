@@ -18,7 +18,7 @@ type T = [
     number,
 ];
 
-== should not be multi line if the objects are allowed to be inline multi-line ==
+== should break the container when multiple object siblings could each go inline multi-line (issue #641) ==
 type T = [{
     prop: number
 }, {
@@ -26,8 +26,11 @@ type T = [{
 }];
 
 [expect]
-type T = [{
-    prop: number;
-}, {
-    other: string;
-}];
+type T = [
+    {
+        prop: number;
+    },
+    {
+        other: string;
+    },
+];
