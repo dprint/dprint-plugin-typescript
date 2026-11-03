@@ -85,3 +85,11 @@ export type U =
     | testing
     | testing
     | testingtestingtestingtesting /*1*/;
+
+== should remove nested parens ==
+type Test = (((string)));
+type Test2 = test & (((string | number)));
+
+[expect]
+type Test = string;
+type Test2 = test & (string | number);

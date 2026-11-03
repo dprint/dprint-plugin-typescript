@@ -3,3 +3,11 @@ type ReturnType<T extends AnyFunction> = T extends (...args: any[]) => infer    
 
 [expect]
 type ReturnType<T extends AnyFunction> = T extends (...args: any[]) => infer R ? R : any;
+
+== should keep the parens around a constrained infer type in a function type's return type ==
+type Test<T> = T extends (...args: any[]) => (infer U extends string) ? U : never;
+type Test2<T> = T extends new (...args: any[]) => ((infer U extends string)) ? U : never;
+
+[expect]
+type Test<T> = T extends (...args: any[]) => (infer U extends string) ? U : never;
+type Test2<T> = T extends new(...args: any[]) => (infer U extends string) ? U : never;
