@@ -6,3 +6,13 @@ switch (foo) {
 [expect]
 switch ( foo ) {
 }
+
+== should not add spaces at the end or start of a line around the switch param ==
+switch (someVeryLongConditionIdentifierName <= anotherVeryLongConditionIdentifierName && yetAnotherVeryLongConditionName) {
+}
+
+[expect]
+switch (
+    someVeryLongConditionIdentifierName <= anotherVeryLongConditionIdentifierName && yetAnotherVeryLongConditionName
+) {
+}

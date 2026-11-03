@@ -1,0 +1,36 @@
+~~ typeLiteral.memberSpacing: blankLine ~~
+== should format with blank lines between members when multi-line ==
+type Test = {
+    a: string;
+    // comment
+    b: string;
+    c: number;
+};
+
+[expect]
+type Test = {
+    a: string;
+
+    // comment
+    b: string;
+
+    c: number;
+};
+
+== should not add blank lines when single line ==
+type Test = { a: string; b: string };
+
+[expect]
+type Test = { a: string; b: string };
+
+== should not affect interfaces ==
+interface Test {
+    a: string;
+    b: string;
+}
+
+[expect]
+interface Test {
+    a: string;
+    b: string;
+}

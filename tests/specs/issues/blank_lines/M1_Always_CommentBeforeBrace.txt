@@ -1,0 +1,47 @@
+~~ blockPadding: always ~~
+== should be stable with a comment before the open brace ==
+if (a) /* c */ {
+    b();
+}
+
+with (a) /* c */ {
+    b();
+}
+
+for (const a of b) /* c */ {
+    c();
+}
+
+[expect]
+if (a) {
+
+    /* c */ b();
+
+}
+
+with (a) {
+
+    /* c */ b();
+
+}
+
+for (const a of b) {
+
+    /* c */ c();
+
+}
+
+== should be stable with line comments before the open brace ==
+if (true) // 1
+// 2
+{
+    a();
+}
+
+[expect]
+if (true) { // 1
+
+    // 2
+    a();
+
+}

@@ -1,0 +1,13 @@
+~~ maxBlankLines: 2 ~~
+== should keep up to two blank lines after a shebang ==
+#!/usr/bin/env node
+
+
+
+a;
+
+[expect]
+#!/usr/bin/env node
+
+
+a;

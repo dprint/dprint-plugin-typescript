@@ -1,0 +1,15 @@
+~~ withStatement.useBraces: always ~~
+== should use braces when only one line ==
+with (obj)
+    a;
+
+[expect]
+with (obj) {
+    a;
+}
+
+== should not bother using braces when only has a semi-colon though ==
+with (obj);
+
+[expect]
+with (obj);

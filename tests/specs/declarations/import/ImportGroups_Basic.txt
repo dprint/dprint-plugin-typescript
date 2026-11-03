@@ -1,0 +1,22 @@
+~~ {
+  "lineWidth": 80,
+  "module.sortImportDeclarations": "maintain",
+  "module.importGroups": [
+    { "match": "builtin" },
+    { "match": "external" },
+    { "match": ["sibling", "index"] }
+  ]
+} ~~
+== reorders into builtin / external / sibling+index with blank lines ==
+import { c } from "./c";
+import { x } from "react";
+import { fs } from "node:fs";
+import { d } from "./index";
+
+[expect]
+import { fs } from "node:fs";
+
+import { x } from "react";
+
+import { c } from "./c";
+import { d } from "./index";

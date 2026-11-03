@@ -1,9 +1,9 @@
-use deno_ast::swc::common::comments::CommentKind;
-use deno_ast::view::*;
-use deno_ast::SourcePos;
-use deno_ast::SourceRange;
-use deno_ast::SourceRanged;
-use deno_ast::SourceRangedForSpanned;
+use dprint_swc_ext::common::SourcePos;
+use dprint_swc_ext::common::SourceRange;
+use dprint_swc_ext::common::SourceRanged;
+use dprint_swc_ext::common::SourceRangedForSpanned;
+use dprint_swc_ext::swc::common::comments::CommentKind;
+use dprint_swc_ext::view::*;
 
 use super::*;
 
@@ -132,6 +132,12 @@ impl<'a> InnerRanged for &BlockStmt<'a> {
   }
 }
 
+impl<'a> InnerRanged for &FunctionBody<'a> {
+  fn get_inner_range(&self, _: &mut Context) -> SourceRange {
+    get_inner_range_for_object_like(&self.range())
+  }
+}
+
 impl<'a> InnerRanged for &ObjectLit<'a> {
   fn get_inner_range(&self, _: &mut Context) -> SourceRange {
     get_inner_range_for_object_like(&self.range())
@@ -183,16 +189,7 @@ pub trait ParametersRanged {
 
 impl<'a> ParametersRanged for &Function<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
-    get_params_or_args_range(
-      self.start(),
-      self.params.iter().map(|x| x.range()).collect(),
-      self
-        .return_type
-        .map(|t| t.start())
-        .or_else(|| self.body.as_ref().map(|b| b.start()))
-        .unwrap_or_else(|| self.end()),
-      context,
-    )
+    get_function_parameters_range(self.start(), self, context)
   }
 }
 
@@ -212,7 +209,8 @@ impl<'a> ParametersRanged for &Constructor<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
     get_params_or_args_range(
       self.start(),
-      self.params.iter().map(|x| x.range()).collect(),
+      self.params.first().map(|x| x.range()),
+      self.params.last().map(|x| x.range()),
       self.body.as_ref().map(|t| t.start()).unwrap_or_else(|| self.end()),
       context,
     )
@@ -227,28 +225,13 @@ impl<'a> ParametersRanged for &MethodProp<'a> {
 
 impl<'a> ParametersRanged for &GetterProp<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
-    get_params_or_args_range(
-      self.start(),
-      vec![],
-      self
-        .type_ann
-        .as_ref()
-        .map(|t| t.start())
-        .or_else(|| self.body.as_ref().map(|t| t.start()))
-        .unwrap_or_else(|| self.end()),
-      context,
-    )
+    get_function_parameters_range(self.start(), self.function, context)
   }
 }
 
 impl<'a> ParametersRanged for &SetterProp<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
-    get_params_or_args_range(
-      self.start(),
-      vec![self.param.range()],
-      self.body.as_ref().map(|t| t.start()).unwrap_or_else(|| self.end()),
-      context,
-    )
+    get_function_parameters_range(self.start(), self.function, context)
   }
 }
 
@@ -256,7 +239,8 @@ impl<'a> ParametersRanged for &ArrowExpr<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
     get_params_or_args_range(
       self.start(),
-      self.params.iter().map(|x| x.range()).collect(),
+      self.params.first().map(|x| x.range()),
+      self.params.last().map(|x| x.range()),
       self.return_type.as_ref().map(|t| t.start()).unwrap_or_else(|| self.body.start()),
       context,
     )
@@ -265,7 +249,13 @@ impl<'a> ParametersRanged for &ArrowExpr<'a> {
 
 impl<'a> ParametersRanged for CallOrOptCallExpr<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
-    get_params_or_args_range(self.start(), self.args().iter().map(|a| a.range()).collect(), self.end(), context)
+    get_params_or_args_range(
+      self.start(),
+      self.args().first().map(|x| x.range()),
+      self.args().last().map(|x| x.range()),
+      self.end(),
+      context,
+    )
   }
 }
 
@@ -273,7 +263,8 @@ impl<'a> ParametersRanged for &NewExpr<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
     get_params_or_args_range(
       self.start(),
-      self.args.as_ref().map(|args| args.iter().map(|a| a.range()).collect()).unwrap_or_default(),
+      self.args.as_ref().and_then(|args| args.first()).map(|x| x.range()),
+      self.args.as_ref().and_then(|args| args.last()).map(|x| x.range()),
       self.end(),
       context,
     )
@@ -284,7 +275,8 @@ impl<'a> ParametersRanged for &TsCallSignatureDecl<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
     get_params_or_args_range(
       self.start(),
-      self.params.iter().map(|x| x.range()).collect(),
+      self.params.first().map(|x| x.range()),
+      self.params.last().map(|x| x.range()),
       self.type_ann.as_ref().map(|t| t.start()).unwrap_or_else(|| self.end()),
       context,
     )
@@ -295,7 +287,8 @@ impl<'a> ParametersRanged for &TsConstructSignatureDecl<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
     get_params_or_args_range(
       self.start(),
-      self.params.iter().map(|x| x.range()).collect(),
+      self.params.first().map(|x| x.range()),
+      self.params.last().map(|x| x.range()),
       self.type_ann.as_ref().map(|t| t.start()).unwrap_or_else(|| self.end()),
       context,
     )
@@ -306,7 +299,8 @@ impl<'a> ParametersRanged for &TsGetterSignature<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
     get_params_or_args_range(
       self.start(),
-      Vec::with_capacity(0),
+      None,
+      None,
       self.type_ann.as_ref().map(|t| t.start()).unwrap_or_else(|| self.end()),
       context,
     )
@@ -315,7 +309,7 @@ impl<'a> ParametersRanged for &TsGetterSignature<'a> {
 
 impl<'a> ParametersRanged for &TsSetterSignature<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
-    get_params_or_args_range(self.start(), vec![self.param.range()], self.end(), context)
+    get_params_or_args_range(self.start(), Some(self.param.range()), Some(self.param.range()), self.end(), context)
   }
 }
 
@@ -323,7 +317,8 @@ impl<'a> ParametersRanged for &TsMethodSignature<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
     get_params_or_args_range(
       self.start(),
-      self.params.iter().map(|x| x.range()).collect(),
+      self.params.first().map(|x| x.range()),
+      self.params.last().map(|x| x.range()),
       self.type_ann.as_ref().map(|t| t.start()).unwrap_or_else(|| self.end()),
       context,
     )
@@ -332,37 +327,67 @@ impl<'a> ParametersRanged for &TsMethodSignature<'a> {
 
 impl<'a> ParametersRanged for &TsConstructorType<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
-    get_params_or_args_range(self.start(), self.params.iter().map(|x| x.range()).collect(), self.type_ann.start(), context)
+    get_params_or_args_range(
+      self.start(),
+      self.params.first().map(|x| x.range()),
+      self.params.last().map(|x| x.range()),
+      self.type_ann.start(),
+      context,
+    )
   }
 }
 
 impl<'a> ParametersRanged for &TsFnType<'a> {
   fn get_parameters_range(&self, context: &mut Context) -> Option<SourceRange> {
-    get_params_or_args_range(self.start(), self.params.iter().map(|x| x.range()).collect(), self.type_ann.start(), context)
+    get_params_or_args_range(
+      self.start(),
+      self.params.first().map(|x| x.range()),
+      self.params.last().map(|x| x.range()),
+      self.type_ann.start(),
+      context,
+    )
   }
 }
 
-fn get_params_or_args_range(start_pos: SourcePos, params: Vec<SourceRange>, following_pos: SourcePos, context: &mut Context) -> Option<SourceRange> {
+/// Gets the range of a function's parameters, which includes its `this` parameter.
+fn get_function_parameters_range(start_pos: SourcePos, function: &Function, context: &mut Context) -> Option<SourceRange> {
+  let this_param_range = function.this_param.map(|p| p.range());
+  get_params_or_args_range(
+    start_pos,
+    this_param_range.or_else(|| function.params.first().map(|x| x.range())),
+    function.params.last().map(|x| x.range()).or(this_param_range),
+    function
+      .return_type
+      .map(|t| t.start())
+      .or_else(|| function.body.map(|b| b.start()))
+      .unwrap_or_else(|| function.end()),
+    context,
+  )
+}
+
+fn get_params_or_args_range(
+  start_pos: SourcePos,
+  first_param: Option<SourceRange>,
+  last_param: Option<SourceRange>,
+  following_pos: SourcePos,
+  context: &mut Context,
+) -> Option<SourceRange> {
   let close_token_end = {
-    let close_paren = if let Some(last_param) = params.last() {
+    let close_paren = if let Some(last_param) = &last_param {
       context.token_finder.get_first_close_paren_after(last_param)
     } else {
       context.token_finder.get_first_close_paren_before(&following_pos)
     };
     if let Some(close_paren) = close_paren {
       let end = close_paren.end();
-      if end > start_pos {
-        Some(end)
-      } else {
-        None
-      }
+      if end > start_pos { Some(end) } else { None }
     } else {
       None
     }
   }?;
   let close_token_start = {
     let open_paren = context.token_finder.get_first_open_paren_before(&{
-      if let Some(first_param) = params.first() {
+      if let Some(first_param) = first_param {
         first_param.start()
       } else {
         close_token_end
@@ -371,11 +396,7 @@ fn get_params_or_args_range(start_pos: SourcePos, params: Vec<SourceRange>, foll
 
     if let Some(open_paren) = open_paren {
       let pos = open_paren.start();
-      if pos >= start_pos {
-        Some(pos)
-      } else {
-        None
-      }
+      if pos >= start_pos { Some(pos) } else { None }
     } else {
       None
     }
