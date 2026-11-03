@@ -11518,7 +11518,8 @@ fn gen_surrounded_by_tokens<'a>(
       is_single_line = open_token_start_line == first_member_start_line;
 
       if is_single_line && opts.single_line_space_around {
-        items.push_space();
+        // no space when the inner text starts on the next line
+        items.push_signal(Signal::SpaceIfNotTrailing);
       }
 
       if opts.allow_open_token_trailing_comments && !is_single_line {
@@ -11552,7 +11553,8 @@ fn gen_surrounded_by_tokens<'a>(
       is_single_line = open_token_start_line == close_token_start.start_line_fast(context.program) && opts.comments_only_padding.is_empty();
 
       if is_single_line && opts.single_line_space_around {
-        items.push_space();
+        // no space when the inner text starts on the next line
+        items.push_signal(Signal::SpaceIfNotTrailing);
       }
 
       if !comments.is_empty() {
@@ -11616,7 +11618,12 @@ fn gen_surrounded_by_tokens<'a>(
     }
 
     if is_single_line && opts.single_line_space_around {
-      items.push_space();
+      // no space when the close token starts the line
+      items.push_condition(if_false(
+        "spaceIfNotStartOfLine",
+        condition_resolvers::is_start_of_line(),
+        Signal::SpaceIfNotTrailing.into_print_items(context.arena),
+      ));
     }
   } else {
     // todo: have a warning here when this happens
