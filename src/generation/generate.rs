@@ -4522,17 +4522,16 @@ fn gen_jsx_opening_element<'a>(node: &JSXOpeningElement<'a>, context: &mut Conte
     items.push_signal(Signal::NewLine);
   }
 
+  // when hanging, the attributes don't end with a new line before the bracket
+  if context.config.jsx_attributes_prefer_hanging && prefer_newline_before_close_bracket {
+    items.push_condition(conditions::new_line_if_hanging(context.arena, start_lsil, None));
+  }
   if node.self_closing() {
     if space_before_self_closing_tag_slash {
       items.push_force_current_line_indentation();
       items.extend(space_if_not_start_line(context.arena));
     }
-    if prefer_newline_before_close_bracket {
-        items.push_condition(conditions::new_line_if_hanging(context.arena, start_lsil, None));
-    }
     items.push_sc(sc!("/"));
-  } else if context.config.jsx_attributes_prefer_hanging && prefer_newline_before_close_bracket {
-    items.push_condition(conditions::new_line_if_hanging(context.arena, start_lsil, None));
   }
   items.push_sc(sc!(">"));
 
