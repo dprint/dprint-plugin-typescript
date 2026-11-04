@@ -1,4 +1,4 @@
-~~ indentWidth: 2, operatorPosition: sameLine ~~
+~~ indentWidth: 2, operatorPosition: sameLine, conditionalExpression.indentBranchContent: true ~~
 == should keep the hanging content indented once when the operators are at the end of the line ==
 const value = true
   ? test({

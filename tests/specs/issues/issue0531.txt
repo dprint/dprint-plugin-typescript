@@ -1,4 +1,4 @@
-~~ indentWidth: 2 ~~
+~~ indentWidth: 2, conditionalExpression.indentBranchContent: true ~~
 == should indent the hanging content of a call in a branch past the branch ==
 const value = true
   ? test({

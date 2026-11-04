@@ -1,4 +1,4 @@
-~~ indentWidth: 2, conditionalExpression.useNestedIndentation: true ~~
+~~ indentWidth: 2, conditionalExpression.useNestedIndentation: true, conditionalExpression.indentBranchContent: true ~~
 == should indent the hanging content in the branches of nested conditionals past the branch ==
 const value = true
   ? test({

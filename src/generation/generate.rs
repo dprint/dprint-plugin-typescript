@@ -2749,8 +2749,8 @@ fn gen_conditional_expr<'a>(node: &CondExpr<'a>, context: &mut Context<'a>) -> P
   /// The hanging content of a multi-line branch (ex. the properties of an object argument) is
   /// indented from the start of the operator's line, so it lines up with the start of the branch
   /// when the operator is before the branch and an indent is as wide as the operator and its
-  /// space. In that case, when the operator starts the line, the lines after the branch's first
-  /// line are indented once more.
+  /// space. In that case, when the operator starts the line and `indentBranchContent` is enabled,
+  /// the lines after the branch's first line are indented once more.
   fn gen_branch<'a>(
     branch: Expr<'a>,
     operator_position: OperatorPosition,
@@ -2758,8 +2758,12 @@ fn gen_conditional_expr<'a>(node: &CondExpr<'a>, context: &mut Context<'a>) -> P
     context: &mut Context<'a>,
   ) -> PrintItems<'a> {
     let items = gen_node(branch.into(), context);
-    // nested conditionals line their operators up with the top most conditional instead
-    if operator_position != OperatorPosition::NextLine || branch.kind() == NodeKind::CondExpr || context.config.indent_width > 2 {
+    if !context.config.conditional_expression_indent_branch_content
+      || operator_position != OperatorPosition::NextLine
+      // nested conditionals line their operators up with the top most conditional instead
+      || branch.kind() == NodeKind::CondExpr
+      || context.config.indent_width > 2
+    {
       return items;
     }
     let arena = context.arena;

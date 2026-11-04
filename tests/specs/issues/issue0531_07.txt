@@ -1,0 +1,20 @@
+~~ indentWidth: 2 ~~
+== should keep the hanging content of a branch indented once from the line by default ==
+const value = true
+  ? test({
+    myVeryLongVariableName: "some value", otherVeryLongVariableName: "some other value",
+  })
+  : [
+    1, 2,
+  ];
+
+[expect]
+const value = true
+  ? test({
+    myVeryLongVariableName: "some value",
+    otherVeryLongVariableName: "some other value",
+  })
+  : [
+    1,
+    2,
+  ];

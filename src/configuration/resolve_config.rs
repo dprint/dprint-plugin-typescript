@@ -198,6 +198,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     variable_statement_prefer_hanging: get_value(&mut config, "variableStatement.preferHanging", prefer_hanging, &mut diagnostics),
     while_statement_prefer_hanging: get_value(&mut config, "whileStatement.preferHanging", prefer_hanging, &mut diagnostics),
     /* situational indentation */
+    conditional_expression_indent_branch_content: get_value(&mut config, "conditionalExpression.indentBranchContent", false, &mut diagnostics),
     conditional_expression_use_nested_indentation: get_value(&mut config, "conditionalExpression.useNestedIndentation", false, &mut diagnostics),
     conditional_type_use_nested_indentation: get_value(&mut config, "conditionalType.useNestedIndentation", false, &mut diagnostics),
     with_statement_prefer_hanging: get_value(&mut config, "withStatement.preferHanging", prefer_hanging, &mut diagnostics),

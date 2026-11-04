@@ -1,3 +1,4 @@
+~~ conditionalExpression.indentBranchContent: true ~~
 == should keep the hanging content indented once when the indent is wider than the operator ==
 const value = true
     ? test({

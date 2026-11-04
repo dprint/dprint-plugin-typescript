@@ -665,6 +665,8 @@ pub struct Configuration {
   #[serde(rename = "whileStatement.preferHanging")]
   pub while_statement_prefer_hanging: bool,
   /* situational indentation */
+  #[serde(rename = "conditionalExpression.indentBranchContent")]
+  pub conditional_expression_indent_branch_content: bool,
   #[serde(rename = "conditionalExpression.useNestedIndentation")]
   pub conditional_expression_use_nested_indentation: bool,
   #[serde(rename = "conditionalType.useNestedIndentation")]

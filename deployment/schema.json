@@ -487,6 +487,18 @@
         "description": "Maintains the line breaks as written by the programmer."
       }]
     },
+    "conditionalExpression.indentBranchContent": {
+      "description": "Whether to indent the hanging content of a conditional expression's true or false part past the start of that part when its `?` or `:` starts the line (ex. the properties of `? {` are indented past the `{` instead of lined up with it). This has no effect when the indent width is greater than 2 because the content is already past the start of the part.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": "Indents the hanging content past the start of the part (ex. `? {` then `    prop: 1,` then `  }` at an indent width of 2)."
+      }, {
+        "const": false,
+        "description": "Indents the hanging content once from the start of the line, so it lines up with the start of the part when the indent width is 2."
+      }]
+    },
     "useNestedIndentation": {
       "description": "Whether to indent a nested conditional in the true or false part more than its parent, so it formats as a tree.",
       "type": "boolean",
@@ -1038,6 +1050,9 @@
     },
     "conditionalType.linePerExpression": {
       "$ref": "#/definitions/conditionalType.linePerExpression"
+    },
+    "conditionalExpression.indentBranchContent": {
+      "$ref": "#/definitions/conditionalExpression.indentBranchContent"
     },
     "conditionalExpression.useNestedIndentation": {
       "$ref": "#/definitions/useNestedIndentation"

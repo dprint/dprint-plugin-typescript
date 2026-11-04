@@ -1,5 +1,5 @@
 -- file.tsx --
-~~ indentWidth: 2 ~~
+~~ indentWidth: 2, conditionalExpression.indentBranchContent: true ~~
 == should indent jsx in a branch past the branch ==
 const value = cond
   ? <div>
