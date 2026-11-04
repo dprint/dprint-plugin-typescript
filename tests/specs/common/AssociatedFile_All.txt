@@ -1,0 +1,11 @@
+-- file.ts.txt --
+== should parse with the extension before an unknown one ==
+import {
+    define,
+    type   EmptyArray,
+} from '@flex-development/tutils';
+const   a:   EmptyArray = [];
+
+[expect]
+import { define, type EmptyArray } from "@flex-development/tutils";
+const a: EmptyArray = [];
