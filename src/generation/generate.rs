@@ -12282,6 +12282,8 @@ fn is_hugged_last_arg_arrow<'a>(arrow_expr: &'a ArrowExpr<'a>, context: &Context
     && args.len() > 1
     && expr_or_spread.spread().is_none()
     && args.last().is_some_and(|last_arg| last_arg.start() == expr_or_spread.start())
+    // functions side by side read better on separate lines (ex. `call(\n  (a) => b,\n  (c) => ({ d }),\n)`)
+    && !matches!(args[args.len() - 2].expr, Expr::Arrow(_) | Expr::Fn(_))
     && !use_new_line_group_for_arrow_body(arrow_expr, context)
 }
 

@@ -109,6 +109,26 @@ foo(
   b,
 );
 
+== should put the arguments on separate lines when the second last is also an arrow function ==
+const r = z.string().refine((val) => val === val.toUpperCase(), (val) => ({
+  params: { val },
+}));
+
+[expect]
+const r = z.string().refine(
+  (val) => val === val.toUpperCase(),
+  (val) => ({ params: { val } }),
+);
+
+== should put the arguments on separate lines when the second last is a function expression ==
+const dynamicRefine = z.string().refine(function(val) {}, (val) => ({ params: { val }, message: "Some message here" }));
+
+[expect]
+const dynamicRefine = z.string().refine(
+  function(val) {},
+  (val) => ({ params: { val }, message: "Some message here" }),
+);
+
 == should put the arguments on separate lines when the arrow function's body isn't in parens ==
 foo(a, (_, i) => call(somePropFooBlah, somePropFooBlah, somePropFooBlah, somePropFooBlah, aaaaaa));
 
