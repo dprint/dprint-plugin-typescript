@@ -145,11 +145,11 @@ enum ComparisonPart<'a> {
 
 /// The kind of an import declaration, which orders the import declarations of the same module.
 ///
-/// This is the order TypeScript's organize imports outputs them in: value imports before
-/// type-only imports, then namespace, default, and named imports.
+/// Type-only imports go before value imports, since that's what code commonly does (it's also
+/// what eslint-plugin-simple-import-sort does), then namespace, default, and named imports.
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 struct ImportDeclKind {
-  is_type_only: bool,
+  is_value: bool,
   bindings: ImportDeclBindings,
 }
 
@@ -269,7 +269,7 @@ fn get_import_decl_kind(node: &ImportDecl) -> ImportDeclKind {
     ImportDeclBindings::Default
   };
   ImportDeclKind {
-    is_type_only: node.type_only(),
+    is_value: !node.type_only(),
     bindings,
   }
 }

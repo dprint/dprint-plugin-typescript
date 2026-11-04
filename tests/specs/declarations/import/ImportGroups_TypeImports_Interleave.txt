@@ -21,6 +21,6 @@ import { a } from "alpha";
 import * as ns from "alpha";
 
 [expect]
+import type { B } from "alpha";
 import * as ns from "alpha";
 import { a } from "alpha";
-import type { B } from "alpha";

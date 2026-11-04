@@ -17,7 +17,7 @@ import * as evaluator from "../../_namespaces/evaluator";
 import * as ts from "../../_namespaces/ts";
 import { ScriptTarget } from "../../_namespaces/ts";
 
-== should sort the imports of the same module by kind with type-only imports last ==
+== should sort the imports of the same module by kind with type-only imports first ==
 import type { C } from "a";
 import { SyntaxKind } from "a";
 import type * as types from "a";
@@ -26,12 +26,12 @@ import ts2 from "a";
 import * as ts from "a";
 
 [expect]
-import * as ts from "a";
-import ts2 from "a";
-import { SyntaxKind } from "a";
 import type * as types from "a";
 import type D from "a";
 import type { C } from "a";
+import * as ts from "a";
+import ts2 from "a";
+import { SyntaxKind } from "a";
 
 == should sort a namespace or named import with a default import by its namespace or named import ==
 import d1, { a } from "a";
