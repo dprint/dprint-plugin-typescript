@@ -7168,6 +7168,18 @@ fn gen_qualified_name<'a>(node: &TsQualifiedName<'a>, context: &mut Context<'a>)
 }
 
 fn gen_parenthesized_type<'a>(node: &TsParenthesizedType<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
+  let end_ln = match context.assignment_paren_end_ln {
+    Some((start, end_ln)) if start == node.start() => context.assignment_paren_end_ln.take().map(|_| end_ln),
+    _ => None,
+  };
+  let mut items = gen_parenthesized_type_inner(node, context);
+  if let Some(end_ln) = end_ln {
+    items.push_info(end_ln);
+  }
+  items
+}
+
+fn gen_parenthesized_type_inner<'a>(node: &TsParenthesizedType<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
   if should_skip_parenthesized_type(node, context) {
     return gen_node(node.type_ann.into(), context);
   }
@@ -7601,6 +7613,15 @@ fn gen_union_or_intersection_type<'a, 'b>(node: UnionOrIntersectionType<'a, 'b>,
 
   fn get_force_use_new_lines<'a>(node: &UnionOrIntersectionType<'a, '_>, context: &mut Context<'a>) -> bool {
     let types = node.types;
+    if context.config.union_and_intersection_type_prefer_hanging && !context.config.union_and_intersection_type_prefer_single_line && types.len() >= 2 {
+      // a hanging type puts the second type on the next line when it doesn't fit, which isn't
+      // multi-line unless the first type is also on the line after what's before it (ex. `=`)
+      let is_first_on_next_line = match context.token_finder.get_previous_token(&node.node) {
+        Some(previous_token) => types[0].start_line_fast(context.program) > previous_token.end_line_fast(context.program),
+        None => false,
+      };
+      return is_first_on_next_line && get_use_new_lines_for_nodes(types, false, context);
+    }
     if !context.config.union_and_intersection_type_prefer_single_line || types.len() < 2 {
       return get_use_new_lines_for_nodes(types, false, context);
     }
@@ -11528,9 +11549,9 @@ fn gen_assignment_like_with_token<'a>(
     let mut reevaluation = None;
     if !had_op_trailing_comments {
       let start_ln = LineNumber::new("assignmentStart");
-      let paren_end_ln = get_paren_with_kept_line_breaks(expr, context.config).map(|paren| {
+      let paren_end_ln = get_paren_with_kept_line_breaks(expr, context.config).map(|paren_start| {
         let end_ln = LineNumber::new("assignmentParenEnd");
-        context.assignment_paren_end_ln = Some((paren.start(), end_ln));
+        context.assignment_paren_end_ln = Some((paren_start, end_ln));
         end_ln
       });
       let indent_width = context.config.indent_width as u32;
@@ -11600,9 +11621,9 @@ fn gen_assignment_like_with_token<'a>(
     matches!(expr, Node::MemberExpr(_))
   }
 
-  /// Gets the parenthesized expression at the start of the right side when it has an
-  /// expression that keeps its line breaks (ex. `(a ? b : c) as T` or `!!(a && b)`).
-  fn get_paren_with_kept_line_breaks<'a>(expr: Node<'a>, config: &Configuration) -> Option<&'a ParenExpr<'a>> {
+  /// Gets the start of the parenthesized expression or type at the start of the right side when it has
+  /// one that keeps its line breaks (ex. `(a ? b : c) as T`, `!!(a && b)`, or `<(A | B)>value`).
+  fn get_paren_with_kept_line_breaks<'a>(expr: Node<'a>, config: &Configuration) -> Option<SourcePos> {
     let mut node = expr;
     loop {
       node = match node {
@@ -11618,7 +11639,15 @@ fn gen_assignment_like_with_token<'a>(
             Expr::Bin(_) => !config.binary_expression_prefer_single_line,
             _ => false,
           };
-          return keeps_line_breaks.then_some(paren);
+          return keeps_line_breaks.then_some(paren.start());
+        }
+        // ex. `<(A | B)>value`
+        Node::TsTypeAssertion(expr) => {
+          let TsType::TsParenthesizedType(paren) = expr.type_ann else {
+            return None;
+          };
+          let keeps_line_breaks = matches!(paren.type_ann, TsType::TsUnionOrIntersectionType(_)) && !config.union_and_intersection_type_prefer_single_line;
+          return keeps_line_breaks.then_some(paren.start());
         }
         _ => return None,
       };
