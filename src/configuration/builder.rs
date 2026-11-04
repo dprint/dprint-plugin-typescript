@@ -70,8 +70,8 @@ impl ConfigurationBuilder {
       .ignore_file_comment_text("deno-fmt-ignore-file")
       .module_sort_import_declarations(SortOrder::Maintain)
       .module_sort_export_declarations(SortOrder::Maintain)
-      .export_declaration_sort_type_only_exports(NamedTypeImportsExportsOrder::None)
-      .import_declaration_sort_type_only_imports(NamedTypeImportsExportsOrder::None)
+      .export_declaration_sort_type_only_exports(NamedTypeImportsExportsOrder::Inline)
+      .import_declaration_sort_type_only_imports(NamedTypeImportsExportsOrder::Inline)
   }
 
   /// The width of a line the printer will try to stay under. Note that the printer may exceed this width in certain cases.
@@ -682,9 +682,9 @@ impl ConfigurationBuilder {
     self.insert("importDeclaration.sortNamedImports", value.to_string().into())
   }
 
-  /// Sorts type-only named imports first, last, or none (no sorting).
+  /// Sorts type-only named imports first, last, or inline with the other named imports.
   ///
-  /// Default: Last
+  /// Default: Inline
   pub fn import_declaration_sort_type_only_imports(&mut self, value: NamedTypeImportsExportsOrder) -> &mut Self {
     self.insert("importDeclaration.sortTypeOnlyImports", value.to_string().into())
   }
@@ -696,9 +696,9 @@ impl ConfigurationBuilder {
     self.insert("exportDeclaration.sortNamedExports", value.to_string().into())
   }
 
-  /// Sorts type-only named exports first, last, or none (no sorting).
+  /// Sorts type-only named exports first, last, or inline with the other named exports.
   ///
-  /// Default: Last
+  /// Default: Inline
   pub fn export_declaration_sort_type_only_exports(&mut self, value: NamedTypeImportsExportsOrder) -> &mut Self {
     self.insert("exportDeclaration.sortTypeOnlyExports", value.to_string().into())
   }
@@ -1488,7 +1488,7 @@ mod tests {
       .import_declaration_sort_named_imports(SortOrder::Maintain)
       .export_declaration_sort_named_exports(SortOrder::Maintain)
       .import_declaration_sort_type_only_imports(NamedTypeImportsExportsOrder::First)
-      .export_declaration_sort_type_only_exports(NamedTypeImportsExportsOrder::None)
+      .export_declaration_sort_type_only_exports(NamedTypeImportsExportsOrder::Inline)
       /* ignore comments */
       .ignore_node_comment_text("ignore")
       .ignore_file_comment_text("ignore-file")

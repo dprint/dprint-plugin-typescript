@@ -379,16 +379,23 @@ generate_str_to_from![
   [CaseInsensitive, "caseInsensitive"]
 ];
 
+/// Where type-only named imports and exports are sorted relative to the others.
 #[derive(Copy, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub enum NamedTypeImportsExportsOrder {
+  /// Puts type-only named imports and exports first.
   First,
+  /// Puts type-only named imports and exports last.
   Last,
+  /// Sorts type-only named imports and exports inline with the others.
+  ///
+  /// This was previously called `none`, which is still accepted as an alias.
   #[default]
-  None,
+  #[serde(alias = "none")]
+  Inline,
 }
 
-generate_str_to_from![NamedTypeImportsExportsOrder, [First, "first"], [Last, "last"], [None, "none"]];
+generate_str_to_from![NamedTypeImportsExportsOrder, [First, "first"], [Last, "last"], [Inline, "inline"]];
 
 /// How type-only imports are classified by `module.importGroups`.
 #[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]

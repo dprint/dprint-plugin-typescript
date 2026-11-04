@@ -130,18 +130,8 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     module_sort_export_declarations: get_value(&mut config, "module.sortExportDeclarations", SortOrder::CaseInsensitive, &mut diagnostics),
     import_declaration_sort_named_imports: get_value(&mut config, "importDeclaration.sortNamedImports", SortOrder::CaseInsensitive, &mut diagnostics),
     export_declaration_sort_named_exports: get_value(&mut config, "exportDeclaration.sortNamedExports", SortOrder::CaseInsensitive, &mut diagnostics),
-    import_declaration_sort_type_only_imports: get_value(
-      &mut config,
-      "importDeclaration.sortTypeOnlyImports",
-      NamedTypeImportsExportsOrder::None,
-      &mut diagnostics,
-    ),
-    export_declaration_sort_type_only_exports: get_value(
-      &mut config,
-      "exportDeclaration.sortTypeOnlyExports",
-      NamedTypeImportsExportsOrder::None,
-      &mut diagnostics,
-    ),
+    import_declaration_sort_type_only_imports: get_named_type_imports_exports_order(&mut config, "importDeclaration.sortTypeOnlyImports", &mut diagnostics),
+    export_declaration_sort_type_only_exports: get_named_type_imports_exports_order(&mut config, "exportDeclaration.sortTypeOnlyExports", &mut diagnostics),
     module_import_groups: get_import_groups(&mut config, &mut diagnostics),
     module_type_imports: get_value(&mut config, "module.typeImports", TypeImportsMode::Separate, &mut diagnostics),
     module_import_groups_newlines_between: get_value(&mut config, "module.importGroupsNewlinesBetween", NewlinesBetween::Always, &mut diagnostics),
@@ -463,6 +453,17 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
   }
 }
 
+/// Gets where to sort type-only named imports or exports. Accepts `none` as an
+/// alias of `inline` because that was its name before it was renamed.
+fn get_named_type_imports_exports_order(config: &mut ConfigKeyMap, key: &str, diagnostics: &mut Vec<ConfigurationDiagnostic>) -> NamedTypeImportsExportsOrder {
+  if let Some(ConfigKeyValue::String(value)) = config.get_mut(key)
+    && value == "none"
+  {
+    *value = NamedTypeImportsExportsOrder::Inline.to_string();
+  }
+  get_value(config, key, NamedTypeImportsExportsOrder::Inline, diagnostics)
+}
+
 /// Gets the `module.importGroups` configuration, which is an array of objects
 /// with a `match` property that's a matcher or an array of matchers.
 fn get_import_groups(config: &mut ConfigKeyMap, diagnostics: &mut Vec<ConfigurationDiagnostic>) -> Vec<ImportGroup> {
@@ -751,6 +752,51 @@ mod tests {
     assert_eq!(result.config.indent_width, 8);
     assert_eq!(result.config.line_width, expected_config.line_width);
     assert_eq!(result.diagnostics.len(), 0);
+  }
+
+  #[test]
+  fn handle_sort_type_only_imports_exports() {
+    for (value, expected) in [
+      ("first", NamedTypeImportsExportsOrder::First),
+      ("last", NamedTypeImportsExportsOrder::Last),
+      ("inline", NamedTypeImportsExportsOrder::Inline),
+      // deprecated alias of `inline`
+      ("none", NamedTypeImportsExportsOrder::Inline),
+    ] {
+      let mut config = ConfigKeyMap::new();
+      config.insert(String::from("importDeclaration.sortTypeOnlyImports"), ConfigKeyValue::from_str(value));
+      config.insert(String::from("exportDeclaration.sortTypeOnlyExports"), ConfigKeyValue::from_str(value));
+      let result = resolve_config(config, &GlobalConfiguration::default());
+      assert!(result.config.import_declaration_sort_type_only_imports == expected, "{}", value);
+      assert!(result.config.export_declaration_sort_type_only_exports == expected, "{}", value);
+      assert_eq!(result.diagnostics.len(), 0, "{}", value);
+    }
+
+    let result = resolve_config(ConfigKeyMap::new(), &GlobalConfiguration::default());
+    assert!(result.config.import_declaration_sort_type_only_imports == NamedTypeImportsExportsOrder::Inline);
+    assert!(result.config.export_declaration_sort_type_only_exports == NamedTypeImportsExportsOrder::Inline);
+
+    let mut config = ConfigKeyMap::new();
+    config.insert(String::from("importDeclaration.sortTypeOnlyImports"), ConfigKeyValue::from_str("other"));
+    let result = resolve_config(config, &GlobalConfiguration::default());
+    assert_eq!(get_diagnostic_property_names(&result.diagnostics), ["importDeclaration.sortTypeOnlyImports"]);
+  }
+
+  #[test]
+  fn sort_type_only_imports_exports_serde_round_trip() {
+    let mut config = ConfigKeyMap::new();
+    config.insert(String::from("importDeclaration.sortTypeOnlyImports"), ConfigKeyValue::from_str("none"));
+    let config = resolve_config(config, &GlobalConfiguration::default()).config;
+    let mut json = serde_json::to_value(&config).unwrap();
+    assert_eq!(json["importDeclaration.sortTypeOnlyImports"], "inline");
+    assert_eq!(json["exportDeclaration.sortTypeOnlyExports"], "inline");
+    let deserialized: Configuration = serde_json::from_value(json.clone()).unwrap();
+    assert!(deserialized.import_declaration_sort_type_only_imports == NamedTypeImportsExportsOrder::Inline);
+
+    // a serialized config from before the rename still deserializes
+    json["importDeclaration.sortTypeOnlyImports"] = serde_json::Value::from("none");
+    let deserialized: Configuration = serde_json::from_value(json).unwrap();
+    assert!(deserialized.import_declaration_sort_type_only_imports == NamedTypeImportsExportsOrder::Inline);
   }
 
   #[test]

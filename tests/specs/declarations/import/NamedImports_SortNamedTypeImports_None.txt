@@ -1,5 +1,5 @@
 ~~ lineWidth: 40, importDeclaration.sortTypeOnlyImports: none ~~
-== should sort ==
+== should treat none as an alias of inline ==
 import {
     type a,
     testing,

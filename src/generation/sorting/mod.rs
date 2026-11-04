@@ -75,12 +75,12 @@ impl NodeSorter {
         (ComparisonPart::HasType, ComparisonPart::NoType) => match self.named_type_imports_exports_order {
           NamedTypeImportsExportsOrder::First => return Ordering::Less,
           NamedTypeImportsExportsOrder::Last => return Ordering::Greater,
-          NamedTypeImportsExportsOrder::None => {}
+          NamedTypeImportsExportsOrder::Inline => {}
         },
         (ComparisonPart::NoType, ComparisonPart::HasType) => match self.named_type_imports_exports_order {
           NamedTypeImportsExportsOrder::First => return Ordering::Greater,
           NamedTypeImportsExportsOrder::Last => return Ordering::Less,
-          NamedTypeImportsExportsOrder::None => {}
+          NamedTypeImportsExportsOrder::Inline => {}
         },
         (ComparisonPart::Text(a), ComparisonPart::Text(b)) => {
           let cmp_result = self.cmp_text(a, b);
