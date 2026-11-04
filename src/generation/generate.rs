@@ -1937,6 +1937,10 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
       .unwrap_or(false);
     let mut items = if is_arrow_in_test_call_expr {
       ir_helpers::with_no_new_lines(header_items)
+    } else if is_hugged_last_arg_arrow(node, context) {
+      // the arguments aren't in a new line group so the body can break inside its parens, but
+      // the arguments should still break before the header rather than inside its parameters
+      ir_helpers::new_line_group(header_items)
     } else {
       header_items
     };
@@ -10082,7 +10086,13 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
           // Prefer going inline multi-line for certain expressions in arguments
           // when initially single line.
           // Example: call({\n}) instead of call(\n  {\n  }\n)
-          NodeOrSeparator::Node(Node::ExprOrSpread(expr_or_spread)) => !matches!(expr_or_spread.expr, Expr::Object(_) | Expr::Array(_)),
+          NodeOrSeparator::Node(Node::ExprOrSpread(expr_or_spread)) => match expr_or_spread.expr {
+            Expr::Object(_) | Expr::Array(_) => false,
+            // the same goes for a last argument that's an arrow function whose body breaks inside its parens
+            // ex. call(a, () => (\n  <div />\n)) instead of call(\n  a,\n  () => (\n    <div />\n  ),\n)
+            Expr::Arrow(arrow_expr) => !is_hugged_last_arg_arrow(arrow_expr, context),
+            _ => true,
+          },
           _ => true,
         };
 
@@ -12312,6 +12322,31 @@ fn use_new_line_group_for_arrow_body<'a>(arrow_expr: &'a ArrowExpr<'a>, context:
     },
     _ => true,
   }
+}
+
+/// Gets if the arrow function is the last of more than one call argument and its body breaks inside
+/// its parens, which keeps the arguments on the call's line (ex. `call(a, () => (\n  <div />\n))`).
+fn is_hugged_last_arg_arrow<'a>(arrow_expr: &'a ArrowExpr<'a>, context: &Context<'a>) -> bool {
+  let Some(expr_or_spread) = arrow_expr.parent().to::<ExprOrSpread>() else {
+    return false;
+  };
+  let args = match expr_or_spread.parent() {
+    Node::CallExpr(call_expr) => call_expr.args,
+    Node::OptCall(opt_call) => opt_call.args,
+    Node::NewExpr(new_expr) => match new_expr.args {
+      Some(args) => args,
+      None => return false,
+    },
+    _ => return false,
+  };
+  // hanging arguments keep going on the next line instead
+  context.config.arguments_prefer_hanging != PreferHanging::Always
+    && args.len() > 1
+    && expr_or_spread.spread().is_none()
+    && args.last().is_some_and(|last_arg| last_arg.start() == expr_or_spread.start())
+    // functions side by side read better on separate lines (ex. `call(\n  (a) => b,\n  (c) => ({ d }),\n)`)
+    && !matches!(args[args.len() - 2].expr, Expr::Arrow(_) | Expr::Fn(_))
+    && !use_new_line_group_for_arrow_body(arrow_expr, context)
 }
 
 /// Prevents a condition from reading a line number that's resolved later in the output with

@@ -1,0 +1,8 @@
+-- file.tsx --
+~~ lineWidth: 80, indentWidth: 2, arguments.preferHanging: always ~~
+== should hang the last argument when it's an arrow function returning jsx ==
+new Foo(someArgument, anotherArgument, (x) => <Component prop1={somePropFooBlah} />);
+
+[expect]
+new Foo(someArgument, anotherArgument,
+  (x) => <Component prop1={somePropFooBlah} />);
