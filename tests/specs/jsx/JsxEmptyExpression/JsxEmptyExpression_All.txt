@@ -4,3 +4,91 @@ const t = <test>{   }{/*test*/}</test>;
 
 [expect]
 const t = <test>{}{/*test*/}</test>;
+
+== should keep the braces beside a multi-line block comment ==
+const t = <div>
+  {/*
+  <span>commented out</span>
+*/}
+</div>;
+
+[expect]
+const t = (
+    <div>
+        {/*
+  <span>commented out</span>
+        */}
+    </div>
+);
+
+== should keep a single line block comment as-is ==
+const t = <div>
+    {/* single */}
+</div>;
+
+[expect]
+const t = (
+    <div>
+        {/* single */}
+    </div>
+);
+
+== should keep the braces beside multiple block comments on the same line ==
+const t = <div>
+    {/* a */ /* b */}
+    {/* a */ /*
+      b
+    */}
+    {
+        /* a */}
+    {/* a */
+    }
+</div>;
+
+[expect]
+const t = (
+    <div>
+        {/* a */ /* b */}
+        {/* a */ /*
+      b
+    */}
+        {/* a */}
+        {/* a */}
+    </div>
+);
+
+== should surround block comments on separate lines with newlines ==
+const t = <div>
+    {/* a */
+    /* b */}
+</div>;
+
+[expect]
+const t = (
+    <div>
+        {
+            /* a */
+            /* b */
+        }
+    </div>
+);
+
+== should keep the closing brace on its own line after a line comment ==
+const t = <div>
+    {// c
+    }
+    {/* a */ // c
+    }
+</div>;
+
+[expect]
+const t = (
+    <div>
+        {
+            // c
+        }
+        {
+            /* a */ // c
+        }
+    </div>
+);

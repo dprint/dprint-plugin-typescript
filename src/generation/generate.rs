@@ -4456,17 +4456,33 @@ fn gen_jsx_empty_expr<'a>(node: &JSXEmptyExpr<'a>, context: &mut Context<'a>) ->
 fn gen_jsx_expr_container<'a>(node: &JSXExprContainer<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
   // Don't send JSX empty expressions to gen_node because it will not handle comments
   // the way they should be specifically handled for empty expressions.
-  let gen_inner = match &node.expr {
-    JSXExpr::JSXEmptyExpr(expr) => gen_jsx_empty_expr(expr, context),
-    JSXExpr::Expr(expr) => gen_node(expr.into(), context),
-  };
-
-  gen_as_jsx_expr_container(node.expr.range(), gen_inner, context)
+  match &node.expr {
+    JSXExpr::JSXEmptyExpr(expr) => {
+      // keep the braces beside block comments (ex. `{/*` and `*/}`) so they work with an editor's toggle comment
+      let surround_with_new_lines =
+        !has_only_same_line_block_comments(expr, context) && should_surround_jsx_expr_container_with_newlines(node.expr.range(), context.program);
+      let gen_inner = gen_jsx_empty_expr(expr, context);
+      gen_as_jsx_expr_container_with_new_lines(node.expr.range(), gen_inner, surround_with_new_lines, context)
+    }
+    JSXExpr::Expr(expr) => {
+      let gen_inner = gen_node(expr.into(), context);
+      gen_as_jsx_expr_container(node.expr.range(), gen_inner, context)
+    }
+  }
 }
 
 fn gen_as_jsx_expr_container<'a>(inner_range: SourceRange, inner_items: PrintItems<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
+  let surround_with_new_lines = should_surround_jsx_expr_container_with_newlines(inner_range, context.program);
+  gen_as_jsx_expr_container_with_new_lines(inner_range, inner_items, surround_with_new_lines, context)
+}
+
+fn gen_as_jsx_expr_container_with_new_lines<'a>(
+  inner_range: SourceRange,
+  inner_items: PrintItems<'a>,
+  surround_with_new_lines: bool,
+  context: &mut Context<'a>,
+) -> PrintItems<'a> {
   let surround_with_space = context.config.jsx_expression_container_space_surrounding_expression;
-  let surround_with_new_lines = should_surround_with_newlines(inner_range, context.program);
   let mut items = PrintItems::new(context.arena);
   items.push_sc(sc!("{"));
   if surround_with_new_lines {
@@ -4490,26 +4506,26 @@ fn gen_as_jsx_expr_container<'a>(inner_range: SourceRange, inner_items: PrintIte
   }
   items.push_sc(sc!("}"));
 
-  return items;
+  items
+}
 
-  fn should_surround_with_newlines(expr: SourceRange, program: Program) -> bool {
-    let expr_start_line = expr.start_line_fast(program);
-    for comment in expr.leading_comments_fast(program) {
-      if comment.kind == CommentKind::Line {
-        return true;
-      } else if comment.start_line_fast(program) < expr_start_line {
-        return true;
-      }
+fn should_surround_jsx_expr_container_with_newlines(expr: SourceRange, program: Program) -> bool {
+  let expr_start_line = expr.start_line_fast(program);
+  for comment in expr.leading_comments_fast(program) {
+    if comment.kind == CommentKind::Line {
+      return true;
+    } else if comment.start_line_fast(program) < expr_start_line {
+      return true;
     }
-    let expr_end_line = expr.end_line_fast(program);
-    for comment in expr.trailing_comments_fast(program) {
-      if comment.kind == CommentKind::Line || comment.end_line_fast(program) > expr_end_line {
-        return true;
-      }
-    }
-
-    false
   }
+  let expr_end_line = expr.end_line_fast(program);
+  for comment in expr.trailing_comments_fast(program) {
+    if comment.kind == CommentKind::Line || comment.end_line_fast(program) > expr_end_line {
+      return true;
+    }
+  }
+
+  false
 }
 
 fn gen_jsx_fragment<'a>(node: &JSXFragment<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
@@ -8392,6 +8408,19 @@ fn gen_comments_after_comma<'a>(previous: &SourceRange, comments: Vec<&'a Commen
 
 fn get_jsx_empty_expr_comments<'a>(node: &JSXEmptyExpr, context: &Context<'a>) -> CommentsIterator<'a> {
   node.end().leading_comments_fast(context.program)
+}
+
+/// Gets if the empty expression only has block comments that follow each other on
+/// the same line (ex. `/* a */ /*` then `b */` on the next line).
+fn has_only_same_line_block_comments(node: &JSXEmptyExpr, context: &Context) -> bool {
+  let mut previous_end_line = None;
+  for comment in get_jsx_empty_expr_comments(node, context) {
+    if comment.kind != CommentKind::Block || previous_end_line.is_some_and(|line| line != comment.start_line_fast(context.program)) {
+      return false;
+    }
+    previous_end_line = Some(comment.end_line_fast(context.program));
+  }
+  true
 }
 
 /* helpers */
