@@ -91,6 +91,9 @@ pub struct Context<'a> {
   /// The start of a parenthesized expression on the right side of an assignment and
   /// the line number to put after it.
   pub assignment_paren_end_ln: Option<(SourcePos, LineNumber)>,
+  /// The start of a curried arrow function on the right side of an assignment and
+  /// the line number to put after the `=>` of its last signature.
+  pub assignment_curried_arrow_end_ln: Option<(SourcePos, LineNumber)>,
   /// Used for ensuring nodes are parsed in order.
   #[cfg(debug_assertions)]
   pub last_generated_node_pos: SourcePos,
@@ -147,6 +150,7 @@ impl<'a> Context<'a> {
       if_stmt_last_brace_condition_ref: None,
       expr_stmt_single_line_parent_brace_ref: None,
       assignment_paren_end_ln: None,
+      assignment_curried_arrow_end_ln: None,
       #[cfg(debug_assertions)]
       last_generated_node_pos: dprint_swc_ext::common::SourceTextInfoProvider::text_info(&program).range().start.into(),
       diagnostics: Vec::new(),
