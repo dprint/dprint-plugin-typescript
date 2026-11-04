@@ -19,8 +19,16 @@ export type T = string | test
 [expect]
 export type T = string | test | other;
 
-== should change to be on multiple lines when the first and second are on different lines ==
+== should not change to be on multiple lines when only the first and second are on different lines ==
 export type T = string
+    | test | other;
+
+[expect]
+export type T = string | test | other;
+
+== should change to be on multiple lines when the first is on the next line and the second is on a different line ==
+export type T =
+    string
     | test | other;
 
 [expect]
@@ -35,3 +43,19 @@ export type T =
 [expect]
 <string | number | other | other
     | other> 5;
+
+== should surround a union in a template literal type with newlines when too long ==
+type A = `${typeof Descendingxx | typeof Ascendingxxxx}${S}`;
+
+[expect]
+type A = `${
+    | typeof Descendingxx
+    | typeof Ascendingxxxx
+}${S}`;
+
+== should hang after the first type when it doesn't fit with the second ==
+type T = "aaaaaaaaaaaaaaaaaaaaaaaaa" | "bbbbbbbbbbbbbb" | "cc" | "d";
+
+[expect]
+type T = "aaaaaaaaaaaaaaaaaaaaaaaaa"
+    | "bbbbbbbbbbbbbb" | "cc" | "d";

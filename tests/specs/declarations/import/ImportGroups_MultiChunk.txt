@@ -1,0 +1,24 @@
+~~ {
+  "lineWidth": 80,
+  "module.importGroups": [{ "match": "builtin" }, { "match": "external" }],
+  "module.sortImportDeclarations": "caseInsensitive"
+} ~~
+== imports separated by non-import statement form independent chunks ==
+import { a } from "react";
+import { fs } from "node:fs";
+
+const x = 1;
+
+import { c } from "lodash";
+import { path } from "node:path";
+
+[expect]
+import { fs } from "node:fs";
+
+import { a } from "react";
+
+const x = 1;
+
+import { path } from "node:path";
+
+import { c } from "lodash";

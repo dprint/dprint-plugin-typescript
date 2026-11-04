@@ -1,0 +1,81 @@
+~~ lineWidth: 80, decorators.position: nextLine ~~
+== should put a class or class member on the next line after its decorators ==
+@dec class A {}
+@dec
+class B {
+    @dec prop = 1;
+    @dec
+    prop2 = 2;
+    @dec method() {}
+    @dec
+    method2() {}
+    @dec get value() { return 1; }
+    @dec accessor auto = 1;
+    @dec static staticProp = 1;
+    @a @b prop3 = 3;
+    @a
+    @b prop4 = 4;
+    @dec // comment
+    prop5 = 5;
+    @dec /* comment */ prop6 = 6;
+    @decoratorWithAVeryLongName({ someOption: true, anotherOption: false }) someLongProperty = 1;
+}
+const E = @dec class {};
+class F {
+    constructor(@Inject(X) private readonly x: X) {}
+}
+
+[expect]
+@dec
+class A {}
+@dec
+class B {
+    @dec
+    prop = 1;
+    @dec
+    prop2 = 2;
+    @dec
+    method() {}
+    @dec
+    method2() {}
+    @dec
+    get value() {
+        return 1;
+    }
+    @dec
+    accessor auto = 1;
+    @dec
+    static staticProp = 1;
+    @a @b
+    prop3 = 3;
+    @a
+    @b
+    prop4 = 4;
+    @dec // comment
+    prop5 = 5;
+    @dec /* comment */
+    prop6 = 6;
+    @decoratorWithAVeryLongName({ someOption: true, anotherOption: false })
+    someLongProperty = 1;
+}
+const E = @dec class {};
+class F {
+    constructor(@Inject(X) private readonly x: X) {}
+}
+
+== should position a class after its decorators after export ==
+export @dec class A {}
+export default @dec class {}
+export @a @b class B {}
+export @dec
+class C {}
+
+[expect]
+export @dec
+class A {}
+export default @dec
+class {}
+export @a @b
+class B {}
+export @dec
+class C {}

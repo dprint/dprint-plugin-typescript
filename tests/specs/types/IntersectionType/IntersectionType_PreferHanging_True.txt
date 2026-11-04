@@ -19,8 +19,16 @@ export type T = string & test
 [expect]
 export type T = string & test & test;
 
-== should change to be on multiple lines when the first and second are on different lines ==
+== should not change to be on multiple lines when only the first and second are on different lines ==
 export type T = string
+    & number & other;
+
+[expect]
+export type T = string & number & other;
+
+== should change to be on multiple lines when the first is on the next line and the second is on a different line ==
+export type T =
+    string
     & number & other;
 
 [expect]

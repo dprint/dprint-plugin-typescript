@@ -12,6 +12,7 @@ const objectLiteral = {
     get "2foo"() {},
     set "2foo"(v) {},
     async "3foo"() {},
+    other: 1,
 };
 class Class {
     "1foo"() {}
@@ -20,18 +21,21 @@ class Class {
     async "3foo"() {}
     "4foo": string;
     "1" = true;
+    other = 1;
 }
 interface Interface {
     "1foo": string;
     "2foo"(): string;
     get "3foo"(): string;
     set "3foo"(v: string);
+    other: number;
 }
 type Type = {
     "1foo": string;
     "2foo"(): string;
     get "3foo"(): string;
     set "3foo"(v: string);
+    other: number;
 };
 
 [expect]
@@ -41,12 +45,13 @@ const objectLiteral = {
     "1foo": true,
     "💩": true,
     "a💩": true,
-    "c\d": true,
+    cd: true,
     "1": true,
     "1foo"() {},
     get "2foo"() {},
     set "2foo"(v) {},
     async "3foo"() {},
+    other: 1,
 };
 class Class {
     "1foo"() {}
@@ -55,18 +60,21 @@ class Class {
     async "3foo"() {}
     "4foo": string;
     "1" = true;
+    other = 1;
 }
 interface Interface {
     "1foo": string;
     "2foo"(): string;
     get "3foo"(): string;
     set "3foo"(v: string);
+    other: number;
 }
 type Type = {
     "1foo": string;
     "2foo"(): string;
     get "3foo"(): string;
     set "3foo"(v: string);
+    other: number;
 };
 
 == should remove quotes when unnecessary ==
@@ -85,6 +93,7 @@ const objectLiteral = {
     set "foo2"(v) {},
     async "foo3"() {},
     "test": "literal",
+    "2notThis": false,
 };
 class Class {
     "foo"() {}
@@ -93,6 +102,7 @@ class Class {
     async "foo3"() {}
     "foo4": string;
     "test": "literal" = "literal";
+    "2notThis" = false;
 }
 interface Interface {
     "foo": string;
@@ -100,6 +110,7 @@ interface Interface {
     get "foo3"(): string;
     set "foo3"(v: string);
     "foo4": "literal";
+    "2notThis": false;
 }
 type Type = {
     "foo": string;
@@ -107,6 +118,7 @@ type Type = {
     get "foo3"(): string;
     set "foo3"(v: string);
     "foo4": "literal";
+    "2notThis": false;
 };
 
 [expect]
@@ -125,6 +137,7 @@ const objectLiteral = {
     set foo2(v) {},
     async foo3() {},
     test: "literal",
+    "2notThis": false,
 };
 class Class {
     foo() {}
@@ -133,6 +146,7 @@ class Class {
     async foo3() {}
     "foo4": string;
     "test": "literal" = "literal";
+    "2notThis" = false;
 }
 interface Interface {
     foo: string;
@@ -140,6 +154,7 @@ interface Interface {
     get foo3(): string;
     set foo3(v: string);
     foo4: "literal";
+    "2notThis": false;
 }
 type Type = {
     foo: string;
@@ -147,4 +162,15 @@ type Type = {
     get foo3(): string;
     set foo3(v: string);
     foo4: "literal";
+    "2notThis": false;
 };
+
+== should keep quotes around class properties due to --strictPropertyInitialization ==
+class Test {
+    "prop" = true;
+}
+
+[expect]
+class Test {
+    "prop" = true;
+}

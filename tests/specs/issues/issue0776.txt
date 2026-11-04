@@ -1,0 +1,98 @@
+~~ lineWidth: 80, indentWidth: 2 ~~
+== should indent a multi-line expression relative to its line in the template's text ==
+function render_string_template() {
+    return `
+      <div>
+        ${tooltip ?
+          `<my-tooltip>content content content content</my-tooltip>`:  nothing}
+        <div>
+          ${tooltip ?
+              `<my-tooltip>content content content content</my-tooltip>`:  nothing}
+        </div>
+      </div>
+    `;
+}
+
+[expect]
+function render_string_template() {
+  return `
+      <div>
+        ${
+          tooltip
+            ? `<my-tooltip>content content content content</my-tooltip>`
+            : nothing
+        }
+        <div>
+          ${
+            tooltip
+              ? `<my-tooltip>content content content content</my-tooltip>`
+              : nothing
+          }
+        </div>
+      </div>
+    `;
+}
+
+== should align when the line isn't at an indent level ==
+const a = `
+   ${tooltip ? `<my-tooltip>content content content content</my-tooltip>` : nothing}
+`;
+
+[expect]
+const a = `
+   ${
+     tooltip
+       ? `<my-tooltip>content content content content</my-tooltip>`
+       : nothing
+   }
+`;
+
+== should use the indentation of the line for a later expression on the same line ==
+const a = `
+    <div>${a} ${tooltip ? `<my-tooltip>content content content content</my-tooltip>` : nothing}</div>
+`;
+
+[expect]
+const a = `
+    <div>${a} ${
+      tooltip
+        ? `<my-tooltip>content content content content</my-tooltip>`
+        : nothing
+    }</div>
+`;
+
+== should indent relative to the code on the template's first line ==
+function a() {
+  return `<div>${tooltip ? `<my-tooltip>content content content content</my-tooltip>` : nothing}</div>`;
+}
+
+[expect]
+function a() {
+  return `<div>${
+    tooltip
+      ? `<my-tooltip>content content content content</my-tooltip>`
+      : nothing
+  }</div>`;
+}
+
+== should indent a function in the template's text ==
+function a() {
+  return `
+      <ul>
+        ${items.map((item) => { return `<li>${item}</li>`; }).join("")}
+      </ul>
+  `;
+}
+
+[expect]
+function a() {
+  return `
+      <ul>
+        ${
+          items.map((item) => {
+            return `<li>${item}</li>`;
+          }).join("")
+        }
+      </ul>
+  `;
+}

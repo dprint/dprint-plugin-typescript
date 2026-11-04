@@ -1,9 +1,10 @@
 {
   "exec": {
-    "associations": "**/*.rs",
-    "rustfmt": "rustfmt"
+    "commands": [{
+      "command": "rustfmt --edition 2024",
+      "exts": ["rs"]
+    }]
   },
-  "includes": ["**/*.{ts,tsx,js,jsx,cjs,mjs,json,md,toml,rs}"],
   "excludes": [
     "**/node_modules",
     "**/*-lock.json",
@@ -11,10 +12,10 @@
     "**/target"
   ],
   "plugins": [
-    "https://plugins.dprint.dev/typescript-0.78.0.wasm",
-    "https://plugins.dprint.dev/json-0.16.0.wasm",
-    "https://plugins.dprint.dev/markdown-0.14.3.wasm",
-    "https://plugins.dprint.dev/toml-0.5.4.wasm",
-    "https://plugins.dprint.dev/exec-0.3.2.json@8efbbb3fcfbdf84142c3c438fbdeaf1637152a020032127c837b2b14e23261c3"
+    "npm:@dprint/typescript@0.96.1",
+    "npm:@dprint/json@0.23.0",
+    "npm:@dprint/markdown@0.22.1",
+    "npm:@dprint/toml@0.8.0",
+    "npm:@dprint/exec@0.7.3/plugin.json@704701df449dd7e942a71144773778ac529d68c2e4657bfc236d393b898b9a67"
   ]
 }

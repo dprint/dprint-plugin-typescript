@@ -1,20 +1,20 @@
-use deno_ast::swc::parser::token::Token;
-use deno_ast::swc::parser::token::TokenAndSpan;
-use deno_ast::view::*;
-use deno_ast::CommentsIterator;
-use deno_ast::SourcePos;
-use deno_ast::SourceRanged;
-use deno_ast::SourceRangedForSpanned;
-use deno_ast::SourceTextInfoProvider;
+use dprint_swc_ext::common::CommentsIterator;
+use dprint_swc_ext::common::SourcePos;
+use dprint_swc_ext::common::SourceRanged;
+use dprint_swc_ext::common::SourceRangedForSpanned;
+use dprint_swc_ext::common::SourceTextInfoProvider;
+use dprint_swc_ext::swc::parser::token::Token;
+use dprint_swc_ext::swc::parser::token::TokenAndSpan;
+use dprint_swc_ext::view::*;
 
 pub struct CommentTracker<'a> {
-  program: &'a Program<'a>,
+  program: Program<'a>,
   tokens: &'a [TokenAndSpan],
   token_index: usize,
 }
 
 impl<'a> CommentTracker<'a> {
-  pub fn new(program: &'a Program<'a>, tokens: &'a [TokenAndSpan]) -> CommentTracker<'a> {
+  pub fn new(program: Program<'a>, tokens: &'a [TokenAndSpan]) -> CommentTracker<'a> {
     CommentTracker {
       program,
       tokens,
@@ -24,7 +24,7 @@ impl<'a> CommentTracker<'a> {
 
   /// Gets the leading comments and all previously unhandled comments.
   pub fn leading_comments_with_previous(&mut self, pos: SourcePos) -> CommentsIterator<'a> {
-    let mut iterator = CommentsIterator::new(Vec::new());
+    let mut iterator = CommentsIterator::empty();
 
     if self.token_index == 0 {
       // get any comments stored at the beginning of the file
@@ -53,7 +53,7 @@ impl<'a> CommentTracker<'a> {
 
   /// Gets the trailing comments and all previously unhandled comments
   pub fn trailing_comments_with_previous(&mut self, end: SourcePos) -> CommentsIterator<'a> {
-    let mut iterator = CommentsIterator::new(Vec::new());
+    let mut iterator = CommentsIterator::empty();
 
     while let Some(token) = self.tokens.get(self.token_index) {
       iterator.extend(token.start().leading_comments_fast(self.program));

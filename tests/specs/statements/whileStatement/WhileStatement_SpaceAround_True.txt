@@ -6,3 +6,13 @@ while (i <= arr.length) {
 [expect]
 while ( i <= arr.length ) {
 }
+
+== should not add spaces at the end or start of a line around the condition ==
+while (someVeryLongConditionIdentifierName <= anotherVeryLongConditionIdentifierName && yetAnotherVeryLongConditionName) {
+}
+
+[expect]
+while (
+    someVeryLongConditionIdentifierName <= anotherVeryLongConditionIdentifierName && yetAnotherVeryLongConditionName
+) {
+}

@@ -1,0 +1,10 @@
+~~ lineWidth: 40, operatorPosition: sameLine ~~
+== should fall back to global operatorPosition when union override is unset ==
+export type T = string | test | string | number;
+
+[expect]
+export type T =
+    string |
+    test |
+    string |
+    number;

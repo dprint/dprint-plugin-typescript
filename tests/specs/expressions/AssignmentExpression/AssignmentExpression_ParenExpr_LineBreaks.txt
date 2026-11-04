@@ -1,0 +1,46 @@
+~~ lineWidth: 80 ~~
+== should not move a parenthesized expression that keeps its line breaks to the next line when it doesn't fit there ==
+result = (options?.compare ? new BinarySearchTree(options.compare) : new BinarySearchTree()) as Tree<U>;
+result = (options?.compare ? new BinarySearchTree(options.compare) : new BinarySearchTree()).value;
+const value = (options?.compare ? new BinarySearchTree(options.compare) : new Tree()) satisfies T;
+result = await (options?.compare ? new BinarySearchTree(options.compare) : new BinarySearchTree());
+result = (someLongVariableName + anotherLongVariableName + yetAnotherVariableName) as number;
+result = !!(someLongVariableName && anotherLongVariableName && yetAnotherVariableName);
+
+// still moves it to the next line when it fits there
+result = (someLongVariableName + anotherLongVariableName + yetAnother) as number;
+result = (options?.compare ? new SearchTree(options.compare) : new Tree()) as Tree;
+
+[expect]
+result = (options?.compare
+    ? new BinarySearchTree(options.compare)
+    : new BinarySearchTree()) as Tree<U>;
+result = (options?.compare
+    ? new BinarySearchTree(options.compare)
+    : new BinarySearchTree()).value;
+const value = (options?.compare
+    ? new BinarySearchTree(options.compare)
+    : new Tree()) satisfies T;
+result = await (options?.compare
+    ? new BinarySearchTree(options.compare)
+    : new BinarySearchTree());
+result = (someLongVariableName + anotherLongVariableName
+    + yetAnotherVariableName) as number;
+result = !!(someLongVariableName && anotherLongVariableName
+    && yetAnotherVariableName);
+
+// still moves it to the next line when it fits there
+result =
+    (someLongVariableName + anotherLongVariableName + yetAnother) as number;
+result =
+    (options?.compare ? new SearchTree(options.compare) : new Tree()) as Tree;
+
+== should not move a type assertion with a parenthesized union to the next line when it doesn't fit there ==
+const value = <("aaaaaaaaaaaaaaaaaa" | "bbbbbbbbbbbbbbbbbbbbb" | "cccccccccccccccccccc")>other;
+
+[expect]
+const value = <(
+    | "aaaaaaaaaaaaaaaaaa"
+    | "bbbbbbbbbbbbbbbbbbbbb"
+    | "cccccccccccccccccccc"
+)> other;

@@ -1,0 +1,10 @@
+~~ arrowFunction.useParentheses: preferNone ~~
+== should remove parens around identifier ==
+const options = { foo: false, bar: { bob: false } };
+(options).foo = true;
+(options.bar).bob = true;
+
+[expect]
+const options = { foo: false, bar: { bob: false } };
+options.foo = true;
+options.bar.bob = true;

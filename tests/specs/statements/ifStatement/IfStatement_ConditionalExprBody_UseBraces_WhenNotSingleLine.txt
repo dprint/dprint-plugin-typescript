@@ -1,0 +1,14 @@
+~~ lineWidth: 80, ifStatement.useBraces: whenNotSingleLine ~~
+== should not wrap a conditional expression body that fits on its own line when adding braces ==
+if (someCondition) value ? someFunctionName(argumentNumber1) : otherFunction(argumentNumber2);
+if (a) b;
+else if (someCondition) someValue ? someFunctionName(argument1) : otherFunction(argument2);
+
+[expect]
+if (someCondition) {
+    value ? someFunctionName(argumentNumber1) : otherFunction(argumentNumber2);
+}
+if (a) b;
+else if (someCondition) {
+    someValue ? someFunctionName(argument1) : otherFunction(argument2);
+}

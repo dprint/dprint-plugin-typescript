@@ -1,0 +1,11 @@
+== should be stable ==
+/* * * * * * * * * * *
+ *  Some Text Here1  *
+ * * * * * * * * * * */
+const test = 5;
+
+[expect]
+/* * * * * * * * * * *
+ *  Some Text Here1  *
+ * * * * * * * * * * */
+const test = 5;

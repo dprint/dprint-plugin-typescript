@@ -1,0 +1,32 @@
+~~ lineWidth: 50 ~~
+== should format auto accessors ==
+class Person {
+    accessor    name: string;
+    static accessor    test: string;
+    public static accessor    test2 : string;
+    private accessor    test3 : string;
+    accessor    #test = 2;
+    accessor    here!: string;
+    override accessor    test4: string;
+    abstract accessor    abstractAccessor: string;
+
+    constructor(name: string) {
+        this.name = name;
+    }
+}
+
+[expect]
+class Person {
+    accessor name: string;
+    static accessor test: string;
+    public static accessor test2: string;
+    private accessor test3: string;
+    accessor #test = 2;
+    accessor here!: string;
+    override accessor test4: string;
+    abstract accessor abstractAccessor: string;
+
+    constructor(name: string) {
+        this.name = name;
+    }
+}

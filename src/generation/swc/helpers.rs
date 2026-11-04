@@ -1,12 +1,13 @@
-use deno_ast::swc::common::comments::CommentKind;
-use deno_ast::view::Node;
-use deno_ast::view::Program;
-use deno_ast::RootNode;
-use deno_ast::SourceRanged;
-use deno_ast::SourceRangedForSpanned;
+use dprint_swc_ext::common::RootNode;
+use dprint_swc_ext::common::SourceRanged;
+use dprint_swc_ext::common::SourceRangedForSpanned;
+use dprint_swc_ext::swc::common::comments::CommentKind;
+use dprint_swc_ext::swc::lexer::common::lexer::char::CharExt;
+use dprint_swc_ext::view::Node;
+use dprint_swc_ext::view::Program;
 
 /** Gets if the node contains a line comment or multi-line block comment */
-pub fn contains_line_or_multiline_comment(node: Node, program: &Program) -> bool {
+pub fn contains_line_or_multiline_comment<'a>(node: Node<'a>, program: Program<'a>) -> bool {
   let tokens = node.tokens_fast(program);
   let comments = program.comment_container();
   for (i, token) in tokens.iter().enumerate() {
@@ -24,4 +25,16 @@ pub fn contains_line_or_multiline_comment(node: Node, program: &Program) -> bool
     }
   }
   false
+}
+
+pub fn is_text_valid_identifier(string_value: &str) -> bool {
+  if string_value.is_empty() {
+    return false;
+  }
+  for (i, c) in string_value.chars().enumerate() {
+    if (i == 0 && !c.is_ident_start()) || !c.is_ident_part() {
+      return false;
+    }
+  }
+  true
 }

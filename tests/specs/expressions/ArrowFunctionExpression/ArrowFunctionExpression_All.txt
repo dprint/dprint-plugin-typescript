@@ -263,3 +263,9 @@ const someFunc =
     c => {
         return a + b + c;
     };
+
+== should format with const type params ==
+const t = <const T extends 5>() => {};
+
+[expect]
+const t = <const T extends 5>() => {};

@@ -1,0 +1,18 @@
+~~ lineWidth: 40, importDeclaration.sortTypeOnlyImports: none ~~
+== should sort ==
+import {
+    type a,
+    testing,
+    other,
+    outttttttttttttttt,
+    type z,
+} from "asdf";
+
+[expect]
+import {
+    type a,
+    other,
+    outttttttttttttttt,
+    testing,
+    type z,
+} from "asdf";

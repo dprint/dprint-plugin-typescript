@@ -1,0 +1,103 @@
+~~ lineWidth: 60 ~~
+== should keep a call on the same line as the arrow when its last argument is on multiple lines ==
+colors.map(color => darken({
+    color,
+    opacity: 1
+}));
+items.map(item => new Foo([
+    1,
+    2,
+]));
+items.map(item => foo(a, () => {
+    return item.value;
+}));
+items.map(item => item.value.transform().other({
+    a: 1,
+}));
+
+[expect]
+colors.map(color => darken({
+    color,
+    opacity: 1,
+}));
+items.map(item => new Foo([
+    1,
+    2,
+]));
+items.map(item => foo(a, () => {
+    return item.value;
+}));
+items.map(item => item.value.transform().other({
+    a: 1,
+}));
+
+== should move a call to the next line otherwise ==
+items.map(item => transform({ a: 1, b: 2, c: 3, ddddddddddddddddddd: 4 }));
+items.map(item =>
+    foo({
+        a: 1,
+    })
+);
+items.map(someVeryLongParameterNameHere => someVeryLongFunctionNameHere({
+    a: 1,
+}));
+
+[expect]
+items.map(item =>
+    transform({ a: 1, b: 2, c: 3, ddddddddddddddddddd: 4 })
+);
+items.map(item =>
+    foo({
+        a: 1,
+    })
+);
+items.map(someVeryLongParameterNameHere =>
+    someVeryLongFunctionNameHere({
+        a: 1,
+    })
+);
+
+== should keep a multi-line template literal on the same line as the arrow ==
+const render = () => html`
+    <div>${addKid}</div>
+`;
+const getText = () => outdent`first line
+    second line`;
+const message = () => `first line
+second line`;
+
+[expect]
+const render = () => html`
+    <div>${addKid}</div>
+`;
+const getText = () => outdent`first line
+    second line`;
+const message = () => `first line
+second line`;
+
+== should keep a new expression argument on the same line when its last argument is on multiple lines like a call ==
+foo(new Obj({
+    a: foo,
+    b: bar,
+}));
+foo(new Obj(x, {
+    a: foo,
+}));
+foo(x, new Obj({
+    a: foo,
+}));
+
+[expect]
+foo(new Obj({
+    a: foo,
+    b: bar,
+}));
+foo(new Obj(x, {
+    a: foo,
+}));
+foo(
+    x,
+    new Obj({
+        a: foo,
+    }),
+);

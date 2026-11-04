@@ -72,3 +72,21 @@ export { // test
     outttttttttttttttt,
     testing,
 } from "asdf";
+
+== should not sort type imports by default in order to reduce merge conflicts ==
+export {
+    type a,
+    testing,
+    other,
+    outttttttttttttttt,
+    type z,
+} from "asdf";
+
+[expect]
+export {
+    type a,
+    other,
+    outttttttttttttttt,
+    testing,
+    type z,
+} from "asdf";
