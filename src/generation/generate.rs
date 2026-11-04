@@ -4714,7 +4714,7 @@ fn is_jsx_paren_expr_removed<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>)
   match parent {
     Node::ExprOrSpread(expr_or_spread) => expr_or_spread.spread().is_none(),
     // keep when the jsx starts a member, call, or similar expression (ex. `(<div />).props`)
-    Node::MemberExpr(_) | Node::OptChainExpr(_) | Node::NewExpr(_) | Node::TaggedTpl(_) | Node::TsNonNullExpr(_) => false,
+    Node::MemberExpr(_) | Node::OptChainExpr(_) | Node::NewExpr(_) | Node::TaggedTpl(_) | Node::TsNonNullExpr(_) | Node::TsInstantiation(_) => false,
     Node::CallExpr(call_expr) => !call_expr.callee.range().contains(&child.range()),
     Node::OptCall(call_expr) => !call_expr.callee.range().contains(&child.range()),
     _ => true,

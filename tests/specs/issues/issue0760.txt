@@ -189,6 +189,11 @@ const b = (<div />)();
 const c = new (<div />)();
 const d = (<div />)`a`;
 const e = (<div />)!;
+const f = (<div />)<T>;
+const g = (<div />)?.();
+const h = (<div />)?.x;
+const i = (<div />)[0];
+const j = (<></>)();
 call(...(<div />));
 
 [expect]
@@ -201,4 +206,9 @@ const b = (<div />)();
 const c = new (<div />)();
 const d = (<div />)`a`;
 const e = (<div />)!;
+const f = (<div />)<T>;
+const g = (<div />)?.();
+const h = (<div />)?.x;
+const i = (<div />)[0];
+const j = (<></>)();
 call(...(<div />));
