@@ -1,0 +1,182 @@
+== should format the statement holding an object pattern ==
+function   test( )   {
+    const  x  =  1;
+    const   {  a ,  [|b|]  }  =  obj;
+    const  y  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  x  =  1;
+[|    const { a, b } = obj;|]
+    const  y  =  2;
+}
+
+== should format the statement holding an object pattern property ==
+function   test( )   {
+    const  x  =  1;
+    const   {  a :  [|b|]  }  =  obj;
+    const  y  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  x  =  1;
+[|    const { a: b } = obj;|]
+    const  y  =  2;
+}
+
+== should format the statement holding an object pattern default ==
+function   test( )   {
+    const  x  =  1;
+    const   {  a  =  [|1|]  }  =  obj;
+    const  y  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  x  =  1;
+[|    const { a = 1 } = obj;|]
+    const  y  =  2;
+}
+
+== should format the statement holding an object pattern rest ==
+function   test( )   {
+    const  x  =  1;
+    const   {  a ,  ...[|rest|]  }  =  obj;
+    const  y  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  x  =  1;
+[|    const { a, ...rest } = obj;|]
+    const  y  =  2;
+}
+
+== should format the statement holding an array pattern ==
+function   test( )   {
+    const  x  =  1;
+    const   [  a ,  [|b|]  ]  =  arr;
+    const  y  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  x  =  1;
+[|    const [a, b] = arr;|]
+    const  y  =  2;
+}
+
+== should format the statement holding an array pattern hole ==
+function   test( )   {
+    const  x  =  1;
+    const   [  ,  [|b|]  ]  =  arr;
+    const  y  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  x  =  1;
+[|    const [, b] = arr;|]
+    const  y  =  2;
+}
+
+== should format the statement holding an array pattern rest ==
+function   test( )   {
+    const  x  =  1;
+    const   [  a ,  ...[|rest|]  ]  =  arr;
+    const  y  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  x  =  1;
+[|    const [a, ...rest] = arr;|]
+    const  y  =  2;
+}
+
+== should format the statement holding an assignment pattern in a parameter ==
+function   test( )   {
+    const  x  =  1;
+    function   test(  a  =  [|1|]  )   {   }
+    const  y  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  x  =  1;
+[|    function test(a = 1) {}|]
+    const  y  =  2;
+}
+
+== should format the statement holding a rest parameter ==
+function   test( )   {
+    const  x  =  1;
+    function   test(  ...[|args|] :  string[  ]  )   {   }
+    const  y  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  x  =  1;
+[|    function test(...args: string[]) {}|]
+    const  y  =  2;
+}
+
+== should format the statement holding a destructuring assignment ==
+function   test( )   {
+    const  x  =  1;
+    [  a ,  b  ]  =  [  b ,  [|a|]  ];
+    const  y  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  x  =  1;
+[|    [a, b] = [b, a];|]
+    const  y  =  2;
+}
+
+== should format the statement holding a for of pattern ==
+function   test( )   {
+    const  x  =  1;
+    for   (  const   [  a ,  [|b|]  ]   of   items  )   {   }
+    const  y  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  x  =  1;
+[|    for (const [a, b] of items) {}|]
+    const  y  =  2;
+}
+
+== should format the statement holding a catch clause pattern ==
+function   test( )   {
+    const  x  =  1;
+    try   {   }   catch   (  {  [|message|]  }  )   {   }
+    const  y  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  x  =  1;
+[|    try {
+    } catch ({ message }) {}|]
+    const  y  =  2;
+}
+
+== should format the statement holding a this parameter ==
+function   test( )   {
+    const  x  =  1;
+    function   inner(  this :  [|A|] ,  a :  string  )   {   }
+    const  y  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  x  =  1;
+[|    function inner(this: A, a: string) {}|]
+    const  y  =  2;
+}

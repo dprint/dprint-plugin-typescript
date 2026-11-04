@@ -1,0 +1,771 @@
+== should format the member holding this ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  [|this|];
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = this;|]
+    const  b  =  2;
+}
+
+== should format the member holding an identifier ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  [|ident|];
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = ident;|]
+    const  b  =  2;
+}
+
+== should format the member holding a string literal ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  [|"text"|];
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = "text";|]
+    const  b  =  2;
+}
+
+== should format the member holding a number literal ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  [|1_000|];
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = 1_000;|]
+    const  b  =  2;
+}
+
+== should format the member holding a bigint literal ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  [|1n|];
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = 1n;|]
+    const  b  =  2;
+}
+
+== should format the member holding a boolean literal ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  [|true|];
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = true;|]
+    const  b  =  2;
+}
+
+== should format the member holding a null literal ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  [|null|];
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = null;|]
+    const  b  =  2;
+}
+
+== should format the member holding a regex literal ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  [|/a+/g|];
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = /a+/g;|]
+    const  b  =  2;
+}
+
+== should format the member holding a template literal ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  `a${  [|b|]  }c`;
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = `a${b}c`;|]
+    const  b  =  2;
+}
+
+== should format the member holding a tagged template ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  [|tag|]`a${  b  }c`;
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = tag`a${b}c`;|]
+    const  b  =  2;
+}
+
+== should format the member holding an array literal ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  [  1 ,  [|2|]  ];
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = [1, 2];|]
+    const  b  =  2;
+}
+
+== should format the member holding an object literal ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  {  a :  1 ,  [|b|] :  2  };
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = { a: 1, b: 2 };|]
+    const  b  =  2;
+}
+
+== should format the member holding a function expression ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  function  (  [|a|]  )   {   };
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = function(a) {};|]
+    const  b  =  2;
+}
+
+== should format the member holding an arrow function ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  (  [|a|]  )   =>   a;
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = (a) => a;|]
+    const  b  =  2;
+}
+
+== should format the member holding an async arrow function ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  async   (  [|a|]  )   =>   await   a;
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = async (a) => await a;|]
+    const  b  =  2;
+}
+
+== should format the member holding a class expression ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  class   {   [|a|]  =  1;   };
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = class {
+        a = 1;
+    };|]
+    const  b  =  2;
+}
+
+== should format the member holding a unary expression ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  !  [|a|];
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = !a;|]
+    const  b  =  2;
+}
+
+== should format the member holding a typeof expression ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  typeof   [|a|];
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = typeof a;|]
+    const  b  =  2;
+}
+
+== should format the member holding a void expression ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  void   [|a|];
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = void a;|]
+    const  b  =  2;
+}
+
+== should format the member holding a delete expression ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  delete   a.[|b|];
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = delete a.b;|]
+    const  b  =  2;
+}
+
+== should format the member holding an update expression ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  [|a|]  ++;
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = a++;|]
+    const  b  =  2;
+}
+
+== should format the member holding a binary expression ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  a  +  [|b|];
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = a + b;|]
+    const  b  =  2;
+}
+
+== should format the member holding a logical expression ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  a  ??  [|b|];
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = a ?? b;|]
+    const  b  =  2;
+}
+
+== should format the member holding an in expression ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  "a"   in   [|b|];
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = "a" in b;|]
+    const  b  =  2;
+}
+
+== should format the member holding an instanceof expression ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  a   instanceof   [|B|];
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = a instanceof B;|]
+    const  b  =  2;
+}
+
+== should format the member holding a private in expression ==
+class   A   {
+    #a  =  1;
+    x  =  #a   in   [|b|];
+    b  =  2;
+}
+
+[expect]
+class   A   {
+    #a  =  1;
+[|    x = #a in b;|]
+    b  =  2;
+}
+
+== should format the member holding an assignment expression ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  a  =  [|b|];
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = a = b;|]
+    const  b  =  2;
+}
+
+== should format the member holding a compound assignment expression ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  a  ||=  [|b|];
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = a ||= b;|]
+    const  b  =  2;
+}
+
+== should format the member holding a member expression ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  a.[|b|];
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = a.b;|]
+    const  b  =  2;
+}
+
+== should format the member holding a computed member expression ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  a[  [|b|]  ];
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = a[b];|]
+    const  b  =  2;
+}
+
+== should format the member holding an optional chain ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  a?.[|b|]?.(  );
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = a?.b?.();|]
+    const  b  =  2;
+}
+
+== should format the member holding a super member expression ==
+class   A   extends   B   {
+    a  =  1;
+    x  =  super.[|a|];
+    b  =  2;
+}
+
+[expect]
+class   A   extends   B   {
+    a  =  1;
+[|    x = super.a;|]
+    b  =  2;
+}
+
+== should format the member holding a conditional expression ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  a   ?   [|b|]   :   c;
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = a ? b : c;|]
+    const  b  =  2;
+}
+
+== should format the member holding a call expression ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  call(  a ,  [|b|]  );
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = call(a, b);|]
+    const  b  =  2;
+}
+
+== should format the member holding a call expression with type arguments ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  call<  [|string|]  >(  a  );
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = call<string>(a);|]
+    const  b  =  2;
+}
+
+== should format the member holding a new expression ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  new   A(  [|b|]  );
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = new A(b);|]
+    const  b  =  2;
+}
+
+== should format the member holding a sequence expression ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  (  a ,  [|b|]  );
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = (a, b);|]
+    const  b  =  2;
+}
+
+== should format the member holding a parenthesized expression ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  (  [|a|]  );
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = a;|]
+    const  b  =  2;
+}
+
+== should format the member holding a spread argument ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  call(  ...[|args|]  );
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = call(...args);|]
+    const  b  =  2;
+}
+
+== should format the member holding a yield expression ==
+function  *  test( )   {
+    const  a  =  1;
+    const   x  =  yield   [|a|];
+    const  b  =  2;
+}
+
+[expect]
+function  *  test( )   {
+    const  a  =  1;
+[|    const x = yield a;|]
+    const  b  =  2;
+}
+
+== should format the member holding a delegated yield expression ==
+function  *  test( )   {
+    const  a  =  1;
+    const   x  =  yield  *   [|a|];
+    const  b  =  2;
+}
+
+[expect]
+function  *  test( )   {
+    const  a  =  1;
+[|    const x = yield* a;|]
+    const  b  =  2;
+}
+
+== should format the member holding an await expression ==
+async   function   test( )   {
+    const  a  =  1;
+    const   x  =  await   [|a|];
+    const  b  =  2;
+}
+
+[expect]
+async   function   test( )   {
+    const  a  =  1;
+[|    const x = await a;|]
+    const  b  =  2;
+}
+
+== should format the member holding a new target meta property ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  new.[|target|];
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = new.target;|]
+    const  b  =  2;
+}
+
+== should format the member holding an import meta property ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  import.[|meta|];
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = import.meta;|]
+    const  b  =  2;
+}
+
+== should format the member holding a dynamic import ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  import(  [|"a"|]  );
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = import("a");|]
+    const  b  =  2;
+}
+
+== should format the member holding a non-null assertion ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  a[|!|];
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = a!;|]
+    const  b  =  2;
+}
+
+== should format the member holding an as expression ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  a   as   [|string|];
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = a as string;|]
+    const  b  =  2;
+}
+
+== should format the member holding a const assertion ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  a   as   [|const|];
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = a as const;|]
+    const  b  =  2;
+}
+
+== should format the member holding a satisfies expression ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  a   satisfies   [|string|];
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = a satisfies string;|]
+    const  b  =  2;
+}
+
+== should format the member holding a type assertion ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  <  string  >  [|a|];
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = <string> a;|]
+    const  b  =  2;
+}
+
+== should format the member holding an instantiation expression ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  a<  [|string|]  >;
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = a<string>;|]
+    const  b  =  2;
+}
+
+== should format the member holding the super keyword ==
+class   A   extends   B   {
+    #a  =  1;
+    x  =  [|super|].a;
+    b  =  2;
+}
+
+[expect]
+class   A   extends   B   {
+    #a  =  1;
+[|    x = super.a;|]
+    b  =  2;
+}
+
+== should format the member holding a private name ==
+class   A   extends   B   {
+    #a  =  1;
+    x  =  this.#[|a|];
+    b  =  2;
+}
+
+[expect]
+class   A   extends   B   {
+    #a  =  1;
+[|    x = this.#a;|]
+    b  =  2;
+}
+
+== should format the member holding a template element ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  `a[|b|]c${  d  }`;
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = `abc${d}`;|]
+    const  b  =  2;
+}
+
+== should format the member holding the import keyword ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  [|import|](  "a"  );
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = import("a");|]
+    const  b  =  2;
+}

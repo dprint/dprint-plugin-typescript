@@ -1,0 +1,233 @@
+== should format an import declaration in a declared module ==
+declare   module   "m"   {
+    const  a :  string;
+    [|import   x ,  {  y  }   from   "x";|]
+    const  b :  string;
+}
+
+[expect]
+declare   module   "m"   {
+    const  a :  string;
+[|    import x, { y } from "x";|]
+    const  b :  string;
+}
+
+== should format an export declaration in a declared module ==
+declare   module   "m"   {
+    const  a :  string;
+    [|export   const   x :  string;|]
+    const  b :  string;
+}
+
+[expect]
+declare   module   "m"   {
+    const  a :  string;
+[|    export const x: string;|]
+    const  b :  string;
+}
+
+== should format a named export in a declared module ==
+declare   module   "m"   {
+    const  a :  string;
+    [|export   {  a ,  b   as   c  };|]
+    const  b :  string;
+}
+
+[expect]
+declare   module   "m"   {
+    const  a :  string;
+[|    export { a, b as c };|]
+    const  b :  string;
+}
+
+== should format a named re-export in a declared module ==
+declare   module   "m"   {
+    const  a :  string;
+    [|export   {  a  }   from   "x";|]
+    const  b :  string;
+}
+
+[expect]
+declare   module   "m"   {
+    const  a :  string;
+[|    export { a } from "x";|]
+    const  b :  string;
+}
+
+== should format an export all in a declared module ==
+declare   module   "m"   {
+    const  a :  string;
+    [|export   *   from   "x";|]
+    const  b :  string;
+}
+
+[expect]
+declare   module   "m"   {
+    const  a :  string;
+[|    export * from "x";|]
+    const  b :  string;
+}
+
+== should format a namespace re-export in a declared module ==
+declare   module   "m"   {
+    const  a :  string;
+    [|export   *   as   x   from   "x";|]
+    const  b :  string;
+}
+
+[expect]
+declare   module   "m"   {
+    const  a :  string;
+[|    export * as x from "x";|]
+    const  b :  string;
+}
+
+== should format an export default expression in a declared module ==
+declare   module   "m"   {
+    const  a :  string;
+    [|export   default   a;|]
+    const  b :  string;
+}
+
+[expect]
+declare   module   "m"   {
+    const  a :  string;
+[|    export default a;|]
+    const  b :  string;
+}
+
+== should format an export default class in a declared module ==
+declare   module   "m"   {
+    const  a :  string;
+    [|export   default   class   X   {
+    }|]
+    const  b :  string;
+}
+
+[expect]
+declare   module   "m"   {
+    const  a :  string;
+[|    export default class X {|]
+    }
+    const  b :  string;
+}
+
+== should format an export default function in a declared module ==
+declare   module   "m"   {
+    const  a :  string;
+    [|export   default   function   x( ) :  void;|]
+    const  b :  string;
+}
+
+[expect]
+declare   module   "m"   {
+    const  a :  string;
+[|    export default function x(): void;|]
+    const  b :  string;
+}
+
+== should format an export default interface in a declared module ==
+declare   module   "m"   {
+    const  a :  string;
+    [|export   default   interface   X   {
+    }|]
+    const  b :  string;
+}
+
+[expect]
+declare   module   "m"   {
+    const  a :  string;
+[|    export default interface X {|]
+    }
+    const  b :  string;
+}
+
+== should format an exported class in a declared module ==
+declare   module   "m"   {
+    const  a :  string;
+    [|export   class   X   {
+    }|]
+    const  b :  string;
+}
+
+[expect]
+declare   module   "m"   {
+    const  a :  string;
+[|    export class X {|]
+    }
+    const  b :  string;
+}
+
+== should format an export assignment in a declared module ==
+declare   module   "m"   {
+    const  a :  string;
+    [|export   =   Foo;|]
+    const  b :  string;
+}
+
+[expect]
+declare   module   "m"   {
+    const  a :  string;
+[|    export = Foo;|]
+    const  b :  string;
+}
+
+== should format an export as namespace in a declared module ==
+declare   module   "m"   {
+    const  a :  string;
+    [|export   as   namespace   X;|]
+    const  b :  string;
+}
+
+[expect]
+declare   module   "m"   {
+    const  a :  string;
+[|    export as namespace X;|]
+    const  b :  string;
+}
+
+== should format an import equals declaration in a declared module ==
+declare   module   "m"   {
+    const  a :  string;
+    [|import   x  =   require( "x" );|]
+    const  b :  string;
+}
+
+[expect]
+declare   module   "m"   {
+    const  a :  string;
+[|    import x = require("x");|]
+    const  b :  string;
+}
+
+== should format an interface in a declared module ==
+declare   module   "m"   {
+    const  a :  string;
+    [|interface   X   {
+        a :  string;
+    }|]
+    const  b :  string;
+}
+
+[expect]
+declare   module   "m"   {
+    const  a :  string;
+[|    interface X {
+        a: string;|]
+    }
+    const  b :  string;
+}
+
+== should format a declared function in a declared module ==
+declare   module   "m"   {
+    const  a :  string;
+    [|function   x( a :  string ) :  void;|]
+    const  b :  string;
+}
+
+[expect]
+declare   module   "m"   {
+    const  a :  string;
+[|    function x(a: string): void;|]
+    const  b :  string;
+}

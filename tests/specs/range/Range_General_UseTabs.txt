@@ -1,0 +1,18 @@
+~~ useTabs: true ~~
+== should indent the touched lines with tabs ==
+function   f( )   {
+	const  a  =  1;
+		call( a );
+	if   ( a )   {
+		[|call( a );|]
+	}
+}
+
+[expect]
+function   f( )   {
+	const  a  =  1;
+		call( a );
+	if   ( a )   {
+[|		call(a);|]
+	}
+}

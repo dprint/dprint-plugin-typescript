@@ -1,0 +1,481 @@
+== should format a variable statement in a function body ==
+function   test( )   {
+    const  a  =  1;
+    [|let   x  =  1,   y  =  2;|]
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    let x = 1, y = 2;|]
+    const  b  =  2;
+}
+
+== should format a using declaration in a function body ==
+function   test( )   {
+    const  a  =  1;
+    [|using   x  =  getResource( );|]
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    using x = getResource();|]
+    const  b  =  2;
+}
+
+== should format a function declaration in a function body ==
+function   test( )   {
+    const  a  =  1;
+    [|function   x( a ,  b )   {
+        return   a;
+    }|]
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    function x(a, b) {
+        return a;|]
+    }
+    const  b  =  2;
+}
+
+== should format an async generator function declaration in a function body ==
+function   test( )   {
+    const  a  =  1;
+    [|async   function  *  x( )   {
+        yield   1;
+    }|]
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    async function* x() {
+        yield 1;|]
+    }
+    const  b  =  2;
+}
+
+== should format a function overload in a function body ==
+function   test( )   {
+    const  a  =  1;
+    [|function   x( a :  string ) :  void;|]
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    function x(a: string): void;|]
+    const  b  =  2;
+}
+
+== should format a class declaration in a function body ==
+function   test( )   {
+    const  a  =  1;
+    [|class   X   extends   Y   {
+        a  =  1;
+    }|]
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    class X extends Y {
+        a = 1;|]
+    }
+    const  b  =  2;
+}
+
+== should format an expression statement in a function body ==
+function   test( )   {
+    const  a  =  1;
+    [|call( a ,  b );|]
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    call(a, b);|]
+    const  b  =  2;
+}
+
+== should format an if statement in a function body ==
+function   test( )   {
+    const  a  =  1;
+    [|if   ( a )   {
+        call( );
+    }   else   if   ( b )   {
+        other( );
+    }   else   {
+        last( );
+    }|]
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    if (a) {
+        call();
+    } else if (b) {
+        other();
+    } else {
+        last();|]
+    }
+    const  b  =  2;
+}
+
+== should format an if statement without braces in a function body ==
+function   test( )   {
+    const  a  =  1;
+    [|if   ( a )   call( );|]
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    if (a) call();|]
+    const  b  =  2;
+}
+
+== should format a for statement in a function body ==
+function   test( )   {
+    const  a  =  1;
+    [|for   ( let   i  =  0;  i  <  1;  i++ )   {
+        call( i );
+    }|]
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    for (let i = 0; i < 1; i++) {
+        call(i);|]
+    }
+    const  b  =  2;
+}
+
+== should format a for in statement in a function body ==
+function   test( )   {
+    const  a  =  1;
+    [|for   ( const   key   in   obj )   {
+        call( key );
+    }|]
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    for (const key in obj) {
+        call(key);|]
+    }
+    const  b  =  2;
+}
+
+== should format a for of statement in a function body ==
+function   test( )   {
+    const  a  =  1;
+    [|for   ( const   item   of   items )   {
+        call( item );
+    }|]
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    for (const item of items) {
+        call(item);|]
+    }
+    const  b  =  2;
+}
+
+== should format a for await statement in a function body ==
+function   test( )   {
+    const  a  =  1;
+    [|for   await   ( const   item   of   items )   {
+        call( item );
+    }|]
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    for await (const item of items) {
+        call(item);|]
+    }
+    const  b  =  2;
+}
+
+== should format a while statement in a function body ==
+function   test( )   {
+    const  a  =  1;
+    [|while   ( a )   {
+        call( );
+    }|]
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    while (a) {
+        call();|]
+    }
+    const  b  =  2;
+}
+
+== should format a do while statement in a function body ==
+function   test( )   {
+    const  a  =  1;
+    [|do   {
+        call( );
+    }   while   ( a );|]
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    do {
+        call();
+    } while (a);|]
+    const  b  =  2;
+}
+
+== should format a try statement in a function body ==
+function   test( )   {
+    const  a  =  1;
+    [|try   {
+        call( );
+    }   catch   ( err )   {
+        handle( err );
+    }   finally   {
+        done( );
+    }|]
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    try {
+        call();
+    } catch (err) {
+        handle(err);
+    } finally {
+        done();|]
+    }
+    const  b  =  2;
+}
+
+== should format a switch statement in a function body ==
+function   test( )   {
+    const  a  =  1;
+    [|switch   ( a )   {
+        case   1:
+            break;
+    }|]
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    switch (a) {
+        case 1:|]
+            break;
+    }
+    const  b  =  2;
+}
+
+== should format a labeled statement in a function body ==
+function   test( )   {
+    const  a  =  1;
+    [|label:   for   ( ; ; )   {
+        break   label;
+    }|]
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    label: for (;;) {
+        break label;|]
+    }
+    const  b  =  2;
+}
+
+== should format a throw statement in a function body ==
+function   test( )   {
+    const  a  =  1;
+    [|throw   new   Error( "a" );|]
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    throw new Error("a");|]
+    const  b  =  2;
+}
+
+== should format a debugger statement in a function body ==
+function   test( )   {
+    const  a  =  1;
+    [|debugger  ;|]
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    debugger;|]
+    const  b  =  2;
+}
+
+== should format a block statement in a function body ==
+function   test( )   {
+    const  a  =  1;
+    [|{
+        call( );
+    }|]
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+    {
+[|        call();|]
+    }
+    const  b  =  2;
+}
+
+== should format nothing when only touching an empty statement in a function body ==
+function   test( )   {
+    const  a  =  1;
+    [|;|]
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+    [|;|]
+    const  b  =  2;
+}
+
+== should format a type alias in a function body ==
+function   test( )   {
+    const  a  =  1;
+    [|type   X  =  string   |   number;|]
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    type X = string | number;|]
+    const  b  =  2;
+}
+
+== should format an interface in a function body ==
+function   test( )   {
+    const  a  =  1;
+    [|interface   X   extends   Y   {
+        a :  string;
+    }|]
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    interface X extends Y {
+        a: string;|]
+    }
+    const  b  =  2;
+}
+
+== should format an enum in a function body ==
+function   test( )   {
+    const  a  =  1;
+    [|enum   X   {
+        A,
+    }|]
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    enum X {|]
+        A,
+    }
+    const  b  =  2;
+}
+
+== should format a const enum in a function body ==
+function   test( )   {
+    const  a  =  1;
+    [|const   enum   X   {
+        A,
+    }|]
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const enum X {|]
+        A,
+    }
+    const  b  =  2;
+}
+
+== should format a namespace in a function body ==
+function   test( )   {
+    const  a  =  1;
+    [|namespace   X   {
+        const   a  =  1;
+    }|]
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    namespace X {
+        const a = 1;|]
+    }
+    const  b  =  2;
+}
+
+== should format a return statement in a function body ==
+function   test( )   {
+    const  a  =  1;
+    [|return   a  +  b;|]
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    return a + b;|]
+    const  b  =  2;
+}

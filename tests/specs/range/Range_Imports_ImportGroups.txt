@@ -1,0 +1,62 @@
+~~ {
+  "module.sortImportDeclarations": "maintain",
+  "module.importGroups": [{ "match": "builtin" }, { "match": "external" }]
+} ~~
+== should not group the imports when only some are touched ==
+import   {  b  }   from   "b";
+[|import   {  x  }   from   "node:fs";|]
+
+const  z  =  1;
+
+[expect]
+import   {  b  }   from   "b";
+[|import { x } from "node:fs";|]
+
+const  z  =  1;
+
+== should group the imports when all are touched ==
+[|import   {  b  }   from   "b";
+import   {  x  }   from   "node:fs";|]
+
+const  z  =  1;
+
+[expect]
+[|import { x } from "node:fs";
+
+import { b } from "b";|]
+
+const  z  =  1;
+
+== should group the imports along with the comments before them when all are touched ==
+const  z  =  0;
+// about c
+[|import   {  c  }   from   "c";
+import   {  b  }   from   "b";
+import   {  x  }   from   "node:fs";|]
+const  y  =  0;
+
+[expect]
+const  z  =  0;
+[|import { x } from "node:fs";
+
+// about c
+import { c } from "c";
+import { b } from "b";|]
+const  y  =  0;
+
+== should not move a detached comment when grouping the imports ==
+// header
+
+// about b
+[|import   {  b  }   from   "b";
+import   {  x  }   from   "node:fs";|]
+const  z  =  1;
+
+[expect]
+// header
+
+[|import { x } from "node:fs";
+
+// about b
+import { b } from "b";|]
+const  z  =  1;

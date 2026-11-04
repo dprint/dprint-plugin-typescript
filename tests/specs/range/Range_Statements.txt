@@ -1,0 +1,523 @@
+== should format a variable statement ==
+const  a  =  1;
+[|let   x  =  1,   y  =  2;|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|let x = 1, y = 2;|]
+const  b  =  2;
+
+== should format a using declaration ==
+const  a  =  1;
+[|using   x  =  getResource( );|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|using x = getResource();|]
+const  b  =  2;
+
+== should format a function declaration ==
+const  a  =  1;
+[|function   x( a ,  b )   {
+    return   a;
+}|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|function x(a, b) {
+    return a;|]
+}
+const  b  =  2;
+
+== should format an async generator function declaration ==
+const  a  =  1;
+[|async   function  *  x( )   {
+    yield   1;
+}|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|async function* x() {
+    yield 1;|]
+}
+const  b  =  2;
+
+== should format a declared function ==
+const  a  =  1;
+[|declare   function   x( a :  string ) :  void;|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|declare function x(a: string): void;|]
+const  b  =  2;
+
+== should format a function overload ==
+const  a  =  1;
+[|function   x( a :  string ) :  void;|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|function x(a: string): void;|]
+const  b  =  2;
+
+== should format a class declaration ==
+const  a  =  1;
+[|class   X   extends   Y   {
+    a  =  1;
+}|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|class X extends Y {
+    a = 1;|]
+}
+const  b  =  2;
+
+== should format an expression statement ==
+const  a  =  1;
+[|call( a ,  b );|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|call(a, b);|]
+const  b  =  2;
+
+== should format an if statement ==
+const  a  =  1;
+[|if   ( a )   {
+    call( );
+}   else   if   ( b )   {
+    other( );
+}   else   {
+    last( );
+}|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|if (a) {
+    call();
+} else if (b) {
+    other();
+} else {
+    last();|]
+}
+const  b  =  2;
+
+== should format an if statement without braces ==
+const  a  =  1;
+[|if   ( a )   call( );|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|if (a) call();|]
+const  b  =  2;
+
+== should format a for statement ==
+const  a  =  1;
+[|for   ( let   i  =  0;  i  <  1;  i++ )   {
+    call( i );
+}|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|for (let i = 0; i < 1; i++) {
+    call(i);|]
+}
+const  b  =  2;
+
+== should format a for in statement ==
+const  a  =  1;
+[|for   ( const   key   in   obj )   {
+    call( key );
+}|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|for (const key in obj) {
+    call(key);|]
+}
+const  b  =  2;
+
+== should format a for of statement ==
+const  a  =  1;
+[|for   ( const   item   of   items )   {
+    call( item );
+}|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|for (const item of items) {
+    call(item);|]
+}
+const  b  =  2;
+
+== should format a for await statement ==
+const  a  =  1;
+[|for   await   ( const   item   of   items )   {
+    call( item );
+}|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|for await (const item of items) {
+    call(item);|]
+}
+const  b  =  2;
+
+== should format a while statement ==
+const  a  =  1;
+[|while   ( a )   {
+    call( );
+}|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|while (a) {
+    call();|]
+}
+const  b  =  2;
+
+== should format a do while statement ==
+const  a  =  1;
+[|do   {
+    call( );
+}   while   ( a );|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|do {
+    call();
+} while (a);|]
+const  b  =  2;
+
+== should format a try statement ==
+const  a  =  1;
+[|try   {
+    call( );
+}   catch   ( err )   {
+    handle( err );
+}   finally   {
+    done( );
+}|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|try {
+    call();
+} catch (err) {
+    handle(err);
+} finally {
+    done();|]
+}
+const  b  =  2;
+
+== should format a switch statement ==
+const  a  =  1;
+[|switch   ( a )   {
+    case   1:
+        break;
+}|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|switch (a) {
+    case 1:|]
+        break;
+}
+const  b  =  2;
+
+== should format a labeled statement ==
+const  a  =  1;
+[|label:   for   ( ; ; )   {
+    break   label;
+}|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|label: for (;;) {
+    break label;|]
+}
+const  b  =  2;
+
+== should format a throw statement ==
+const  a  =  1;
+[|throw   new   Error( "a" );|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|throw new Error("a");|]
+const  b  =  2;
+
+== should format a debugger statement ==
+const  a  =  1;
+[|debugger  ;|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|debugger;|]
+const  b  =  2;
+
+== should format a block statement ==
+const  a  =  1;
+[|{
+    call( );
+}|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+{
+[|    call();|]
+}
+const  b  =  2;
+
+== should format nothing when only touching an empty statement ==
+const  a  =  1;
+[|;|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|;|]
+const  b  =  2;
+
+== should format a type alias ==
+const  a  =  1;
+[|type   X  =  string   |   number;|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|type X = string | number;|]
+const  b  =  2;
+
+== should format an interface ==
+const  a  =  1;
+[|interface   X   extends   Y   {
+    a :  string;
+}|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|interface X extends Y {
+    a: string;|]
+}
+const  b  =  2;
+
+== should format an enum ==
+const  a  =  1;
+[|enum   X   {
+    A,
+}|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|enum X {|]
+    A,
+}
+const  b  =  2;
+
+== should format a const enum ==
+const  a  =  1;
+[|const   enum   X   {
+    A,
+}|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|const enum X {|]
+    A,
+}
+const  b  =  2;
+
+== should format a namespace ==
+const  a  =  1;
+[|namespace   X   {
+    const   a  =  1;
+}|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|namespace X {
+    const a = 1;|]
+}
+const  b  =  2;
+
+== should format a declared module ==
+const  a  =  1;
+[|declare   module   "x"   {
+    const   a :  string;
+}|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|declare module "x" {
+    const a: string;|]
+}
+const  b  =  2;
+
+== should format a global declaration ==
+const  a  =  1;
+[|declare   global   {
+    const   a :  string;
+}|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|declare global {
+    const a: string;|]
+}
+const  b  =  2;
+
+== should format the statement holding an import default specifier ==
+const  a  =  1;
+import   [|x|] ,  {  y  }   from   "x";
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|import x, { y } from "x";|]
+const  b  =  2;
+
+== should format the statement holding an import named specifier ==
+const  a  =  1;
+import   {  [|y|]   as   z  }   from   "x";
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|import { y as z } from "x";|]
+const  b  =  2;
+
+== should format the statement holding an import namespace specifier ==
+const  a  =  1;
+import   *   as   [|x|]   from   "x";
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|import * as x from "x";|]
+const  b  =  2;
+
+== should format the statement holding an export named specifier ==
+const  a  =  1;
+export   {  [|a|]   as   b  };
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|export { a as b };|]
+const  b  =  2;
+
+== should format the statement holding an export namespace specifier ==
+const  a  =  1;
+export   *   as   [|x|]   from   "x";
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|export * as x from "x";|]
+const  b  =  2;
+
+== should format the statement holding an external module reference ==
+const  a  =  1;
+import   x  =   require(  [|"x"|]  );
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|import x = require("x");|]
+const  b  =  2;
+
+== should format a return statement ==
+function   test( )   {
+    call( );
+    [|return   a  +  b;|]
+}
+
+[expect]
+function   test( )   {
+    call( );
+[|    return a + b;|]
+}
+
+== should format break and continue statements ==
+for   ( ; ; )   {
+    [|if   ( a )   continue;
+    break  ;|]
+}
+
+[expect]
+for   ( ; ; )   {
+[|    if (a) continue;
+    break;|]
+}
+
+== should keep decorators before export with the statement ==
+const  a  =  1;
+@dec( )
+export   class   [|X|]   {
+}
+
+[expect]
+const  a  =  1;
+[|@dec()
+export class X {|]
+}
+
+== should keep decorators after export with the statement ==
+const  a  =  1;
+export   @dec( )   class   [|X|]   {
+}
+
+[expect]
+const  a  =  1;
+[|export @dec() class X {|]
+}
+
+== should keep decorators before export default with the statement ==
+const  a  =  1;
+@dec( )
+export   default   class   [|X|]   {
+}
+
+[expect]
+const  a  =  1;
+[|@dec()
+export default class X {|]
+}
+
+== should format a directive ==
+[|"use   strict"  ;|]
+const  a  =  1;
+
+[expect]
+[|"use   strict";|]
+const  a  =  1;

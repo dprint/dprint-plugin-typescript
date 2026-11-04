@@ -1,0 +1,447 @@
+== should format the member holding a keyword type ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  [|string|];
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = string;|]
+    type   Z  =  2;
+}
+
+== should format the member holding a this type ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  [|this|];
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = this;|]
+    type   Z  =  2;
+}
+
+== should format the member holding a type reference ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  A<  [|string|]  >;
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = A<string>;|]
+    type   Z  =  2;
+}
+
+== should format the member holding a qualified type reference ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  A.[|B|];
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = A.B;|]
+    type   Z  =  2;
+}
+
+== should format the member holding a function type ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  (  [|a|] :  string  )   =>   void;
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = (a: string) => void;|]
+    type   Z  =  2;
+}
+
+== should format the member holding a constructor type ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  new   (  [|a|] :  string  )   =>   A;
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = new(a: string) => A;|]
+    type   Z  =  2;
+}
+
+== should format the member holding an abstract constructor type ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  abstract   new   (  )   =>   [|A|];
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = abstract new() => A;|]
+    type   Z  =  2;
+}
+
+== should format the member holding a type query ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  typeof   [|a|];
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = typeof a;|]
+    type   Z  =  2;
+}
+
+== should format the member holding a type literal ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  {   a :  string;   [|b|] :  string   };
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = { a: string; b: string };|]
+    type   Z  =  2;
+}
+
+== should format the member holding an array type ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  [|string|]  [  ];
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = string[];|]
+    type   Z  =  2;
+}
+
+== should format the member holding a tuple type ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  [  string ,  [|number|]  ];
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = [string, number];|]
+    type   Z  =  2;
+}
+
+== should format the member holding a named tuple member ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  [  a :  string ,  [|b|] ?:  number  ];
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = [a: string, b?: number];|]
+    type   Z  =  2;
+}
+
+== should format the member holding an optional tuple element ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  [  string ,  [|number|]?  ];
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = [string, number?];|]
+    type   Z  =  2;
+}
+
+== should format the member holding a rest tuple element ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  [  string ,  ...[|number|][  ]  ];
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = [string, ...number[]];|]
+    type   Z  =  2;
+}
+
+== should format the member holding a union type ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  string   |   [|number|];
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = string | number;|]
+    type   Z  =  2;
+}
+
+== should format the member holding an intersection type ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  A   &   [|B|];
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = A & B;|]
+    type   Z  =  2;
+}
+
+== should format the member holding a conditional type ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  A   extends   B   ?   [|C|]   :   D;
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = A extends B ? C : D;|]
+    type   Z  =  2;
+}
+
+== should format the member holding an infer type ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  A   extends   Array<  infer   [|U|]  >   ?   U   :   never;
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = A extends Array<infer U> ? U : never;|]
+    type   Z  =  2;
+}
+
+== should format the member holding a parenthesized type ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  (  [|string|]  )[  ];
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = (string)[];|]
+    type   Z  =  2;
+}
+
+== should format the member holding a keyof type ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  keyof   [|A|];
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = keyof A;|]
+    type   Z  =  2;
+}
+
+== should format the member holding a readonly type ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  readonly   [|string|][  ];
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = readonly string[];|]
+    type   Z  =  2;
+}
+
+== should format the member holding a unique symbol type ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  unique   [|symbol|];
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = unique symbol;|]
+    type   Z  =  2;
+}
+
+== should format the member holding an indexed access type ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  A[  [|"b"|]  ];
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = A["b"];|]
+    type   Z  =  2;
+}
+
+== should format the member holding a mapped type ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  {   [  K   in   [|Keys|]  ] :  string   };
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = { [K in Keys]: string };|]
+    type   Z  =  2;
+}
+
+== should format the member holding a mapped type with modifiers ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  {   -readonly   [  K   in   Keys  ]-?:  [|string|]   };
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = { -readonly [K in Keys]-?: string };|]
+    type   Z  =  2;
+}
+
+== should format the member holding a literal type ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  [|"a"|]   |   1;
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = "a" | 1;|]
+    type   Z  =  2;
+}
+
+== should format the member holding a template literal type ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  `a${  [|B|]  }c`;
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = `a${B}c`;|]
+    type   Z  =  2;
+}
+
+== should format the member holding an import type ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  import(  "a"  ).[|B|];
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = import("a").B;|]
+    type   Z  =  2;
+}
+
+== should format the member holding an import type with options ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  import(  "a" ,  {  with :  {  "resolution-mode" :  [|"import"|]  }  }  ).B;
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = import("a", { with: { "resolution-mode": "import" }}).B;|]
+    type   Z  =  2;
+}
+
+== should format the member holding a type predicate ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  (  a :  unknown  )   =>   a   is   [|string|];
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = (a: unknown) => a is string;|]
+    type   Z  =  2;
+}
+
+== should format the member holding an asserts type predicate ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  (  a :  unknown  )   =>   asserts   [|a|];
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = (a: unknown) => asserts a;|]
+    type   Z  =  2;
+}
+
+== should format the member holding type parameters ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  <  T   extends   [|string|]  =  "a"  >(  )   =>   T;
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = <T extends string = "a">() => T;|]
+    type   Z  =  2;
+}

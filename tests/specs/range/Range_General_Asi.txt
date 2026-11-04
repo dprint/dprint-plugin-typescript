@@ -1,0 +1,143 @@
+~~ semiColons: asi ~~
+== should format a statement before a statement starting with a semicolon ==
+const  z  =  1
+const   a  =  [|foo|]( )
+;[1 ,  2].forEach( x   =>   x )
+
+[expect]
+const  z  =  1
+[|const a = foo()|]
+;[1 ,  2].forEach( x   =>   x )
+
+== should format a statement starting with a semicolon ==
+const  z  =  1
+;(  async  (  [|x|]  )   =>   {
+    await   foo( )
+} )( )
+
+[expect]
+const  z  =  1
+;[|(async (x) => {
+    await foo()
+})()|]
+
+== should not move the semicolon of the statement before when the file has semicolons ==
+const  x1  =  1;
+foo( );
+[|[1].forEach( x );|]
+const  b  =  2;
+
+[expect]
+const  x1  =  1;
+foo( );
+[|[1].forEach(x)|]
+const  b  =  2;
+
+== should keep the semicolon at the end of the statement when the file has semicolons ==
+const  x1  =  1;
+foo(  [|1|]  );
+(a   ||   b).c( );
+
+[expect]
+const  x1  =  1;
+[|foo(1);|]
+(a   ||   b).c( );
+
+== should keep a statement with a trailing comment before a statement starting with a semicolon ==
+const  untouched  =  1;
+[|foo(); // c|]
+[1].forEach(x => x);
+const  other  =  2;
+
+[expect]
+const  untouched  =  1;
+[|foo(); // c|]
+[1].forEach(x => x);
+const  other  =  2;
+
+== should keep the semicolon before a trailing block comment ==
+const  untouched  =  1;
+[|foo(  ); /* c */|]
+[1].forEach(x => x);
+const  other  =  2;
+
+[expect]
+const  untouched  =  1;
+[|foo(); /* c */|]
+[1].forEach(x => x);
+const  other  =  2;
+
+== should format a comment before a statement starting with a semicolon ==
+const  untouched  =  1;
+a( );
+[|   // c
+[1].forEach( );|]
+const  other  =  2;
+
+[expect]
+const  untouched  =  1;
+a( );
+[|// c
+[1].forEach()|]
+const  other  =  2;
+
+== should format a statement after a comment before its semicolon ==
+const  untouched  =  1
+foo( )
+/* c */ ;[|[1]|].forEach( x )
+bar(  )
+
+[expect]
+const  untouched  =  1
+foo( )
+/* c */
+;[|[1].forEach(x)|]
+bar(  )
+
+== should format the statement after a cursor after a semicolon starting the line ==
+foo(  )
+;  [||]  [1].forEach(  )
+
+[expect]
+foo(  )
+;[|[1].forEach()|]
+
+== should not add a semicolon after an empty statement before a statement starting with a parenthesis ==
+function   main( )   {
+    return  1
+};
+[|(async ( ) => {   await main( )   })( )|]
+
+[expect]
+function   main( )   {
+    return  1
+};
+[|(async () => {
+    await main()
+})()|]
+
+== should not add a semicolon after an empty statement on its own line ==
+function   f( )   {
+    ;
+    [|[1].map( g )|]
+}
+
+[expect]
+function   f( )   {
+    ;
+[|    [1].map(g)|]
+}
+
+== should format the comment after a statement before one starting with a semicolon ==
+const  y  =  1;
+[|a(  );
+   // c|]
+[1].forEach(  );
+const  z  =  1;
+
+[expect]
+const  y  =  1;
+[|a();
+// c|]
+[1].forEach(  );
+const  z  =  1;

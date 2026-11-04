@@ -1,0 +1,338 @@
+== should format the touched property of an object in an assignment property ==
+const   b  =  {
+    x :  1,
+    z  =  {
+        a :  1,
+        [|b :  2,|]
+    },
+};
+
+[expect]
+const   b  =  {
+    x :  1,
+    z  =  {
+        a :  1,
+[|        b: 2,|]
+    },
+};
+
+== should format a touched property next to an assignment property ==
+const   b  =  {
+    x :  1,
+    [|y :  2|],
+    z  =  3,
+};
+
+[expect]
+const   b  =  {
+    x :  1,
+[|    y: 2,|]
+    z  =  3,
+};
+
+== should format an assignment property ==
+const   b  =  {
+    x :  1,
+    [|z  =  3|],
+};
+
+[expect]
+const   b  =  {
+    x :  1,
+[|    z: 3,|]
+};
+
+== should format a key value property in an object ==
+const   a  =  {
+    b :  1,
+    [|c :  2,|]
+    d :  3,
+};
+
+[expect]
+const   a  =  {
+    b :  1,
+[|    c: 2,|]
+    d :  3,
+};
+
+== should format a string key property in an object ==
+const   a  =  {
+    b :  1,
+    [|"c" :  2,|]
+    d :  3,
+};
+
+[expect]
+const   a  =  {
+    b :  1,
+[|    "c": 2,|]
+    d :  3,
+};
+
+== should format a number key property in an object ==
+const   a  =  {
+    b :  1,
+    [|1 :  2,|]
+    d :  3,
+};
+
+[expect]
+const   a  =  {
+    b :  1,
+[|    1: 2,|]
+    d :  3,
+};
+
+== should format a computed key property in an object ==
+const   a  =  {
+    b :  1,
+    [|[ key ] :  2,|]
+    d :  3,
+};
+
+[expect]
+const   a  =  {
+    b :  1,
+[|    [key]: 2,|]
+    d :  3,
+};
+
+== should format a shorthand property in an object ==
+const   a  =  {
+    b :  1,
+    [|c  ,|]
+    d :  3,
+};
+
+[expect]
+const   a  =  {
+    b :  1,
+[|    c,|]
+    d :  3,
+};
+
+== should format a method in an object ==
+const   a  =  {
+    b :  1,
+    [|method( a )   {
+        call( a );
+    },|]
+    d :  3,
+};
+
+[expect]
+const   a  =  {
+    b :  1,
+[|    method(a) {
+        call(a);|]
+    },
+    d :  3,
+};
+
+== should format an async generator method in an object ==
+const   a  =  {
+    b :  1,
+    [|async  *  method( )   {
+        yield   1;
+    },|]
+    d :  3,
+};
+
+[expect]
+const   a  =  {
+    b :  1,
+[|    async *method() {
+        yield 1;|]
+    },
+    d :  3,
+};
+
+== should format a getter in an object ==
+const   a  =  {
+    b :  1,
+    [|get   c( )   {
+        return   1;
+    },|]
+    d :  3,
+};
+
+[expect]
+const   a  =  {
+    b :  1,
+[|    get c() {
+        return 1;|]
+    },
+    d :  3,
+};
+
+== should format a setter in an object ==
+const   a  =  {
+    b :  1,
+    [|set   c( value )   {
+        call( value );
+    },|]
+    d :  3,
+};
+
+[expect]
+const   a  =  {
+    b :  1,
+[|    set c(value) {
+        call(value);|]
+    },
+    d :  3,
+};
+
+== should format a spread in an object ==
+const   a  =  {
+    b :  1,
+    [|...  other ,|]
+    d :  3,
+};
+
+[expect]
+const   a  =  {
+    b :  1,
+[|    ...other,|]
+    d :  3,
+};
+
+== should format the last property ==
+const   a  =  {
+    b :  1,
+    [|c :  2|]
+};
+
+[expect]
+const   a  =  {
+    b :  1,
+[|    c: 2,|]
+};
+
+== should format the touched properties of a nested object ==
+const   a  =  {
+    b :  1,
+    c :  {
+        d :  1,
+        [|e :  2,|]
+    },
+};
+
+[expect]
+const   a  =  {
+    b :  1,
+    c :  {
+        d :  1,
+[|        e: 2,|]
+    },
+};
+
+== should format the touched properties of an object in an argument ==
+call( {
+    b :  1,
+    [|c :  2,|]
+} );
+
+[expect]
+call( {
+    b :  1,
+[|    c: 2,|]
+} );
+
+== should format the touched properties of an object in a return statement ==
+function   test( )   {
+    return   {
+        b :  1,
+        [|c :  2,|]
+    };
+}
+
+[expect]
+function   test( )   {
+    return   {
+        b :  1,
+[|        c: 2,|]
+    };
+}
+
+== should format the touched properties of an object in an export default ==
+export   default   {
+    b :  1,
+    [|c :  2,|]
+};
+
+[expect]
+export   default   {
+    b :  1,
+[|    c: 2,|]
+};
+
+== should format the touched properties of an object with a type assertion ==
+const   a  =  {
+    b :  1,
+    [|c :  2,|]
+}   as   const;
+
+[expect]
+const   a  =  {
+    b :  1,
+[|    c: 2,|]
+}   as   const;
+
+== should format the touched properties of an object in parentheses ==
+const   a  =  ( {
+    b :  1,
+    [|c :  2,|]
+} );
+
+[expect]
+const   a  =  ( {
+    b :  1,
+[|    c: 2,|]
+} );
+
+== should format the statement when the object is on a single line ==
+const   x  =  1;
+const   a  =  {   b :  1,   [|c :  2|]   };
+
+[expect]
+const   x  =  1;
+[|const a = { b: 1, c: 2 };|]
+
+== should format the statement when the object will be on a single line ==
+const   x  =  1;
+const   b  =  {   c :  1,
+    [|d :  2|] };
+
+[expect]
+const   x  =  1;
+[|const b = { c: 1, d: 2 };|]
+
+== should format the touched properties with comma first style ==
+const   a  =  {
+    b :  1
+    , [|c :  2|]
+    , d :  3
+};
+
+[expect]
+[|const a = {
+    b: 1,
+    c: 2,
+    d: 3,|]
+};
+
+== should format the statement holding a multi-line object pattern ==
+const   x  =  1;
+const   {
+    a ,
+    [|b|] ,
+}  =  obj;
+
+[expect]
+const   x  =  1;
+[|const {
+    a,
+    b,
+} = obj;|]

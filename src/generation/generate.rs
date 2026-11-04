@@ -885,9 +885,10 @@ fn gen_class_prop_common<'a, 'b>(node: GenClassPropCommon<'a, 'b>, context: &mut
     items.extend(gen_assignment(value.into(), sc!("="), context));
   }
 
+  // the empty members after the property are removed, so what's after them is the next member
   let should_semi = context.config.semi_colons.is_true()
     || matches!(
-      node.original.next_token_fast(context.program),
+      node.original.next_tokens_fast(context.program).iter().find(|token| token.token != Token::Semi),
       Some(TokenAndSpan {
         token: Token::LBracket | Token::BinOp(BinOpToken::Mul),
         ..
@@ -7839,7 +7840,7 @@ fn gen_comments_as_statements<'a>(comments: impl Iterator<Item = &'a Comment>, l
 /// blank line separates them from it (ex. a file header). Those stay where they
 /// are when the imports get reordered, while the rest are attached to the import
 /// and travel with it.
-fn detached_preamble_len(comments: &[&Comment], node: Node, program: Program) -> usize {
+pub(crate) fn detached_preamble_len(comments: &[&Comment], node: Node, program: Program) -> usize {
   let mut next_line = node.start_line_fast(program);
   for (i, comment) in comments.iter().enumerate().rev() {
     if next_line > comment.end_line_fast(program) + 1 {
@@ -8581,11 +8582,9 @@ fn get_member_spacing_forced_blank_line_count(member_spacing: MemberSpacing) -> 
   }
 }
 
-/// Gets the number of blank lines to keep between two nodes, which is the
-/// number in the source capped at the `maxBlankLines` configuration.
 /// Gets the range of a statement including the decorators before `export` (ex. `@dec export class A {}`),
 /// which come before the statement's start.
-fn get_stmt_range_with_decorators(node: Node) -> SourceRange {
+pub(crate) fn get_stmt_range_with_decorators(node: Node) -> SourceRange {
   let decorators = match node {
     Node::ExportDecl(decl) => match decl.decl {
       Decl::Class(class_decl) => Some(class_decl.class.decorators),
@@ -8604,6 +8603,8 @@ fn get_stmt_range_with_decorators(node: Node) -> SourceRange {
   SourceRange::new(start, node.end())
 }
 
+/// Gets the number of blank lines to keep between two nodes, which is the
+/// number in the source capped at the `maxBlankLines` configuration.
 fn get_maintained_blank_line_count<'a>(first: &impl SourceRanged, second: &impl SourceRanged, context: &Context<'a>) -> usize {
   cap_blank_line_count(node_helpers::get_separating_blank_line_count(first, second, context.program), context)
 }
@@ -8864,18 +8865,11 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
 
         last_node = Some(generated.last_range);
       } else {
-        let mut items = PrintItems::new(context.arena);
-        let leading_comments = node.leading_comments_fast(context.program);
-        items.extend(gen_comments_as_statements(leading_comments.clone(), None, context));
-        let trailing_comments = get_trailing_comments_same_line(&node.range(), node.trailing_comments_fast(context.program), context);
-        if !trailing_comments.is_empty() {
-          if !leading_comments.is_empty() {
-            items.push_signal(Signal::NewLine);
-          }
-          items.extend(gen_comment_collection(trailing_comments.into_iter(), None, None, context));
+        let generated = gen_empty_stmt_or_member_comments(node, last_node.as_ref(), context);
+        generated_nodes.push(generated.items);
+        if generated.has_leading_comments {
+          last_node = Some(node.range());
         }
-
-        generated_nodes.push(items);
 
         // ensure if this is last that it generates the trailing comment statements
         if stmt_group_index == stmt_group_len - 1 && i == nodes_len - 1 {
@@ -9000,17 +8994,32 @@ fn gen_node_with_comments_before_semicolon_on_later_line<'a>(
 
 /// Gets the semicolon that ends the node when it's on a later line than the rest of
 /// the node, along with the token before it.
-fn get_semicolon_on_later_line<'a>(node: Node<'a>, program: Program<'a>) -> Option<(&'a TokenAndSpan, &'a TokenAndSpan)> {
+pub(crate) fn get_semicolon_on_later_line<'a>(node: Node<'a>, program: Program<'a>) -> Option<(&'a TokenAndSpan, &'a TokenAndSpan)> {
   let [.., previous_token, semicolon] = node.tokens_fast(program) else {
     return None;
   };
   (semicolon.token == Token::Semi && previous_token.end_line_fast(program) < semicolon.start_line_fast(program)).then_some((previous_token, semicolon))
 }
 
-fn gen_member_or_member_expr_stmt_comments<'a>(node: Node, context: &mut Context<'a>) -> PrintItems<'a> {
+struct GeneratedEmptyStmtOrMemberComments<'a> {
+  items: PrintItems<'a>,
+  /// Whether it has leading comments, which means what comes next is separated from the empty
+  /// statement rather than from what's before it.
+  has_leading_comments: bool,
+}
+
+/// Generates the comments of an empty statement or class member, which itself isn't generated. The
+/// leading comments go on their own lines after what's before it (ex. the comment in
+/// `a();\n// c\n;b();`) rather than being joined to it.
+fn gen_empty_stmt_or_member_comments<'a>(
+  node: Node,
+  previous_range: Option<&SourceRange>,
+  context: &mut Context<'a>,
+) -> GeneratedEmptyStmtOrMemberComments<'a> {
   let mut items = PrintItems::new(context.arena);
   let leading_comments = node.leading_comments_fast(context.program);
-  items.extend(gen_comments_as_statements(leading_comments.clone(), None, context));
+  let has_leading_comments = leading_comments.clone().any(|comment| !context.has_handled_comment(comment));
+  items.extend(gen_comments_as_statements(leading_comments.clone(), previous_range, context));
   let trailing_comments = get_trailing_comments_same_line(&node.range(), node.trailing_comments_fast(context.program), context);
   if !trailing_comments.is_empty() {
     if !leading_comments.is_empty() {
@@ -9019,7 +9028,7 @@ fn gen_member_or_member_expr_stmt_comments<'a>(node: Node, context: &mut Context
     items.extend(gen_comment_collection(trailing_comments.into_iter(), None, None, context));
   }
 
-  items
+  GeneratedEmptyStmtOrMemberComments { items, has_leading_comments }
 }
 
 /// Gets the number of blank lines before the import at the index of a run of
@@ -9053,7 +9062,7 @@ fn get_import_group_blank_line_count<'a>(
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]
-enum StmtGroupKind {
+pub(crate) enum StmtGroupKind {
   Imports,
   Exports,
   Other,
@@ -9071,15 +9080,31 @@ struct StmtGroup<'a> {
   sorted_indexes: Option<utils::VecMap<usize>>,
 }
 
-/// Whether one of the declaration's leading comments asks for it to be ignored.
-fn has_dprint_ignore_comment(node: Node, context: &Context) -> bool {
-  node
-    .leading_comments_fast(context.program)
-    .any(|comment| ir_helpers::text_has_dprint_ignore(&comment.text, &context.config.ignore_node_comment_text))
-}
-
 fn is_import_stmt(node: Node) -> bool {
   matches!(node, Node::ImportDecl(_) | Node::TsImportEqualsDecl(_))
+}
+
+/// Gets the kind of group a statement is sorted in, which is `Other` for a statement formatting
+/// doesn't sort.
+pub(crate) fn get_stmt_group_kind(stmt: Node, program: Program, config: &Configuration) -> StmtGroupKind {
+  let stmt_group_kind = match stmt {
+    Node::ImportDecl(decl) if !decl.specifiers.is_empty() => StmtGroupKind::Imports,
+    Node::ExportAll(_) => StmtGroupKind::Exports,
+    Node::NamedExport(NamedExport { src: Some(_), .. }) => StmtGroupKind::Exports,
+    _ => StmtGroupKind::Other,
+  };
+  // an ignored declaration is a barrier: it stays where it is and ends the
+  // run around it, the same way a side-effect import does
+  let is_ignored = || {
+    stmt
+      .leading_comments_fast(program)
+      .any(|comment| ir_helpers::text_has_dprint_ignore(&comment.text, &config.ignore_node_comment_text))
+  };
+  if stmt_group_kind != StmtGroupKind::Other && is_ignored() {
+    StmtGroupKind::Other
+  } else {
+    stmt_group_kind
+  }
 }
 
 fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> BumpVec<'a, StmtGroup<'a>> {
@@ -9089,19 +9114,7 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> BumpV
 
   for stmt in stmts {
     let last_end_line = previous_last_end_line.take();
-    let stmt_group_kind = match stmt {
-      Node::ImportDecl(decl) if !decl.specifiers.is_empty() => StmtGroupKind::Imports,
-      Node::ExportAll(_) => StmtGroupKind::Exports,
-      Node::NamedExport(NamedExport { src: Some(_), .. }) => StmtGroupKind::Exports,
-      _ => StmtGroupKind::Other,
-    };
-    // an ignored declaration is a barrier: it stays where it is and ends the
-    // run around it, the same way a side-effect import does
-    let stmt_group_kind = if stmt_group_kind != StmtGroupKind::Other && has_dprint_ignore_comment(stmt, context) {
-      StmtGroupKind::Other
-    } else {
-      stmt_group_kind
-    };
+    let stmt_group_kind = get_stmt_group_kind(stmt, context.program, context.config);
     previous_last_end_line = match stmt_group_kind {
       StmtGroupKind::Imports | StmtGroupKind::Exports => Some(stmt.end_line_fast(context.program)),
       StmtGroupKind::Other => None,
@@ -9308,7 +9321,12 @@ where
       last_comment_range = generated.comment_range.map(|_| generated.last_range);
       last_node = Some(node);
     } else {
-      items.extend(gen_member_or_member_expr_stmt_comments(node, context));
+      let previous_range = last_comment_range.or_else(|| last_node.map(|node| node.range()));
+      let generated = gen_empty_stmt_or_member_comments(node, previous_range.as_ref(), context);
+      items.extend(generated.items);
+      if generated.has_leading_comments {
+        last_comment_range = Some(node.range());
+      }
 
       // ensure if this is last that it generates the trailing comment statements
       if i == children_len - 1 {

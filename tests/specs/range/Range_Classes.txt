@@ -1,0 +1,566 @@
+== should format a property in a class ==
+abstract   class   A   {
+    x  =  1;
+    [|a  :  string  =  "a";|]
+    y  =  2;
+}
+
+[expect]
+abstract   class   A   {
+    x  =  1;
+[|    a: string = "a";|]
+    y  =  2;
+}
+
+== should format an optional property in a class ==
+abstract   class   A   {
+    x  =  1;
+    [|a ?:  string;|]
+    y  =  2;
+}
+
+[expect]
+abstract   class   A   {
+    x  =  1;
+[|    a?: string;|]
+    y  =  2;
+}
+
+== should format a definite property in a class ==
+abstract   class   A   {
+    x  =  1;
+    [|a !:  string;|]
+    y  =  2;
+}
+
+[expect]
+abstract   class   A   {
+    x  =  1;
+[|    a!: string;|]
+    y  =  2;
+}
+
+== should format a static property in a class ==
+abstract   class   A   {
+    x  =  1;
+    [|static   a  =  1;|]
+    y  =  2;
+}
+
+[expect]
+abstract   class   A   {
+    x  =  1;
+[|    static a = 1;|]
+    y  =  2;
+}
+
+== should format a readonly property in a class ==
+abstract   class   A   {
+    x  =  1;
+    [|readonly   a  =  1;|]
+    y  =  2;
+}
+
+[expect]
+abstract   class   A   {
+    x  =  1;
+[|    readonly a = 1;|]
+    y  =  2;
+}
+
+== should format a declared property in a class ==
+abstract   class   A   {
+    x  =  1;
+    [|declare   a :  string;|]
+    y  =  2;
+}
+
+[expect]
+abstract   class   A   {
+    x  =  1;
+[|    declare a: string;|]
+    y  =  2;
+}
+
+== should format a private property in a class ==
+abstract   class   A   {
+    x  =  1;
+    [|#a  =  1;|]
+    y  =  2;
+}
+
+[expect]
+abstract   class   A   {
+    x  =  1;
+[|    #a = 1;|]
+    y  =  2;
+}
+
+== should format a computed property in a class ==
+abstract   class   A   {
+    x  =  1;
+    [|[ key ]  =  1;|]
+    y  =  2;
+}
+
+[expect]
+abstract   class   A   {
+    x  =  1;
+[|    [key] = 1;|]
+    y  =  2;
+}
+
+== should format an auto accessor in a class ==
+abstract   class   A   {
+    x  =  1;
+    [|accessor   a  =  1;|]
+    y  =  2;
+}
+
+[expect]
+abstract   class   A   {
+    x  =  1;
+[|    accessor a = 1;|]
+    y  =  2;
+}
+
+== should format a method in a class ==
+abstract   class   A   {
+    x  =  1;
+    [|method( a :  string ) :  void   {
+        call( a );
+    }|]
+    y  =  2;
+}
+
+[expect]
+abstract   class   A   {
+    x  =  1;
+[|    method(a: string): void {
+        call(a);|]
+    }
+    y  =  2;
+}
+
+== should format an async generator method in a class ==
+abstract   class   A   {
+    x  =  1;
+    [|async  *  method( )   {
+        yield   1;
+    }|]
+    y  =  2;
+}
+
+[expect]
+abstract   class   A   {
+    x  =  1;
+[|    async *method() {
+        yield 1;|]
+    }
+    y  =  2;
+}
+
+== should format a private method in a class ==
+abstract   class   A   {
+    x  =  1;
+    [|#method( )   {
+        call( );
+    }|]
+    y  =  2;
+}
+
+[expect]
+abstract   class   A   {
+    x  =  1;
+[|    #method() {
+        call();|]
+    }
+    y  =  2;
+}
+
+== should format a static method in a class ==
+abstract   class   A   {
+    x  =  1;
+    [|static   method( )   {
+        call( );
+    }|]
+    y  =  2;
+}
+
+[expect]
+abstract   class   A   {
+    x  =  1;
+[|    static method() {
+        call();|]
+    }
+    y  =  2;
+}
+
+== should format an abstract method in a class ==
+abstract   class   A   {
+    x  =  1;
+    [|abstract   method( ) :  void;|]
+    y  =  2;
+}
+
+[expect]
+abstract   class   A   {
+    x  =  1;
+[|    abstract method(): void;|]
+    y  =  2;
+}
+
+== should format a method overload in a class ==
+abstract   class   A   {
+    x  =  1;
+    [|method( a :  string ) :  void;|]
+    y  =  2;
+}
+
+[expect]
+abstract   class   A   {
+    x  =  1;
+[|    method(a: string): void;|]
+    y  =  2;
+}
+
+== should format a getter in a class ==
+abstract   class   A   {
+    x  =  1;
+    [|get   a( )   {
+        return   1;
+    }|]
+    y  =  2;
+}
+
+[expect]
+abstract   class   A   {
+    x  =  1;
+[|    get a() {
+        return 1;|]
+    }
+    y  =  2;
+}
+
+== should format a setter in a class ==
+abstract   class   A   {
+    x  =  1;
+    [|set   a( value )   {
+        call( value );
+    }|]
+    y  =  2;
+}
+
+[expect]
+abstract   class   A   {
+    x  =  1;
+[|    set a(value) {
+        call(value);|]
+    }
+    y  =  2;
+}
+
+== should format a constructor in a class ==
+abstract   class   A   {
+    x  =  1;
+    [|constructor( private   readonly   a :  string ,  public   b ?:  number )   {
+        super( );
+    }|]
+    y  =  2;
+}
+
+[expect]
+abstract   class   A   {
+    x  =  1;
+[|    constructor(private readonly a: string, public b?: number) {
+        super();|]
+    }
+    y  =  2;
+}
+
+== should format a static block in a class ==
+abstract   class   A   {
+    x  =  1;
+    [|static   {
+        call( );
+    }|]
+    y  =  2;
+}
+
+[expect]
+abstract   class   A   {
+    x  =  1;
+[|    static {
+        call();|]
+    }
+    y  =  2;
+}
+
+== should format an index signature in a class ==
+abstract   class   A   {
+    x  =  1;
+    [|[ key :  string ] :  number;|]
+    y  =  2;
+}
+
+[expect]
+abstract   class   A   {
+    x  =  1;
+[|    [key: string]: number;|]
+    y  =  2;
+}
+
+== should format nothing when only touching an empty member ==
+class   A   {
+    x  =  1;
+    [|;|]
+    y  =  2;
+}
+
+[expect]
+class   A   {
+    x  =  1;
+    [|;|]
+    y  =  2;
+}
+
+== should format a member with a decorated parameter ==
+class   A   {
+    x  =  1;
+    method(  @dec( )   [|a|] :  string  )   {   }
+    y  =  2;
+}
+
+[expect]
+class   A   {
+    x  =  1;
+[|    method(@dec() a: string) {}|]
+    y  =  2;
+}
+
+== should format the statement holding a class decorator ==
+const  x  =  1;
+@dec(  [|a|]  )
+class   A   {
+    x  =  1;
+}
+
+[expect]
+const  x  =  1;
+[|@dec(a)
+class A {
+    x = 1;|]
+}
+
+== should format the statement holding a decorator before export ==
+const  x  =  1;
+@dec(  [|a|]  )
+export   class   A   {
+    x  =  1;
+}
+
+[expect]
+const  x  =  1;
+[|@dec(a)
+export class A {
+    x = 1;|]
+}
+
+== should format the member holding a method decorator ==
+class   A   {
+    x  =  1;
+    @dec(  [|a|]  )
+    method( )   {   }
+}
+
+[expect]
+class   A   {
+    x  =  1;
+[|    @dec(a)
+    method() {}|]
+}
+
+== should format the member holding a property decorator ==
+class   A   {
+    x  =  1;
+    @dec(  [|a|]  )   y  =  2;
+}
+
+[expect]
+class   A   {
+    x  =  1;
+[|    @dec(a) y = 2;|]
+}
+
+== should format the member holding a parameter decorator ==
+class   A   {
+    x  =  1;
+    method(  @dec(  [|a|]  )   b :  string  )   {   }
+}
+
+[expect]
+class   A   {
+    x  =  1;
+[|    method(@dec(a) b: string) {}|]
+}
+
+== should format the member holding a parameter property ==
+class   A   {
+    x  =  1;
+    constructor(  private   [|a|] :  string  )   {   }
+}
+
+[expect]
+class   A   {
+    x  =  1;
+[|    constructor(private a: string) {}|]
+}
+
+== should format the class when the range touches implements ==
+const  x  =  1;
+class   A   implements   [|B|] ,  C   {
+    x  =  1;
+}
+
+[expect]
+const  x  =  1;
+[|class A implements B, C {
+    x = 1;|]
+}
+
+== should format the members after an empty member ==
+class   A   {
+    ;
+    x  =  1;
+    [|y  =  2;|]
+}
+
+[expect]
+class   A   {
+    ;
+    x  =  1;
+[|    y = 2;|]
+}
+
+== should format multiple touched members ==
+class   A   {
+    x  =  1;
+    [|a  =  1;
+    b  =  2;|]
+    y  =  2;
+}
+
+[expect]
+class   A   {
+    x  =  1;
+[|    a = 1;
+    b = 2;|]
+    y  =  2;
+}
+
+== should format a decorated member ==
+class   A   {
+    x  =  1;
+    @dec( )
+    [|a  =  1;|]
+}
+
+[expect]
+class   A   {
+    x  =  1;
+[|    @dec()
+    a = 1;|]
+}
+
+== should format a member with a decorator on the same line ==
+class   A   {
+    x  =  1;
+    @dec( )   [|method( )   {
+    }|]
+}
+
+[expect]
+class   A   {
+    x  =  1;
+[|    @dec() method() {|]
+    }
+}
+
+== should format the touched members in a class expression ==
+const   A  =  class   {
+    x  =  1;
+    [|a  =  1;|]
+};
+
+[expect]
+const   A  =  class   {
+    x  =  1;
+[|    a = 1;|]
+};
+
+== should format the touched members in a decorated class ==
+@dec( )
+class   A   {
+    x  =  1;
+    [|a  =  1;|]
+}
+
+[expect]
+@dec( )
+class   A   {
+    x  =  1;
+[|    a = 1;|]
+}
+
+== should format the touched members in an exported decorated class ==
+@dec( )
+export   class   A   {
+    x  =  1;
+    [|a  =  1;|]
+}
+
+[expect]
+@dec( )
+export   class   A   {
+    x  =  1;
+[|    a = 1;|]
+}
+
+== should format the touched members in a class in a function ==
+function   test( )   {
+    class   A   {
+        x  =  1;
+        [|a  =  1;|]
+    }
+}
+
+[expect]
+function   test( )   {
+    class   A   {
+        x  =  1;
+[|        a = 1;|]
+    }
+}
+
+== should format the class when the members share a line ==
+const  x  =  1;
+class   A   {   x  =  1;   [|a  =  1;|]   }
+
+[expect]
+const  x  =  1;
+[|class A {
+    x = 1;
+    a = 1;
+}|]
+
+== should format the class when the range touches the class header ==
+const  x  =  1;
+class   [|A|]   extends   B   {
+    x  =  1;
+}
+
+[expect]
+const  x  =  1;
+[|class A extends B {
+    x = 1;|]
+}

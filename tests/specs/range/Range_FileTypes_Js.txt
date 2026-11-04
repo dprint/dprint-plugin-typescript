@@ -1,0 +1,92 @@
+-- file.js --
+== should format a with statement in a switch case ==
+function   test( )   {
+    switch   ( x )   {
+        case   1:
+            var   a  =  1;
+            [|with   (  obj  )   {
+                call( a );
+            }|]
+    }
+}
+
+[expect]
+function   test( )   {
+    switch   ( x )   {
+        case   1:
+            var   a  =  1;
+[|            with (obj) {
+                call(a);|]
+            }
+    }
+}
+
+== should format a with statement in a nested block ==
+function   test( )   {
+    for   ( ; ; )   {
+        var   a  =  1;
+        [|with   (  obj  )   {
+            call( a );
+        }|]
+    }
+}
+
+[expect]
+function   test( )   {
+    for   ( ; ; )   {
+        var   a  =  1;
+[|        with (obj) {
+            call(a);|]
+        }
+    }
+}
+
+== should format a with statement in a function body ==
+function   test( )   {
+    var   a  =  1;
+    [|with   (  obj  )   {
+        call( a );
+    }|]
+}
+
+[expect]
+function   test( )   {
+    var   a  =  1;
+[|    with (obj) {
+        call(a);|]
+    }
+}
+
+== should format the touched statements in a with statement block ==
+var   a  =  1;
+with   (  obj  )   {
+    [|call( a );|]
+}
+
+[expect]
+var   a  =  1;
+with   (  obj  )   {
+[|    call(a);|]
+}
+
+== should format the statement holding an export default specifier ==
+export   *   from   "b";
+export   [|v|]   from   "mod";
+const  x  =  1;
+
+[expect]
+export   *   from   "b";
+[|export v from "mod";|]
+const  x  =  1;
+
+== should format a with statement at the top level ==
+var   a  =  1;
+[|with   (  obj  )   {
+    call( a );
+}|]
+
+[expect]
+var   a  =  1;
+[|with (obj) {
+    call(a);|]
+}

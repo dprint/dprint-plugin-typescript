@@ -1,0 +1,415 @@
+== should format a property signature in an interface ==
+interface   A   {
+    x :  string;
+    [|a :  string;|]
+    y :  string;
+}
+
+[expect]
+interface   A   {
+    x :  string;
+[|    a: string;|]
+    y :  string;
+}
+
+== should format an optional property signature in an interface ==
+interface   A   {
+    x :  string;
+    [|a ?:  string;|]
+    y :  string;
+}
+
+[expect]
+interface   A   {
+    x :  string;
+[|    a?: string;|]
+    y :  string;
+}
+
+== should format a readonly property signature in an interface ==
+interface   A   {
+    x :  string;
+    [|readonly   a :  string;|]
+    y :  string;
+}
+
+[expect]
+interface   A   {
+    x :  string;
+[|    readonly a: string;|]
+    y :  string;
+}
+
+== should format a computed property signature in an interface ==
+interface   A   {
+    x :  string;
+    [|[ key ] :  string;|]
+    y :  string;
+}
+
+[expect]
+interface   A   {
+    x :  string;
+[|    [key]: string;|]
+    y :  string;
+}
+
+== should format a method signature in an interface ==
+interface   A   {
+    x :  string;
+    [|method( a :  string ) :  void;|]
+    y :  string;
+}
+
+[expect]
+interface   A   {
+    x :  string;
+[|    method(a: string): void;|]
+    y :  string;
+}
+
+== should format an optional method signature in an interface ==
+interface   A   {
+    x :  string;
+    [|method ?( ) :  void;|]
+    y :  string;
+}
+
+[expect]
+interface   A   {
+    x :  string;
+[|    method?(): void;|]
+    y :  string;
+}
+
+== should format a call signature in an interface ==
+interface   A   {
+    x :  string;
+    [|( a :  string ) :  void;|]
+    y :  string;
+}
+
+[expect]
+interface   A   {
+    x :  string;
+[|    (a: string): void;|]
+    y :  string;
+}
+
+== should format a construct signature in an interface ==
+interface   A   {
+    x :  string;
+    [|new   ( a :  string ) :  A;|]
+    y :  string;
+}
+
+[expect]
+interface   A   {
+    x :  string;
+[|    new(a: string): A;|]
+    y :  string;
+}
+
+== should format an index signature in an interface ==
+interface   A   {
+    x :  string;
+    [|[ key :  string ] :  number;|]
+    y :  string;
+}
+
+[expect]
+interface   A   {
+    x :  string;
+[|    [key: string]: number;|]
+    y :  string;
+}
+
+== should format a getter signature in an interface ==
+interface   A   {
+    x :  string;
+    [|get   a( ) :  string;|]
+    y :  string;
+}
+
+[expect]
+interface   A   {
+    x :  string;
+[|    get a(): string;|]
+    y :  string;
+}
+
+== should format a setter signature in an interface ==
+interface   A   {
+    x :  string;
+    [|set   a( value :  string );|]
+    y :  string;
+}
+
+[expect]
+interface   A   {
+    x :  string;
+[|    set a(value: string);|]
+    y :  string;
+}
+
+== should format a property signature in a type literal ==
+type   A  =  {
+    x :  string;
+    [|a :  string;|]
+    y :  string;
+};
+
+[expect]
+type   A  =  {
+    x :  string;
+[|    a: string;|]
+    y :  string;
+};
+
+== should format an optional property signature in a type literal ==
+type   A  =  {
+    x :  string;
+    [|a ?:  string;|]
+    y :  string;
+};
+
+[expect]
+type   A  =  {
+    x :  string;
+[|    a?: string;|]
+    y :  string;
+};
+
+== should format a readonly property signature in a type literal ==
+type   A  =  {
+    x :  string;
+    [|readonly   a :  string;|]
+    y :  string;
+};
+
+[expect]
+type   A  =  {
+    x :  string;
+[|    readonly a: string;|]
+    y :  string;
+};
+
+== should format a computed property signature in a type literal ==
+type   A  =  {
+    x :  string;
+    [|[ key ] :  string;|]
+    y :  string;
+};
+
+[expect]
+type   A  =  {
+    x :  string;
+[|    [key]: string;|]
+    y :  string;
+};
+
+== should format a method signature in a type literal ==
+type   A  =  {
+    x :  string;
+    [|method( a :  string ) :  void;|]
+    y :  string;
+};
+
+[expect]
+type   A  =  {
+    x :  string;
+[|    method(a: string): void;|]
+    y :  string;
+};
+
+== should format an optional method signature in a type literal ==
+type   A  =  {
+    x :  string;
+    [|method ?( ) :  void;|]
+    y :  string;
+};
+
+[expect]
+type   A  =  {
+    x :  string;
+[|    method?(): void;|]
+    y :  string;
+};
+
+== should format a call signature in a type literal ==
+type   A  =  {
+    x :  string;
+    [|( a :  string ) :  void;|]
+    y :  string;
+};
+
+[expect]
+type   A  =  {
+    x :  string;
+[|    (a: string): void;|]
+    y :  string;
+};
+
+== should format a construct signature in a type literal ==
+type   A  =  {
+    x :  string;
+    [|new   ( a :  string ) :  A;|]
+    y :  string;
+};
+
+[expect]
+type   A  =  {
+    x :  string;
+[|    new(a: string): A;|]
+    y :  string;
+};
+
+== should format an index signature in a type literal ==
+type   A  =  {
+    x :  string;
+    [|[ key :  string ] :  number;|]
+    y :  string;
+};
+
+[expect]
+type   A  =  {
+    x :  string;
+[|    [key: string]: number;|]
+    y :  string;
+};
+
+== should format a getter signature in a type literal ==
+type   A  =  {
+    x :  string;
+    [|get   a( ) :  string;|]
+    y :  string;
+};
+
+[expect]
+type   A  =  {
+    x :  string;
+[|    get a(): string;|]
+    y :  string;
+};
+
+== should format a setter signature in a type literal ==
+type   A  =  {
+    x :  string;
+    [|set   a( value :  string );|]
+    y :  string;
+};
+
+[expect]
+type   A  =  {
+    x :  string;
+[|    set a(value: string);|]
+    y :  string;
+};
+
+== should format the touched members of a type literal in an interface ==
+interface   A   {
+    x :  {
+        a :  string;
+        [|b :  string;|]
+    };
+}
+
+[expect]
+interface   A   {
+    x :  {
+        a :  string;
+[|        b: string;|]
+    };
+}
+
+== should format the touched members of a type literal in a parameter ==
+function   test( param :  {
+    a :  string;
+    [|b :  string;|]
+} )   {
+}
+
+[expect]
+function   test( param :  {
+    a :  string;
+[|    b: string;|]
+} )   {
+}
+
+== should format the touched members of a type literal in a type argument ==
+const   a  =  call<{
+    a :  string;
+    [|b :  string;|]
+}>( );
+
+[expect]
+const   a  =  call<{
+    a :  string;
+[|    b: string;|]
+}>( );
+
+== should format the touched members of a type literal in a union ==
+type   A  =  string   |   {
+    a :  string;
+    [|b :  string;|]
+};
+
+[expect]
+type   A  =  string   |   {
+    a :  string;
+[|    b: string;|]
+};
+
+== should format the interface member holding a mapped type ==
+interface   A   {
+    x :  string;
+    y :  {
+        [ K   in   [|Keys|] ] :  string;
+    };
+}
+
+[expect]
+interface   A   {
+    x :  string;
+[|    y: {
+        [K in Keys]: string;|]
+    };
+}
+
+== should format the touched members of an interface in a namespace ==
+namespace   A   {
+    interface   B   {
+        x :  string;
+        [|y :  string;|]
+    }
+}
+
+[expect]
+namespace   A   {
+    interface   B   {
+        x :  string;
+[|        y: string;|]
+    }
+}
+
+== should format the type literal when the members share a line ==
+const  x  =  1;
+type   A  =  {   a :  string;   [|b :  string;|]   };
+
+[expect]
+const  x  =  1;
+[|type A = { a: string; b: string };|]
+
+== should format the touched members with comma separators ==
+interface   A   {
+    x :  string,
+    [|y :  string,|]
+    z :  string,
+}
+
+[expect]
+interface   A   {
+    x :  string,
+[|    y: string;|]
+    z :  string,
+}

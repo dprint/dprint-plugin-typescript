@@ -1,0 +1,262 @@
+-- file.tsx --
+== should go through parentheses added by formatting ==
+const  a  =  1;
+const   b  =  <div>
+    {items.map( item   =>   {
+        const   c  =  [|1|];
+        return   c;
+    } )}
+</div>;
+
+[expect]
+const  a  =  1;
+[|const b = (
+    <div>
+        {items.map(item => {
+            const c = 1;
+            return c;
+        })}
+    </div>
+);|]
+
+== should go through parentheses kept by formatting ==
+const  a  =  1;
+const   b  =  (
+    <div>
+        {items.map( item   =>   {
+            const   c  =  [|1|];
+            return   c;
+        } )}
+    </div>
+);
+
+[expect]
+const  a  =  1;
+const   b  =  (
+    <div>
+        {items.map( item   =>   {
+[|            const c = 1;|]
+            return   c;
+        } )}
+    </div>
+);
+
+== should format the statement holding an element ==
+const  a  =  1;
+const   b  =  <div   a="1">[|text|]</div>;
+const  c  =  2;
+
+[expect]
+const  a  =  1;
+[|const b = <div a="1">text</div>;|]
+const  c  =  2;
+
+== should format the statement holding a self closing element ==
+const  a  =  1;
+const   b  =  <div   [|a|]="1"   />;
+const  c  =  2;
+
+[expect]
+const  a  =  1;
+[|const b = <div a="1" />;|]
+const  c  =  2;
+
+== should format the statement holding a fragment ==
+const  a  =  1;
+const   b  =  <>[|text|]</>;
+const  c  =  2;
+
+[expect]
+const  a  =  1;
+[|const b = <>text</>;|]
+const  c  =  2;
+
+== should format the statement holding an attribute ==
+const  a  =  1;
+const   b  =  <div   [|a  =  {  1  }|]   />;
+const  c  =  2;
+
+[expect]
+const  a  =  1;
+[|const b = <div a={1} />;|]
+const  c  =  2;
+
+== should format the statement holding a spread attribute ==
+const  a  =  1;
+const   b  =  <div   {  ...[|props|]  }   />;
+const  c  =  2;
+
+[expect]
+const  a  =  1;
+[|const b = <div {...props} />;|]
+const  c  =  2;
+
+== should format the statement holding an expression container ==
+const  a  =  1;
+const   b  =  <div>{  [|a|]  }</div>;
+const  c  =  2;
+
+[expect]
+const  a  =  1;
+[|const b = <div>{a}</div>;|]
+const  c  =  2;
+
+== should format the statement holding an empty expression ==
+const  a  =  1;
+const   b  =  <div>{  /* [|comment|] */  }</div>;
+const  c  =  2;
+
+[expect]
+const  a  =  1;
+[|const b = <div>{/* comment */}</div>;|]
+const  c  =  2;
+
+== should format the statement holding a spread child ==
+const  a  =  1;
+const   b  =  <div>{  ...[|children|]  }</div>;
+const  c  =  2;
+
+[expect]
+const  a  =  1;
+[|const b = <div>{...children}</div>;|]
+const  c  =  2;
+
+== should format the statement holding a member expression tag ==
+const  a  =  1;
+const   b  =  <a.[|b|]   c="1"   />;
+const  c  =  2;
+
+[expect]
+const  a  =  1;
+[|const b = <a.b c="1" />;|]
+const  c  =  2;
+
+== should format the statement holding a namespaced name ==
+const  a  =  1;
+const   b  =  <a:[|b|]   c="1"   />;
+const  c  =  2;
+
+[expect]
+const  a  =  1;
+[|const b = <a:b c="1" />;|]
+const  c  =  2;
+
+== should format the statement holding text ==
+const  a  =  1;
+const   b  =  <div>  [|text|]  </div>;
+const  c  =  2;
+
+[expect]
+const  a  =  1;
+[|const b = <div> text </div>;|]
+const  c  =  2;
+
+== should format the statement holding a nested element ==
+const  a  =  1;
+const   b  =  <div><span   a="1">[|text|]</span></div>;
+const  c  =  2;
+
+[expect]
+const  a  =  1;
+[|const b = (
+    <div>
+        <span a="1">text</span>
+    </div>
+);|]
+const  c  =  2;
+
+== should format the statement holding type arguments ==
+const  a  =  1;
+const   b  =  <Comp<[|string|]>   a="1"   />;
+const  c  =  2;
+
+[expect]
+const  a  =  1;
+[|const b = <Comp<string> a="1" />;|]
+const  c  =  2;
+
+== should format the statement holding a closing element ==
+const  a  =  1;
+const   b  =  <div   a="1">text</  [|div|]  >;
+const  c  =  2;
+
+[expect]
+const  a  =  1;
+[|const b = <div a="1">text</div>;|]
+const  c  =  2;
+
+== should format the statement holding an opening fragment ==
+const  a  =  1;
+const   b  =  [|<>|]text</>;
+const  c  =  2;
+
+[expect]
+const  a  =  1;
+[|const b = <>text</>;|]
+const  c  =  2;
+
+== should format the statement holding a closing fragment ==
+const  a  =  1;
+const   b  =  <>text[|</>|];
+const  c  =  2;
+
+[expect]
+const  a  =  1;
+[|const b = <>text</>;|]
+const  c  =  2;
+
+== should format the statement holding an empty expression without comments ==
+const  a  =  1;
+const   b  =  <div>{  [||]  }</div>;
+const  c  =  2;
+
+[expect]
+const  a  =  1;
+[|const b = <div>{}</div>;|]
+const  c  =  2;
+
+== should format the statement holding an empty expression at its position ==
+const  a  =  1;
+const   b  =  <div>{  [||]}</div>;
+const  c  =  2;
+
+[expect]
+const  a  =  1;
+[|const b = <div>{}</div>;|]
+const  c  =  2;
+
+== should format the touched properties of an object in an attribute ==
+const   a  =  (
+    <div
+        style={{
+            b :  1,
+            [|c :  2,|]
+        }}
+    />
+);
+
+[expect]
+const   a  =  (
+    <div
+        style={{
+            b :  1,
+[|            c: 2,|]
+        }}
+    />
+);
+
+== should format the statement holding the touched jsx ==
+const   x  =  1;
+const   a  =  (
+    <div>
+        <span>[|text|]</span>
+    </div>
+);
+
+[expect]
+const   x  =  1;
+[|const a = (|]
+    <div>
+        <span>text</span>
+    </div>
+);

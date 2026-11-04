@@ -121,19 +121,22 @@ fn main() {
       // reuse the memory between formats like the Wasm plugin does
       let arena_pool = ArenaPool::new();
       Arc::new(move |file_name, file_text, range, spec_config| {
-        assert!(range.is_none(), "range formatting is not supported");
         let spec_config: ConfigKeyMap = serde_json::from_value(spec_config.clone().into()).unwrap();
         let config_result = resolve_config(spec_config, &global_config);
         ensure_no_diagnostics(&config_result.diagnostics);
 
-        let result = format_text(FormatTextOptions {
+        let options = FormatTextOptions {
           path: file_name,
           extension: None,
           text: file_text.into(),
           config: &config_result.config,
           external_formatter: Some(&external_formatter),
           arena_pool: Some(&arena_pool),
-        })?;
+        };
+        let result = match range {
+          Some(range) => format_text_range(options, range)?,
+          None => format_text(options)?,
+        };
         Ok(result)
       })
     },

@@ -1,0 +1,8 @@
+-- file.d.ts --
+== should format the touched statements in a declaration file ==
+declare   const   a :  string;
+[|declare   function   b( ) :  void;|]
+
+[expect]
+declare   const   a :  string;
+[|declare function b(): void;|]

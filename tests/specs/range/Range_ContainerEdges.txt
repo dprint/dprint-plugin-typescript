@@ -1,0 +1,893 @@
+== should not format the holding statement for a selection ending in the indentation of a closing bracket line ==
+class   A   {
+    m(  )  {
+[|        a(  );
+        b(  );
+    |]}
+}
+
+[expect]
+class   A   {
+    m(  )  {
+[|        a();
+        b();|]
+    }
+}
+
+== should format the holding statement for a cursor after the opening bracket of a class ==
+const  z  =  1;
+class   A   {[||]
+    x  =  1;
+    y  =  2;
+}
+
+[expect]
+const  z  =  1;
+[|class A {
+    x = 1;
+    y = 2;|]
+}
+
+== should format the holding statement for a cursor before the closing bracket of a class ==
+const  z  =  1;
+class   A   {
+    x  =  1;
+    y  =  2;
+[||]}
+
+[expect]
+const  z  =  1;
+[|class A {
+    x = 1;
+    y = 2;|]
+}
+
+== should format the comments the range touches after the last member of a class ==
+const  z  =  1;
+class   A   {
+    x  =  1;
+    [|y  =  2;
+          // c|]
+}
+
+[expect]
+const  z  =  1;
+class   A   {
+    x  =  1;
+[|    y = 2;
+    // c|]
+}
+
+== should format the comments the range touches after a member of a class ==
+const  z  =  1;
+class   A   {
+    [|x  =  1;
+          // c|]
+    y  =  2;
+}
+
+[expect]
+const  z  =  1;
+class   A   {
+[|    x = 1;
+    // c|]
+    y  =  2;
+}
+
+== should format the member for a cursor at the end of its line in a class ==
+const  z  =  1;
+class   A   {
+    x   =   1;  [||]
+    y  =  2;
+}
+
+[expect]
+const  z  =  1;
+class   A   {
+[|    x = 1;|]
+    y  =  2;
+}
+
+== should format the statement for a cursor beside the members of a single line class ==
+const  z  =  1;
+class   A   {   x  =  1;   y  =  2;   [||]   }
+
+[expect]
+const  z  =  1;
+[|class A {
+    x = 1;
+    y = 2;
+}|]
+
+== should format the holding statement for a cursor after the opening bracket of an interface ==
+const  z  =  1;
+interface   A   {[||]
+    x :  string;
+    y :  string;
+}
+
+[expect]
+const  z  =  1;
+[|interface A {
+    x: string;
+    y: string;|]
+}
+
+== should format the holding statement for a cursor before the closing bracket of an interface ==
+const  z  =  1;
+interface   A   {
+    x :  string;
+    y :  string;
+[||]}
+
+[expect]
+const  z  =  1;
+[|interface A {
+    x: string;
+    y: string;|]
+}
+
+== should format the comments the range touches after the last member of an interface ==
+const  z  =  1;
+interface   A   {
+    x :  string;
+    [|y :  string;
+          // c|]
+}
+
+[expect]
+const  z  =  1;
+interface   A   {
+    x :  string;
+[|    y: string;
+    // c|]
+}
+
+== should format the comments the range touches after a member of an interface ==
+const  z  =  1;
+interface   A   {
+    [|x :  string;
+          // c|]
+    y :  string;
+}
+
+[expect]
+const  z  =  1;
+interface   A   {
+[|    x: string;
+    // c|]
+    y :  string;
+}
+
+== should format the member for a cursor at the end of its line in an interface ==
+const  z  =  1;
+interface   A   {
+    x :   string;  [||]
+    y :  string;
+}
+
+[expect]
+const  z  =  1;
+interface   A   {
+[|    x: string;|]
+    y :  string;
+}
+
+== should format the statement for a cursor beside the members of a single line interface ==
+const  z  =  1;
+interface   A   {   [||]   x :  string;   y :  string;   }
+
+[expect]
+const  z  =  1;
+[|interface A {
+    x: string;
+    y: string;
+}|]
+
+== should format the holding statement for a cursor after the opening bracket of a type literal ==
+const  z  =  1;
+type   A  =  {[||]
+    x :  string;
+    y :  string;
+};
+
+[expect]
+const  z  =  1;
+[|type A = {
+    x: string;
+    y: string;|]
+};
+
+== should format the holding statement for a cursor before the closing bracket of a type literal ==
+const  z  =  1;
+type   A  =  {
+    x :  string;
+    y :  string;
+[||]};
+
+[expect]
+const  z  =  1;
+[|type A = {
+    x: string;
+    y: string;|]
+};
+
+== should format the comments the range touches after the last member of a type literal ==
+const  z  =  1;
+type   A  =  {
+    x :  string;
+    [|y :  string;
+          // c|]
+};
+
+[expect]
+const  z  =  1;
+type   A  =  {
+    x :  string;
+[|    y: string;
+    // c|]
+};
+
+== should format the comments the range touches after a member of a type literal ==
+const  z  =  1;
+type   A  =  {
+    [|x :  string;
+          // c|]
+    y :  string;
+};
+
+[expect]
+const  z  =  1;
+type   A  =  {
+[|    x: string;
+    // c|]
+    y :  string;
+};
+
+== should format the member for a cursor at the end of its line in a type literal ==
+const  z  =  1;
+type   A  =  {
+    x :   string;  [||]
+    y :  string;
+};
+
+[expect]
+const  z  =  1;
+type   A  =  {
+[|    x: string;|]
+    y :  string;
+};
+
+== should format the statement for a cursor beside the members of a single line type literal ==
+const  z  =  1;
+type   A  =  {   x :  string;   y :  string;   [||]   };
+
+[expect]
+const  z  =  1;
+[|type A = { x: string; y: string };|]
+
+== should format the holding statement for a cursor after the opening bracket of an enum ==
+const  z  =  1;
+enum   A   {[||]
+    x  =  1,
+    y  =  2,
+}
+
+[expect]
+const  z  =  1;
+[|enum A {
+    x = 1,
+    y = 2,|]
+}
+
+== should format the holding statement for a cursor before the closing bracket of an enum ==
+const  z  =  1;
+enum   A   {
+    x  =  1,
+    y  =  2,
+[||]}
+
+[expect]
+const  z  =  1;
+[|enum A {
+    x = 1,
+    y = 2,|]
+}
+
+== should format the comments the range touches after the last member of an enum ==
+const  z  =  1;
+enum   A   {
+    x  =  1,
+    [|y  =  2,
+          // c|]
+}
+
+[expect]
+const  z  =  1;
+enum   A   {
+    x  =  1,
+[|    y = 2,
+    // c|]
+}
+
+== should format the comments the range touches after a member of an enum ==
+const  z  =  1;
+enum   A   {
+    [|x  =  1,
+          // c|]
+    y  =  2,
+}
+
+[expect]
+const  z  =  1;
+enum   A   {
+[|    x = 1,
+    // c|]
+    y  =  2,
+}
+
+== should format the member for a cursor at the end of its line in an enum ==
+const  z  =  1;
+enum   A   {
+    x   =   1,  [||]
+    y  =  2,
+}
+
+[expect]
+const  z  =  1;
+enum   A   {
+[|    x = 1,|]
+    y  =  2,
+}
+
+== should format the statement for a cursor beside the members of a single line enum ==
+const  z  =  1;
+enum   A   {   [||]   x  =  1,   y  =  2   }
+
+[expect]
+const  z  =  1;
+[|enum A {
+    x = 1,
+    y = 2,
+}|]
+
+== should format the holding statement for a cursor after the opening bracket of an object ==
+const  z  =  1;
+const   a  =  {[||]
+    x :  1,
+    y :  2,
+};
+
+[expect]
+const  z  =  1;
+[|const a = {
+    x: 1,
+    y: 2,|]
+};
+
+== should format the holding statement for a cursor before the closing bracket of an object ==
+const  z  =  1;
+const   a  =  {
+    x :  1,
+    y :  2,
+[||]};
+
+[expect]
+const  z  =  1;
+[|const a = {
+    x: 1,
+    y: 2,|]
+};
+
+== should format the comments the range touches after the last member of an object ==
+const  z  =  1;
+const   a  =  {
+    x :  1,
+    [|y :  2,
+          // c|]
+};
+
+[expect]
+const  z  =  1;
+const   a  =  {
+    x :  1,
+[|    y: 2,
+    // c|]
+};
+
+== should format the comments the range touches after a member of an object ==
+const  z  =  1;
+const   a  =  {
+    [|x :  1,
+          // c|]
+    y :  2,
+};
+
+[expect]
+const  z  =  1;
+const   a  =  {
+[|    x: 1,
+    // c|]
+    y :  2,
+};
+
+== should format the member for a cursor at the end of its line in an object ==
+const  z  =  1;
+const   a  =  {
+    x :   1,  [||]
+    y :  2,
+};
+
+[expect]
+const  z  =  1;
+const   a  =  {
+[|    x: 1,|]
+    y :  2,
+};
+
+== should format the holding statement for a cursor after the opening bracket of an array ==
+const  z  =  1;
+const   a  =  [[||]
+    1  +  1,
+    2  +  2,
+];
+
+[expect]
+const  z  =  1;
+[|const a = [
+    1 + 1,
+    2 + 2,|]
+];
+
+== should format the holding statement for a cursor before the closing bracket of an array ==
+const  z  =  1;
+const   a  =  [
+    1  +  1,
+    2  +  2,
+[||]];
+
+[expect]
+const  z  =  1;
+[|const a = [
+    1 + 1,
+    2 + 2,|]
+];
+
+== should format the comments the range touches after the last member of an array ==
+const  z  =  1;
+const   a  =  [
+    1  +  1,
+    [|2  +  2,
+          // c|]
+];
+
+[expect]
+const  z  =  1;
+const   a  =  [
+    1  +  1,
+[|    2 + 2,
+    // c|]
+];
+
+== should format the comments the range touches after a member of an array ==
+const  z  =  1;
+const   a  =  [
+    [|1  +  1,
+          // c|]
+    2  +  2,
+];
+
+[expect]
+const  z  =  1;
+const   a  =  [
+[|    1 + 1,
+    // c|]
+    2  +  2,
+];
+
+== should format the member for a cursor at the end of its line in an array ==
+const  z  =  1;
+const   a  =  [
+    1   +   1,  [||]
+    2  +  2,
+];
+
+[expect]
+const  z  =  1;
+const   a  =  [
+[|    1 + 1,|]
+    2  +  2,
+];
+
+== should format the statement for a cursor beside the members of a single line array ==
+const  z  =  1;
+const   a  =  [   [||]   1 ,  2   ];
+
+[expect]
+const  z  =  1;
+[|const a = [1, 2];|]
+
+== should format the holding statement for a cursor after the opening bracket of a block ==
+const  z  =  1;
+if   ( a )   {[||]
+    x( );
+    y( );
+}
+
+[expect]
+const  z  =  1;
+[|if (a) {
+    x();
+    y();|]
+}
+
+== should format the holding statement for a cursor before the closing bracket of a block ==
+const  z  =  1;
+if   ( a )   {
+    x( );
+    y( );
+[||]}
+
+[expect]
+const  z  =  1;
+[|if (a) {
+    x();
+    y();|]
+}
+
+== should format the comments the range touches after the last member of a block ==
+const  z  =  1;
+if   ( a )   {
+    x( );
+    [|y( );
+          // c|]
+}
+
+[expect]
+const  z  =  1;
+if   ( a )   {
+    x( );
+[|    y();
+    // c|]
+}
+
+== should format the comments the range touches after a member of a block ==
+const  z  =  1;
+if   ( a )   {
+    [|x( );
+          // c|]
+    y( );
+}
+
+[expect]
+const  z  =  1;
+if   ( a )   {
+[|    x();
+    // c|]
+    y( );
+}
+
+== should format the member for a cursor at the end of its line in a block ==
+const  z  =  1;
+if   ( a )   {
+    x( );  [||]
+    y( );
+}
+
+[expect]
+const  z  =  1;
+if   ( a )   {
+[|    x();|]
+    y( );
+}
+
+== should format the statement for a cursor beside the members of a single line block ==
+const  z  =  1;
+if   ( a )   {   x( );   [||]   }
+
+[expect]
+const  z  =  1;
+[|if (a) x();|]
+
+== should format the holding statement for a cursor after the opening bracket of a function body ==
+const  z  =  1;
+function   f( )   {[||]
+    x( );
+    y( );
+}
+
+[expect]
+const  z  =  1;
+[|function f() {
+    x();
+    y();|]
+}
+
+== should format the holding statement for a cursor before the closing bracket of a function body ==
+const  z  =  1;
+function   f( )   {
+    x( );
+    y( );
+[||]}
+
+[expect]
+const  z  =  1;
+[|function f() {
+    x();
+    y();|]
+}
+
+== should format the comments the range touches after the last member of a function body ==
+const  z  =  1;
+function   f( )   {
+    x( );
+    [|y( );
+          // c|]
+}
+
+[expect]
+const  z  =  1;
+function   f( )   {
+    x( );
+[|    y();
+    // c|]
+}
+
+== should format the comments the range touches after a member of a function body ==
+const  z  =  1;
+function   f( )   {
+    [|x( );
+          // c|]
+    y( );
+}
+
+[expect]
+const  z  =  1;
+function   f( )   {
+[|    x();
+    // c|]
+    y( );
+}
+
+== should format the member for a cursor at the end of its line in a function body ==
+const  z  =  1;
+function   f( )   {
+    x( );  [||]
+    y( );
+}
+
+[expect]
+const  z  =  1;
+function   f( )   {
+[|    x();|]
+    y( );
+}
+
+== should format the statement for a cursor beside the members of a single line function body ==
+const  z  =  1;
+function   f( )   {   [||]   x( );   }
+
+[expect]
+const  z  =  1;
+[|function f() {
+    x();
+}|]
+
+== should format the holding statement for a cursor after the opening bracket of a namespace ==
+const  z  =  1;
+namespace   A   {[||]
+    const  x  =  1;
+    const  y  =  2;
+}
+
+[expect]
+const  z  =  1;
+[|namespace A {
+    const x = 1;
+    const y = 2;|]
+}
+
+== should format the holding statement for a cursor before the closing bracket of a namespace ==
+const  z  =  1;
+namespace   A   {
+    const  x  =  1;
+    const  y  =  2;
+[||]}
+
+[expect]
+const  z  =  1;
+[|namespace A {
+    const x = 1;
+    const y = 2;|]
+}
+
+== should format the comments the range touches after the last member of a namespace ==
+const  z  =  1;
+namespace   A   {
+    const  x  =  1;
+    [|const  y  =  2;
+          // c|]
+}
+
+[expect]
+const  z  =  1;
+namespace   A   {
+    const  x  =  1;
+[|    const y = 2;
+    // c|]
+}
+
+== should format the comments the range touches after a member of a namespace ==
+const  z  =  1;
+namespace   A   {
+    [|const  x  =  1;
+          // c|]
+    const  y  =  2;
+}
+
+[expect]
+const  z  =  1;
+namespace   A   {
+[|    const x = 1;
+    // c|]
+    const  y  =  2;
+}
+
+== should format the member for a cursor at the end of its line in a namespace ==
+const  z  =  1;
+namespace   A   {
+    const   x   =   1;  [||]
+    const  y  =  2;
+}
+
+[expect]
+const  z  =  1;
+namespace   A   {
+[|    const x = 1;|]
+    const  y  =  2;
+}
+
+== should format the holding statement for a cursor after the opening bracket of a switch statement ==
+const  z  =  1;
+switch   ( a )   {[||]
+    case   1:
+    case   2:
+}
+
+[expect]
+const  z  =  1;
+[|switch (a) {
+    case 1:
+    case 2:|]
+}
+
+== should format the holding statement for a cursor before the closing bracket of a switch statement ==
+const  z  =  1;
+switch   ( a )   {
+    case   1:
+    case   2:
+[||]}
+
+[expect]
+const  z  =  1;
+[|switch (a) {
+    case 1:
+    case 2:|]
+}
+
+== should format the comments the range touches after the last property without a trailing comma ==
+const  a  =  {
+    x :  1,
+    [|y :  2
+          // c|]
+};
+
+[expect]
+const  a  =  {
+    x :  1,
+[|    y: 2,
+    // c|]
+};
+
+== should format the member for a cursor between the colon of a switch case and it ==
+switch   ( a )   {
+    case   1:  [||]  x( );
+        break;
+}
+
+[expect]
+switch   ( a )   {
+[|    case 1:
+        x();|]
+        break;
+}
+
+== should format the holding statement for a range from the end of an opening bracket line ==
+const  z  =  1;
+function   f( )   {
+    if   ( x )   {[|
+        a(  |]);
+    }
+}
+
+[expect]
+const  z  =  1;
+function   f( )   {
+[|    if (x) {
+        a();|]
+    }
+}
+
+== should not format the holding statement for the lines before a closing bracket ==
+function   f( )   {
+[|    a(  );
+|]}
+
+[expect]
+function   f( )   {
+[|    a();|]
+}
+
+== should format the members sharing a line with the touched one in a block ==
+if   ( x )   {
+    a(  );  [|b(  );|]
+    c(  );
+}
+
+[expect]
+if   ( x )   {
+[|    a();
+    b();|]
+    c(  );
+}
+
+== should format the members sharing a line with the touched one in a switch case ==
+switch   ( x )   {
+    case   1:
+        a(  );  [|b(  );|]
+        c(  );
+}
+
+[expect]
+switch   ( x )   {
+    case   1:
+[|        a();
+        b();|]
+        c(  );
+}
+
+== should format the members sharing a line with the touched one in an interface ==
+interface   A   {
+    a :  string;  [|b :  string;|]
+    c :  string;
+}
+
+[expect]
+interface   A   {
+[|    a: string;
+    b: string;|]
+    c :  string;
+}
+
+== should format the members sharing a line with the touched one in a namespace ==
+namespace   N   {
+    a(  );  [|b(  );|]
+    c(  );
+}
+
+[expect]
+namespace   N   {
+[|    a();
+    b();|]
+    c(  );
+}
+
+== should format the statement for a cursor beside the members of a single line namespace ==
+const  z  =  1;
+namespace   N   {   a(  );   [||]   }
+
+[expect]
+const  z  =  1;
+[|namespace N {
+    a();
+}|]

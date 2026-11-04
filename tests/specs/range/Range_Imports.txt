@@ -1,0 +1,143 @@
+== should not count imports with an ignore comment since they are not sorted ==
+// dprint-ignore
+import   {  z  }   from   "z";
+[|import { c } from "c";
+import { b } from "b";|]
+
+[expect]
+// dprint-ignore
+import   {  z  }   from   "z";
+[|import { b } from "b";
+import { c } from "c";|]
+
+== should not sort the imports when only some are touched ==
+import   {  c  }   from   "c";
+[|import   {  b  }   from   "b";|]
+import   {  a  }   from   "a";
+
+const  x  =  1;
+
+[expect]
+import   {  c  }   from   "c";
+[|import { b } from "b";|]
+import   {  a  }   from   "a";
+
+const  x  =  1;
+
+== should sort the imports when all are touched ==
+[|import   {  c  }   from   "c";
+import   {  b  }   from   "b";
+import   {  a  }   from   "a";|]
+
+const  x  =  1;
+
+[expect]
+[|import { a } from "a";
+import { b } from "b";
+import { c } from "c";|]
+
+const  x  =  1;
+
+== should not sort the imports when only some are touched across statements ==
+import   {  c  }   from   "c";
+import   {  b  }   [|from   "b";
+
+const  x|]  =  1;
+import   {  a  }   from   "a";
+
+[expect]
+import   {  c  }   from   "c";
+[|import { b } from "b";
+
+const x = 1;|]
+import   {  a  }   from   "a";
+
+== should not count side effect imports since they are not sorted ==
+import   "side-effect";
+[|import   {  c  }   from   "c";
+import   {  b  }   from   "b";|]
+
+[expect]
+import   "side-effect";
+[|import { b } from "b";
+import { c } from "c";|]
+
+== should not sort the re-exports when only some are touched ==
+const  x  =  1;
+export   *   from   "c";
+[|export   {  b  }   from   "b";|]
+export   *   from   "a";
+
+[expect]
+const  x  =  1;
+export   *   from   "c";
+[|export { b } from "b";|]
+export   *   from   "a";
+
+== should sort the re-exports when all are touched ==
+const  x  =  1;
+[|export   *   from   "c";
+export   {  b  }   from   "b";
+export   *   from   "a";|]
+
+[expect]
+const  x  =  1;
+[|export * from "a";
+export { b } from "b";
+export * from "c";|]
+
+== should format a statement in a file with re-exports that would be sorted ==
+const  z  =  1;
+export   {  b  }   from   "b";
+export   *   from   "a";
+const  y  =  [|1|];
+
+[expect]
+const  z  =  1;
+export   {  b  }   from   "b";
+export   *   from   "a";
+[|const y = 1;|]
+
+== should sort the imports but not the re-exports when only all the imports are touched ==
+[|import   {  c  }   from   "c";
+import   {  b  }   from   "b";|]
+export   *   from   "d";
+export   *   from   "a";
+
+[expect]
+[|import { b } from "b";
+import { c } from "c";|]
+export   *   from   "d";
+export   *   from   "a";
+
+== should format the touched import in a declared module ==
+declare   module   "x"   {
+    import   {  c  }   from   "c";
+    [|import   {  b  }   from   "b";|]
+    import   {  a  }   from   "a";
+}
+
+[expect]
+declare   module   "x"   {
+    import   {  c  }   from   "c";
+[|    import { b } from "b";|]
+    import   {  a  }   from   "a";
+}
+
+== should not sort a touched group of imports when another group isn't touched ==
+import   {  d  }   from   "d";
+import   {  c  }   from   "c";
+
+const  x  =  1;
+
+[|import   {  b  }   from   "b";
+import   {  a  }   from   "a";|]
+
+[expect]
+import   {  d  }   from   "d";
+import   {  c  }   from   "c";
+
+const  x  =  1;
+
+[|import { b } from "b";
+import { a } from "a";|]

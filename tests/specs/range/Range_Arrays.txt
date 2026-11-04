@@ -1,0 +1,125 @@
+== should format the touched array elements ==
+const   a  =  [
+    {   b :  1   },
+    [|{   c :  2   }|],
+];
+
+[expect]
+const   a  =  [
+    {   b :  1   },
+[|    { c: 2 },|]
+];
+
+== should format the touched spread element ==
+const   a  =  [
+    1 ,
+    [|...  other ,|]
+    3 ,
+];
+
+[expect]
+const   a  =  [
+    1 ,
+[|    ...other,|]
+    3 ,
+];
+
+== should format the touched elements of a nested array ==
+const   a  =  [
+    1 ,
+    [
+        2 ,
+        [|3  +  4 ,|]
+    ],
+];
+
+[expect]
+const   a  =  [
+    1 ,
+    [
+        2 ,
+[|        3 + 4,|]
+    ],
+];
+
+== should format the touched properties of an object in an array ==
+const   a  =  [
+    {
+        b :  1,
+        [|c :  2,|]
+    },
+];
+
+[expect]
+const   a  =  [
+    {
+        b :  1,
+[|        c: 2,|]
+    },
+];
+
+== should format the statement holding an array with holes ==
+const   x  =  1;
+const   a  =  [
+    1 ,
+    ,
+    [|3|] ,
+];
+
+[expect]
+const   x  =  1;
+[|const a = [
+    1,
+    ,
+    3,|]
+];
+
+== should format the statement when the array is on a single line ==
+const   x  =  1;
+const   a  =  [   1 ,   [|2|] ,   3   ];
+
+[expect]
+const   x  =  1;
+[|const a = [1, 2, 3];|]
+
+== should format the statement holding a multi-line array pattern ==
+const   x  =  1;
+const   [
+    a ,
+    [|b|] ,
+]  =  arr;
+
+[expect]
+const   x  =  1;
+[|const [
+    a,
+    b,
+] = arr;|]
+
+== should go through parentheses removed by formatting ==
+const   x  =  1;
+const   a  =  (  [
+    1 ,
+    [|2  +  3 ,|]
+]  );
+
+[expect]
+const   x  =  1;
+const   a  =  (  [
+    1 ,
+[|    2 + 3,|]
+]  );
+
+== should go through nested parentheses removed by formatting ==
+const   x  =  1;
+(  (  call( ( )   =>   {
+    const  a  =  1;
+    [|call( a );|]
+} )  )  );
+
+[expect]
+const   x  =  1;
+(  (  call( ( )   =>   {
+    const  a  =  1;
+[|    call(a);|]
+} )  )  );
