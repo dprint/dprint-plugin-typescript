@@ -4598,6 +4598,11 @@ fn handle_jsx_surrounding_parens<'a>(inner_items: PrintItems<'a>, context: &mut 
     return surround_with_newlines_indented_if_multi_line(inner_items, context.config.indent_width);
   }
 
+  // ex. `(<div />).props`
+  let are_parens_required = match context.parent() {
+    Node::ParenExpr(paren_expr) => is_jsx_paren_expr_required(paren_expr.into(), paren_expr.parent()),
+    _ => false,
+  };
   let start_ln = LineNumber::new("conditionalParenStart");
   let end_ln = LineNumber::new("conditionalParenEnd");
   let mut items = PrintItems::new(context.arena);
@@ -4611,7 +4616,14 @@ fn handle_jsx_surrounding_parens<'a>(inner_items: PrintItems<'a>, context: &mut 
       .arena
       .alloc_resolver(move |context| condition_helpers::is_multiple_lines(context, start_ln, end_ln)),
     surround_with_parens(surround_with_new_lines(with_indent(inner_items_rc.into_print_items(context.arena)))),
-    {
+    if are_parens_required {
+      let items = inner_items_rc.into_print_items(context.arena);
+      surround_with_parens(if context.config.paren_expression_space_around {
+        surround_with_spaces(items)
+      } else {
+        items
+      })
+    } else {
       let mut items = PrintItems::new(context.arena);
       items.push_signal(Signal::PossibleNewLine);
       items.extend(inner_items_rc.into_print_items(context.arena));
@@ -4714,11 +4726,22 @@ fn is_jsx_paren_expr_removed<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>)
 
   match parent {
     Node::ExprOrSpread(expr_or_spread) => expr_or_spread.spread().is_none(),
-    // keep when the jsx starts a member, call, or similar expression (ex. `(<div />).props`)
-    Node::MemberExpr(_) | Node::OptChainExpr(_) | Node::NewExpr(_) | Node::TaggedTpl(_) | Node::TsNonNullExpr(_) | Node::TsInstantiation(_) => false,
-    Node::CallExpr(call_expr) => !call_expr.callee.range().contains(&child.range()),
-    Node::OptCall(call_expr) => !call_expr.callee.range().contains(&child.range()),
-    _ => true,
+    _ => !is_jsx_paren_expr_required(child, parent),
+  }
+}
+
+/// Gets if the parens around a JSX element or fragment are required because
+/// the JSX starts a member, call, or similar expression (ex. `(<div />).props`).
+fn is_jsx_paren_expr_required(paren_expr: Node, parent: Node) -> bool {
+  let paren_range = paren_expr.range();
+  match parent {
+    Node::MemberExpr(member_expr) => member_expr.obj.range() == paren_range,
+    Node::CallExpr(call_expr) => call_expr.callee.range() == paren_range,
+    Node::OptCall(call_expr) => call_expr.callee.range() == paren_range,
+    Node::NewExpr(new_expr) => new_expr.callee.range() == paren_range,
+    Node::TaggedTpl(tagged_tpl) => tagged_tpl.tag.range() == paren_range,
+    Node::TsNonNullExpr(_) | Node::TsInstantiation(_) => true,
+    _ => false,
   }
 }
 
