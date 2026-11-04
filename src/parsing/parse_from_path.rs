@@ -68,11 +68,10 @@ fn resolve_syntax(file_path: &Path, file_extension: Option<&str>) -> (Syntax, Pa
 }
 
 fn syntax_for_file_name(file_name: &str) -> (Syntax, ParseMode) {
-  let Some(last_dot_index) = file_name.rfind('.') else {
+  let Some((stem, extension)) = split_known_extension(file_name) else {
     return (es_syntax(false), ParseMode::Program);
   };
-  let (stem, extension) = file_name.split_at(last_dot_index + 1);
-  match normalize_extension(extension) {
+  match extension {
     extension @ ("ts" | "mts" | "cts") => {
       // a file containing `.d.` is always a declaration file. See
       // https://github.com/microsoft/TypeScript/issues/53319#issuecomment-1474174018
@@ -134,8 +133,7 @@ fn jsx_retry_extension(file_path: &Path, file_extension: Option<&str>) -> Option
     Some(extension) => extension,
     None => {
       let file_name = file_path.file_name().and_then(|f| f.to_str())?;
-      let last_dot_index = file_name.rfind('.')?;
-      &file_name[last_dot_index + 1..]
+      split_known_extension(file_name)?.1
     }
   };
   match normalize_extension(extension) {
@@ -143,6 +141,26 @@ fn jsx_retry_extension(file_path: &Path, file_extension: Option<&str>) -> Option
     "js" | "cjs" | "mjs" => Some("jsx"),
     _ => None,
   }
+}
+
+/// Splits the file name into the stem up to and including the dot before the
+/// extension and the normalized extension that decides the syntax.
+///
+/// When the last extension isn't one this crate knows about, the one before it
+/// is used instead. This allows a file associated with this plugin, such as
+/// `file.ts.txt`, to still be parsed with the syntax of its inner extension.
+fn split_known_extension(file_name: &str) -> Option<(&str, &'static str)> {
+  match split_extension(file_name)? {
+    (stem, "") => split_extension(&stem[..stem.len() - 1]).filter(|(_, extension)| !extension.is_empty()),
+    known => Some(known),
+  }
+}
+
+/// Splits the file name on its last dot, normalizing the extension.
+fn split_extension(file_name: &str) -> Option<(&str, &'static str)> {
+  let last_dot_index = file_name.rfind('.')?;
+  let (stem, extension) = file_name.split_at(last_dot_index + 1);
+  Some((stem, normalize_extension(extension)))
 }
 
 /// Matches the extension against the ones this crate knows about, so that the
@@ -406,6 +424,15 @@ Merge conflict marker encountered. at file:///test.ts:6:1
   }
 
   #[test]
+  fn parses_a_file_with_an_unknown_extension_after_a_known_one() {
+    // issue #637
+    assert!(parse_file(Path::new("t.ts.txt"), None, "import { type A } from './a';").is_ok());
+    // the jsx retry uses the known extension too
+    assert!(parse_file(Path::new("t.ts.txt"), None, "const a: number = <div />;").is_ok());
+    assert!(parse_file(Path::new("t.js.txt"), None, "const a = <div />;").is_ok());
+  }
+
+  #[test]
   fn parses_with_a_dotted_extension_overwrite() {
     assert!(parse_file(Path::new("t.md"), Some("d.ts"), "declare const a: number;").is_ok());
   }
@@ -455,6 +482,24 @@ Merge conflict marker encountered. at file:///test.ts:6:1
     run_test(".ts", (ts(false, false, false), ParseMode::Program));
     run_test(".tsx", (ts(true, false, false), ParseMode::Program));
     run_test(".js", (es_syntax(false), ParseMode::Program));
+
+    // an unknown extension falls back to the one before it, such as for a
+    // file associated with this plugin (issue #637)
+    run_test("t.ts.txt", (ts(false, false, false), ParseMode::Program));
+    run_test("t.TS.txt", (ts(false, false, false), ParseMode::Program));
+    run_test("t.tsx.txt", (ts(true, false, false), ParseMode::Program));
+    run_test("t.mts.txt", (ts(false, false, true), ParseMode::Module));
+    run_test("t.cts.txt", (ts(false, false, true), ParseMode::Module));
+    run_test("t.d.ts.txt", (ts(false, true, false), ParseMode::Program));
+    run_test("t.jsx.txt", (es_syntax(true), ParseMode::Program));
+    run_test("t.mjs.txt", (es_syntax(false), ParseMode::Module));
+    run_test("t.cjs.txt", (es_syntax(false), ParseMode::Script));
+    run_test(".ts.txt", (ts(false, false, false), ParseMode::Program));
+    // only the extension directly before the unknown one is used
+    run_test("t.ts.orig.txt", (es_syntax(false), ParseMode::Program));
+    run_test("t.ts.json", (ts(false, false, false), ParseMode::Program));
+    run_test("ts.txt", (es_syntax(false), ParseMode::Program));
+    run_test("t.d.txt", (es_syntax(false), ParseMode::Program));
   }
 
   #[test]
