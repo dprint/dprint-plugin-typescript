@@ -275,7 +275,8 @@ generate_str_to_from![QuoteProps, [AsNeeded, "asNeeded"], [Consistent, "consiste
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum JsxMultiLineParens {
-  /// Never wrap JSX with parentheses.
+  /// Never wrap JSX with parentheses and remove existing ones, except when
+  /// they have comments or are needed (ex. `(<div />).props`).
   Never,
   /// Prefer wrapping with parentheses in most scenarios, except in function
   /// arguments and JSX attributes.

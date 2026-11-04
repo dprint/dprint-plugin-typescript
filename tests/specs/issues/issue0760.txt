@@ -1,0 +1,214 @@
+-- file.tsx --
+~~ lineWidth: 80, jsx.multiLineParens: never ~~
+== should remove the parens in a variable declaration and assignment ==
+const t = (
+    <div>
+        <span>a</span>
+    </div>
+);
+x = (
+    <div>
+        <span>a</span>
+    </div>
+);
+const s = (<div />);
+
+[expect]
+const t = <div>
+    <span>a</span>
+</div>;
+x = <div>
+    <span>a</span>
+</div>;
+const s = <div />;
+
+== should remove the parens in a return and yield, keeping the jsx on the same line ==
+function f() {
+    return (
+        <div>
+            <span>a</span>
+        </div>
+    );
+}
+function g() {
+    return (
+        <SomeVeryLongComponentName attributeOne="value one" attributeTwo="value two">
+            <span>a</span>
+        </SomeVeryLongComponentName>
+    );
+}
+function* h() {
+    yield (
+        <div>
+            <span>a</span>
+        </div>
+    );
+}
+
+[expect]
+function f() {
+    return <div>
+        <span>a</span>
+    </div>;
+}
+function g() {
+    return <SomeVeryLongComponentName
+        attributeOne="value one"
+        attributeTwo="value two"
+    >
+        <span>a</span>
+    </SomeVeryLongComponentName>;
+}
+function* h() {
+    yield <div>
+        <span>a</span>
+    </div>;
+}
+
+== should remove the parens around an arrow function body ==
+const a = () => (
+    <div>
+        <span>a</span>
+    </div>
+);
+const b = items.map(item => (
+    <div key={item}>
+        <span>a</span>
+    </div>
+));
+const c = () => ((
+    <div>
+        <span>a</span>
+    </div>
+));
+
+[expect]
+const a = () =>
+    <div>
+        <span>a</span>
+    </div>;
+const b = items.map(item =>
+    <div key={item}>
+        <span>a</span>
+    </div>
+);
+const c = () =>
+    <div>
+        <span>a</span>
+    </div>;
+
+== should remove the parens in binary and conditional expressions ==
+const a = cond && (
+    <div>
+        <span>a</span>
+    </div>
+);
+const b = cond ? (
+    <div>
+        <span>a</span>
+    </div>
+) : (
+    <>
+        <span>a</span>
+    </>
+);
+
+[expect]
+const a = cond && <div>
+    <span>a</span>
+</div>;
+const b = cond
+    ? <div>
+        <span>a</span>
+    </div>
+    : <>
+        <span>a</span>
+    </>;
+
+== should remove the parens around arguments and array elements ==
+call(
+    (
+        <div>
+            <span>a</span>
+        </div>
+    ),
+);
+const a = [
+    (
+        <div>
+            <span>a</span>
+        </div>
+    ),
+];
+
+[expect]
+call(
+    <div>
+        <span>a</span>
+    </div>,
+);
+const a = [
+    <div>
+        <span>a</span>
+    </div>,
+];
+
+== should keep the parens when they have comments ==
+const a = (
+    // comment
+    <div>
+        <span>a</span>
+    </div>
+);
+const b = (
+    <div>
+        <span>a</span>
+    </div> // comment
+);
+
+[expect]
+const a = (
+    // comment
+    <div>
+        <span>a</span>
+    </div>
+);
+const b = (
+    <div>
+        <span>a</span>
+    </div> // comment
+);
+
+== should keep the parens when the jsx starts a member, call, or similar expression ==
+const a = (
+    <div>
+        <span>a</span>
+    </div>
+).props;
+const b = (<div />)();
+const c = new (<div />)();
+const d = (<div />)`a`;
+const e = (<div />)!;
+const f = (<div />)<T>;
+const g = (<div />)?.();
+const h = (<div />)?.x;
+const i = (<div />)[0];
+const j = (<></>)();
+call(...(<div />));
+
+[expect]
+const a = (
+    <div>
+        <span>a</span>
+    </div>
+).props;
+const b = (<div />)();
+const c = new (<div />)();
+const d = (<div />)`a`;
+const e = (<div />)!;
+const f = (<div />)<T>;
+const g = (<div />)?.();
+const h = (<div />)?.x;
+const i = (<div />)[0];
+const j = (<></>)();
+call(...(<div />));

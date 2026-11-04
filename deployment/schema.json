@@ -166,7 +166,7 @@
       "default": "prefer",
       "oneOf": [{
         "const": "never",
-        "description": "Never wrap JSX with parentheses."
+        "description": "Never wrap JSX with parentheses and remove existing ones, except when they have comments or are needed (ex. `(<div />).props`)."
       }, {
         "const": "prefer",
         "description": "Prefer wrapping with parentheses in most scenarios, except in function arguments and JSX attributes."
