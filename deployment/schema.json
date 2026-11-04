@@ -629,6 +629,18 @@
         "description": "Ex. `{key: value}`"
       }]
     },
+    "mappedType.spaceSurroundingProperties": {
+      "description": "Whether to add a space surrounding the properties of a single line mapped type.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `type Test = { [key in Type]: string }`"
+      }, {
+        "const": false,
+        "description": "Ex. `type Test = {[key in Type]: string}`"
+      }]
+    },
     "objectExpression.spaceSurroundingProperties": {
       "description": "Whether to add a space surrounding the properties of a single line object expression.",
       "type": "boolean",
@@ -1206,6 +1218,9 @@
     },
     "spaceSurroundingProperties": {
       "$ref": "#/definitions/spaceSurroundingProperties"
+    },
+    "mappedType.spaceSurroundingProperties": {
+      "$ref": "#/definitions/mappedType.spaceSurroundingProperties"
     },
     "objectExpression.spaceSurroundingProperties": {
       "$ref": "#/definitions/objectExpression.spaceSurroundingProperties"

@@ -1,0 +1,6 @@
+~~ spaceSurroundingProperties: false ~~
+== should not add spaces surrounding the properties of a mapped type ==
+type Test = {[key in string]: string};
+
+[expect]
+type Test = {[key in string]: string};
