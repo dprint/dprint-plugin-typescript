@@ -446,6 +446,86 @@ const  a  =  1;
 [|export const x = 1;|]
 const  b  =  2;
 
+== should format an exported function ==
+const  a  =  1;
+[|export   function   x( a ,  b )   {
+    return   a;
+}|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|export function x(a, b) {
+    return a;|]
+}
+const  b  =  2;
+
+== should format an exported class ==
+const  a  =  1;
+[|export   class   X   {
+    a  =  1;
+}|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|export class X {
+    a = 1;|]
+}
+const  b  =  2;
+
+== should format an exported interface ==
+const  a  =  1;
+[|export   interface   X   {
+    a :  string;
+}|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|export interface X {
+    a: string;|]
+}
+const  b  =  2;
+
+== should format an exported type alias ==
+const  a  =  1;
+[|export   type   X  =  string;|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|export type X = string;|]
+const  b  =  2;
+
+== should format an exported enum ==
+const  a  =  1;
+[|export   enum   X   {
+    A,
+}|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|export enum X {|]
+    A,
+}
+const  b  =  2;
+
+== should format an exported namespace ==
+const  a  =  1;
+[|export   namespace   X   {
+    const   a  =  1;
+}|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|export namespace X {
+    const a = 1;|]
+}
+const  b  =  2;
+
 == should format an export default expression ==
 const  a  =  1;
 [|export   default   call( a );|]

@@ -80,3 +80,16 @@ a( );
 // c
 [|[1].forEach()|]
 const  other  =  2;
+
+== should format a statement after a comment before its semicolon ==
+const  untouched  =  1
+foo( )
+/* c */ ;[|[1]|].forEach( x )
+bar(  )
+
+[expect]
+const  untouched  =  1
+foo( )
+/* c */
+;[|[1].forEach(x)|]
+bar(  )

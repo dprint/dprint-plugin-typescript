@@ -1,5 +1,25 @@
 -- file.js --
-== should format a with statement in a block ==
+== should format a with statement in a nested block ==
+function   test( )   {
+    for   ( ; ; )   {
+        var   a  =  1;
+        [|with   (  obj  )   {
+            call( a );
+        }|]
+    }
+}
+
+[expect]
+function   test( )   {
+    for   ( ; ; )   {
+        var   a  =  1;
+[|        with (obj) {
+            call(a);|]
+        }
+    }
+}
+
+== should format a with statement in a function body ==
 function   test( )   {
     var   a  =  1;
     [|with   (  obj  )   {

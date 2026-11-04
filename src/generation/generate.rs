@@ -9053,7 +9053,7 @@ fn get_import_group_blank_line_count<'a>(
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]
-enum StmtGroupKind {
+pub(crate) enum StmtGroupKind {
   Imports,
   Exports,
   Other,
@@ -9072,14 +9072,31 @@ struct StmtGroup<'a> {
 }
 
 /// Whether one of the declaration's leading comments asks for it to be ignored.
-fn has_dprint_ignore_comment(node: Node, context: &Context) -> bool {
-  node
-    .leading_comments_fast(context.program)
-    .any(|comment| ir_helpers::text_has_dprint_ignore(&comment.text, &context.config.ignore_node_comment_text))
-}
-
 fn is_import_stmt(node: Node) -> bool {
   matches!(node, Node::ImportDecl(_) | Node::TsImportEqualsDecl(_))
+}
+
+/// Gets the kind of group a statement is sorted in, which is `Other` for a statement formatting
+/// doesn't sort.
+pub(crate) fn get_stmt_group_kind(stmt: Node, program: Program, config: &Configuration) -> StmtGroupKind {
+  let stmt_group_kind = match stmt {
+    Node::ImportDecl(decl) if !decl.specifiers.is_empty() => StmtGroupKind::Imports,
+    Node::ExportAll(_) => StmtGroupKind::Exports,
+    Node::NamedExport(NamedExport { src: Some(_), .. }) => StmtGroupKind::Exports,
+    _ => StmtGroupKind::Other,
+  };
+  // an ignored declaration is a barrier: it stays where it is and ends the
+  // run around it, the same way a side-effect import does
+  let is_ignored = || {
+    stmt
+      .leading_comments_fast(program)
+      .any(|comment| ir_helpers::text_has_dprint_ignore(&comment.text, &config.ignore_node_comment_text))
+  };
+  if stmt_group_kind != StmtGroupKind::Other && is_ignored() {
+    StmtGroupKind::Other
+  } else {
+    stmt_group_kind
+  }
 }
 
 fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> BumpVec<'a, StmtGroup<'a>> {
@@ -9089,19 +9106,7 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> BumpV
 
   for stmt in stmts {
     let last_end_line = previous_last_end_line.take();
-    let stmt_group_kind = match stmt {
-      Node::ImportDecl(decl) if !decl.specifiers.is_empty() => StmtGroupKind::Imports,
-      Node::ExportAll(_) => StmtGroupKind::Exports,
-      Node::NamedExport(NamedExport { src: Some(_), .. }) => StmtGroupKind::Exports,
-      _ => StmtGroupKind::Other,
-    };
-    // an ignored declaration is a barrier: it stays where it is and ends the
-    // run around it, the same way a side-effect import does
-    let stmt_group_kind = if stmt_group_kind != StmtGroupKind::Other && has_dprint_ignore_comment(stmt, context) {
-      StmtGroupKind::Other
-    } else {
-      stmt_group_kind
-    };
+    let stmt_group_kind = get_stmt_group_kind(stmt, context.program, context.config);
     previous_last_end_line = match stmt_group_kind {
       StmtGroupKind::Imports | StmtGroupKind::Exports => Some(stmt.end_line_fast(context.program)),
       StmtGroupKind::Other => None,

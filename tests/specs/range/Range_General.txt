@@ -415,6 +415,51 @@ const  z  =  0;
 [|   line */ const b = 2;|]
 const  c  =  3;
 
+== should format a statement after a comment before the semicolon of the statement before ==
+const  z  =  1;
+a()
+/* x */ ; [|b( )|];
+const  y  =  1;
+
+[expect]
+const  z  =  1;
+a()
+/* x */
+;[|b();|]
+const  y  =  1;
+
+== should format the statements around a cursor between them on the same line ==
+const  z  =  1;
+a(  );  [||]  b(  );
+const  y  =  1;
+
+[expect]
+const  z  =  1;
+[|a();
+b();|]
+const  y  =  1;
+
+== should format the statements around a selected space between them on the same line ==
+const  z  =  1;
+a(  );[|    |]b(  );
+const  y  =  1;
+
+[expect]
+const  z  =  1;
+[|a();
+b();|]
+const  y  =  1;
+
+== should format nothing for a cursor between statements on different lines ==
+const  z  =  1;
+a(  );  [||]
+b(  );
+
+[expect]
+const  z  =  1;
+a(  );  [||]
+b(  );
+
 == should remove the empty statements at the start of the touched line ==
 a(  );
 [|;;b(  );|]

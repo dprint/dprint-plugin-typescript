@@ -1,3 +1,43 @@
+== should format the last statement in a case without the ones before it ==
+switch   ( x )   {
+    case   1:
+        const  a  =  1;
+            [|break;|]
+    default:
+        const  b  =  1;
+}
+
+[expect]
+switch   ( x )   {
+    case   1:
+        const  a  =  1;
+[|        break;|]
+    default:
+        const  b  =  1;
+}
+
+== should format a multi-line last statement in a case without the ones before it ==
+switch   ( x )   {
+    case   1:
+        const  a  =  1;
+        [|if   ( a )   {
+ call( );
+        }|]
+    default:
+        const  b  =  1;
+}
+
+[expect]
+switch   ( x )   {
+    case   1:
+        const  a  =  1;
+[|        if (a) {
+            call();|]
+        }
+    default:
+        const  b  =  1;
+}
+
 == should format a statement in a case ending in a non-ascii identifier ==
 switch   ( a )   {
     case   1:

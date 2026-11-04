@@ -112,6 +112,20 @@ declare   module   "m"   {
     const  b :  string;
 }
 
+== should format an export default function in a declared module ==
+declare   module   "m"   {
+    const  a :  string;
+    [|export   default   function   x( ) :  void;|]
+    const  b :  string;
+}
+
+[expect]
+declare   module   "m"   {
+    const  a :  string;
+[|    export default function x(): void;|]
+    const  b :  string;
+}
+
 == should format an export default interface in a declared module ==
 declare   module   "m"   {
     const  a :  string;
@@ -124,6 +138,22 @@ declare   module   "m"   {
 declare   module   "m"   {
     const  a :  string;
 [|    export default interface X {|]
+    }
+    const  b :  string;
+}
+
+== should format an exported class in a declared module ==
+declare   module   "m"   {
+    const  a :  string;
+    [|export   class   X   {
+    }|]
+    const  b :  string;
+}
+
+[expect]
+declare   module   "m"   {
+    const  a :  string;
+[|    export class X {|]
     }
     const  b :  string;
 }

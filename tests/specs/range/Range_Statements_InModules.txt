@@ -1,0 +1,735 @@
+== should format a variable statement in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|let   x  =  1,   y  =  2;|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|let x = 1, y = 2;|]
+const  b  =  2;
+
+== should format a using declaration in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|using   x  =  getResource( );|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|using x = getResource();|]
+const  b  =  2;
+
+== should format a function declaration in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|function   x( a ,  b )   {
+    return   a;
+}|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|function x(a, b) {
+    return a;|]
+}
+const  b  =  2;
+
+== should format an async generator function declaration in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|async   function  *  x( )   {
+    yield   1;
+}|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|async function* x() {
+    yield 1;|]
+}
+const  b  =  2;
+
+== should format a declared function in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|declare   function   x( a :  string ) :  void;|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|declare function x(a: string): void;|]
+const  b  =  2;
+
+== should format a function overload in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|function   x( a :  string ) :  void;|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|function x(a: string): void;|]
+const  b  =  2;
+
+== should format a class declaration in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|class   X   extends   Y   {
+    a  =  1;
+}|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|class X extends Y {
+    a = 1;|]
+}
+const  b  =  2;
+
+== should format an expression statement in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|call( a ,  b );|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|call(a, b);|]
+const  b  =  2;
+
+== should format an if statement in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|if   ( a )   {
+    call( );
+}   else   if   ( b )   {
+    other( );
+}   else   {
+    last( );
+}|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|if (a) {
+    call();
+} else if (b) {
+    other();
+} else {
+    last();|]
+}
+const  b  =  2;
+
+== should format an if statement without braces in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|if   ( a )   call( );|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|if (a) call();|]
+const  b  =  2;
+
+== should format a for statement in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|for   ( let   i  =  0;  i  <  1;  i++ )   {
+    call( i );
+}|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|for (let i = 0; i < 1; i++) {
+    call(i);|]
+}
+const  b  =  2;
+
+== should format a for in statement in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|for   ( const   key   in   obj )   {
+    call( key );
+}|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|for (const key in obj) {
+    call(key);|]
+}
+const  b  =  2;
+
+== should format a for of statement in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|for   ( const   item   of   items )   {
+    call( item );
+}|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|for (const item of items) {
+    call(item);|]
+}
+const  b  =  2;
+
+== should format a for await statement in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|for   await   ( const   item   of   items )   {
+    call( item );
+}|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|for await (const item of items) {
+    call(item);|]
+}
+const  b  =  2;
+
+== should format a while statement in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|while   ( a )   {
+    call( );
+}|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|while (a) {
+    call();|]
+}
+const  b  =  2;
+
+== should format a do while statement in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|do   {
+    call( );
+}   while   ( a );|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|do {
+    call();
+} while (a);|]
+const  b  =  2;
+
+== should format a try statement in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|try   {
+    call( );
+}   catch   ( err )   {
+    handle( err );
+}   finally   {
+    done( );
+}|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|try {
+    call();
+} catch (err) {
+    handle(err);
+} finally {
+    done();|]
+}
+const  b  =  2;
+
+== should format a switch statement in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|switch   ( a )   {
+    case   1:
+        break;
+}|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|switch (a) {
+    case 1:|]
+        break;
+}
+const  b  =  2;
+
+== should format a labeled statement in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|label:   for   ( ; ; )   {
+    break   label;
+}|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|label: for (;;) {
+    break label;|]
+}
+const  b  =  2;
+
+== should format a throw statement in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|throw   new   Error( "a" );|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|throw new Error("a");|]
+const  b  =  2;
+
+== should format a debugger statement in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|debugger  ;|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|debugger;|]
+const  b  =  2;
+
+== should format a block statement in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|{
+    call( );
+}|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+{
+[|    call();|]
+}
+const  b  =  2;
+
+== should format nothing when only touching an empty statement in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|;|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|;|]
+const  b  =  2;
+
+== should format a type alias in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|type   X  =  string   |   number;|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|type X = string | number;|]
+const  b  =  2;
+
+== should format an interface in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|interface   X   extends   Y   {
+    a :  string;
+}|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|interface X extends Y {
+    a: string;|]
+}
+const  b  =  2;
+
+== should format an enum in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|enum   X   {
+    A,
+}|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|enum X {|]
+    A,
+}
+const  b  =  2;
+
+== should format a const enum in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|const   enum   X   {
+    A,
+}|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|const enum X {|]
+    A,
+}
+const  b  =  2;
+
+== should format a namespace in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|namespace   X   {
+    const   a  =  1;
+}|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|namespace X {
+    const a = 1;|]
+}
+const  b  =  2;
+
+== should format a declared module in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|declare   module   "x"   {
+    const   a :  string;
+}|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|declare module "x" {
+    const a: string;|]
+}
+const  b  =  2;
+
+== should format a global declaration in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|declare   global   {
+    const   a :  string;
+}|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|declare global {
+    const a: string;|]
+}
+const  b  =  2;
+
+== should format an import declaration in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|import   x ,  {  y  }   from   "x";|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|import x, { y } from "x";|]
+const  b  =  2;
+
+== should format a namespace import declaration in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|import   *   as   x   from   "x";|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|import * as x from "x";|]
+const  b  =  2;
+
+== should format a type only import declaration in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|import   type   {  y  }   from   "x";|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|import type { y } from "x";|]
+const  b  =  2;
+
+== should format an import equals declaration in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|import   x  =   require( "x" );|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|import x = require("x");|]
+const  b  =  2;
+
+== should format an export declaration in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export   const   x  =  1;|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export const x = 1;|]
+const  b  =  2;
+
+== should format an exported function in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export   function   x( a ,  b )   {
+    return   a;
+}|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export function x(a, b) {
+    return a;|]
+}
+const  b  =  2;
+
+== should format an exported class in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export   class   X   {
+    a  =  1;
+}|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export class X {
+    a = 1;|]
+}
+const  b  =  2;
+
+== should format an exported interface in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export   interface   X   {
+    a :  string;
+}|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export interface X {
+    a: string;|]
+}
+const  b  =  2;
+
+== should format an exported type alias in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export   type   X  =  string;|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export type X = string;|]
+const  b  =  2;
+
+== should format an exported enum in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export   enum   X   {
+    A,
+}|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export enum X {|]
+    A,
+}
+const  b  =  2;
+
+== should format an exported namespace in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export   namespace   X   {
+    const   a  =  1;
+}|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export namespace X {
+    const a = 1;|]
+}
+const  b  =  2;
+
+== should format an export default expression in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export   default   call( a );|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export default call(a);|]
+const  b  =  2;
+
+== should format an export default function in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export   default   function   x( )   {
+}|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export default function x() {|]
+}
+const  b  =  2;
+
+== should format an export default class in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export   default   class   X   {
+}|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export default class X {|]
+}
+const  b  =  2;
+
+== should format an export default interface in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export   default   interface   X   {
+}|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export default interface X {|]
+}
+const  b  =  2;
+
+== should format a named export in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export   {  a ,  b   as   c  };|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export { a, b as c };|]
+const  b  =  2;
+
+== should format a named re-export in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export   {  a  }   from   "x";|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export { a } from "x";|]
+const  b  =  2;
+
+== should format an export all in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export   *   from   "x";|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export * from "x";|]
+const  b  =  2;
+
+== should format a namespace re-export in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export   *   as   x   from   "x";|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export * as x from "x";|]
+const  b  =  2;
+
+== should format an export assignment in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export   =   x;|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export = x;|]
+const  b  =  2;
+
+== should format an export as namespace in a module ==
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export   as   namespace   X;|]
+const  b  =  2;
+
+[expect]
+import   {  z  }   from   "z";
+const  a  =  1;
+[|export as namespace X;|]
+const  b  =  2;

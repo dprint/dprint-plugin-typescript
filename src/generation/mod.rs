@@ -15,5 +15,7 @@ use generate_types::*;
 use tokens::*;
 
 pub use context::ExternalFormatter;
+pub(crate) use generate::StmtGroupKind;
 pub use generate::generate;
+pub(crate) use generate::get_stmt_group_kind;
 pub(crate) use generate::get_stmt_range_with_decorators;
