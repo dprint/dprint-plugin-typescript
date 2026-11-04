@@ -7839,7 +7839,7 @@ fn gen_comments_as_statements<'a>(comments: impl Iterator<Item = &'a Comment>, l
 /// blank line separates them from it (ex. a file header). Those stay where they
 /// are when the imports get reordered, while the rest are attached to the import
 /// and travel with it.
-fn detached_preamble_len(comments: &[&Comment], node: Node, program: Program) -> usize {
+pub(crate) fn detached_preamble_len(comments: &[&Comment], node: Node, program: Program) -> usize {
   let mut next_line = node.start_line_fast(program);
   for (i, comment) in comments.iter().enumerate().rev() {
     if next_line > comment.end_line_fast(program) + 1 {
@@ -9000,7 +9000,7 @@ fn gen_node_with_comments_before_semicolon_on_later_line<'a>(
 
 /// Gets the semicolon that ends the node when it's on a later line than the rest of
 /// the node, along with the token before it.
-fn get_semicolon_on_later_line<'a>(node: Node<'a>, program: Program<'a>) -> Option<(&'a TokenAndSpan, &'a TokenAndSpan)> {
+pub(crate) fn get_semicolon_on_later_line<'a>(node: Node<'a>, program: Program<'a>) -> Option<(&'a TokenAndSpan, &'a TokenAndSpan)> {
   let [.., previous_token, semicolon] = node.tokens_fast(program) else {
     return None;
   };

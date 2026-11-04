@@ -123,3 +123,21 @@ declare   module   "x"   {
 [|    import { b } from "b";|]
     import   {  a  }   from   "a";
 }
+
+== should not sort a touched group of imports when another group isn't touched ==
+import   {  d  }   from   "d";
+import   {  c  }   from   "c";
+
+const  x  =  1;
+
+[|import   {  b  }   from   "b";
+import   {  a  }   from   "a";|]
+
+[expect]
+import   {  d  }   from   "d";
+import   {  c  }   from   "c";
+
+const  x  =  1;
+
+[|import { b } from "b";
+import { a } from "a";|]

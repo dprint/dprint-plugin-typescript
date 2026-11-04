@@ -70,15 +70,15 @@ const  other  =  2;
 == should format a comment before a statement starting with a semicolon ==
 const  untouched  =  1;
 a( );
-[|// c
+[|   // c
 [1].forEach( );|]
 const  other  =  2;
 
 [expect]
 const  untouched  =  1;
 a( );
-// c
-[|[1].forEach()|]
+[|// c
+[1].forEach()|]
 const  other  =  2;
 
 == should format a statement after a comment before its semicolon ==
@@ -131,13 +131,13 @@ function   f( )   {
 == should format the comment after a statement before one starting with a semicolon ==
 const  y  =  1;
 [|a(  );
-// c|]
+   // c|]
 [1].forEach(  );
 const  z  =  1;
 
 [expect]
 const  y  =  1;
-[|a();|]
-// c
+[|a();
+// c|]
 [1].forEach(  );
 const  z  =  1;

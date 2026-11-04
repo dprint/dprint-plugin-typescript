@@ -166,7 +166,7 @@ switch   ( a )   {
 switch   ( a )   {
     [|case   1:
         call( 1 );|]
-        break;
+        break  ;
     case   2:
         break;
 }
@@ -174,8 +174,8 @@ switch   ( a )   {
 [expect]
 switch   ( a )   {
 [|    case 1:
-        call(1);|]
-        break;
+        call(1);
+        break;|]
     case   2:
         break;
 }
@@ -228,5 +228,87 @@ switch   ( a )   {
         call(1);|]
         break;
     case   2:
+        break;
+}
+
+== should format the comments the range touches after the last statement in a case ==
+switch   ( a )   {
+    case   1:
+        x( );
+        [|y( );
+              // c|]
+    case   2:
+        z( );
+}
+
+[expect]
+switch   ( a )   {
+    case   1:
+        x( );
+[|        y();
+        // c|]
+    case   2:
+        z( );
+}
+
+== should format the comments the range touches after a statement in a case ==
+switch   ( a )   {
+    case   1:
+        [|x( );
+              // c|]
+        y( );
+}
+
+[expect]
+switch   ( a )   {
+    case   1:
+[|        x();
+        // c|]
+        y( );
+}
+
+== should format the statement for a cursor at the end of its line in a case ==
+switch   ( a )   {
+    case   1:
+        x(  );  [||]
+        y(  );
+}
+
+[expect]
+switch   ( a )   {
+    case   1:
+[|        x();|]
+        y(  );
+}
+
+== should format the statements around a cursor between them on the same line in a case ==
+switch   ( a )   {
+    case   1:
+        x(  );  [||]  y(  );
+        z(  );
+}
+
+[expect]
+switch   ( a )   {
+    case   1:
+[|        x();
+        y();|]
+        z(  );
+}
+
+== should format the cases around a cursor between them on the same line ==
+switch   ( a )   {
+    case  1:  break;  [||]  case  2:  break;
+    case   3:
+        break;
+}
+
+[expect]
+switch   ( a )   {
+[|    case 1:
+        break;
+    case 2:
+        break;|]
+    case   3:
         break;
 }

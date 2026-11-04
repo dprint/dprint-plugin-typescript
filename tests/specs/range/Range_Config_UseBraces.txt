@@ -1,0 +1,25 @@
+~~ useBraces: always ~~
+== should format the holding statement when braces are added ==
+const  z  =  1;
+if   ( x )
+    [|foo(  )|];
+const  y  =  1;
+
+[expect]
+const  z  =  1;
+[|if (x) {
+    foo();
+}|]
+const  y  =  1;
+
+== should format the touched statement in braces that are kept ==
+const  z  =  1;
+if   ( x )   {
+    [|foo(  );|]
+}
+
+[expect]
+const  z  =  1;
+if   ( x )   {
+[|    foo();|]
+}

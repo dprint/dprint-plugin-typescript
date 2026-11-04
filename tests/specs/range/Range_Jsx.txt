@@ -167,7 +167,7 @@ const  c  =  2;
 
 == should format the statement holding type arguments ==
 const  a  =  1;
-const   b  =  <Comp<string>   [|a|]="1"   />;
+const   b  =  <Comp<[|string|]>   a="1"   />;
 const  c  =  2;
 
 [expect]

@@ -363,8 +363,8 @@ type   A  =  string   |   {
 == should format the interface member holding a mapped type ==
 interface   A   {
     x :  string;
-    [|y|] :  {
-        [ K   in   Keys ] :  string;
+    y :  {
+        [ K   in   [|Keys|] ] :  string;
     };
 }
 

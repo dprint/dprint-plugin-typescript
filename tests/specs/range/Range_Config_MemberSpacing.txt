@@ -1,0 +1,55 @@
+~~ {
+  "classDeclaration.memberSpacing": "blankLine",
+  "interfaceDeclaration.memberSpacing": "blankLine",
+  "enumDeclaration.memberSpacing": "blankLine",
+  "typeLiteral.memberSpacing": "blankLine"
+} ~~
+== should format a class member with a blank line between members ==
+class   A   {
+    a  =  1;
+    [|b  =  2;|]
+    c  =  3;
+}
+
+[expect]
+class   A   {
+    a  =  1;
+[|    b = 2;|]
+    c  =  3;
+}
+
+== should format an interface member with a blank line between members ==
+interface   A   {
+    a :  string;
+
+    [|b :  string;|]
+
+    c :  string;
+}
+
+[expect]
+interface   A   {
+    a :  string;
+
+[|    b: string;|]
+
+    c :  string;
+}
+
+== should format an enum member with a blank line between members ==
+enum   A   {
+    a  =  1,
+
+    [|b  =  2,|]
+
+    c  =  3,
+}
+
+[expect]
+enum   A   {
+    a  =  1,
+
+[|    b = 2,|]
+
+    c  =  3,
+}

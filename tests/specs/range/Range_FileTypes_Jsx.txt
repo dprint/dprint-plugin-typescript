@@ -1,5 +1,5 @@
 -- file.jsx --
-== should format the touched statements in a jsx file ==
+== should format the statement holding the touched statement in a jsx file since formatting adds parentheses ==
 const   a  =  1;
 const   b  =  <div   a="1">
     {items.map( item   =>   {

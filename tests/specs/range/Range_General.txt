@@ -150,12 +150,10 @@ const  b  =  2;
 [|const  a  =  1;
 const  b  =  2;
 |]
-
 [expect]
 [|const a = 1;
-const b = 2;|]
-
-
+const b = 2;
+|]
 == should format the blank lines between the touched statements ==
 const  a  =  1;
 [|const  b  =  2;
@@ -629,3 +627,34 @@ const  x  =  1;
 
 [|import { a } from "a";|]
 const  x  =  1;
+
+== should format the holding statement when formatting changes the nodes around the members ==
+const  z  =  1;
+if   ( x )   foo( {
+    [|a :  1|],
+    b :  2,
+} );
+const  y  =  1;
+
+[expect]
+const  z  =  1;
+[|if (x) {
+    foo({
+        a: 1,
+        b: 2,
+    });
+}|]
+const  y  =  1;
+
+== should format the whole file when the lines don't fit in with the text around them ==
+const  z  =  1;
+a(  ) /* c
+*/ ; [|b(  )|];
+const  y  =  1;
+
+[expect]
+[|const z = 1;
+a() /* c
+*/;
+b();
+const y = 1;|]

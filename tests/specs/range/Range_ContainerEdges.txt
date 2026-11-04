@@ -827,3 +827,67 @@ function   f( )   {
 function   f( )   {
 [|    a();|]
 }
+
+== should format the members sharing a line with the touched one in a block ==
+if   ( x )   {
+    a(  );  [|b(  );|]
+    c(  );
+}
+
+[expect]
+if   ( x )   {
+[|    a();
+    b();|]
+    c(  );
+}
+
+== should format the members sharing a line with the touched one in a switch case ==
+switch   ( x )   {
+    case   1:
+        a(  );  [|b(  );|]
+        c(  );
+}
+
+[expect]
+switch   ( x )   {
+    case   1:
+[|        a();
+        b();|]
+        c(  );
+}
+
+== should format the members sharing a line with the touched one in an interface ==
+interface   A   {
+    a :  string;  [|b :  string;|]
+    c :  string;
+}
+
+[expect]
+interface   A   {
+[|    a: string;
+    b: string;|]
+    c :  string;
+}
+
+== should format the members sharing a line with the touched one in a namespace ==
+namespace   N   {
+    a(  );  [|b(  );|]
+    c(  );
+}
+
+[expect]
+namespace   N   {
+[|    a();
+    b();|]
+    c(  );
+}
+
+== should format the statement for a cursor beside the members of a single line namespace ==
+const  z  =  1;
+namespace   N   {   a(  );   [||]   }
+
+[expect]
+const  z  =  1;
+[|namespace N {
+    a();
+}|]

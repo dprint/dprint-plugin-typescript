@@ -1,0 +1,70 @@
+~~ semiColons: asi ~~
+== should format a statement starting with a semicolon in a class body ==
+class   A   {
+    a  =  1
+    ;[|[b]|]  =  2
+    c  =  3
+}
+
+[expect]
+class   A   {
+    a  =  1
+    ;[|[b] = 2|]
+    c  =  3
+}
+
+== should format a statement starting with a semicolon in a switch case ==
+switch   ( x )   {
+    case   1:
+        foo( )
+        ;[|[1]|].forEach( x )
+        bar( )
+}
+
+[expect]
+switch   ( x )   {
+    case   1:
+        foo( )
+        ;[|[1].forEach(x)|]
+        bar( )
+}
+
+== should format a statement starting with a semicolon in a namespace ==
+namespace   N   {
+    foo( )
+    ;[|[1]|].forEach( x )
+    bar( )
+}
+
+[expect]
+namespace   N   {
+    foo( )
+    ;[|[1].forEach(x)|]
+    bar( )
+}
+
+== should format a statement starting with a semicolon in a module ==
+import   {  a  }   from   "a"
+foo( )
+;[|[1]|].forEach( a )
+bar( )
+
+[expect]
+import   {  a  }   from   "a"
+foo( )
+;[|[1].forEach(a)|]
+bar( )
+
+== should format a statement starting with a semicolon in a block ==
+if   ( x )   {
+    foo( )
+    ;[|[1]|].forEach( x )
+    bar( )
+}
+
+[expect]
+if   ( x )   {
+    foo( )
+    ;[|[1].forEach(x)|]
+    bar( )
+}

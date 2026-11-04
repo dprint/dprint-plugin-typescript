@@ -16,6 +16,8 @@ use tokens::*;
 
 pub use context::ExternalFormatter;
 pub(crate) use generate::StmtGroupKind;
+pub(crate) use generate::detached_preamble_len;
 pub use generate::generate;
+pub(crate) use generate::get_semicolon_on_later_line;
 pub(crate) use generate::get_stmt_group_kind;
 pub(crate) use generate::get_stmt_range_with_decorators;

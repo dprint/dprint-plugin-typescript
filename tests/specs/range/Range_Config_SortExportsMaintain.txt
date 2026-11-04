@@ -1,0 +1,22 @@
+~~ module.sortExportDeclarations: maintain ~~
+== should only format the touched re-export when exports are not sorted ==
+export   *   from   "c";
+[|export   {  b  }   from   "b";|]
+export   *   from   "a";
+
+[expect]
+export   *   from   "c";
+[|export { b } from "b";|]
+export   *   from   "a";
+
+== should not sort all the touched re-exports when exports are not sorted ==
+[|export   *   from   "c";
+export   {  b  }   from   "b";
+export   *   from   "a";|]
+const  x  =  1;
+
+[expect]
+[|export * from "c";
+export { b } from "b";
+export * from "a";|]
+const  x  =  1;
