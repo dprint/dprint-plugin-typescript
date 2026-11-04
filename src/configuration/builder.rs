@@ -196,8 +196,16 @@ impl ConfigurationBuilder {
   /// Whether statements should end in a semi-colon.
   ///
   /// Default: `SemiColons::Prefer`
+  pub fn semicolons(&mut self, value: SemiColons) -> &mut Self {
+    self.insert("semicolons", value.to_string().into())
+  }
+
+  /// Whether statements should end in a semi-colon.
+  ///
+  /// Default: `SemiColons::Prefer`
+  #[deprecated(note = "use `semicolons` instead")]
   pub fn semi_colons(&mut self, value: SemiColons) -> &mut Self {
-    self.insert("semiColons", value.to_string().into())
+    self.semicolons(value)
   }
 
   /// Set to prefer hanging indentation when exceeding the line width.
@@ -365,8 +373,17 @@ impl ConfigurationBuilder {
   ///
   /// * `true` (default) - Ex. `for (let i = 0; i < 5; i++)`
   /// * `false` - Ex. `for (let i = 0;i < 5;i++)`
+  pub fn for_statement_space_after_semicolons(&mut self, value: bool) -> &mut Self {
+    self.insert("forStatement.spaceAfterSemicolons", value.into())
+  }
+
+  /// Whether to add a space after the semi-colons in a "for" statement.
+  ///
+  /// * `true` (default) - Ex. `for (let i = 0; i < 5; i++)`
+  /// * `false` - Ex. `for (let i = 0;i < 5;i++)`
+  #[deprecated(note = "use `for_statement_space_after_semicolons` instead")]
   pub fn for_statement_space_after_semi_colons(&mut self, value: bool) -> &mut Self {
-    self.insert("forStatement.spaceAfterSemiColons", value.into())
+    self.for_statement_space_after_semicolons(value)
   }
 
   /// Whether to add a space after the `for` keyword in a "for in" statement.
@@ -1469,7 +1486,7 @@ mod tests {
       .jsx_opening_element_bracket_position(SameOrNextLinePosition::Maintain)
       .jsx_self_closing_element_bracket_position(SameOrNextLinePosition::Maintain)
       .decorators_position(SameOrNextLinePosition::Maintain)
-      .semi_colons(SemiColons::Prefer)
+      .semicolons(SemiColons::Prefer)
       .brace_position(BracePosition::NextLine)
       .next_control_flow_position(NextControlFlowPosition::SameLine)
       .operator_position(OperatorPosition::SameLine)
@@ -1662,7 +1679,7 @@ mod tests {
       .do_while_statement_space_after_while_keyword(true)
       .export_declaration_space_surrounding_named_exports(true)
       .for_statement_space_after_for_keyword(true)
-      .for_statement_space_after_semi_colons(true)
+      .for_statement_space_after_semicolons(true)
       .for_in_statement_space_after_for_keyword(true)
       .for_of_statement_space_after_for_keyword(true)
       .function_declaration_space_before_parentheses(true)

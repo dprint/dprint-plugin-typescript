@@ -1,0 +1,10 @@
+~~ semicolons: asi ~~
+== should remove semicolons when using the new spelling ==
+const a = 5;
+call();
+[1, 2].forEach(x => x);
+
+[expect]
+const a = 5
+call()
+;[1, 2].forEach(x => x)

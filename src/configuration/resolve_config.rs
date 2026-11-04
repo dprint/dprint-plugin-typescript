@@ -51,7 +51,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     config.insert(rename.key.to_string(), rename.new_value.into());
   }
 
-  let semi_colons = get_value(&mut config, "semiColons", SemiColons::Prefer, &mut diagnostics);
+  let semi_colons = get_renamed_value(&mut config, "semicolons", "semiColons", SemiColons::Prefer, &mut diagnostics);
   let brace_position = get_value(&mut config, "bracePosition", BracePosition::SameLineUnlessHanging, &mut diagnostics);
   let next_control_flow_position = get_value(&mut config, "nextControlFlowPosition", NextControlFlowPosition::SameLine, &mut diagnostics);
   let operator_position = get_value(&mut config, "operatorPosition", OperatorPosition::NextLine, &mut diagnostics);
@@ -355,7 +355,13 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
       space_after_control_flow_keyword,
       &mut diagnostics,
     ),
-    for_statement_space_after_semi_colons: get_value(&mut config, "forStatement.spaceAfterSemiColons", true, &mut diagnostics),
+    for_statement_space_after_semi_colons: get_renamed_value(
+      &mut config,
+      "forStatement.spaceAfterSemicolons",
+      "forStatement.spaceAfterSemiColons",
+      true,
+      &mut diagnostics,
+    ),
     for_in_statement_space_after_for_keyword: get_value(
       &mut config,
       "forInStatement.spaceAfterForKeyword",
@@ -686,6 +692,18 @@ fn default_tagged_template_embedded_languages() -> BTreeMap<String, String> {
   .collect()
 }
 
+/// Reads a property, falling back to the deprecated name the property used to
+/// go by. Both names are taken from the map so that a deprecated one isn't
+/// reported as unknown, and the new name wins when both are given.
+fn get_renamed_value<T>(config: &mut ConfigKeyMap, key: &str, deprecated_key: &str, default_value: T, diagnostics: &mut Vec<ConfigurationDiagnostic>) -> T
+where
+  T: std::str::FromStr,
+  <T as std::str::FromStr>::Err: std::fmt::Display,
+{
+  let deprecated_value = get_nullable_value(config, deprecated_key, diagnostics);
+  get_nullable_value(config, key, diagnostics).or(deprecated_value).unwrap_or(default_value)
+}
+
 fn get_string_vec(config: &mut ConfigKeyMap, key: &str, diagnostics: &mut Vec<ConfigurationDiagnostic>) -> Vec<String> {
   get_nullable_vec(
     config,
@@ -1000,6 +1018,62 @@ mod tests {
         "taggedTemplate.embeddedLanguages.number"
       ]
     );
+  }
+
+  #[test]
+  fn handle_semicolons() {
+    let mut config = ConfigKeyMap::new();
+    config.insert(String::from("semicolons"), ConfigKeyValue::from_str("asi"));
+    config.insert(String::from("forStatement.spaceAfterSemicolons"), ConfigKeyValue::from_bool(false));
+    let result = resolve_config(config, &GlobalConfiguration::default());
+    assert!(result.config.semi_colons == SemiColons::Asi);
+    assert!(!result.config.for_statement_space_after_semi_colons);
+    assert_eq!(result.diagnostics.len(), 0);
+  }
+
+  #[test]
+  fn handle_semicolons_deprecated_spelling() {
+    let mut config = ConfigKeyMap::new();
+    config.insert(String::from("semiColons"), ConfigKeyValue::from_str("asi"));
+    config.insert(String::from("forStatement.spaceAfterSemiColons"), ConfigKeyValue::from_bool(false));
+    let result = resolve_config(config, &GlobalConfiguration::default());
+    assert!(result.config.semi_colons == SemiColons::Asi);
+    assert!(!result.config.for_statement_space_after_semi_colons);
+    assert_eq!(result.diagnostics.len(), 0);
+  }
+
+  #[test]
+  fn handle_semicolons_both_spellings() {
+    // the new spelling wins regardless of the order the keys are in
+    let mut config = ConfigKeyMap::new();
+    config.insert(String::from("semicolons"), ConfigKeyValue::from_str("always"));
+    config.insert(String::from("semiColons"), ConfigKeyValue::from_str("asi"));
+    config.insert(String::from("forStatement.spaceAfterSemiColons"), ConfigKeyValue::from_bool(true));
+    config.insert(String::from("forStatement.spaceAfterSemicolons"), ConfigKeyValue::from_bool(false));
+    let result = resolve_config(config, &GlobalConfiguration::default());
+    assert!(result.config.semi_colons == SemiColons::Always);
+    assert!(!result.config.for_statement_space_after_semi_colons);
+    assert_eq!(result.diagnostics.len(), 0);
+  }
+
+  #[test]
+  fn handle_semicolons_invalid_deprecated_spelling() {
+    let mut config = ConfigKeyMap::new();
+    config.insert(String::from("semicolons"), ConfigKeyValue::from_str("asi"));
+    config.insert(String::from("semiColons"), ConfigKeyValue::from_str("other"));
+    let result = resolve_config(config, &GlobalConfiguration::default());
+    assert!(result.config.semi_colons == SemiColons::Asi);
+    assert_eq!(get_diagnostic_property_names(&result.diagnostics), ["semiColons"]);
+  }
+
+  #[test]
+  fn serializes_semicolons_with_new_spelling() {
+    let config = ConfigurationBuilder::new().build();
+    let value = serde_json::to_value(&config).unwrap();
+    assert_eq!(value["semicolons"], "prefer");
+    assert_eq!(value["forStatement.spaceAfterSemicolons"], true);
+    assert!(value.get("semiColons").is_none());
+    assert!(value.get("forStatement.spaceAfterSemiColons").is_none());
   }
 
   fn get_diagnostic_property_names(diagnostics: &[ConfigurationDiagnostic]) -> Vec<&str> {

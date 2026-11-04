@@ -15,7 +15,7 @@
         "description": "Uses spaces for indentation."
       }]
     },
-    "semiColons": {
+    "semicolons": {
       "description": "How semi-colons should be used.",
       "type": "string",
       "default": "prefer",
@@ -812,7 +812,7 @@
         "description": "Ex. `for(let i = 0; i < 5; i++)`"
       }]
     },
-    "forStatement.spaceAfterSemiColons": {
+    "forStatement.spaceAfterSemicolons": {
       "description": "Whether to add a space after the semi-colons in a \"for\" statement.",
       "type": "boolean",
       "default": true,
@@ -1043,8 +1043,14 @@
     "useTabs": {
       "$ref": "#/definitions/useTabs"
     },
+    "semicolons": {
+      "$ref": "#/definitions/semicolons"
+    },
     "semiColons": {
-      "$ref": "#/definitions/semiColons"
+      "description": "Deprecated: renamed to `semicolons`.",
+      "deprecated": true,
+      "deprecationMessage": "Renamed to `semicolons`.",
+      "allOf": [{ "$ref": "#/definitions/semicolons" }]
     },
     "quoteStyle": {
       "$ref": "#/definitions/quoteStyle"
@@ -1267,8 +1273,14 @@
     "forStatement.spaceAfterForKeyword": {
       "$ref": "#/definitions/forStatement.spaceAfterForKeyword"
     },
+    "forStatement.spaceAfterSemicolons": {
+      "$ref": "#/definitions/forStatement.spaceAfterSemicolons"
+    },
     "forStatement.spaceAfterSemiColons": {
-      "$ref": "#/definitions/forStatement.spaceAfterSemiColons"
+      "description": "Deprecated: renamed to `forStatement.spaceAfterSemicolons`.",
+      "deprecated": true,
+      "deprecationMessage": "Renamed to `forStatement.spaceAfterSemicolons`.",
+      "allOf": [{ "$ref": "#/definitions/forStatement.spaceAfterSemicolons" }]
     },
     "functionDeclaration.spaceBeforeParentheses": {
       "$ref": "#/definitions/functionDeclaration.spaceBeforeParentheses"
