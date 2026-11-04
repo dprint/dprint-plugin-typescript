@@ -397,7 +397,7 @@
     "typeOnlyImportsExportsSortOrder": {
       "description": "The kind of sort ordering to use for typed imports and exports.",
       "type": "string",
-      "default": "none",
+      "default": "inline",
       "oneOf": [{
         "const": "first",
         "description": "Puts type-only named imports and exports first."
@@ -405,8 +405,11 @@
         "const": "last",
         "description": "Puts type-only named imports and exports last."
       }, {
+        "const": "inline",
+        "description": "Does not sort based on if a type-only named import or export, so they're sorted inline with the others."
+      }, {
         "const": "none",
-        "description": "Does not sort based on if a type-only named import or export."
+        "description": "Deprecated. Use \"inline\" instead."
       }]
     },
     "sortOrder": {

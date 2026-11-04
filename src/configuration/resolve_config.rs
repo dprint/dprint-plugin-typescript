@@ -46,6 +46,10 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     "jsxSelfClosingElement.spaceBeforeSlash",
     &mut diagnostics,
   );
+  // still accept renamed values so configs that haven't been updated keep working
+  for rename in get_config_value_renames(&config) {
+    config.insert(rename.key.to_string(), rename.new_value.into());
+  }
 
   let semi_colons = get_value(&mut config, "semiColons", SemiColons::Prefer, &mut diagnostics);
   let brace_position = get_value(&mut config, "bracePosition", BracePosition::SameLineUnlessHanging, &mut diagnostics);
@@ -133,13 +137,13 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     import_declaration_sort_type_only_imports: get_value(
       &mut config,
       "importDeclaration.sortTypeOnlyImports",
-      NamedTypeImportsExportsOrder::None,
+      NamedTypeImportsExportsOrder::Inline,
       &mut diagnostics,
     ),
     export_declaration_sort_type_only_exports: get_value(
       &mut config,
       "exportDeclaration.sortTypeOnlyExports",
-      NamedTypeImportsExportsOrder::None,
+      NamedTypeImportsExportsOrder::Inline,
       &mut diagnostics,
     ),
     module_import_groups: get_import_groups(&mut config, &mut diagnostics),
@@ -469,6 +473,38 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
   }
 }
 
+/// A value written under a name the plugin has since renamed, which
+/// `dprint config update` rewrites.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConfigValueRename {
+  pub key: &'static str,
+  pub old_value: &'static str,
+  pub new_value: &'static str,
+}
+
+/// Finds the values of a configuration that are written under a deprecated name.
+pub fn get_config_value_renames(config: &ConfigKeyMap) -> Vec<ConfigValueRename> {
+  RENAMED_VALUES
+    .iter()
+    .filter(|rename| matches!(config.get(rename.key), Some(ConfigKeyValue::String(value)) if value == rename.old_value))
+    .cloned()
+    .collect()
+}
+
+/// Each value that was renamed. The old values are still accepted.
+const RENAMED_VALUES: &[ConfigValueRename] = &[
+  ConfigValueRename {
+    key: "importDeclaration.sortTypeOnlyImports",
+    old_value: "none",
+    new_value: "inline",
+  },
+  ConfigValueRename {
+    key: "exportDeclaration.sortTypeOnlyExports",
+    old_value: "none",
+    new_value: "inline",
+  },
+];
+
 /// Gets the `module.importGroups` configuration, which is an array of objects
 /// with a `match` property that's a matcher or an array of matchers.
 fn get_import_groups(config: &mut ConfigKeyMap, diagnostics: &mut Vec<ConfigurationDiagnostic>) -> Vec<ImportGroup> {
@@ -757,6 +793,109 @@ mod tests {
     assert_eq!(result.config.indent_width, 8);
     assert_eq!(result.config.line_width, expected_config.line_width);
     assert_eq!(result.diagnostics.len(), 0);
+  }
+
+  #[test]
+  fn handle_sort_type_only_imports_exports() {
+    for (value, expected) in [
+      ("first", NamedTypeImportsExportsOrder::First),
+      ("last", NamedTypeImportsExportsOrder::Last),
+      ("inline", NamedTypeImportsExportsOrder::Inline),
+      // deprecated alias of `inline`
+      ("none", NamedTypeImportsExportsOrder::Inline),
+    ] {
+      let mut config = ConfigKeyMap::new();
+      config.insert(String::from("importDeclaration.sortTypeOnlyImports"), ConfigKeyValue::from_str(value));
+      config.insert(String::from("exportDeclaration.sortTypeOnlyExports"), ConfigKeyValue::from_str(value));
+      let result = resolve_config(config, &GlobalConfiguration::default());
+      assert!(result.config.import_declaration_sort_type_only_imports == expected, "{}", value);
+      assert!(result.config.export_declaration_sort_type_only_exports == expected, "{}", value);
+      assert_eq!(result.diagnostics.len(), 0, "{}", value);
+    }
+
+    let result = resolve_config(ConfigKeyMap::new(), &GlobalConfiguration::default());
+    assert!(result.config.import_declaration_sort_type_only_imports == NamedTypeImportsExportsOrder::Inline);
+    assert!(result.config.export_declaration_sort_type_only_exports == NamedTypeImportsExportsOrder::Inline);
+
+    let mut config = ConfigKeyMap::new();
+    config.insert(String::from("importDeclaration.sortTypeOnlyImports"), ConfigKeyValue::from_str("other"));
+    let result = resolve_config(config, &GlobalConfiguration::default());
+    assert_eq!(get_diagnostic_property_names(&result.diagnostics), ["importDeclaration.sortTypeOnlyImports"]);
+  }
+
+  #[test]
+  fn get_config_value_renames_none_to_inline() {
+    let mut config = ConfigKeyMap::new();
+    config.insert(String::from("importDeclaration.sortTypeOnlyImports"), ConfigKeyValue::from_str("none"));
+    config.insert(String::from("exportDeclaration.sortTypeOnlyExports"), ConfigKeyValue::from_str("none"));
+    assert_eq!(
+      get_config_value_renames(&config),
+      vec![
+        ConfigValueRename {
+          key: "importDeclaration.sortTypeOnlyImports",
+          old_value: "none",
+          new_value: "inline",
+        },
+        ConfigValueRename {
+          key: "exportDeclaration.sortTypeOnlyExports",
+          old_value: "none",
+          new_value: "inline",
+        },
+      ]
+    );
+  }
+
+  #[test]
+  fn get_config_value_renames_other_values() {
+    for value in ["inline", "first", "last", "None"] {
+      let mut config = ConfigKeyMap::new();
+      config.insert(String::from("importDeclaration.sortTypeOnlyImports"), ConfigKeyValue::from_str(value));
+      config.insert(String::from("exportDeclaration.sortTypeOnlyExports"), ConfigKeyValue::from_str(value));
+      assert_eq!(get_config_value_renames(&config), Vec::new(), "{}", value);
+    }
+
+    let mut config = ConfigKeyMap::new();
+    config.insert(String::from("importDeclaration.sortTypeOnlyImports"), ConfigKeyValue::from_bool(true));
+    assert_eq!(get_config_value_renames(&config), Vec::new());
+
+    // only the key with the old value is renamed
+    let mut config = ConfigKeyMap::new();
+    config.insert(String::from("importDeclaration.sortTypeOnlyImports"), ConfigKeyValue::from_str("first"));
+    config.insert(String::from("exportDeclaration.sortTypeOnlyExports"), ConfigKeyValue::from_str("none"));
+    assert_eq!(
+      get_config_value_renames(&config),
+      vec![ConfigValueRename {
+        key: "exportDeclaration.sortTypeOnlyExports",
+        old_value: "none",
+        new_value: "inline",
+      }]
+    );
+  }
+
+  #[test]
+  fn get_config_value_renames_missing_keys() {
+    assert_eq!(get_config_value_renames(&ConfigKeyMap::new()), Vec::new());
+
+    let mut config = ConfigKeyMap::new();
+    config.insert(String::from("semiColons"), ConfigKeyValue::from_str("none"));
+    assert_eq!(get_config_value_renames(&config), Vec::new());
+  }
+
+  #[test]
+  fn sort_type_only_imports_exports_serde_round_trip() {
+    let mut config = ConfigKeyMap::new();
+    config.insert(String::from("importDeclaration.sortTypeOnlyImports"), ConfigKeyValue::from_str("none"));
+    let config = resolve_config(config, &GlobalConfiguration::default()).config;
+    let mut json = serde_json::to_value(&config).unwrap();
+    assert_eq!(json["importDeclaration.sortTypeOnlyImports"], "inline");
+    assert_eq!(json["exportDeclaration.sortTypeOnlyExports"], "inline");
+    let deserialized: Configuration = serde_json::from_value(json.clone()).unwrap();
+    assert!(deserialized.import_declaration_sort_type_only_imports == NamedTypeImportsExportsOrder::Inline);
+
+    // a serialized config from before the rename still deserializes
+    json["importDeclaration.sortTypeOnlyImports"] = serde_json::Value::from("none");
+    let deserialized: Configuration = serde_json::from_value(json).unwrap();
+    assert!(deserialized.import_declaration_sort_type_only_imports == NamedTypeImportsExportsOrder::Inline);
   }
 
   #[test]
