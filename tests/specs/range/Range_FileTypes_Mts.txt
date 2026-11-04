@@ -1,0 +1,10 @@
+-- file.mts --
+== should format the touched statements in a mts file ==
+import   {  a  }   from   "./a.mjs";
+const   b  =  a;
+[|export   const   c  =  b;|]
+
+[expect]
+import   {  a  }   from   "./a.mjs";
+const   b  =  a;
+[|export const c = b;|]

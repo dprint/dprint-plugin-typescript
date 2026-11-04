@@ -1,0 +1,20 @@
+-- file.jsx --
+== should format the touched statements in a jsx file ==
+const   a  =  1;
+const   b  =  <div   a="1">
+    {items.map( item   =>   {
+        [|const   c  =  1;|]
+        return   c;
+    } )}
+</div>;
+
+[expect]
+const   a  =  1;
+[|const b = (
+    <div a="1">
+        {items.map(item => {
+            const c = 1;
+            return c;
+        })}
+    </div>
+);|]

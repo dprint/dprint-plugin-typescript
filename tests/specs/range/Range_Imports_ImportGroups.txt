@@ -1,0 +1,16 @@
+~~ {
+  "module.sortImportDeclarations": "maintain",
+  "module.importGroups": [{ "match": "builtin" }, { "match": "external" }]
+} ~~
+== should format the run of imports when they are grouped ==
+import   {  b  }   from   "b";
+[|import   {  x  }   from   "node:fs";|]
+
+const  z  =  1;
+
+[expect]
+[|import { x } from "node:fs";
+
+import { b } from "b";|]
+
+const  z  =  1;

@@ -1,0 +1,22 @@
+~~ semiColons: asi ~~
+== should format a statement before a statement starting with a semicolon ==
+const  z  =  1
+const   a  =  [|foo|]( )
+;[1 ,  2].forEach( x   =>   x )
+
+[expect]
+const  z  =  1
+[|const a = foo()|]
+;[1 ,  2].forEach( x   =>   x )
+
+== should format a statement starting with a semicolon ==
+const  z  =  1
+;(  async  (  [|x|]  )   =>   {
+    await   foo( )
+} )( )
+
+[expect]
+const  z  =  1
+;[|(async (x) => {
+    await foo()
+})()|]

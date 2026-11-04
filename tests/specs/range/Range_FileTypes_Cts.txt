@@ -1,0 +1,10 @@
+-- file.cts --
+== should format the touched statements in a cts file ==
+import   a   =   require( "./a.cjs" );
+const   b  =  a;
+[|export   =   b;|]
+
+[expect]
+import   a   =   require( "./a.cjs" );
+const   b  =  a;
+[|export = b;|]

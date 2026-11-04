@@ -310,7 +310,7 @@ abstract   class   A   {
     y  =  2;
 }
 
-== should format an empty member ==
+== should format the member before a touched empty member ==
 class   A   {
     x  =  1;
     [|;|]
@@ -318,10 +318,50 @@ class   A   {
 }
 
 [expect]
-[|class A {
-    x = 1;
+class   A   {
+[|    x = 1;|]
+    ;
+    y  =  2;
+}
 
-    y = 2;|]
+== should format a member with a decorated parameter ==
+class   A   {
+    x  =  1;
+    method(  @dec( )   [|a|] :  string  )   {   }
+    y  =  2;
+}
+
+[expect]
+class   A   {
+    x  =  1;
+[|    method(@dec() a: string) {}|]
+    y  =  2;
+}
+
+== should format the class when the range touches implements ==
+const  x  =  1;
+class   A   implements   [|B|] ,  C   {
+    x  =  1;
+}
+
+[expect]
+const  x  =  1;
+[|class A implements B, C {
+    x = 1;|]
+}
+
+== should format the members after an empty member ==
+class   A   {
+    ;
+    x  =  1;
+    [|y  =  2;|]
+}
+
+[expect]
+class   A   {
+    ;
+    x  =  1;
+[|    y = 2;|]
 }
 
 == should format multiple touched members ==

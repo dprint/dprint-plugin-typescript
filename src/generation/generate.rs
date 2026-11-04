@@ -8581,8 +8581,6 @@ fn get_member_spacing_forced_blank_line_count(member_spacing: MemberSpacing) -> 
   }
 }
 
-/// Gets the number of blank lines to keep between two nodes, which is the
-/// number in the source capped at the `maxBlankLines` configuration.
 /// Gets the range of a statement including the decorators before `export` (ex. `@dec export class A {}`),
 /// which come before the statement's start.
 pub(crate) fn get_stmt_range_with_decorators(node: Node) -> SourceRange {
@@ -8604,6 +8602,8 @@ pub(crate) fn get_stmt_range_with_decorators(node: Node) -> SourceRange {
   SourceRange::new(start, node.end())
 }
 
+/// Gets the number of blank lines to keep between two nodes, which is the
+/// number in the source capped at the `maxBlankLines` configuration.
 fn get_maintained_blank_line_count<'a>(first: &impl SourceRanged, second: &impl SourceRanged, context: &Context<'a>) -> usize {
   cap_blank_line_count(node_helpers::get_separating_blank_line_count(first, second, context.program), context)
 }

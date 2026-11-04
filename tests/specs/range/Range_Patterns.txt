@@ -166,3 +166,17 @@ function   test( )   {
     } catch ({ message }) {}|]
     const  y  =  2;
 }
+
+== should format the statement holding a this parameter ==
+function   test( )   {
+    const  x  =  1;
+    function   inner(  this :  [|A|] ,  a :  string  )   {   }
+    const  y  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  x  =  1;
+[|    function inner(this: A, a: string) {}|]
+    const  y  =  2;
+}

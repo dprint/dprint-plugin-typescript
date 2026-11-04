@@ -292,15 +292,15 @@ const  a  =  1;
 }
 const  b  =  2;
 
-== should format an empty statement ==
+== should format the statement before a touched empty statement ==
 const  a  =  1;
 [|;|]
 const  b  =  2;
 
 [expect]
-[|const a = 1;
-
-const b = 2;|]
+[|const a = 1;|]
+;
+const  b  =  2;
 
 == should format a type alias ==
 const  a  =  1;
@@ -404,6 +404,16 @@ const  b  =  2;
 [expect]
 const  a  =  1;
 [|import x, { y } from "x";|]
+const  b  =  2;
+
+== should format a namespace import declaration ==
+const  a  =  1;
+[|import   *   as   x   from   "x";|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|import * as x from "x";|]
 const  b  =  2;
 
 == should format a type only import declaration ==

@@ -390,6 +390,20 @@ namespace   A   {
     type   Z  =  2;
 }
 
+== should format the member holding an import type with options ==
+namespace   A   {
+    type   X  =  1;
+    type   Y  =  import(  "a" ,  {  with :  {  "resolution-mode" :  [|"import"|]  }  }  ).B;
+    type   Z  =  2;
+}
+
+[expect]
+namespace   A   {
+    type   X  =  1;
+[|    type Y = import("a", { with: { "resolution-mode": "import" }}).B;|]
+    type   Z  =  2;
+}
+
 == should format the member holding a type predicate ==
 namespace   A   {
     type   X  =  1;

@@ -10,12 +10,14 @@ const   b  =  <div>
 
 [expect]
 const  a  =  1;
-const   b  =  <div>
-    {items.map( item   =>   {
-[|            const c = 1;|]
-        return   c;
-    } )}
-</div>;
+[|const b = (
+    <div>
+        {items.map(item => {
+            const c = 1;
+            return c;
+        })}
+    </div>
+);|]
 
 == should go through parentheses kept by formatting ==
 const  a  =  1;

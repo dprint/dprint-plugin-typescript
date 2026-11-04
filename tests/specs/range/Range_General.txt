@@ -211,3 +211,147 @@ const  a  =  1;
 [expect]
 const  a  =  1;
 [|const b = 2;|]
+
+== should format the statements after an empty statement after a class ==
+class   A   {   };
+function   f( )   {
+    const  a  =  1;
+    [|call( a );|]
+}
+
+[expect]
+class   A   {   };
+function   f( )   {
+    const  a  =  1;
+[|    call(a);|]
+}
+
+== should format the statements after a leading empty statement ==
+;
+const  a  =  1;
+[|const  b  =  2;|]
+
+[expect]
+;
+const  a  =  1;
+[|const b = 2;|]
+
+== should format the statements after doubled semicolons ==
+const  a  =  1;;
+const  b  =  2;
+[|const  c  =  3;|]
+
+[expect]
+const  a  =  1;;
+const  b  =  2;
+[|const c = 3;|]
+
+== should format the empty statement after the touched statement ==
+const  a  =  1;
+[|const  b  =  2;|];
+const  c  =  3;
+
+[expect]
+const  a  =  1;
+[|const b = 2;|]
+const  c  =  3;
+
+== should leave the empty statement on the line after the touched statement ==
+const  a  =  1;
+[|const  b  =  2;|]
+;
+const  c  =  3;
+
+[expect]
+const  a  =  1;
+[|const b = 2;|]
+;
+const  c  =  3;
+
+== should format the leading comments the range touches ==
+function   f( )   {
+     [|// comment
+       /* other */
+  a  =  1;|]
+  b  =  2;
+}
+
+[expect]
+function   f( )   {
+[|    // comment
+    /* other */
+    a = 1;|]
+  b  =  2;
+}
+
+== should not format the leading comments the range does not touch ==
+function   f( )   {
+     // comment
+  [|a  =  1;|]
+  b  =  2;
+}
+
+[expect]
+function   f( )   {
+     // comment
+[|    a = 1;|]
+  b  =  2;
+}
+
+== should format a statement with a comment before it on its line ==
+const  z  =  1;
+/** @type {number} */ const  [|a|]  =  1;
+
+[expect]
+const  z  =  1;
+[|/** @type {number} */ const a = 1;|]
+
+== should widen when formatting moves the container ==
+const  z  =  1;
+const   f  =  ( )   =>
+    {
+        [|a  =  1|];
+        b  =  2;
+    };
+
+[expect]
+const  z  =  1;
+[|const f = () => {
+    a = 1;
+    b = 2;
+};|]
+
+== should format the statement after non-ascii text ==
+const  é  =  "ñ — 😀";
+[|const  b  =  2;|]
+
+[expect]
+const  é  =  "ñ — 😀";
+[|const b = 2;|]
+
+== should leave an ignored statement alone ==
+const  a  =  1;
+// dprint-ignore
+[|const  b  =  2;|]
+
+[expect]
+const  a  =  1;
+// dprint-ignore
+[|const  b  =  2;|]
+
+== should format the statement holding an embedded template ==
+const  a  =  css`
+height: 40px;  padding:   0    15px    ;
+`;
+[|const  b  =  css`
+height: 40px;  padding:   0    15px    ;
+`;|]
+
+[expect]
+const  a  =  css`
+height: 40px;  padding:   0    15px    ;
+`;
+[|const b = css`
+    height: 40px;
+    padding: 0 15px;
+`;|]

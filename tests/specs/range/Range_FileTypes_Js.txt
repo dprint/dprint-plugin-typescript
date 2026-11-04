@@ -1,0 +1,28 @@
+-- file.js --
+== should format the touched statements in a script ==
+var   a  =  1;
+[|var   b  =  2;|]
+
+[expect]
+var   a  =  1;
+[|var b = 2;|]
+
+== should format the statement holding a with statement ==
+var   a  =  1;
+with   (  obj  )   {
+    [|call( a );|]
+}
+
+[expect]
+var   a  =  1;
+with   (  obj  )   {
+[|    call(a);|]
+}
+
+== should format the touched statements in a commonjs module ==
+const   a  =  require( "a" );
+[|module.exports  =  {   a   };|]
+
+[expect]
+const   a  =  require( "a" );
+[|module.exports = { a };|]
