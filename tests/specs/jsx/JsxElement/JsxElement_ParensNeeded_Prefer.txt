@@ -1,0 +1,99 @@
+-- file.tsx --
+~~ jsx.multiLineParens: prefer ~~
+== should keep the parens when the jsx is called or constructed ==
+const a = (<div />)();
+const b = (<div />)?.();
+const c = new (<div />)();
+const d = (<></>)();
+const e = (
+    <div />
+)();
+
+[expect]
+const a = (<div />)();
+const b = (<div />)?.();
+const c = new (<div />)();
+const d = (<></>)();
+const e = (<div />)();
+
+== should keep the parens when the jsx is a tag, non-null, or instantiation expression ==
+const a = (<div />)`a`;
+const b = (<div />)!;
+const c = (<div />)<T>;
+
+[expect]
+const a = (<div />)`a`;
+const b = (<div />)!;
+const c = (<div />)<T>;
+
+== should keep the parens when the jsx is the object of a member expression ==
+const a = (<div />).props;
+const b = (<div />)?.props;
+const c = (<div />)[0];
+const d = (<div />).a.b();
+
+[expect]
+const a = (<div />).props;
+const b = (<div />)?.props;
+const c = (<div />)[0];
+const d = (<div />).a.b();
+
+== should keep the parens when the jsx is multi-line ==
+const a = (
+    <div>
+        <span>a</span>
+    </div>
+)();
+const b = new (
+    <div>
+        <span>a</span>
+    </div>
+)();
+const c = (
+    <div>
+        <span>a</span>
+    </div>
+)`a`;
+const d = (
+    <div>
+        <span>a</span>
+    </div>
+)!;
+const e = (
+    <div>
+        <span>a</span>
+    </div>
+).props;
+
+[expect]
+const a = (
+    <div>
+        <span>a</span>
+    </div>
+)();
+const b = new (
+    <div>
+        <span>a</span>
+    </div>
+)();
+const c = (
+    <div>
+        <span>a</span>
+    </div>
+)`a`;
+const d = (
+    <div>
+        <span>a</span>
+    </div>
+)!;
+const e = (
+    <div>
+        <span>a</span>
+    </div>
+).props;
+
+== should not double the parens when they're nested ==
+const a = ((<div />))();
+
+[expect]
+const a = (<div />)();
