@@ -906,7 +906,7 @@
       }]
     },
     "jsxExpressionContainer.spaceSurroundingExpression": {
-      "description": "Whether to add a space surrounding the expression of a JSX container.",
+      "description": "Whether to add a space surrounding the expression of a JSX container. No space is added around an object or array literal (ex. `{{ value: true }}`).",
       "type": "boolean",
       "default": false,
       "oneOf": [{

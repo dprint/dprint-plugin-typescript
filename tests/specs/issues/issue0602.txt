@@ -1,0 +1,66 @@
+-- file.tsx --
+~~ jsxExpressionContainer.spaceSurroundingExpression: true ~~
+== should not add a space between the braces and an object or array literal ==
+<MyComponent myProp={{value: true}} />;
+<MySecondComponent myProp={[{value: true}]} />;
+<A b={{}} c={[]} d={ { } } e={ [ ] } />;
+<div>{{ a: 1 }}{[1, 2]}</div>;
+
+[expect]
+<MyComponent myProp={{ value: true }} />;
+<MySecondComponent myProp={[{ value: true }]} />;
+<A b={{}} c={[]} d={{}} e={[]} />;
+<div>{{ a: 1 }}{[1, 2]}</div>;
+
+== should not add a space when parens around an object or array literal are removed ==
+<A b={({ a: 1 })} c={(([1]))} />;
+
+[expect]
+<A b={{ a: 1 }} c={[1]} />;
+
+== should keep the space around other expressions ==
+<A b={{ a: 1 } as T} c={[1].map(x => x)} d={`a`} e={a} />;
+
+[expect]
+<A b={ { a: 1 } as T } c={ [1].map(x => x) } d={ `a` } e={ a } />;
+
+== should keep the space when there is a comment beside the literal ==
+<A b={/* c */ {a: 1}} c={(/* c */ [1])} d={{a: 1} /* c */} />;
+<A b={/** @type {X} */ ({a: 1})} />;
+
+[expect]
+<A b={ /* c */ { a: 1 } } c={ /* c */ [1] } d={ { a: 1 } /* c */ } />;
+<A b={ /** @type {X} */ ({ a: 1 }) } />;
+
+== should keep a multi-line object or array literal beside the braces ==
+<A style={{
+  color: "blue",
+}} items={[
+  1,
+  2,
+]} />;
+
+[expect]
+<A
+    style={{
+        color: "blue",
+    }}
+    items={[
+        1,
+        2,
+    ]}
+/>;
+
+== should put comments on their own lines inside the braces ==
+<A b={
+  // c
+  {a: 1}
+} />;
+
+[expect]
+<A
+    b={
+        // c
+        { a: 1 }
+    }
+/>;

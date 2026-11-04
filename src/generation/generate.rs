@@ -4721,27 +4721,33 @@ fn gen_jsx_expr_container<'a>(node: &JSXExprContainer<'a>, context: &mut Context
       let surround_with_new_lines =
         !has_only_same_line_block_comments(expr, context) && should_surround_jsx_expr_container_with_newlines(node.expr.range(), context.program);
       let gen_inner = gen_jsx_empty_expr(expr, context);
-      gen_as_jsx_expr_container_with_new_lines(node.expr.range(), gen_inner, surround_with_new_lines, context)
+      let surround_with_space = context.config.jsx_expression_container_space_surrounding_expression;
+      gen_as_jsx_expr_container_with_new_lines(node.expr.range(), gen_inner, surround_with_new_lines, surround_with_space, context)
     }
     JSXExpr::Expr(expr) => {
+      let surround_with_new_lines = should_surround_jsx_expr_container_with_newlines(node.expr.range(), context.program);
+      // keep an object or array literal's brackets beside the braces (ex. `{{ value: true }}`)
+      let surround_with_space =
+        context.config.jsx_expression_container_space_surrounding_expression && !is_jsx_expr_container_object_or_array_literal(*expr, context);
       let gen_inner = gen_node(expr.into(), context);
-      gen_as_jsx_expr_container(node.expr.range(), gen_inner, context)
+      gen_as_jsx_expr_container_with_new_lines(node.expr.range(), gen_inner, surround_with_new_lines, surround_with_space, context)
     }
   }
 }
 
 fn gen_as_jsx_expr_container<'a>(inner_range: SourceRange, inner_items: PrintItems<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
   let surround_with_new_lines = should_surround_jsx_expr_container_with_newlines(inner_range, context.program);
-  gen_as_jsx_expr_container_with_new_lines(inner_range, inner_items, surround_with_new_lines, context)
+  let surround_with_space = context.config.jsx_expression_container_space_surrounding_expression;
+  gen_as_jsx_expr_container_with_new_lines(inner_range, inner_items, surround_with_new_lines, surround_with_space, context)
 }
 
 fn gen_as_jsx_expr_container_with_new_lines<'a>(
   inner_range: SourceRange,
   inner_items: PrintItems<'a>,
   surround_with_new_lines: bool,
+  surround_with_space: bool,
   context: &mut Context<'a>,
 ) -> PrintItems<'a> {
-  let surround_with_space = context.config.jsx_expression_container_space_surrounding_expression;
   let mut items = PrintItems::new(context.arena);
   items.push_sc(sc!("{"));
   if surround_with_new_lines {
@@ -4785,6 +4791,23 @@ fn should_surround_jsx_expr_container_with_newlines(expr: SourceRange, program: 
   }
 
   false
+}
+
+/// Gets if the expression will be generated as an object or array literal
+/// with no comments between it and the braces of its container.
+fn is_jsx_expr_container_object_or_array_literal<'a>(expr: Expr<'a>, context: &Context<'a>) -> bool {
+  let mut expr = expr;
+  loop {
+    if node_helpers::has_surrounding_comments(expr.into(), context.program) {
+      return false;
+    }
+    match expr {
+      Expr::Object(_) | Expr::Array(_) => return true,
+      // look through parens that won't be kept (ex. `{({ value: true })}`)
+      Expr::Paren(paren_expr) if should_skip_paren_expr(paren_expr, context) => expr = paren_expr.expr,
+      _ => return false,
+    }
+  }
 }
 
 fn gen_jsx_fragment<'a>(node: &JSXFragment<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
