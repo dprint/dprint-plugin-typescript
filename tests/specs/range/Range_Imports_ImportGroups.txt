@@ -2,9 +2,21 @@
   "module.sortImportDeclarations": "maintain",
   "module.importGroups": [{ "match": "builtin" }, { "match": "external" }]
 } ~~
-== should format the run of imports when they are grouped ==
+== should not group the imports when only some are touched ==
 import   {  b  }   from   "b";
 [|import   {  x  }   from   "node:fs";|]
+
+const  z  =  1;
+
+[expect]
+import   {  b  }   from   "b";
+[|import { x } from "node:fs";|]
+
+const  z  =  1;
+
+== should group the imports when all are touched ==
+[|import   {  b  }   from   "b";
+import   {  x  }   from   "node:fs";|]
 
 const  z  =  1;
 
@@ -14,3 +26,20 @@ const  z  =  1;
 import { b } from "b";|]
 
 const  z  =  1;
+
+== should group the imports along with the comments before them when all are touched ==
+const  z  =  0;
+// about c
+[|import   {  c  }   from   "c";
+import   {  b  }   from   "b";
+import   {  x  }   from   "node:fs";|]
+const  y  =  0;
+
+[expect]
+const  z  =  0;
+[|import { x } from "node:fs";
+
+// about c
+import { c } from "c";
+import { b } from "b";|]
+const  y  =  0;

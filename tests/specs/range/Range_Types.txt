@@ -360,7 +360,7 @@ type   A  =  string   |   {
 [|    b: string;|]
 };
 
-== should format the member holding a mapped type ==
+== should format the interface member holding a mapped type ==
 interface   A   {
     x :  string;
     [|y|] :  {

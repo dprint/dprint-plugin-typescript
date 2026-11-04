@@ -20,3 +20,25 @@ const  z  =  1
 ;[|(async (x) => {
     await foo()
 })()|]
+
+== should not move the semicolon of the statement before when the file has semicolons ==
+const  x1  =  1;
+foo( );
+[|[1].forEach( x );|]
+const  b  =  2;
+
+[expect]
+const  x1  =  1;
+foo( );
+[|[1].forEach(x)|]
+const  b  =  2;
+
+== should keep the semicolon at the end of the statement when the file has semicolons ==
+const  x1  =  1;
+foo(  [|1|]  );
+(a   ||   b).c( );
+
+[expect]
+const  x1  =  1;
+[|foo(1);|]
+(a   ||   b).c( );

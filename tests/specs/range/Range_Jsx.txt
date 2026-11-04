@@ -175,6 +175,46 @@ const  a  =  1;
 [|const b = <Comp<string> a="1" />;|]
 const  c  =  2;
 
+== should format the statement holding a closing element ==
+const  a  =  1;
+const   b  =  <div   a="1">text</  [|div|]  >;
+const  c  =  2;
+
+[expect]
+const  a  =  1;
+[|const b = <div a="1">text</div>;|]
+const  c  =  2;
+
+== should format the statement holding an opening fragment ==
+const  a  =  1;
+const   b  =  [|<>|]text</>;
+const  c  =  2;
+
+[expect]
+const  a  =  1;
+[|const b = <>text</>;|]
+const  c  =  2;
+
+== should format the statement holding a closing fragment ==
+const  a  =  1;
+const   b  =  <>text[|</>|];
+const  c  =  2;
+
+[expect]
+const  a  =  1;
+[|const b = <>text</>;|]
+const  c  =  2;
+
+== should format the statement holding an empty expression without comments ==
+const  a  =  1;
+const   b  =  <div>{  [||]  }</div>;
+const  c  =  2;
+
+[expect]
+const  a  =  1;
+[|const b = <div>{}</div>;|]
+const  c  =  2;
+
 == should format the touched properties of an object in an attribute ==
 const   a  =  (
     <div

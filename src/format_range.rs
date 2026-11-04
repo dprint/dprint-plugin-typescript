@@ -34,17 +34,21 @@ use super::utils::file_text_has_ignore_comment;
 /// what formatting the whole file gives, so when they don't fit in with the text around them (ex.
 /// the container is formatted on a single line or gets indented differently, or the file would
 /// format differently with them in place), the member holding the container is formatted instead,
-/// and so on out to the whole file. When formatting sorts import or re-export declarations, a
-/// range touching one is widened to the run of them around it.
+/// and so on out to the whole file. Members sharing a line with the touched ones are formatted
+/// along with them.
+///
+/// Import and re-export declarations are only sorted or grouped when the range touches all of the
+/// ones that would be, since that moves declarations outside of the range.
 ///
 /// A range that only touches the space or comments between members formats nothing, while one
 /// covering the whole text formats the whole file like [`format_text`]. The byte order mark is kept
 /// when only part of the file is formatted and removed like [`format_text`] does when the whole
 /// file is. A file with carriage return only line endings is always formatted as a whole.
 ///
-/// Returns the file text, or `None` when nothing changed. Since the lines are taken from formatting
-/// the whole file, this errors when anything in the file fails to parse or format, including
-/// outside of the range (ex. an embedded template the external formatter fails on).
+/// Returns the file text, or `None` when nothing changed or the file has the ignore file comment.
+/// Since the lines are taken from formatting the whole file, this errors when anything in the file
+/// fails to parse or format, including outside of the range (ex. an embedded template the external
+/// formatter fails on).
 pub fn format_text_range(options: FormatTextOptions, range: Range<usize>) -> Result<Option<String>> {
   let FormatTextOptions {
     path,
@@ -61,7 +65,7 @@ pub fn format_text_range(options: FormatTextOptions, range: Range<usize>) -> Res
     move |extension: &str, text: String, config: &Configuration| format_embedded_with_cache(&cache, external_formatter, extension, text, config)
   });
   let external_formatter = cached_external_formatter.as_ref().map(|formatter| formatter as &ExternalFormatter);
-  let format = |text: Arc<str>| {
+  let format_with_config = |text: Arc<str>, config: &Configuration| {
     format_text(FormatTextOptions {
       path,
       extension,
@@ -78,8 +82,8 @@ pub fn format_text_range(options: FormatTextOptions, range: Range<usize>) -> Res
   let body: Arc<str> = if bom_len == 0 { text.clone() } else { text[bom_len..].into() };
   let end = range.end.saturating_sub(bom_len).min(body.len());
   let range = range.start.saturating_sub(bom_len).min(end)..end;
-  if range.start == 0 && range.end == body.len() || has_lone_carriage_return(&body) {
-    return format(text);
+  if range.start == 0 && range.end == body.len() {
+    return format_with_config(text, config);
   }
 
   let parsed_source = parse_program(ParseOptions {
@@ -87,7 +91,19 @@ pub fn format_text_range(options: FormatTextOptions, range: Range<usize>) -> Res
     extension,
     text: body.clone(),
   })?;
-  let Some(levels) = parsed_source.with_view(|program| find_levels(program, &range, config)) else {
+  let unsorted_config;
+  let config = match parsed_source.with_view(|program| touches_all_sorted_declarations(program, &range)) {
+    (true, true) => config,
+    (imports, exports) => {
+      unsorted_config = without_sorting(config, !imports, !exports);
+      &unsorted_config
+    }
+  };
+  let format = |text: Arc<str>| format_with_config(text, config);
+  if has_lone_carriage_return(&body) {
+    return format(text);
+  }
+  let Some(levels) = parsed_source.with_view(|program| find_levels(program, &body, &range, config)) else {
     return Ok(None);
   };
   let Some(formatted) = format(body.clone())? else {
@@ -101,15 +117,20 @@ pub fn format_text_range(options: FormatTextOptions, range: Range<usize>) -> Res
   }) else {
     return Ok(Some(formatted));
   };
-  let formatted_placements = formatted_source.with_view(|program| levels.iter().map(|level| find_formatted_placement(program, level)).collect::<Vec<_>>());
+  let formatted_placements = formatted_source.with_view(|program| {
+    levels
+      .iter()
+      .map(|level| find_formatted_placement(program, &formatted, level))
+      .collect::<Vec<_>>()
+  });
 
+  let indent_width = config.indent_width as usize;
   for (level, formatted_placement) in levels.iter().zip(formatted_placements).rev() {
     let Some(formatted_placement) = formatted_placement else {
       continue;
     };
     // the lines would be indented differently than the ones around them when formatting moves the
     // container's own lines (ex. it gets wrapped in parentheses)
-    let indent_width = config.indent_width as usize;
     let container_moves = !level.path.is_empty()
       && [
         (level.original.container.start, formatted_placement.container.start),
@@ -120,14 +141,16 @@ pub fn format_text_range(options: FormatTextOptions, range: Range<usize>) -> Res
     if container_moves {
       continue;
     }
-    let (Some(original_lines), Some(formatted_lines)) = (lines_of(&body, &level.original.members), lines_of(&formatted, &formatted_placement.members)) else {
+    let (Some(original_lines), Some(formatted_lines)) = (Lines::new(&body, &level.original.members), Lines::new(&formatted, &formatted_placement.members))
+    else {
       continue;
     };
+    let replacement = formatted_lines.replacement_for(&original_lines, &formatted);
     let result = format!(
       "{}{}{}",
-      &body[..original_lines.start],
-      with_file_new_lines(&formatted[formatted_lines], &body),
-      &body[original_lines.end..]
+      &body[..original_lines.range.start],
+      with_file_new_lines(&replacement, &body),
+      &body[original_lines.range.end..]
     );
     if result == *body {
       return Ok(None);
@@ -147,19 +170,63 @@ pub fn format_text_range(options: FormatTextOptions, range: Range<usize>) -> Res
   Ok(Some(formatted))
 }
 
+/// Gets whether the range touches all of the import declarations and all of the re-export
+/// declarations of the module that formatting can sort.
+fn touches_all_sorted_declarations(program: Program, range: &Range<usize>) -> (bool, bool) {
+  let Program::Module(module) = program else {
+    return (true, true);
+  };
+  let (mut imports, mut exports) = (true, true);
+  for item in module.body {
+    let node = Node::from(item);
+    let touched = touches(&node.range().as_byte_range(StartSourcePos::START_SOURCE_POS), range);
+    match node {
+      Node::ImportDecl(decl) if !decl.specifiers.is_empty() => imports &= touched,
+      Node::ExportAll(_) => exports &= touched,
+      Node::NamedExport(export) if export.src.is_some() => exports &= touched,
+      _ => {}
+    }
+  }
+  (imports, exports)
+}
+
+/// Gets the configuration without sorting or grouping the import or re-export declarations.
+fn without_sorting(config: &Configuration, imports: bool, exports: bool) -> Configuration {
+  let mut config = config.clone();
+  if imports {
+    config.module_sort_import_declarations = SortOrder::Maintain;
+    config.module_import_groups = Vec::new();
+    config.module_import_groups_cache = Default::default();
+  }
+  if exports {
+    config.module_sort_export_declarations = SortOrder::Maintain;
+  }
+  config
+}
+
 /// A node holding a list of members (ex. a block's statements) along with the members of it to
 /// format.
 struct Level {
   /// How to get from the program to the node, which finds it again in the formatted text.
   path: Vec<Step>,
+  /// Kind of the node, which is checked along with the kinds of its members to know the node in
+  /// the formatted program is the same one.
   kind: NodeKind,
   member_kinds: Vec<NodeKind>,
   /// Indexes of the members to format. For all but the innermost level, this is only the member
   /// holding the next level.
   touched: RangeInclusive<usize>,
-  /// How many of the comments before the first touched member to format along with it.
-  leading_comments: usize,
+  /// The comments before the first touched member to format along with it.
+  leading_comments: LeadingComments,
   original: Placement,
+}
+
+#[derive(Clone, Copy)]
+enum LeadingComments {
+  /// The last of them, which the range touches or which start on an earlier line than the member.
+  Last(usize),
+  /// All of them, since sorting moves them along with the member.
+  All,
 }
 
 /// A step from a node to one of its members or children, along with the kind of node it goes to.
@@ -183,14 +250,13 @@ struct Member<'a> {
   node: Node<'a>,
   /// Byte range of the member, including the decorators before `export`.
   range: Range<usize>,
-  /// Byte range of the member along with the empty statements around it (ex. the `;` in
-  /// `class A {};`), which are touched along with it.
-  touch_range: Range<usize>,
+  /// Start of the member or the empty statements before it.
+  start_with_empty_statements: usize,
 }
 
 /// Finds each level from the program to the innermost one containing the range, or `None` when
-/// the range only touches the space or comments between members.
-fn find_levels(program: Program, range: &Range<usize>, config: &Configuration) -> Option<Vec<Level>> {
+/// the range only touches the space, comments, or empty statements between members.
+fn find_levels(program: Program, text: &str, range: &Range<usize>, config: &Configuration) -> Option<Vec<Level>> {
   let mut levels = Vec::new();
   let mut path = Vec::new();
   let mut container = Node::from(program);
@@ -199,28 +265,37 @@ fn find_levels(program: Program, range: &Range<usize>, config: &Configuration) -
     let mut touched = members
       .iter()
       .enumerate()
-      .filter(|(_, member)| touches(&member.touch_range, range))
+      .filter(|(_, member)| touches(&member.range, range))
       .map(|(index, _)| index);
     let first = touched.next()?;
     let last = touched.next_back().unwrap_or(first);
-    let (first, last) = match container {
-      Node::Module(_) => with_sorted_declarations(&members, first, last, config),
-      _ => (first, last),
+    let (first_on_lines, last_on_lines) = with_members_on_same_lines(text, &members, first, last);
+    let first_member = &members[first_on_lines];
+    let comments = leading_comments(program, text, first_member);
+    let leading_comments = if matches!(container, Node::Module(_)) && is_sorted_declaration(first_member.node, config) {
+      LeadingComments::All
+    } else {
+      // a comment starting on an earlier line than the member and ending on its line can't be left out
+      let mut count = comments.iter().filter(|comment| comment.end > range.start).count();
+      while count < comments.len()
+        && !starts_line(
+          text,
+          comments.get(comments.len() - count).map_or(first_member.range.start, |comment| comment.start),
+        )
+      {
+        count += 1;
+      }
+      LeadingComments::Last(count)
     };
-    let comments = leading_comments(program, &members[first]);
-    let leading_comments = comments.iter().filter(|comment| comment.end > range.start).count();
-    let start = match leading_comments {
-      0 => members[first].range.start,
-      count => comments[comments.len() - count].start,
-    };
+    let start = leading_comments_start(&comments, leading_comments, first_member.range.start).unwrap_or(first_member.range.start);
     levels.push(Level {
       path: path.clone(),
       kind: container.kind(),
-      member_kinds: members.iter().map(|member| member.node.kind()).collect(),
-      touched: first..=last,
+      member_kinds: members.iter().map(|member| comparable_kind(member.node)).collect(),
+      touched: first_on_lines..=last_on_lines,
       leading_comments,
       original: Placement {
-        members: start..members[last].range.end,
+        members: start..members[last_on_lines].range.end,
         container: container.range().as_byte_range(StartSourcePos::START_SOURCE_POS),
       },
     });
@@ -236,27 +311,26 @@ fn find_levels(program: Program, range: &Range<usize>, config: &Configuration) -
   }
 }
 
-/// Widens the touched statements of a module to the run of import or re-export declarations around
-/// them when formatting sorts or groups those, since the declarations at the same indexes in the
-/// formatted text are only the same ones when taken as a whole run.
-fn with_sorted_declarations(members: &[Member], mut first: usize, mut last: usize, config: &Configuration) -> (usize, usize) {
-  let sorts_imports = config.module_sort_import_declarations != SortOrder::Maintain || !config.module_import_groups.is_empty();
-  let sorts_exports = config.module_sort_export_declarations != SortOrder::Maintain;
-  let is_sorted = |index: usize| match members[index].node {
-    Node::ImportDecl(decl) => sorts_imports && !decl.specifiers.is_empty(),
-    Node::ExportAll(_) => sorts_exports,
-    Node::NamedExport(export) => sorts_exports && export.src.is_some(),
-    _ => false,
-  };
-  if (first..=last).any(is_sorted) {
-    while first > 0 && is_sorted(first - 1) {
-      first -= 1;
-    }
-    while last + 1 < members.len() && is_sorted(last + 1) {
-      last += 1;
-    }
+/// Widens the touched members to the members on the same lines as them (ex. `b()` in `a(); b();`),
+/// which the lines being replaced include.
+fn with_members_on_same_lines(text: &str, members: &[Member], mut first: usize, mut last: usize) -> (usize, usize) {
+  let on_same_line = |a: &Member, b: &Member| !text[end_before_next_line_semicolon(text, &a.range)..b.range.start].contains('\n');
+  while first > 0 && on_same_line(&members[first - 1], &members[first]) {
+    first -= 1;
+  }
+  while last + 1 < members.len() && on_same_line(&members[last], &members[last + 1]) {
+    last += 1;
   }
   (first, last)
+}
+
+/// Gets the kind of a member to compare with the one in the formatted program, which is the same
+/// for all import and re-export declarations since formatting can sort those.
+fn comparable_kind(node: Node) -> NodeKind {
+  match node.kind() {
+    NodeKind::ExportAll | NodeKind::NamedExport => NodeKind::ImportDecl,
+    kind => kind,
+  }
 }
 
 /// Finds the outermost node in the node, including itself, whose members are what's around the
@@ -282,8 +356,33 @@ fn find_container<'a>(program: Program<'a>, node: Node<'a>, range: &Range<usize>
   None
 }
 
+/// Gets whether formatting with the configuration can sort the declaration.
+fn is_sorted_declaration(node: Node, config: &Configuration) -> bool {
+  match node {
+    Node::ImportDecl(decl) => {
+      !decl.specifiers.is_empty() && (config.module_sort_import_declarations != SortOrder::Maintain || !config.module_import_groups.is_empty())
+    }
+    Node::ExportAll(_) => config.module_sort_export_declarations != SortOrder::Maintain,
+    Node::NamedExport(export) => export.src.is_some() && config.module_sort_export_declarations != SortOrder::Maintain,
+    _ => false,
+  }
+}
+
+/// Gets where the leading comments to format start, the member's start when there are none, or
+/// `None` when there aren't as many as needed.
+fn leading_comments_start(comments: &[Range<usize>], leading_comments: LeadingComments, member_start: usize) -> Option<usize> {
+  let count = match leading_comments {
+    LeadingComments::Last(count) => count,
+    LeadingComments::All => comments.len(),
+  };
+  match count {
+    0 => Some(member_start),
+    count => Some(comments.get(comments.len().checked_sub(count)?)?.start),
+  }
+}
+
 /// Finds where the level is in the formatted program, or `None` when its members changed.
-fn find_formatted_placement(program: Program, level: &Level) -> Option<Placement> {
+fn find_formatted_placement(program: Program, text: &str, level: &Level) -> Option<Placement> {
   let mut node = Node::from(program);
   for step in &level.path {
     let (next, kind) = match *step {
@@ -296,17 +395,11 @@ fn find_formatted_placement(program: Program, level: &Level) -> Option<Placement
     node = next;
   }
   let members = members(node)?;
-  if node.kind() != level.kind || !members.iter().map(|member| member.node.kind()).eq(level.member_kinds.iter().copied()) {
+  if node.kind() != level.kind || !members.iter().map(|member| comparable_kind(member.node)).eq(level.member_kinds.iter().copied()) {
     return None;
   }
   let first = &members[*level.touched.start()];
-  let start = match level.leading_comments {
-    0 => first.range.start,
-    count => {
-      let comments = leading_comments(program, first);
-      comments.get(comments.len().checked_sub(count)?)?.start
-    }
-  };
+  let start = leading_comments_start(&leading_comments(program, text, first), level.leading_comments, first.range.start)?;
   Some(Placement {
     members: start..members[*level.touched.end()].range.end,
     container: node.range().as_byte_range(StartSourcePos::START_SOURCE_POS),
@@ -334,19 +427,15 @@ fn members(node: Node) -> Option<Vec<Member>> {
     _ => return None,
   };
   let mut members: Vec<Member> = Vec::with_capacity(nodes.len());
-  let mut leading_empty_start = None;
+  let mut empty_statements_start = None;
   for node in nodes {
     let range = get_stmt_range_with_decorators(node).as_byte_range(StartSourcePos::START_SOURCE_POS);
     if node.kind() == NodeKind::EmptyStmt {
-      match members.last_mut() {
-        Some(member) => member.touch_range.end = range.end,
-        None => leading_empty_start = leading_empty_start.or(Some(range.start)),
-      }
+      empty_statements_start = empty_statements_start.or(Some(range.start));
     } else {
-      let touch_start = leading_empty_start.take().unwrap_or(range.start);
       members.push(Member {
         node,
-        touch_range: touch_start..range.end,
+        start_with_empty_statements: empty_statements_start.take().unwrap_or(range.start),
         range,
       });
     }
@@ -359,7 +448,7 @@ fn members(node: Node) -> Option<Vec<Member>> {
 fn inner_range(program: Program, node: Node, members: &[Member]) -> Option<Range<usize>> {
   let open = program
     .token_container()
-    .get_previous_token(StartSourcePos::START_SOURCE_POS + members[0].touch_range.start)?;
+    .get_previous_token(StartSourcePos::START_SOURCE_POS + members[0].start_with_empty_statements)?;
   let end = match node {
     Node::SwitchCase(_) => node.end(),
     _ => node.end() - 1,
@@ -381,13 +470,17 @@ fn child_nodes(node: Node) -> Vec<Node> {
 }
 
 /// Gets the byte ranges of the comments before a member, which are the ones after the token before
-/// it.
-fn leading_comments(program: Program, member: &Member) -> Vec<Range<usize>> {
-  program
+/// it, leaving out ones that follow code on their line (ex. a trailing comment of the member before).
+fn leading_comments(program: Program, text: &str, member: &Member) -> Vec<Range<usize>> {
+  let mut comments = program
     .comment_container()
     .leading_comments(StartSourcePos::START_SOURCE_POS + member.range.start)
     .map(|comment| comment.range().as_byte_range(StartSourcePos::START_SOURCE_POS))
-    .collect()
+    .collect::<Vec<_>>();
+  // once a comment starts its line, the ones after it do too or follow it
+  let own_line_index = comments.iter().position(|comment| starts_line(text, comment.start)).unwrap_or(comments.len());
+  comments.drain(..own_line_index);
+  comments
 }
 
 /// Gets whether the range touches the member, which for an empty range (ex. the cursor) includes
@@ -400,19 +493,83 @@ fn touches(member: &Range<usize>, range: &Range<usize>) -> bool {
   }
 }
 
-/// Gets the lines the range is on, without the last line's line break, or `None` when code outside
-/// of the range is on them.
-///
-/// Semicolons and comments are fine since a semicolon at the start of a line goes with the
-/// statement before it (ex. `;[1].forEach()` with `semiColons: asi`), as does one at the end of a
-/// line along with the separators between members.
-fn lines_of(text: &str, range: &Range<usize>) -> Option<Range<usize>> {
-  let start = text[..range.start].rfind('\n').map_or(0, |index| index + 1);
-  if skip_inline_trivia(&text[..range.start], start, b";") != range.start {
-    return None;
+/// The lines a level's members are on.
+struct Lines {
+  /// From the start of the first line to the end of the last, without its line break.
+  range: Range<usize>,
+  /// Where the members start, after what's before them on the first line.
+  members_start: usize,
+  /// Where the members end, which is before the last one's semicolon when that's on a later line.
+  members_end: usize,
+  /// Whether the first line starts with a semicolon going with the statement before it (ex. the
+  /// one before `[1]` in `foo()\n;[1].forEach()`).
+  semicolon_before: bool,
+  /// Whether the last member's semicolon is on a later line.
+  semicolon_after: bool,
+}
+
+impl Lines {
+  /// Gets the lines the range is on, or `None` when code outside of the range is on them.
+  ///
+  /// Semicolons and comments are fine since a semicolon at the start of a line goes with the
+  /// statement before it (ex. with `semiColons: asi`), as does one at the end of a line along
+  /// with the separators between members.
+  fn new(text: &str, range: &Range<usize>) -> Option<Lines> {
+    if !starts_line(text, range.start) {
+      return None;
+    }
+    let start = line_start(text, range.start);
+    let (members_end, end) = match line_end(text, range.end) {
+      Some(end) => (range.end, end),
+      None => {
+        let members_end = end_before_next_line_semicolon(text, range);
+        (members_end, line_end(text, members_end)?)
+      }
+    };
+    Some(Lines {
+      range: start..end,
+      members_start: range.start,
+      members_end,
+      semicolon_before: text[start..range.start].trim_start().starts_with(';'),
+      semicolon_after: members_end != range.end,
+    })
   }
-  let end = line_end(text, range.end).or_else(|| line_end(text, end_before_next_line_semicolon(text, range)))?;
-  Some(start..end)
+
+  /// Gets the text of these formatted lines to replace the original lines with, which keeps the
+  /// semicolons going with the statements around them where the original lines have them since
+  /// that depends on the style of the rest of the file (ex. `;[1]` versus `foo();`).
+  fn replacement_for<'a>(&self, original: &Lines, text: &'a str) -> Cow<'a, str> {
+    if self.semicolon_before == original.semicolon_before && self.semicolon_after == original.semicolon_after {
+      return Cow::Borrowed(&text[self.range.clone()]);
+    }
+    let prefix = &text[self.range.start..self.members_start];
+    let mut replacement = match (original.semicolon_before, self.semicolon_before) {
+      (false, true) => prefix.replacen(';', "", 1),
+      (true, false) => format!("{prefix};"),
+      _ => prefix.to_string(),
+    };
+    let members = &text[self.members_start..self.members_end];
+    match (original.semicolon_after, self.semicolon_after) {
+      (false, true) => {
+        replacement.push_str(members);
+        replacement.push(';');
+      }
+      (true, false) => replacement.push_str(members.strip_suffix(';').unwrap_or(members)),
+      _ => replacement.push_str(members),
+    }
+    replacement.push_str(&text[self.members_end..self.range.end]);
+    Cow::Owned(replacement)
+  }
+}
+
+/// Gets whether only spaces, tabs, semicolons, and comments come before the index on its line.
+fn starts_line(text: &str, index: usize) -> bool {
+  skip_inline_trivia(&text[..index], line_start(text, index), b";") == index
+}
+
+/// Gets the start of the line the index is on.
+fn line_start(text: &str, index: usize) -> usize {
+  text.as_bytes()[..index].iter().rposition(|byte| *byte == b'\n').map_or(0, |index| index + 1)
 }
 
 /// Gets the end of the range without a semicolon on a later line (ex. the one before `[1]` in
@@ -462,9 +619,8 @@ fn skip_inline_trivia(text: &str, mut index: usize, separators: &[u8]) -> usize 
 
 /// Gets the width of the indentation of the line the index is on.
 fn line_indent(text: &str, index: usize, indent_width: usize) -> usize {
-  let start = text[..index].rfind('\n').map_or(0, |index| index + 1);
-  text[start..]
-    .bytes()
+  text.as_bytes()[line_start(text, index)..]
+    .iter()
     .map_while(|byte| match byte {
       b' ' => Some(1),
       b'\t' => Some(indent_width),
@@ -473,6 +629,7 @@ fn line_indent(text: &str, index: usize, indent_width: usize) -> usize {
     .sum()
 }
 
+/// Gets whether the text has a carriage return without a line feed after it.
 fn has_lone_carriage_return(text: &str) -> bool {
   let bytes = text.as_bytes();
   bytes
@@ -572,7 +729,18 @@ mod tests {
     let start = text.find("const  b").unwrap();
     let output = format_range(&config, text, start..text.len() + 10, None).unwrap().unwrap();
     assert_eq!(output, "const  a  =  1;\nconst b = 2;\n");
+    // a range past the end of the text still covers all of it
+    let output = format_range(&config, text, 0..text.len() + 10, None).unwrap().unwrap();
+    assert_eq!(output, "const a = 1;\nconst b = 2;\n");
     assert_eq!(format_range(&config, text, text.len() + 5..text.len() + 10, None).unwrap(), None);
+  }
+
+  #[test]
+  fn removes_bom_when_formatting_whole_text() {
+    let config = ConfigurationBuilder::new().build();
+    let text = "\u{FEFF}const  a  =  1;\n";
+    let output = format_range(&config, text, 0..text.len(), None).unwrap().unwrap();
+    assert_eq!(output, "const a = 1;\n");
   }
 
   #[test]

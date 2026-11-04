@@ -1,0 +1,8 @@
+-- file.cjs --
+== should format the touched statements in a cjs file ==
+const   a  =  require( "a" );
+[|module.exports  =  {   a   };|]
+
+[expect]
+const   a  =  require( "a" );
+[|module.exports = { a };|]

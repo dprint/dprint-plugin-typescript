@@ -1,4 +1,4 @@
-== should format a property ==
+== should format a property in a class ==
 abstract   class   A   {
     x  =  1;
     [|a  :  string  =  "a";|]
@@ -12,7 +12,7 @@ abstract   class   A   {
     y  =  2;
 }
 
-== should format an optional property ==
+== should format an optional property in a class ==
 abstract   class   A   {
     x  =  1;
     [|a ?:  string;|]
@@ -26,7 +26,7 @@ abstract   class   A   {
     y  =  2;
 }
 
-== should format a definite property ==
+== should format a definite property in a class ==
 abstract   class   A   {
     x  =  1;
     [|a !:  string;|]
@@ -40,7 +40,7 @@ abstract   class   A   {
     y  =  2;
 }
 
-== should format a static property ==
+== should format a static property in a class ==
 abstract   class   A   {
     x  =  1;
     [|static   a  =  1;|]
@@ -54,7 +54,7 @@ abstract   class   A   {
     y  =  2;
 }
 
-== should format a readonly property ==
+== should format a readonly property in a class ==
 abstract   class   A   {
     x  =  1;
     [|readonly   a  =  1;|]
@@ -68,7 +68,7 @@ abstract   class   A   {
     y  =  2;
 }
 
-== should format a declared property ==
+== should format a declared property in a class ==
 abstract   class   A   {
     x  =  1;
     [|declare   a :  string;|]
@@ -82,7 +82,7 @@ abstract   class   A   {
     y  =  2;
 }
 
-== should format a private property ==
+== should format a private property in a class ==
 abstract   class   A   {
     x  =  1;
     [|#a  =  1;|]
@@ -96,7 +96,7 @@ abstract   class   A   {
     y  =  2;
 }
 
-== should format a computed property ==
+== should format a computed property in a class ==
 abstract   class   A   {
     x  =  1;
     [|[ key ]  =  1;|]
@@ -110,7 +110,7 @@ abstract   class   A   {
     y  =  2;
 }
 
-== should format an auto accessor ==
+== should format an auto accessor in a class ==
 abstract   class   A   {
     x  =  1;
     [|accessor   a  =  1;|]
@@ -124,7 +124,7 @@ abstract   class   A   {
     y  =  2;
 }
 
-== should format a method ==
+== should format a method in a class ==
 abstract   class   A   {
     x  =  1;
     [|method( a :  string ) :  void   {
@@ -142,7 +142,7 @@ abstract   class   A   {
     y  =  2;
 }
 
-== should format an async generator method ==
+== should format an async generator method in a class ==
 abstract   class   A   {
     x  =  1;
     [|async  *  method( )   {
@@ -160,7 +160,7 @@ abstract   class   A   {
     y  =  2;
 }
 
-== should format a private method ==
+== should format a private method in a class ==
 abstract   class   A   {
     x  =  1;
     [|#method( )   {
@@ -178,7 +178,7 @@ abstract   class   A   {
     y  =  2;
 }
 
-== should format a static method ==
+== should format a static method in a class ==
 abstract   class   A   {
     x  =  1;
     [|static   method( )   {
@@ -196,7 +196,7 @@ abstract   class   A   {
     y  =  2;
 }
 
-== should format an abstract method ==
+== should format an abstract method in a class ==
 abstract   class   A   {
     x  =  1;
     [|abstract   method( ) :  void;|]
@@ -210,7 +210,7 @@ abstract   class   A   {
     y  =  2;
 }
 
-== should format a method overload ==
+== should format a method overload in a class ==
 abstract   class   A   {
     x  =  1;
     [|method( a :  string ) :  void;|]
@@ -224,7 +224,7 @@ abstract   class   A   {
     y  =  2;
 }
 
-== should format a getter ==
+== should format a getter in a class ==
 abstract   class   A   {
     x  =  1;
     [|get   a( )   {
@@ -242,7 +242,7 @@ abstract   class   A   {
     y  =  2;
 }
 
-== should format a setter ==
+== should format a setter in a class ==
 abstract   class   A   {
     x  =  1;
     [|set   a( value )   {
@@ -260,7 +260,7 @@ abstract   class   A   {
     y  =  2;
 }
 
-== should format a constructor ==
+== should format a constructor in a class ==
 abstract   class   A   {
     x  =  1;
     [|constructor( private   readonly   a :  string ,  public   b ?:  number )   {
@@ -278,7 +278,7 @@ abstract   class   A   {
     y  =  2;
 }
 
-== should format a static block ==
+== should format a static block in a class ==
 abstract   class   A   {
     x  =  1;
     [|static   {
@@ -296,7 +296,7 @@ abstract   class   A   {
     y  =  2;
 }
 
-== should format an index signature ==
+== should format an index signature in a class ==
 abstract   class   A   {
     x  =  1;
     [|[ key :  string ] :  number;|]
@@ -310,7 +310,7 @@ abstract   class   A   {
     y  =  2;
 }
 
-== should format the member before a touched empty member ==
+== should format nothing when only touching an empty member ==
 class   A   {
     x  =  1;
     [|;|]
@@ -319,8 +319,8 @@ class   A   {
 
 [expect]
 class   A   {
-[|    x = 1;|]
-    ;
+    x  =  1;
+    [|;|]
     y  =  2;
 }
 
@@ -336,6 +336,84 @@ class   A   {
     x  =  1;
 [|    method(@dec() a: string) {}|]
     y  =  2;
+}
+
+== should format the statement holding a class decorator ==
+const  x  =  1;
+@dec(  [|a|]  )
+class   A   {
+    x  =  1;
+}
+
+[expect]
+const  x  =  1;
+[|@dec(a)
+class A {
+    x = 1;|]
+}
+
+== should format the statement holding a decorator before export ==
+const  x  =  1;
+@dec(  [|a|]  )
+export   class   A   {
+    x  =  1;
+}
+
+[expect]
+const  x  =  1;
+[|@dec(a)
+export class A {
+    x = 1;|]
+}
+
+== should format the member holding a method decorator ==
+class   A   {
+    x  =  1;
+    @dec(  [|a|]  )
+    method( )   {   }
+}
+
+[expect]
+class   A   {
+    x  =  1;
+[|    @dec(a)
+    method() {}|]
+}
+
+== should format the member holding a property decorator ==
+class   A   {
+    x  =  1;
+    @dec(  [|a|]  )   y  =  2;
+}
+
+[expect]
+class   A   {
+    x  =  1;
+[|    @dec(a) y = 2;|]
+}
+
+== should format the member holding a parameter decorator ==
+class   A   {
+    x  =  1;
+    method(  @dec(  [|a|]  )   b :  string  )   {   }
+}
+
+[expect]
+class   A   {
+    x  =  1;
+[|    method(@dec(a) b: string) {}|]
+}
+
+== should format the member holding a parameter property ==
+class   A   {
+    x  =  1;
+    constructor(  private   [|a|] :  string  )   {   }
+}
+
+[expect]
+class   A   {
+    x  =  1;
+[|    constructor(private a: string) {}|]
 }
 
 == should format the class when the range touches implements ==

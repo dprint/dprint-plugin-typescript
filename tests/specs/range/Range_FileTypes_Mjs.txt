@@ -1,0 +1,8 @@
+-- file.mjs --
+== should format the touched statements in a mjs file ==
+const   a  =  1;
+[|export   const   b  =  a;|]
+
+[expect]
+const   a  =  1;
+[|export const b = a;|]

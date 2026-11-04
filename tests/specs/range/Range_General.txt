@@ -131,20 +131,20 @@ function   test( )   {
 const  b  =  2;
 
 [expect]
-[|function test() {
-    const a = 1;
+function   test( )   {
+[|    const a = 1;
     call(a);|]
 }
 const  b  =  2;
 
-== should format the whole file when the statements share a line ==
+== should format the statements sharing a line at the top level ==
 const  a  =  1; [|call( a );|]
 const  b  =  2;
 
 [expect]
 [|const a = 1;
-call(a);
-const b = 2;|]
+call(a);|]
+const  b  =  2;
 
 == should format the whole file when the range covers it ==
 [|const  a  =  1;
@@ -196,7 +196,7 @@ import   {  a  }   from   "a";
 [|const b = a;|]
 export   {  b  };
 
-== should format the touched statements in a script ==
+== should format the touched statements in a script without imports ==
 var   a  =  1;
 [|var   b  =  2;|]
 
@@ -355,3 +355,62 @@ height: 40px;  padding:   0    15px    ;
     height: 40px;
     padding: 0 15px;
 `;|]
+
+== should keep the semicolon at the start of the line when the file has none ==
+const  x1  =  1
+foo()
+;[  1  ].forEach( [|x|] )
+const  x3  =  1
+
+[expect]
+const  x1  =  1
+foo()
+;[|[1].forEach(x);|]
+const  x3  =  1
+
+== should keep the semicolon on the line after the statement when the file has none ==
+const  x1  =  1
+foo(  [|1|]  )
+;[  1  ].forEach( x )
+const  x3  =  1
+
+[expect]
+const  x1  =  1
+[|foo(1)|]
+;[  1  ].forEach( x )
+const  x3  =  1
+
+== should format the statements sharing a line with a comment between them ==
+const  z  =  1;
+const  a  =  1; /* a */ const  b  =  [|2;|]
+const  c  =  3;
+
+[expect]
+const  z  =  1;
+[|const a = 1; /* a */
+const b = 2;|]
+const  c  =  3;
+
+== should not format the statement before when the range starts in its trailing comment ==
+const  z  =  0;
+const  a  =  1; // trail[|ing
+const  b  =  2;|]
+const  c  =  3;
+
+[expect]
+const  z  =  0;
+const  a  =  1; // trailing
+[|const b = 2;|]
+const  c  =  3;
+
+== should format a statement after a multi-line comment ending on its line ==
+const  z  =  0;
+/* multi
+   line */ const  b  =  [|2|];
+const  c  =  3;
+
+[expect]
+const  z  =  0;
+/* multi
+[|   line */ const b = 2;|]
+const  c  =  3;

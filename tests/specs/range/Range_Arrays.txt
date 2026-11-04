@@ -82,7 +82,7 @@ const   a  =  [   1 ,   [|2|] ,   3   ];
 const   x  =  1;
 [|const a = [1, 2, 3];|]
 
-== should format the statement holding an array pattern ==
+== should format the statement holding a multi-line array pattern ==
 const   x  =  1;
 const   [
     a ,

@@ -292,14 +292,14 @@ const  a  =  1;
 }
 const  b  =  2;
 
-== should format the statement before a touched empty statement ==
+== should format nothing when only touching an empty statement ==
 const  a  =  1;
 [|;|]
 const  b  =  2;
 
 [expect]
-[|const a = 1;|]
-;
+const  a  =  1;
+[|;|]
 const  b  =  2;
 
 == should format a type alias ==
@@ -550,6 +550,66 @@ const  b  =  2;
 [expect]
 const  a  =  1;
 [|export as namespace X;|]
+const  b  =  2;
+
+== should format the statement holding an import default specifier ==
+const  a  =  1;
+import   [|x|] ,  {  y  }   from   "x";
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|import x, { y } from "x";|]
+const  b  =  2;
+
+== should format the statement holding an import named specifier ==
+const  a  =  1;
+import   {  [|y|]   as   z  }   from   "x";
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|import { y as z } from "x";|]
+const  b  =  2;
+
+== should format the statement holding an import namespace specifier ==
+const  a  =  1;
+import   *   as   [|x|]   from   "x";
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|import * as x from "x";|]
+const  b  =  2;
+
+== should format the statement holding an export named specifier ==
+const  a  =  1;
+export   {  [|a|]   as   b  };
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|export { a as b };|]
+const  b  =  2;
+
+== should format the statement holding an export namespace specifier ==
+const  a  =  1;
+export   *   as   [|x|]   from   "x";
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|export * as x from "x";|]
+const  b  =  2;
+
+== should format the statement holding an external module reference ==
+const  a  =  1;
+import   x  =   require(  [|"x"|]  );
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|import x = require("x");|]
 const  b  =  2;
 
 == should format a return statement ==

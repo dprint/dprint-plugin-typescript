@@ -713,3 +713,59 @@ function   test( )   {
 [|    const x = a<string>;|]
     const  b  =  2;
 }
+
+== should format the member holding the super keyword ==
+class   A   extends   B   {
+    #a  =  1;
+    x  =  [|super|].a;
+    b  =  2;
+}
+
+[expect]
+class   A   extends   B   {
+    #a  =  1;
+[|    x = super.a;|]
+    b  =  2;
+}
+
+== should format the member holding a private name ==
+class   A   extends   B   {
+    #a  =  1;
+    x  =  this.#[|a|];
+    b  =  2;
+}
+
+[expect]
+class   A   extends   B   {
+    #a  =  1;
+[|    x = this.#a;|]
+    b  =  2;
+}
+
+== should format the member holding a template element ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  `a[|b|]c${  d  }`;
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = `abc${d}`;|]
+    const  b  =  2;
+}
+
+== should format the member holding the import keyword ==
+function   test( )   {
+    const  a  =  1;
+    const   x  =  [|import|](  "a"  );
+    const  b  =  2;
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|    const x = import("a");|]
+    const  b  =  2;
+}

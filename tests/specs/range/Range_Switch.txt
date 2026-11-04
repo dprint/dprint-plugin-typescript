@@ -1,3 +1,17 @@
+== should format a statement in a case ending in a non-ascii identifier ==
+switch   ( a )   {
+    case   1:
+        foo(  [|1|]  )
+        x  =  café
+}
+
+[expect]
+switch   ( a )   {
+    case   1:
+[|        foo(1);|]
+        x  =  café
+}
+
 == should format the touched statements in a case ==
 switch   ( a )   {
     case   1:
