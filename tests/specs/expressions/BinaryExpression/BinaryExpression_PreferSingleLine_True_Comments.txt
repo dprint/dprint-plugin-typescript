@@ -1,0 +1,57 @@
+~~ lineWidth: 100, indentWidth: 2, binaryExpression.preferSingleLine: true ~~
+== should keep the layout of a multi-line parenthesized operand with a comment on its own line ==
+function prevOrNextWord(path) {
+  const hasPrevOrNextWord =
+    (previous?.type === "sentence"
+      && previous.children.at(-1)?.type === "word"
+      && !previous.children.at(-1).hasTrailingPunctuation
+      // https://spec.commonmark.org/0.31.2/#unicode-whitespace-character
+      && !/[\p{Space_Separator}\t\n\f\r]$/u.test(previous.children.at(-1).value))
+    || (next?.type === "sentence"
+      && next.children[0]?.type === "word"
+      && !next.children[0].hasLeadingPunctuation);
+}
+
+[expect]
+function prevOrNextWord(path) {
+  const hasPrevOrNextWord =
+    (previous?.type === "sentence"
+      && previous.children.at(-1)?.type === "word"
+      && !previous.children.at(-1).hasTrailingPunctuation
+      // https://spec.commonmark.org/0.31.2/#unicode-whitespace-character
+      && !/[\p{Space_Separator}\t\n\f\r]$/u.test(previous.children.at(-1).value))
+    || (next?.type === "sentence"
+      && next.children[0]?.type === "word"
+      && !next.children[0].hasLeadingPunctuation);
+}
+
+== should keep a comment on its own line in a short parenthesized operand ==
+const a =
+  (aaaa
+    // comment
+    && bbbb)
+  || cccc;
+function f() {
+  return (aaaa
+    // comment
+    && bbbb)
+    || cccc;
+}
+call((aaaa
+  // comment
+  && bbbb) || cccc);
+
+[expect]
+const a = (aaaa
+  // comment
+  && bbbb) || cccc;
+function f() {
+  return (aaaa
+    // comment
+    && bbbb) || cccc;
+}
+call(
+  (aaaa
+    // comment
+    && bbbb) || cccc,
+);

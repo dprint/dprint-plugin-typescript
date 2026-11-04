@@ -1,0 +1,12 @@
+~~ spaceAfterControlFlowKeyword: false, switchStatement.spaceAfterSwitchKeyword: true ~~
+== should only keep the space after the configured keyword ==
+if (a) {
+}
+switch (a) {
+}
+
+[expect]
+if(a) {
+}
+switch (a) {
+}

@@ -39,3 +39,13 @@ try {
     a;
 } catch (ex: unknown) {
 }
+
+== should keep a comment before the paren before the paren ==
+try {
+} catch /* c */ (ex) {
+}
+
+[expect]
+try {
+} catch /* c */ (ex) {
+}

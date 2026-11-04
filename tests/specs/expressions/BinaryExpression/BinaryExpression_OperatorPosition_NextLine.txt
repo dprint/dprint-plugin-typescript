@@ -54,3 +54,25 @@ const t = this.context.currentGroup &&
 const t = this.context.currentGroup
     && this.context.currentGroup.name
         !== test;
+
+== should keep line comments on their own lines between operands ==
+if (
+    cond1
+    // comment related to cond2
+    || cond2
+) {
+}
+const a = cond1 ||
+    // comment
+    cond2;
+
+[expect]
+if (
+    cond1
+    // comment related to cond2
+    || cond2
+) {
+}
+const a = cond1
+    // comment
+    || cond2;

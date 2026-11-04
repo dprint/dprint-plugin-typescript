@@ -863,6 +863,8 @@ pub struct Configuration {
   /* use space separator */
   #[serde(rename = "binaryExpression.spaceSurroundingBitwiseAndArithmeticOperator")]
   pub binary_expression_space_surrounding_bitwise_and_arithmetic_operator: bool,
+  #[serde(rename = "catchClause.spaceAfterCatchKeyword")]
+  pub catch_clause_space_after_catch_keyword: bool,
   #[serde(rename = "commentLine.forceSpaceAfterSlashes")]
   pub comment_line_force_space_after_slashes: bool,
   #[serde(rename = "constructSignature.spaceAfterNewKeyword")]
@@ -911,6 +913,8 @@ pub struct Configuration {
   pub set_accessor_space_before_parentheses: bool,
   #[serde(rename = "spaceSurroundingProperties")]
   pub space_surrounding_properties: bool,
+  #[serde(rename = "switchStatement.spaceAfterSwitchKeyword")]
+  pub switch_statement_space_after_switch_keyword: bool,
   #[serde(rename = "taggedTemplate.spaceBeforeLiteral")]
   pub tagged_template_space_before_literal: bool,
   #[serde(rename = "typeAnnotation.spaceBeforeColon")]

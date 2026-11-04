@@ -605,6 +605,18 @@
         "description": "Ex. `myFunction(true)`"
       }]
     },
+    "spaceAfterControlFlowKeyword": {
+      "description": "Whether to add a space after the keyword of a control flow statement and before its open paren. This is the default for the `spaceAfter...Keyword` options of the `if`, `for`, `for...in`, `for...of`, `while`, `do...while`, `with` and `switch` statements and the catch clause.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `if (true)`"
+      }, {
+        "const": false,
+        "description": "Ex. `if(true)`"
+      }]
+    },
     "spaceSurroundingProperties": {
       "description": "Whether to add a space surrounding the properties of single line object-like nodes.",
       "type": "boolean",
@@ -663,6 +675,18 @@
       }, {
         "const": false,
         "description": "Ex. `1+2`"
+      }]
+    },
+    "catchClause.spaceAfterCatchKeyword": {
+      "description": "Whether to add a space after the `catch` keyword in a catch clause.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `catch (err)`"
+      }, {
+        "const": false,
+        "description": "Ex. `catch(err)`"
       }]
     },
     "commentLine.forceSpaceAfterSlashes": {
@@ -917,6 +941,18 @@
         "description": "Ex. `set myProp(value: string)`"
       }]
     },
+    "switchStatement.spaceAfterSwitchKeyword": {
+      "description": "Whether to add a space after the `switch` keyword in a switch statement.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `switch (value)`"
+      }, {
+        "const": false,
+        "description": "Ex. `switch(value)`"
+      }]
+    },
     "taggedTemplate.spaceBeforeLiteral": {
       "description": "Whether to add a space before the literal in a tagged template.",
       "type": "boolean",
@@ -1165,6 +1201,9 @@
     "withStatement.spaceAround": {
       "$ref": "#/definitions/spaceAround"
     },
+    "spaceAfterControlFlowKeyword": {
+      "$ref": "#/definitions/spaceAfterControlFlowKeyword"
+    },
     "spaceSurroundingProperties": {
       "$ref": "#/definitions/spaceSurroundingProperties"
     },
@@ -1179,6 +1218,9 @@
     },
     "binaryExpression.spaceSurroundingBitwiseAndArithmeticOperator": {
       "$ref": "#/definitions/binaryExpression.spaceSurroundingBitwiseAndArithmeticOperator"
+    },
+    "catchClause.spaceAfterCatchKeyword": {
+      "$ref": "#/definitions/catchClause.spaceAfterCatchKeyword"
     },
     "commentLine.forceSpaceAfterSlashes": {
       "$ref": "#/definitions/commentLine.forceSpaceAfterSlashes"
@@ -1242,6 +1284,9 @@
     },
     "setAccessor.spaceBeforeParentheses": {
       "$ref": "#/definitions/setAccessor.spaceBeforeParentheses"
+    },
+    "switchStatement.spaceAfterSwitchKeyword": {
+      "$ref": "#/definitions/switchStatement.spaceAfterSwitchKeyword"
     },
     "taggedTemplate.spaceBeforeLiteral": {
       "$ref": "#/definitions/taggedTemplate.spaceBeforeLiteral"

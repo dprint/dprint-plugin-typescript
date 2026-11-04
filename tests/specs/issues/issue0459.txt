@@ -1,0 +1,146 @@
+-- file.tsx --
+~~ lineWidth: 80, indentWidth: 2, preferSingleLine: true ~~
+== should collapse the arguments when the last is an arrow function returning jsx in parens ==
+Array.from(
+    { length: 1 },
+    (_, i) => (
+        <Component
+            prop1={somePropFooBlah}
+            prop2={`Some string here askdjalskdjalskdjlaskjd`}
+            prop3={[1, 2, 3, 4]}
+        />
+    ),
+);
+
+[expect]
+Array.from({ length: 1 }, (_, i) => (
+  <Component
+    prop1={somePropFooBlah}
+    prop2={`Some string here askdjalskdjalskdjlaskjd`}
+    prop3={[1, 2, 3, 4]}
+  />
+));
+
+== should collapse the arguments the same way when there is a comment in the parens ==
+Array.from(
+    { length: 1 },
+    (_, i) => (
+        // hi
+        <Component
+            prop1={somePropFooBlah}
+            prop2={`Some string here askdjalskdjalskdjlaskjd`}
+            prop3={[1, 2, 3, 4]}
+        />
+    ),
+);
+
+[expect]
+Array.from({ length: 1 }, (_, i) => (
+  // hi
+  <Component
+    prop1={somePropFooBlah}
+    prop2={`Some string here askdjalskdjalskdjlaskjd`}
+    prop3={[1, 2, 3, 4]}
+  />
+));
+
+== should collapse the arguments when the last is an arrow function returning an object in parens ==
+Array.from(
+    { length: 1 },
+    (_, i) => ({
+        prop1: somePropFooBlah,
+        prop2: `Some string here askdjalskdjalskdjlaskjd`,
+        prop3: [1, 2, 3, 4],
+    }),
+);
+
+[expect]
+Array.from({ length: 1 }, (_, i) => ({
+  prop1: somePropFooBlah,
+  prop2: `Some string here askdjalskdjalskdjlaskjd`,
+  prop3: [1, 2, 3, 4],
+}));
+
+== should collapse the arguments of a nested call ==
+outer(
+    a,
+    inner(
+        b,
+        (x) => (
+            <Component
+                prop1={somePropFooBlah}
+                prop2={`Some string here askdjalskdjalskdjlaskjd`}
+            />
+        ),
+    ),
+);
+
+[expect]
+outer(
+  a,
+  inner(b, (x) => (
+    <Component
+      prop1={somePropFooBlah}
+      prop2={`Some string here askdjalskdjalskdjlaskjd`}
+    />
+  )),
+);
+
+== should put the arguments on separate lines when the arrow function's header doesn't fit ==
+Array.from({ length: someVeryLongName, other: anotherVeryLongName, more: 1 }, (_, i) => <div>{i}</div>);
+
+[expect]
+Array.from(
+  { length: someVeryLongName, other: anotherVeryLongName, more: 1 },
+  (_, i) => <div>{i}</div>,
+);
+
+== should put the arguments on separate lines when the arrow function isn't the last ==
+foo((_, i) => <Component prop1={somePropFooBlah} prop2={`Some string here askdjalskdjalskdjlaskjd`} />, b);
+
+[expect]
+foo(
+  (_, i) => (
+    <Component
+      prop1={somePropFooBlah}
+      prop2={`Some string here askdjalskdjalskdjlaskjd`}
+    />
+  ),
+  b,
+);
+
+== should put the arguments on separate lines when the second last is also an arrow function ==
+const r = z.string().refine((val) => val === val.toUpperCase(), (val) => ({
+  params: { val },
+}));
+
+[expect]
+const r = z.string().refine(
+  (val) => val === val.toUpperCase(),
+  (val) => ({ params: { val } }),
+);
+
+== should put the arguments on separate lines when the second last is a function expression ==
+const dynamicRefine = z.string().refine(function(val) {}, (val) => ({ params: { val }, message: "Some message here" }));
+
+[expect]
+const dynamicRefine = z.string().refine(
+  function(val) {},
+  (val) => ({ params: { val }, message: "Some message here" }),
+);
+
+== should put the arguments on separate lines when the arrow function's body isn't in parens ==
+foo(a, (_, i) => call(somePropFooBlah, somePropFooBlah, somePropFooBlah, somePropFooBlah, aaaaaa));
+
+[expect]
+foo(
+  a,
+  (_, i) =>
+    call(
+      somePropFooBlah,
+      somePropFooBlah,
+      somePropFooBlah,
+      somePropFooBlah,
+      aaaaaa,
+    ),
+);
