@@ -512,6 +512,7 @@ pub struct Configuration {
   pub new_line_kind: NewLineKind,
   pub quote_style: QuoteStyle,
   pub quote_props: QuoteProps,
+  #[serde(rename = "semicolons", alias = "semiColons")]
   pub semi_colons: SemiColons,
   pub file_indent_level: u32,
   pub max_blank_lines: u32,
@@ -886,7 +887,7 @@ pub struct Configuration {
   pub export_declaration_space_surrounding_named_exports: bool,
   #[serde(rename = "forStatement.spaceAfterForKeyword")]
   pub for_statement_space_after_for_keyword: bool,
-  #[serde(rename = "forStatement.spaceAfterSemiColons")]
+  #[serde(rename = "forStatement.spaceAfterSemicolons", alias = "forStatement.spaceAfterSemiColons")]
   pub for_statement_space_after_semi_colons: bool,
   #[serde(rename = "forInStatement.spaceAfterForKeyword")]
   pub for_in_statement_space_after_for_keyword: bool,

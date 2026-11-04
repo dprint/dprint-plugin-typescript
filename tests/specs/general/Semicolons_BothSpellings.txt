@@ -1,0 +1,8 @@
+~~ semicolons: asi, semiColons: always ~~
+== should use the new spelling when both are given ==
+const a = 5;
+call();
+
+[expect]
+const a = 5
+call()

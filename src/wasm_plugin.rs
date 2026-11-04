@@ -17,6 +17,7 @@ use dprint_core::plugins::SyncHostFormatRequest;
 use dprint_core::plugins::SyncPluginHandler;
 
 use super::configuration::Configuration;
+use super::configuration::get_config_key_renames;
 use super::configuration::get_config_value_renames;
 use super::configuration::resolve_config;
 use super::embedded_file::EmbeddedFile;
@@ -52,6 +53,19 @@ impl SyncPluginHandler<Configuration> for TypeScriptPluginHandler {
       changes.push(ConfigChange {
         path: vec![rename.key.to_string().into()],
         kind: ConfigChangeKind::Set(rename.new_value.into()),
+      });
+    }
+    for rename in get_config_key_renames(&message.config) {
+      // when the new key is already set, only the old one is removed so its value isn't overwritten
+      if let Some(value) = rename.value {
+        changes.push(ConfigChange {
+          path: vec![rename.new_key.to_string().into()],
+          kind: ConfigChangeKind::Add(value),
+        });
+      }
+      changes.push(ConfigChange {
+        path: vec![rename.old_key.to_string().into()],
+        kind: ConfigChangeKind::Remove,
       });
     }
     Ok(changes)
