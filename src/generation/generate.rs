@@ -4528,10 +4528,10 @@ fn gen_type_lit<'a>(node: &TsTypeLit<'a>, context: &mut Context<'a>) -> PrintIte
     },
   );
 
-  fn semi_colon_or_comma_to_separator_value<'a>(value: SemiColonOrComma, context: &mut Context<'a>) -> SeparatorValue {
+  fn semi_colon_or_comma_to_separator_value<'a>(value: SemicolonOrComma, context: &mut Context<'a>) -> SeparatorValue {
     match value {
-      SemiColonOrComma::Comma => SeparatorValue::Comma(context.config.type_literal_trailing_commas),
-      SemiColonOrComma::SemiColon => SeparatorValue::SemiColon(context.config.semicolons),
+      SemicolonOrComma::Comma => SeparatorValue::Comma(context.config.type_literal_trailing_commas),
+      SemicolonOrComma::Semicolon => SeparatorValue::Semicolon(context.config.semicolons),
     }
   }
 }
@@ -10134,7 +10134,7 @@ fn gen_close_paren_with_type<'a>(opts: GenCloseParenWithTypeOptions<'a>, context
 
 #[derive(PartialEq)]
 enum SeparatorValue {
-  SemiColon(Semicolons),
+  Semicolon(Semicolons),
   Comma(TrailingCommas),
 }
 
@@ -10159,8 +10159,8 @@ impl Separator {
 impl From<Semicolons> for Separator {
   fn from(value: Semicolons) -> Separator {
     Separator {
-      single_line: Some(SeparatorValue::SemiColon(value)),
-      multi_line: Some(SeparatorValue::SemiColon(value)),
+      single_line: Some(SeparatorValue::Semicolon(value)),
+      multi_line: Some(SeparatorValue::Semicolon(value)),
     }
   }
 }
@@ -12983,7 +12983,7 @@ fn get_generated_separator<'a>(arena: &'a Arena, separator: &Separator, is_trail
   fn get_items<'a>(arena: &'a Arena, value: &Option<SeparatorValue>, is_trailing: bool, is_multi_line: &ConditionResolver<'a>) -> PrintItems<'a> {
     match value {
       Some(SeparatorValue::Comma(trailing_comma)) => get_generated_trailing_comma(arena, *trailing_comma, is_trailing, is_multi_line),
-      Some(SeparatorValue::SemiColon(semicolons)) => get_generated_semi_colon(arena, *semicolons, is_trailing, is_multi_line),
+      Some(SeparatorValue::Semicolon(semicolons)) => get_generated_semi_colon(arena, *semicolons, is_trailing, is_multi_line),
       None => PrintItems::new(arena),
     }
   }

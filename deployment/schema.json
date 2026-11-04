@@ -584,10 +584,13 @@
     "typeLiteral.separatorKind": {
       "description": "The kind of separator to use in type literals.",
       "type": "string",
-      "default": "semiColon",
+      "default": "semicolon",
       "oneOf": [{
-        "const": "semiColon",
+        "const": "semicolon",
         "description": "Use semi-colons."
+      }, {
+        "const": "semiColon",
+        "description": "Use semi-colons. Same as \"semicolon\"."
       }, {
         "const": "comma",
         "description": "Use commas."

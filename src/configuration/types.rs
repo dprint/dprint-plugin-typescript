@@ -352,14 +352,35 @@ impl From<JsxClassNamesSortOrder> for JsxClassNamesSortConfig {
 /// Whether to use semi-colons or commas.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum SemiColonOrComma {
+pub enum SemicolonOrComma {
   /// Use semi colons (default).
-  SemiColon,
+  #[serde(alias = "semiColon")]
+  Semicolon,
   /// Use commas.
   Comma,
 }
 
-generate_str_to_from![SemiColonOrComma, [SemiColon, "semiColon"], [Comma, "comma"]];
+// implemented manually instead of with `generate_str_to_from!` so that `semiColon` is also accepted
+impl std::str::FromStr for SemicolonOrComma {
+  type Err = ParseConfigurationError;
+
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    match s {
+      "semicolon" | "semiColon" => Ok(SemicolonOrComma::Semicolon),
+      "comma" => Ok(SemicolonOrComma::Comma),
+      _ => Err(ParseConfigurationError(String::from(s))),
+    }
+  }
+}
+
+impl std::fmt::Display for SemicolonOrComma {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      SemicolonOrComma::Semicolon => write!(f, "semicolon"),
+      SemicolonOrComma::Comma => write!(f, "comma"),
+    }
+  }
+}
 
 /// The kind of sort ordering to use.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
@@ -539,9 +560,9 @@ pub struct Configuration {
   #[serde(rename = "memberExpression.linePerExpression")]
   pub member_expression_line_per_expression: bool,
   #[serde(rename = "typeLiteral.separatorKind.singleLine")]
-  pub type_literal_separator_kind_single_line: SemiColonOrComma,
+  pub type_literal_separator_kind_single_line: SemicolonOrComma,
   #[serde(rename = "typeLiteral.separatorKind.multiLine")]
-  pub type_literal_separator_kind_multi_line: SemiColonOrComma,
+  pub type_literal_separator_kind_multi_line: SemicolonOrComma,
   #[serde(rename = "taggedTemplate.formatEmbedded")]
   pub tagged_template_format_embedded: bool,
   /// Map of a tagged template's tag to the file extension of the language its text is formatted as.

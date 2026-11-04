@@ -60,7 +60,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
   let prefer_single_line_nullable = get_nullable_value(&mut config, "preferSingleLine", &mut diagnostics);
   let prefer_single_line = prefer_single_line_nullable.unwrap_or(false);
   let space_surrounding_properties = get_value(&mut config, "spaceSurroundingProperties", true, &mut diagnostics);
-  let type_literal_separator_kind = get_value(&mut config, "typeLiteral.separatorKind", SemiColonOrComma::SemiColon, &mut diagnostics);
+  let type_literal_separator_kind = get_value(&mut config, "typeLiteral.separatorKind", SemicolonOrComma::Semicolon, &mut diagnostics);
   let quote_style = get_value(&mut config, "quoteStyle", QuoteStyle::AlwaysDouble, &mut diagnostics);
   let quote_props = get_value(&mut config, "quoteProps", QuoteProps::Preserve, &mut diagnostics);
   let space_around = get_value(&mut config, "spaceAround", false, &mut diagnostics);
@@ -1066,6 +1066,39 @@ mod tests {
     let result = resolve_config(config, &GlobalConfiguration::default());
     assert!(result.config.semicolons == Semicolons::Prefer);
     assert_eq!(get_diagnostic_property_names(&result.diagnostics), ["semicolons"]);
+  }
+
+  #[test]
+  fn handle_type_literal_separator_kind() {
+    for (value, expected) in [
+      ("semicolon", SemicolonOrComma::Semicolon),
+      ("semiColon", SemicolonOrComma::Semicolon),
+      ("comma", SemicolonOrComma::Comma),
+    ] {
+      let mut config = ConfigKeyMap::new();
+      config.insert(String::from("typeLiteral.separatorKind"), ConfigKeyValue::from_str(value));
+      let result = resolve_config(config, &GlobalConfiguration::default());
+      assert!(result.config.type_literal_separator_kind_single_line == expected, "{value}");
+      assert!(result.config.type_literal_separator_kind_multi_line == expected, "{value}");
+      assert_eq!(result.diagnostics.len(), 0, "{value}");
+    }
+
+    let mut config = ConfigKeyMap::new();
+    config.insert(String::from("typeLiteral.separatorKind"), ConfigKeyValue::from_str("Semicolon"));
+    let result = resolve_config(config, &GlobalConfiguration::default());
+    assert_eq!(get_diagnostic_property_names(&result.diagnostics), ["typeLiteral.separatorKind"]);
+  }
+
+  #[test]
+  fn type_literal_separator_kind_serde() {
+    // serializes as `semicolon` and still deserializes `semiColon`
+    assert_eq!(serde_json::to_string(&SemicolonOrComma::Semicolon).unwrap(), "\"semicolon\"");
+    for value in ["\"semicolon\"", "\"semiColon\""] {
+      assert!(
+        serde_json::from_str::<SemicolonOrComma>(value).unwrap() == SemicolonOrComma::Semicolon,
+        "{value}"
+      );
+    }
   }
 
   #[test]
