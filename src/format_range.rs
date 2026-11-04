@@ -250,7 +250,7 @@ enum LeadingComments {
 
 /// Where a level's members to format are in a text.
 ///
-/// In a file without semicolons (ex. with `semiColons: asi`), a statement starting with `[`, `(`,
+/// In a file without semicolons (ex. with `semicolons: asi`), a statement starting with `[`, `(`,
 /// or a template has the semicolon ending the statement before it at the start of its line (ex.
 /// `foo()\n;[1].forEach()`). The formatted lines can have these semicolons where the original lines
 /// don't and the other way around (ex. when the configuration doesn't match the file), so the
@@ -622,7 +622,7 @@ fn child_nodes(node: Node) -> Vec<Node> {
 }
 
 /// Gets the comments before a member, which are the ones after the token before it or before the
-/// semicolon starting its line (ex. with `semiColons: asi`), leaving out ones that follow code on
+/// semicolon starting its line (ex. with `semicolons: asi`), leaving out ones that follow code on
 /// their line (ex. a trailing comment of the member before).
 fn comments_before<'a>(program: Program<'a>, text: &str, member: &Member) -> Vec<&'a Comment> {
   let comment_container = program.comment_container();
@@ -641,7 +641,7 @@ fn comments_before<'a>(program: Program<'a>, text: &str, member: &Member) -> Vec
 }
 
 /// Gets the comments on their own lines after a member, which are the ones after its separator
-/// (ex. `,`), or before its semicolon when that's on a later line (ex. with `semiColons: asi`).
+/// (ex. `,`), or before its semicolon when that's on a later line (ex. with `semicolons: asi`).
 fn comments_after<'a>(program: Program<'a>, text: &str, member: &Member<'a>) -> Vec<&'a Comment> {
   let (position, limit) = match get_semicolon_on_later_line(member.node, program) {
     Some((previous, semicolon)) => (previous.end(), semicolon.start().as_byte_index(START)),
@@ -758,7 +758,7 @@ impl<'a> Lines<'a> {
   /// Gets the lines the members are on, or `None` when code outside of them is on the lines.
   ///
   /// Semicolons and comments are fine since a semicolon at the start of a line goes with the
-  /// statement before it (ex. with `semiColons: asi`), as does one at the end of a line along
+  /// statement before it (ex. with `semicolons: asi`), as does one at the end of a line along
   /// with the separators between members.
   fn new(text: &str, placement: &'a Placement) -> Option<Self> {
     let range = &placement.range;

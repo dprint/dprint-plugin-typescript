@@ -1,4 +1,4 @@
-~~ semiColons: asi ~~
+~~ semicolons: asi ~~
 == should not add semi-colon at start ==
 do ++x; while (x<10)
 

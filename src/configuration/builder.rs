@@ -195,17 +195,9 @@ impl ConfigurationBuilder {
 
   /// Whether statements should end in a semi-colon.
   ///
-  /// Default: `SemiColons::Prefer`
-  pub fn semicolons(&mut self, value: SemiColons) -> &mut Self {
+  /// Default: `Semicolons::Prefer`
+  pub fn semicolons(&mut self, value: Semicolons) -> &mut Self {
     self.insert("semicolons", value.to_string().into())
-  }
-
-  /// Whether statements should end in a semi-colon.
-  ///
-  /// Default: `SemiColons::Prefer`
-  #[deprecated(note = "use `semicolons` instead")]
-  pub fn semi_colons(&mut self, value: SemiColons) -> &mut Self {
-    self.semicolons(value)
   }
 
   /// Set to prefer hanging indentation when exceeding the line width.
@@ -375,15 +367,6 @@ impl ConfigurationBuilder {
   /// * `false` - Ex. `for (let i = 0;i < 5;i++)`
   pub fn for_statement_space_after_semicolons(&mut self, value: bool) -> &mut Self {
     self.insert("forStatement.spaceAfterSemicolons", value.into())
-  }
-
-  /// Whether to add a space after the semi-colons in a "for" statement.
-  ///
-  /// * `true` (default) - Ex. `for (let i = 0; i < 5; i++)`
-  /// * `false` - Ex. `for (let i = 0;i < 5;i++)`
-  #[deprecated(note = "use `for_statement_space_after_semicolons` instead")]
-  pub fn for_statement_space_after_semi_colons(&mut self, value: bool) -> &mut Self {
-    self.for_statement_space_after_semicolons(value)
   }
 
   /// Whether to add a space after the `for` keyword in a "for in" statement.
@@ -664,17 +647,17 @@ impl ConfigurationBuilder {
   }
 
   /// The kind of separator to use in type literals.
-  pub fn type_literal_separator_kind(&mut self, value: SemiColonOrComma) -> &mut Self {
+  pub fn type_literal_separator_kind(&mut self, value: SemicolonOrComma) -> &mut Self {
     self.insert("typeLiteral.separatorKind", value.to_string().into())
   }
 
   /// The kind of separator to use in type literals when single line.
-  pub fn type_literal_separator_kind_single_line(&mut self, value: SemiColonOrComma) -> &mut Self {
+  pub fn type_literal_separator_kind_single_line(&mut self, value: SemicolonOrComma) -> &mut Self {
     self.insert("typeLiteral.separatorKind.singleLine", value.to_string().into())
   }
 
   /// The kind of separator to use in type literals when multi-line.
-  pub fn type_literal_separator_kind_multi_line(&mut self, value: SemiColonOrComma) -> &mut Self {
+  pub fn type_literal_separator_kind_multi_line(&mut self, value: SemicolonOrComma) -> &mut Self {
     self.insert("typeLiteral.separatorKind.multiLine", value.to_string().into())
   }
 
@@ -1486,7 +1469,7 @@ mod tests {
       .jsx_opening_element_bracket_position(SameOrNextLinePosition::Maintain)
       .jsx_self_closing_element_bracket_position(SameOrNextLinePosition::Maintain)
       .decorators_position(SameOrNextLinePosition::Maintain)
-      .semicolons(SemiColons::Prefer)
+      .semicolons(Semicolons::Prefer)
       .brace_position(BracePosition::NextLine)
       .next_control_flow_position(NextControlFlowPosition::SameLine)
       .operator_position(OperatorPosition::SameLine)
@@ -1504,9 +1487,9 @@ mod tests {
       .conditional_expression_line_per_expression(true)
       .conditional_type_line_per_expression(true)
       .member_expression_line_per_expression(false)
-      .type_literal_separator_kind(SemiColonOrComma::Comma)
-      .type_literal_separator_kind_single_line(SemiColonOrComma::Comma)
-      .type_literal_separator_kind_multi_line(SemiColonOrComma::Comma)
+      .type_literal_separator_kind(SemicolonOrComma::Comma)
+      .type_literal_separator_kind_single_line(SemicolonOrComma::Comma)
+      .type_literal_separator_kind_multi_line(SemicolonOrComma::Comma)
       /* sorting */
       .module_sort_import_declarations(SortOrder::Maintain)
       .module_sort_export_declarations(SortOrder::Maintain)

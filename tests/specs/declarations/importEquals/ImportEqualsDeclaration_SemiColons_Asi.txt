@@ -1,6 +1,0 @@
-~~ semiColons: asi ~~
-== should format without a semi colon ==
-import a = require("t");
-
-[expect]
-import a = require("t")

@@ -1,6 +1,0 @@
-~~ semiColons: asi ~~
-== should format without a semi-colon ==
-declare module "testing";
-
-[expect]
-declare module "testing"

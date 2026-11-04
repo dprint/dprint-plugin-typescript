@@ -886,7 +886,7 @@ fn gen_class_prop_common<'a, 'b>(node: GenClassPropCommon<'a, 'b>, context: &mut
   }
 
   // the empty members after the property are removed, so what's after them is the next member
-  let should_semi = context.config.semi_colons.is_true()
+  let should_semi = context.config.semicolons.is_true()
     || matches!(
       node.original.next_tokens_fast(context.program).iter().find(|token| token.token != Token::Semi),
       Some(TokenAndSpan {
@@ -1220,7 +1220,7 @@ fn gen_export_default_expr<'a>(node: &ExportDefaultExpr<'a>, context: &mut Conte
   let mut items = PrintItems::new(context.arena);
   items.push_sc(sc!("export default "));
   items.extend(gen_node(node.expr.into(), context));
-  if context.config.semi_colons.is_true() {
+  if context.config.semicolons.is_true() {
     items.push_sc(sc!(";"));
   }
   items
@@ -1350,7 +1350,7 @@ fn gen_export_named_decl<'a>(node: &NamedExport<'a>, context: &mut Context<'a>) 
     items.extend(gen_with_clause(with_clause, context));
   }
 
-  if context.config.semi_colons.is_true() {
+  if context.config.semicolons.is_true() {
     items.push_sc(sc!(";"));
   }
 
@@ -1453,7 +1453,7 @@ fn gen_function_decl_or_expr<'a>(node: FunctionDeclOrExprNode<'a>, context: &mut
     ));
 
     items.extend(gen_node(body.into(), context));
-  } else if context.config.semi_colons.is_true() {
+  } else if context.config.semicolons.is_true() {
     items.push_sc(sc!(";"));
   }
 
@@ -1561,7 +1561,7 @@ fn gen_import_decl<'a>(node: &ImportDecl<'a>, context: &mut Context<'a>) -> Prin
     items.extend(gen_with_clause(with_clause, context));
   }
 
-  if context.config.semi_colons.is_true() {
+  if context.config.semicolons.is_true() {
     items.push_sc(sc!(";"));
   }
 
@@ -1582,7 +1582,7 @@ fn gen_import_equals_decl<'a>(node: &TsImportEqualsDecl<'a>, context: &mut Conte
   items.push_sc(sc!(" = ")); // keep on one line
   items.extend(gen_node(node.module_ref.into(), context));
 
-  if context.config.semi_colons.is_true() {
+  if context.config.semicolons.is_true() {
     items.push_sc(sc!(";"));
   }
 
@@ -1693,7 +1693,7 @@ fn gen_module_or_namespace_decl<'a, 'b>(node: ModuleOrNamespaceDecl<'a, 'b>, con
           items.extend(gen_body(Some(&decl.body), start_header_lsil, context));
         }
       }
-    } else if context.config.semi_colons.is_true() {
+    } else if context.config.semicolons.is_true() {
       items.push_sc(sc!(";"));
     }
 
@@ -1714,7 +1714,7 @@ fn gen_type_alias<'a>(node: &TsTypeAliasDecl<'a>, context: &mut Context<'a>) -> 
 
   items.extend(gen_assignment(node.type_ann.into(), sc!("="), context));
 
-  if context.config.semi_colons.is_true() {
+  if context.config.semicolons.is_true() {
     items.push_sc(sc!(";"));
   }
 
@@ -4256,7 +4256,7 @@ fn gen_index_signature<'a>(node: &TsIndexSignature<'a>, context: &mut Context<'a
   ));
   items.extend(gen_type_ann_with_colon_if_exists(node.type_ann, context));
 
-  if node.parent().is::<Class>() && context.config.semi_colons.is_true() {
+  if node.parent().is::<Class>() && context.config.semicolons.is_true() {
     items.push_sc(sc!(";"));
   }
 
@@ -4435,7 +4435,7 @@ fn gen_interface_body<'a>(node: &TsInterfaceBody<'a>, context: &mut Context<'a>)
           brace_position: context.config.interface_declaration_brace_position,
           block_padding: context.config.interface_declaration_block_padding,
           get_forced_blank_line_count: |_, _, context| get_member_spacing_forced_blank_line_count(context.config.interface_declaration_member_spacing),
-          separator: context.config.semi_colons.into(),
+          separator: context.config.semicolons.into(),
           keep_blank_lines_before_close_token_comments: true,
         },
         context,
@@ -4528,10 +4528,10 @@ fn gen_type_lit<'a>(node: &TsTypeLit<'a>, context: &mut Context<'a>) -> PrintIte
     },
   );
 
-  fn semi_colon_or_comma_to_separator_value<'a>(value: SemiColonOrComma, context: &mut Context<'a>) -> SeparatorValue {
+  fn semi_colon_or_comma_to_separator_value<'a>(value: SemicolonOrComma, context: &mut Context<'a>) -> SeparatorValue {
     match value {
-      SemiColonOrComma::Comma => SeparatorValue::Comma(context.config.type_literal_trailing_commas),
-      SemiColonOrComma::SemiColon => SeparatorValue::SemiColon(context.config.semi_colons),
+      SemicolonOrComma::Comma => SeparatorValue::Comma(context.config.type_literal_trailing_commas),
+      SemicolonOrComma::Semicolon => SeparatorValue::Semicolon(context.config.semicolons),
     }
   }
 }
@@ -5798,7 +5798,7 @@ fn gen_class_or_object_method<'a>(node: ClassOrObjectMethod<'a>, context: &mut C
       context,
     ));
     items.extend(gen_node(body, context));
-  } else if context.config.semi_colons.is_true() {
+  } else if context.config.semicolons.is_true() {
     items.push_sc(sc!(";"));
   }
 
@@ -5907,7 +5907,7 @@ fn gen_break_stmt<'a>(node: &BreakStmt<'a>, context: &mut Context<'a>) -> PrintI
     items.push_space();
     items.extend(gen_node(label.into(), context));
   }
-  if context.config.semi_colons.is_true() {
+  if context.config.semicolons.is_true() {
     items.push_sc(sc!(";"));
   }
 
@@ -5922,7 +5922,7 @@ fn gen_continue_stmt<'a>(node: &ContinueStmt<'a>, context: &mut Context<'a>) -> 
     items.push_space();
     items.extend(gen_node(label.into(), context));
   }
-  if context.config.semi_colons.is_true() {
+  if context.config.semicolons.is_true() {
     items.push_sc(sc!(";"));
   }
 
@@ -5933,7 +5933,7 @@ fn gen_debugger_stmt<'a>(_: &'a DebuggerStmt, context: &mut Context<'a>) -> Prin
   let mut items = PrintItems::new(context.arena);
 
   items.push_sc(sc!("debugger"));
-  if context.config.semi_colons.is_true() {
+  if context.config.semicolons.is_true() {
     items.push_sc(sc!(";"));
   }
 
@@ -5957,7 +5957,7 @@ fn gen_do_while_stmt<'a>(node: &DoWhileStmt<'a>, context: &mut Context<'a>) -> P
     context,
   ));
   items.extend(gen_node(node.body.into(), context));
-  if context.config.semi_colons.is_true() || matches!(node.body, Stmt::Block(_)) {
+  if context.config.semicolons.is_true() || matches!(node.body, Stmt::Block(_)) {
     items.extend(gen_control_flow_separator(
       context.config.do_while_statement_next_control_flow_position,
       &node.body.range(),
@@ -5986,7 +5986,7 @@ fn gen_do_while_stmt<'a>(node: &DoWhileStmt<'a>, context: &mut Context<'a>) -> P
     },
     context,
   ));
-  if context.config.semi_colons.is_true() {
+  if context.config.semicolons.is_true() {
     items.push_sc(sc!(";"));
   }
   items
@@ -6005,7 +6005,7 @@ fn gen_export_all<'a>(node: &ExportAll<'a>, context: &mut Context<'a>) -> PrintI
     items.extend(gen_with_clause(with_clause, context));
   }
 
-  if context.config.semi_colons.is_true() {
+  if context.config.semicolons.is_true() {
     items.push_sc(sc!(";"));
   }
 
@@ -6029,7 +6029,7 @@ fn gen_export_assignment<'a>(node: &TsExportAssignment<'a>, context: &mut Contex
 
   items.push_sc(sc!("export"));
   items.extend(gen_assignment(node.expr.into(), sc!("="), context));
-  if context.config.semi_colons.is_true() {
+  if context.config.semicolons.is_true() {
     items.push_sc(sc!(";"));
   }
 
@@ -6041,7 +6041,7 @@ fn gen_namespace_export<'a>(node: &TsNamespaceExportDecl<'a>, context: &mut Cont
   items.push_sc(sc!("export as namespace "));
   items.extend(gen_node(node.id.into(), context));
 
-  if context.config.semi_colons.is_true() {
+  if context.config.semicolons.is_true() {
     items.push_sc(sc!(";"));
   }
 
@@ -6049,7 +6049,7 @@ fn gen_namespace_export<'a>(node: &TsNamespaceExportDecl<'a>, context: &mut Cont
 }
 
 fn gen_expr_stmt<'a>(stmt: &ExprStmt<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
-  if context.config.semi_colons.is_true() || stmt.parent().is::<DoWhileStmt>() {
+  if context.config.semicolons.is_true() || stmt.parent().is::<DoWhileStmt>() {
     return gen_inner(stmt, context);
   } else {
     return gen_for_prefix_semi_colon_insertion(stmt, context);
@@ -6058,7 +6058,7 @@ fn gen_expr_stmt<'a>(stmt: &ExprStmt<'a>, context: &mut Context<'a>) -> PrintIte
   fn gen_inner<'a>(stmt: &ExprStmt<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
     let mut items = PrintItems::new(context.arena);
     items.extend(gen_node(stmt.expr.into(), context));
-    if context.config.semi_colons.is_true() {
+    if context.config.semicolons.is_true() {
       items.push_sc(sc!(";"));
     }
     items
@@ -6189,7 +6189,7 @@ fn gen_for_stmt<'a>(node: &ForStmt<'a>, context: &mut Context<'a>) -> PrintItems
     }
   }
 
-  let separator_after_semi_colons = if context.config.for_statement_space_after_semi_colons {
+  let separator_after_semicolons = if context.config.for_statement_space_after_semicolons {
     Signal::SpaceOrNewLine
   } else {
     Signal::PossibleNewLine
@@ -6235,7 +6235,7 @@ fn gen_for_stmt<'a>(node: &ForStmt<'a>, context: &mut Context<'a>) -> PrintItems
           force_use_new_lines,
           max_blank_lines: 0,
           indent_width: context.config.indent_width,
-          single_line_options: ir_helpers::SingleLineOptions::separated_same_line(separator_after_semi_colons.into_print_items(context.arena)),
+          single_line_options: ir_helpers::SingleLineOptions::separated_same_line(separator_after_semicolons.into_print_items(context.arena)),
           multi_line_options: ir_helpers::MultiLineOptions::same_line_no_indent(),
           force_possible_newline_at_start: false,
         },
@@ -6615,7 +6615,7 @@ fn gen_return_stmt<'a>(node: &ReturnStmt<'a>, context: &mut Context<'a>) -> Prin
     items.push_space();
     items.extend(gen_node(arg.into(), context));
   }
-  if context.config.semi_colons.is_true() {
+  if context.config.semicolons.is_true() {
     items.push_sc(sc!(";"));
   }
   items
@@ -6769,7 +6769,7 @@ fn gen_throw_stmt<'a>(node: &ThrowStmt<'a>, context: &mut Context<'a>) -> PrintI
   let mut items = PrintItems::new(context.arena);
   items.push_sc(sc!("throw "));
   items.extend(gen_node(node.arg.into(), context));
-  if context.config.semi_colons.is_true() {
+  if context.config.semicolons.is_true() {
     items.push_sc(sc!(";"));
   }
   items
@@ -6872,13 +6872,13 @@ fn gen_var_decl<'a>(node: &VarDecl<'a>, context: &mut Context<'a>) -> PrintItems
 }
 
 fn requires_semi_colon_for_var_or_using_decl<'a>(node: Node, context: &mut Context<'a>) -> bool {
-  let use_semi_colons = context.config.semi_colons.is_true();
-  use_semi_colons
+  let use_semicolons = context.config.semicolons.is_true();
+  use_semicolons
     && match node.parent() {
       Some(Node::ForInStmt(node)) => node.start() >= node.body.start(),
       Some(Node::ForOfStmt(node)) => node.start() >= node.body.start(),
       Some(Node::ForStmt(node)) => node.start() >= node.body.start(),
-      _ => use_semi_colons,
+      _ => use_semicolons,
     }
 }
 
@@ -7605,7 +7605,7 @@ fn gen_mapped_type<'a>(node: &TsMappedType<'a>, context: &mut Context<'a>) -> Pr
         items.extend(gen_type_ann_with_colon_if_exists_for_type(node.type_ann, context));
         items.extend(get_generated_semi_colon(
           context.arena,
-          context.config.semi_colons,
+          context.config.semicolons,
           true,
           &is_different_line_than_start,
         ));
@@ -10134,7 +10134,7 @@ fn gen_close_paren_with_type<'a>(opts: GenCloseParenWithTypeOptions<'a>, context
 
 #[derive(PartialEq)]
 enum SeparatorValue {
-  SemiColon(SemiColons),
+  Semicolon(Semicolons),
   Comma(TrailingCommas),
 }
 
@@ -10156,11 +10156,11 @@ impl Separator {
   }
 }
 
-impl From<SemiColons> for Separator {
-  fn from(value: SemiColons) -> Separator {
+impl From<Semicolons> for Separator {
+  fn from(value: Semicolons) -> Separator {
     Separator {
-      single_line: Some(SeparatorValue::SemiColon(value)),
-      multi_line: Some(SeparatorValue::SemiColon(value)),
+      single_line: Some(SeparatorValue::Semicolon(value)),
+      multi_line: Some(SeparatorValue::Semicolon(value)),
     }
   }
 }
@@ -11375,7 +11375,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
   let newline_condition_ref = newline_condition.create_reference();
 
   // store the brace condition if ASI and the body is an expression statement
-  if context.config.semi_colons == SemiColons::Asi && node_helpers::is_expr_stmt_or_body_with_single_expr_stmt(opts.body_node) {
+  if context.config.semicolons == Semicolons::Asi && node_helpers::is_expr_stmt_or_body_with_single_expr_stmt(opts.body_node) {
     context.store_expr_stmt_single_line_parent_brace_ref(open_brace_condition_ref);
   }
 
@@ -12983,7 +12983,7 @@ fn get_generated_separator<'a>(arena: &'a Arena, separator: &Separator, is_trail
   fn get_items<'a>(arena: &'a Arena, value: &Option<SeparatorValue>, is_trailing: bool, is_multi_line: &ConditionResolver<'a>) -> PrintItems<'a> {
     match value {
       Some(SeparatorValue::Comma(trailing_comma)) => get_generated_trailing_comma(arena, *trailing_comma, is_trailing, is_multi_line),
-      Some(SeparatorValue::SemiColon(semi_colons)) => get_generated_semi_colon(arena, *semi_colons, is_trailing, is_multi_line),
+      Some(SeparatorValue::Semicolon(semicolons)) => get_generated_semi_colon(arena, *semicolons, is_trailing, is_multi_line),
       None => PrintItems::new(arena),
     }
   }
@@ -13001,17 +13001,17 @@ fn get_generated_trailing_comma<'a>(arena: &'a Arena, option: TrailingCommas, is
   }
 }
 
-fn get_generated_semi_colon<'a>(arena: &'a Arena, option: SemiColons, is_trailing: bool, is_multi_line: &ConditionResolver<'a>) -> PrintItems<'a> {
+fn get_generated_semi_colon<'a>(arena: &'a Arena, option: Semicolons, is_trailing: bool, is_multi_line: &ConditionResolver<'a>) -> PrintItems<'a> {
   match option {
-    SemiColons::Always => sc!(";").into_print_items(arena),
-    SemiColons::Prefer => {
+    Semicolons::Always => sc!(";").into_print_items(arena),
+    Semicolons::Prefer => {
       if is_trailing {
         if_true("semiColonIfMultiLine", *is_multi_line, sc!(";").into_print_items(arena)).into_print_items(arena)
       } else {
         sc!(";").into_print_items(arena)
       }
     }
-    SemiColons::Asi => {
+    Semicolons::Asi => {
       if is_trailing {
         PrintItems::new(arena)
       } else {

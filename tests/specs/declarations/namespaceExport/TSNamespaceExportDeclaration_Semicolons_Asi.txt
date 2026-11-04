@@ -1,0 +1,6 @@
+~~ semicolons: asi ~~
+== should format without semi-colon ==
+export   as   namespace   A;
+
+[expect]
+export as namespace A

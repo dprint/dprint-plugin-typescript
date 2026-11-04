@@ -1,4 +1,4 @@
-~~ deno: true, semiColons: asi, lineWidth: 40 ~~
+~~ deno: true, semicolons: asi, lineWidth: 40 ~~
 == should keep semicolon on prop with generator next ==
 class Test {
   prop1 = 1;

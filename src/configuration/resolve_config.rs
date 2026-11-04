@@ -46,18 +46,8 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     "jsxSelfClosingElement.spaceBeforeSlash",
     &mut diagnostics,
   );
-  // still accept renamed keys and values so configs that haven't been updated keep working
-  for rename in get_config_key_renames(&config) {
-    config.shift_remove(rename.old_key);
-    if let Some(value) = rename.value {
-      config.insert(rename.new_key.to_string(), value);
-    }
-  }
-  for rename in get_config_value_renames(&config) {
-    config.insert(rename.key.to_string(), rename.new_value.into());
-  }
 
-  let semi_colons = get_value(&mut config, "semicolons", SemiColons::Prefer, &mut diagnostics);
+  let semicolons = get_value(&mut config, "semicolons", Semicolons::Prefer, &mut diagnostics);
   let brace_position = get_value(&mut config, "bracePosition", BracePosition::SameLineUnlessHanging, &mut diagnostics);
   let next_control_flow_position = get_value(&mut config, "nextControlFlowPosition", NextControlFlowPosition::SameLine, &mut diagnostics);
   let operator_position = get_value(&mut config, "operatorPosition", OperatorPosition::NextLine, &mut diagnostics);
@@ -70,7 +60,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
   let prefer_single_line_nullable = get_nullable_value(&mut config, "preferSingleLine", &mut diagnostics);
   let prefer_single_line = prefer_single_line_nullable.unwrap_or(false);
   let space_surrounding_properties = get_value(&mut config, "spaceSurroundingProperties", true, &mut diagnostics);
-  let type_literal_separator_kind = get_value(&mut config, "typeLiteral.separatorKind", SemiColonOrComma::SemiColon, &mut diagnostics);
+  let type_literal_separator_kind = get_value(&mut config, "typeLiteral.separatorKind", SemicolonOrComma::Semicolon, &mut diagnostics);
   let quote_style = get_value(&mut config, "quoteStyle", QuoteStyle::AlwaysDouble, &mut diagnostics);
   let quote_props = get_value(&mut config, "quoteProps", QuoteProps::Preserve, &mut diagnostics);
   let space_around = get_value(&mut config, "spaceAround", false, &mut diagnostics);
@@ -104,7 +94,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     ),
     quote_style,
     quote_props,
-    semi_colons,
+    semicolons,
     file_indent_level: get_value(&mut config, "fileIndentLevel", 0, &mut diagnostics),
     max_blank_lines: get_value(&mut config, "maxBlankLines", 1, &mut diagnostics),
     /* situational */
@@ -361,7 +351,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
       space_after_control_flow_keyword,
       &mut diagnostics,
     ),
-    for_statement_space_after_semi_colons: get_value(&mut config, "forStatement.spaceAfterSemicolons", true, &mut diagnostics),
+    for_statement_space_after_semicolons: get_value(&mut config, "forStatement.spaceAfterSemicolons", true, &mut diagnostics),
     for_in_statement_space_after_for_keyword: get_value(
       &mut config,
       "forInStatement.spaceAfterForKeyword",
@@ -490,7 +480,7 @@ pub struct ConfigKeyRename {
   pub value: Option<ConfigKeyValue>,
 }
 
-/// Finds the keys of a configuration that are written under a deprecated name.
+/// Finds the keys of a configuration that are written under an old name.
 pub fn get_config_key_renames(config: &ConfigKeyMap) -> Vec<ConfigKeyRename> {
   RENAMED_KEYS
     .iter()
@@ -506,7 +496,7 @@ pub fn get_config_key_renames(config: &ConfigKeyMap) -> Vec<ConfigKeyRename> {
 }
 
 /// Each key that was renamed, as the old name then the new one. The old names
-/// are still accepted.
+/// are no longer accepted when resolving, so they're only used to update configs.
 const RENAMED_KEYS: &[(&str, &str)] = &[
   ("semiColons", "semicolons"),
   ("forStatement.spaceAfterSemiColons", "forStatement.spaceAfterSemicolons"),
@@ -521,7 +511,7 @@ pub struct ConfigValueRename {
   pub new_value: &'static str,
 }
 
-/// Finds the values of a configuration that are written under a deprecated name.
+/// Finds the values of a configuration that are written under an old name.
 pub fn get_config_value_renames(config: &ConfigKeyMap) -> Vec<ConfigValueRename> {
   RENAMED_VALUES
     .iter()
@@ -530,7 +520,8 @@ pub fn get_config_value_renames(config: &ConfigKeyMap) -> Vec<ConfigValueRename>
     .collect()
 }
 
-/// Each value that was renamed. The old values are still accepted.
+/// Each value that was renamed. The old values are no longer accepted when
+/// resolving, so they're only used to update configs.
 const RENAMED_VALUES: &[ConfigValueRename] = &[
   ConfigValueRename {
     key: "importDeclaration.sortTypeOnlyImports",
@@ -840,8 +831,6 @@ mod tests {
       ("first", NamedTypeImportsExportsOrder::First),
       ("last", NamedTypeImportsExportsOrder::Last),
       ("inline", NamedTypeImportsExportsOrder::Inline),
-      // deprecated alias of `inline`
-      ("none", NamedTypeImportsExportsOrder::Inline),
     ] {
       let mut config = ConfigKeyMap::new();
       config.insert(String::from("importDeclaration.sortTypeOnlyImports"), ConfigKeyValue::from_str(value));
@@ -860,6 +849,24 @@ mod tests {
     config.insert(String::from("importDeclaration.sortTypeOnlyImports"), ConfigKeyValue::from_str("other"));
     let result = resolve_config(config, &GlobalConfiguration::default());
     assert_eq!(get_diagnostic_property_names(&result.diagnostics), ["importDeclaration.sortTypeOnlyImports"]);
+  }
+
+  #[test]
+  fn handle_sort_type_only_imports_exports_old_none_value() {
+    // `none` is an invalid value now and is only rewritten to `inline` by `dprint config update`
+    let mut config = ConfigKeyMap::new();
+    config.insert(String::from("importDeclaration.sortTypeOnlyImports"), ConfigKeyValue::from_str("none"));
+    config.insert(String::from("exportDeclaration.sortTypeOnlyExports"), ConfigKeyValue::from_str("none"));
+    let result = resolve_config(config, &GlobalConfiguration::default());
+    assert!(result.config.import_declaration_sort_type_only_imports == NamedTypeImportsExportsOrder::Inline);
+    assert!(result.config.export_declaration_sort_type_only_exports == NamedTypeImportsExportsOrder::Inline);
+    assert_eq!(
+      get_diagnostic_property_names(&result.diagnostics),
+      ["importDeclaration.sortTypeOnlyImports", "exportDeclaration.sortTypeOnlyExports"]
+    );
+    for diagnostic in &result.diagnostics {
+      assert_eq!(diagnostic.message, "Found invalid value 'none'.");
+    }
   }
 
   #[test]
@@ -923,18 +930,18 @@ mod tests {
   #[test]
   fn sort_type_only_imports_exports_serde_round_trip() {
     let mut config = ConfigKeyMap::new();
-    config.insert(String::from("importDeclaration.sortTypeOnlyImports"), ConfigKeyValue::from_str("none"));
+    config.insert(String::from("importDeclaration.sortTypeOnlyImports"), ConfigKeyValue::from_str("first"));
     let config = resolve_config(config, &GlobalConfiguration::default()).config;
     let mut json = serde_json::to_value(&config).unwrap();
-    assert_eq!(json["importDeclaration.sortTypeOnlyImports"], "inline");
+    assert_eq!(json["importDeclaration.sortTypeOnlyImports"], "first");
     assert_eq!(json["exportDeclaration.sortTypeOnlyExports"], "inline");
     let deserialized: Configuration = serde_json::from_value(json.clone()).unwrap();
-    assert!(deserialized.import_declaration_sort_type_only_imports == NamedTypeImportsExportsOrder::Inline);
+    assert!(deserialized.import_declaration_sort_type_only_imports == NamedTypeImportsExportsOrder::First);
+    assert!(deserialized.export_declaration_sort_type_only_exports == NamedTypeImportsExportsOrder::Inline);
 
-    // a serialized config from before the rename still deserializes
+    // the old `none` value isn't deserialized
     json["importDeclaration.sortTypeOnlyImports"] = serde_json::Value::from("none");
-    let deserialized: Configuration = serde_json::from_value(json).unwrap();
-    assert!(deserialized.import_declaration_sort_type_only_imports == NamedTypeImportsExportsOrder::Inline);
+    assert!(serde_json::from_value::<Configuration>(json).is_err());
   }
 
   #[test]
@@ -1047,44 +1054,69 @@ mod tests {
     config.insert(String::from("semicolons"), ConfigKeyValue::from_str("asi"));
     config.insert(String::from("forStatement.spaceAfterSemicolons"), ConfigKeyValue::from_bool(false));
     let result = resolve_config(config, &GlobalConfiguration::default());
-    assert!(result.config.semi_colons == SemiColons::Asi);
-    assert!(!result.config.for_statement_space_after_semi_colons);
+    assert!(result.config.semicolons == Semicolons::Asi);
+    assert!(!result.config.for_statement_space_after_semicolons);
     assert_eq!(result.diagnostics.len(), 0);
   }
 
   #[test]
-  fn handle_semicolons_deprecated_spelling() {
+  fn handle_semicolons_invalid() {
+    let mut config = ConfigKeyMap::new();
+    config.insert(String::from("semicolons"), ConfigKeyValue::from_str("other"));
+    let result = resolve_config(config, &GlobalConfiguration::default());
+    assert!(result.config.semicolons == Semicolons::Prefer);
+    assert_eq!(get_diagnostic_property_names(&result.diagnostics), ["semicolons"]);
+  }
+
+  #[test]
+  fn handle_type_literal_separator_kind() {
+    for (value, expected) in [
+      ("semicolon", SemicolonOrComma::Semicolon),
+      ("semiColon", SemicolonOrComma::Semicolon),
+      ("comma", SemicolonOrComma::Comma),
+    ] {
+      let mut config = ConfigKeyMap::new();
+      config.insert(String::from("typeLiteral.separatorKind"), ConfigKeyValue::from_str(value));
+      let result = resolve_config(config, &GlobalConfiguration::default());
+      assert!(result.config.type_literal_separator_kind_single_line == expected, "{value}");
+      assert!(result.config.type_literal_separator_kind_multi_line == expected, "{value}");
+      assert_eq!(result.diagnostics.len(), 0, "{value}");
+    }
+
+    let mut config = ConfigKeyMap::new();
+    config.insert(String::from("typeLiteral.separatorKind"), ConfigKeyValue::from_str("Semicolon"));
+    let result = resolve_config(config, &GlobalConfiguration::default());
+    assert_eq!(get_diagnostic_property_names(&result.diagnostics), ["typeLiteral.separatorKind"]);
+  }
+
+  #[test]
+  fn type_literal_separator_kind_serde() {
+    // serializes as `semicolon` and still deserializes `semiColon`
+    assert_eq!(serde_json::to_string(&SemicolonOrComma::Semicolon).unwrap(), "\"semicolon\"");
+    for value in ["\"semicolon\"", "\"semiColon\""] {
+      assert!(
+        serde_json::from_str::<SemicolonOrComma>(value).unwrap() == SemicolonOrComma::Semicolon,
+        "{value}"
+      );
+    }
+  }
+
+  #[test]
+  fn handle_semicolons_old_keys() {
+    // the old keys are unknown properties now and are only moved over by `dprint config update`
     let mut config = ConfigKeyMap::new();
     config.insert(String::from("semiColons"), ConfigKeyValue::from_str("asi"));
     config.insert(String::from("forStatement.spaceAfterSemiColons"), ConfigKeyValue::from_bool(false));
     let result = resolve_config(config, &GlobalConfiguration::default());
-    assert!(result.config.semi_colons == SemiColons::Asi);
-    assert!(!result.config.for_statement_space_after_semi_colons);
-    assert_eq!(result.diagnostics.len(), 0);
-  }
-
-  #[test]
-  fn handle_semicolons_both_spellings() {
-    // the new spelling wins regardless of the order the keys are in
-    let mut config = ConfigKeyMap::new();
-    config.insert(String::from("semicolons"), ConfigKeyValue::from_str("always"));
-    config.insert(String::from("semiColons"), ConfigKeyValue::from_str("asi"));
-    config.insert(String::from("forStatement.spaceAfterSemiColons"), ConfigKeyValue::from_bool(true));
-    config.insert(String::from("forStatement.spaceAfterSemicolons"), ConfigKeyValue::from_bool(false));
-    let result = resolve_config(config, &GlobalConfiguration::default());
-    assert!(result.config.semi_colons == SemiColons::Always);
-    assert!(!result.config.for_statement_space_after_semi_colons);
-    assert_eq!(result.diagnostics.len(), 0);
-  }
-
-  #[test]
-  fn handle_semicolons_invalid_deprecated_spelling() {
-    // the value is moved to the new key before it's read
-    let mut config = ConfigKeyMap::new();
-    config.insert(String::from("semiColons"), ConfigKeyValue::from_str("other"));
-    let result = resolve_config(config, &GlobalConfiguration::default());
-    assert!(result.config.semi_colons == SemiColons::Prefer);
-    assert_eq!(get_diagnostic_property_names(&result.diagnostics), ["semicolons"]);
+    assert!(result.config.semicolons == Semicolons::Prefer);
+    assert!(result.config.for_statement_space_after_semicolons);
+    assert_eq!(
+      get_diagnostic_property_names(&result.diagnostics),
+      ["semiColons", "forStatement.spaceAfterSemiColons"]
+    );
+    for diagnostic in &result.diagnostics {
+      assert_eq!(diagnostic.message, "Unknown property in configuration");
+    }
   }
 
   #[test]
@@ -1158,6 +1190,14 @@ mod tests {
     assert_eq!(value["forStatement.spaceAfterSemicolons"], true);
     assert!(value.get("semiColons").is_none());
     assert!(value.get("forStatement.spaceAfterSemiColons").is_none());
+    let deserialized: Configuration = serde_json::from_value(value.clone()).unwrap();
+    assert!(deserialized.semicolons == Semicolons::Prefer);
+
+    // the old spelling isn't deserialized
+    let mut value = value;
+    let semicolons = value.as_object_mut().unwrap().remove("semicolons").unwrap();
+    value["semiColons"] = semicolons;
+    assert!(serde_json::from_value::<Configuration>(value).is_err());
   }
 
   fn get_diagnostic_property_names(diagnostics: &[ConfigurationDiagnostic]) -> Vec<&str> {

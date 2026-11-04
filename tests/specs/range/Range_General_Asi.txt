@@ -1,4 +1,4 @@
-~~ semiColons: asi ~~
+~~ semicolons: asi ~~
 == should format a statement before a statement starting with a semicolon ==
 const  z  =  1
 const   a  =  [|foo|]( )

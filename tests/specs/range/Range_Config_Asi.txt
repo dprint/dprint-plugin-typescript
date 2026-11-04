@@ -1,4 +1,4 @@
-~~ semiColons: asi ~~
+~~ semicolons: asi ~~
 == should format a statement starting with a semicolon in a class body ==
 class   A   {
     a  =  1

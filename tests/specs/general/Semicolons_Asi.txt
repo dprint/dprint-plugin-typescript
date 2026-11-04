@@ -1,5 +1,5 @@
 ~~ semicolons: asi ~~
-== should remove semicolons when using the new spelling ==
+== should remove semicolons ==
 const a = 5;
 call();
 [1, 2].forEach(x => x);

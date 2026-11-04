@@ -407,9 +407,6 @@
       }, {
         "const": "inline",
         "description": "Does not sort based on if a type-only named import or export, so they're sorted inline with the others."
-      }, {
-        "const": "none",
-        "description": "Deprecated. Use \"inline\" instead."
       }]
     },
     "sortOrder": {
@@ -587,10 +584,13 @@
     "typeLiteral.separatorKind": {
       "description": "The kind of separator to use in type literals.",
       "type": "string",
-      "default": "semiColon",
+      "default": "semicolon",
       "oneOf": [{
-        "const": "semiColon",
+        "const": "semicolon",
         "description": "Use semi-colons."
+      }, {
+        "const": "semiColon",
+        "description": "Use semi-colons. Same as \"semicolon\"."
       }, {
         "const": "comma",
         "description": "Use commas."
@@ -1046,12 +1046,6 @@
     "semicolons": {
       "$ref": "#/definitions/semicolons"
     },
-    "semiColons": {
-      "description": "Deprecated: renamed to `semicolons`.",
-      "deprecated": true,
-      "deprecationMessage": "Renamed to `semicolons`.",
-      "allOf": [{ "$ref": "#/definitions/semicolons" }]
-    },
     "quoteStyle": {
       "$ref": "#/definitions/quoteStyle"
     },
@@ -1275,12 +1269,6 @@
     },
     "forStatement.spaceAfterSemicolons": {
       "$ref": "#/definitions/forStatement.spaceAfterSemicolons"
-    },
-    "forStatement.spaceAfterSemiColons": {
-      "description": "Deprecated: renamed to `forStatement.spaceAfterSemicolons`.",
-      "deprecated": true,
-      "deprecationMessage": "Renamed to `forStatement.spaceAfterSemicolons`.",
-      "allOf": [{ "$ref": "#/definitions/forStatement.spaceAfterSemicolons" }]
     },
     "functionDeclaration.spaceBeforeParentheses": {
       "$ref": "#/definitions/functionDeclaration.spaceBeforeParentheses"

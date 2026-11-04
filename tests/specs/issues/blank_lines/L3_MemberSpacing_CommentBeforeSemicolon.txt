@@ -1,4 +1,4 @@
-~~ classDeclaration.memberSpacing: blankLine, interfaceDeclaration.memberSpacing: blankLine, typeLiteral.memberSpacing: blankLine, enumDeclaration.memberSpacing: blankLine, semiColons: asi ~~
+~~ classDeclaration.memberSpacing: blankLine, interfaceDeclaration.memberSpacing: blankLine, typeLiteral.memberSpacing: blankLine, enumDeclaration.memberSpacing: blankLine, semicolons: asi ~~
 == should be stable with a comment before a semicolon ==
 class A {
     b = 2
