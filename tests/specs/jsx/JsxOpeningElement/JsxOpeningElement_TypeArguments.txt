@@ -11,8 +11,9 @@ const t = <Testinggg<string, number> attrib={5}></Testinggg>;
 
 [expect]
 const t = (
-    <Testinggg<string, number> attrib={5}>
-    </Testinggg>
+    <Testinggg<string, number>
+        attrib={5}
+    ></Testinggg>
 );
 
 == should format when it has type args and it's self closing ==

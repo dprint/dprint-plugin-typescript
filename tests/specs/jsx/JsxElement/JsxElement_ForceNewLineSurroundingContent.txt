@@ -56,3 +56,24 @@ const t = (
     <Test>
         {/* dprint-ignore */} some   text </Test>
 );
+
+== should keep the closing tag beside the opening tag when there are no children ==
+const a = <Test></Test>;
+const b = <Test>
+</Test>;
+const c = <></>;
+const d = <Test
+    foo={"bar"}
+    bar={"baz"}
+></Test>;
+
+[expect]
+const a = <Test></Test>;
+const b = <Test></Test>;
+const c = <></>;
+const d = (
+    <Test
+        foo={"bar"}
+        bar={"baz"}
+    ></Test>
+);

@@ -38,13 +38,9 @@ const t = (
 const u = (
     <Test
         prop={5}
-        other={10}>
-    </Test>
+        other={10}></Test>
 );
-const v = (
-    <Test>
-    </Test>
-);
+const v = <Test></Test>;
 const w = (
     <Test
         prop={5}

@@ -1,0 +1,98 @@
+-- file.tsx --
+== should keep the closing tag beside the opening tag when the header is multi-line (issue #764) ==
+const foo = () => (
+  <MyCustomComponent
+    bar
+    baz
+   ></MyCustomComponent>
+)
+
+[expect]
+const foo = () => (
+    <MyCustomComponent
+        bar
+        baz
+    ></MyCustomComponent>
+);
+
+== should move a closing tag on the next line beside the opening tag when the header is multi-line ==
+const foo = () => (
+  <MyCustomComponent
+    bar
+    baz
+  >
+  </MyCustomComponent>
+)
+
+[expect]
+const foo = () => (
+    <MyCustomComponent
+        bar
+        baz
+    ></MyCustomComponent>
+);
+
+== should keep the closing tag beside the opening tag when the header is single line ==
+const a = <MyCustomComponent bar baz></MyCustomComponent>;
+const b = <div className="test"></div>;
+
+[expect]
+const a = <MyCustomComponent bar baz></MyCustomComponent>;
+const b = <div className="test"></div>;
+
+== should move a closing tag on the next line beside the opening tag ==
+const a = <div>
+</div>;
+const b = (
+    <div>
+
+    </div>
+);
+
+[expect]
+const a = <div></div>;
+const b = <div></div>;
+
+== should move a closing fragment on the next line beside the opening fragment ==
+const a = <>
+</>;
+const b = <></>;
+
+[expect]
+const a = <></>;
+const b = <></>;
+
+== should keep the closing tag beside the opening tag when the attributes don't fit on one line ==
+const a = <MyCustomComponent testingThisOutWithALongAttributeName otherLongAttributeName={someLongValueName}></MyCustomComponent>;
+
+[expect]
+const a = (
+    <MyCustomComponent
+        testingThisOutWithALongAttributeName
+        otherLongAttributeName={someLongValueName}
+    ></MyCustomComponent>
+);
+
+== should keep a child that's only a space ==
+const a = <div> </div>;
+const b = <MyCustomComponent
+    bar
+    baz
+> </MyCustomComponent>;
+
+[expect]
+const a = <div> </div>;
+const b = (
+    <MyCustomComponent
+        bar
+        baz
+    >
+        {" "}
+    </MyCustomComponent>
+);
+
+== should keep a child that's only a comment ==
+const a = <div>{/* test */}</div>;
+
+[expect]
+const a = <div>{/* test */}</div>;

@@ -15,8 +15,7 @@ function Test() {
         <div
             // bug 1: goes inside the parenthesis
             {...(process.env.NODE_ENV !== `production` && { strict: true })} // bug 2: goes inside JSX
-        >
-        </div>
+        ></div>
     );
 }
 
