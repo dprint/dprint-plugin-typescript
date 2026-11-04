@@ -61,8 +61,8 @@ if (
     test
         && other
     || test && {
-            test: 5,
-        }
+        test: 5,
+    }
         && {
             other: 6,
         } && test

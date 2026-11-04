@@ -94,6 +94,10 @@ pub struct Context<'a> {
   /// The start of a curried arrow function on the right side of an assignment and
   /// the line number to put after the `=>` of its last signature.
   pub assignment_curried_arrow_end_ln: Option<(SourcePos, LineNumber)>,
+  /// The start of a binary expression nested in a parent binary expression with a
+  /// different precedence and the condition for whether it indents an extra level
+  /// when its operands go on new lines.
+  pub nested_bin_expr_extra_indent: Option<(SourcePos, ConditionReference)>,
   /// Used for ensuring nodes are parsed in order.
   #[cfg(debug_assertions)]
   pub last_generated_node_pos: SourcePos,
@@ -151,6 +155,7 @@ impl<'a> Context<'a> {
       expr_stmt_single_line_parent_brace_ref: None,
       assignment_paren_end_ln: None,
       assignment_curried_arrow_end_ln: None,
+      nested_bin_expr_extra_indent: None,
       #[cfg(debug_assertions)]
       last_generated_node_pos: dprint_swc_ext::common::SourceTextInfoProvider::text_info(&program).range().start.into(),
       diagnostics: Vec::new(),

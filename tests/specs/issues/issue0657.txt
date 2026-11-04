@@ -1,0 +1,82 @@
+~~ lineWidth: 80, indentWidth: 2 ~~
+== should not double indent a multi-line first operand of a nested binary expression ==
+const a = !foo || bar(
+  baz,
+  qux
+).prop?.blah === 1234;
+
+const a = !foo || bar(
+  baz,
+  qux
+).prop?.blah;
+
+[expect]
+const a = !foo || bar(
+  baz,
+  qux,
+).prop?.blah === 1234;
+
+const a = !foo || bar(
+  baz,
+  qux,
+).prop?.blah;
+
+== should not double indent other multi-line first operands of a nested binary expression ==
+const a = foo || bar(
+  baz,
+  qux
+) === 1234;
+
+const a = foo && bar(
+  baz,
+  qux
+) + 1234;
+
+const a = foo || bar(
+  baz,
+  qux
+)[
+  0
+] === 1234;
+
+const a = foo || {
+  baz,
+  qux
+} === 1234;
+
+[expect]
+const a = foo || bar(
+  baz,
+  qux,
+) === 1234;
+
+const a = foo && bar(
+  baz,
+  qux,
+) + 1234;
+
+const a = foo || bar(
+  baz,
+  qux,
+)[
+  0
+] === 1234;
+
+const a = foo || {
+  baz,
+  qux,
+} === 1234;
+
+== should indent the operator of a nested binary expression on a new line after a multi-line first operand ==
+const a = foo || bar(
+  baz,
+  qux
+)
+  === 1234;
+
+[expect]
+const a = foo || bar(
+  baz,
+  qux,
+)
+    === 1234;
