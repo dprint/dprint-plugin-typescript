@@ -84,3 +84,17 @@ const b = <div
         a: 1,
     } /* c */}
 />;
+
+== should not change a multi-line block comment before an attribute value ==
+const t = <div a={/*
+  test
+*/ x} />;
+
+[expect]
+const t = <div
+    a={
+        /*
+  test
+        */ x
+    }
+/>;
