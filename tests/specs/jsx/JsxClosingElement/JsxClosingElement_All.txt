@@ -11,8 +11,7 @@ const t = <Test>Test</Test>;
 <a></* block */ /a>;
 
 [expect]
-<a>
-</ /* block */
+<a></ /* block */
 a>;
 <a></ /* block */ a>;
 
@@ -21,8 +20,7 @@ a>;
 /a>;
 
 [expect]
-<a>
-</ // line
+<a></ // line
 a>;
 
 == should support a block comment after the slash ==
@@ -32,8 +30,7 @@ a>;
 
 [expect]
 <a></ /* block */ a>;
-<a>
-</ /* block */
+<a></ /* block */
 a>;
 
 == should support a line comment after the slash ==
@@ -41,8 +38,7 @@ a>;
 a>;
 
 [expect]
-<a>
-</ // line
+<a></ // line
 a>;
 
 == should support comments after the name ==
@@ -52,8 +48,7 @@ a>;
 
 [expect]
 <a></a /* block */>;
-<a>
-</a // line
+<a></a // line
 >;
 
 == should support comments before and after the slash and name ==
@@ -65,8 +60,7 @@ a // 3
 
 [expect]
 <a></ /* 1 */ /* 2 */ a /* 3 */>;
-<a>
-</ // 1
+<a></ // 1
 // 2
 a // 3
 >;

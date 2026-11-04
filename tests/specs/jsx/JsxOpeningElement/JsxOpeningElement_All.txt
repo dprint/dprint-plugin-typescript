@@ -164,7 +164,6 @@ a />;
 
 [expect]
 < // line
-a>
-</a>;
+a></a>;
 < // line
 a />;
