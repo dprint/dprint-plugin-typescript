@@ -1,0 +1,62 @@
+~~ spaceAfterControlFlowKeyword: false ~~
+== should remove the space after every control flow keyword ==
+if (a) {
+} else if (b) {
+}
+for (let i = 0; i < 1; i++) {
+}
+for (const key in obj) {
+}
+for (const value of values) {
+}
+while (a) {
+}
+do {
+} while (a);
+with (obj) {
+}
+switch (a) {
+}
+try {
+} catch (err) {
+}
+
+[expect]
+if(a) {
+} else if(b) {
+}
+for(let i = 0; i < 1; i++) {
+}
+for(const key in obj) {
+}
+for(const value of values) {
+}
+while(a) {
+}
+do {
+} while(a);
+with(obj) {
+}
+switch(a) {
+}
+try {
+} catch(err) {
+}
+
+== should keep a space before a comment before the paren ==
+if /* c */ (a) {
+}
+switch /* c */ (a) {
+}
+try {
+} catch /* c */ (err) {
+}
+
+[expect]
+if /* c */ (a) {
+}
+switch /* c */ (a) {
+}
+try {
+} catch /* c */ (err) {
+}

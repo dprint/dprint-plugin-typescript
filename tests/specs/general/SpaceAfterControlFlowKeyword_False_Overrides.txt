@@ -1,0 +1,44 @@
+~~ spaceAfterControlFlowKeyword: false, ifStatement.spaceAfterIfKeyword: true, forStatement.spaceAfterForKeyword: true, forInStatement.spaceAfterForKeyword: true, forOfStatement.spaceAfterForKeyword: true, whileStatement.spaceAfterWhileKeyword: true, doWhileStatement.spaceAfterWhileKeyword: true, withStatement.spaceAfterWithKeyword: true, switchStatement.spaceAfterSwitchKeyword: true, catchClause.spaceAfterCatchKeyword: true ~~
+== should use the per-statement options over the global option ==
+if(a) {
+} else if(b) {
+}
+for(let i = 0; i < 1; i++) {
+}
+for(const key in obj) {
+}
+for(const value of values) {
+}
+while(a) {
+}
+do {
+} while(a);
+with(obj) {
+}
+switch(a) {
+}
+try {
+} catch(err) {
+}
+
+[expect]
+if (a) {
+} else if (b) {
+}
+for (let i = 0; i < 1; i++) {
+}
+for (const key in obj) {
+}
+for (const value of values) {
+}
+while (a) {
+}
+do {
+} while (a);
+with (obj) {
+}
+switch (a) {
+}
+try {
+} catch (err) {
+}

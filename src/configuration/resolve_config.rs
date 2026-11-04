@@ -64,6 +64,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
   let quote_style = get_value(&mut config, "quoteStyle", QuoteStyle::AlwaysDouble, &mut diagnostics);
   let quote_props = get_value(&mut config, "quoteProps", QuoteProps::Preserve, &mut diagnostics);
   let space_around = get_value(&mut config, "spaceAround", false, &mut diagnostics);
+  let space_after_control_flow_keyword = get_value(&mut config, "spaceAfterControlFlowKeyword", true, &mut diagnostics);
   let jsx_bracket_position = get_value(&mut config, "jsx.bracketPosition", SameOrNextLinePosition::NextLine, &mut diagnostics);
 
   let resolved_config = Configuration {
@@ -326,22 +327,53 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
       true,
       &mut diagnostics,
     ),
+    catch_clause_space_after_catch_keyword: get_value(
+      &mut config,
+      "catchClause.spaceAfterCatchKeyword",
+      space_after_control_flow_keyword,
+      &mut diagnostics,
+    ),
     comment_line_force_space_after_slashes: get_value(&mut config, "commentLine.forceSpaceAfterSlashes", true, &mut diagnostics),
     construct_signature_space_after_new_keyword: get_value(&mut config, "constructSignature.spaceAfterNewKeyword", false, &mut diagnostics),
     constructor_space_before_parentheses: get_value(&mut config, "constructor.spaceBeforeParentheses", false, &mut diagnostics),
     constructor_type_space_after_new_keyword: get_value(&mut config, "constructorType.spaceAfterNewKeyword", false, &mut diagnostics),
-    do_while_statement_space_after_while_keyword: get_value(&mut config, "doWhileStatement.spaceAfterWhileKeyword", true, &mut diagnostics),
+    do_while_statement_space_after_while_keyword: get_value(
+      &mut config,
+      "doWhileStatement.spaceAfterWhileKeyword",
+      space_after_control_flow_keyword,
+      &mut diagnostics,
+    ),
     export_declaration_space_surrounding_named_exports: get_value(&mut config, "exportDeclaration.spaceSurroundingNamedExports", true, &mut diagnostics),
-    for_statement_space_after_for_keyword: get_value(&mut config, "forStatement.spaceAfterForKeyword", true, &mut diagnostics),
+    for_statement_space_after_for_keyword: get_value(
+      &mut config,
+      "forStatement.spaceAfterForKeyword",
+      space_after_control_flow_keyword,
+      &mut diagnostics,
+    ),
     for_statement_space_after_semi_colons: get_value(&mut config, "forStatement.spaceAfterSemiColons", true, &mut diagnostics),
-    for_in_statement_space_after_for_keyword: get_value(&mut config, "forInStatement.spaceAfterForKeyword", true, &mut diagnostics),
-    for_of_statement_space_after_for_keyword: get_value(&mut config, "forOfStatement.spaceAfterForKeyword", true, &mut diagnostics),
+    for_in_statement_space_after_for_keyword: get_value(
+      &mut config,
+      "forInStatement.spaceAfterForKeyword",
+      space_after_control_flow_keyword,
+      &mut diagnostics,
+    ),
+    for_of_statement_space_after_for_keyword: get_value(
+      &mut config,
+      "forOfStatement.spaceAfterForKeyword",
+      space_after_control_flow_keyword,
+      &mut diagnostics,
+    ),
     function_declaration_space_before_parentheses: get_value(&mut config, "functionDeclaration.spaceBeforeParentheses", false, &mut diagnostics),
     function_expression_space_before_parentheses: get_value(&mut config, "functionExpression.spaceBeforeParentheses", false, &mut diagnostics),
     function_expression_space_after_function_keyword: get_value(&mut config, "functionExpression.spaceAfterFunctionKeyword", false, &mut diagnostics),
     function_expression_flat_iife: get_value(&mut config, "functionExpression.flatIife", false, &mut diagnostics),
     get_accessor_space_before_parentheses: get_value(&mut config, "getAccessor.spaceBeforeParentheses", false, &mut diagnostics),
-    if_statement_space_after_if_keyword: get_value(&mut config, "ifStatement.spaceAfterIfKeyword", true, &mut diagnostics),
+    if_statement_space_after_if_keyword: get_value(
+      &mut config,
+      "ifStatement.spaceAfterIfKeyword",
+      space_after_control_flow_keyword,
+      &mut diagnostics,
+    ),
     import_declaration_space_surrounding_named_imports: get_value(&mut config, "importDeclaration.spaceSurroundingNamedImports", true, &mut diagnostics),
     jsx_expression_container_space_surrounding_expression: get_value(&mut config, "jsxExpressionContainer.spaceSurroundingExpression", false, &mut diagnostics),
     jsx_self_closing_element_space_before_slash: get_value(&mut config, "jsxSelfClosingElement.spaceBeforeSlash", true, &mut diagnostics),
@@ -360,6 +392,12 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     ),
     set_accessor_space_before_parentheses: get_value(&mut config, "setAccessor.spaceBeforeParentheses", false, &mut diagnostics),
     space_surrounding_properties,
+    switch_statement_space_after_switch_keyword: get_value(
+      &mut config,
+      "switchStatement.spaceAfterSwitchKeyword",
+      space_after_control_flow_keyword,
+      &mut diagnostics,
+    ),
     tagged_template_space_before_literal: get_value(&mut config, "taggedTemplate.spaceBeforeLiteral", false, &mut diagnostics),
     type_annotation_space_before_colon: get_value(&mut config, "typeAnnotation.spaceBeforeColon", false, &mut diagnostics),
     type_assertion_space_before_expression: get_value(&mut config, "typeAssertion.spaceBeforeExpression", true, &mut diagnostics),
@@ -369,8 +407,18 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
       space_surrounding_properties,
       &mut diagnostics,
     ),
-    while_statement_space_after_while_keyword: get_value(&mut config, "whileStatement.spaceAfterWhileKeyword", true, &mut diagnostics),
-    with_statement_space_after_with_keyword: get_value(&mut config, "withStatement.spaceAfterWithKeyword", true, &mut diagnostics),
+    while_statement_space_after_while_keyword: get_value(
+      &mut config,
+      "whileStatement.spaceAfterWhileKeyword",
+      space_after_control_flow_keyword,
+      &mut diagnostics,
+    ),
+    with_statement_space_after_with_keyword: get_value(
+      &mut config,
+      "withStatement.spaceAfterWithKeyword",
+      space_after_control_flow_keyword,
+      &mut diagnostics,
+    ),
     arguments_space_around: get_value(&mut config, "arguments.spaceAround", space_around, &mut diagnostics),
     array_expression_space_around: get_value(&mut config, "arrayExpression.spaceAround", space_around, &mut diagnostics),
     array_pattern_space_around: get_value(&mut config, "arrayPattern.spaceAround", space_around, &mut diagnostics),

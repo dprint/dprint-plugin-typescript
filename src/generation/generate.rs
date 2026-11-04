@@ -934,7 +934,14 @@ fn gen_catch_clause<'a>(node: &CatchClause<'a>, context: &mut Context<'a>) -> Pr
   items.push_sc(sc!("catch"));
 
   if let Some(param) = &node.param {
-    items.push_sc(sc!(" ("));
+    let open_paren_token = context.token_finder.get_previous_token_if_open_paren(&param.range());
+    if use_space_after_keyword(context.config.catch_clause_space_after_catch_keyword, open_paren_token, context) {
+      items.push_space();
+    }
+    if let Some(open_paren_token) = open_paren_token {
+      items.extend(gen_leading_comments(&open_paren_token.range(), context));
+    }
+    items.push_sc(sc!("("));
     if context.config.catch_clause_space_around {
       items.push_space();
     }
@@ -1930,6 +1937,10 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
       .unwrap_or(false);
     let mut items = if is_arrow_in_test_call_expr {
       ir_helpers::with_no_new_lines(header_items)
+    } else if is_hugged_last_arg_arrow(node, context) {
+      // the arguments aren't in a new line group so the body can break inside its parens, but
+      // the arguments should still break before the header rather than inside its parameters
+      ir_helpers::new_line_group(header_items)
     } else {
       header_items
     };
@@ -2267,6 +2278,10 @@ fn gen_binary_expr<'a>(node: &BinExpr<'a>, context: &mut Context<'a>) -> PrintIt
       },
       context.program,
     );
+  // A comment on its own line before an operand can't be kept when the operands are on the same
+  // line, so that operand makes the expression multi-line. This isn't forced from the start like
+  // above so it doesn't change the layout of an expression that's multi-line anyway.
+  let has_own_line_comment_before_operands = get_has_own_line_comment_before_operands(&flattened_binary_expr, context.program);
   let indent_width = context.config.indent_width;
   let arena = context.arena;
   let binary_expr_start_il = IndentLevel::new("binExprStart");
@@ -2308,8 +2323,12 @@ fn gen_binary_expr<'a>(node: &BinExpr<'a>, context: &mut Context<'a>) -> PrintIt
     ir_helpers::gen_separated_values(
       |_| {
         let mut generated_nodes = BumpVec::with_capacity_in(flattened_binary_expr.len(), context.arena.bump());
-        let mut bin_expr_items_iter = flattened_binary_expr.into_iter().enumerate().peekable();
-        while let Some((i, bin_expr_item)) = bin_expr_items_iter.next() {
+        let mut bin_expr_items_iter = flattened_binary_expr
+          .into_iter()
+          .zip(has_own_line_comment_before_operands)
+          .enumerate()
+          .peekable();
+        while let Some((i, (bin_expr_item, has_own_line_comment_before))) = bin_expr_items_iter.next() {
           let lines_span = Some(ir_helpers::LinesSpan {
             start_line: bin_expr_item.expr.start_line_fast(context.program),
             end_line: bin_expr_item.expr.end_line_fast(context.program),
@@ -2375,7 +2394,7 @@ fn gen_binary_expr<'a>(node: &BinExpr<'a>, context: &mut Context<'a>) -> PrintIt
               if !trailing_post_op_comments.is_empty() {
                 items.extend(trailing_post_op_comments);
               }
-            } else if let Some((_, next_item)) = bin_expr_items_iter.peek() {
+            } else if let Some((_, (next_item, _))) = bin_expr_items_iter.peek() {
               // put any line comments after the next pre-op on this line instead
               if let Some(pre_op) = &next_item.pre_op {
                 items.extend(gen_trailing_comments_if_line_comment_same_line(&pre_op.token.range(), context));
@@ -2400,7 +2419,7 @@ fn gen_binary_expr<'a>(node: &BinExpr<'a>, context: &mut Context<'a>) -> PrintIt
           generated_nodes.push(ir_helpers::GeneratedValue {
             items,
             lines_span,
-            allow_inline_multi_line: true,
+            allow_inline_multi_line: !has_own_line_comment_before,
             allow_inline_single_line: true,
             is_known_multi_line: false,
           });
@@ -2432,6 +2451,53 @@ fn gen_binary_expr<'a>(node: &BinExpr<'a>, context: &mut Context<'a>) -> PrintIt
   }
 
   return if node.op().is_equality() { ir_helpers::new_line_group(items) } else { items };
+
+  /// Gets, for each operand, if a comment between it and the previous operand is on its own line
+  /// (ex. `// c` in `a\n// c\n|| b`).
+  fn get_has_own_line_comment_before_operands<'a>(items: &[BinExprItem<'a>], program: Program<'a>) -> Vec<bool> {
+    let operand_pairs = items.windows(2).map(|pair| has_own_line_comment_between_operands(&pair[0], &pair[1], program));
+    std::iter::once(false).chain(operand_pairs).collect()
+  }
+
+  fn has_own_line_comment_between_operands<'a>(previous: &BinExprItem<'a>, item: &BinExprItem<'a>, program: Program<'a>) -> bool {
+    let Some(op) = item.pre_op.as_ref().or(previous.post_op.as_ref()).map(|op| op.token) else {
+      return false;
+    };
+    let comments_before_op = previous
+      .expr
+      .end()
+      .trailing_comments_fast(program)
+      .chain(op.start().leading_comments_fast(program));
+    let comments_after_op = op.end().trailing_comments_fast(program).chain(item.expr.start().leading_comments_fast(program));
+    let (op_start_line, op_end_line) = (op.start_line_fast(program), op.end_line_fast(program));
+    has_own_line_comment(previous.expr.end_line_fast(program), comments_before_op, op_start_line, program)
+      || has_own_line_comment(op_end_line, comments_after_op, item.expr.start_line_fast(program), program)
+  }
+
+  /// Gets if any of the comments, which are between a token ending on `last_end_line` and one
+  /// starting on `next_start_line`, has nothing else on its lines.
+  fn has_own_line_comment<'a>(mut last_end_line: usize, comments: impl Iterator<Item = &'a Comment>, next_start_line: usize, program: Program<'a>) -> bool {
+    // a comment can be both a trailing comment of one token and a leading comment of the next
+    let mut last_comment_end = None;
+    let mut comments = comments
+      .filter(|c| {
+        let is_new = last_comment_end.is_none_or(|end| c.start() >= end);
+        if is_new {
+          last_comment_end = Some(c.end());
+        }
+        is_new
+      })
+      .peekable();
+    while let Some(comment) = comments.next() {
+      let comment_end_line = comment.end_line_fast(program);
+      let next_start_line = comments.peek().map(|c| c.start_line_fast(program)).unwrap_or(next_start_line);
+      if comment.start_line_fast(program) > last_end_line && next_start_line > comment_end_line {
+        return true;
+      }
+      last_end_line = comment_end_line;
+    }
+    false
+  }
 
   /// Gets the condition for whether an inner binary expression with a different precedence
   /// indents its operands an extra level, which it does when this binary expression isn't
@@ -6423,7 +6489,11 @@ fn gen_switch_stmt<'a>(node: &SwitchStmt<'a>, context: &mut Context<'a>) -> Prin
   let start_header_lsil = LineStartIndentLevel::new("startHeader");
   let mut items = PrintItems::new(context.arena);
   items.push_info(start_header_lsil);
-  items.push_sc(sc!("switch "));
+  items.push_sc(sc!("switch"));
+  let open_paren_token = context.token_finder.get_previous_token_if_open_paren(&node.discriminant.range());
+  if use_space_after_keyword(context.config.switch_statement_space_after_switch_keyword, open_paren_token, context) {
+    items.push_space();
+  }
   items.extend(gen_node_in_parens(
     |context| gen_node(node.discriminant.into(), context),
     GenNodeInParensOptions {
@@ -10127,7 +10197,13 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
           // Prefer going inline multi-line for certain expressions in arguments
           // when initially single line.
           // Example: call({\n}) instead of call(\n  {\n  }\n)
-          NodeOrSeparator::Node(Node::ExprOrSpread(expr_or_spread)) => !matches!(expr_or_spread.expr, Expr::Object(_) | Expr::Array(_)),
+          NodeOrSeparator::Node(Node::ExprOrSpread(expr_or_spread)) => match expr_or_spread.expr {
+            Expr::Object(_) | Expr::Array(_) => false,
+            // the same goes for a last argument that's an arrow function whose body breaks inside its parens
+            // ex. call(a, () => (\n  <div />\n)) instead of call(\n  a,\n  () => (\n    <div />\n  ),\n)
+            Expr::Arrow(arrow_expr) => !is_hugged_last_arg_arrow(arrow_expr, context),
+            _ => true,
+          },
           _ => true,
         };
 
@@ -12357,6 +12433,31 @@ fn use_new_line_group_for_arrow_body<'a>(arrow_expr: &'a ArrowExpr<'a>, context:
     },
     _ => true,
   }
+}
+
+/// Gets if the arrow function is the last of more than one call argument and its body breaks inside
+/// its parens, which keeps the arguments on the call's line (ex. `call(a, () => (\n  <div />\n))`).
+fn is_hugged_last_arg_arrow<'a>(arrow_expr: &'a ArrowExpr<'a>, context: &Context<'a>) -> bool {
+  let Some(expr_or_spread) = arrow_expr.parent().to::<ExprOrSpread>() else {
+    return false;
+  };
+  let args = match expr_or_spread.parent() {
+    Node::CallExpr(call_expr) => call_expr.args,
+    Node::OptCall(opt_call) => opt_call.args,
+    Node::NewExpr(new_expr) => match new_expr.args {
+      Some(args) => args,
+      None => return false,
+    },
+    _ => return false,
+  };
+  // hanging arguments keep going on the next line instead
+  context.config.arguments_prefer_hanging != PreferHanging::Always
+    && args.len() > 1
+    && expr_or_spread.spread().is_none()
+    && args.last().is_some_and(|last_arg| last_arg.start() == expr_or_spread.start())
+    // functions side by side read better on separate lines (ex. `call(\n  (a) => b,\n  (c) => ({ d }),\n)`)
+    && !matches!(args[args.len() - 2].expr, Expr::Arrow(_) | Expr::Fn(_))
+    && !use_new_line_group_for_arrow_body(arrow_expr, context)
 }
 
 /// Prevents a condition from reading a line number that's resolved later in the output with
