@@ -51,7 +51,7 @@ if (true) {
     b;
 }
 
-== should only use braces for the else if the else clause needs braces ==
+== should use braces for the if when the else clause needs braces ==
 if (true) {
     a;
 }
@@ -61,14 +61,14 @@ else {
 }
 
 [expect]
-if (true)
+if (true) {
     a;
-else {
+} else {
     b;
     c;
 }
 
-== should not use braces for a middle clause if it doesn't need any ==
+== should use braces for a middle clause when another clause needs them ==
 if (true) {
     a;
     a;
@@ -85,9 +85,9 @@ else {
 if (true) {
     a;
     a;
-} else if (true)
+} else if (true) {
     b;
-else {
+} else {
     c;
     d;
 }
@@ -126,4 +126,173 @@ if (true) {
     call2();
 } else if (true) {
     call1();
+}
+
+== should use braces for every clause when an "else if" needs them (#799) ==
+if (cond1)
+    a = 1;
+else if (cond2) {
+    a = 2;
+    b = 1;
+} else
+    a = 3;
+
+[expect]
+if (cond1) {
+    a = 1;
+} else if (cond2) {
+    a = 2;
+    b = 1;
+} else {
+    a = 3;
+}
+
+== should use braces for every clause when only the first needs them ==
+if (cond1) {
+    a = 1;
+    b = 1;
+} else if (cond2)
+    a = 2;
+else if (cond3)
+    a = 3;
+else
+    a = 4;
+
+[expect]
+if (cond1) {
+    a = 1;
+    b = 1;
+} else if (cond2) {
+    a = 2;
+} else if (cond3) {
+    a = 3;
+} else {
+    a = 4;
+}
+
+== should use braces for every clause when only the last needs them ==
+if (cond1)
+    a = 1;
+else if (cond2)
+    a = 2;
+else if (cond3)
+    a = 3;
+else {
+    a = 4;
+    b = 4;
+}
+
+[expect]
+if (cond1) {
+    a = 1;
+} else if (cond2) {
+    a = 2;
+} else if (cond3) {
+    a = 3;
+} else {
+    a = 4;
+    b = 4;
+}
+
+== should use braces for every clause when only the last "else if" needs them ==
+if (cond1)
+    a = 1;
+else if (cond2)
+    a = 2;
+else if (cond3) {
+    a = 3;
+    b = 3;
+}
+
+[expect]
+if (cond1) {
+    a = 1;
+} else if (cond2) {
+    a = 2;
+} else if (cond3) {
+    a = 3;
+    b = 3;
+}
+
+== should remove the braces of every clause when none need them ==
+if (cond1) {
+    a = 1;
+} else if (cond2) {
+    a = 2;
+} else if (cond3) {
+    a = 3;
+} else {
+    a = 4;
+}
+
+[expect]
+if (cond1)
+    a = 1;
+else if (cond2)
+    a = 2;
+else if (cond3)
+    a = 3;
+else
+    a = 4;
+
+== should use braces for every clause when a clause's statement is on multiple lines ==
+if (cond1)
+    a = 1;
+else if (cond2)
+    call(
+        a,
+        b,
+    );
+else
+    a = 3;
+
+[expect]
+if (cond1) {
+    a = 1;
+} else if (cond2) {
+    call(
+        a,
+        b,
+    );
+} else {
+    a = 3;
+}
+
+== should use braces for every clause when a clause's body is a statement that needs braces ==
+if (cond1)
+    a = 1;
+else if (cond2)
+    for (const a of b) c(a);
+else
+    a = 3;
+
+[expect]
+if (cond1) {
+    a = 1;
+} else if (cond2) {
+    for (const a of b) c(a);
+} else {
+    a = 3;
+}
+
+== should not use braces for a nested if-else chain when only the outer chain needs them ==
+if (cond1) {
+    if (cond2)
+        a = 1;
+    else
+        a = 2;
+} else {
+    a = 3;
+    b = 3;
+}
+
+[expect]
+if (cond1) {
+    if (cond2)
+        a = 1;
+    else
+        a = 2;
+} else {
+    a = 3;
+    b = 3;
 }
