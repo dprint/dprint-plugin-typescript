@@ -463,6 +463,42 @@
         "description": "Maintains the line breaks as written by the programmer."
       }]
     },
+    "conditionalExpression.linePerExpression": {
+      "description": "Whether to force a line per expression when spanning multiple lines.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Formats with each part on a new line."
+      }, {
+        "const": false,
+        "description": "Maintains the line breaks as written by the programmer."
+      }]
+    },
+    "conditionalType.linePerExpression": {
+      "description": "Whether to force a line per expression when spanning multiple lines.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": "Formats with each part on a new line."
+      }, {
+        "const": false,
+        "description": "Maintains the line breaks as written by the programmer."
+      }]
+    },
+    "useNestedIndentation": {
+      "description": "Whether to indent a nested conditional in the true or false part more than its parent, so it formats as a tree.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": "Indents nested conditionals."
+      }, {
+        "const": false,
+        "description": "Keeps the false part of a nested conditional at the same indentation as its parent."
+      }]
+    },
     "memberExpression.linePerExpression": {
       "description": "Whether to force a line per expression when spanning multiple lines.",
       "type": "boolean",
@@ -998,52 +1034,16 @@
       "$ref": "#/definitions/binaryExpression.linePerExpression"
     },
     "conditionalExpression.linePerExpression": {
-      "description": "Whether to force a line per expression when spanning multiple lines.",
-      "type": "boolean",
-      "default": true,
-      "oneOf": [{
-        "const": true,
-        "description": "Formats with each part on a new line."
-      }, {
-        "const": false,
-        "description": "Maintains the line breaks as written by the programmer."
-      }]
+      "$ref": "#/definitions/conditionalExpression.linePerExpression"
     },
     "conditionalType.linePerExpression": {
-      "description": "Whether to force a line per expression when spanning multiple lines.",
-      "type": "boolean",
-      "default": false,
-      "oneOf": [{
-        "const": true,
-        "description": "Formats with each part on a new line."
-      }, {
-        "const": false,
-        "description": "Uses the default behaviour."
-      }]
+      "$ref": "#/definitions/conditionalType.linePerExpression"
     },
     "conditionalExpression.useNestedIndentation": {
-      "description": "Whether to use nested indentation within conditional expressions.",
-      "type": "boolean",
-      "default": true,
-      "oneOf": [{
-        "const": true,
-        "description": "Uses nested indentation in the true and false expressions."
-      }, {
-        "const": false,
-        "description": "Don't use nested indentation."
-      }]
+      "$ref": "#/definitions/useNestedIndentation"
     },
     "conditionalType.useNestedIndentation": {
-      "description": "Whether to use nested indentation within conditional types.",
-      "type": "boolean",
-      "default": true,
-      "oneOf": [{
-        "const": true,
-        "description": "Uses nested indentation in the true and false expressions."
-      }, {
-        "const": false,
-        "description": "Don't use nested indentation."
-      }]
+      "$ref": "#/definitions/useNestedIndentation"
     },
     "jsx.bracketPosition": {
       "$ref": "#/definitions/jsx.bracketPosition"

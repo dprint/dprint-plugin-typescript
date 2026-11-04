@@ -6587,13 +6587,15 @@ fn gen_conditional_type<'a>(node: &TsConditionalType<'a>, context: &mut Context<
   let top_most_data = get_top_most_data(node, context);
   let is_parent_conditional_type = node.parent().kind() == NodeKind::TsConditionalType;
   let line_per_expression = context.config.conditional_type_line_per_expression;
+  let is_flat_line_per_expression = line_per_expression && !context.config.conditional_type_use_nested_indentation;
   let use_new_lines_for_nested_conditional = context.config.conditional_type_use_nested_indentation && {
     is_parent_conditional_type || node.true_type.kind() == NodeKind::TsConditionalType || node.false_type.kind() == NodeKind::TsConditionalType
   };
   let prefer_single_line = context.config.conditional_type_prefer_single_line;
   let has_newline_extends_true = node_helpers::get_use_new_lines_for_nodes(&node.extends_type, &node.true_type, context.program);
   let has_newline_true_false = node_helpers::get_use_new_lines_for_nodes(&node.true_type, &node.false_type, context.program);
-  let force_newline_extends_true = has_newline_extends_true && (!prefer_single_line || use_new_lines_for_nested_conditional);
+  // only forced for nested indentation, which otherwise keeps the true type on the extends type's line when it fits
+  let force_newline_extends_true = has_newline_extends_true && use_new_lines_for_nested_conditional;
   let force_newline_true_false = has_newline_true_false && (!prefer_single_line || use_new_lines_for_nested_conditional);
 
   let mut items = PrintItems::new(context.arena);
@@ -6657,7 +6659,8 @@ fn gen_conditional_type<'a>(node: &TsConditionalType<'a>, context: &mut Context<
     if_true_or(
       "isStartOfLineAndTopLevelOrNestedConditionalIndentElseQueue",
       context.arena.alloc_resolver(move |context| {
-        Some(context.writer_info.is_start_of_line() && (!is_parent_conditional_type || use_new_lines_for_nested_conditional))
+        // a line per expression without nested indentation keeps a nested conditional type flat
+        Some(context.writer_info.is_start_of_line() && !(is_flat_line_per_expression && is_parent_conditional_type))
       }),
       with_indent(inner_items.into_print_items(context.arena)),
       with_queued_indent(inner_items.into_print_items(context.arena)),
