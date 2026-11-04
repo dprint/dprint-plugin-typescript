@@ -33,3 +33,82 @@ testing + asdf
     + out + asdf + when + it
     + passes + thelineWidth
     + someMore;
+
+== should keep line comments on their own lines before an operator ==
+if (
+    cond1
+    // first line of a long comment related to cond2
+    // second line of a long comment related to cond2
+    || cond2
+) {
+}
+
+let result =
+    // comment for the first part of the expression
+    first
+    // explanation for the second part
+    + second;
+
+[expect]
+if (
+    cond1
+    // first line of a long comment related to cond2
+    // second line of a long comment related to cond2
+    || cond2
+) {
+}
+
+let result =
+    // comment for the first part of the expression
+    first
+    // explanation for the second part
+    + second;
+
+== should keep a line comment on its own line after an operator ==
+const a = cond1 ||
+    // comment
+    cond2;
+const b = value1 *
+    // comment
+    value2;
+
+[expect]
+const a = cond1
+    // comment
+    || cond2;
+const b = value1
+    // comment
+    * value2;
+
+== should keep a block comment on its own line between operands ==
+const a = cond1
+    /* comment */
+    || cond2;
+const b = cond1 /* comment */
+    // comment
+    || cond2;
+
+[expect]
+const a = cond1
+    /* comment */
+    || cond2;
+const b = cond1 /* comment */
+    // comment
+    || cond2;
+
+== should keep a block comment beside an operator on a single line ==
+const a = cond1
+    /* comment */ || cond2;
+
+[expect]
+const a = cond1 /* comment */ || cond2;
+
+== should keep the operands on the same line when a comment is on its own line elsewhere ==
+const a = cond1 || cond2
+    // comment
+    || cond3;
+
+[expect]
+const a = cond1 || cond2
+    // comment
+    || cond3;

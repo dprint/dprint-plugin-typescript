@@ -2274,6 +2274,10 @@ fn gen_binary_expr<'a>(node: &BinExpr<'a>, context: &mut Context<'a>) -> PrintIt
       },
       context.program,
     );
+  // A comment on its own line before an operand can't be kept when the operands are on the same
+  // line, so that operand makes the expression multi-line. This isn't forced from the start like
+  // above so it doesn't change the layout of an expression that's multi-line anyway.
+  let has_own_line_comment_before_operands = get_has_own_line_comment_before_operands(&flattened_binary_expr, context.program);
   let indent_width = context.config.indent_width;
   let arena = context.arena;
   let binary_expr_start_il = IndentLevel::new("binExprStart");
@@ -2307,8 +2311,8 @@ fn gen_binary_expr<'a>(node: &BinExpr<'a>, context: &mut Context<'a>) -> PrintIt
     ir_helpers::gen_separated_values(
       |_| {
         let mut generated_nodes = BumpVec::with_capacity_in(flattened_binary_expr.len(), context.arena.bump());
-        let mut bin_expr_items_iter = flattened_binary_expr.into_iter().peekable();
-        while let Some(bin_expr_item) = bin_expr_items_iter.next() {
+        let mut bin_expr_items_iter = flattened_binary_expr.into_iter().zip(has_own_line_comment_before_operands).peekable();
+        while let Some((bin_expr_item, has_own_line_comment_before)) = bin_expr_items_iter.next() {
           let lines_span = Some(ir_helpers::LinesSpan {
             start_line: bin_expr_item.expr.start_line_fast(context.program),
             end_line: bin_expr_item.expr.end_line_fast(context.program),
@@ -2381,7 +2385,7 @@ fn gen_binary_expr<'a>(node: &BinExpr<'a>, context: &mut Context<'a>) -> PrintIt
               if !trailing_post_op_comments.is_empty() {
                 items.extend(trailing_post_op_comments);
               }
-            } else if let Some(next_item) = bin_expr_items_iter.peek() {
+            } else if let Some((next_item, _)) = bin_expr_items_iter.peek() {
               // put any line comments after the next pre-op on this line instead
               if let Some(pre_op) = &next_item.pre_op {
                 items.extend(gen_trailing_comments_if_line_comment_same_line(&pre_op.token.range(), context));
@@ -2400,7 +2404,7 @@ fn gen_binary_expr<'a>(node: &BinExpr<'a>, context: &mut Context<'a>) -> PrintIt
           generated_nodes.push(ir_helpers::GeneratedValue {
             items,
             lines_span,
-            allow_inline_multi_line: true,
+            allow_inline_multi_line: !has_own_line_comment_before,
             allow_inline_single_line: true,
             is_known_multi_line: false,
           });
@@ -2426,6 +2430,53 @@ fn gen_binary_expr<'a>(node: &BinExpr<'a>, context: &mut Context<'a>) -> PrintIt
   );
 
   return if node.op().is_equality() { ir_helpers::new_line_group(items) } else { items };
+
+  /// Gets, for each operand, if a comment between it and the previous operand is on its own line
+  /// (ex. `// c` in `a\n// c\n|| b`).
+  fn get_has_own_line_comment_before_operands<'a>(items: &[BinExprItem<'a>], program: Program<'a>) -> Vec<bool> {
+    let operand_pairs = items.windows(2).map(|pair| has_own_line_comment_between_operands(&pair[0], &pair[1], program));
+    std::iter::once(false).chain(operand_pairs).collect()
+  }
+
+  fn has_own_line_comment_between_operands<'a>(previous: &BinExprItem<'a>, item: &BinExprItem<'a>, program: Program<'a>) -> bool {
+    let Some(op) = item.pre_op.as_ref().or(previous.post_op.as_ref()).map(|op| op.token) else {
+      return false;
+    };
+    let comments_before_op = previous
+      .expr
+      .end()
+      .trailing_comments_fast(program)
+      .chain(op.start().leading_comments_fast(program));
+    let comments_after_op = op.end().trailing_comments_fast(program).chain(item.expr.start().leading_comments_fast(program));
+    let (op_start_line, op_end_line) = (op.start_line_fast(program), op.end_line_fast(program));
+    has_own_line_comment(previous.expr.end_line_fast(program), comments_before_op, op_start_line, program)
+      || has_own_line_comment(op_end_line, comments_after_op, item.expr.start_line_fast(program), program)
+  }
+
+  /// Gets if any of the comments, which are between a token ending on `last_end_line` and one
+  /// starting on `next_start_line`, has nothing else on its lines.
+  fn has_own_line_comment<'a>(mut last_end_line: usize, comments: impl Iterator<Item = &'a Comment>, next_start_line: usize, program: Program<'a>) -> bool {
+    // a comment can be both a trailing comment of one token and a leading comment of the next
+    let mut last_comment_end = None;
+    let mut comments = comments
+      .filter(|c| {
+        let is_new = last_comment_end.is_none_or(|end| c.start() >= end);
+        if is_new {
+          last_comment_end = Some(c.end());
+        }
+        is_new
+      })
+      .peekable();
+    while let Some(comment) = comments.next() {
+      let comment_end_line = comment.end_line_fast(program);
+      let next_start_line = comments.peek().map(|c| c.start_line_fast(program)).unwrap_or(next_start_line);
+      if comment.start_line_fast(program) > last_end_line && next_start_line > comment_end_line {
+        return true;
+      }
+      last_end_line = comment_end_line;
+    }
+    false
+  }
 
   fn get_allow_no_indent(node: &BinExpr) -> bool {
     let parent = node.parent();

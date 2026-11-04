@@ -44,3 +44,14 @@ if (
     && test === "\n"
 ) {
 }
+
+== should go multi-line when a line comment is on its own line ==
+const a = cond1 || cond2
+    // comment
+    || cond3;
+
+[expect]
+const a = cond1
+    || cond2
+    // comment
+    || cond3;
