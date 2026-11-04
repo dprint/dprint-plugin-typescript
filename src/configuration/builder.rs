@@ -458,6 +458,14 @@ impl ConfigurationBuilder {
     self.insert("jsxSelfClosingElement.spaceBeforeSlash", value.into())
   }
 
+  /// Whether to add a space surrounding the properties of a single line mapped type.
+  ///
+  /// * `true` (default) - Ex. `{ [key in Type]: string }`
+  /// * `false` - Ex. `{[key in Type]: string}`
+  pub fn mapped_type_space_surrounding_properties(&mut self, value: bool) -> &mut Self {
+    self.insert("mappedType.spaceSurroundingProperties", value.into())
+  }
+
   /// Whether to add a space surrounding the properties of an object expression.
   ///
   /// * `true` (default) - Ex. `{ key: value }`
@@ -1666,6 +1674,7 @@ mod tests {
       .jsx_expression_container_space_surrounding_expression(true)
       .jsx_self_closing_element_space_before_slash(true)
       .method_space_before_parentheses(true)
+      .mapped_type_space_surrounding_properties(false)
       .object_expression_space_surrounding_properties(false)
       .object_pattern_space_surrounding_properties(false)
       .set_accessor_space_before_parentheses(true)
@@ -1696,7 +1705,7 @@ mod tests {
       .with_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 230);
+    assert_eq!(inner_config.len(), 231);
     let diagnostics = resolve_config(inner_config, &Default::default()).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

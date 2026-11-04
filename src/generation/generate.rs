@@ -7543,9 +7543,14 @@ fn gen_mapped_type<'a>(node: &TsMappedType<'a>, context: &mut Context<'a>) -> Pr
           inner_items.into_print_items(context.arena),
           {
             let mut items = PrintItems::new(context.arena);
-            items.push_signal(Signal::SpaceOrNewLine);
+            let surrounding_signal = if context.config.mapped_type_space_surrounding_properties {
+              Signal::SpaceOrNewLine
+            } else {
+              Signal::PossibleNewLine
+            };
+            items.push_signal(surrounding_signal);
             items.push_optional_path(inner_items);
-            items.push_signal(Signal::SpaceOrNewLine);
+            items.push_signal(surrounding_signal);
             items
           },
         )

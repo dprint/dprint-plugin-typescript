@@ -905,6 +905,8 @@ pub struct Configuration {
   pub jsx_self_closing_element_space_before_slash: bool,
   #[serde(rename = "method.spaceBeforeParentheses")]
   pub method_space_before_parentheses: bool,
+  #[serde(rename = "mappedType.spaceSurroundingProperties")]
+  pub mapped_type_space_surrounding_properties: bool,
   #[serde(rename = "objectExpression.spaceSurroundingProperties")]
   pub object_expression_space_surrounding_properties: bool,
   #[serde(rename = "objectPattern.spaceSurroundingProperties")]
