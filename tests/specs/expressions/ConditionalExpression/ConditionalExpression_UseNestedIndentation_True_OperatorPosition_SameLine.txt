@@ -1,0 +1,12 @@
+~~ lineWidth: 80, conditionalExpression.useNestedIndentation: true, operatorPosition: sameLine ~~
+== should use nested indentation with the operators at the end of the line ==
+const a = isProductionEnvironment ? doSomethingLong() : isLaptopDevice ? doSomethingElseLong() : isTablet ? doThirdThing() : fallback();
+
+[expect]
+const a = isProductionEnvironment ?
+    doSomethingLong() :
+    isLaptopDevice ?
+        doSomethingElseLong() :
+        isTablet ?
+            doThirdThing() :
+            fallback();

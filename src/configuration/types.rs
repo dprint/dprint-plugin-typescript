@@ -515,6 +515,8 @@ pub struct Configuration {
   pub binary_expression_line_per_expression: bool,
   #[serde(rename = "conditionalExpression.linePerExpression")]
   pub conditional_expression_line_per_expression: bool,
+  #[serde(rename = "conditionalType.linePerExpression")]
+  pub conditional_type_line_per_expression: bool,
   #[serde(rename = "decorators.position")]
   pub decorators_position: SameOrNextLinePosition,
   #[serde(rename = "jsx.quoteStyle")]
@@ -662,6 +664,11 @@ pub struct Configuration {
   pub variable_statement_prefer_hanging: bool,
   #[serde(rename = "whileStatement.preferHanging")]
   pub while_statement_prefer_hanging: bool,
+  /* situational indentation */
+  #[serde(rename = "conditionalExpression.useNestedIndentation")]
+  pub conditional_expression_use_nested_indentation: bool,
+  #[serde(rename = "conditionalType.useNestedIndentation")]
+  pub conditional_type_use_nested_indentation: bool,
   #[serde(rename = "withStatement.preferHanging")]
   pub with_statement_prefer_hanging: bool,
   /* member spacing */

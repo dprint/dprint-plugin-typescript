@@ -564,10 +564,18 @@ impl ConfigurationBuilder {
 
   /// Whether to force a line per expression when spanning multiple lines.
   ///
-  /// * `true` - Formats with each part on a new line.
-  /// * `false` (default) - Maintains the line breaks as written by the programmer.
+  /// * `true` (default) - Formats with each part on a new line.
+  /// * `false` - Maintains the line breaks as written by the programmer.
   pub fn conditional_expression_line_per_expression(&mut self, value: bool) -> &mut Self {
     self.insert("conditionalExpression.linePerExpression", value.into())
+  }
+
+  /// Whether to force a line per expression when spanning multiple lines.
+  ///
+  /// * `true` - Formats with each part on a new line.
+  /// * `false` (default) - Maintains the line breaks as written by the programmer.
+  pub fn conditional_type_line_per_expression(&mut self, value: bool) -> &mut Self {
+    self.insert("conditionalType.linePerExpression", value.into())
   }
 
   /// Whether to force a line per expression when spanning multiple lines.
@@ -923,6 +931,16 @@ impl ConfigurationBuilder {
 
   pub fn with_statement_prefer_hanging(&mut self, value: bool) -> &mut Self {
     self.insert("withStatement.preferHanging", value.into())
+  }
+
+  /* situational indentation */
+
+  pub fn conditional_expression_use_nested_indentation(&mut self, value: bool) -> &mut Self {
+    self.insert("conditionalExpression.useNestedIndentation", value.into())
+  }
+
+  pub fn conditional_type_use_nested_indentation(&mut self, value: bool) -> &mut Self {
+    self.insert("conditionalType.useNestedIndentation", value.into())
   }
 
   /* force single line */
@@ -1411,6 +1429,7 @@ mod tests {
       .arrow_function_use_parentheses(UseParentheses::Maintain)
       .binary_expression_line_per_expression(false)
       .conditional_expression_line_per_expression(true)
+      .conditional_type_line_per_expression(true)
       .member_expression_line_per_expression(false)
       .type_literal_separator_kind(SemiColonOrComma::Comma)
       .type_literal_separator_kind_single_line(SemiColonOrComma::Comma)
@@ -1476,6 +1495,9 @@ mod tests {
       .variable_statement_prefer_hanging(true)
       .while_statement_prefer_hanging(true)
       .with_statement_prefer_hanging(true)
+      /* situational indentation */
+      .conditional_expression_use_nested_indentation(false)
+      .conditional_type_use_nested_indentation(false)
       /* member spacing */
       .class_declaration_member_spacing(MemberSpacing::Maintain)
       .class_expression_member_spacing(MemberSpacing::Maintain)
@@ -1622,7 +1644,7 @@ mod tests {
       .with_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 223);
+    assert_eq!(inner_config.len(), 226);
     let diagnostics = resolve_config(inner_config, &Default::default()).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }
