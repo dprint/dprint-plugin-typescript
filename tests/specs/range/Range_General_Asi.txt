@@ -93,3 +93,11 @@ foo( )
 /* c */
 ;[|[1].forEach(x)|]
 bar(  )
+
+== should format the statement after a cursor after a semicolon starting the line ==
+foo(  )
+;  [||]  [1].forEach(  )
+
+[expect]
+foo(  )
+;[|[1].forEach()|]

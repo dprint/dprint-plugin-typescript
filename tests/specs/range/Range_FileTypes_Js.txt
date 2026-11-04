@@ -1,4 +1,26 @@
 -- file.js --
+== should format a with statement in a switch case ==
+function   test( )   {
+    switch   ( x )   {
+        case   1:
+            var   a  =  1;
+            [|with   (  obj  )   {
+                call( a );
+            }|]
+    }
+}
+
+[expect]
+function   test( )   {
+    switch   ( x )   {
+        case   1:
+            var   a  =  1;
+[|            with (obj) {
+                call(a);|]
+            }
+    }
+}
+
 == should format a with statement in a nested block ==
 function   test( )   {
     for   ( ; ; )   {

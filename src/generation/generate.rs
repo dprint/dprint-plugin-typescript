@@ -9071,7 +9071,6 @@ struct StmtGroup<'a> {
   sorted_indexes: Option<utils::VecMap<usize>>,
 }
 
-/// Whether one of the declaration's leading comments asks for it to be ignored.
 fn is_import_stmt(node: Node) -> bool {
   matches!(node, Node::ImportDecl(_) | Node::TsImportEqualsDecl(_))
 }

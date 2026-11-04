@@ -450,15 +450,155 @@ const  z  =  1;
 b();|]
 const  y  =  1;
 
-== should format nothing for a cursor between statements on different lines ==
+== should format the statement before a cursor at the end of its line ==
 const  z  =  1;
 a(  );  [||]
 b(  );
 
 [expect]
 const  z  =  1;
-a(  );  [||]
+[|a();|]
 b(  );
+
+== should format the statement after a cursor at the start of its line ==
+const  z  =  1;
+a(  );
+  [||]  b(  );
+
+[expect]
+const  z  =  1;
+a(  );
+[|b();|]
+
+== should format nothing for a cursor on a blank line between statements ==
+const  z  =  1;
+a(  );
+  [||]
+b(  );
+
+[expect]
+const  z  =  1;
+a(  );
+  [||]
+b(  );
+
+== should format the holding statement for a cursor after an opening brace ==
+const  z  =  1;
+function  f(  )  {[||]
+    a( );
+}
+
+[expect]
+const  z  =  1;
+[|function f() {
+    a();|]
+}
+
+== should format the holding statement for a cursor before a closing brace ==
+const  z  =  1;
+function  f(  )  {
+    a( );
+[||]}
+
+[expect]
+const  z  =  1;
+[|function f() {
+    a();|]
+}
+
+== should format the holding case for a cursor after the colon of a switch case ==
+switch   ( x )   {
+    case  1:[||]
+        a( );
+}
+
+[expect]
+switch   ( x )   {
+[|    case 1:
+        a();|]
+}
+
+== should format the object for a cursor between the opening brace and a property ==
+const  z  =  1;
+const  x  =  {  [||]  a:1,  b:2  };
+
+[expect]
+const  z  =  1;
+[|const x = { a: 1, b: 2 };|]
+
+== should format the object for a cursor between a property and the closing brace ==
+const  z  =  1;
+const  x  =  {  a:1,  b:2  [||]  };
+
+[expect]
+const  z  =  1;
+[|const x = { a: 1, b: 2 };|]
+
+== should format the array for a cursor between an element and the closing bracket ==
+const  z  =  1;
+const  x  =  [  1,  2  [||]  ];
+
+[expect]
+const  z  =  1;
+[|const x = [1, 2];|]
+
+== should format the statement for a cursor inside a block comment on its line ==
+a(  );
+/* [|x|] */ b(  );
+c(  );
+
+[expect]
+a(  );
+[|/* x */ b();|]
+c(  );
+
+== should format the comments the range touches after the last statement ==
+function   f( )   {
+[|  a(  );
+      // b();|]
+}
+
+[expect]
+function   f( )   {
+[|    a();
+    // b();|]
+}
+
+== should format the comments the range touches before an untouched statement ==
+function   f( )   {
+[|  a(  );
+      // about b|]
+  b( );
+}
+
+[expect]
+function   f( )   {
+[|    a();
+    // about b|]
+  b( );
+}
+
+== should format the comments the range touches at the end of the file ==
+a(  );
+[|b(  );
+       // c|]
+
+[expect]
+a(  );
+[|b();
+// c|]
+
+== should not format the comments after the statement the range does not touch ==
+a(  );
+[|b(  );|]
+       // c
+c(  );
+
+[expect]
+a(  );
+[|b();|]
+       // c
+c(  );
 
 == should remove the empty statements at the start of the touched line ==
 a(  );
