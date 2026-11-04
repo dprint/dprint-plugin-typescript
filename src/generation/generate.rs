@@ -2601,6 +2601,7 @@ fn gen_binary_expr<'a>(node: &BinExpr<'a>, context: &mut Context<'a>) -> PrintIt
       && !node.op().is_logical()
       && !node.op().is_bit_logical()
       && !node.op().is_bit_shift()
+      && !node.op().is_equality()
       && node.op() != BinaryOp::Mod
     {
       false

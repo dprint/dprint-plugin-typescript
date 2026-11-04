@@ -1,0 +1,84 @@
+~~ lineWidth: 80, indentWidth: 4, binaryExpression.operatorPosition: sameLine ~~
+== should not indent the second operand of a comparison in parens ==
+function mousePanExceedsStickyThreshold(): boolean {
+    return (
+        Math.abs(panAccumulatedDelta.value) >
+        panAccumulatedDeltaThreshold.value
+    );
+}
+
+[expect]
+function mousePanExceedsStickyThreshold(): boolean {
+    return (
+        Math.abs(panAccumulatedDelta.value) >
+        panAccumulatedDeltaThreshold.value
+    );
+}
+
+== should indent comparisons the same as other binary expressions ==
+function mousePanExceedsStickyThreshold(): boolean {
+    return (
+        Math.abs(panAccumulatedDelta.value) ===
+        panAccumulatedDeltaThreshold.value
+    );
+}
+
+function mousePanExceedsStickyThreshold(): boolean {
+    return (
+        Math.abs(panAccumulatedDelta.value) +
+        panAccumulatedDeltaThreshold.value
+    );
+}
+
+const isOver = () =>
+    Math.abs(panAccumulatedDelta.value) <=
+    panAccumulatedDeltaThreshold.value;
+
+const values = [
+    Math.abs(panAccumulatedDelta.value) !=
+    panAccumulatedDeltaThreshold.value,
+];
+
+call(
+    Math.abs(panAccumulatedDelta.value) >=
+    panAccumulatedDeltaThreshold.value,
+);
+
+call(
+    Math.abs(panAccumulatedDelta.value) +
+    panAccumulatedDeltaThreshold.value,
+);
+
+[expect]
+function mousePanExceedsStickyThreshold(): boolean {
+    return (
+        Math.abs(panAccumulatedDelta.value) ===
+        panAccumulatedDeltaThreshold.value
+    );
+}
+
+function mousePanExceedsStickyThreshold(): boolean {
+    return (
+        Math.abs(panAccumulatedDelta.value) +
+        panAccumulatedDeltaThreshold.value
+    );
+}
+
+const isOver = () =>
+    Math.abs(panAccumulatedDelta.value) <=
+    panAccumulatedDeltaThreshold.value;
+
+const values = [
+    Math.abs(panAccumulatedDelta.value) !=
+    panAccumulatedDeltaThreshold.value,
+];
+
+call(
+    Math.abs(panAccumulatedDelta.value) >=
+        panAccumulatedDeltaThreshold.value,
+);
+
+call(
+    Math.abs(panAccumulatedDelta.value) +
+        panAccumulatedDeltaThreshold.value,
+);
