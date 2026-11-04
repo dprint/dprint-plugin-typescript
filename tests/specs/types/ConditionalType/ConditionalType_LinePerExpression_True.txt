@@ -18,3 +18,19 @@ type Test = A extends B ? C extends D ? c : d : e;
 
 [expect]
 type Test = A extends B ? C extends D ? c : d : e;
+
+== should keep a comment before a nested false type at the false type's indentation ==
+type T = A extends B
+  ? C extends D ? // c
+      E :
+    // d
+    F
+  : G;
+
+[expect]
+type T = A extends B
+    ? C extends D // c
+    ? E
+    // d
+    : F
+    : G;
