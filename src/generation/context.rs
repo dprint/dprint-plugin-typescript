@@ -101,6 +101,10 @@ pub struct Context<'a> {
   /// The start of an object or array in a list being broken out of hugging that ignores
   /// the newline after its open token, as if its `preferSingleLine` was on.
   pub prefer_single_line_value_start: Option<SourcePos>,
+  /// The spaces that align the values of the members of a group (ex. consecutive object
+  /// properties), keyed by the start of the node after the operator (the type annotation
+  /// for a `:` of a type).
+  pub align_paddings: FxHashMap<SourcePos, super::generate::AlignPadding>,
   /// Used for ensuring nodes are parsed in order.
   #[cfg(debug_assertions)]
   pub last_generated_node_pos: SourcePos,
@@ -160,6 +164,7 @@ impl<'a> Context<'a> {
       assignment_curried_arrow_end_ln: None,
       nested_bin_expr_extra_indent: None,
       prefer_single_line_value_start: None,
+      align_paddings: FxHashMap::default(),
       #[cfg(debug_assertions)]
       last_generated_node_pos: dprint_swc_ext::common::SourceTextInfoProvider::text_info(&program).range().start.into(),
       diagnostics: Vec::new(),

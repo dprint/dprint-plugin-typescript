@@ -1,0 +1,22 @@
+~~ alignAssignments: true, variableStatement.alignAssignments: false, objectExpression.alignProperties: false ~~
+== should use the per-node options over the global option ==
+const a = 1;
+const bbb = {
+    a: 1,
+    bbb: 2,
+};
+enum C {
+    A = 1,
+    BBB = 2,
+}
+
+[expect]
+const a = 1;
+const bbb = {
+    a: 1,
+    bbb: 2,
+};
+enum C {
+    A   = 1,
+    BBB = 2,
+}

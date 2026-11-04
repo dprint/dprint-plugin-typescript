@@ -65,6 +65,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
   let quote_props = get_value(&mut config, "quoteProps", QuoteProps::Preserve, &mut diagnostics);
   let space_around = get_value(&mut config, "spaceAround", false, &mut diagnostics);
   let space_after_control_flow_keyword = get_value(&mut config, "spaceAfterControlFlowKeyword", true, &mut diagnostics);
+  let align_assignments = get_value(&mut config, "alignAssignments", false, &mut diagnostics);
   let jsx_bracket_position = get_value(&mut config, "jsx.bracketPosition", SameOrNextLinePosition::NextLine, &mut diagnostics);
 
   let resolved_config = Configuration {
@@ -447,6 +448,14 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     tuple_type_space_around: get_value(&mut config, "tupleType.spaceAround", space_around, &mut diagnostics),
     while_statement_space_around: get_value(&mut config, "whileStatement.spaceAround", space_around, &mut diagnostics),
     with_statement_space_around: get_value(&mut config, "withStatement.spaceAround", space_around, &mut diagnostics),
+    /* alignment */
+    class_declaration_align_properties: get_value(&mut config, "classDeclaration.alignProperties", align_assignments, &mut diagnostics),
+    class_expression_align_properties: get_value(&mut config, "classExpression.alignProperties", align_assignments, &mut diagnostics),
+    enum_declaration_align_members: get_value(&mut config, "enumDeclaration.alignMembers", align_assignments, &mut diagnostics),
+    interface_declaration_align_properties: get_value(&mut config, "interfaceDeclaration.alignProperties", align_assignments, &mut diagnostics),
+    object_expression_align_properties: get_value(&mut config, "objectExpression.alignProperties", align_assignments, &mut diagnostics),
+    type_literal_align_properties: get_value(&mut config, "typeLiteral.alignProperties", align_assignments, &mut diagnostics),
+    variable_statement_align_assignments: get_value(&mut config, "variableStatement.alignAssignments", align_assignments, &mut diagnostics),
   };
 
   diagnostics.extend(get_unknown_property_diagnostics(config));
