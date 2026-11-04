@@ -57,15 +57,12 @@ const w = (
     // test
 );
 
-== should use multi lines even when empty (since someone may want it that way in order to insert statements later) ==
+== should keep the closing tag beside the opening tag when empty since a line break would be a child ==
 const t = <>
 </>;
 
 [expect]
-const t = (
-    <>
-    </>
-);
+const t = <></>;
 
 == should format elements inside ==
 const t = <>

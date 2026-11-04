@@ -69,8 +69,7 @@ function Test() {
     return (
         <View
             // comment
-        >
-        </View>
+        ></View>
     );
 }
 
@@ -84,8 +83,7 @@ function Test() {
 function Test() {
     return (
         <View // comment
-        >
-        </View>
+        ></View>
     );
 }
 
@@ -105,8 +103,7 @@ function Test() {
             // comment
             test={5} // test
             // other
-        >
-        </View>
+        ></View>
     );
 }
 

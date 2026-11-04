@@ -11211,6 +11211,14 @@ struct JsxEdgeSpaces {
 fn gen_jsx_children<'a>(opts: GenJsxChildrenOptions<'a>, context: &mut Context<'a>) -> GenJsxChildrenResult<'a> {
   let edge_spaces = get_jsx_edge_spaces(&opts.children, context);
   let filtered_children = get_filtered_jsx_children(opts.children, context);
+  // the closing tag stays beside the opening tag when there aren't any children since a line
+  // break between them is text that type checking sees as children (ex. `<C\n  a\n>\n</C>`)
+  if filtered_children.is_empty() && !edge_spaces.leading {
+    return GenJsxChildrenResult {
+      items: PrintItems::new(context.arena),
+      new_lines_reevaluation: None,
+    };
+  }
 
   // Need to generate the children here so they only get generated once.
   // Nodes need to be only generated once so that their comments don't end up in

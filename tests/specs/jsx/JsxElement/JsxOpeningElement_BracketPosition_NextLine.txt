@@ -40,13 +40,9 @@ const u = (
     <Test
         prop={5}
         other={10}
-    >
-    </Test>
+    ></Test>
 );
-const v = (
-    <Test>
-    </Test>
-);
+const v = <Test></Test>;
 const w = (
     <Test
         prop={5}
