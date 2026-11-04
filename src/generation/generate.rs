@@ -2274,6 +2274,14 @@ fn gen_binary_expr<'a>(node: &BinExpr<'a>, context: &mut Context<'a>) -> PrintIt
   let allow_no_indent = get_allow_no_indent(node);
   let use_space_surrounding_operator = get_use_space_surrounding_operator(&node.op(), context);
   let is_parent_bin_expr = node.parent().kind() == NodeKind::BinExpr;
+  // a binary expression nested in a parent with a different precedence indents from its first
+  // operand on a new line, so a multi-line operand before that isn't indented
+  let nested_extra_indent_ref = match context.nested_bin_expr_extra_indent {
+    Some((start, extra_indent_ref)) if start == node.start() => context.nested_bin_expr_extra_indent.take().map(|_| extra_indent_ref),
+    _ => None,
+  };
+  let mut nested_operand_isols = Vec::new();
+  let operand_count = flattened_binary_expr.len();
   let multi_line_options = {
     let mut options = if line_per_expression {
       ir_helpers::MultiLineOptions::same_line_no_indent()
@@ -2300,13 +2308,18 @@ fn gen_binary_expr<'a>(node: &BinExpr<'a>, context: &mut Context<'a>) -> PrintIt
     ir_helpers::gen_separated_values(
       |_| {
         let mut generated_nodes = BumpVec::with_capacity_in(flattened_binary_expr.len(), context.arena.bump());
-        let mut bin_expr_items_iter = flattened_binary_expr.into_iter().peekable();
-        while let Some(bin_expr_item) = bin_expr_items_iter.next() {
+        let mut bin_expr_items_iter = flattened_binary_expr.into_iter().enumerate().peekable();
+        while let Some((i, bin_expr_item)) = bin_expr_items_iter.next() {
           let lines_span = Some(ir_helpers::LinesSpan {
             start_line: bin_expr_item.expr.start_line_fast(context.program),
             end_line: bin_expr_item.expr.end_line_fast(context.program),
           });
           let mut items = PrintItems::new(context.arena);
+          if let Some(extra_indent_ref) = nested_extra_indent_ref
+            && i > 0
+          {
+            items.extend(gen_cancel_nested_operand_indent(&mut nested_operand_isols, extra_indent_ref, context));
+          }
 
           let pre_op = bin_expr_item.pre_op;
           let post_op = bin_expr_item.post_op;
@@ -2318,7 +2331,13 @@ fn gen_binary_expr<'a>(node: &BinExpr<'a>, context: &mut Context<'a>) -> PrintIt
           } else {
             (PrintItems::new(context.arena), PrintItems::new(context.arena))
           };
-          let is_inner_binary_expression = bin_expr_item.expr.kind() == NodeKind::BinExpr;
+          let inner_bin_expr_extra_indent = if bin_expr_item.expr.kind() == NodeKind::BinExpr {
+            let mut condition = get_inner_bin_expr_extra_indent(allow_no_indent, binary_expr_start_il, binary_expr_start_isol, context);
+            context.nested_bin_expr_extra_indent = Some((bin_expr_item.expr.start(), condition.create_reference()));
+            Some(condition)
+          } else {
+            None
+          };
           items.extend(gen_node_with_inner_gen(bin_expr_item.expr, context, |node_items, context| {
             let mut items = PrintItems::new(context.arena);
             if let Some(op) = pre_op {
@@ -2336,28 +2355,10 @@ fn gen_binary_expr<'a>(node: &BinExpr<'a>, context: &mut Context<'a>) -> PrintIt
               }
             }
 
-            items.extend(if is_inner_binary_expression {
-              let node_items = node_items.into_rc_path();
-              with_queued_indent(
-                // indent again if it hasn't done the current binary expression's hanging indent
-                if_true_or(
-                  "indentIfNecessary",
-                  context.arena.alloc_resolver(move |context| {
-                    if allow_no_indent && context.resolved_is_start_of_line(binary_expr_start_isol)? {
-                      return Some(false);
-                    }
-                    let binary_expr_start_il = context.resolved_indent_level(binary_expr_start_il)?;
-                    let is_hanging = binary_expr_start_il < context.writer_info.indent_level;
-                    Some(!is_hanging)
-                  }),
-                  with_queued_indent(node_items.into_print_items(context.arena)),
-                  node_items.into_print_items(context.arena),
-                )
-                .into_print_items(context.arena),
-              )
-            } else {
-              node_items
-            });
+            if let Some(condition) = inner_bin_expr_extra_indent {
+              items.push_condition(condition);
+            }
+            items.extend(node_items);
 
             if let Some(op) = post_op {
               let leading_post_op_comments = gen_leading_comments_same_line(&op.token.range(), context);
@@ -2374,7 +2375,7 @@ fn gen_binary_expr<'a>(node: &BinExpr<'a>, context: &mut Context<'a>) -> PrintIt
               if !trailing_post_op_comments.is_empty() {
                 items.extend(trailing_post_op_comments);
               }
-            } else if let Some(next_item) = bin_expr_items_iter.peek() {
+            } else if let Some((_, next_item)) = bin_expr_items_iter.peek() {
               // put any line comments after the next pre-op on this line instead
               if let Some(pre_op) = &next_item.pre_op {
                 items.extend(gen_trailing_comments_if_line_comment_same_line(&pre_op.token.range(), context));
@@ -2383,6 +2384,12 @@ fn gen_binary_expr<'a>(node: &BinExpr<'a>, context: &mut Context<'a>) -> PrintIt
 
             items
           }));
+
+          if let Some(extra_indent_ref) = nested_extra_indent_ref
+            && i + 1 < operand_count
+          {
+            items.extend(gen_start_nested_operand_indent(&nested_operand_isols, extra_indent_ref, context));
+          }
 
           let items = if should_newline_group_bin_item_expr(bin_expr_item.expr, context) {
             ir_helpers::new_line_group(items)
@@ -2418,7 +2425,107 @@ fn gen_binary_expr<'a>(node: &BinExpr<'a>, context: &mut Context<'a>) -> PrintIt
     .items,
   );
 
+  if let Some(extra_indent_ref) = nested_extra_indent_ref
+    && !nested_operand_isols.is_empty()
+  {
+    items.extend(gen_finish_nested_operand_indent(&nested_operand_isols, extra_indent_ref, context));
+  }
+
   return if node.op().is_equality() { ir_helpers::new_line_group(items) } else { items };
+
+  /// Gets the condition for whether an inner binary expression with a different precedence
+  /// indents its operands an extra level, which it does when this binary expression isn't
+  /// already hanging.
+  fn get_inner_bin_expr_extra_indent<'a>(
+    allow_no_indent: bool,
+    binary_expr_start_il: IndentLevel,
+    binary_expr_start_isol: IsStartOfLine,
+    context: &Context<'a>,
+  ) -> Condition<'a> {
+    Condition::new(
+      "innerBinExprExtraIndent",
+      ConditionProperties {
+        condition: context.arena.alloc_resolver(move |context| {
+          if allow_no_indent && context.resolved_is_start_of_line(binary_expr_start_isol)? {
+            return Some(false);
+          }
+          let binary_expr_start_il = context.resolved_indent_level(binary_expr_start_il)?;
+          let is_hanging = binary_expr_start_il < context.writer_info.indent_level;
+          Some(!is_hanging)
+        }),
+        true_path: None,
+        false_path: None,
+      },
+    )
+  }
+
+  /// Starts the indent of a nested binary expression's operands at the end of an operand
+  /// when none of the operands after the first are on a new line yet. It's started before
+  /// the separator so the line of the next operand is indented when it goes on a new line.
+  fn gen_start_nested_operand_indent<'a>(operand_isols: &[IsStartOfLine], extra_indent_ref: ConditionReference, context: &Context<'a>) -> PrintItems<'a> {
+    let operand_isols: &[IsStartOfLine] = context.arena.bump().alloc_slice_copy(operand_isols);
+    if_true(
+      "startNestedBinExprIndent",
+      context.arena.alloc_resolver(move |context| is_none_start_of_line(context, operand_isols)),
+      gen_nested_operand_indent_signals(Signal::StartIndent, extra_indent_ref, context),
+    )
+    .into_print_items(context.arena)
+  }
+
+  /// Cancels the indent started at the end of the previous operand when this operand
+  /// stays on the same line.
+  fn gen_cancel_nested_operand_indent<'a>(
+    operand_isols: &mut Vec<IsStartOfLine>,
+    extra_indent_ref: ConditionReference,
+    context: &Context<'a>,
+  ) -> PrintItems<'a> {
+    let isol = IsStartOfLine::new("nestedBinExprOperand");
+    let previous_isols: &[IsStartOfLine] = context.arena.bump().alloc_slice_copy(operand_isols);
+    operand_isols.push(isol);
+    let mut items = PrintItems::new(context.arena);
+    items.push_info(isol);
+    items.push_condition(if_true(
+      "cancelNestedBinExprIndent",
+      context.arena.alloc_resolver(move |context| {
+        let is_start_of_line = context.resolved_is_start_of_line(isol)?;
+        Some(!is_start_of_line && is_none_start_of_line(context, previous_isols)?)
+      }),
+      gen_nested_operand_indent_signals(Signal::FinishIndent, extra_indent_ref, context),
+    ));
+    items
+  }
+
+  fn gen_finish_nested_operand_indent<'a>(operand_isols: &[IsStartOfLine], extra_indent_ref: ConditionReference, context: &Context<'a>) -> PrintItems<'a> {
+    let operand_isols: &[IsStartOfLine] = context.arena.bump().alloc_slice_copy(operand_isols);
+    if_true(
+      "finishNestedBinExprIndent",
+      context
+        .arena
+        .alloc_resolver(move |context| Some(!is_none_start_of_line(context, operand_isols)?)),
+      gen_nested_operand_indent_signals(Signal::FinishIndent, extra_indent_ref, context),
+    )
+    .into_print_items(context.arena)
+  }
+
+  fn gen_nested_operand_indent_signals<'a>(signal: Signal, extra_indent_ref: ConditionReference, context: &Context<'a>) -> PrintItems<'a> {
+    let mut items = PrintItems::new(context.arena);
+    items.push_signal(signal);
+    items.push_condition(if_true(
+      "nestedBinExprExtraIndent",
+      context.arena.alloc_resolver(move |context| context.resolved_condition(&extra_indent_ref)),
+      signal.into_print_items(context.arena),
+    ));
+    items
+  }
+
+  fn is_none_start_of_line(context: &mut ConditionResolverContext, isols: &[IsStartOfLine]) -> Option<bool> {
+    for isol in isols {
+      if context.resolved_is_start_of_line(*isol)? {
+        return Some(false);
+      }
+    }
+    Some(true)
+  }
 
   fn get_allow_no_indent(node: &BinExpr) -> bool {
     let parent = node.parent();

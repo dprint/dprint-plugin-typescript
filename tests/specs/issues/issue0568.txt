@@ -1,0 +1,182 @@
+~~ lineWidth: 80, indentWidth: 2 ~~
+== should not double indent a computed member hanging in a nested binary expression ==
+if (
+  k === -d || (k !== d && v[(k - 1) + max] < v[
+        (k + 1) + max
+      ])
+) {
+  //
+}
+
+[expect]
+if (
+  k === -d || (k !== d && v[(k - 1) + max] < v[
+    (k + 1) + max
+  ])
+) {
+  //
+}
+
+== should not double indent a multi-line operand on the same line in a nested binary expression ==
+const a = a || b < foo(
+  d
+);
+
+const b = a || b < c[
+  d
+];
+
+const c = a || b < {
+  d: 1
+};
+
+const d = a || b && foo(
+  d
+);
+
+const e = a && b || foo(
+  d
+);
+
+const f = a || b + foo(
+  d
+);
+
+const g = a < b + foo(
+  d
+);
+
+const h = a < b + c[
+  d
+];
+
+[expect]
+const a = a || b < foo(
+  d,
+);
+
+const b = a || b < c[
+  d
+];
+
+const c = a || b < {
+  d: 1,
+};
+
+const d = a || b && foo(
+  d,
+);
+
+const e = a && b || foo(
+  d,
+);
+
+const f = a || b + foo(
+  d,
+);
+
+const g = a < b + foo(
+  d,
+);
+
+const h = a < b + c[
+  d
+];
+
+== should not double indent a multi-line operand on a hanging line in a nested binary expression ==
+const a = aaaaaaaaaaaaaaaaaaaaaaa
+  || bbbbbbbbbbbbbbbbbbb < foo(
+    d
+  );
+
+if (
+  aaaaaaa
+  || bbbbbbb < foo(
+    d
+  )
+) {
+}
+
+if (
+  aaaaaaa || bbbbbbb < foo(
+    d
+  ) && ccccc
+) {
+}
+
+foo(a || b < bar(
+  d
+));
+
+const b = a || b < c(
+  d
+) ||
+  e;
+
+[expect]
+const a = aaaaaaaaaaaaaaaaaaaaaaa
+  || bbbbbbbbbbbbbbbbbbb < foo(
+    d,
+  );
+
+if (
+  aaaaaaa
+  || bbbbbbb < foo(
+    d,
+  )
+) {
+}
+
+if (
+  aaaaaaa || bbbbbbb < foo(
+    d,
+  ) && ccccc
+) {
+}
+
+foo(
+  a || b < bar(
+    d,
+  ),
+);
+
+const b = a || b < c(
+  d,
+)
+  || e;
+
+== should still indent the operands of a nested binary expression on new lines ==
+const a = aaaaaaaaaaaaaaaaaaaaaaa || bbbbbbbbbbbbbbbbbbb
+  < ccccccccccccccc;
+
+const b = aaaaaaaaaaaaaaaaaaaaaaa || bbbbbbbbbbbbbbbbbbb
+  < cccccc < foo(
+    d
+  );
+
+if (
+  aaaaaaa
+  || bbbbbbb
+    < foo(
+      d
+    )
+) {
+}
+
+[expect]
+const a = aaaaaaaaaaaaaaaaaaaaaaa || bbbbbbbbbbbbbbbbbbb
+    < ccccccccccccccc;
+
+const b = aaaaaaaaaaaaaaaaaaaaaaa || bbbbbbbbbbbbbbbbbbb
+    < cccccc < foo(
+      d,
+    );
+
+if (
+  aaaaaaa
+  || bbbbbbb
+    < foo(
+      d,
+    )
+) {
+}
