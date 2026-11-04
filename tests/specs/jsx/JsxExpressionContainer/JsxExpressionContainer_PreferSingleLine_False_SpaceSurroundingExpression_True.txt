@@ -1,0 +1,49 @@
+-- file.tsx --
+~~ jsxExpressionContainer.preferSingleLine: false, jsxExpressionContainer.spaceSurroundingExpression: true ~~
+== should not add spaces when the braces are on their own lines ==
+const t = <div>
+    {
+        value
+    }
+</div>;
+const u = <div render={
+    work(nice, to, have)
+} other={value} />;
+const v = <div>{
+    cond && <span>Yes<b>yes</b></span>
+}</div>;
+
+[expect]
+const t = (
+    <div>
+        {
+            value
+        }
+    </div>
+);
+const u = (
+    <div
+        render={
+            work(nice, to, have)
+        }
+        other={ value }
+    />
+);
+const v = (
+    <div>
+        {
+            cond && (
+                <span>
+                    Yes<b>yes</b>
+                </span>
+            )
+        }
+    </div>
+);
+
+== should add spaces when there's no newline after the open brace ==
+const t = <div>{value
+}</div>;
+
+[expect]
+const t = <div>{ value }</div>;

@@ -1,0 +1,29 @@
+-- file.tsx --
+~~ preferSingleLine: false ~~
+== should fall back to the global value ==
+const t = <div>
+    {
+        value
+    }
+</div>;
+const u = <div
+    render={
+        work(nice, to, have)
+    }
+/>;
+
+[expect]
+const t = (
+    <div>
+        {
+            value
+        }
+    </div>
+);
+const u = (
+    <div
+        render={
+            work(nice, to, have)
+        }
+    />
+);

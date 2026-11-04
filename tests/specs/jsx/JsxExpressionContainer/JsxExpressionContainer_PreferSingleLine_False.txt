@@ -1,0 +1,317 @@
+-- file.tsx --
+~~ jsxExpressionContainer.preferSingleLine: false ~~
+== should put the braces on their own lines when there's a newline after the open brace ==
+const t = <div>
+    {
+        value
+    }
+</div>;
+
+[expect]
+const t = (
+    <div>
+        {
+            value
+        }
+    </div>
+);
+
+== should hug the braces when there's no newline after the open brace ==
+const t = <div>
+    {value
+    }
+</div>;
+const u = <div>{cond
+    ? a
+    : b}</div>;
+
+[expect]
+const t = (
+    <div>
+        {value}
+    </div>
+);
+const u = (
+    <div>
+        {cond
+            ? a
+            : b}
+    </div>
+);
+
+== should only check the newline after the open brace ==
+const t = <div>{
+    cond ? a : b}</div>;
+
+[expect]
+const t = (
+    <div>
+        {
+            cond ? a : b
+        }
+    </div>
+);
+
+== should keep a long expression on its own lines ==
+const t = <div>
+    {
+        isThisConditionOk ? <p><strong>Yes</strong></p> : <p><strong>No</strong></p>
+    }
+</div>;
+
+[expect]
+const t = (
+    <div>
+        {
+            isThisConditionOk
+                ? (
+                    <p>
+                        <strong>Yes</strong>
+                    </p>
+                )
+                : (
+                    <p>
+                        <strong>No</strong>
+                    </p>
+                )
+        }
+    </div>
+);
+
+== should keep a logical and expression with jsx on its own lines ==
+const t = <div>
+    {
+        cond && <span>Yes<b>yes</b></span>
+    }
+</div>;
+
+[expect]
+const t = (
+    <div>
+        {
+            cond && (
+                <span>
+                    Yes<b>yes</b>
+                </span>
+            )
+        }
+    </div>
+);
+
+== should keep jsx on its own lines ==
+const t = <div>
+    {
+        <span>Yes<b>yes</b></span>
+    }
+</div>;
+const u = <div>
+    {
+        <span>Yes</span>
+    }
+</div>;
+const v = <div attr={
+    <span>Yes<b>yes</b></span>
+} />;
+
+[expect]
+const t = (
+    <div>
+        {
+            <span>
+                Yes<b>yes</b>
+            </span>
+        }
+    </div>
+);
+const u = (
+    <div>
+        {
+            <span>Yes</span>
+        }
+    </div>
+);
+const v = (
+    <div
+        attr={
+            <span>
+                Yes<b>yes</b>
+            </span>
+        }
+    />
+);
+
+== should keep an attribute value on its own lines ==
+const t = <div
+    render={
+        work(nice, to, have)
+    }
+    other={value}
+/>;
+
+[expect]
+const t = (
+    <div
+        render={
+            work(nice, to, have)
+        }
+        other={value}
+    />
+);
+
+== should keep an arrow function on its own lines ==
+const t = <button onClick={
+() => {
+}
+} />;
+
+[expect]
+const t = (
+    <button
+        onClick={
+            () => {
+            }
+        }
+    />
+);
+
+== should keep an object literal on its own lines ==
+const t = <div style={
+    { color: "red" }
+} />;
+
+[expect]
+const t = (
+    <div
+        style={
+            { color: "red" }
+        }
+    />
+);
+
+== should handle nested containers ==
+const t = <div>
+    {
+        items.map(item => <span key={
+            item.id
+        }>{
+            item.name
+        }</span>)
+    }
+</div>;
+
+[expect]
+const t = (
+    <div>
+        {
+            items.map(item => (
+                <span
+                    key={
+                        item.id
+                    }
+                >
+                    {
+                        item.name
+                    }
+                </span>
+            ))
+        }
+    </div>
+);
+
+== should keep the braces beside an empty container ==
+const t = <div>{
+}</div>;
+
+[expect]
+const t = <div>{}</div>;
+
+== should format a container with only a comment like before ==
+const t = <div>{
+    /* comment */
+}</div>;
+const u = <div>{
+    // comment
+}</div>;
+
+[expect]
+const t = <div>{/* comment */}</div>;
+const u = (
+    <div>
+        {
+            // comment
+        }
+    </div>
+);
+
+== should not change spread attributes and children ==
+const t = <div {
+    ...props
+} />;
+const u = <div>{
+    ...children
+}</div>;
+
+[expect]
+const t = <div {...props} />;
+const u = <div>{...children}</div>;
+
+== should handle comments ==
+const t = <div>{ /* a */
+    value}</div>;
+const u = <div>{
+    /* a */ value}</div>;
+const v = <div>{
+    value // a
+}</div>;
+
+[expect]
+const t = (
+    <div>
+        {
+            /* a */
+            value
+        }
+    </div>
+);
+const u = (
+    <div>
+        {
+            /* a */ value
+        }
+    </div>
+);
+const v = (
+    <div>
+        {
+            value // a
+        }
+    </div>
+);
+
+== should remove parens ==
+const t = <div>{
+    (value)
+}</div>;
+
+[expect]
+const t = (
+    <div>
+        {
+            value
+        }
+    </div>
+);
+
+== should handle text around the container ==
+const t = <div>text {
+    value
+} more text</div>;
+
+[expect]
+const t = (
+    <div>
+        text {
+            value
+        } more text
+    </div>
+);

@@ -853,6 +853,8 @@ pub struct Configuration {
   pub jsx_attributes_prefer_single_line: bool,
   #[serde(rename = "jsxElement.preferSingleLine")]
   pub jsx_element_prefer_single_line: bool,
+  #[serde(rename = "jsxExpressionContainer.preferSingleLine")]
+  pub jsx_expression_container_prefer_single_line: bool,
   #[serde(rename = "mappedType.preferSingleLine")]
   pub mapped_type_prefer_single_line: bool,
   #[serde(rename = "memberExpression.preferSingleLine")]

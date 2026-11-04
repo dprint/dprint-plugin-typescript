@@ -1324,6 +1324,17 @@ impl ConfigurationBuilder {
     self.insert("jsxElement.preferSingleLine", value.into())
   }
 
+  /// Whether to keep a JSX expression container's braces beside its expression
+  /// when there's a newline after the open brace.
+  ///
+  /// * `true` - Keeps the braces beside the expression. Ex. `{value}`
+  /// * `false` - Puts the braces on their own lines when there's a newline after the open brace.
+  ///
+  /// Default: The global `preferSingleLine` value when set, otherwise `true`.
+  pub fn jsx_expression_container_prefer_single_line(&mut self, value: bool) -> &mut Self {
+    self.insert("jsxExpressionContainer.preferSingleLine", value.into())
+  }
+
   pub fn mapped_type_prefer_single_line(&mut self, value: bool) -> &mut Self {
     self.insert("mappedType.preferSingleLine", value.into())
   }
@@ -1635,6 +1646,7 @@ mod tests {
       .import_declaration_prefer_single_line(false)
       .jsx_attributes_prefer_single_line(false)
       .jsx_element_prefer_single_line(false)
+      .jsx_expression_container_prefer_single_line(false)
       .mapped_type_prefer_single_line(false)
       .member_expression_prefer_single_line(false)
       .object_expression_prefer_single_line(false)
@@ -1705,7 +1717,7 @@ mod tests {
       .with_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 231);
+    assert_eq!(inner_config.len(), 232);
     let diagnostics = resolve_config(inner_config, &Default::default()).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

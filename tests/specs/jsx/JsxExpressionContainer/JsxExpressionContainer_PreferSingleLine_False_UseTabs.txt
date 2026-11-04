@@ -1,0 +1,39 @@
+-- file.tsx --
+~~ jsxExpressionContainer.preferSingleLine: false, useTabs: true ~~
+== should indent the expression with tabs ==
+const t = <div>
+    {
+        cond
+            ? <span>Yes<b>yes</b></span>
+            : <span>No<b>no</b></span>
+    }
+</div>;
+const u = <div render={
+    work(nice, to, have)
+} />;
+
+[expect]
+const t = (
+	<div>
+		{
+			cond
+				? (
+					<span>
+						Yes<b>yes</b>
+					</span>
+				)
+				: (
+					<span>
+						No<b>no</b>
+					</span>
+				)
+		}
+	</div>
+);
+const u = (
+	<div
+		render={
+			work(nice, to, have)
+		}
+	/>
+);
