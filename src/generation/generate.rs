@@ -2621,8 +2621,8 @@ fn gen_conditional_expr<'a>(node: &CondExpr<'a>, context: &mut Context<'a>) -> P
   let top_most_data = get_top_most_data(node, context);
   let before_alternate_ln = LineNumber::new("beforeAlternate");
   let end_ln = LineNumber::new("endConditionalExpression");
-  let question_comment_items = gen_cond_token_comments(question_token, context, top_most_data.il);
-  let colon_comment_items = gen_cond_token_comments(colon_token, context, top_most_data.il);
+  let question_comment_items = gen_cond_token_comments(question_token, context, Some(top_most_data.il));
+  let colon_comment_items = gen_cond_token_comments(colon_token, context, Some(top_most_data.il));
   let mut items = PrintItems::new(context.arena);
 
   if top_most_data.is_top_most {
@@ -2815,30 +2815,25 @@ struct ConditionalTokenComments<'a> {
 }
 
 /// Generates the comments used for tokens in conditional expressions and types.
-fn gen_cond_token_comments<'a>(token: &TokenAndSpan, context: &mut Context<'a>, top_most_il: IndentLevel) -> ConditionalTokenComments<'a> {
+///
+/// The comments on the lines before the branch are indented when at the same indentation as
+/// `top_most_il`, or never indented when it is `None`.
+fn gen_cond_token_comments<'a>(token: &TokenAndSpan, context: &mut Context<'a>, top_most_il: Option<IndentLevel>) -> ConditionalTokenComments<'a> {
   let token_line = token.end_line_fast(context.program);
   let previous_token = token.previous_token_fast(context.program).unwrap();
   let next_token = token.next_token_fast(context.program).unwrap();
   let previous_token_line = previous_token.end_line_fast(context.program);
   let next_token_line = next_token.start_line_fast(context.program);
-  if token_line > previous_token_line {
+  let program = context.program;
+  return if token_line > previous_token_line {
     ConditionalTokenComments {
       previous_lines: {
-        let program = context.program;
         let leading_comments = token.leading_comments_fast(program).filter(|c| {
           let comment_line = c.start_line_fast(program);
           comment_line > previous_token_line && comment_line < next_token_line
         });
         let trailing_comments = token.trailing_comments_fast(program).filter(|c| c.start_line_fast(program) < next_token_line);
-        let items = gen_comments_as_statements(leading_comments.chain(trailing_comments), None, context);
-        if items.is_empty() {
-          items
-        } else {
-          let mut new_items = PrintItems::new(context.arena);
-          new_items.push_signal(Signal::NewLine);
-          new_items.push_condition(indent_if_sol_and_same_indent_as_top_most(items, top_most_il));
-          new_items
-        }
+        gen_previous_lines(leading_comments.chain(trailing_comments), context, top_most_il)
       },
       leading_line: if token_line == next_token_line {
         gen_leading_comments_same_line(&token.range(), context)
@@ -2848,10 +2843,18 @@ fn gen_cond_token_comments<'a>(token: &TokenAndSpan, context: &mut Context<'a>, 
       trailing_line: PrintItems::new(context.arena),
     }
   } else if token_line < next_token_line {
+    // the token is at the end of a line, so the comments on the lines after it belong to the
+    // next branch and go before the token like when it's on its own line (ex. when it moves
+    // to the next line)
+    let trailing_line = gen_trailing_comments_same_line(&token.range(), context);
+    let trailing_comments = token.trailing_comments_fast(program).filter(|c| {
+      let comment_line = c.start_line_fast(program);
+      comment_line > token_line && comment_line < next_token_line
+    });
     ConditionalTokenComments {
-      previous_lines: PrintItems::new(context.arena),
+      previous_lines: gen_previous_lines(trailing_comments, context, top_most_il),
       leading_line: PrintItems::new(context.arena),
-      trailing_line: gen_trailing_comments_same_line(&token.range(), context),
+      trailing_line,
     }
   } else {
     // do nothing
@@ -2859,6 +2862,21 @@ fn gen_cond_token_comments<'a>(token: &TokenAndSpan, context: &mut Context<'a>, 
       previous_lines: PrintItems::new(context.arena),
       leading_line: PrintItems::new(context.arena),
       trailing_line: PrintItems::new(context.arena),
+    }
+  };
+
+  fn gen_previous_lines<'a>(comments: impl Iterator<Item = &'a Comment>, context: &mut Context<'a>, top_most_il: Option<IndentLevel>) -> PrintItems<'a> {
+    let items = gen_comments_as_statements(comments, None, context);
+    if items.is_empty() {
+      items
+    } else {
+      let mut new_items = PrintItems::new(context.arena);
+      new_items.push_signal(Signal::NewLine);
+      match top_most_il {
+        Some(top_most_il) => new_items.push_condition(indent_if_sol_and_same_indent_as_top_most(items, top_most_il)),
+        None => new_items.extend(items),
+      }
+      new_items
     }
   }
 }
@@ -6620,8 +6638,10 @@ fn gen_conditional_type<'a>(node: &TsConditionalType<'a>, context: &mut Context<
   let question_token = context.token_finder.get_first_operator_after(&node.extends_type, "?").unwrap();
   let colon_token = context.token_finder.get_first_operator_after(&node.true_type, ":").unwrap();
   let (question_position, colon_position) = get_operator_position(node, question_token, colon_token, context);
-  let question_comment_items = gen_cond_token_comments(question_token, context, top_most_data.il);
-  let colon_comment_items = gen_cond_token_comments(colon_token, context, top_most_data.il);
+  // the false type keeps the indentation of a parent conditional type unless using nested indentation
+  let is_false_type_indented = use_new_lines_for_nested_conditional || !is_parent_conditional_type;
+  let question_comment_items = gen_cond_token_comments(question_token, context, Some(top_most_data.il));
+  let colon_comment_items = gen_cond_token_comments(colon_token, context, is_false_type_indented.then_some(top_most_data.il));
 
   // main area
   items.extend(ir_helpers::new_line_group(gen_node(node.check_type.into(), context)));
@@ -6721,7 +6741,7 @@ fn gen_conditional_type<'a>(node: &TsConditionalType<'a>, context: &mut Context<
   // type A<T> = T extends string ? 'string'
   //     : T extends number ? 'number'
   //     : T extends boolean ? 'boolean';
-  if !use_new_lines_for_nested_conditional && is_parent_conditional_type {
+  if !is_false_type_indented {
     items.extend(false_type_generated);
   } else {
     items.push_condition(conditions::indent_if_start_of_line(false_type_generated));

@@ -18,3 +18,61 @@ test ?
 test
     ? testingthis
     : testingthismoretesttest;
+
+== should keep comments after an operator at the end of a line ==
+a ?
+    // some comment
+    b :
+    // some other comment
+    c;
+a ?
+    /* some comment */
+    b :
+    /* some other comment */
+    c;
+a ? // same line
+    // next line
+    b : /* same line */
+    /* next line */
+    c;
+
+[expect]
+a ?
+    // some comment
+    b :
+    // some other comment
+    c;
+a ?
+    /* some comment */
+    b :
+    /* some other comment */
+    c;
+a ? // same line
+    // next line
+    b : /* same line */
+    /* next line */
+    c;
+
+== should keep comments before an operator on the next line ==
+a
+    // some comment
+    ? b
+    // some other comment
+    : c;
+a
+    /* some comment */
+    ? b
+    /* some other comment */
+    : c;
+
+[expect]
+a
+    // some comment
+    ? b
+    // some other comment
+    : c;
+a
+    /* some comment */
+    ? b
+    /* some other comment */
+    : c;
