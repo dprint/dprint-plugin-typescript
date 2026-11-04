@@ -14,6 +14,6 @@ if (somereallylongidentifier <= anotherreallylongidentifier) {
 [expect]
 if (
     somereallylongidentifier
-        <= anotherreallylongidentifier
+    <= anotherreallylongidentifier
 ) {
 }

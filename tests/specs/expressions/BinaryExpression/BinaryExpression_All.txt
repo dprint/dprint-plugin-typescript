@@ -249,6 +249,82 @@ if (
 ) {
 }
 
+== should format comparisons inline ==
+if (
+    tttttttttttt == ttttttttttt
+) {
+}
+if (
+    tttttttttttt != ttttttttttt
+) {
+}
+if (
+    tttttttttttt === ttttttttttt
+) {
+}
+if (
+    tttttttttttt !== ttttttttttt
+) {
+}
+if (
+    tttttttttttt < ttttttttttt
+) {
+}
+if (
+    tttttttttttt <= ttttttttttt
+) {
+}
+if (
+    tttttttttttt > ttttttttttt
+) {
+}
+if (
+    tttttttttttt >= ttttttttttt
+) {
+}
+
+[expect]
+if (
+    tttttttttttt
+    == ttttttttttt
+) {
+}
+if (
+    tttttttttttt
+    != ttttttttttt
+) {
+}
+if (
+    tttttttttttt
+    === ttttttttttt
+) {
+}
+if (
+    tttttttttttt
+    !== ttttttttttt
+) {
+}
+if (
+    tttttttttttt
+    < ttttttttttt
+) {
+}
+if (
+    tttttttttttt
+    <= ttttttttttt
+) {
+}
+if (
+    tttttttttttt
+    > ttttttttttt
+) {
+}
+if (
+    tttttttttttt
+    >= ttttttttttt
+) {
+}
+
 == should use a newline group for equality checks and not break them up so easily ==
 let a = test == test;
 let b = test === test;
