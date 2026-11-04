@@ -1,0 +1,67 @@
+-- file.tsx --
+~~ lineWidth: 80, indentWidth: 2 ~~
+== should keep the last argument on the call's line when it's an arrow function returning jsx in parens ==
+Array.from({ length: 1 }, (_, i) => <Component prop1={somePropFooBlah} prop2={`Some string here askdjalskdjalskdjlaskjd`} />);
+
+new Foo(someArgument, anotherArgument, (x) => <Component prop1={somePropFooBlah} />);
+
+foo?.(someArgument, anotherArgument, (x) => <Component prop1={somePropFooBlah} prop2={a} />);
+
+[expect]
+Array.from({ length: 1 }, (_, i) => (
+  <Component
+    prop1={somePropFooBlah}
+    prop2={`Some string here askdjalskdjalskdjlaskjd`}
+  />
+));
+
+new Foo(someArgument, anotherArgument, (x) => (
+  <Component prop1={somePropFooBlah} />
+));
+
+foo?.(someArgument, anotherArgument, (x) => (
+  <Component prop1={somePropFooBlah} prop2={a} />
+));
+
+== should keep the last argument on the call's line when it's an arrow function returning an object in parens ==
+promise.then(onSuccess, (err) => ({ message: err.message, code: err.code, other: somethingElse }));
+
+[expect]
+promise.then(onSuccess, (err) => ({
+  message: err.message,
+  code: err.code,
+  other: somethingElse,
+}));
+
+== should keep the arguments on separate lines when they are ==
+Array.from(
+    { length: 1 },
+    (_, i) => (
+        <Component
+            prop1={somePropFooBlah}
+            prop2={`Some string here askdjalskdjalskdjlaskjd`}
+            prop3={[1, 2, 3, 4]}
+        />
+    ),
+);
+
+[expect]
+Array.from(
+  { length: 1 },
+  (_, i) => (
+    <Component
+      prop1={somePropFooBlah}
+      prop2={`Some string here askdjalskdjalskdjlaskjd`}
+      prop3={[1, 2, 3, 4]}
+    />
+  ),
+);
+
+== should put the arguments on separate lines when the arrow function isn't the last ==
+const cb = useCallback((e) => <Component prop1={somePropFooBlah} prop2={`Some string here`} />, [deps, other]);
+
+[expect]
+const cb = useCallback(
+  (e) => <Component prop1={somePropFooBlah} prop2={`Some string here`} />,
+  [deps, other],
+);
