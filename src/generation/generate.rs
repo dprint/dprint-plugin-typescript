@@ -1840,6 +1840,10 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
   }
 
   fn gen_curried_arrow<'a>(node: CurriedArrowExpr<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
+    let assignment_end_ln = match context.assignment_curried_arrow_end_ln {
+      Some((start, end_ln)) if start == node.signatures[0].inner.start() => context.assignment_curried_arrow_end_ln.take().map(|_| end_ln),
+      _ => None,
+    };
     let mut last_header_start_lsil = None;
     let mut force_use_new_lines = false;
     let last_arrow = node.last_arrow();
@@ -1901,6 +1905,9 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
         },
       ));
       items.push_info(end_ln);
+    }
+    if let Some(assignment_end_ln) = assignment_end_ln {
+      items.push_info(assignment_end_ln);
     }
 
     let mut items = ir_helpers::new_line_group(items);
@@ -11683,6 +11690,11 @@ fn gen_assignment_like_with_token<'a>(
         context.assignment_paren_end_ln = Some((paren_start, end_ln));
         end_ln
       });
+      let curried_arrow_end_ln = get_curried_arrow_start(expr).map(|arrow_start| {
+        let end_ln = LineNumber::new("assignmentCurriedArrowEnd");
+        context.assignment_curried_arrow_end_ln = Some((arrow_start, end_ln));
+        end_ln
+      });
       let indent_width = context.config.indent_width as u32;
       let mut condition = if_true_or(
         "possibleNewLineIfAboveWidth",
@@ -11715,7 +11727,23 @@ fn gen_assignment_like_with_token<'a>(
       if paren_end_ln.is_some() {
         reevaluation = Some(condition.create_reevaluation());
       }
-      items.push_condition(condition);
+      if let Some(curried_arrow_end_ln) = curried_arrow_end_ln {
+        // keep the arrows of a multi-line curried arrow function indented on the lines after the operator
+        items.push_condition(if_true_or(
+          "newLineIfMultiLineCurriedArrow",
+          context
+            .arena
+            .alloc_resolver(move |condition_context| condition_helpers::is_multiple_lines(condition_context, start_ln, curried_arrow_end_ln)),
+          Signal::NewLine.into_print_items(context.arena),
+          {
+            let mut items = PrintItems::new(context.arena);
+            items.push_condition(condition);
+            items
+          },
+        ));
+      } else {
+        items.push_condition(condition);
+      }
       items.push_info(start_ln);
     }
     let assignment = gen_node(expr, context);
@@ -11748,6 +11776,13 @@ fn gen_assignment_like_with_token<'a>(
 
   fn get_use_new_line_group(expr: Node) -> bool {
     matches!(expr, Node::MemberExpr(_))
+  }
+
+  fn get_curried_arrow_start(expr: Node) -> Option<SourcePos> {
+    match expr {
+      Node::ArrowExpr(arrow) if matches!(arrow.body, ArrowFunctionBody::Expr(Expr::Arrow(_))) => Some(arrow.start()),
+      _ => None,
+    }
   }
 
   /// Gets the start of the parenthesized expression or type at the start of the right side when it has
