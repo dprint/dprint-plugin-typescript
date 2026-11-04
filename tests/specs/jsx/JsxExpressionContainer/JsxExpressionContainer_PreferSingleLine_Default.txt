@@ -1,0 +1,90 @@
+-- file.tsx --
+== should keep the braces beside the expression when there's a newline after the open brace ==
+const t = <div>
+    {
+        value
+    }
+</div>;
+const u = <div
+    render={
+        work(
+            nice,
+            to,
+            have
+        )
+    }
+/>;
+
+[expect]
+const t = (
+    <div>
+        {value}
+    </div>
+);
+const u = (
+    <div
+        render={work(
+            nice,
+            to,
+            have,
+        )}
+    />
+);
+
+== should keep the braces beside a conditional with jsx ==
+const t = <div>
+    {
+        isThisConditionOk
+            ? <p><strong>Yes</strong></p>
+            : <p><strong>No</strong></p>
+    }
+</div>;
+
+[expect]
+const t = (
+    <div>
+        {isThisConditionOk
+            ? (
+                <p>
+                    <strong>Yes</strong>
+                </p>
+            )
+            : (
+                <p>
+                    <strong>No</strong>
+                </p>
+            )}
+    </div>
+);
+
+== should not add blank lines around multi-line jsx after a comment ==
+const t = <div>{
+    // comment
+    <span>Yes<b>yes</b></span>
+}</div>;
+const u = <div attr={
+    // comment
+    <span>Yes<b>yes</b></span>
+} />;
+
+[expect]
+const t = (
+    <div>
+        {
+            // comment
+            <span>
+                Yes<b>yes</b>
+            </span>
+        }
+    </div>
+);
+const u = (
+    <div
+        attr={
+            // comment
+            <span>
+                Yes<b>yes</b>
+            </span>
+        }
+    />
+);

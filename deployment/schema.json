@@ -367,6 +367,30 @@
         "description": ""
       }]
     },
+    "preferSingleLineDefaultTrue": {
+      "description": "If code should revert back from being on multiple lines to being on a single line when able. Defaults to the global `preferSingleLine` value when it's set and otherwise `true`.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": ""
+      }, {
+        "const": false,
+        "description": ""
+      }]
+    },
+    "jsxExpressionContainer.preferSingleLine": {
+      "description": "Whether to keep a JSX expression container's braces beside its expression when there's a newline between the open brace and the expression. Only the newline after the open brace is checked, so when this is `false` the close brace goes on its own line even if it was beside the expression. Defaults to the global `preferSingleLine` value when it's set and otherwise `true`.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Keeps the braces beside the expression even when there's a newline after the open brace. Ex. `{value}`"
+      }, {
+        "const": false,
+        "description": "Puts the braces on their own lines with the expression indented between them when there's a newline after the open brace."
+      }]
+    },
     "forceSingleLine": {
       "description": "If code should be forced to be on a single line if able.",
       "type": "boolean",
@@ -1733,19 +1757,22 @@
       "$ref": "#/definitions/preferSingleLine"
     },
     "exportDeclaration.preferSingleLine": {
-      "$ref": "#/definitions/preferSingleLine"
+      "$ref": "#/definitions/preferSingleLineDefaultTrue"
     },
     "forStatement.preferSingleLine": {
       "$ref": "#/definitions/preferSingleLine"
     },
     "importDeclaration.preferSingleLine": {
-      "$ref": "#/definitions/preferSingleLine"
+      "$ref": "#/definitions/preferSingleLineDefaultTrue"
     },
     "jsxAttributes.preferSingleLine": {
       "$ref": "#/definitions/preferSingleLine"
     },
     "jsxElement.preferSingleLine": {
       "$ref": "#/definitions/preferSingleLine"
+    },
+    "jsxExpressionContainer.preferSingleLine": {
+      "$ref": "#/definitions/jsxExpressionContainer.preferSingleLine"
     },
     "mappedType.preferSingleLine": {
       "$ref": "#/definitions/preferSingleLine"

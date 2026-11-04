@@ -1,0 +1,69 @@
+-- file.tsx --
+~~ preferSingleLine: false, jsxExpressionContainer.preferSingleLine: true ~~
+== should keep the braces beside the expression when there's a newline after the open brace ==
+const t = <div>
+    {
+        value
+    }
+</div>;
+const u = <div
+    render={
+        work(
+            nice,
+            to,
+            have
+        )
+    }
+/>;
+const v = <div>
+    {
+        isThisConditionOk ? <p><strong>Yes</strong></p> : <p><strong>No</strong></p>
+    }
+</div>;
+
+[expect]
+const t = (
+    <div>
+        {value}
+    </div>
+);
+const u = (
+    <div
+        render={work(
+            nice,
+            to,
+            have,
+        )}
+    />
+);
+const v = (
+    <div>
+        {isThisConditionOk
+            ? (
+                <p>
+                    <strong>Yes</strong>
+                </p>
+            )
+            : (
+                <p>
+                    <strong>No</strong>
+                </p>
+            )}
+    </div>
+);
+
+== should still put the braces on their own lines for comments ==
+const t = <div>{
+    // comment
+    value
+}</div>;
+
+[expect]
+const t = (
+    <div>
+        {
+            // comment
+            value
+        }
+    </div>
+);

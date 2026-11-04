@@ -1,0 +1,71 @@
+-- file.tsx --
+~~ jsxExpressionContainer.preferSingleLine: false, jsx.multiLineParens: always ~~
+== should put the braces on their own lines around a conditional with jsx ==
+const t = <div>{
+    cond ? <span>Yes<b>yes</b></span> : <span>No<b>no</b></span>
+}</div>;
+const u = <div>{
+    cond && <span>Yes<b>yes</b></span>
+}</div>;
+
+[expect]
+const t = (
+    <div>
+        {
+            cond
+                ? (
+                    <span>
+                        Yes<b>yes</b>
+                    </span>
+                )
+                : (
+                    <span>
+                        No<b>no</b>
+                    </span>
+                )
+        }
+    </div>
+);
+const u = (
+    <div>
+        {
+            cond && (
+                <span>
+                    Yes<b>yes</b>
+                </span>
+            )
+        }
+    </div>
+);
+
+== should keep the parens beside the braces for jsx ==
+const t = <div>{
+    <span>Yes<b>yes</b></span>
+}</div>;
+const u = <div attr={
+    (<span>Yes<b>yes</b></span>)
+} />;
+const v = <div>{
+    <span>Yes</span>
+}</div>;
+
+[expect]
+const t = (
+    <div>
+        {(
+            <span>
+                Yes<b>yes</b>
+            </span>
+        )}
+    </div>
+);
+const u = (
+    <div
+        attr={(
+            <span>
+                Yes<b>yes</b>
+            </span>
+        )}
+    />
+);
+const v = <div>{<span>Yes</span>}</div>;

@@ -4594,7 +4594,13 @@ fn handle_jsx_surrounding_parens<'a>(inner_items: PrintItems<'a>, context: &mut 
     }
   }
 
-  if context.parent().is::<JSXExprContainer>() && context.config.jsx_multi_line_parens != JsxMultiLineParens::Always {
+  if let Some(container) = context.parent().to::<JSXExprContainer>()
+    && context.config.jsx_multi_line_parens != JsxMultiLineParens::Always
+  {
+    // the container already puts the jsx on its own lines
+    if should_surround_jsx_expr_container_expr_with_newlines(container, context) {
+      return inner_items;
+    }
     return surround_with_newlines_indented_if_multi_line(inner_items, context.config.indent_width);
   }
 
@@ -4648,7 +4654,11 @@ fn handle_jsx_surrounding_parens<'a>(inner_items: PrintItems<'a>, context: &mut 
       parent = parent.parent().unwrap();
     }
 
-    parent.is::<JSXExprContainer>()
+    match parent.to::<JSXExprContainer>() {
+      // the container already puts the jsx on its own lines
+      Some(container) => !should_surround_jsx_expr_container_expr_with_newlines(container, context),
+      None => false,
+    }
   }
 }
 
@@ -4800,7 +4810,7 @@ fn gen_jsx_expr_container<'a>(node: &JSXExprContainer<'a>, context: &mut Context
       gen_as_jsx_expr_container_with_new_lines(node.expr.range(), gen_inner, surround_with_new_lines, surround_with_space, context)
     }
     JSXExpr::Expr(expr) => {
-      let surround_with_new_lines = should_surround_jsx_expr_container_with_newlines(node.expr.range(), context.program);
+      let surround_with_new_lines = should_surround_jsx_expr_container_expr_with_newlines(node, context);
       // keep an object or array literal's brackets beside the braces (ex. `{{ value: true }}`)
       let surround_with_space =
         context.config.jsx_expression_container_space_surrounding_expression && !is_jsx_expr_container_object_or_array_literal(*expr, context);
@@ -4866,6 +4876,39 @@ fn should_surround_jsx_expr_container_with_newlines(expr: SourceRange, program: 
   }
 
   false
+}
+
+/// Gets if the braces of a container with an expression go on their own lines
+/// because of comments or a newline after the open brace that's maintained.
+fn should_surround_jsx_expr_container_expr_with_newlines<'a>(node: &JSXExprContainer<'a>, context: &Context<'a>) -> bool {
+  should_surround_jsx_expr_container_with_newlines(node.expr.range(), context.program)
+    || !context.config.jsx_expression_container_prefer_single_line
+      && has_new_line_after_jsx_expr_container_open_brace(node, context.program)
+      // the parens already put multi-line jsx on its own lines (ex. `{(` and `)}`)
+      && !is_jsx_surrounded_by_multi_line_parens(node, context)
+}
+
+/// Gets if the container's expression starts on a line after its open brace.
+fn has_new_line_after_jsx_expr_container_open_brace(node: &JSXExprContainer, program: Program) -> bool {
+  match node.expr {
+    JSXExpr::Expr(expr) => node.start_line_fast(program) != expr.start_line_fast(program),
+    JSXExpr::JSXEmptyExpr(_) => false,
+  }
+}
+
+/// Gets if the container's expression is jsx that `jsx.multiLineParens: always`
+/// surrounds with parens when it's on multiple lines.
+fn is_jsx_surrounded_by_multi_line_parens<'a>(node: &JSXExprContainer<'a>, context: &Context<'a>) -> bool {
+  if context.config.jsx_multi_line_parens != JsxMultiLineParens::Always {
+    return false;
+  }
+  let JSXExpr::Expr(mut expr) = node.expr else {
+    return false;
+  };
+  while let Expr::Paren(paren_expr) = expr {
+    expr = paren_expr.expr;
+  }
+  is_jsx_paren_expr_handled_node(expr.into(), context)
 }
 
 /// Gets if the expression will be generated as an object or array literal

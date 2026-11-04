@@ -304,6 +304,12 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     ),
     jsx_attributes_prefer_single_line: get_value(&mut config, "jsxAttributes.preferSingleLine", prefer_single_line, &mut diagnostics),
     jsx_element_prefer_single_line: get_value(&mut config, "jsxElement.preferSingleLine", prefer_single_line, &mut diagnostics),
+    jsx_expression_container_prefer_single_line: get_value(
+      &mut config,
+      "jsxExpressionContainer.preferSingleLine",
+      prefer_single_line_nullable.unwrap_or(true),
+      &mut diagnostics,
+    ),
     mapped_type_prefer_single_line: get_value(&mut config, "mappedType.preferSingleLine", prefer_single_line, &mut diagnostics),
     member_expression_prefer_single_line: get_value(&mut config, "memberExpression.preferSingleLine", prefer_single_line, &mut diagnostics),
     object_expression_prefer_single_line: get_value(&mut config, "objectExpression.preferSingleLine", prefer_single_line, &mut diagnostics),
@@ -823,6 +829,29 @@ mod tests {
     assert_eq!(result.config.indent_width, 8);
     assert_eq!(result.config.line_width, expected_config.line_width);
     assert_eq!(result.diagnostics.len(), 0);
+  }
+
+  #[test]
+  fn handle_jsx_expression_container_prefer_single_line() {
+    let resolve = |values: &[(&str, bool)]| {
+      let mut config = ConfigKeyMap::new();
+      for (key, value) in values {
+        config.insert(key.to_string(), ConfigKeyValue::from_bool(*value));
+      }
+      let result = resolve_config(config, &GlobalConfiguration::default());
+      assert_eq!(result.diagnostics.len(), 0);
+      result.config.jsx_expression_container_prefer_single_line
+    };
+
+    // defaults to true when the global value isn't set
+    assert!(resolve(&[]));
+    // falls back to the global value when it's set
+    assert!(!resolve(&[("preferSingleLine", false)]));
+    assert!(resolve(&[("preferSingleLine", true)]));
+    // the per-node value wins over the global value
+    assert!(resolve(&[("preferSingleLine", false), ("jsxExpressionContainer.preferSingleLine", true)]));
+    assert!(!resolve(&[("preferSingleLine", true), ("jsxExpressionContainer.preferSingleLine", false)]));
+    assert!(!resolve(&[("jsxExpressionContainer.preferSingleLine", false)]));
   }
 
   #[test]
