@@ -1151,6 +1151,7 @@ fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'
           block_padding,
           get_forced_blank_line_count: move |_, _, _| get_member_spacing_forced_blank_line_count(member_spacing),
           separator: Separator::none(),
+          keep_blank_lines_before_close_token_comments: true,
         },
         context,
       )
@@ -1249,6 +1250,7 @@ fn gen_enum_decl<'a>(node: &TsEnumDecl<'a>, context: &mut Context<'a>) -> PrintI
       block_padding: context.config.enum_declaration_block_padding,
       get_forced_blank_line_count: move |_, _, _| get_member_spacing_forced_blank_line_count(member_spacing),
       separator: context.config.enum_declaration_trailing_commas.into(),
+      keep_blank_lines_before_close_token_comments: ListBlankLines::from(member_spacing) != ListBlankLines::Remove,
     },
     context,
   ));
@@ -1673,6 +1675,7 @@ fn gen_module_or_namespace_decl<'a, 'b>(node: ModuleOrNamespaceDecl<'a, 'b>, con
               block_padding: context.config.module_declaration_block_padding,
               get_forced_blank_line_count: |_, _, _| None,
               separator: Separator::none(),
+              keep_blank_lines_before_close_token_comments: true,
             },
             context,
           ));
@@ -4215,6 +4218,7 @@ fn gen_interface_body<'a>(node: &TsInterfaceBody<'a>, context: &mut Context<'a>)
           block_padding: context.config.interface_declaration_block_padding,
           get_forced_blank_line_count: |_, _, context| get_member_spacing_forced_blank_line_count(context.config.interface_declaration_member_spacing),
           separator: context.config.semi_colons.into(),
+          keep_blank_lines_before_close_token_comments: true,
         },
         context,
       )
@@ -5527,6 +5531,7 @@ fn gen_block_stmt<'a>(node: &BlockStmt<'a>, context: &mut Context<'a>) -> PrintI
       range: Some(node.range()),
       children: node.stmts.iter().map(|x| x.into()).collect(),
       block_padding: get_block_stmt_block_padding(node, context),
+      keep_blank_lines_before_close_token_comments: true,
     },
     context,
   )
@@ -5549,6 +5554,7 @@ fn gen_function_body<'a>(node: &FunctionBody<'a>, context: &mut Context<'a>) -> 
       range: Some(node.range()),
       children: node.stmts.iter().map(|x| x.into()).collect(),
       block_padding: get_function_body_block_padding(node, context),
+      keep_blank_lines_before_close_token_comments: true,
     },
     context,
   )
@@ -6273,6 +6279,7 @@ fn gen_switch_stmt<'a>(node: &SwitchStmt<'a>, context: &mut Context<'a>) -> Prin
         ))
       },
       separator: Separator::none(),
+      keep_blank_lines_before_close_token_comments: true,
     },
     context,
   ));
@@ -7082,6 +7089,7 @@ fn gen_ts_import_call_options<'a>(node: &TsImportCallOptions<'a>, context: &mut 
       allow_open_token_trailing_comments: true,
       single_line_space_around: false,
       comments_only_padding: BlockPaddingBlankLines::default(),
+      keep_blank_lines_before_close_token_comments: false,
     },
     context,
   )
@@ -7244,6 +7252,7 @@ fn gen_mapped_type<'a>(node: &TsMappedType<'a>, context: &mut Context<'a>) -> Pr
       allow_open_token_trailing_comments: true,
       single_line_space_around: false,
       comments_only_padding: BlockPaddingBlankLines::default(),
+      keep_blank_lines_before_close_token_comments: false,
     },
     context,
   ));
@@ -8550,6 +8559,7 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
       allow_open_token_trailing_comments: true,
       single_line_space_around: false,
       comments_only_padding: BlockPaddingBlankLines::default(),
+      keep_blank_lines_before_close_token_comments: true,
     },
     context,
   ));
@@ -8594,6 +8604,8 @@ where
   /// Gets the number of blank lines to force between two members, or `None` to maintain them.
   get_forced_blank_line_count: FGetForcedBlankLineCount,
   separator: Separator,
+  /// Whether to keep the blank lines before the comments after the last member's separator.
+  keep_blank_lines_before_close_token_comments: bool,
 }
 
 fn gen_membered_body<'a, FGetForcedBlankLineCount>(opts: GenMemberedBodyOptions<'a, FGetForcedBlankLineCount>, context: &mut Context<'a>) -> PrintItems<'a>
@@ -8647,6 +8659,7 @@ where
       range: Some(SourceRange::new(open_brace_token.start(), close_brace_token.end())),
       children: opts.members,
       block_padding: opts.block_padding,
+      keep_blank_lines_before_close_token_comments: opts.keep_blank_lines_before_close_token_comments,
     },
     context,
   ));
@@ -9573,6 +9586,8 @@ where
       allow_open_token_trailing_comments: true,
       single_line_space_around: false,
       comments_only_padding: BlockPaddingBlankLines::default(),
+      // the blank lines between the values are removed
+      keep_blank_lines_before_close_token_comments: false,
     },
     context,
   );
@@ -10193,6 +10208,7 @@ fn gen_node_in_parens<'a>(
       allow_open_token_trailing_comments: opts.allow_open_paren_trailing_comments,
       single_line_space_around: opts.single_line_space_around,
       comments_only_padding: BlockPaddingBlankLines::default(),
+      keep_blank_lines_before_close_token_comments: false,
     },
     context,
   );
@@ -10299,6 +10315,7 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
     opts.force_multi_line || !opts.force_single_line && get_use_new_lines_for_nodes_with_preceeding_token("{", &opts.members, opts.prefer_single_line, context);
 
   let first_member_range = opts.members.first().map(|x| x.range());
+  let keep_blank_lines_before_close_token_comments = opts.blank_lines != ListBlankLines::Remove;
   let obj_range = if let (Some(open_brace_token), Some(close_brace_token)) = (open_brace_token, close_brace_token) {
     Some(SourceRange::new(open_brace_token.start(), close_brace_token.end()))
   } else {
@@ -10340,6 +10357,7 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
       allow_open_token_trailing_comments: true,
       single_line_space_around: false,
       comments_only_padding: BlockPaddingBlankLines::default(),
+      keep_blank_lines_before_close_token_comments,
     },
     context,
   ));
@@ -10534,6 +10552,7 @@ fn gen_computed_prop_like<'a>(
       allow_open_token_trailing_comments: true,
       single_line_space_around: false,
       comments_only_padding: BlockPaddingBlankLines::default(),
+      keep_blank_lines_before_close_token_comments: false,
     },
     context,
   ));
@@ -11823,6 +11842,7 @@ struct GenBlockOptions<'a> {
   range: Option<SourceRange>,
   children: Vec<Node<'a>>,
   block_padding: BlockPadding,
+  keep_blank_lines_before_close_token_comments: bool,
 }
 
 fn gen_block<'a>(
@@ -11895,6 +11915,7 @@ fn gen_block<'a>(
       allow_open_token_trailing_comments: true,
       single_line_space_around: false,
       comments_only_padding: padding,
+      keep_blank_lines_before_close_token_comments: opts.keep_blank_lines_before_close_token_comments,
     },
     context,
   ));
@@ -11912,6 +11933,9 @@ struct GenSurroundedByTokensOptions {
   single_line_space_around: bool,
   /// The blank lines to keep around the comments when there are only comments between the tokens.
   comments_only_padding: BlockPaddingBlankLines,
+  /// Whether to keep the blank lines before the comments on their own lines before the close
+  /// token, which is for the lists (ex. the comments after the last value's comma).
+  keep_blank_lines_before_close_token_comments: bool,
 }
 
 fn gen_surrounded_by_tokens<'a>(
@@ -11958,6 +11982,9 @@ fn gen_surrounded_by_tokens<'a>(
       let before_trailing_comments_lc = LineAndColumn::new("beforeTrailingComments");
       items.push_line_and_column(before_trailing_comments_lc);
       items.extend(with_indent(gen_trailing_comments_as_statements(&open_token_end.range(), context)));
+      if opts.keep_blank_lines_before_close_token_comments {
+        items.extend(gen_blank_lines_before_close_token_comments(close_token_start, context));
+      }
       items.extend(with_indent(gen_comments_as_statements(
         close_token_start.leading_comments_fast(context.program),
         None,
@@ -12075,6 +12102,37 @@ fn gen_surrounded_by_tokens<'a>(
           items.push_signal(Signal::FinishForceNoNewLines);
         }
       }
+    }
+    items
+  }
+
+  /// Generates the blank lines to keep before the comments on their own lines before the close
+  /// token (ex. `// c` in `{\n  a,\n\n  // c\n}`), the same as after the last member of a block.
+  fn gen_blank_lines_before_close_token_comments<'a>(close_token_start: SourcePos, context: &mut Context<'a>) -> PrintItems<'a> {
+    let program = context.program;
+    let mut items = PrintItems::new(context.arena);
+    let first_comment = close_token_start.leading_comments_fast(program).find(|c| !context.has_handled_comment(c));
+    let (Some(first_comment), Some(previous_token)) = (first_comment, close_token_start.range().previous_token_fast(program)) else {
+      return items;
+    };
+    // the comments before the first comment were already generated after the previous token
+    let previous_end_line = previous_token
+      .end()
+      .trailing_comments_fast(program)
+      .chain(close_token_start.leading_comments_fast(program))
+      .filter(|c| c.end() <= first_comment.start())
+      .map(|c| c.end_line_fast(program))
+      .fold(previous_token.end_line_fast(program), usize::max);
+    let blank_line_count = cap_blank_line_count(first_comment.start_line_fast(program).saturating_sub(previous_end_line + 1), context);
+    if blank_line_count > 0 {
+      let mut blank_lines = PrintItems::new(context.arena);
+      push_blank_lines(&mut blank_lines, blank_line_count);
+      // only when multi-line, since the comments are otherwise on the line of the last member
+      items.push_condition(if_true(
+        "blankLinesBeforeCloseTokenComments",
+        condition_resolvers::is_start_of_line(),
+        blank_lines,
+      ));
     }
     items
   }

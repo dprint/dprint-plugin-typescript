@@ -54,3 +54,113 @@ const obj = {
 
     // 1
 };
+
+== should keep a blank line before a trailing comment (#761) ==
+const obj = {
+    // leading comment
+
+    a: 1,
+
+    // interior comment
+
+    b: 2,
+
+    // trailing comment
+};
+
+[expect]
+const obj = {
+    // leading comment
+
+    a: 1,
+
+    // interior comment
+
+    b: 2,
+
+    // trailing comment
+};
+
+== should keep a blank line before a trailing comment when the last member has no comma ==
+const obj = {
+    a: 1
+
+    // trailing comment
+};
+
+[expect]
+const obj = {
+    a: 1,
+
+    // trailing comment
+};
+
+== should keep a blank line before a trailing comment after a comment on the same line ==
+const obj = {
+    a: 1, // 1
+
+    // 2
+};
+
+[expect]
+const obj = {
+    a: 1, // 1
+
+    // 2
+};
+
+== should limit the blank lines before a trailing comment to maxBlankLines ==
+const obj = {
+    a: 1,
+
+
+
+    // 1
+
+
+    // 2
+};
+
+[expect]
+const obj = {
+    a: 1,
+
+    // 1
+
+    // 2
+};
+
+== should not add a blank line before a trailing comment ==
+const obj = {
+    a: 1,
+    // 1
+};
+
+[expect]
+const obj = {
+    a: 1,
+    // 1
+};
+
+== should keep a blank line before a trailing block comment ==
+const obj = {
+    a: 1,
+
+    /* 1 */
+};
+const obj2 = {
+    a: 1,
+
+    /* 2 */ };
+
+[expect]
+const obj = {
+    a: 1,
+
+    /* 1 */
+};
+const obj2 = {
+    a: 1,
+
+    /* 2 */
+};

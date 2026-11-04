@@ -49,3 +49,52 @@ call(v => v, // 2
 call(v => v /* 1 */);
 call(v => v // 2
 );
+
+== should remove the blank lines before a trailing comment like between the arguments ==
+call(
+    a,
+    b,
+
+    // 1
+);
+call(
+    a,
+    b,
+
+
+
+    /* 2 */
+);
+call(
+    a,
+    b,
+    // 3
+);
+function test(
+    a,
+    b,
+
+    // 4
+) {}
+
+[expect]
+call(
+    a,
+    b,
+    // 1
+);
+call(
+    a,
+    b,
+    /* 2 */
+);
+call(
+    a,
+    b,
+    // 3
+);
+function test(
+    a,
+    b,
+    // 4
+) {}
