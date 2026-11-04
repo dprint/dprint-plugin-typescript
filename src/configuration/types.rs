@@ -861,6 +861,8 @@ pub struct Configuration {
   /* use space separator */
   #[serde(rename = "binaryExpression.spaceSurroundingBitwiseAndArithmeticOperator")]
   pub binary_expression_space_surrounding_bitwise_and_arithmetic_operator: bool,
+  #[serde(rename = "catchClause.spaceAfterCatchKeyword")]
+  pub catch_clause_space_after_catch_keyword: bool,
   #[serde(rename = "commentLine.forceSpaceAfterSlashes")]
   pub comment_line_force_space_after_slashes: bool,
   #[serde(rename = "constructSignature.spaceAfterNewKeyword")]

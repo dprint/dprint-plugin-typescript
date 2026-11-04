@@ -653,6 +653,18 @@
         "description": "Ex. `1+2`"
       }]
     },
+    "catchClause.spaceAfterCatchKeyword": {
+      "description": "Whether to add a space after the `catch` keyword in a catch clause.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `catch (err)`"
+      }, {
+        "const": false,
+        "description": "Ex. `catch(err)`"
+      }]
+    },
     "commentLine.forceSpaceAfterSlashes": {
       "description": "Forces a space after the double slash in a comment line.",
       "type": "boolean",
@@ -1176,6 +1188,9 @@
     },
     "binaryExpression.spaceSurroundingBitwiseAndArithmeticOperator": {
       "$ref": "#/definitions/binaryExpression.spaceSurroundingBitwiseAndArithmeticOperator"
+    },
+    "catchClause.spaceAfterCatchKeyword": {
+      "$ref": "#/definitions/catchClause.spaceAfterCatchKeyword"
     },
     "commentLine.forceSpaceAfterSlashes": {
       "$ref": "#/definitions/commentLine.forceSpaceAfterSlashes"

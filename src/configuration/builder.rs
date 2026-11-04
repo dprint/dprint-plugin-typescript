@@ -297,6 +297,14 @@ impl ConfigurationBuilder {
     self.insert("binaryExpression.spaceSurroundingBitwiseAndArithmeticOperator", value.into())
   }
 
+  /// Whether to add a space after the `catch` keyword in a catch clause.
+  ///
+  /// * `true` (default) - Ex. `catch (err)`
+  /// * `false` - Ex. `catch(err)`
+  pub fn catch_clause_space_after_catch_keyword(&mut self, value: bool) -> &mut Self {
+    self.insert("catchClause.spaceAfterCatchKeyword", value.into())
+  }
+
   /// Forces a space after the double slash in a comment line.
   ///
   /// `true` (default) - Ex. `//test` -> `// test`
@@ -1605,6 +1613,7 @@ mod tests {
       .import_declaration_force_multi_line(ForceMultiLine::Always)
       /* space settings */
       .binary_expression_space_surrounding_bitwise_and_arithmetic_operator(true)
+      .catch_clause_space_after_catch_keyword(true)
       .comment_line_force_space_after_slashes(false)
       .construct_signature_space_after_new_keyword(true)
       .constructor_space_before_parentheses(true)
@@ -1653,7 +1662,7 @@ mod tests {
       .with_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 227);
+    assert_eq!(inner_config.len(), 228);
     let diagnostics = resolve_config(inner_config, &Default::default()).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }
