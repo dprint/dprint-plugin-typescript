@@ -1,3 +1,19 @@
+== should not format the holding statement for a selection ending in the indentation of a closing bracket line ==
+class   A   {
+    m(  )  {
+[|        a(  );
+        b(  );
+    |]}
+}
+
+[expect]
+class   A   {
+    m(  )  {
+[|        a();
+        b();|]
+    }
+}
+
 == should format the holding statement for a cursor after the opening bracket of a class ==
 const  z  =  1;
 class   A   {[||]

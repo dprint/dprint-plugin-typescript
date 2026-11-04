@@ -611,3 +611,21 @@ namespace   N   {
     }
     const  b  =  2;
 }
+
+== should format a with statement in a namespace ==
+namespace   N   {
+    const  a  =  1;
+    [|with   (  obj  )   {
+        call( a );
+    }|]
+    const  b  =  2;
+}
+
+[expect]
+namespace   N   {
+    const  a  =  1;
+[|    with (obj) {
+        call(a);|]
+    }
+    const  b  =  2;
+}

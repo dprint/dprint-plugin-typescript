@@ -27,6 +27,9 @@ use super::parsing::ParseOptions;
 use super::parsing::parse_program;
 use super::utils::file_text_has_ignore_comment;
 
+/// Start of the parsed text, which the byte indexes into it are relative to.
+const START: StartSourcePos = StartSourcePos::START_SOURCE_POS;
+
 /// Formats only the part of the text within the provided byte range.
 ///
 /// The range is in bytes of the text, including any byte order mark. It's widened to the lines of
@@ -37,7 +40,8 @@ use super::utils::file_text_has_ignore_comment;
 /// formatting the whole file gives, so when they don't fit in with the text around them (ex. the
 /// container is formatted on a single line or gets indented differently, or the file would format
 /// differently with them in place), the member holding the container is formatted instead, and so
-/// on out to the whole file.
+/// on out to the whole file, which is also what happens once a few of those don't fit since each
+/// try formats the whole file again.
 ///
 /// Import declarations are only sorted or grouped when the range touches all of the module's ones
 /// that formatting would sort, since sorting some of them moves declarations outside of the range,
@@ -138,27 +142,12 @@ pub fn format_text_range(options: FormatTextOptions, range: Range<usize>) -> Res
     let Some(formatted_placement) = formatted_placement else {
       continue;
     };
-    // the lines would be indented differently than the ones around them when formatting moves the
-    // container's own lines (ex. it gets wrapped in parentheses)
-    let line_moves =
-      |original: usize, formatted_index: usize| line_indent(&body, original, indent_width) != line_indent(&formatted, formatted_index, indent_width);
-    let container_moves = !level.path.is_empty()
-      && (line_moves(level.original.container.start, formatted_placement.container.start)
-        // a switch case doesn't have a closing token, so its end is on its last member's lines
-        || level.kind != NodeKind::SwitchCase && line_moves(level.original.container.end - 1, formatted_placement.container.end - 1));
-    if container_moves {
+    if level.container_moves(&body, &formatted, &formatted_placement, indent_width) {
       continue;
     }
-    let (Some(original_lines), Some(formatted_lines)) = (Lines::new(&body, &level.original), Lines::new(&formatted, &formatted_placement)) else {
+    let Some(result) = replace_lines(&body, &level.original, &formatted, &formatted_placement) else {
       continue;
     };
-    let replacement = formatted_lines.replacement_for(&original_lines, &formatted);
-    let result = format!(
-      "{}{}{}",
-      &body[..original_lines.range.start],
-      with_file_new_lines(&replacement, &body),
-      &body[original_lines.range.end..]
-    );
     if result == *body {
       return Ok(None);
     }
@@ -190,7 +179,7 @@ fn touches_all_sorted_declarations(program: Program, range: &Range<usize>, confi
   let (mut imports, mut exports) = (true, true);
   for item in module.body {
     let node = Node::from(item);
-    let touched = || touches(&node.range().as_byte_range(StartSourcePos::START_SOURCE_POS), range);
+    let touched = || touches(&node.range().as_byte_range(START), range);
     match get_stmt_group_kind(node, program, config) {
       StmtGroupKind::Imports => imports &= touched(),
       StmtGroupKind::Exports => exports &= touched(),
@@ -239,6 +228,20 @@ struct Level {
   original: Placement,
 }
 
+impl Level {
+  /// Gets whether formatting moves the container's own lines (ex. wraps it in parentheses), which
+  /// would leave the formatted lines indented differently than the ones around them.
+  fn container_moves(&self, text: &str, formatted_text: &str, formatted: &Placement, indent_width: usize) -> bool {
+    let line_moves =
+      |index: usize, formatted_index: usize| line_indent(text, index, indent_width) != line_indent(formatted_text, formatted_index, indent_width);
+    let container = &self.original.container;
+    !self.path.is_empty()
+      && (line_moves(container.start, formatted.container.start)
+        // a switch case doesn't have a closing token, so its end is on its last member's lines
+        || self.kind != NodeKind::SwitchCase && line_moves(container.end - 1, formatted.container.end - 1))
+  }
+}
+
 /// A step from a node to one of its members or children, along with the kind of node it goes to.
 #[derive(Clone, Copy)]
 enum Step {
@@ -270,9 +273,13 @@ struct Placement {
   /// End of the last member before its semicolon when that's on a later line (ex. the one before
   /// `[1]` in `foo()\n;[1].forEach()`), where it goes with what comes after.
   end_before_semicolon: usize,
-  /// Index of the semicolon ending the member before when it's on the first line of the members or
-  /// on a later line before the first member (ex. the one before `[1]` in `foo()\n;[1].forEach()`).
+  /// Index of the semicolon right before the first member when it's on the first line of the
+  /// members or a later one (ex. the one before `[1]` in `foo()\n;[1].forEach()`), which ends the
+  /// member before or is an empty statement.
   previous_semicolon: Option<usize>,
+  /// Whether the previous semicolon ends the member before, which means removing it would join the
+  /// members (ex. `foo()\n[1].forEach()`).
+  previous_semicolon_ends_member: bool,
   /// Byte range of the node holding the members.
   container: Range<usize>,
 }
@@ -287,7 +294,7 @@ struct Member<'a> {
 }
 
 /// Finds each level from the program to the innermost one containing the range, or `None` when
-/// the range only touches the lines between members.
+/// the range only touches the lines between members or the program doesn't have any.
 fn find_levels(program: Program, text: &str, range: &Range<usize>, config: &Configuration) -> Option<Vec<Level>> {
   let mut levels = Vec::new();
   let mut path = Vec::new();
@@ -315,7 +322,7 @@ fn find_levels(program: Program, text: &str, range: &Range<usize>, config: &Conf
     {
       LeadingComments::Attached
     } else {
-      closest_leading_comments(text, &comments_before(program, text, first_member), first_member, range)?
+      closest_leading_comments(text, &comments_before(program, text, first_member), first_member, range)
     };
     let last_member = &members[*to_format.end()];
     let trailing_comments = comments_after(program, text, last_member)
@@ -335,30 +342,11 @@ fn find_levels(program: Program, text: &str, range: &Range<usize>, config: &Conf
       return Some(levels);
     }
     let member = members[first].node;
-    path.push(Step::Member(first, member.kind()));
-    match find_container(program, member, range, &mut path) {
+    path.push(Step::Member(first, comparable_kind(member)));
+    match find_container(program, text, member, range, &mut path) {
       Some(inner) => container = inner,
       None => return Some(levels),
     }
-  }
-}
-
-/// Gets the members beside the range on its line when it only touches the space or comments next
-/// to them (ex. the cursor in `a();  |  b();` or `{  |  a: 1 }`), since that's formatted along with
-/// them.
-fn members_beside_on_line(program: Program, text: &str, members: &[Member], range: &Range<usize>) -> Option<(usize, usize)> {
-  if has_line_break(text, range.start, range.end) {
-    return None;
-  }
-  // no member is touched, so the one before the first after the range ends before the range
-  let next = members.iter().position(|member| member.range.start >= range.end);
-  let previous = next.unwrap_or(members.len()).checked_sub(1);
-  let previous = previous.filter(|index| !has_line_break(text, end_before_next_line_semicolon(program, text, &members[*index].range), range.start));
-  let next = next.filter(|index| !has_line_break(text, range.end, members[*index].range.start));
-  match (previous, next) {
-    (Some(previous), Some(next)) => Some((previous, next)),
-    (Some(index), None) | (None, Some(index)) => Some((index, index)),
-    (None, None) => None,
   }
 }
 
@@ -374,17 +362,39 @@ fn touches(member: &Range<usize>, range: &Range<usize>) -> bool {
 
 /// Gets whether the range reaches from before the members onto the line of the container's
 /// opening bracket, or the colon of a switch case, or from after them onto the line of the closing
-/// bracket. A non-empty range ending at the start of the closing bracket's line doesn't count
-/// since that's where selecting the lines before it ends.
+/// bracket, which a switch case doesn't have. A non-empty range ending in the indentation of the
+/// closing bracket's line doesn't count since that's where selecting the lines before it ends.
 fn reaches_bracket_line(program: Program, text: &str, container: Node, members: &[Member], range: &Range<usize>) -> bool {
-  let Some(inner) = inner_range(program, container, members) else {
+  let Some(inner) = inner_range(program, text, container, members) else {
     return false;
   };
   let first_start = members[0].start_with_empty_statements;
   let last_end = members[members.len() - 1].range.end;
   let reaches_open = range.start < first_start && !has_line_break(text, inner.start, range.start);
-  let reaches_close = range.end > last_end && (range.is_empty() || range.end > line_start(text, inner.end)) && !has_line_break(text, range.end, inner.end);
+  let reaches_close = !matches!(container, Node::SwitchCase(_))
+    && range.end > last_end
+    && (range.is_empty() || range.end > indentation_end(text, inner.end))
+    && !has_line_break(text, range.end, inner.end);
   reaches_open || reaches_close
+}
+
+/// Gets the members beside the range on its line when it only touches the space or comments
+/// between them (ex. the cursor in `a();  |  b();`) or next to one at the start or end of its line,
+/// since that's formatted along with them.
+fn members_beside_on_line(program: Program, text: &str, members: &[Member], range: &Range<usize>) -> Option<(usize, usize)> {
+  if has_line_break(text, range.start, range.end) {
+    return None;
+  }
+  // no member is touched, so the one before the first after the range ends before the range
+  let next = members.iter().position(|member| member.range.start >= range.end);
+  let previous = next.unwrap_or(members.len()).checked_sub(1);
+  let previous = previous.filter(|index| !has_line_break(text, end_before_next_line_semicolon(program, text, &members[*index].range), range.start));
+  let next = next.filter(|index| !has_line_break(text, range.end, members[*index].range.start));
+  match (previous, next) {
+    (Some(previous), Some(next)) => Some((previous, next)),
+    (Some(index), None) | (None, Some(index)) => Some((index, index)),
+    (None, None) => None,
+  }
 }
 
 /// Widens the touched members to the members on the same lines as them (ex. `b()` in `a(); b();`),
@@ -407,10 +417,13 @@ fn on_same_line(program: Program, text: &str, first: &Member, second: &Member) -
 
 /// Gets how many of the comments before the member to format along with it, which are the ones
 /// the range touches along with any needed for the lines to start at a comment or the member.
-fn closest_leading_comments(text: &str, comments: &[Range<usize>], member: &Member, range: &Range<usize>) -> Option<LeadingComments> {
+fn closest_leading_comments(text: &str, comments: &[Range<usize>], member: &Member, range: &Range<usize>) -> LeadingComments {
   let mut count = comments.iter().filter(|comment| comment.end > range.start).count();
   while count < comments.len() {
-    let start = comments_start(text, comments, LeadingComments::Closest(count), member)?;
+    let start = match count {
+      0 => member.range.start,
+      count => comments[comments.len() - count].start,
+    };
     // a comment before the start on its line can't be left out (ex. the one in `/* a */ ;b()`)
     let has_comment_on_line = comments[comments.len() - count - 1].end > line_start(text, start);
     if starts_line(text, start) && !has_comment_on_line {
@@ -418,7 +431,7 @@ fn closest_leading_comments(text: &str, comments: &[Range<usize>], member: &Memb
     }
     count += 1;
   }
-  Some(LeadingComments::Closest(count))
+  LeadingComments::Closest(count)
 }
 
 /// Gets the kind of a member to compare with the one in the formatted program, which is the same
@@ -435,19 +448,19 @@ fn comparable_kind(node: Node) -> NodeKind {
 
 /// Finds the outermost node in the node, including itself, whose members are what's around the
 /// range, adding the steps to it to the path.
-fn find_container<'a>(program: Program<'a>, node: Node<'a>, range: &Range<usize>, path: &mut Vec<Step>) -> Option<Node<'a>> {
+fn find_container<'a>(program: Program<'a>, text: &str, node: Node<'a>, range: &Range<usize>, path: &mut Vec<Step>) -> Option<Node<'a>> {
   if let Some(members) = members(node)
-    && let Some(inner) = inner_range(program, node, &members)
+    && let Some(inner) = inner_range(program, text, node, &members)
     && inner.start <= range.start
     && range.end <= inner.end
   {
     return Some(node);
   }
   for (index, child) in child_nodes(node).into_iter().enumerate() {
-    let child_range = child.range().as_byte_range(StartSourcePos::START_SOURCE_POS);
+    let child_range = child.range().as_byte_range(START);
     if child_range.start <= range.start && range.end <= child_range.end {
       path.push(Step::Child(index, child.kind()));
-      if let Some(container) = find_container(program, child, range, path) {
+      if let Some(container) = find_container(program, text, child, range, path) {
         return Some(container);
       }
       path.pop();
@@ -460,11 +473,17 @@ fn find_container<'a>(program: Program<'a>, node: Node<'a>, range: &Range<usize>
 fn find_formatted_placement(program: Program, text: &str, level: &Level) -> Option<Placement> {
   let mut node = Node::from(program);
   for step in &level.path {
-    let (next, kind) = match *step {
-      Step::Member(index, kind) => (members(node)?.get(index)?.node, kind),
-      Step::Child(index, kind) => (*child_nodes(node).get(index)?, kind),
+    let (next, next_kind, kind) = match *step {
+      Step::Member(index, kind) => {
+        let next = members(node)?.get(index)?.node;
+        (next, comparable_kind(next), kind)
+      }
+      Step::Child(index, kind) => {
+        let next = *child_nodes(node).get(index)?;
+        (next, next.kind(), kind)
+      }
     };
-    if next.kind() != kind {
+    if next_kind != kind {
       return None;
     }
     node = next;
@@ -494,18 +513,23 @@ fn placement(
     0 => last.range.end,
     count => comments_after(program, text, last).get(count - 1)?.end,
   };
-  let previous_semicolon = to_format
-    .start()
-    .checked_sub(1)
-    .map(|index| members[index].range.end - 1)
+  let previous_semicolon = program
+    .token_container()
+    .get_previous_token(START + first.range.start)
+    .map(|token| token.start().as_byte_index(START))
     .filter(|index| text.as_bytes()[*index] == b';' && *index >= line_start(text, start));
+  let previous_semicolon_ends_member = previous_semicolon.is_some_and(|index| {
+    let previous_member = to_format.start().checked_sub(1).map(|previous| &members[previous]);
+    previous_member.is_some_and(|member| member.range.end == index + 1)
+  });
   Some(Placement {
     members: start..end,
     first_member_start: first.range.start,
     last_member_end: last.range.end,
     end_before_semicolon: end_before_next_line_semicolon(program, text, &last.range),
     previous_semicolon,
-    container: container.range().as_byte_range(StartSourcePos::START_SOURCE_POS),
+    previous_semicolon_ends_member,
+    container: container.range().as_byte_range(START),
   })
 }
 
@@ -553,7 +577,7 @@ fn members(node: Node) -> Option<Vec<Member>> {
   let mut members: Vec<Member> = Vec::with_capacity(nodes.len());
   let mut empty_statements_start = None;
   for node in nodes {
-    let range = get_stmt_range_with_decorators(node).as_byte_range(StartSourcePos::START_SOURCE_POS);
+    let range = get_stmt_range_with_decorators(node).as_byte_range(START);
     if node.kind() == NodeKind::EmptyStmt {
       empty_statements_start = empty_statements_start.or(Some(range.start));
     } else {
@@ -567,17 +591,27 @@ fn members(node: Node) -> Option<Vec<Member>> {
   (!members.is_empty()).then_some(members)
 }
 
-/// Gets the byte range between the brackets of a node with members, or after the colon of a
-/// switch case.
-fn inner_range(program: Program, node: Node, members: &[Member]) -> Option<Range<usize>> {
-  let open = program
-    .token_container()
-    .get_previous_token(StartSourcePos::START_SOURCE_POS + members[0].start_with_empty_statements)?;
+/// Gets the byte range between the brackets of a node with members, or from after the colon of a
+/// switch case to the start of the line after it, which is where selecting its lines ends.
+fn inner_range(program: Program, text: &str, node: Node, members: &[Member]) -> Option<Range<usize>> {
+  let open = program.token_container().get_previous_token(START + members[0].start_with_empty_statements)?;
+  let start = open.end().as_byte_index(START);
+  let end = node.end().as_byte_index(START);
   let end = match node {
-    Node::SwitchCase(_) => node.end(),
-    _ => node.end() - 1,
+    Node::SwitchCase(_) => {
+      let next_line_start = text.as_bytes()[end..]
+        .iter()
+        .position(|byte| *byte == b'\n')
+        .map_or(text.len(), |offset| end + offset + 1);
+      let next_token_start = program
+        .token_container()
+        .get_next_token(node.end())
+        .map_or(text.len(), |token| token.start().as_byte_index(START));
+      next_line_start.min(next_token_start)
+    }
+    _ => end - 1,
   };
-  Some(open.end().as_byte_index(StartSourcePos::START_SOURCE_POS)..end.as_byte_index(StartSourcePos::START_SOURCE_POS))
+  Some(start..end)
 }
 
 /// Gets the children of a node, skipping what formatting adds and removes: parentheses (ex. around
@@ -600,15 +634,12 @@ fn comments_before(program: Program, text: &str, member: &Member) -> Vec<Range<u
   let comment_container = program.comment_container();
   let comments_at = |index: usize| {
     comment_container
-      .leading_comments(StartSourcePos::START_SOURCE_POS + index)
-      .map(|comment| comment.range().as_byte_range(StartSourcePos::START_SOURCE_POS))
+      .leading_comments(START + index)
+      .map(|comment| comment.range().as_byte_range(START))
   };
   let mut comments = Vec::new();
-  if let Some(previous) = program
-    .token_container()
-    .get_previous_token(StartSourcePos::START_SOURCE_POS + member.range.start)
-  {
-    let previous = previous.range().as_byte_range(StartSourcePos::START_SOURCE_POS);
+  if let Some(previous) = program.token_container().get_previous_token(START + member.range.start) {
+    let previous = previous.range().as_byte_range(START);
     if &text[previous.clone()] == ";" && previous.start >= line_start(text, member.range.start) {
       comments.extend(comments_at(previous.start));
     }
@@ -630,8 +661,8 @@ fn comments_after(program: Program, text: &str, member: &Member) -> Vec<Range<us
   } else {
     let separator_end = program
       .token_container()
-      .get_next_token(StartSourcePos::START_SOURCE_POS + member.range.end)
-      .map(|token| token.range().as_byte_range(StartSourcePos::START_SOURCE_POS))
+      .get_next_token(START + member.range.end)
+      .map(|token| token.range().as_byte_range(START))
       .filter(|token| &text[token.clone()] == ",")
       .map_or(member.range.end, |token| token.end);
     (separator_end, text.len())
@@ -639,12 +670,26 @@ fn comments_after(program: Program, text: &str, member: &Member) -> Vec<Range<us
   // these are the comments after the position along with the ones before the next token
   program
     .comment_container()
-    .trailing_comments(StartSourcePos::START_SOURCE_POS + position)
-    .map(|comment| comment.range().as_byte_range(StartSourcePos::START_SOURCE_POS))
+    .trailing_comments(START + position)
+    .map(|comment| comment.range().as_byte_range(START))
     .filter(|comment| comment.end <= limit)
     .skip_while(|comment| !starts_line(text, comment.start))
     .take_while(|comment| starts_line(text, comment.start) && line_end(text, comment.end).is_some())
     .collect()
+}
+
+/// Replaces the lines the members are on in the text with the lines they're on in the formatted
+/// text, or `None` when other code is on those lines.
+fn replace_lines(text: &str, original: &Placement, formatted_text: &str, formatted: &Placement) -> Option<String> {
+  let original_lines = Lines::new(text, original)?;
+  let formatted_lines = Lines::new(formatted_text, formatted)?;
+  let replacement = formatted_lines.replacement_for(&original_lines, formatted_text);
+  Some(format!(
+    "{}{}{}",
+    &text[..original_lines.range.start],
+    with_file_new_lines(&replacement, text),
+    &text[original_lines.range.end..]
+  ))
 }
 
 /// The lines a level's members to format are on.
@@ -652,14 +697,6 @@ struct Lines<'a> {
   placement: &'a Placement,
   /// From the start of the first line to the end of the last, without its line break.
   range: Range<usize>,
-}
-
-/// A change to the formatted lines that keeps a semicolon going with the statements around them
-/// where the original lines have it.
-#[derive(Clone, Copy)]
-enum SemicolonEdit {
-  Insert(usize),
-  Remove(usize),
 }
 
 impl<'a> Lines<'a> {
@@ -697,7 +734,10 @@ impl<'a> Lines<'a> {
   fn replacement_for<'b>(&self, original: &Lines, text: &'b str) -> Cow<'b, str> {
     let placement = self.placement;
     let mut edits = Vec::with_capacity(2);
-    match (original.placement.previous_semicolon.is_some(), placement.previous_semicolon) {
+    // the original lines keep a semicolon ending the member before since that's needed there, while
+    // one that's an empty statement can go (ex. `;;b();`)
+    let original_has_previous_semicolon = original.placement.previous_semicolon_ends_member;
+    match (original_has_previous_semicolon, placement.previous_semicolon) {
       (false, Some(index)) => edits.push(SemicolonEdit::Remove(index)),
       (true, None) => edits.push(SemicolonEdit::Insert(placement.first_member_start)),
       _ => {}
@@ -730,6 +770,13 @@ impl<'a> Lines<'a> {
   }
 }
 
+/// A change to the formatted lines that keeps a semicolon going with the statements around them
+/// where the original lines have it.
+enum SemicolonEdit {
+  Insert(usize),
+  Remove(usize),
+}
+
 /// Gets whether there's a line break between the byte indexes, which don't need to be at character
 /// boundaries.
 fn has_line_break(text: &str, start: usize, end: usize) -> bool {
@@ -746,14 +793,20 @@ fn line_start(text: &str, index: usize) -> usize {
   text.as_bytes()[..index].iter().rposition(|byte| *byte == b'\n').map_or(0, |index| index + 1)
 }
 
+/// Gets the end of the indentation of the line the index is on.
+fn indentation_end(text: &str, index: usize) -> usize {
+  let start = line_start(text, index);
+  start + text.as_bytes()[start..].iter().take_while(|byte| matches!(byte, b' ' | b'\t')).count()
+}
+
 /// Gets the end of the range before its semicolon when that's on a later line than the token
 /// before it (ex. the one before `[1]` in `foo()\n;[1].forEach()`), which is on the line of what
 /// comes after it.
 fn end_before_next_line_semicolon(program: Program, text: &str, range: &Range<usize>) -> usize {
   if text.as_bytes()[range.end - 1] == b';'
-    && let Some(previous) = program.token_container().get_previous_token(StartSourcePos::START_SOURCE_POS + (range.end - 1))
+    && let Some(previous) = program.token_container().get_previous_token(START + (range.end - 1))
   {
-    let previous_end = previous.end().as_byte_index(StartSourcePos::START_SOURCE_POS);
+    let previous_end = previous.end().as_byte_index(START);
     if previous_end > range.start && text[previous_end..range.end - 1].contains('\n') {
       return previous_end;
     }

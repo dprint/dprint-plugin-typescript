@@ -102,6 +102,32 @@ foo(  )
 foo(  )
 ;[|[1].forEach()|]
 
+== should not add a semicolon after an empty statement before a statement starting with a parenthesis ==
+function   main( )   {
+    return  1
+};
+[|(async ( ) => {   await main( )   })( )|]
+
+[expect]
+function   main( )   {
+    return  1
+};
+[|(async () => {
+    await main()
+})()|]
+
+== should not add a semicolon after an empty statement on its own line ==
+function   f( )   {
+    ;
+    [|[1].map( g )|]
+}
+
+[expect]
+function   f( )   {
+    ;
+[|    [1].map(g)|]
+}
+
 == should format the comment after a statement before one starting with a semicolon ==
 const  y  =  1;
 [|a(  );

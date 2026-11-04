@@ -52,6 +52,60 @@ switch   ( a )   {
         x  =  café
 }
 
+== should format a selected last line in a case without the ones before it ==
+switch   ( x )   {
+    case   1:
+        foo( );
+        bar( );
+[|        baz( );
+|]    case   2:
+        qux( );
+}
+
+[expect]
+switch   ( x )   {
+    case   1:
+        foo( );
+        bar( );
+[|        baz();|]
+    case   2:
+        qux( );
+}
+
+== should format a selected last line in the last case without the ones before it ==
+switch   ( x )   {
+    case   1:
+        foo( );
+        bar( );
+[|        baz( );
+|]}
+
+[expect]
+switch   ( x )   {
+    case   1:
+        foo( );
+        bar( );
+[|        baz();|]
+}
+
+== should format nothing when only touching an empty statement at the end of a case ==
+switch   ( x )   {
+    case   1:
+        const  a  =  1;
+        [|;|]
+    default:
+        const  b  =  1;
+}
+
+[expect]
+switch   ( x )   {
+    case   1:
+        const  a  =  1;
+        [|;|]
+    default:
+        const  b  =  1;
+}
+
 == should format the touched statements in a case ==
 switch   ( a )   {
     case   1:

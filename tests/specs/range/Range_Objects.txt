@@ -1,3 +1,21 @@
+== should format the touched property of an object in an assignment property ==
+const   b  =  {
+    x :  1,
+    z  =  {
+        a :  1,
+        [|b :  2,|]
+    },
+};
+
+[expect]
+const   b  =  {
+    x :  1,
+    z  =  {
+        a :  1,
+[|        b: 2,|]
+    },
+};
+
 == should format a touched property next to an assignment property ==
 const   b  =  {
     x :  1,
