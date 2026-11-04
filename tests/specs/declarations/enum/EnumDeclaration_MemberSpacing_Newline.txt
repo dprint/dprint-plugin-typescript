@@ -18,3 +18,16 @@ declare enum Test {
     /** test */
     member4,
 }
+
+== should remove the blank lines before a trailing comment ==
+enum Test {
+    A,
+
+    // 1
+}
+
+[expect]
+enum Test {
+    A,
+    // 1
+}
