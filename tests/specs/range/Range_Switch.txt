@@ -1,0 +1,124 @@
+== should format the touched statements in a case ==
+switch   ( a )   {
+    case   1:
+        call( 1 );
+        [|call( 2 );|]
+        break;
+    case   2:
+        break;
+}
+
+[expect]
+switch   ( a )   {
+    case   1:
+        call( 1 );
+[|        call(2);|]
+        break;
+    case   2:
+        break;
+}
+
+== should format the touched statements in a default case ==
+switch   ( a )   {
+    case   1:
+        break;
+    default:
+        call( 1 );
+        [|call( 2 );|]
+}
+
+[expect]
+switch   ( a )   {
+    case   1:
+        break;
+    default:
+        call( 1 );
+[|        call(2);|]
+}
+
+== should format the touched statements in a block in a case ==
+switch   ( a )   {
+    case   1:   {
+        call( 1 );
+        [|call( 2 );|]
+        break;
+    }
+}
+
+[expect]
+switch   ( a )   {
+    case   1:   {
+        call( 1 );
+[|        call(2);|]
+        break;
+    }
+}
+
+== should format the touched cases ==
+switch   ( a )   {
+    [|case   1:
+        call( 1 );|]
+        break;
+    case   2:
+        break;
+}
+
+[expect]
+switch   ( a )   {
+[|    case 1:
+        call(1);|]
+        break;
+    case   2:
+        break;
+}
+
+== should format multiple touched cases ==
+switch   ( a )   {
+    case   1:
+        [|break;
+    case   2:|]
+        break;
+    case   3:
+        break;
+}
+
+[expect]
+switch   ( a )   {
+[|    case 1:
+        break;
+    case 2:|]
+        break;
+    case   3:
+        break;
+}
+
+== should format an empty case ==
+switch   ( a )   {
+    [|case   1:|]
+    case   2:
+        break;
+}
+
+[expect]
+switch   ( a )   {
+[|    case 1:|]
+    case   2:
+        break;
+}
+
+== should format the case when the statement shares its line ==
+switch   ( a )   {
+    case   1:   [|call( 1 );|]
+        break;
+    case   2:
+        break;
+}
+
+[expect]
+switch   ( a )   {
+[|    case 1:
+        call(1);|]
+        break;
+    case   2:
+        break;
+}

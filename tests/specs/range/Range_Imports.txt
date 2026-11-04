@@ -1,0 +1,77 @@
+== should format the run of imports around the touched one since they are sorted ==
+import   {  c  }   from   "c";
+[|import   {  b  }   from   "b";|]
+import   {  a  }   from   "a";
+
+const  x  =  1;
+
+[expect]
+[|import { a } from "a";
+import { b } from "b";
+import { c } from "c";|]
+
+const  x  =  1;
+
+== should format the run of re-exports around the touched one since they are sorted ==
+const  x  =  1;
+export   *   from   "c";
+[|export   {  b  }   from   "b";|]
+export   *   from   "a";
+
+[expect]
+const  x  =  1;
+[|export * from "a";
+export { b } from "b";
+export * from "c";|]
+
+== should stop the run of imports at a side effect import ==
+import   {  c  }   from   "c";
+import   "side-effect";
+[|import   {  b  }   from   "b";|]
+import   {  a  }   from   "a";
+
+[expect]
+import   {  c  }   from   "c";
+import   "side-effect";
+[|import { a } from "a";
+import { b } from "b";|]
+
+== should stop the run of imports at other statements ==
+import   {  c  }   from   "c";
+const  x  =  1;
+[|import   {  b  }   from   "b";|]
+import   {  a  }   from   "a";
+
+[expect]
+import   {  c  }   from   "c";
+const  x  =  1;
+[|import { a } from "a";
+import { b } from "b";|]
+
+== should only format the touched import in a declared module since those are not sorted ==
+declare   module   "x"   {
+    import   {  c  }   from   "c";
+    [|import   {  b  }   from   "b";|]
+    import   {  a  }   from   "a";
+}
+
+[expect]
+declare   module   "x"   {
+    import   {  c  }   from   "c";
+[|    import { b } from "b";|]
+    import   {  a  }   from   "a";
+}
+
+== should format the run of imports along with the touched statement after them ==
+import   {  c  }   from   "c";
+import   {  b  }   [|from   "b";
+
+const  x|]  =  1;
+const  y  =  2;
+
+[expect]
+[|import { b } from "b";
+import { c } from "c";
+
+const x = 1;|]
+const  y  =  2;

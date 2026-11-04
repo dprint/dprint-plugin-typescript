@@ -1,0 +1,88 @@
+== should format the touched enum members ==
+enum   A   {
+    a  =  1,
+    [|b  =  2|]
+}
+
+[expect]
+enum   A   {
+    a  =  1,
+[|    b = 2,|]
+}
+
+== should format the touched enum members without initializers ==
+enum   A   {
+    a ,
+    [|b  ,|]
+    c ,
+}
+
+[expect]
+enum   A   {
+    a ,
+[|    b,|]
+    c ,
+}
+
+== should format the touched enum members with string keys ==
+enum   A   {
+    "a"  =  1,
+    [|"b"  =  2,|]
+}
+
+[expect]
+enum   A   {
+    "a"  =  1,
+[|    "b" = 2,|]
+}
+
+== should format the touched const enum members ==
+const   enum   A   {
+    a  =  1,
+    [|b  =  2,|]
+}
+
+[expect]
+const   enum   A   {
+    a  =  1,
+[|    b = 2,|]
+}
+
+== should format the touched declared enum members ==
+declare   enum   A   {
+    a  =  1,
+    [|b  =  2,|]
+}
+
+[expect]
+declare   enum   A   {
+    a  =  1,
+[|    b = 2,|]
+}
+
+== should format the touched exported enum members in a namespace ==
+namespace   A   {
+    export   enum   B   {
+        a  =  1,
+        [|b  =  2,|]
+    }
+}
+
+[expect]
+namespace   A   {
+    export   enum   B   {
+        a  =  1,
+[|        b = 2,|]
+    }
+}
+
+== should format the enum when the members share a line ==
+const  x  =  1;
+enum   A   {   a  =  1,   [|b  =  2|]   }
+
+[expect]
+const  x  =  1;
+[|enum A {
+    a = 1,
+    b = 2,
+}|]

@@ -57,7 +57,7 @@ impl SyncPluginHandler<Configuration> for TypeScriptPluginHandler {
       help_url: "https://dprint.dev/plugins/typescript".to_string(),
       config_schema_url: format!("https://plugins.dprint.dev/dprint/dprint-plugin-typescript/{}/schema.json", version),
       update_url: Some("https://plugins.dprint.dev/dprint/dprint-plugin-typescript/latest.json".to_string()),
-      supports_range_formatting: Some(false),
+      supports_range_formatting: Some(true),
     }
   }
 
@@ -86,14 +86,18 @@ impl SyncPluginHandler<Configuration> for TypeScriptPluginHandler {
         }
       }
     };
-    let result = super::format_text(super::FormatTextOptions {
+    let options = super::FormatTextOptions {
       path: request.file_path,
       extension: None,
       text: file_text.into(),
       config: request.config,
       external_formatter: Some(&external_formatter),
       arena_pool: Some(request.arena_pool),
-    });
+    };
+    let result = match request.range {
+      Some(range) => super::format_text_range(options, range),
+      None => super::format_text(options),
+    };
     if let Some(err) = critical_error.into_inner() {
       return Err(err);
     }

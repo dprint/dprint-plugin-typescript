@@ -16,3 +16,4 @@ use tokens::*;
 
 pub use context::ExternalFormatter;
 pub use generate::generate;
+pub(crate) use generate::get_stmt_range_with_decorators;

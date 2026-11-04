@@ -1,0 +1,213 @@
+== should format only the touched statement ==
+const  a  =  1;
+[|const  b  =  2;|]
+const  c  =  3;
+
+[expect]
+const  a  =  1;
+[|const b = 2;|]
+const  c  =  3;
+
+== should format all the touched statements ==
+const  a  =  1;
+const  b  [|=  2;
+const  c|]  =  3;
+const  d  =  4;
+
+[expect]
+const  a  =  1;
+[|const b = 2;
+const c = 3;|]
+const  d  =  4;
+
+== should format the statement at the cursor ==
+const  a  =  1;
+const  b  =[||]  2;
+const  c  =  3;
+
+[expect]
+const  a  =  1;
+[|const b = 2;|]
+const  c  =  3;
+
+== should format the statement when the cursor is at its start ==
+const  a  =  1;
+[||]const  b  =  2;
+const  c  =  3;
+
+[expect]
+const  a  =  1;
+[|const b = 2;|]
+const  c  =  3;
+
+== should format the statement when the cursor is at its end ==
+const  a  =  1;
+const  b  =  2;[||]
+const  c  =  3;
+
+[expect]
+const  a  =  1;
+[|const b = 2;|]
+const  c  =  3;
+
+== should format nothing when only touching the space between statements ==
+const  a  =  1;
+[|
+|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|
+|]
+const  b  =  2;
+
+== should format nothing when only touching a comment between statements ==
+const  a  =  1;
+[|// comment|]
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|// comment|]
+const  b  =  2;
+
+== should format nothing in an empty file ==
+[||]
+
+[expect]
+[||]
+
+== should keep the comments before the statement ==
+const  a  =  1;
+   //   comment
+   /*   other   */
+[|call( a );|]
+
+[expect]
+const  a  =  1;
+   //   comment
+   /*   other   */
+[|call(a);|]
+
+== should include the trailing line comment ==
+const  a  =  1;
+[|call( a );|]   //   comment
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|call(a); //   comment|]
+const  b  =  2;
+
+== should include the trailing block comment ==
+const  a  =  1;
+[|call( a );|]   /*   comment   */
+const  b  =  2;
+
+[expect]
+const  a  =  1;
+[|call(a); /*   comment   */|]
+const  b  =  2;
+
+== should widen when a multi-line comment follows the statement on its line ==
+function   test( )   {
+    const  a  =  1;
+    [|call( a );|] /* comment
+    */
+}
+
+[expect]
+[|function test() {
+    const a = 1;
+    call(a); /* comment|]
+    */
+}
+
+== should format the statements sharing a line with the touched one ==
+function   test( )   {
+    const  a  =  1; [|call( a );|]
+}
+const  b  =  2;
+
+[expect]
+[|function test() {
+    const a = 1;
+    call(a);|]
+}
+const  b  =  2;
+
+== should format the whole file when the statements share a line ==
+const  a  =  1; [|call( a );|]
+const  b  =  2;
+
+[expect]
+[|const a = 1;
+call(a);
+const b = 2;|]
+
+== should format the whole file when the range covers it ==
+[|const  a  =  1;
+const  b  =  2;
+|]
+
+[expect]
+[|const a = 1;
+const b = 2;|]
+
+
+== should format the blank lines between the touched statements ==
+const  a  =  1;
+[|const  b  =  2;
+
+
+
+const  c  =  3;|]
+const  d  =  4;
+
+[expect]
+const  a  =  1;
+[|const b = 2;
+
+const c = 3;|]
+const  d  =  4;
+
+== should fix the indentation of the touched lines ==
+function   test( )   {
+  const  a  =  1;
+      [|call( a );|]
+  return   a;
+}
+
+[expect]
+function   test( )   {
+  const  a  =  1;
+[|    call(a);|]
+  return   a;
+}
+
+== should format the touched statements in a module ==
+import   {  a  }   from   "a";
+[|const  b  =  a;|]
+export   {  b  };
+
+[expect]
+import   {  a  }   from   "a";
+[|const b = a;|]
+export   {  b  };
+
+== should format the touched statements in a script ==
+var   a  =  1;
+[|var   b  =  2;|]
+
+[expect]
+var   a  =  1;
+[|var b = 2;|]
+
+== should leave statements alone when they are already formatted ==
+const  a  =  1;
+[|const b = 2;|]
+
+[expect]
+const  a  =  1;
+[|const b = 2;|]

@@ -1,0 +1,531 @@
+== should format the touched statements in a function declaration body ==
+const  x  =  1;
+function   test( )   {
+    const  a  =  1;
+    [|call( a );|]
+}
+
+[expect]
+const  x  =  1;
+function   test( )   {
+    const  a  =  1;
+[|    call(a);|]
+}
+
+== should format the touched statements in a function expression body ==
+const  x  =  1;
+const   test  =  function( )   {
+    const  a  =  1;
+    [|call( a );|]
+};
+
+[expect]
+const  x  =  1;
+const   test  =  function( )   {
+    const  a  =  1;
+[|    call(a);|]
+};
+
+== should format the touched statements in an arrow function body ==
+const  x  =  1;
+const   test  =  ( )   =>   {
+    const  a  =  1;
+    [|call( a );|]
+};
+
+[expect]
+const  x  =  1;
+const   test  =  ( )   =>   {
+    const  a  =  1;
+[|    call(a);|]
+};
+
+== should format the touched statements in an async arrow function body ==
+const  x  =  1;
+const   test  =  async   ( )   =>   {
+    const  a  =  1;
+    [|await   call( a );|]
+};
+
+[expect]
+const  x  =  1;
+const   test  =  async   ( )   =>   {
+    const  a  =  1;
+[|    await call(a);|]
+};
+
+== should format the touched statements in an arrow function body in an argument ==
+const  x  =  1;
+call( ( )   =>   {
+    const  a  =  1;
+    [|call( a );|]
+} );
+
+[expect]
+const  x  =  1;
+call( ( )   =>   {
+    const  a  =  1;
+[|    call(a);|]
+} );
+
+== should format the touched statements in a class method body ==
+const  x  =  1;
+class   A   {
+    method( )   {
+        const  a  =  1;
+        [|call( a );|]
+    }
+}
+
+[expect]
+const  x  =  1;
+class   A   {
+    method( )   {
+        const  a  =  1;
+[|        call(a);|]
+    }
+}
+
+== should format the touched statements in a class constructor body ==
+const  x  =  1;
+class   A   {
+    constructor( )   {
+        super( );
+        [|call( a );|]
+    }
+}
+
+[expect]
+const  x  =  1;
+class   A   {
+    constructor( )   {
+        super( );
+[|        call(a);|]
+    }
+}
+
+== should format the touched statements in a class getter body ==
+const  x  =  1;
+class   A   {
+    get   a( )   {
+        const  a  =  1;
+        [|return   a;|]
+    }
+}
+
+[expect]
+const  x  =  1;
+class   A   {
+    get   a( )   {
+        const  a  =  1;
+[|        return a;|]
+    }
+}
+
+== should format the touched statements in a class setter body ==
+const  x  =  1;
+class   A   {
+    set   a( value )   {
+        const  a  =  1;
+        [|call( value );|]
+    }
+}
+
+[expect]
+const  x  =  1;
+class   A   {
+    set   a( value )   {
+        const  a  =  1;
+[|        call(value);|]
+    }
+}
+
+== should format the touched statements in a class static block ==
+const  x  =  1;
+class   A   {
+    static   {
+        const  a  =  1;
+        [|call( a );|]
+    }
+}
+
+[expect]
+const  x  =  1;
+class   A   {
+    static   {
+        const  a  =  1;
+[|        call(a);|]
+    }
+}
+
+== should format the touched statements in an object method body ==
+const  x  =  1;
+const   obj  =  {
+    method( )   {
+        const  a  =  1;
+        [|call( a );|]
+    },
+};
+
+[expect]
+const  x  =  1;
+const   obj  =  {
+    method( )   {
+        const  a  =  1;
+[|        call(a);|]
+    },
+};
+
+== should format the touched statements in an object getter body ==
+const  x  =  1;
+const   obj  =  {
+    get   a( )   {
+        const  a  =  1;
+        [|return   a;|]
+    },
+};
+
+[expect]
+const  x  =  1;
+const   obj  =  {
+    get   a( )   {
+        const  a  =  1;
+[|        return a;|]
+    },
+};
+
+== should format the touched statements in an object setter body ==
+const  x  =  1;
+const   obj  =  {
+    set   a( value )   {
+        const  a  =  1;
+        [|call( value );|]
+    },
+};
+
+[expect]
+const  x  =  1;
+const   obj  =  {
+    set   a( value )   {
+        const  a  =  1;
+[|        call(value);|]
+    },
+};
+
+== should format the touched statements in an if statement block ==
+const  x  =  1;
+if   ( a )   {
+    const  b  =  1;
+    [|call( b );|]
+}
+
+[expect]
+const  x  =  1;
+if   ( a )   {
+    const  b  =  1;
+[|    call(b);|]
+}
+
+== should format the touched statements in an else block ==
+const  x  =  1;
+if   ( a )   {
+    call( );
+}   else   {
+    const  b  =  1;
+    [|call( b );|]
+}
+
+[expect]
+const  x  =  1;
+if   ( a )   {
+    call( );
+}   else   {
+    const  b  =  1;
+[|    call(b);|]
+}
+
+== should format the touched statements in an else if block ==
+const  x  =  1;
+if   ( a )   {
+    call( );
+}   else   if   ( b )   {
+    const  c  =  1;
+    [|call( c );|]
+}
+
+[expect]
+const  x  =  1;
+if   ( a )   {
+    call( );
+}   else   if   ( b )   {
+    const  c  =  1;
+[|    call(c);|]
+}
+
+== should format the touched statements in a for statement block ==
+const  x  =  1;
+for   ( ; ; )   {
+    const  a  =  1;
+    [|call( a );|]
+}
+
+[expect]
+const  x  =  1;
+for   ( ; ; )   {
+    const  a  =  1;
+[|    call(a);|]
+}
+
+== should format the touched statements in a for in statement block ==
+const  x  =  1;
+for   ( const   key   in   obj )   {
+    const  a  =  1;
+    [|call( a );|]
+}
+
+[expect]
+const  x  =  1;
+for   ( const   key   in   obj )   {
+    const  a  =  1;
+[|    call(a);|]
+}
+
+== should format the touched statements in a for of statement block ==
+const  x  =  1;
+for   ( const   item   of   items )   {
+    const  a  =  1;
+    [|call( a );|]
+}
+
+[expect]
+const  x  =  1;
+for   ( const   item   of   items )   {
+    const  a  =  1;
+[|    call(a);|]
+}
+
+== should format the touched statements in a while statement block ==
+const  x  =  1;
+while   ( a )   {
+    const  b  =  1;
+    [|call( b );|]
+}
+
+[expect]
+const  x  =  1;
+while   ( a )   {
+    const  b  =  1;
+[|    call(b);|]
+}
+
+== should format the touched statements in a do while statement block ==
+const  x  =  1;
+do   {
+    const  b  =  1;
+    [|call( b );|]
+}   while   ( a );
+
+[expect]
+const  x  =  1;
+do   {
+    const  b  =  1;
+[|    call(b);|]
+}   while   ( a );
+
+== should format the touched statements in a try block ==
+const  x  =  1;
+try   {
+    const  a  =  1;
+    [|call( a );|]
+}   catch   {
+}
+
+[expect]
+const  x  =  1;
+try   {
+    const  a  =  1;
+[|    call(a);|]
+}   catch   {
+}
+
+== should format the touched statements in a catch block ==
+const  x  =  1;
+try   {
+}   catch   ( err )   {
+    const  a  =  1;
+    [|call( err );|]
+}
+
+[expect]
+const  x  =  1;
+try   {
+}   catch   ( err )   {
+    const  a  =  1;
+[|    call(err);|]
+}
+
+== should format the touched statements in a finally block ==
+const  x  =  1;
+try   {
+}   finally   {
+    const  a  =  1;
+    [|call( a );|]
+}
+
+[expect]
+const  x  =  1;
+try   {
+}   finally   {
+    const  a  =  1;
+[|    call(a);|]
+}
+
+== should format the touched statements in a labeled block ==
+const  x  =  1;
+label:   {
+    const  a  =  1;
+    [|call( a );|]
+}
+
+[expect]
+const  x  =  1;
+label:   {
+    const  a  =  1;
+[|    call(a);|]
+}
+
+== should format the touched statements in a nested block ==
+const  x  =  1;
+{
+    const  a  =  1;
+    [|call( a );|]
+}
+
+[expect]
+const  x  =  1;
+{
+    const  a  =  1;
+[|    call(a);|]
+}
+
+== should format the touched statements in a namespace ==
+const  x  =  1;
+namespace   A   {
+    const  a  =  1;
+    [|export   const   b  =  2;|]
+}
+
+[expect]
+const  x  =  1;
+namespace   A   {
+    const  a  =  1;
+[|    export const b = 2;|]
+}
+
+== should format the touched statements in a nested namespace ==
+const  x  =  1;
+namespace   A.B   {
+    const  a  =  1;
+    [|export   const   b  =  2;|]
+}
+
+[expect]
+const  x  =  1;
+namespace   A.B   {
+    const  a  =  1;
+[|    export const b = 2;|]
+}
+
+== should format the touched statements in a declared module ==
+const  x  =  1;
+declare   module   "a"   {
+    const  a :  string;
+    [|export   const   b :  string;|]
+}
+
+[expect]
+const  x  =  1;
+declare   module   "a"   {
+    const  a :  string;
+[|    export const b: string;|]
+}
+
+== should format the touched statements in a global declaration ==
+const  x  =  1;
+declare   global   {
+    const  a :  string;
+    [|const   b :  string;|]
+}
+
+[expect]
+const  x  =  1;
+declare   global   {
+    const  a :  string;
+[|    const b: string;|]
+}
+
+== should format the touched statements in deeply nested blocks ==
+function   test( )   {
+    if   ( a )   {
+        for   ( ; ; )   {
+            const  b  =  1;
+            [|call( b );|]
+        }
+    }
+}
+
+[expect]
+function   test( )   {
+    if   ( a )   {
+        for   ( ; ; )   {
+            const  b  =  1;
+[|            call(b);|]
+        }
+    }
+}
+
+== should format the statement holding a block on a single line ==
+const  x  =  1;
+function   test( )   {   [|call( );|]   }
+
+[expect]
+const  x  =  1;
+[|function test() {
+    call();
+}|]
+
+== should format the statement holding an empty block ==
+const  x  =  1;
+function   test( )   {   [||]   }
+
+[expect]
+const  x  =  1;
+[|function test() {}|]
+
+== should format nothing when only touching the space in a block ==
+function   test( )   {
+    const  a  =  1;
+[|
+|]
+    call( a );
+}
+
+[expect]
+function   test( )   {
+    const  a  =  1;
+[|
+|]
+    call( a );
+}
+
+== should format the holder when the range touches the braces ==
+const  x  =  1;
+function   test( )   [|{
+    const  a  =  1;
+}|]
+
+[expect]
+const  x  =  1;
+[|function test() {
+    const a = 1;|]
+}

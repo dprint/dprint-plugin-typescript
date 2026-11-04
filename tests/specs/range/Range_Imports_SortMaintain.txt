@@ -1,0 +1,20 @@
+~~ module.sortImportDeclarations: maintain, module.sortExportDeclarations: maintain ~~
+== should only format the touched import when imports are not sorted ==
+import   {  c  }   from   "c";
+[|import   {  b  }   from   "b";|]
+import   {  a  }   from   "a";
+
+[expect]
+import   {  c  }   from   "c";
+[|import { b } from "b";|]
+import   {  a  }   from   "a";
+
+== should only format the touched re-export when exports are not sorted ==
+export   *   from   "c";
+[|export   {  b  }   from   "b";|]
+export   *   from   "a";
+
+[expect]
+export   *   from   "c";
+[|export { b } from "b";|]
+export   *   from   "a";

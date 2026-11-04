@@ -8585,7 +8585,7 @@ fn get_member_spacing_forced_blank_line_count(member_spacing: MemberSpacing) -> 
 /// number in the source capped at the `maxBlankLines` configuration.
 /// Gets the range of a statement including the decorators before `export` (ex. `@dec export class A {}`),
 /// which come before the statement's start.
-fn get_stmt_range_with_decorators(node: Node) -> SourceRange {
+pub(crate) fn get_stmt_range_with_decorators(node: Node) -> SourceRange {
   let decorators = match node {
     Node::ExportDecl(decl) => match decl.decl {
       Decl::Class(class_decl) => Some(class_decl.class.decorators),

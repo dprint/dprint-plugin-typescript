@@ -14,6 +14,7 @@ pub mod configuration;
 #[cfg(any(all(feature = "wasm", target_arch = "wasm32", target_os = "unknown"), test))]
 mod embedded_file;
 mod error;
+mod format_range;
 mod format_text;
 mod generation;
 pub mod parsing;
@@ -30,6 +31,7 @@ pub use parsing::is_unsupported_syntax_error;
 /// Result type used throughout the crate.
 pub(crate) type Result<T> = std::result::Result<T, FormatError>;
 
+pub use format_range::format_text_range;
 pub use format_text::ExternalFormatter;
 pub use format_text::FormatParsedSourceOptions;
 pub use format_text::FormatProgramOptions;
