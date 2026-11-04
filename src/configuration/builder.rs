@@ -961,6 +961,27 @@ impl ConfigurationBuilder {
 
   /* situational indentation */
 
+  /// Whether to indent the hanging content of a conditional expression's true or false part
+  /// past the start of that part when its `?` or `:` starts the line.
+  ///
+  /// For example, `? {` followed by its properties indented past the `{` instead of lined up with it:
+  ///
+  /// ```ts
+  /// const value = condition
+  ///   ? {
+  ///       prop: 1,
+  ///     }
+  ///   : undefined;
+  /// ```
+  ///
+  /// This has no effect when the indent width is greater than 2 because the content is already
+  /// past the start of the part.
+  ///
+  /// Default: `false`
+  pub fn conditional_expression_indent_branch_content(&mut self, value: bool) -> &mut Self {
+    self.insert("conditionalExpression.indentBranchContent", value.into())
+  }
+
   pub fn conditional_expression_use_nested_indentation(&mut self, value: bool) -> &mut Self {
     self.insert("conditionalExpression.useNestedIndentation", value.into())
   }
@@ -1522,6 +1543,7 @@ mod tests {
       .while_statement_prefer_hanging(true)
       .with_statement_prefer_hanging(true)
       /* situational indentation */
+      .conditional_expression_indent_branch_content(false)
       .conditional_expression_use_nested_indentation(false)
       .conditional_type_use_nested_indentation(false)
       /* member spacing */
@@ -1673,7 +1695,7 @@ mod tests {
       .with_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 229);
+    assert_eq!(inner_config.len(), 230);
     let diagnostics = resolve_config(inner_config, &Default::default()).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

@@ -1,0 +1,18 @@
+~~ conditionalExpression.indentBranchContent: true ~~
+== should keep the hanging content indented once when the indent is wider than the operator ==
+const value = true
+    ? test({
+        a: 1,
+    })
+    : [
+        1,
+    ];
+
+[expect]
+const value = true
+    ? test({
+        a: 1,
+    })
+    : [
+        1,
+    ];

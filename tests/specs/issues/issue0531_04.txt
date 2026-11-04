@@ -1,0 +1,18 @@
+~~ indentWidth: 2, useTabs: true, conditionalExpression.indentBranchContent: true ~~
+== should indent the hanging content of a branch past the branch with tabs ==
+const value = true
+	? test({
+		a: 1,
+	})
+	: [
+		1,
+	];
+
+[expect]
+const value = true
+	? test({
+			a: 1,
+		})
+	: [
+			1,
+		];

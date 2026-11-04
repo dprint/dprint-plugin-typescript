@@ -1,0 +1,141 @@
+~~ indentWidth: 2, conditionalExpression.indentBranchContent: true ~~
+== should indent the hanging content of a call in a branch past the branch ==
+const value = true
+  ? test({
+    myVeryLongVariableName: "some value", otherVeryLongVariableName: "some other value",
+  })
+  : test({
+    myVeryLongVariableName: "some value",
+  });
+
+[expect]
+const value = true
+  ? test({
+      myVeryLongVariableName: "some value",
+      otherVeryLongVariableName: "some other value",
+    })
+  : test({
+      myVeryLongVariableName: "some value",
+    });
+
+== should indent the hanging content of arrays and objects in a branch past the branch (#731) ==
+const arr = b || c
+  ? [
+someValue1,
+      someValue2,
+            someValue3,
+    ]
+  : [
+      1, 2, 4
+  ];
+
+const obj = b || c
+  ? {
+someValue1,
+      someValue2,
+  }
+  : {
+      a, b, c
+  };
+
+[expect]
+const arr = b || c
+  ? [
+      someValue1,
+      someValue2,
+      someValue3,
+    ]
+  : [
+      1,
+      2,
+      4,
+    ];
+
+const obj = b || c
+  ? {
+      someValue1,
+      someValue2,
+    }
+  : {
+      a,
+      b,
+      c,
+    };
+
+== should indent other multi-line branches past the branch ==
+const fn = cond
+  ? () => {
+    doSomething();
+  }
+  : someObject
+    .methodOne()
+    .methodTwo();
+
+[expect]
+const fn = cond
+  ? () => {
+      doSomething();
+    }
+  : someObject
+      .methodOne()
+      .methodTwo();
+
+== should indent the hanging content in the branches of nested conditionals ==
+const value = a
+  ? b
+    ? test({
+      a: 1,
+    })
+    : c
+  : d
+  ? test({
+    a: 1,
+  })
+  : {
+    a: 1,
+  };
+
+[expect]
+const value = a
+  ? b
+    ? test({
+        a: 1,
+      })
+    : c
+  : d
+  ? test({
+      a: 1,
+    })
+  : {
+      a: 1,
+    };
+
+== should indent the hanging content past the branch when there are comments ==
+const value = a
+  // comment
+  ? test({
+    a: 1,
+  })
+  /* comment */ : test({
+    a: 1,
+  });
+
+[expect]
+const value = a
+  // comment
+  ? test({
+      a: 1,
+    })
+  /* comment */ : test({
+      a: 1,
+    });
+
+== should not indent the hanging content when the operator doesn't start the line ==
+const value = a ? b : test({
+  a: 1,
+});
+
+[expect]
+const value = a ? b : test({
+  a: 1,
+});

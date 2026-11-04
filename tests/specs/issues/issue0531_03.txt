@@ -1,0 +1,18 @@
+~~ indentWidth: 2, operatorPosition: sameLine, conditionalExpression.indentBranchContent: true ~~
+== should keep the hanging content indented once when the operators are at the end of the line ==
+const value = true
+  ? test({
+    a: 1,
+  })
+  : [
+    1,
+  ];
+
+[expect]
+const value = true ?
+  test({
+    a: 1,
+  }) :
+  [
+    1,
+  ];

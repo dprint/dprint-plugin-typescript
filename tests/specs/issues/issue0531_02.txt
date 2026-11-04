@@ -1,0 +1,30 @@
+~~ indentWidth: 2, conditionalExpression.useNestedIndentation: true, conditionalExpression.indentBranchContent: true ~~
+== should indent the hanging content in the branches of nested conditionals past the branch ==
+const value = true
+  ? test({
+    a: 1,
+  })
+  : b
+  ? [
+    1,
+  ]
+  : c
+  ? d
+  : {
+    a: 1,
+  };
+
+[expect]
+const value = true
+  ? test({
+      a: 1,
+    })
+  : b
+    ? [
+        1,
+      ]
+    : c
+      ? d
+      : {
+          a: 1,
+        };
