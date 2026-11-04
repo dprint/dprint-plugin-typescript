@@ -49,3 +49,43 @@ call(v => v, // 2
 call(v => v /* 1 */);
 call(v => v // 2
 );
+
+== should keep a blank line before a trailing comment ==
+call(
+    a,
+    b,
+
+    // 1
+);
+call(
+    a,
+    b,
+
+
+
+    /* 2 */
+);
+call(
+    a,
+    b,
+    // 3
+);
+
+[expect]
+call(
+    a,
+    b,
+
+    // 1
+);
+call(
+    a,
+    b,
+
+    /* 2 */
+);
+call(
+    a,
+    b,
+    // 3
+);

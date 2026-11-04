@@ -68,3 +68,39 @@ enum Test {
     /** test */
     member4,
 }
+
+== should keep a blank line before a trailing comment ==
+enum Test {
+    A,
+    B,
+
+    // 1
+}
+enum Test2 {
+    A,
+
+
+
+    /* 2 */
+}
+enum Test3 {
+    A,
+    // 3
+}
+
+[expect]
+enum Test {
+    A,
+    B,
+
+    // 1
+}
+enum Test2 {
+    A,
+
+    /* 2 */
+}
+enum Test3 {
+    A,
+    // 3
+}
