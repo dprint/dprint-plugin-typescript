@@ -6316,7 +6316,11 @@ fn gen_switch_stmt<'a>(node: &SwitchStmt<'a>, context: &mut Context<'a>) -> Prin
   let start_header_lsil = LineStartIndentLevel::new("startHeader");
   let mut items = PrintItems::new(context.arena);
   items.push_info(start_header_lsil);
-  items.push_sc(sc!("switch "));
+  items.push_sc(sc!("switch"));
+  let open_paren_token = context.token_finder.get_previous_token_if_open_paren(&node.discriminant.range());
+  if use_space_after_keyword(context.config.switch_statement_space_after_switch_keyword, open_paren_token, context) {
+    items.push_space();
+  }
   items.extend(gen_node_in_parens(
     |context| gen_node(node.discriminant.into(), context),
     GenNodeInParensOptions {
