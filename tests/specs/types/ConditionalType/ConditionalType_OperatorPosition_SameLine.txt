@@ -13,3 +13,17 @@ type T = A extends B ? /* 0 */ testing /* 1 */ :
     /* 2 */ /* 3 */ asdfasdf;
 type T = A extends B ? /* 0 */ testing /* 1 */ : /* 2 */
     /* 3 */ asdfasdf;
+
+== should keep comments after an operator at the end of a line ==
+type T = A extends B ?
+    // some comment
+    C :
+    // some other comment
+    D;
+
+[expect]
+type T = A extends B ?
+    // some comment
+    C :
+    // some other comment
+    D;

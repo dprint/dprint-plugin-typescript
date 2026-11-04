@@ -2821,24 +2821,16 @@ fn gen_cond_token_comments<'a>(token: &TokenAndSpan, context: &mut Context<'a>, 
   let next_token = token.next_token_fast(context.program).unwrap();
   let previous_token_line = previous_token.end_line_fast(context.program);
   let next_token_line = next_token.start_line_fast(context.program);
-  if token_line > previous_token_line {
+  let program = context.program;
+  return if token_line > previous_token_line {
     ConditionalTokenComments {
       previous_lines: {
-        let program = context.program;
         let leading_comments = token.leading_comments_fast(program).filter(|c| {
           let comment_line = c.start_line_fast(program);
           comment_line > previous_token_line && comment_line < next_token_line
         });
         let trailing_comments = token.trailing_comments_fast(program).filter(|c| c.start_line_fast(program) < next_token_line);
-        let items = gen_comments_as_statements(leading_comments.chain(trailing_comments), None, context);
-        if items.is_empty() {
-          items
-        } else {
-          let mut new_items = PrintItems::new(context.arena);
-          new_items.push_signal(Signal::NewLine);
-          new_items.push_condition(indent_if_sol_and_same_indent_as_top_most(items, top_most_il));
-          new_items
-        }
+        gen_previous_lines(leading_comments.chain(trailing_comments), context, top_most_il)
       },
       leading_line: if token_line == next_token_line {
         gen_leading_comments_same_line(&token.range(), context)
@@ -2848,10 +2840,18 @@ fn gen_cond_token_comments<'a>(token: &TokenAndSpan, context: &mut Context<'a>, 
       trailing_line: PrintItems::new(context.arena),
     }
   } else if token_line < next_token_line {
+    // the token is at the end of a line, so the comments on the lines after it belong to the
+    // next branch and go before the token like when it's on its own line (ex. when it moves
+    // to the next line)
+    let trailing_line = gen_trailing_comments_same_line(&token.range(), context);
+    let trailing_comments = token.trailing_comments_fast(program).filter(|c| {
+      let comment_line = c.start_line_fast(program);
+      comment_line > token_line && comment_line < next_token_line
+    });
     ConditionalTokenComments {
-      previous_lines: PrintItems::new(context.arena),
+      previous_lines: gen_previous_lines(trailing_comments, context, top_most_il),
       leading_line: PrintItems::new(context.arena),
-      trailing_line: gen_trailing_comments_same_line(&token.range(), context),
+      trailing_line,
     }
   } else {
     // do nothing
@@ -2859,6 +2859,18 @@ fn gen_cond_token_comments<'a>(token: &TokenAndSpan, context: &mut Context<'a>, 
       previous_lines: PrintItems::new(context.arena),
       leading_line: PrintItems::new(context.arena),
       trailing_line: PrintItems::new(context.arena),
+    }
+  };
+
+  fn gen_previous_lines<'a>(comments: impl Iterator<Item = &'a Comment>, context: &mut Context<'a>, top_most_il: IndentLevel) -> PrintItems<'a> {
+    let items = gen_comments_as_statements(comments, None, context);
+    if items.is_empty() {
+      items
+    } else {
+      let mut new_items = PrintItems::new(context.arena);
+      new_items.push_signal(Signal::NewLine);
+      new_items.push_condition(indent_if_sol_and_same_indent_as_top_most(items, top_most_il));
+      new_items
     }
   }
 }
