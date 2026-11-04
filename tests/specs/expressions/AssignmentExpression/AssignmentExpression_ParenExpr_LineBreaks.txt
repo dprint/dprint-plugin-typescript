@@ -34,3 +34,13 @@ result =
     (someLongVariableName + anotherLongVariableName + yetAnother) as number;
 result =
     (options?.compare ? new SearchTree(options.compare) : new Tree()) as Tree;
+
+== should not move a type assertion with a parenthesized union to the next line when it doesn't fit there ==
+const value = <("aaaaaaaaaaaaaaaaaa" | "bbbbbbbbbbbbbbbbbbbbb" | "cccccccccccccccccccc")>other;
+
+[expect]
+const value = <(
+    | "aaaaaaaaaaaaaaaaaa"
+    | "bbbbbbbbbbbbbbbbbbbbb"
+    | "cccccccccccccccccccc"
+)> other;
