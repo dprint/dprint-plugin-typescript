@@ -46,12 +46,18 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     "jsxSelfClosingElement.spaceBeforeSlash",
     &mut diagnostics,
   );
-  // still accept renamed values so configs that haven't been updated keep working
+  // still accept renamed keys and values so configs that haven't been updated keep working
+  for rename in get_config_key_renames(&config) {
+    config.shift_remove(rename.old_key);
+    if let Some(value) = rename.value {
+      config.insert(rename.new_key.to_string(), value);
+    }
+  }
   for rename in get_config_value_renames(&config) {
     config.insert(rename.key.to_string(), rename.new_value.into());
   }
 
-  let semi_colons = get_renamed_value(&mut config, "semicolons", "semiColons", SemiColons::Prefer, &mut diagnostics);
+  let semi_colons = get_value(&mut config, "semicolons", SemiColons::Prefer, &mut diagnostics);
   let brace_position = get_value(&mut config, "bracePosition", BracePosition::SameLineUnlessHanging, &mut diagnostics);
   let next_control_flow_position = get_value(&mut config, "nextControlFlowPosition", NextControlFlowPosition::SameLine, &mut diagnostics);
   let operator_position = get_value(&mut config, "operatorPosition", OperatorPosition::NextLine, &mut diagnostics);
@@ -355,13 +361,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
       space_after_control_flow_keyword,
       &mut diagnostics,
     ),
-    for_statement_space_after_semi_colons: get_renamed_value(
-      &mut config,
-      "forStatement.spaceAfterSemicolons",
-      "forStatement.spaceAfterSemiColons",
-      true,
-      &mut diagnostics,
-    ),
+    for_statement_space_after_semi_colons: get_value(&mut config, "forStatement.spaceAfterSemicolons", true, &mut diagnostics),
     for_in_statement_space_after_for_keyword: get_value(
       &mut config,
       "forInStatement.spaceAfterForKeyword",
@@ -478,6 +478,39 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     }
   }
 }
+
+/// A key written under a name the plugin has since renamed, which
+/// `dprint config update` moves over.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConfigKeyRename {
+  pub old_key: &'static str,
+  pub new_key: &'static str,
+  /// The value to write under the new key, or `None` when the new key was
+  /// already set and the old one is only to be dropped.
+  pub value: Option<ConfigKeyValue>,
+}
+
+/// Finds the keys of a configuration that are written under a deprecated name.
+pub fn get_config_key_renames(config: &ConfigKeyMap) -> Vec<ConfigKeyRename> {
+  RENAMED_KEYS
+    .iter()
+    .filter_map(|(old_key, new_key)| {
+      let value = config.get(*old_key)?;
+      Some(ConfigKeyRename {
+        old_key,
+        new_key,
+        value: (!config.contains_key(*new_key)).then(|| value.clone()),
+      })
+    })
+    .collect()
+}
+
+/// Each key that was renamed, as the old name then the new one. The old names
+/// are still accepted.
+const RENAMED_KEYS: &[(&str, &str)] = &[
+  ("semiColons", "semicolons"),
+  ("forStatement.spaceAfterSemiColons", "forStatement.spaceAfterSemicolons"),
+];
 
 /// A value written under a name the plugin has since renamed, which
 /// `dprint config update` rewrites.
@@ -690,18 +723,6 @@ fn default_tagged_template_embedded_languages() -> BTreeMap<String, String> {
   .into_iter()
   .map(|(tag, extension)| (tag.to_string(), extension.to_string()))
   .collect()
-}
-
-/// Reads a property, falling back to the deprecated name the property used to
-/// go by. Both names are taken from the map so that a deprecated one isn't
-/// reported as unknown, and the new name wins when both are given.
-fn get_renamed_value<T>(config: &mut ConfigKeyMap, key: &str, deprecated_key: &str, default_value: T, diagnostics: &mut Vec<ConfigurationDiagnostic>) -> T
-where
-  T: std::str::FromStr,
-  <T as std::str::FromStr>::Err: std::fmt::Display,
-{
-  let deprecated_value = get_nullable_value(config, deprecated_key, diagnostics);
-  get_nullable_value(config, key, diagnostics).or(deprecated_value).unwrap_or(default_value)
 }
 
 fn get_string_vec(config: &mut ConfigKeyMap, key: &str, diagnostics: &mut Vec<ConfigurationDiagnostic>) -> Vec<String> {
@@ -1058,12 +1079,75 @@ mod tests {
 
   #[test]
   fn handle_semicolons_invalid_deprecated_spelling() {
+    // the value is moved to the new key before it's read
     let mut config = ConfigKeyMap::new();
-    config.insert(String::from("semicolons"), ConfigKeyValue::from_str("asi"));
     config.insert(String::from("semiColons"), ConfigKeyValue::from_str("other"));
     let result = resolve_config(config, &GlobalConfiguration::default());
-    assert!(result.config.semi_colons == SemiColons::Asi);
-    assert_eq!(get_diagnostic_property_names(&result.diagnostics), ["semiColons"]);
+    assert!(result.config.semi_colons == SemiColons::Prefer);
+    assert_eq!(get_diagnostic_property_names(&result.diagnostics), ["semicolons"]);
+  }
+
+  #[test]
+  fn get_config_key_renames_old_keys() {
+    let mut config = ConfigKeyMap::new();
+    config.insert(String::from("semiColons"), ConfigKeyValue::from_str("asi"));
+    config.insert(String::from("forStatement.spaceAfterSemiColons"), ConfigKeyValue::from_bool(false));
+    assert_eq!(
+      get_config_key_renames(&config),
+      vec![
+        ConfigKeyRename {
+          old_key: "semiColons",
+          new_key: "semicolons",
+          value: Some(ConfigKeyValue::from_str("asi")),
+        },
+        ConfigKeyRename {
+          old_key: "forStatement.spaceAfterSemiColons",
+          new_key: "forStatement.spaceAfterSemicolons",
+          value: Some(ConfigKeyValue::from_bool(false)),
+        },
+      ]
+    );
+  }
+
+  #[test]
+  fn get_config_key_renames_new_keys() {
+    let mut config = ConfigKeyMap::new();
+    config.insert(String::from("semicolons"), ConfigKeyValue::from_str("asi"));
+    config.insert(String::from("forStatement.spaceAfterSemicolons"), ConfigKeyValue::from_bool(false));
+    assert_eq!(get_config_key_renames(&config), Vec::new());
+  }
+
+  #[test]
+  fn get_config_key_renames_both_keys() {
+    // only drops the old key so the new key's value is kept
+    let mut config = ConfigKeyMap::new();
+    config.insert(String::from("semiColons"), ConfigKeyValue::from_str("asi"));
+    config.insert(String::from("semicolons"), ConfigKeyValue::from_str("always"));
+    config.insert(String::from("forStatement.spaceAfterSemiColons"), ConfigKeyValue::from_bool(false));
+    assert_eq!(
+      get_config_key_renames(&config),
+      vec![
+        ConfigKeyRename {
+          old_key: "semiColons",
+          new_key: "semicolons",
+          value: None,
+        },
+        ConfigKeyRename {
+          old_key: "forStatement.spaceAfterSemiColons",
+          new_key: "forStatement.spaceAfterSemicolons",
+          value: Some(ConfigKeyValue::from_bool(false)),
+        },
+      ]
+    );
+  }
+
+  #[test]
+  fn get_config_key_renames_neither_key() {
+    assert_eq!(get_config_key_renames(&ConfigKeyMap::new()), Vec::new());
+
+    let mut config = ConfigKeyMap::new();
+    config.insert(String::from("quoteStyle"), ConfigKeyValue::from_str("alwaysSingle"));
+    assert_eq!(get_config_key_renames(&config), Vec::new());
   }
 
   #[test]
