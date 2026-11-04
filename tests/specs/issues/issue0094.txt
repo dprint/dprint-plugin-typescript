@@ -8,15 +8,14 @@ const render = items => (
 );
 
 [expect]
-const render = items => (
+const render = items =>
     <div>
         {
             /* eslint-disable */
             items.map(item => null)
             /* eslint-enable */
         }
-    </div>
-);
+    </div>;
 
 == should handle comment before and after spread ==
 <div {/* c */...a}/>;
