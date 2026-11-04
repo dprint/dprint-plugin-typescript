@@ -131,6 +131,9 @@ pub fn format_text_range(options: FormatTextOptions, range: Range<usize>) -> Res
   });
 
   let indent_width = config.indent_width as usize;
+  // each check formats the whole file, so when the lines keep not fitting (ex. formatting the file
+  // isn't stable), this gives up on formatting part of it after a few
+  let mut checks_left = 3;
   for (level, formatted_placement) in levels.iter().zip(formatted_placements).rev() {
     let Some(formatted_placement) = formatted_placement else {
       continue;
@@ -169,6 +172,10 @@ pub fn format_text_range(options: FormatTextOptions, range: Range<usize>) -> Res
     };
     if formats_same {
       return Ok(Some(format!("{}{}", &text[..bom_len], result)));
+    }
+    checks_left -= 1;
+    if checks_left == 0 {
+      break;
     }
   }
   Ok(Some(formatted))
@@ -258,6 +265,8 @@ struct Placement {
   members: Range<usize>,
   /// Start of the first member, after the comments before it.
   first_member_start: usize,
+  /// End of the last member, which is before the comments after it.
+  last_member_end: usize,
   /// End of the last member before its semicolon when that's on a later line (ex. the one before
   /// `[1]` in `foo()\n;[1].forEach()`), where it goes with what comes after.
   end_before_semicolon: usize,
@@ -290,14 +299,13 @@ fn find_levels(program: Program, text: &str, range: &Range<usize>, config: &Conf
       .enumerate()
       .filter(|(_, member)| touches(&member.range, range))
       .map(|(index, _)| index);
+    // the line of a bracket goes with the member holding the container (ex. the cursor in `{|\n`)
+    if !levels.is_empty() && reaches_bracket_line(program, text, container, &members, range) {
+      return Some(levels);
+    }
     let (first, last) = match touched.next() {
       Some(first) => (first, touched.next_back().unwrap_or(first)),
-      None => match members_beside_on_line(program, text, &members, range) {
-        Some(beside) => beside,
-        // the line of a bracket goes with the member holding the container (ex. the cursor in `{|\n`)
-        None if !levels.is_empty() && is_on_bracket_line(program, text, container, &members, range) => return Some(levels),
-        None => return None,
-      },
+      None => members_beside_on_line(program, text, &members, range)?,
     };
     let to_format = with_members_on_same_lines(program, text, &members, first, last);
     let first_member = &members[*to_format.start()];
@@ -342,11 +350,9 @@ fn members_beside_on_line(program: Program, text: &str, members: &[Member], rang
   if has_line_break(text, range.start, range.end) {
     return None;
   }
+  // no member is touched, so the one before the first after the range ends before the range
   let next = members.iter().position(|member| member.range.start >= range.end);
-  let previous = next
-    .unwrap_or(members.len())
-    .checked_sub(1)
-    .filter(|index| members[*index].range.end <= range.start);
+  let previous = next.unwrap_or(members.len()).checked_sub(1);
   let previous = previous.filter(|index| !has_line_break(text, end_before_next_line_semicolon(program, text, &members[*index].range), range.start));
   let next = next.filter(|index| !has_line_break(text, range.end, members[*index].range.start));
   match (previous, next) {
@@ -356,19 +362,29 @@ fn members_beside_on_line(program: Program, text: &str, members: &[Member], rang
   }
 }
 
-/// Gets whether the range is on the line of an opening or closing bracket of the container, or the
-/// colon of a switch case.
-fn is_on_bracket_line(program: Program, text: &str, container: Node, members: &[Member], range: &Range<usize>) -> bool {
-  inner_range(program, container, members).is_some_and(|inner| {
-    !has_line_break(text, inner.start.min(range.start), inner.start.max(range.start))
-      || !has_line_break(text, inner.end.min(range.end), inner.end.max(range.end))
-  })
+/// Gets whether the range touches the member, which for an empty range (ex. the cursor) includes
+/// being right at its start or end.
+fn touches(member: &Range<usize>, range: &Range<usize>) -> bool {
+  if range.is_empty() {
+    member.start <= range.start && range.start <= member.end
+  } else {
+    range.start < member.end && range.end > member.start
+  }
 }
 
-/// Gets whether there's a line break between the byte indexes, which don't need to be at character
-/// boundaries.
-fn has_line_break(text: &str, start: usize, end: usize) -> bool {
-  text.as_bytes()[start..end].contains(&b'\n')
+/// Gets whether the range reaches from before the members onto the line of the container's
+/// opening bracket, or the colon of a switch case, or from after them onto the line of the closing
+/// bracket. A non-empty range ending at the start of the closing bracket's line doesn't count
+/// since that's where selecting the lines before it ends.
+fn reaches_bracket_line(program: Program, text: &str, container: Node, members: &[Member], range: &Range<usize>) -> bool {
+  let Some(inner) = inner_range(program, container, members) else {
+    return false;
+  };
+  let first_start = members[0].start_with_empty_statements;
+  let last_end = members[members.len() - 1].range.end;
+  let reaches_open = range.start < first_start && !has_line_break(text, inner.start, range.start);
+  let reaches_close = range.end > last_end && (range.is_empty() || range.end > line_start(text, inner.end)) && !has_line_break(text, range.end, inner.end);
+  reaches_open || reaches_close
 }
 
 /// Widens the touched members to the members on the same lines as them (ex. `b()` in `a(); b();`),
@@ -406,10 +422,13 @@ fn closest_leading_comments(text: &str, comments: &[Range<usize>], member: &Memb
 }
 
 /// Gets the kind of a member to compare with the one in the formatted program, which is the same
-/// for `export *` and `export { .. } from` since formatting can sort those among each other.
+/// for kinds formatting changes between (ex. it sorts `export *` and `export { .. } from` among
+/// each other).
 fn comparable_kind(node: Node) -> NodeKind {
   match node.kind() {
     NodeKind::ExportAll => NodeKind::NamedExport,
+    // formatting changes `{ a = 1 }` to `{ a: 1 }`
+    NodeKind::AssignProp => NodeKind::KeyValueProp,
     kind => kind,
   }
 }
@@ -483,6 +502,7 @@ fn placement(
   Some(Placement {
     members: start..end,
     first_member_start: first.range.start,
+    last_member_end: last.range.end,
     end_before_semicolon: end_before_next_line_semicolon(program, text, &last.range),
     previous_semicolon,
     container: container.range().as_byte_range(StartSourcePos::START_SOURCE_POS),
@@ -600,41 +620,31 @@ fn comments_before(program: Program, text: &str, member: &Member) -> Vec<Range<u
   comments
 }
 
-/// Gets the byte ranges of the comments on their own lines after a member and before what comes
-/// next, or none when the member's semicolon is on a later line since that goes with what comes
-/// next.
+/// Gets the byte ranges of the comments on their own lines after a member, which are the ones
+/// after its separator (ex. `,`), or before its semicolon when that's on a later line (ex. with
+/// `semiColons: asi`).
 fn comments_after(program: Program, text: &str, member: &Member) -> Vec<Range<usize>> {
-  if end_before_next_line_semicolon(program, text, &member.range) != member.range.end {
-    return Vec::new();
-  }
-  let comment_container = program.comment_container();
-  let next_start = program
-    .token_container()
-    .get_next_token(StartSourcePos::START_SOURCE_POS + member.range.end)
-    .map_or(text.len(), |token| token.start().as_byte_index(StartSourcePos::START_SOURCE_POS));
-  let mut comments = comment_container
-    .trailing_comments(StartSourcePos::START_SOURCE_POS + member.range.end)
-    .chain(comment_container.leading_comments(StartSourcePos::START_SOURCE_POS + next_start))
+  let end_before_semicolon = end_before_next_line_semicolon(program, text, &member.range);
+  let (position, limit) = if end_before_semicolon != member.range.end {
+    (end_before_semicolon, member.range.end - 1)
+  } else {
+    let separator_end = program
+      .token_container()
+      .get_next_token(StartSourcePos::START_SOURCE_POS + member.range.end)
+      .map(|token| token.range().as_byte_range(StartSourcePos::START_SOURCE_POS))
+      .filter(|token| &text[token.clone()] == ",")
+      .map_or(member.range.end, |token| token.end);
+    (separator_end, text.len())
+  };
+  // these are the comments after the position along with the ones before the next token
+  program
+    .comment_container()
+    .trailing_comments(StartSourcePos::START_SOURCE_POS + position)
     .map(|comment| comment.range().as_byte_range(StartSourcePos::START_SOURCE_POS))
-    .filter(|comment| comment.start >= member.range.end && comment.end <= next_start)
-    .collect::<Vec<_>>();
-  comments.sort_by_key(|comment| comment.start);
-  comments.dedup();
-  comments
-    .into_iter()
+    .filter(|comment| comment.end <= limit)
     .skip_while(|comment| !starts_line(text, comment.start))
     .take_while(|comment| starts_line(text, comment.start) && line_end(text, comment.end).is_some())
     .collect()
-}
-
-/// Gets whether the range touches the member, which for an empty range (ex. the cursor) includes
-/// being right at its start or end.
-fn touches(member: &Range<usize>, range: &Range<usize>) -> bool {
-  if range.is_empty() {
-    member.start <= range.start && range.start <= member.end
-  } else {
-    range.start < member.end && range.end > member.start
-  }
 }
 
 /// The lines a level's members to format are on.
@@ -642,8 +652,14 @@ struct Lines<'a> {
   placement: &'a Placement,
   /// From the start of the first line to the end of the last, without its line break.
   range: Range<usize>,
-  /// Where the members end, which is before the last one's semicolon when that's on a later line.
-  members_end: usize,
+}
+
+/// A change to the formatted lines that keeps a semicolon going with the statements around them
+/// where the original lines have it.
+#[derive(Clone, Copy)]
+enum SemicolonEdit {
+  Insert(usize),
+  Remove(usize),
 }
 
 impl<'a> Lines<'a> {
@@ -657,55 +673,67 @@ impl<'a> Lines<'a> {
     if !starts_line(text, members.start) {
       return None;
     }
-    let (members_end, end) = match line_end(text, members.end) {
-      Some(end) => (members.end, end),
-      None if placement.end_before_semicolon != members.end => (placement.end_before_semicolon, line_end(text, placement.end_before_semicolon)?),
+    let end = match line_end(text, members.end) {
+      Some(end) => end,
+      // the last member's semicolon starts the line of what comes after it
+      None if members.end == placement.last_member_end && placement.end_before_semicolon != members.end => line_end(text, placement.end_before_semicolon)?,
       None => return None,
     };
     Some(Lines {
       placement,
       range: line_start(text, members.start)..end,
-      members_end,
     })
   }
 
-  /// Gets whether the last member's semicolon is on a later line.
+  /// Gets whether the last member's semicolon is on a later line than these lines.
   fn semicolon_after(&self) -> bool {
-    self.members_end != self.placement.members.end
+    let placement = self.placement;
+    placement.end_before_semicolon != placement.last_member_end && placement.last_member_end > self.range.end
   }
 
   /// Gets the text of these formatted lines to replace the original lines with, which keeps the
   /// semicolons ending the statements before and after the members where the original lines have
   /// them since that depends on the style of the rest of the file (ex. `;[1]` versus `foo();`).
   fn replacement_for<'b>(&self, original: &Lines, text: &'b str) -> Cow<'b, str> {
-    let has_previous_semicolon = original.placement.previous_semicolon.is_some();
-    if has_previous_semicolon == self.placement.previous_semicolon.is_some() && original.semicolon_after() == self.semicolon_after() {
+    let placement = self.placement;
+    let mut edits = Vec::with_capacity(2);
+    match (original.placement.previous_semicolon.is_some(), placement.previous_semicolon) {
+      (false, Some(index)) => edits.push(SemicolonEdit::Remove(index)),
+      (true, None) => edits.push(SemicolonEdit::Insert(placement.first_member_start)),
+      _ => {}
+    }
+    match (original.semicolon_after(), self.semicolon_after()) {
+      (false, true) => edits.push(SemicolonEdit::Insert(placement.end_before_semicolon)),
+      (true, false) if text.as_bytes()[placement.last_member_end - 1] == b';' => edits.push(SemicolonEdit::Remove(placement.last_member_end - 1)),
+      _ => {}
+    }
+    if edits.is_empty() {
       return Cow::Borrowed(&text[self.range.clone()]);
     }
     let mut replacement = String::with_capacity(self.range.len() + 1);
-    match (has_previous_semicolon, self.placement.previous_semicolon) {
-      (false, Some(index)) => {
-        replacement.push_str(&text[self.range.start..index]);
-        replacement.push_str(&text[index + 1..self.members_end]);
+    let mut index = self.range.start;
+    for edit in edits {
+      match edit {
+        SemicolonEdit::Insert(position) => {
+          replacement.push_str(&text[index..position]);
+          replacement.push(';');
+          index = position;
+        }
+        SemicolonEdit::Remove(position) => {
+          replacement.push_str(&text[index..position]);
+          index = position + 1;
+        }
       }
-      (true, None) => {
-        let first_member_start = self.placement.first_member_start;
-        replacement.push_str(&text[self.range.start..first_member_start]);
-        replacement.push(';');
-        replacement.push_str(&text[first_member_start..self.members_end]);
-      }
-      _ => replacement.push_str(&text[self.range.start..self.members_end]),
     }
-    match (original.semicolon_after(), self.semicolon_after()) {
-      (false, true) => replacement.push(';'),
-      (true, false) if replacement.ends_with(';') => {
-        replacement.pop();
-      }
-      _ => {}
-    }
-    replacement.push_str(&text[self.members_end..self.range.end]);
+    replacement.push_str(&text[index..self.range.end]);
     Cow::Owned(replacement)
   }
+}
+
+/// Gets whether there's a line break between the byte indexes, which don't need to be at character
+/// boundaries.
+fn has_line_break(text: &str, start: usize, end: usize) -> bool {
+  text.as_bytes()[start..end].contains(&b'\n')
 }
 
 /// Gets whether only spaces, tabs, semicolons, and comments come before the index on its line.

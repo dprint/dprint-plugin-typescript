@@ -215,6 +215,16 @@ const  a  =  1;
 [|const b = <div>{}</div>;|]
 const  c  =  2;
 
+== should format the statement holding an empty expression at its position ==
+const  a  =  1;
+const   b  =  <div>{  [||]}</div>;
+const  c  =  2;
+
+[expect]
+const  a  =  1;
+[|const b = <div>{}</div>;|]
+const  c  =  2;
+
 == should format the touched properties of an object in an attribute ==
 const   a  =  (
     <div

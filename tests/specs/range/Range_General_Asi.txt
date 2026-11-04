@@ -101,3 +101,17 @@ foo(  )
 [expect]
 foo(  )
 ;[|[1].forEach()|]
+
+== should format the comment after a statement before one starting with a semicolon ==
+const  y  =  1;
+[|a(  );
+// c|]
+[1].forEach(  );
+const  z  =  1;
+
+[expect]
+const  y  =  1;
+[|a();|]
+// c
+[1].forEach(  );
+const  z  =  1;
