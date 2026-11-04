@@ -1,0 +1,20 @@
+~~ switchStatement.spaceAfterSwitchKeyword: false ~~
+== should print ==
+switch (value) {
+    case 1:
+        break;
+}
+
+[expect]
+switch(value) {
+    case 1:
+        break;
+}
+
+== should keep a space before a comment before the paren ==
+switch /* c */ (value) {
+}
+
+[expect]
+switch /* c */ (value) {
+}

@@ -489,6 +489,14 @@ impl ConfigurationBuilder {
     self.insert("spaceSurroundingProperties", value.into())
   }
 
+  /// Whether to add a space after the `switch` keyword in a switch statement.
+  ///
+  /// * `true` (default) - Ex. `switch (value)`
+  /// * `false` - Ex. `switch(value)`
+  pub fn switch_statement_space_after_switch_keyword(&mut self, value: bool) -> &mut Self {
+    self.insert("switchStatement.spaceAfterSwitchKeyword", value.into())
+  }
+
   /// Whether to add a space before the literal in a tagged template.
   ///
   /// * `true` (default) - Ex. `html \`<element />\``
@@ -1620,6 +1628,7 @@ mod tests {
       .object_pattern_space_surrounding_properties(false)
       .set_accessor_space_before_parentheses(true)
       .space_surrounding_properties(false)
+      .switch_statement_space_after_switch_keyword(true)
       .tagged_template_space_before_literal(false)
       .type_annotation_space_before_colon(true)
       .type_assertion_space_before_expression(true)
@@ -1644,7 +1653,7 @@ mod tests {
       .with_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 226);
+    assert_eq!(inner_config.len(), 227);
     let diagnostics = resolve_config(inner_config, &Default::default()).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }
