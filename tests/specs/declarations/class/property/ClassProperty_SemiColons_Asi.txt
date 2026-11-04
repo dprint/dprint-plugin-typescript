@@ -26,3 +26,17 @@ class Test {
         return 0
     }
 }
+
+== should not remove semi on property before computed after an empty member ==
+class Test {
+    a = 1;
+    ;
+    [k] = 2;
+}
+
+[expect]
+class Test {
+    a = 1;
+
+    [k] = 2
+}
