@@ -4,3 +4,84 @@ const t = <><   / >;
 
 [expect]
 const t = <></>;
+
+== should keep block comments from becoming line comments ==
+<>
+    <Component />
+</* block */
+/>;
+
+<>
+    <Component />
+</ /* block */>;
+
+<>
+    <Component />
+</
+/* block */
+>;
+
+<></* 1 */ / /* 2 */>;
+
+[expect]
+<>
+    <Component />
+</ /* block */
+>;
+
+<>
+    <Component />
+</ /* block */ >;
+
+<>
+    <Component />
+</ /* block */
+>;
+
+<></ /* 1 */ /* 2 */ >;
+
+== should keep line comments from merging with the slash ==
+<>
+    <Component />
+<// line
+/>;
+
+<>
+    <Component />
+</ // line
+>;
+
+[expect]
+<>
+    <Component />
+</ // line
+>;
+
+<>
+    <Component />
+</ // line
+>;
+
+== should support comments in the opening and closing fragment ==
+const x = </* open */>
+    <div />
+</ /* close */>;
+const y = < // open
+>
+    <div />
+</ // close
+>;
+
+[expect]
+const x = (
+    < /* open */ >
+        <div />
+    </ /* close */ >
+);
+const y = (
+    < // open
+    >
+        <div />
+    </ // close
+    >
+);
