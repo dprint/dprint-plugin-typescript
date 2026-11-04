@@ -86,7 +86,7 @@ pub struct Context<'a> {
   pub force_blank_line_in_list: bool,
   pub end_statement_or_member_lns: Stack<LineNumber>,
   before_comments_start_info_stack: Stack<(SourceRange, LineNumber, IsStartOfLine)>,
-  if_stmt_last_brace_condition_ref: Option<ConditionReference>,
+  if_chain_branch: Option<super::generate::IfChainBranch<'a>>,
   expr_stmt_single_line_parent_brace_ref: Option<ConditionReference>,
   /// The start of a parenthesized expression on the right side of an assignment and
   /// the line number to put after it.
@@ -144,7 +144,7 @@ impl<'a> Context<'a> {
       force_blank_line_in_list: false,
       end_statement_or_member_lns: Default::default(),
       before_comments_start_info_stack: Default::default(),
-      if_stmt_last_brace_condition_ref: None,
+      if_chain_branch: None,
       expr_stmt_single_line_parent_brace_ref: None,
       assignment_paren_end_ln: None,
       #[cfg(debug_assertions)]
@@ -220,12 +220,12 @@ impl<'a> Context<'a> {
     self.stored_il.get(&(node.start(), node.end())).map(|x| x.to_owned())
   }
 
-  pub fn store_if_stmt_last_brace_condition_ref(&mut self, condition_reference: ConditionReference) {
-    self.if_stmt_last_brace_condition_ref = Some(condition_reference);
+  pub fn store_if_chain_branch(&mut self, branch: super::generate::IfChainBranch<'a>) {
+    self.if_chain_branch = Some(branch);
   }
 
-  pub fn take_if_stmt_last_brace_condition_ref(&mut self) -> Option<ConditionReference> {
-    self.if_stmt_last_brace_condition_ref.take()
+  pub fn take_if_chain_branch(&mut self) -> Option<super::generate::IfChainBranch<'a>> {
+    self.if_chain_branch.take()
   }
 
   pub fn store_expr_stmt_single_line_parent_brace_ref(&mut self, condition_reference: ConditionReference) {

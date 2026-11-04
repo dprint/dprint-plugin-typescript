@@ -962,7 +962,7 @@ fn gen_catch_clause<'a>(node: &CatchClause<'a>, context: &mut Context<'a>) -> Pr
         brace_position: context.config.try_statement_brace_position,
         block_padding: context.config.try_statement_block_padding,
         single_body_position,
-        requires_braces_condition_ref: None,
+        if_chain_branch: None,
         start_header_info: Some((start_header_ln, start_header_lsil)),
         end_header_info: Some(end_header_ln),
       },
@@ -5881,7 +5881,7 @@ fn gen_for_stmt<'a>(node: &ForStmt<'a>, context: &mut Context<'a>) -> PrintItems
         brace_position: context.config.for_statement_brace_position,
         block_padding: context.config.for_statement_block_padding,
         single_body_position: Some(context.config.for_statement_single_body_position),
-        requires_braces_condition_ref: None,
+        if_chain_branch: None,
         start_header_info: Some((start_header_ln, start_header_lsil)),
         end_header_info: Some(end_header_ln),
       },
@@ -5950,7 +5950,7 @@ fn gen_for_in_stmt<'a>(node: &ForInStmt<'a>, context: &mut Context<'a>) -> Print
         brace_position: context.config.for_in_statement_brace_position,
         block_padding: context.config.for_in_statement_block_padding,
         single_body_position: Some(context.config.for_in_statement_single_body_position),
-        requires_braces_condition_ref: None,
+        if_chain_branch: None,
         start_header_info: Some((start_header_ln, start_header_lsil)),
         end_header_info: Some(end_header_ln),
       },
@@ -6018,7 +6018,7 @@ fn gen_for_of_stmt<'a>(node: &ForOfStmt<'a>, context: &mut Context<'a>) -> Print
         brace_position: context.config.for_of_statement_brace_position,
         block_padding: context.config.for_of_statement_block_padding,
         single_body_position: Some(context.config.for_of_statement_single_body_position),
-        requires_braces_condition_ref: None,
+        if_chain_branch: None,
         start_header_info: Some((start_header_ln, start_header_lsil)),
         end_header_info: Some(end_header_ln),
       },
@@ -6032,6 +6032,13 @@ fn gen_for_of_stmt<'a>(node: &ForOfStmt<'a>, context: &mut Context<'a>) -> Print
 
 fn gen_if_stmt<'a>(node: &IfStmt<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
   let mut items = PrintItems::new(context.arena);
+  // an `else if` continues the chain of the if statement it's in, while any other if statement may start one
+  let mut chain_end_condition = None;
+  let if_chain_branch = context.take_if_chain_branch().or_else(|| {
+    let (branch, condition) = IfChainBranch::start_chain(node, context)?;
+    chain_end_condition = Some(condition);
+    Some(branch)
+  });
   let cons = node.cons;
   let cons_range = cons.range();
   let result = gen_header_with_conditional_brace_body(
@@ -6061,7 +6068,7 @@ fn gen_if_stmt<'a>(node: &IfStmt<'a>, context: &mut Context<'a>) -> PrintItems<'
       brace_position: context.config.if_statement_brace_position,
       block_padding: context.config.if_statement_block_padding,
       single_body_position: Some(context.config.if_statement_single_body_position),
-      requires_braces_condition_ref: context.take_if_stmt_last_brace_condition_ref(),
+      if_chain_branch,
     },
     context,
   );
@@ -6071,11 +6078,7 @@ fn gen_if_stmt<'a>(node: &IfStmt<'a>, context: &mut Context<'a>) -> PrintItems<'
   items.extend(result.generated_node);
 
   if let Some(alt) = node.alt {
-    if let Stmt::If(alt_alt) = alt {
-      if alt_alt.alt.is_none() {
-        context.store_if_stmt_last_brace_condition_ref(result.open_brace_condition_ref);
-      }
-    }
+    let alt_if_chain_branch = if_chain_branch.map(|branch| branch.next());
 
     items.extend(gen_control_flow_separator(
       context.config.if_statement_next_control_flow_position,
@@ -6107,7 +6110,12 @@ fn gen_if_stmt<'a>(node: &IfStmt<'a>, context: &mut Context<'a>) -> PrintItems<'
 
     if let Stmt::If(alt) = alt {
       items.push_space();
+      if let Some(branch) = alt_if_chain_branch {
+        context.store_if_chain_branch(branch);
+      }
       items.extend(gen_node(alt.into(), context));
+      // clear it for when the alternate wasn't generated as an if statement (ex. it's ignored)
+      context.take_if_chain_branch();
     } else {
       items.extend(
         gen_conditional_brace_body(
@@ -6117,7 +6125,7 @@ fn gen_if_stmt<'a>(node: &IfStmt<'a>, context: &mut Context<'a>) -> PrintItems<'
             brace_position: context.config.if_statement_brace_position,
             block_padding: context.config.if_statement_block_padding,
             single_body_position: Some(context.config.if_statement_single_body_position),
-            requires_braces_condition_ref: Some(result.open_brace_condition_ref),
+            if_chain_branch: alt_if_chain_branch,
             start_header_info: Some((start_else_header_ln, start_else_header_lsil)),
             end_header_info: None,
           },
@@ -6128,7 +6136,77 @@ fn gen_if_stmt<'a>(node: &IfStmt<'a>, context: &mut Context<'a>) -> PrintItems<'
     }
   }
 
+  // resolved after every branch, so all the branches are known when it's looked ahead at
+  if let Some(condition) = chain_end_condition {
+    items.push_condition(condition);
+  }
+
   items
+}
+
+/// A branch of an if-else chain with `useBraces: preferNone`, where every branch gets braces
+/// when any of them needs them.
+#[derive(Clone, Copy)]
+pub(super) struct IfChainBranch<'a> {
+  /// What decides whether each branch needs braces, which is set when the branch is generated.
+  brace_requirements: &'a [Cell<Option<BraceRequirement>>],
+  /// Whether any branch needs braces, which is resolved after the last branch.
+  any_requires_braces_ref: ConditionReference,
+  index: usize,
+}
+
+impl<'a> IfChainBranch<'a> {
+  /// Gets the first branch of the chain the if statement starts, along with the condition
+  /// to put after the chain's last branch.
+  fn start_chain(node: &IfStmt<'a>, context: &mut Context<'a>) -> Option<(Self, Condition<'a>)> {
+    if context.config.if_statement_use_braces != UseBraces::PreferNone || node.alt.is_none() {
+      return None;
+    }
+    let brace_requirements: &'a [Cell<Option<BraceRequirement>>] = context.arena.bump().alloc_slice_fill_with(count_branches(node), |_| Cell::new(None));
+    let mut condition = if_true(
+      "anyIfChainBranchRequiresBraces",
+      context.arena.alloc_resolver(move |condition_context| {
+        for requirement in brace_requirements.iter().filter_map(|requirement| requirement.get()) {
+          if requirement.is_required(condition_context)? {
+            return Some(true);
+          }
+        }
+        Some(false)
+      }),
+      PrintItems::new(context.arena),
+    );
+    let branch = Self {
+      brace_requirements,
+      any_requires_braces_ref: condition.create_reference(),
+      index: 0,
+    };
+    return Some((branch, condition));
+
+    fn count_branches(node: &IfStmt) -> usize {
+      let mut count = 1;
+      let mut alt = node.alt;
+      while let Some(stmt) = alt {
+        count += 1;
+        alt = match stmt {
+          Stmt::If(if_stmt) => if_stmt.alt,
+          _ => None,
+        };
+      }
+      count
+    }
+  }
+
+  fn next(self) -> Self {
+    Self { index: self.index + 1, ..self }
+  }
+
+  fn set_brace_requirement(&self, requirement: BraceRequirement) {
+    self.brace_requirements[self.index].set(Some(requirement));
+  }
+
+  fn any_branch_requires_braces(&self, condition_context: &mut ConditionResolverContext) -> Option<bool> {
+    condition_context.resolved_condition(&self.any_requires_braces_ref)
+  }
 }
 
 fn gen_labeled_stmt<'a>(node: &LabeledStmt<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
@@ -6330,7 +6408,7 @@ fn gen_try_stmt<'a>(node: &TryStmt<'a>, context: &mut Context<'a>) -> PrintItems
         brace_position: context.config.try_statement_brace_position,
         block_padding: context.config.try_statement_block_padding,
         single_body_position: Some(SameOrNextLinePosition::NextLine),
-        requires_braces_condition_ref: None,
+        if_chain_branch: None,
         start_header_info: None,
         end_header_info: None,
       },
@@ -6375,7 +6453,7 @@ fn gen_try_stmt<'a>(node: &TryStmt<'a>, context: &mut Context<'a>) -> PrintItems
           brace_position,
           block_padding: context.config.try_statement_block_padding,
           single_body_position: Some(SameOrNextLinePosition::NextLine),
-          requires_braces_condition_ref: None,
+          if_chain_branch: None,
           start_header_info: None,
           end_header_info: None,
         },
@@ -6521,7 +6599,7 @@ fn gen_while_stmt<'a>(node: &WhileStmt<'a>, context: &mut Context<'a>) -> PrintI
         brace_position: context.config.while_statement_brace_position,
         block_padding: context.config.while_statement_block_padding,
         single_body_position: Some(context.config.while_statement_single_body_position),
-        requires_braces_condition_ref: None,
+        if_chain_branch: None,
         start_header_info: Some((start_header_ln, start_header_lsil)),
         end_header_info: Some(end_header_ln),
       },
@@ -6564,7 +6642,7 @@ fn gen_with_stmt<'a>(node: &WithStmt<'a>, context: &mut Context<'a>) -> PrintIte
         brace_position: context.config.with_statement_brace_position,
         block_padding: context.config.with_statement_block_padding,
         single_body_position: Some(context.config.with_statement_single_body_position),
-        requires_braces_condition_ref: None,
+        if_chain_branch: None,
         start_header_info: Some((start_header_ln, start_header_lsil)),
         end_header_info: Some(end_header_ln),
       },
@@ -10626,12 +10704,11 @@ struct GenHeaderWithConditionalBraceBodyOptions<'a> {
   brace_position: BracePosition,
   block_padding: BlockPadding,
   single_body_position: Option<SameOrNextLinePosition>,
-  requires_braces_condition_ref: Option<ConditionReference>,
+  if_chain_branch: Option<IfChainBranch<'a>>,
 }
 
 struct GenHeaderWithConditionalBraceBodyResult<'a> {
   generated_node: PrintItems<'a>,
-  open_brace_condition_ref: ConditionReference,
   close_brace_condition_ref: ConditionReference,
 }
 
@@ -10660,7 +10737,7 @@ fn gen_header_with_conditional_brace_body<'a>(
       brace_position: opts.brace_position,
       block_padding: opts.block_padding,
       single_body_position: opts.single_body_position,
-      requires_braces_condition_ref: opts.requires_braces_condition_ref,
+      if_chain_branch: opts.if_chain_branch,
       start_header_info: Some((start_header_ln, start_header_lsil)),
       end_header_info: Some(end_header_ln),
     },
@@ -10669,7 +10746,6 @@ fn gen_header_with_conditional_brace_body<'a>(
   items.extend(result.generated_node);
 
   GenHeaderWithConditionalBraceBodyResult {
-    open_brace_condition_ref: result.open_brace_condition_ref,
     close_brace_condition_ref: result.close_brace_condition_ref,
     generated_node: items,
   }
@@ -10707,15 +10783,39 @@ struct GenConditionalBraceBodyOptions<'a> {
   brace_position: BracePosition,
   block_padding: BlockPadding,
   single_body_position: Option<SameOrNextLinePosition>,
-  requires_braces_condition_ref: Option<ConditionReference>,
+  if_chain_branch: Option<IfChainBranch<'a>>,
   start_header_info: Option<(LineNumber, LineStartIndentLevel)>,
   end_header_info: Option<LineNumber>,
 }
 
 struct GenConditionalBraceBodyResult<'a> {
   generated_node: PrintItems<'a>,
-  open_brace_condition_ref: ConditionReference,
   close_brace_condition_ref: ConditionReference,
+}
+
+/// What decides whether a body needs braces with `useBraces: preferNone`.
+#[derive(Clone, Copy)]
+struct BraceRequirement {
+  /// Whether the body needs braces no matter how it's printed.
+  is_forced: bool,
+  /// The start and end of the header, where braces are needed when it's on multiple lines.
+  header_lns: Option<(LineNumber, LineNumber)>,
+  /// The start and end of the statements, where braces are needed when they're on multiple lines.
+  statements_lns: (LineNumber, LineNumber),
+}
+
+impl BraceRequirement {
+  fn is_required(&self, condition_context: &mut ConditionResolverContext) -> Option<bool> {
+    if self.is_forced {
+      return Some(true);
+    }
+    if let Some((start_header_ln, end_header_ln)) = self.header_lns
+      && condition_helpers::is_multiple_lines(condition_context, start_header_ln, end_header_ln)?
+    {
+      return Some(true);
+    }
+    condition_helpers::is_multiple_lines(condition_context, self.statements_lns.0, self.statements_lns.1)
+  }
 }
 
 fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, context: &mut Context<'a>) -> GenConditionalBraceBodyResult<'a> {
@@ -10725,7 +10825,7 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
   let start_header_ln = opts.start_header_info.map(|v| v.0);
   let start_header_lsil = opts.start_header_info.map(|v| v.1);
   let end_header_ln = opts.end_header_info;
-  let requires_braces_condition = opts.requires_braces_condition_ref;
+  let if_chain_branch = opts.if_chain_branch;
   let start_inner_text_lc = LineAndColumn::new("startInnerText");
   let start_statements_lc = LineAndColumn::new("startStatements");
   let end_statements_lc = LineAndColumn::new("endStatements");
@@ -10752,6 +10852,16 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
   );
   let inner_brace_space_condition_ref = inner_brace_space_condition.create_reference();
   let force_braces = get_force_braces(opts.body_node);
+  let brace_requirement = BraceRequirement {
+    is_forced: use_braces == UseBraces::Always || force_braces || body_should_be_multi_line,
+    header_lns: start_header_ln.zip(end_header_ln),
+    statements_lns: (start_statements_lc.line, end_statements_lc.line),
+  };
+  if let Some(if_chain_branch) = if_chain_branch
+    && !is_body_empty_stmt
+  {
+    if_chain_branch.set_brace_requirement(brace_requirement);
+  }
   let mut open_brace_condition = if_true(
     "openBrace",
     {
@@ -10774,30 +10884,13 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
           UseBraces::Maintain => Some(force_braces || has_open_brace_token),
           UseBraces::Always => Some(true),
           UseBraces::PreferNone => {
-            if force_braces || body_should_be_multi_line {
+            if brace_requirement.is_required(condition_context)? {
               return Some(true);
             }
-            if let Some(start_header_ln) = start_header_ln {
-              if let Some(end_header_ln) = end_header_ln {
-                let is_header_multiple_lines = condition_helpers::is_multiple_lines(condition_context, start_header_ln, end_header_ln)?;
-                if is_header_multiple_lines {
-                  return Some(true);
-                }
-              }
+            match if_chain_branch {
+              Some(if_chain_branch) => if_chain_branch.any_branch_requires_braces(condition_context),
+              None => Some(false),
             }
-            let is_statements_multiple_lines = condition_helpers::is_multiple_lines(condition_context, start_statements_lc.line, end_statements_lc.line)?;
-            if is_statements_multiple_lines {
-              return Some(true);
-            }
-
-            if let Some(requires_braces_condition) = &requires_braces_condition {
-              let requires_braces = condition_context.resolved_condition(requires_braces_condition)?;
-              if requires_braces {
-                return Some(true);
-              }
-            }
-
-            Some(false)
           }
         }
       })
@@ -10998,7 +11091,6 @@ fn gen_conditional_brace_body<'a>(opts: GenConditionalBraceBodyOptions<'a>, cont
   // return result
   return GenConditionalBraceBodyResult {
     generated_node: items,
-    open_brace_condition_ref,
     close_brace_condition_ref,
   };
 
