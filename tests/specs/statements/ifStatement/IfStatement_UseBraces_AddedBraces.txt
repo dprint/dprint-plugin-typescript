@@ -17,8 +17,8 @@ function forEachResolution(resolutionCache, callback, file) {
     resolutionCache == null
       ? void 0
       : resolutionCache.forEach((resolutions, filePath) =>
-        resolutions.forEach((resolution, name, mode) => callback(resolution, name, mode, filePath))
-      );
+          resolutions.forEach((resolution, name, mode) => callback(resolution, name, mode, filePath))
+        );
   }
 }
 
@@ -35,13 +35,13 @@ function f() {
             x,
               x
                 ? (("if(%s!=null&&Object.hasOwnProperty.call(m,%j)){")(
-                  "for(var ks=Object.keys(%s),i=0;i<ks.length;++i){",
-                )(
-                  "w.uint32(%i).fork().uint32(%i).%s(ks[i])",
-                  (s.id << 3 | 2) >>> 0,
-                  8 | c.mapKey[s.keyType],
-                  s.keyType,
-                ))
+                    "for(var ks=Object.keys(%s),i=0;i<ks.length;++i){",
+                  )(
+                    "w.uint32(%i).fork().uint32(%i).%s(ks[i])",
+                    (s.id << 3 | 2) >>> 0,
+                    8 | c.mapKey[s.keyType],
+                    s.keyType,
+                  ))
                 : x;
           }
         };

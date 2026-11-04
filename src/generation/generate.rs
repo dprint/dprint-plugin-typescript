@@ -2687,11 +2687,13 @@ fn gen_conditional_expr<'a>(node: &CondExpr<'a>, context: &mut Context<'a>) -> P
 
     items.push_condition({
       let mut items = PrintItems::new(context.arena);
+      let is_start_of_line = IsStartOfLine::new("conditionalConsequentStart");
+      items.push_info(is_start_of_line);
       items.extend(question_comment_items.leading_line);
       if question_position == OperatorPosition::NextLine {
         items.push_sc(sc!("? "));
       }
-      items.extend(gen_node(node.cons.into(), context));
+      items.extend(gen_branch(node.cons, question_position, is_start_of_line, context));
       if colon_position == OperatorPosition::SameLine {
         items.push_sc(sc!(" :"));
       }
@@ -2715,12 +2717,14 @@ fn gen_conditional_expr<'a>(node: &CondExpr<'a>, context: &mut Context<'a>) -> P
 
     items.push_condition({
       let mut items = PrintItems::new(context.arena);
+      let is_start_of_line = IsStartOfLine::new("conditionalAlternateStart");
+      items.push_info(is_start_of_line);
       items.extend(colon_comment_items.leading_line);
       if colon_position == OperatorPosition::NextLine {
         items.push_sc(sc!(": "));
       }
       items.push_info(before_alternate_ln);
-      items.extend(gen_node(node.alt.into(), context));
+      items.extend(gen_branch(node.alt, colon_position, is_start_of_line, context));
       indent_if_sol_and_same_indent_as_top_most(ir_helpers::new_line_group(items), top_most_il)
     });
     items.push_info(end_ln);
@@ -2739,6 +2743,36 @@ fn gen_conditional_expr<'a>(node: &CondExpr<'a>, context: &mut Context<'a>) -> P
   }
 
   return items;
+
+  /// Generates the consequent or alternate of a conditional expression.
+  ///
+  /// The hanging content of a multi-line branch (ex. the properties of an object argument) is
+  /// indented from the start of the operator's line, so it lines up with the start of the branch
+  /// when the operator is before the branch and an indent is as wide as the operator and its
+  /// space. In that case, when the operator starts the line, the lines after the branch's first
+  /// line are indented once more.
+  fn gen_branch<'a>(
+    branch: Expr<'a>,
+    operator_position: OperatorPosition,
+    operator_is_start_of_line: IsStartOfLine,
+    context: &mut Context<'a>,
+  ) -> PrintItems<'a> {
+    let items = gen_node(branch.into(), context);
+    // nested conditionals line their operators up with the top most conditional instead
+    if operator_position != OperatorPosition::NextLine || branch.kind() == NodeKind::CondExpr || context.config.indent_width > 2 {
+      return items;
+    }
+    let arena = context.arena;
+    let items = items.into_rc_path();
+    let mut new_items = PrintItems::new(arena);
+    new_items.push_condition(if_true_or(
+      "indentConditionalBranchIfOperatorStartOfLine",
+      arena.alloc_resolver(move |context| context.resolved_is_start_of_line(operator_is_start_of_line)),
+      with_indent(items.into_print_items(arena)),
+      items.into_print_items(arena),
+    ));
+    new_items
+  }
 
   struct TopMostData {
     ln: LineNumber,
