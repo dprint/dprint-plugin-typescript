@@ -4,3 +4,83 @@ const t = <Test>Test<  / Test   >;
 
 [expect]
 const t = <Test>Test</Test>;
+
+== should keep a block comment before the slash from becoming a line comment ==
+<a></* block */
+/a>;
+<a></* block */ /a>;
+
+[expect]
+<a>
+</ /* block */
+a>;
+<a></ /* block */ a>;
+
+== should keep a line comment before the slash from merging with it ==
+<a><// line
+/a>;
+
+[expect]
+<a>
+</ // line
+a>;
+
+== should support a block comment after the slash ==
+<a></ /* block */ a>;
+<a></ /* block */
+a>;
+
+[expect]
+<a></ /* block */ a>;
+<a>
+</ /* block */
+a>;
+
+== should support a line comment after the slash ==
+<a></ // line
+a>;
+
+[expect]
+<a>
+</ // line
+a>;
+
+== should support comments after the name ==
+<a></a /* block */>;
+<a></a // line
+>;
+
+[expect]
+<a></a /* block */>;
+<a>
+</a // line
+>;
+
+== should support comments before and after the slash and name ==
+<a></* 1 */ / /* 2 */ a /* 3 */>;
+<a><// 1
+/ // 2
+a // 3
+>;
+
+[expect]
+<a></ /* 1 */ /* 2 */ a /* 3 */>;
+<a>
+</ // 1
+// 2
+a // 3
+>;
+
+== should support a comment after the slash when indented ==
+function f() {
+    return <div><span>text</span></ /* block */ div>;
+}
+
+[expect]
+function f() {
+    return (
+        <div>
+            <span>text</span>
+        </ /* block */ div>
+    );
+}

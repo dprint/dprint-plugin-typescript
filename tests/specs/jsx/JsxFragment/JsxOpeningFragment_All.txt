@@ -4,3 +4,65 @@ const t = <   ></>;
 
 [expect]
 const t = <></>;
+
+== should support block comments ==
+</* block */>
+    <Component />
+</>;
+
+</* block */
+>
+    <Component />
+</>;
+
+<
+/* block */
+>
+    <Component />
+</>;
+
+const x = </* block 1 */ /* block 2 */><Component /></>;
+
+[expect]
+< /* block */ >
+    <Component />
+</>;
+
+< /* block */
+>
+    <Component />
+</>;
+
+< /* block */
+>
+    <Component />
+</>;
+
+const x = (
+    < /* block 1 */ /* block 2 */ >
+        <Component />
+    </>
+);
+
+== should support line comments ==
+<// line
+>
+    <Component />
+</>;
+
+<
+// line
+>
+    <Component />
+</>;
+
+[expect]
+< // line
+>
+    <Component />
+</>;
+
+< // line
+>
+    <Component />
+</>;

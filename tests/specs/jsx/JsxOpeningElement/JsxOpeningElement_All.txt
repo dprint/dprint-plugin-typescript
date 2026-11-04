@@ -147,3 +147,24 @@ function Test() {
         />
     );
 }
+
+== should support a block comment before the name ==
+</* block */a></a>;
+< /* block */ a />;
+
+[expect]
+< /* block */ a></a>;
+< /* block */ a />;
+
+== should support a line comment before the name ==
+< // line
+a></a>;
+< // line
+a />;
+
+[expect]
+< // line
+a>
+</a>;
+< // line
+a />;

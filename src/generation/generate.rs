@@ -4328,13 +4328,32 @@ fn gen_jsx_attribute<'a>(node: &JSXAttr<'a>, context: &mut Context<'a>) -> Print
 fn gen_jsx_closing_element<'a>(node: &JSXClosingElement<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
   let mut items = PrintItems::new(context.arena);
   items.push_sc(sc!("</"));
+  items.extend(gen_jsx_tag_comments(node.name.range(), context));
   items.extend(gen_node(node.name.into(), context));
   items.push_sc(sc!(">"));
   items
 }
 
-fn gen_jsx_closing_fragment<'a>(_: &'a JSXClosingFragment, context: &mut Context<'a>) -> PrintItems<'a> {
-  "</>".into_print_items(context.arena)
+fn gen_jsx_closing_fragment<'a>(node: &'a JSXClosingFragment, context: &mut Context<'a>) -> PrintItems<'a> {
+  let mut items = PrintItems::new(context.arena);
+  items.push_sc(sc!("</"));
+  items.extend(gen_jsx_tag_comments(SourceRange::new(node.end() - 1, node.end()), context));
+  items.push_sc(sc!(">"));
+  items
+}
+
+/// Generates the comments in a jsx tag that are before the given range (ex. before the
+/// name or `>`) with a space before them, so a comment after the `/` of a closing tag
+/// doesn't merge with it.
+fn gen_jsx_tag_comments<'a>(next_range: SourceRange, context: &mut Context<'a>) -> PrintItems<'a> {
+  let comments = context.comments.leading_comments_with_previous(next_range.start);
+  if !comments.clone().any(|c| !context.has_handled_comment(c)) {
+    return PrintItems::new(context.arena);
+  }
+  let mut items = PrintItems::new(context.arena);
+  items.push_space();
+  items.extend(gen_comments_as_leading(&next_range, comments, context));
+  items
 }
 
 fn handle_jsx_surrounding_parens<'a>(inner_items: PrintItems<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
@@ -4586,6 +4605,7 @@ fn gen_jsx_opening_element<'a>(node: &JSXOpeningElement<'a>, context: &mut Conte
 
   items.push_info(start_lsil);
   items.push_sc(sc!("<"));
+  items.extend(gen_jsx_tag_comments(node.name.range(), context));
   items.extend(gen_node(node.name.into(), context));
   if let Some(type_args) = node.type_args {
     items.extend(gen_node(type_args.into(), context));
@@ -4683,8 +4703,12 @@ fn gen_jsx_opening_element<'a>(node: &JSXOpeningElement<'a>, context: &mut Conte
   }
 }
 
-fn gen_jsx_opening_fragment<'a>(_: &'a JSXOpeningFragment, context: &mut Context<'a>) -> PrintItems<'a> {
-  "<>".into_print_items(context.arena)
+fn gen_jsx_opening_fragment<'a>(node: &'a JSXOpeningFragment, context: &mut Context<'a>) -> PrintItems<'a> {
+  let mut items = PrintItems::new(context.arena);
+  items.push_sc(sc!("<"));
+  items.extend(gen_jsx_tag_comments(SourceRange::new(node.end() - 1, node.end()), context));
+  items.push_sc(sc!(">"));
+  items
 }
 
 fn gen_jsx_spread_child<'a>(node: &JSXSpreadChild<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
