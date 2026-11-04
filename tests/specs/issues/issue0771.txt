@@ -1,5 +1,5 @@
 -- file.tsx --
-~~ semiColons: asi ~~
+~~ semicolons: asi ~~
 == should keep a jsdoc before a semicolon at the start of a line with the next statement ==
 import { createRoot } from "react-dom/client"
 

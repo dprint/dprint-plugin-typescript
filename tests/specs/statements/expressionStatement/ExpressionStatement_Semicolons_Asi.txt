@@ -1,0 +1,6 @@
+~~ semicolons: asi ~~
+== should not output the semi colon ==
+testing.this();
+
+[expect]
+testing.this()

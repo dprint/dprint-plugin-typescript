@@ -1,4 +1,4 @@
-~~ lineWidth: 80, indentWidth: 2, memberExpression.linePerExpression: true, semiColons: asi ~~
+~~ lineWidth: 80, indentWidth: 2, memberExpression.linePerExpression: true, semicolons: asi ~~
 == should not break a member expression that fits after a multi-line statement ==
 const createTestData = () =>
   function*() {

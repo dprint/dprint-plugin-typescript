@@ -1,0 +1,27 @@
+~~ semicolons: asi ~~
+== should put the comments before an empty statement on their own lines after the statement before ==
+foo();
+[1].forEach(x);
+// c
+;(a)
+
+[expect]
+foo()
+;[1].forEach(x)
+// c
+a
+
+== should put the comments before an empty member on their own lines after the member before ==
+class Test {
+    a = 1;
+    // c
+    ;
+    b = 2;
+}
+
+[expect]
+class Test {
+    a = 1
+    // c
+    b = 2
+}

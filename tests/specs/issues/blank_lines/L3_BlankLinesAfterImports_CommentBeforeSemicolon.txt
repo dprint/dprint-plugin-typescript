@@ -1,4 +1,4 @@
-~~ module.blankLinesAfterImports: 1, semiColons: asi ~~
+~~ module.blankLinesAfterImports: 1, semicolons: asi ~~
 == should be stable with a comment before a leading semicolon ==
 import { a } from "b"
 // comment

@@ -27,7 +27,7 @@ generate_str_to_from![PreferHanging, [Never, "never"], [OnlySingleItem, "onlySin
 /// Semi colon possibilities.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum SemiColons {
+pub enum Semicolons {
   /// Always uses semi-colons where applicable.
   Always,
   /// Prefers to use semi-colons, but doesn't add one in certain scenarios
@@ -38,17 +38,17 @@ pub enum SemiColons {
   Asi,
 }
 
-impl SemiColons {
+impl Semicolons {
   /// Gets if this option is "Always" or "Prefer".
   pub(crate) fn is_true(&self) -> bool {
     match self {
-      SemiColons::Always | SemiColons::Prefer => true,
-      SemiColons::Asi => false,
+      Semicolons::Always | Semicolons::Prefer => true,
+      Semicolons::Asi => false,
     }
   }
 }
 
-generate_str_to_from![SemiColons, [Always, "always"], [Prefer, "prefer"], [Asi, "asi"]];
+generate_str_to_from![Semicolons, [Always, "always"], [Prefer, "prefer"], [Asi, "asi"]];
 
 /// Trailing comma possibilities.
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
@@ -389,10 +389,7 @@ pub enum NamedTypeImportsExportsOrder {
   /// Puts type-only named imports and exports last.
   Last,
   /// Sorts type-only named imports and exports inline with the others.
-  ///
-  /// This was previously called `none`, which is still accepted as an alias.
   #[default]
-  #[serde(alias = "none")]
   Inline,
 }
 
@@ -513,8 +510,7 @@ pub struct Configuration {
   pub new_line_kind: NewLineKind,
   pub quote_style: QuoteStyle,
   pub quote_props: QuoteProps,
-  #[serde(rename = "semicolons", alias = "semiColons")]
-  pub semi_colons: SemiColons,
+  pub semicolons: Semicolons,
   pub file_indent_level: u32,
   pub max_blank_lines: u32,
   /* situational */
@@ -888,8 +884,8 @@ pub struct Configuration {
   pub export_declaration_space_surrounding_named_exports: bool,
   #[serde(rename = "forStatement.spaceAfterForKeyword")]
   pub for_statement_space_after_for_keyword: bool,
-  #[serde(rename = "forStatement.spaceAfterSemicolons", alias = "forStatement.spaceAfterSemiColons")]
-  pub for_statement_space_after_semi_colons: bool,
+  #[serde(rename = "forStatement.spaceAfterSemicolons")]
+  pub for_statement_space_after_semicolons: bool,
   #[serde(rename = "forInStatement.spaceAfterForKeyword")]
   pub for_in_statement_space_after_for_keyword: bool,
   #[serde(rename = "forOfStatement.spaceAfterForKeyword")]

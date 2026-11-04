@@ -1,0 +1,6 @@
+~~ lineWidth: 40, semicolons: asi ~~
+== should format without semi-colons ==
+export {};
+
+[expect]
+export {}

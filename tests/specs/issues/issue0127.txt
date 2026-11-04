@@ -1,4 +1,4 @@
-~~ semiColons: asi, useBraces: preferNone ~~
+~~ semicolons: asi, useBraces: preferNone ~~
 == should handle ASI in single line conditionally braced parent statements ==
 for (const test of asdf)
     []

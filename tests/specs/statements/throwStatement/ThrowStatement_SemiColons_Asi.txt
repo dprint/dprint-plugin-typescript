@@ -1,6 +1,0 @@
-~~ semiColons: asi ~~
-== should remove the semi-colon ==
-throw "test";
-
-[expect]
-throw "test"
