@@ -275,7 +275,8 @@ generate_str_to_from![QuoteProps, [AsNeeded, "asNeeded"], [Consistent, "consiste
 #[derive(Clone, PartialEq, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum JsxMultiLineParens {
-  /// Never wrap JSX with parentheses.
+  /// Never wrap JSX with parentheses and remove existing ones, except when
+  /// they have comments or are needed (ex. `(<div />).props`).
   Never,
   /// Prefer wrapping with parentheses in most scenarios, except in function
   /// arguments and JSX attributes.
@@ -379,16 +380,23 @@ generate_str_to_from![
   [CaseInsensitive, "caseInsensitive"]
 ];
 
+/// Where type-only named imports and exports are sorted relative to the others.
 #[derive(Copy, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub enum NamedTypeImportsExportsOrder {
+  /// Puts type-only named imports and exports first.
   First,
+  /// Puts type-only named imports and exports last.
   Last,
+  /// Sorts type-only named imports and exports inline with the others.
+  ///
+  /// This was previously called `none`, which is still accepted as an alias.
   #[default]
-  None,
+  #[serde(alias = "none")]
+  Inline,
 }
 
-generate_str_to_from![NamedTypeImportsExportsOrder, [First, "first"], [Last, "last"], [None, "none"]];
+generate_str_to_from![NamedTypeImportsExportsOrder, [First, "first"], [Last, "last"], [Inline, "inline"]];
 
 /// How type-only imports are classified by `module.importGroups`.
 #[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -505,6 +513,7 @@ pub struct Configuration {
   pub new_line_kind: NewLineKind,
   pub quote_style: QuoteStyle,
   pub quote_props: QuoteProps,
+  #[serde(rename = "semicolons", alias = "semiColons")]
   pub semi_colons: SemiColons,
   pub file_indent_level: u32,
   pub max_blank_lines: u32,
@@ -879,7 +888,7 @@ pub struct Configuration {
   pub export_declaration_space_surrounding_named_exports: bool,
   #[serde(rename = "forStatement.spaceAfterForKeyword")]
   pub for_statement_space_after_for_keyword: bool,
-  #[serde(rename = "forStatement.spaceAfterSemiColons")]
+  #[serde(rename = "forStatement.spaceAfterSemicolons", alias = "forStatement.spaceAfterSemiColons")]
   pub for_statement_space_after_semi_colons: bool,
   #[serde(rename = "forInStatement.spaceAfterForKeyword")]
   pub for_in_statement_space_after_for_keyword: bool,
@@ -905,6 +914,8 @@ pub struct Configuration {
   pub jsx_self_closing_element_space_before_slash: bool,
   #[serde(rename = "method.spaceBeforeParentheses")]
   pub method_space_before_parentheses: bool,
+  #[serde(rename = "mappedType.spaceSurroundingProperties")]
+  pub mapped_type_space_surrounding_properties: bool,
   #[serde(rename = "objectExpression.spaceSurroundingProperties")]
   pub object_expression_space_surrounding_properties: bool,
   #[serde(rename = "objectPattern.spaceSurroundingProperties")]

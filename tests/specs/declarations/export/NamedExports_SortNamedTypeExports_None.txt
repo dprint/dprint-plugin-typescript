@@ -1,5 +1,5 @@
 ~~ lineWidth: 40, exportDeclaration.sortTypeOnlyExports: none ~~
-== should sort ==
+== should treat none as an alias of inline ==
 export {
     type a,
     testing,

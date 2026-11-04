@@ -75,12 +75,12 @@ impl NodeSorter {
         (ComparisonPart::HasType, ComparisonPart::NoType) => match self.named_type_imports_exports_order {
           NamedTypeImportsExportsOrder::First => return Ordering::Less,
           NamedTypeImportsExportsOrder::Last => return Ordering::Greater,
-          NamedTypeImportsExportsOrder::None => {}
+          NamedTypeImportsExportsOrder::Inline => {}
         },
         (ComparisonPart::NoType, ComparisonPart::HasType) => match self.named_type_imports_exports_order {
           NamedTypeImportsExportsOrder::First => return Ordering::Greater,
           NamedTypeImportsExportsOrder::Last => return Ordering::Less,
-          NamedTypeImportsExportsOrder::None => {}
+          NamedTypeImportsExportsOrder::Inline => {}
         },
         (ComparisonPart::Text(a), ComparisonPart::Text(b)) => {
           let cmp_result = self.cmp_text(a, b);
@@ -94,6 +94,12 @@ impl NodeSorter {
             SortOrder::CaseSensitive => cmp_module_specifier_infos(a, b, cmp_text_case_sensitive),
             SortOrder::CaseInsensitive => cmp_module_specifier_infos(a, b, cmp_text_case_insensitive),
           };
+          if cmp_result != Ordering::Equal {
+            return cmp_result;
+          }
+        }
+        (ComparisonPart::ImportDeclKind(a), ComparisonPart::ImportDeclKind(b)) => {
+          let cmp_result = a.cmp(b);
           if cmp_result != Ordering::Equal {
             return cmp_result;
           }
@@ -134,6 +140,24 @@ enum ComparisonPart<'a> {
   NoType,
   Text(&'a str),
   ModuleSpecifier(ModuleSpecifierInfo<'a>),
+  ImportDeclKind(ImportDeclKind),
+}
+
+/// The kind of an import declaration, which orders the import declarations of the same module.
+///
+/// Type-only imports go before value imports, since that's what code commonly does (it's also
+/// what eslint-plugin-simple-import-sort does), then namespace, default, and named imports.
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+struct ImportDeclKind {
+  is_value: bool,
+  bindings: ImportDeclBindings,
+}
+
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+enum ImportDeclBindings {
+  Namespace,
+  Default,
+  Named,
 }
 
 fn get_comparison_parts<'a>(node: Node<'a>, use_module_specifier: bool, program: Program<'a>) -> Vec<ComparisonPart<'a>> {
@@ -180,7 +204,11 @@ fn get_comparison_parts<'a>(node: Node<'a>, use_module_specifier: bool, program:
       }
     }
     Node::ImportDecl(node) => {
-      vec![get_part(node.src.range(), use_module_specifier, program)]
+      // the kind breaks ties between declarations of the same module so they have a canonical order
+      vec![
+        get_part(node.src.range(), use_module_specifier, program),
+        ComparisonPart::ImportDeclKind(get_import_decl_kind(node)),
+      ]
     }
     Node::NamedExport(node) => {
       if let Some(src) = &node.src {
@@ -229,6 +257,21 @@ fn cmp_ascii_case_insensitive(a: &[u8], b: &[u8]) -> Ordering {
     }
   }
   a.len().cmp(&b.len())
+}
+
+fn get_import_decl_kind(node: &ImportDecl) -> ImportDeclKind {
+  let has_specifier = |is_match: fn(&ImportSpecifier) -> bool| node.specifiers.iter().any(is_match);
+  let bindings = if has_specifier(|s| matches!(s, ImportSpecifier::Namespace(_))) {
+    ImportDeclBindings::Namespace
+  } else if has_specifier(|s| matches!(s, ImportSpecifier::Named(_))) {
+    ImportDeclBindings::Named
+  } else {
+    ImportDeclBindings::Default
+  };
+  ImportDeclKind {
+    is_value: !node.type_only(),
+    bindings,
+  }
 }
 
 fn is_import_or_export_declaration(node: Node) -> bool {

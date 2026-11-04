@@ -1,0 +1,8 @@
+~~ forStatement.spaceAfterSemicolons: false ~~
+== should print without spaces when using the new spelling ==
+for (let i = 0; i < 5; i++) {
+}
+
+[expect]
+for (let i = 0;i < 5;i++) {
+}

@@ -70,8 +70,8 @@ impl ConfigurationBuilder {
       .ignore_file_comment_text("deno-fmt-ignore-file")
       .module_sort_import_declarations(SortOrder::Maintain)
       .module_sort_export_declarations(SortOrder::Maintain)
-      .export_declaration_sort_type_only_exports(NamedTypeImportsExportsOrder::None)
-      .import_declaration_sort_type_only_imports(NamedTypeImportsExportsOrder::None)
+      .export_declaration_sort_type_only_exports(NamedTypeImportsExportsOrder::Inline)
+      .import_declaration_sort_type_only_imports(NamedTypeImportsExportsOrder::Inline)
   }
 
   /// The width of a line the printer will try to stay under. Note that the printer may exceed this width in certain cases.
@@ -196,8 +196,16 @@ impl ConfigurationBuilder {
   /// Whether statements should end in a semi-colon.
   ///
   /// Default: `SemiColons::Prefer`
+  pub fn semicolons(&mut self, value: SemiColons) -> &mut Self {
+    self.insert("semicolons", value.to_string().into())
+  }
+
+  /// Whether statements should end in a semi-colon.
+  ///
+  /// Default: `SemiColons::Prefer`
+  #[deprecated(note = "use `semicolons` instead")]
   pub fn semi_colons(&mut self, value: SemiColons) -> &mut Self {
-    self.insert("semiColons", value.to_string().into())
+    self.semicolons(value)
   }
 
   /// Set to prefer hanging indentation when exceeding the line width.
@@ -365,8 +373,17 @@ impl ConfigurationBuilder {
   ///
   /// * `true` (default) - Ex. `for (let i = 0; i < 5; i++)`
   /// * `false` - Ex. `for (let i = 0;i < 5;i++)`
+  pub fn for_statement_space_after_semicolons(&mut self, value: bool) -> &mut Self {
+    self.insert("forStatement.spaceAfterSemicolons", value.into())
+  }
+
+  /// Whether to add a space after the semi-colons in a "for" statement.
+  ///
+  /// * `true` (default) - Ex. `for (let i = 0; i < 5; i++)`
+  /// * `false` - Ex. `for (let i = 0;i < 5;i++)`
+  #[deprecated(note = "use `for_statement_space_after_semicolons` instead")]
   pub fn for_statement_space_after_semi_colons(&mut self, value: bool) -> &mut Self {
-    self.insert("forStatement.spaceAfterSemiColons", value.into())
+    self.for_statement_space_after_semicolons(value)
   }
 
   /// Whether to add a space after the `for` keyword in a "for in" statement.
@@ -442,6 +459,7 @@ impl ConfigurationBuilder {
   }
 
   /// Whether to add a space surrounding the expression of a JSX container.
+  /// No space is added around an object or array literal (ex. `{{ value: true }}`).
   ///
   /// * `true` - Ex. `{ myValue }`
   /// * `false` (default) - Ex. `{myValue}`
@@ -455,6 +473,14 @@ impl ConfigurationBuilder {
   /// * `false` - Ex. `<Test/>`
   pub fn jsx_self_closing_element_space_before_slash(&mut self, value: bool) -> &mut Self {
     self.insert("jsxSelfClosingElement.spaceBeforeSlash", value.into())
+  }
+
+  /// Whether to add a space surrounding the properties of a single line mapped type.
+  ///
+  /// * `true` (default) - Ex. `{ [key in Type]: string }`
+  /// * `false` - Ex. `{[key in Type]: string}`
+  pub fn mapped_type_space_surrounding_properties(&mut self, value: bool) -> &mut Self {
+    self.insert("mappedType.spaceSurroundingProperties", value.into())
   }
 
   /// Whether to add a space surrounding the properties of an object expression.
@@ -682,9 +708,9 @@ impl ConfigurationBuilder {
     self.insert("importDeclaration.sortNamedImports", value.to_string().into())
   }
 
-  /// Sorts type-only named imports first, last, or none (no sorting).
+  /// Sorts type-only named imports first, last, or inline with the other named imports.
   ///
-  /// Default: Last
+  /// Default: Inline
   pub fn import_declaration_sort_type_only_imports(&mut self, value: NamedTypeImportsExportsOrder) -> &mut Self {
     self.insert("importDeclaration.sortTypeOnlyImports", value.to_string().into())
   }
@@ -696,9 +722,9 @@ impl ConfigurationBuilder {
     self.insert("exportDeclaration.sortNamedExports", value.to_string().into())
   }
 
-  /// Sorts type-only named exports first, last, or none (no sorting).
+  /// Sorts type-only named exports first, last, or inline with the other named exports.
   ///
-  /// Default: Last
+  /// Default: Inline
   pub fn export_declaration_sort_type_only_exports(&mut self, value: NamedTypeImportsExportsOrder) -> &mut Self {
     self.insert("exportDeclaration.sortTypeOnlyExports", value.to_string().into())
   }
@@ -1460,7 +1486,7 @@ mod tests {
       .jsx_opening_element_bracket_position(SameOrNextLinePosition::Maintain)
       .jsx_self_closing_element_bracket_position(SameOrNextLinePosition::Maintain)
       .decorators_position(SameOrNextLinePosition::Maintain)
-      .semi_colons(SemiColons::Prefer)
+      .semicolons(SemiColons::Prefer)
       .brace_position(BracePosition::NextLine)
       .next_control_flow_position(NextControlFlowPosition::SameLine)
       .operator_position(OperatorPosition::SameLine)
@@ -1488,7 +1514,7 @@ mod tests {
       .import_declaration_sort_named_imports(SortOrder::Maintain)
       .export_declaration_sort_named_exports(SortOrder::Maintain)
       .import_declaration_sort_type_only_imports(NamedTypeImportsExportsOrder::First)
-      .export_declaration_sort_type_only_exports(NamedTypeImportsExportsOrder::None)
+      .export_declaration_sort_type_only_exports(NamedTypeImportsExportsOrder::Inline)
       /* ignore comments */
       .ignore_node_comment_text("ignore")
       .ignore_file_comment_text("ignore-file")
@@ -1653,7 +1679,7 @@ mod tests {
       .do_while_statement_space_after_while_keyword(true)
       .export_declaration_space_surrounding_named_exports(true)
       .for_statement_space_after_for_keyword(true)
-      .for_statement_space_after_semi_colons(true)
+      .for_statement_space_after_semicolons(true)
       .for_in_statement_space_after_for_keyword(true)
       .for_of_statement_space_after_for_keyword(true)
       .function_declaration_space_before_parentheses(true)
@@ -1665,6 +1691,7 @@ mod tests {
       .jsx_expression_container_space_surrounding_expression(true)
       .jsx_self_closing_element_space_before_slash(true)
       .method_space_before_parentheses(true)
+      .mapped_type_space_surrounding_properties(false)
       .object_expression_space_surrounding_properties(false)
       .object_pattern_space_surrounding_properties(false)
       .set_accessor_space_before_parentheses(true)
@@ -1695,7 +1722,7 @@ mod tests {
       .with_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 230);
+    assert_eq!(inner_config.len(), 231);
     let diagnostics = resolve_config(inner_config, &Default::default()).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

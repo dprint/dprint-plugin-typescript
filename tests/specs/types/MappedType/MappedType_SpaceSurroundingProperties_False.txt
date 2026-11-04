@@ -1,0 +1,26 @@
+~~ lineWidth: 42, mappedType.spaceSurroundingProperties: false ~~
+== should format without spaces surrounding the properties (the first fits the line width only without spaces) ==
+type Partial<T> = { [P in keyof T]?: T[P] };
+type ReadOnly<T> = { readonly [P in keyof T]: T[P] };
+type Mapped<T> = { [P in keyof T as `get${P}`]: T[P] };
+type Test = {[key in string]: string};
+
+[expect]
+type Partial<T> = {[P in keyof T]?: T[P]};
+type ReadOnly<T> = {
+    readonly [P in keyof T]: T[P];
+};
+type Mapped<T> = {
+    [P in keyof T as `get${P}`]: T[P];
+};
+type Test = {[key in string]: string};
+
+== should keep multi-line mapped types on multiple lines ==
+type Partial<T> = {
+    [P in keyof T]?: T[P];
+};
+
+[expect]
+type Partial<T> = {
+    [P in keyof T]?: T[P];
+};

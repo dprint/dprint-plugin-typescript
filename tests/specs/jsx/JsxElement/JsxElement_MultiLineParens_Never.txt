@@ -9,15 +9,13 @@ const t = <Test>
     Test
 </Test>;
 
-== should not remove the paren expr when able ==
+== should remove the paren expr ==
 const t = (
     <Test></Test>
 );
 
 [expect]
-const t = (
-    <Test></Test>
-);
+const t = <Test></Test>;
 
 == should keep the closing tag beside the opening tag when empty since a line break would be a child ==
 const t = <Test>

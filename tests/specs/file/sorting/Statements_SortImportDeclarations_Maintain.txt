@@ -6,3 +6,11 @@ import { a } from "a.ts";
 [expect]
 import { a } from "b.ts";
 import { a } from "a.ts";
+
+== should keep the order of the imports of the same module ==
+import { a } from "a.ts";
+import * as ns from "a.ts";
+
+[expect]
+import { a } from "a.ts";
+import * as ns from "a.ts";

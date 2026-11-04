@@ -2061,7 +2061,9 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
     return match body {
       ArrowFunctionBody::FunctionBody(_) => true,
       ArrowFunctionBody::Expr(expr) => match expr {
-        Expr::Paren(_) | Expr::Array(_) => true,
+        // removed parens are formatted like the jsx without them
+        Expr::Paren(paren) => !is_jsx_paren_expr_removed(paren, context),
+        Expr::Array(_) => true,
         // the text of a template literal isn't indented when it moves to the next line
         Expr::Tpl(tpl) => is_multi_line_tpl(tpl),
         Expr::TaggedTpl(tagged_tpl) => is_multi_line_tpl(tagged_tpl.tpl),
@@ -2601,6 +2603,7 @@ fn gen_binary_expr<'a>(node: &BinExpr<'a>, context: &mut Context<'a>) -> PrintIt
       && !node.op().is_logical()
       && !node.op().is_bit_logical()
       && !node.op().is_bit_shift()
+      && !node.op().is_equality()
       && node.op() != BinaryOp::Mod
     {
       false
@@ -3468,6 +3471,10 @@ fn should_skip_paren_expr<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) ->
       | NodeKind::ComputedPropName
       | NodeKind::KeyValueProp
   ) {
+    return true;
+  }
+
+  if is_jsx_paren_expr_removed(node, context) {
     return true;
   }
 
@@ -4682,6 +4689,47 @@ fn is_jsx_paren_expr_handled_node<'a>(node: Node<'a>, context: &Context<'a>) -> 
   )
 }
 
+/// Gets if the parens around a top-level JSX element or fragment (ex. `(<div />)`
+/// or `((<div />))`) are removed because of `jsx.multiLineParens: never`.
+fn is_jsx_paren_expr_removed<'a>(node: &'a ParenExpr<'a>, context: &Context<'a>) -> bool {
+  if context.config.jsx_multi_line_parens != JsxMultiLineParens::Never {
+    return false;
+  }
+
+  // start from the innermost parens so all the parens are checked
+  let mut node = node;
+  while let Expr::Paren(inner) = node.expr {
+    node = inner;
+  }
+
+  if !matches!(node.expr.kind(), NodeKind::JSXElement | NodeKind::JSXFragment) {
+    return false;
+  }
+
+  if node_helpers::has_surrounding_comments(node.expr.into(), context.program) {
+    return false;
+  }
+
+  // keep when any of the parens have comments
+  let mut child: Node<'a> = node.into();
+  let mut parent = node.parent();
+  loop {
+    if node_helpers::has_surrounding_comments(child, context.program) {
+      return false;
+    }
+    let Some(paren_expr) = parent.to::<ParenExpr>() else {
+      break;
+    };
+    child = paren_expr.into();
+    parent = paren_expr.parent();
+  }
+
+  match parent {
+    Node::ExprOrSpread(expr_or_spread) => expr_or_spread.spread().is_none(),
+    _ => !is_jsx_paren_expr_required(child, parent),
+  }
+}
+
 /// Gets if the parens around a JSX element or fragment are required because
 /// the JSX starts a member, call, or similar expression (ex. `(<div />).props`).
 fn is_jsx_paren_expr_required(paren_expr: Node, parent: Node) -> bool {
@@ -4748,27 +4796,33 @@ fn gen_jsx_expr_container<'a>(node: &JSXExprContainer<'a>, context: &mut Context
       let surround_with_new_lines =
         !has_only_same_line_block_comments(expr, context) && should_surround_jsx_expr_container_with_newlines(node.expr.range(), context.program);
       let gen_inner = gen_jsx_empty_expr(expr, context);
-      gen_as_jsx_expr_container_with_new_lines(node.expr.range(), gen_inner, surround_with_new_lines, context)
+      let surround_with_space = context.config.jsx_expression_container_space_surrounding_expression;
+      gen_as_jsx_expr_container_with_new_lines(node.expr.range(), gen_inner, surround_with_new_lines, surround_with_space, context)
     }
     JSXExpr::Expr(expr) => {
+      let surround_with_new_lines = should_surround_jsx_expr_container_with_newlines(node.expr.range(), context.program);
+      // keep an object or array literal's brackets beside the braces (ex. `{{ value: true }}`)
+      let surround_with_space =
+        context.config.jsx_expression_container_space_surrounding_expression && !is_jsx_expr_container_object_or_array_literal(*expr, context);
       let gen_inner = gen_node(expr.into(), context);
-      gen_as_jsx_expr_container(node.expr.range(), gen_inner, context)
+      gen_as_jsx_expr_container_with_new_lines(node.expr.range(), gen_inner, surround_with_new_lines, surround_with_space, context)
     }
   }
 }
 
 fn gen_as_jsx_expr_container<'a>(inner_range: SourceRange, inner_items: PrintItems<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
   let surround_with_new_lines = should_surround_jsx_expr_container_with_newlines(inner_range, context.program);
-  gen_as_jsx_expr_container_with_new_lines(inner_range, inner_items, surround_with_new_lines, context)
+  let surround_with_space = context.config.jsx_expression_container_space_surrounding_expression;
+  gen_as_jsx_expr_container_with_new_lines(inner_range, inner_items, surround_with_new_lines, surround_with_space, context)
 }
 
 fn gen_as_jsx_expr_container_with_new_lines<'a>(
   inner_range: SourceRange,
   inner_items: PrintItems<'a>,
   surround_with_new_lines: bool,
+  surround_with_space: bool,
   context: &mut Context<'a>,
 ) -> PrintItems<'a> {
-  let surround_with_space = context.config.jsx_expression_container_space_surrounding_expression;
   let mut items = PrintItems::new(context.arena);
   items.push_sc(sc!("{"));
   if surround_with_new_lines {
@@ -4812,6 +4866,23 @@ fn should_surround_jsx_expr_container_with_newlines(expr: SourceRange, program: 
   }
 
   false
+}
+
+/// Gets if the expression will be generated as an object or array literal
+/// with no comments between it and the braces of its container.
+fn is_jsx_expr_container_object_or_array_literal<'a>(expr: Expr<'a>, context: &Context<'a>) -> bool {
+  let mut expr = expr;
+  loop {
+    if node_helpers::has_surrounding_comments(expr.into(), context.program) {
+      return false;
+    }
+    match expr {
+      Expr::Object(_) | Expr::Array(_) => return true,
+      // look through parens that won't be kept (ex. `{({ value: true })}`)
+      Expr::Paren(paren_expr) if should_skip_paren_expr(paren_expr, context) => expr = paren_expr.expr,
+      _ => return false,
+    }
+  }
 }
 
 fn gen_jsx_fragment<'a>(node: &JSXFragment<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
@@ -7547,9 +7618,14 @@ fn gen_mapped_type<'a>(node: &TsMappedType<'a>, context: &mut Context<'a>) -> Pr
           inner_items.into_print_items(context.arena),
           {
             let mut items = PrintItems::new(context.arena);
-            items.push_signal(Signal::SpaceOrNewLine);
+            let surrounding_signal = if context.config.mapped_type_space_surrounding_properties {
+              Signal::SpaceOrNewLine
+            } else {
+              Signal::PossibleNewLine
+            };
+            items.push_signal(surrounding_signal);
             items.push_optional_path(inner_items);
-            items.push_signal(Signal::SpaceOrNewLine);
+            items.push_signal(surrounding_signal);
             items
           },
         )
@@ -9321,8 +9397,8 @@ fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &
 
   fn get_node_sorter(group_kind: StmtGroupKind, context: &Context) -> Option<NodeSorter> {
     match group_kind {
-      StmtGroupKind::Imports => get_node_sorter_from_order(context.config.module_sort_import_declarations, NamedTypeImportsExportsOrder::None),
-      StmtGroupKind::Exports => get_node_sorter_from_order(context.config.module_sort_export_declarations, NamedTypeImportsExportsOrder::None),
+      StmtGroupKind::Imports => get_node_sorter_from_order(context.config.module_sort_import_declarations, NamedTypeImportsExportsOrder::Inline),
+      StmtGroupKind::Exports => get_node_sorter_from_order(context.config.module_sort_export_declarations, NamedTypeImportsExportsOrder::Inline),
       StmtGroupKind::Other => None,
     }
   }
@@ -9597,7 +9673,7 @@ fn get_stmt_groups<'a>(stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> BumpV
           (idx, i)
         })
         .collect();
-      let sorter = get_node_sorter_from_order(context.config.module_sort_import_declarations, NamedTypeImportsExportsOrder::None);
+      let sorter = get_node_sorter_from_order(context.config.module_sort_import_declarations, NamedTypeImportsExportsOrder::Inline);
       let sort_keys = sorter.map(|sorter| {
         (
           sorter,

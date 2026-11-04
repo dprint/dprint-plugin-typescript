@@ -15,7 +15,7 @@
         "description": "Uses spaces for indentation."
       }]
     },
-    "semiColons": {
+    "semicolons": {
       "description": "How semi-colons should be used.",
       "type": "string",
       "default": "prefer",
@@ -166,7 +166,7 @@
       "default": "prefer",
       "oneOf": [{
         "const": "never",
-        "description": "Never wrap JSX with parentheses."
+        "description": "Never wrap JSX with parentheses and remove existing ones, except when they have comments or are needed (ex. `(<div />).props`)."
       }, {
         "const": "prefer",
         "description": "Prefer wrapping with parentheses in most scenarios, except in function arguments and JSX attributes."
@@ -397,7 +397,7 @@
     "typeOnlyImportsExportsSortOrder": {
       "description": "The kind of sort ordering to use for typed imports and exports.",
       "type": "string",
-      "default": "none",
+      "default": "inline",
       "oneOf": [{
         "const": "first",
         "description": "Puts type-only named imports and exports first."
@@ -405,8 +405,11 @@
         "const": "last",
         "description": "Puts type-only named imports and exports last."
       }, {
+        "const": "inline",
+        "description": "Does not sort based on if a type-only named import or export, so they're sorted inline with the others."
+      }, {
         "const": "none",
-        "description": "Does not sort based on if a type-only named import or export."
+        "description": "Deprecated. Use \"inline\" instead."
       }]
     },
     "sortOrder": {
@@ -629,6 +632,18 @@
         "description": "Ex. `{key: value}`"
       }]
     },
+    "mappedType.spaceSurroundingProperties": {
+      "description": "Whether to add a space surrounding the properties of a single line mapped type.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `type Test = { [key in Type]: string }`"
+      }, {
+        "const": false,
+        "description": "Ex. `type Test = {[key in Type]: string}`"
+      }]
+    },
     "objectExpression.spaceSurroundingProperties": {
       "description": "Whether to add a space surrounding the properties of a single line object expression.",
       "type": "boolean",
@@ -797,7 +812,7 @@
         "description": "Ex. `for(let i = 0; i < 5; i++)`"
       }]
     },
-    "forStatement.spaceAfterSemiColons": {
+    "forStatement.spaceAfterSemicolons": {
       "description": "Whether to add a space after the semi-colons in a \"for\" statement.",
       "type": "boolean",
       "default": true,
@@ -906,7 +921,7 @@
       }]
     },
     "jsxExpressionContainer.spaceSurroundingExpression": {
-      "description": "Whether to add a space surrounding the expression of a JSX container.",
+      "description": "Whether to add a space surrounding the expression of a JSX container. No space is added around an object or array literal (ex. `{{ value: true }}`).",
       "type": "boolean",
       "default": false,
       "oneOf": [{
@@ -1028,8 +1043,14 @@
     "useTabs": {
       "$ref": "#/definitions/useTabs"
     },
+    "semicolons": {
+      "$ref": "#/definitions/semicolons"
+    },
     "semiColons": {
-      "$ref": "#/definitions/semiColons"
+      "description": "Deprecated: renamed to `semicolons`.",
+      "deprecated": true,
+      "deprecationMessage": "Renamed to `semicolons`.",
+      "allOf": [{ "$ref": "#/definitions/semicolons" }]
     },
     "quoteStyle": {
       "$ref": "#/definitions/quoteStyle"
@@ -1207,6 +1228,9 @@
     "spaceSurroundingProperties": {
       "$ref": "#/definitions/spaceSurroundingProperties"
     },
+    "mappedType.spaceSurroundingProperties": {
+      "$ref": "#/definitions/mappedType.spaceSurroundingProperties"
+    },
     "objectExpression.spaceSurroundingProperties": {
       "$ref": "#/definitions/objectExpression.spaceSurroundingProperties"
     },
@@ -1249,8 +1273,14 @@
     "forStatement.spaceAfterForKeyword": {
       "$ref": "#/definitions/forStatement.spaceAfterForKeyword"
     },
+    "forStatement.spaceAfterSemicolons": {
+      "$ref": "#/definitions/forStatement.spaceAfterSemicolons"
+    },
     "forStatement.spaceAfterSemiColons": {
-      "$ref": "#/definitions/forStatement.spaceAfterSemiColons"
+      "description": "Deprecated: renamed to `forStatement.spaceAfterSemicolons`.",
+      "deprecated": true,
+      "deprecationMessage": "Renamed to `forStatement.spaceAfterSemicolons`.",
+      "allOf": [{ "$ref": "#/definitions/forStatement.spaceAfterSemicolons" }]
     },
     "functionDeclaration.spaceBeforeParentheses": {
       "$ref": "#/definitions/functionDeclaration.spaceBeforeParentheses"

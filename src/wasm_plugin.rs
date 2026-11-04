@@ -5,6 +5,7 @@ use dprint_core::configuration::GlobalConfiguration;
 use dprint_core::generate_plugin_code;
 use dprint_core::plugins::CheckConfigUpdatesMessage;
 use dprint_core::plugins::ConfigChange;
+use dprint_core::plugins::ConfigChangeKind;
 use dprint_core::plugins::CriticalFormatError;
 use dprint_core::plugins::FileMatchingInfo;
 use dprint_core::plugins::FormatError;
@@ -16,6 +17,8 @@ use dprint_core::plugins::SyncHostFormatRequest;
 use dprint_core::plugins::SyncPluginHandler;
 
 use super::configuration::Configuration;
+use super::configuration::get_config_key_renames;
+use super::configuration::get_config_value_renames;
 use super::configuration::resolve_config;
 use super::embedded_file::EmbeddedFile;
 
@@ -44,8 +47,28 @@ impl SyncPluginHandler<Configuration> for TypeScriptPluginHandler {
     }
   }
 
-  fn check_config_updates(&self, _message: CheckConfigUpdatesMessage) -> Result<Vec<ConfigChange>, FormatError> {
-    Ok(Vec::new())
+  fn check_config_updates(&self, message: CheckConfigUpdatesMessage) -> Result<Vec<ConfigChange>, FormatError> {
+    let mut changes = Vec::new();
+    for rename in get_config_value_renames(&message.config) {
+      changes.push(ConfigChange {
+        path: vec![rename.key.to_string().into()],
+        kind: ConfigChangeKind::Set(rename.new_value.into()),
+      });
+    }
+    for rename in get_config_key_renames(&message.config) {
+      // when the new key is already set, only the old one is removed so its value isn't overwritten
+      if let Some(value) = rename.value {
+        changes.push(ConfigChange {
+          path: vec![rename.new_key.to_string().into()],
+          kind: ConfigChangeKind::Add(value),
+        });
+      }
+      changes.push(ConfigChange {
+        path: vec![rename.old_key.to_string().into()],
+        kind: ConfigChangeKind::Remove,
+      });
+    }
+    Ok(changes)
   }
 
   fn plugin_info(&mut self) -> PluginInfo {

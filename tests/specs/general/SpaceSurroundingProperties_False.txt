@@ -3,8 +3,10 @@
 const obj = { key: value };
 const { key: value } = obj;
 let value: { key: Type };
+type Mapped = { [key in string]: Type };
 
 [expect]
 const obj = {key: value};
 const {key: value} = obj;
 let value: {key: Type};
+type Mapped = {[key in string]: Type};
