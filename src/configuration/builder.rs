@@ -489,6 +489,16 @@ impl ConfigurationBuilder {
     self.insert("setAccessor.spaceBeforeParentheses", value.into())
   }
 
+  /// Whether to add a space after the keyword of a control flow statement and before its open paren.
+  /// This is the default for the `spaceAfter...Keyword` options of the `if`, `for`, `for...in`,
+  /// `for...of`, `while`, `do...while`, `with` and `switch` statements and the catch clause.
+  ///
+  /// * `true` (default) - Ex. `if (true)`
+  /// * `false` - Ex. `if(true)`
+  pub fn space_after_control_flow_keyword(&mut self, value: bool) -> &mut Self {
+    self.insert("spaceAfterControlFlowKeyword", value.into())
+  }
+
   /// Whether to add a space surrounding the properties of object-like nodes.
   ///
   /// * `true` (default) - Ex. `{ key: value }`
@@ -1636,6 +1646,7 @@ mod tests {
       .object_expression_space_surrounding_properties(false)
       .object_pattern_space_surrounding_properties(false)
       .set_accessor_space_before_parentheses(true)
+      .space_after_control_flow_keyword(true)
       .space_surrounding_properties(false)
       .switch_statement_space_after_switch_keyword(true)
       .tagged_template_space_before_literal(false)
@@ -1662,7 +1673,7 @@ mod tests {
       .with_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 228);
+    assert_eq!(inner_config.len(), 229);
     let diagnostics = resolve_config(inner_config, &Default::default()).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

@@ -593,6 +593,18 @@
         "description": "Ex. `myFunction(true)`"
       }]
     },
+    "spaceAfterControlFlowKeyword": {
+      "description": "Whether to add a space after the keyword of a control flow statement and before its open paren. This is the default for the `spaceAfter...Keyword` options of the `if`, `for`, `for...in`, `for...of`, `while`, `do...while`, `with` and `switch` statements and the catch clause.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `if (true)`"
+      }, {
+        "const": false,
+        "description": "Ex. `if(true)`"
+      }]
+    },
     "spaceSurroundingProperties": {
       "description": "Whether to add a space surrounding the properties of single line object-like nodes.",
       "type": "boolean",
@@ -1173,6 +1185,9 @@
     },
     "withStatement.spaceAround": {
       "$ref": "#/definitions/spaceAround"
+    },
+    "spaceAfterControlFlowKeyword": {
+      "$ref": "#/definitions/spaceAfterControlFlowKeyword"
     },
     "spaceSurroundingProperties": {
       "$ref": "#/definitions/spaceSurroundingProperties"
