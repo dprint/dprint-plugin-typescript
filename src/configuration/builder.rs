@@ -442,6 +442,7 @@ impl ConfigurationBuilder {
   }
 
   /// Whether to add a space surrounding the expression of a JSX container.
+  /// No space is added around an object or array literal (ex. `{{ value: true }}`).
   ///
   /// * `true` - Ex. `{ myValue }`
   /// * `false` (default) - Ex. `{myValue}`
