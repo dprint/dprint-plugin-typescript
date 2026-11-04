@@ -1,4 +1,20 @@
 -- file.js --
+== should format a with statement in a block ==
+function   test( )   {
+    var   a  =  1;
+    [|with   (  obj  )   {
+        call( a );
+    }|]
+}
+
+[expect]
+function   test( )   {
+    var   a  =  1;
+[|    with (obj) {
+        call(a);|]
+    }
+}
+
 == should format the touched statements in a js file ==
 var   a  =  1;
 [|var   b  =  2;|]

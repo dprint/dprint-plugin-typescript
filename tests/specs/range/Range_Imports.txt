@@ -1,3 +1,15 @@
+== should not count imports with an ignore comment since they are not sorted ==
+// dprint-ignore
+import   {  z  }   from   "z";
+[|import { c } from "c";
+import { b } from "b";|]
+
+[expect]
+// dprint-ignore
+import   {  z  }   from   "z";
+[|import { b } from "b";
+import { c } from "c";|]
+
 == should not sort the imports when only some are touched ==
 import   {  c  }   from   "c";
 [|import   {  b  }   from   "b";|]

@@ -43,3 +43,20 @@ const  z  =  0;
 import { c } from "c";
 import { b } from "b";|]
 const  y  =  0;
+
+== should not move a detached comment when grouping the imports ==
+// header
+
+// about b
+[|import   {  b  }   from   "b";
+import   {  x  }   from   "node:fs";|]
+const  z  =  1;
+
+[expect]
+// header
+
+[|import { x } from "node:fs";
+
+// about b
+import { b } from "b";|]
+const  z  =  1;

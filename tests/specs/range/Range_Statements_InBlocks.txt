@@ -552,6 +552,28 @@ function   test( )   {
     }
 }
 
+== should format a namespace in a block ==
+function   test( )   {
+    for   ( ; ; )   {
+        const  a  =  1;
+        [|namespace   X   {
+            const   a  =  1;
+        }|]
+        const  b  =  2;
+    }
+}
+
+[expect]
+function   test( )   {
+    for   ( ; ; )   {
+        const  a  =  1;
+[|        namespace X {
+            const a = 1;|]
+        }
+        const  b  =  2;
+    }
+}
+
 == should format a continue statement in a block ==
 function   test( )   {
     for   ( ; ; )   {

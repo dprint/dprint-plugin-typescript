@@ -708,6 +708,34 @@ function   test( )   {
     }
 }
 
+== should format a namespace in a switch case ==
+function   test( )   {
+    for   ( ; ; )   {
+        switch   ( x )   {
+            case   1:
+                const  a  =  1;
+                [|namespace   X   {
+                    const   a  =  1;
+                }|]
+                const  b  =  2;
+        }
+    }
+}
+
+[expect]
+function   test( )   {
+    for   ( ; ; )   {
+        switch   ( x )   {
+            case   1:
+                const  a  =  1;
+[|                namespace X {
+                    const a = 1;|]
+                }
+                const  b  =  2;
+        }
+    }
+}
+
 == should format a continue statement in a switch case ==
 function   test( )   {
     for   ( ; ; )   {

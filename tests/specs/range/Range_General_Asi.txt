@@ -42,3 +42,41 @@ foo(  [|1|]  );
 const  x1  =  1;
 [|foo(1);|]
 (a   ||   b).c( );
+
+== should keep a statement with a trailing comment before a statement starting with a semicolon ==
+const  untouched  =  1;
+[|foo(); // c|]
+[1].forEach(x => x);
+const  other  =  2;
+
+[expect]
+const  untouched  =  1;
+[|foo(); // c|]
+[1].forEach(x => x);
+const  other  =  2;
+
+== should keep the semicolon before a trailing block comment ==
+const  untouched  =  1;
+[|foo(  ); /* c */|]
+[1].forEach(x => x);
+const  other  =  2;
+
+[expect]
+const  untouched  =  1;
+[|foo(); /* c */|]
+[1].forEach(x => x);
+const  other  =  2;
+
+== should format a comment before a statement starting with a semicolon ==
+const  untouched  =  1;
+a( );
+[|// c
+[1].forEach( );|]
+const  other  =  2;
+
+[expect]
+const  untouched  =  1;
+a( );
+// c
+[|[1].forEach()|]
+const  other  =  2;

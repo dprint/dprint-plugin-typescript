@@ -414,3 +414,33 @@ const  z  =  0;
 /* multi
 [|   line */ const b = 2;|]
 const  c  =  3;
+
+== should remove the empty statements at the start of the touched line ==
+a(  );
+[|;;b(  );|]
+c(  );
+
+[expect]
+a(  );
+[|b();|]
+c(  );
+
+== should not format a detached comment before the touched import ==
+/*
+   * Copyright
+ */
+
+
+
+import  { [||]a }  from "a";
+const  x  =  1;
+
+[expect]
+/*
+   * Copyright
+ */
+
+
+
+[|import { a } from "a";|]
+const  x  =  1;
