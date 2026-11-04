@@ -14,3 +14,13 @@ import { c } from "gamma";
 import { a } from "alpha";
 import type { B } from "beta";
 import { c } from "gamma";
+
+== typeImports interleave sorts the imports of the same module by kind ==
+import type { B } from "alpha";
+import { a } from "alpha";
+import * as ns from "alpha";
+
+[expect]
+import type { B } from "alpha";
+import * as ns from "alpha";
+import { a } from "alpha";

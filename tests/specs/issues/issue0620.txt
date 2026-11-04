@@ -1,0 +1,66 @@
+~~ lineWidth: 80, indentWidth: 2 ~~
+== should sort a namespace import before a named import of the same module ==
+import * as ts from "../../_namespaces/ts";
+import { ScriptTarget } from "../../_namespaces/ts";
+import * as evaluator from "../../_namespaces/evaluator";
+
+import { ScriptTarget } from "../../_namespaces/ts";
+import * as ts from "../../_namespaces/ts";
+import * as evaluator from "../../_namespaces/evaluator";
+
+[expect]
+import * as evaluator from "../../_namespaces/evaluator";
+import * as ts from "../../_namespaces/ts";
+import { ScriptTarget } from "../../_namespaces/ts";
+
+import * as evaluator from "../../_namespaces/evaluator";
+import * as ts from "../../_namespaces/ts";
+import { ScriptTarget } from "../../_namespaces/ts";
+
+== should sort the imports of the same module by kind with type-only imports first ==
+import type { C } from "a";
+import { SyntaxKind } from "a";
+import type * as types from "a";
+import type D from "a";
+import ts2 from "a";
+import * as ts from "a";
+
+[expect]
+import type * as types from "a";
+import type D from "a";
+import type { C } from "a";
+import * as ts from "a";
+import ts2 from "a";
+import { SyntaxKind } from "a";
+
+== should sort a namespace or named import with a default import by its namespace or named import ==
+import d1, { a } from "a";
+import d2 from "a";
+import d3, * as ns from "a";
+
+[expect]
+import d3, * as ns from "a";
+import d2 from "a";
+import d1, { a } from "a";
+
+== should keep the order of imports of the same module and kind ==
+import { b } from "a";
+import { a } from "a";
+import * as y from "a";
+import * as x from "a";
+
+[expect]
+import * as y from "a";
+import * as x from "a";
+import { b } from "a";
+import { a } from "a";
+
+== should not move imports across a side-effect import ==
+import { a } from "a";
+import "a";
+import * as ns from "a";
+
+[expect]
+import { a } from "a";
+import "a";
+import * as ns from "a";
