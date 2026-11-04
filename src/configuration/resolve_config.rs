@@ -326,6 +326,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
       true,
       &mut diagnostics,
     ),
+    catch_clause_space_after_catch_keyword: get_value(&mut config, "catchClause.spaceAfterCatchKeyword", true, &mut diagnostics),
     comment_line_force_space_after_slashes: get_value(&mut config, "commentLine.forceSpaceAfterSlashes", true, &mut diagnostics),
     construct_signature_space_after_new_keyword: get_value(&mut config, "constructSignature.spaceAfterNewKeyword", false, &mut diagnostics),
     constructor_space_before_parentheses: get_value(&mut config, "constructor.spaceBeforeParentheses", false, &mut diagnostics),

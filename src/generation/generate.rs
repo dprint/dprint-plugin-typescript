@@ -934,7 +934,14 @@ fn gen_catch_clause<'a>(node: &CatchClause<'a>, context: &mut Context<'a>) -> Pr
   items.push_sc(sc!("catch"));
 
   if let Some(param) = &node.param {
-    items.push_sc(sc!(" ("));
+    let open_paren_token = context.token_finder.get_previous_token_if_open_paren(&param.range());
+    if use_space_after_keyword(context.config.catch_clause_space_after_catch_keyword, open_paren_token, context) {
+      items.push_space();
+    }
+    if let Some(open_paren_token) = open_paren_token {
+      items.extend(gen_leading_comments(&open_paren_token.range(), context));
+    }
+    items.push_sc(sc!("("));
     if context.config.catch_clause_space_around {
       items.push_space();
     }
