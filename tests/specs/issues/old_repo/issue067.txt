@@ -20,21 +20,15 @@ call({
 }, "testing");
 
 == several object expressions ==
-call(
-    {
-        prop,
-    },
-    {
-        prop,
-    },
-);
+call({
+    prop,
+}, {
+    prop,
+});
 
 [expect]
-call(
-    {
-        prop,
-    },
-    {
-        prop,
-    },
-);
+call({
+    prop,
+}, {
+    prop,
+});
