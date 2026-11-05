@@ -1,0 +1,26 @@
+~~ lineWidth: 40, indentWidth: 2, preferSingleLine: true ~~
+== should not count newlines in the input for the object siblings ==
+const values = [{
+  prop: "aaaaaaaaaa",
+}, {
+  other: "bbbbbbbbbb",
+}];
+
+[expect]
+const values = [
+  { prop: "aaaaaaaaaa" },
+  { other: "bbbbbbbbbb" },
+];
+
+== should not count newlines in the input for type literals in a tuple ==
+type T = [{
+  prop: "aaaaaaaaaa";
+}, {
+  other: "bbbbbbbbbb";
+}];
+
+[expect]
+type T = [
+  { prop: "aaaaaaaaaa" },
+  { other: "bbbbbbbbbb" },
+];

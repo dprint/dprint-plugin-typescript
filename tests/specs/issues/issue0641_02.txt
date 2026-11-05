@@ -1,0 +1,236 @@
+-- file.tsx --
+~~ indentWidth: 2 ~~
+== should keep hugging object siblings in a jsx attribute when they're all multi-line ==
+<Table
+  columns={[{
+    title: "First Name",
+    dataIndex: nameof<ImportUsersRowResult>("firstName"),
+  }, {
+    title: "Last Name",
+    dataIndex: nameof<ImportUsersRowResult>("lastName"),
+  }, {
+    title: "Note",
+    dataIndex: nameof<ImportUsersRowResult>("note"),
+  }]}
+/>;
+
+[expect]
+<Table
+  columns={[{
+    title: "First Name",
+    dataIndex: nameof<ImportUsersRowResult>("firstName"),
+  }, {
+    title: "Last Name",
+    dataIndex: nameof<ImportUsersRowResult>("lastName"),
+  }, {
+    title: "Note",
+    dataIndex: nameof<ImportUsersRowResult>("note"),
+  }]}
+/>;
+
+== should break the container when one object sibling is expanded among single line ones (issue #641) ==
+const titles = [{ name: "FPN" }, { name: "FPN Class" }, {
+  name: "Type",
+}, { name: "Description" }];
+
+[expect]
+const titles = [
+  { name: "FPN" },
+  { name: "FPN Class" },
+  {
+    name: "Type",
+  },
+  { name: "Description" },
+];
+
+== should break the container in a jsx attribute when the object siblings are mixed ==
+<List items={[{ title: "a" }, {
+  title: "b",
+}, { title: "c" }]} />;
+
+[expect]
+<List
+  items={[
+    { title: "a" },
+    {
+      title: "b",
+    },
+    { title: "c" },
+  ]}
+/>;
+
+== should keep an already broken out array of objects broken out ==
+const values = [
+  {
+    a: 1,
+  },
+  {
+    b: 2,
+  },
+];
+
+[expect]
+const values = [
+  {
+    a: 1,
+  },
+  {
+    b: 2,
+  },
+];
+
+== should keep hugging object siblings when a value of another kind is before them ==
+const values = [x, {
+  a,
+}, {
+  b,
+}];
+
+[expect]
+const values = [x, {
+  a,
+}, {
+  b,
+}];
+
+== should break the container when any value with a same kind neighbor is single line ==
+const values = [{ c: 1 }, { d: 2 }, x, {
+  a,
+}, {
+  b,
+}];
+
+[expect]
+const values = [
+  { c: 1 },
+  { d: 2 },
+  x,
+  {
+    a,
+  },
+  {
+    b,
+  },
+];
+
+== should count an empty object as single line, which makes the siblings mixed ==
+const values = [{}, {
+  a,
+}];
+
+[expect]
+const values = [
+  {},
+  {
+    a,
+  },
+];
+
+== should keep hugging multi-line object arguments ==
+call({
+  prop: 1,
+}, {
+  other: 2,
+});
+
+[expect]
+call({
+  prop: 1,
+}, {
+  other: 2,
+});
+
+== should break the arguments when the object arguments are mixed ==
+call({ prop: 1 }, {
+  other: 2,
+});
+
+[expect]
+call(
+  { prop: 1 },
+  {
+    other: 2,
+  },
+);
+
+== should keep hugging multi-line array siblings ==
+const values = [[
+  1,
+], [
+  2,
+]];
+
+[expect]
+const values = [[
+  1,
+], [
+  2,
+]];
+
+== should keep hugging multi-line type literals in a tuple ==
+type T = [{
+  a: string;
+}, {
+  b: number;
+}];
+
+[expect]
+type T = [{
+  a: string;
+}, {
+  b: number;
+}];
+
+== should break a tuple when the type literals are mixed ==
+type T = [{ a: string }, {
+  b: number;
+}];
+
+[expect]
+type T = [
+  { a: string },
+  {
+    b: number;
+  },
+];
+
+== should keep hugging multi-line type literals in type arguments ==
+type T = Map<{
+  a: string;
+}, {
+  b: number;
+}>;
+
+[expect]
+type T = Map<{
+  a: string;
+}, {
+  b: number;
+}>;
+
+== should keep hugging multi-line object patterns in an array pattern ==
+const [{
+  a,
+}, {
+  b,
+}] = values;
+
+[expect]
+const [{
+  a,
+}, {
+  b,
+}] = values;
+
+== should break an array pattern when the object patterns are mixed ==
+const [{ c }, {
+  d,
+}] = values;
+
+[expect]
+const [
+  { c },
+  {
+    d,
+  },
+] = values;

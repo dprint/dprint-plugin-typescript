@@ -8936,21 +8936,7 @@ struct GenArrayLikeNodesOptions<'a> {
 }
 
 fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
-  let nodes = opts.nodes;
-  let nodes = if nodes.iter().any(|n| n.is_none()) {
-    let commas = get_comma_tokens_from_children_with_tokens(opts.node, context.program);
-    nodes
-      .into_iter()
-      .enumerate()
-      .map(|(i, node)| match node {
-        Some(node) => NodeOrSeparator::Node(node),
-        None => NodeOrSeparator::Separator(commas[i]),
-      })
-      .collect::<Vec<_>>()
-  } else {
-    // faster
-    nodes.into_iter().map(|n| NodeOrSeparator::Node(n.unwrap())).collect::<Vec<_>>()
-  };
+  let nodes = get_array_like_values(opts.node, opts.nodes, context);
 
   let trailing_commas = if matches!(nodes.last(), Some(NodeOrSeparator::Separator(_))) {
     // maintain the trailing comma in order to maintain the length (ex. [,,,].length === 3)
@@ -8963,7 +8949,7 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
   let prefer_hanging = opts.prefer_hanging;
   let space_around = opts.space_around;
   let range = opts.range;
-  let force_use_new_lines = get_force_use_new_lines(range, &nodes, opts.prefer_single_line, context);
+  let force_use_new_lines = get_array_like_force_use_new_lines(range, &nodes, opts.prefer_single_line, context);
   let mut items = PrintItems::new(context.arena);
   let first_member = nodes.first().map(|x| x.range());
 
@@ -9005,21 +8991,6 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
 
   return items;
 
-  fn get_force_use_new_lines<'a>(range: SourceRange, nodes: &[NodeOrSeparator], prefer_single_line: bool, context: &mut Context<'a>) -> bool {
-    if nodes.is_empty() {
-      false
-    } else if prefer_single_line {
-      // if any comments exist on separate lines, then everything becomes multi-line
-      has_any_node_comment_on_different_line(nodes, context)
-    } else {
-      // the range starts with the open bracket
-      let open_bracket_range = SourceRange::new(range.start, range.start + 1);
-
-      // todo: tests for this (ex. [\n,] -> [\n    ,\n])
-      node_helpers::get_use_new_lines_for_nodes(&open_bracket_range, &nodes[0], context.program)
-    }
-  }
-
   fn allow_trailing_commas(nodes: &[NodeOrSeparator]) -> bool {
     if let Some(NodeOrSeparator::Node(last)) = nodes.last() {
       // this would be a syntax error
@@ -9028,6 +8999,40 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
       }
     }
     true
+  }
+}
+
+/// Gets the values of an array-like node with a separator in place of each hole (ex. `[a, , b]`).
+fn get_array_like_values<'a>(node: Node<'a>, nodes: Vec<Option<Node<'a>>>, context: &Context<'a>) -> Vec<NodeOrSeparator<'a>> {
+  if nodes.iter().any(|n| n.is_none()) {
+    let commas = get_comma_tokens_from_children_with_tokens(node, context.program);
+    nodes
+      .into_iter()
+      .enumerate()
+      .map(|(i, node)| match node {
+        Some(node) => NodeOrSeparator::Node(node),
+        None => NodeOrSeparator::Separator(commas[i]),
+      })
+      .collect::<Vec<_>>()
+  } else {
+    // faster
+    nodes.into_iter().map(|n| NodeOrSeparator::Node(n.unwrap())).collect::<Vec<_>>()
+  }
+}
+
+/// Gets if an array-like node is multi-line because of how it's written (ex. a newline after the open bracket).
+fn get_array_like_force_use_new_lines<'a>(range: SourceRange, nodes: &[NodeOrSeparator], prefer_single_line: bool, context: &mut Context<'a>) -> bool {
+  if nodes.is_empty() {
+    false
+  } else if prefer_single_line {
+    // if any comments exist on separate lines, then everything becomes multi-line
+    has_any_node_comment_on_different_line(nodes, context)
+  } else {
+    // the range starts with the open bracket
+    let open_bracket_range = SourceRange::new(range.start, range.start + 1);
+
+    // todo: tests for this (ex. [\n,] -> [\n    ,\n])
+    node_helpers::get_use_new_lines_for_nodes(&open_bracket_range, &nodes[0], context.program)
   }
 }
 
@@ -10308,7 +10313,7 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
     |is_multi_line_or_hanging_ref| {
       let is_multi_line_or_hanging = is_multi_line_or_hanging_ref.create_resolver(context.arena);
       let nodes_count = nodes.len();
-      let has_same_kind_neighbor = get_has_same_kind_neighbor(&nodes);
+      let disallow_inline_multi_line = get_disallow_inline_multi_line_for_neighbors(&nodes, context);
       let mut generated_nodes = BumpVec::with_capacity_in(nodes_count, context.arena.bump());
       let mut forced_lines_span_line = 0;
 
@@ -10320,7 +10325,7 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
         let (allow_inline_multi_line, allow_inline_single_line) = if let NodeOrSeparator::Node(value) = value {
           let is_last_value = node_index + 1 == nodes_count; // allow the last node to be single line
           (
-            !has_same_kind_neighbor[i] && allows_inline_multi_line(value, context, nodes_count > 1),
+            !disallow_inline_multi_line[i] && allows_inline_multi_line(value, context, nodes_count > 1),
             is_last_value,
           )
         } else {
@@ -10416,8 +10421,26 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
     },
   );
 
-  /// Gets if each value has a value beside it of the same kind, which isn't inline multi-line
-  /// so the container breaks instead (ex. `[{ a }, { b }]` instead of expanding the last object).
+  /// Gets if each value isn't allowed to be inline multi-line because it has a value beside it of
+  /// the same kind, so the container breaks instead (ex. `[{ a }, { b }]` instead of expanding the
+  /// last object). When every value with a same-kind neighbor is already multi-line because of how
+  /// it's written, they're all allowed to be inline multi-line so they stay hugged
+  /// (ex. `[{\n  a,\n}, {\n  b,\n}]`).
+  fn get_disallow_inline_multi_line_for_neighbors<'a>(nodes: &[NodeOrSeparator<'a>], context: &mut Context<'a>) -> Vec<bool> {
+    let has_same_kind_neighbor = get_has_same_kind_neighbor(nodes);
+    let are_all_multi_line = nodes
+      .iter()
+      .zip(&has_same_kind_neighbor)
+      .filter(|(_, has_neighbor)| **has_neighbor)
+      .all(|(value, _)| value.as_node().is_some_and(|node| is_multi_line_as_written(node, context)));
+    if are_all_multi_line {
+      vec![false; nodes.len()]
+    } else {
+      has_same_kind_neighbor
+    }
+  }
+
+  /// Gets if each value has a value beside it of the same kind.
   fn get_has_same_kind_neighbor(nodes: &[NodeOrSeparator]) -> Vec<bool> {
     let mut result = vec![false; nodes.len()];
     let mut previous: Option<(usize, Option<NodeKind>)> = None;
@@ -10438,15 +10461,42 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
   }
 
   fn get_kind(node: Node) -> Option<NodeKind> {
-    let node = match node {
-      Node::ExprOrSpread(expr_or_spread) if expr_or_spread.spread().is_none() => expr_or_spread.expr.into(),
-      Node::TsTupleElement(element) => element.ty.into(),
-      node => node,
-    };
-    match node {
+    match get_inner_value(node) {
       Node::ObjectLit(_) | Node::ObjectPat(_) | Node::TsTypeLit(_) => Some(NodeKind::ObjectLit),
       Node::ArrayLit(_) | Node::ArrayPat(_) | Node::TsTupleType(_) => Some(NodeKind::ArrayLit),
       _ => None,
+    }
+  }
+
+  /// Gets if the object or array is multi-line regardless of the line width, using the
+  /// same rule as when generating it (ex. a newline after the open brace).
+  fn is_multi_line_as_written<'a>(node: Node<'a>, context: &mut Context<'a>) -> bool {
+    match get_inner_value(node) {
+      Node::ObjectLit(node) => get_use_new_lines_for_nodes_with_preceeding_token("{", node.props, context.config.object_expression_prefer_single_line, context),
+      Node::ObjectPat(node) => get_use_new_lines_for_nodes_with_preceeding_token("{", node.props, context.config.object_pattern_prefer_single_line, context),
+      Node::TsTypeLit(node) => get_use_new_lines_for_nodes_with_preceeding_token("{", node.members, context.config.type_literal_prefer_single_line, context),
+      Node::ArrayLit(node) => {
+        let values = get_array_like_values(node.into(), node.elems.iter().map(|&x| x.map(|elem| elem.into())).collect(), context);
+        get_array_like_force_use_new_lines(node.range(), &values, context.config.array_expression_prefer_single_line, context)
+      }
+      Node::ArrayPat(node) => {
+        // the pattern starts with its open bracket, which is all that's used from the range
+        let values = get_array_like_values(node.into(), node.elems.iter().map(|x| x.as_ref().map(|elem| elem.into())).collect(), context);
+        get_array_like_force_use_new_lines(node.range(), &values, context.config.array_pattern_prefer_single_line, context)
+      }
+      Node::TsTupleType(node) => {
+        let values = get_array_like_values(node.into(), node.elem_types.iter().map(|&x| Some(x.into())).collect(), context);
+        get_array_like_force_use_new_lines(node.range(), &values, context.config.tuple_type_prefer_single_line, context)
+      }
+      _ => false,
+    }
+  }
+
+  fn get_inner_value(node: Node) -> Node {
+    match node {
+      Node::ExprOrSpread(expr_or_spread) if expr_or_spread.spread().is_none() => expr_or_spread.expr.into(),
+      Node::TsTupleElement(element) => element.ty.into(),
+      node => node,
     }
   }
 }

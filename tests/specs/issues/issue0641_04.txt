@@ -1,0 +1,24 @@
+~~ lineWidth: 40, indentWidth: 2, objectExpression.preferSingleLine: true, objectPattern.preferSingleLine: true ~~
+== should not count newlines in the input for the object siblings ==
+const values = [{
+  prop: "aaaaaaaaaa",
+}, {
+  other: "bbbbbbbbbb",
+}];
+
+[expect]
+const values = [
+  { prop: "aaaaaaaaaa" },
+  { other: "bbbbbbbbbb" },
+];
+
+== should not count newlines in the input for the object pattern siblings ==
+const [{
+  aaaaaaaaaa,
+}, {
+  bbbbbbbbbb,
+}] = values;
+
+[expect]
+const [{ aaaaaaaaaa }, { bbbbbbbbbb }] =
+  values;
