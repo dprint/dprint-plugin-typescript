@@ -2,6 +2,26 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://plugins.dprint.dev/dprint/dprint-plugin-typescript/0.0.0/schema.json",
   "type": "object",
+  "x-playground": {
+    "input": [
+      "import {Component,type Props} from './component.ts'",
+      "",
+      "export interface User{id:number;name:string;email?:string}",
+      "",
+      "const users:User[]=[{id:1,name:\"Alice\"},{id:2,name:\"Bob\",email:\"bob@example.com\"}]",
+      "",
+      "export class UserList extends Component<Props>{",
+      "  private readonly items=new Map<number,User>()",
+      "    constructor(props:Props){super(props);for(const user of users){this.items.set(user.id,user)}}",
+      "  find(predicate:(user:User)=>boolean):User|undefined{",
+      "return [...this.items.values()].find(predicate)",
+      "  }",
+      "}",
+      "",
+      "const names=users.filter(u=>u.email!=null).map(u=>u.name.toUpperCase())",
+      "console.log(`found ${names.length} users`,names)"
+    ]
+  },
   "x-sections": [
     {
       "title": "General",
