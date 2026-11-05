@@ -1,0 +1,16 @@
+~~ indentWidth: 2 ~~
+== should move a test call body after multi-line arrow parameters to the next line when it doesn't fit ==
+values.forEach((
+  value,
+) => it("formats the value when this line is longer than the default line width of one hundred and twenty characters", () => {
+  test(value);
+}));
+
+[expect]
+values.forEach((
+  value,
+) =>
+  it("formats the value when this line is longer than the default line width of one hundred and twenty characters", () => {
+    test(value);
+  })
+);

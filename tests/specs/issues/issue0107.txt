@@ -131,3 +131,29 @@ values.forEach((
         test(value);
     })
 );
+
+== should keep a call that fits after multi-line arrow parameters on the arrow's line ==
+values.forEach((
+    value,
+) => foo({
+    a: 1,
+}));
+values.forEach((
+    value,
+) =>
+    foo({
+        a: 1,
+    })
+);
+
+[expect]
+values.forEach((
+    value,
+) => foo({
+    a: 1,
+}));
+values.forEach((
+    value,
+) => foo({
+    a: 1,
+}));
