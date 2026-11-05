@@ -97,6 +97,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     semicolons,
     file_indent_level: get_value(&mut config, "fileIndentLevel", 0, &mut diagnostics),
     max_blank_lines: get_value(&mut config, "maxBlankLines", 1, &mut diagnostics),
+    align_assignments: get_value(&mut config, "alignAssignments", false, &mut diagnostics),
     /* situational */
     arrow_function_use_parentheses: get_value(&mut config, "arrowFunction.useParentheses", UseParentheses::Maintain, &mut diagnostics),
     binary_expression_line_per_expression: get_value(&mut config, "binaryExpression.linePerExpression", false, &mut diagnostics),

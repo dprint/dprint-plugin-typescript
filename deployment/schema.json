@@ -620,6 +620,18 @@
         "description": "Use commas."
       }]
     },
+    "alignAssignments": {
+      "description": "Whether to align the values of consecutive variable statements, object properties, class properties, enum members, and interface and type literal properties. A blank line or a member on multiple lines ends the group, and the alignment never makes a line go over the line width.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `const a   = 1;` and `const bbb = 2;`"
+      }, {
+        "const": false,
+        "description": "Ex. `const a = 1;` and `const bbb = 2;`"
+      }]
+    },
     "spaceAround": {
       "description": "Whether to place spaces around enclosed expressions.",
       "type": "boolean",
@@ -1092,6 +1104,9 @@
       "description": "The maximum number of consecutive blank lines to keep.",
       "default": 1,
       "type": "number"
+    },
+    "alignAssignments": {
+      "$ref": "#/definitions/alignAssignments"
     },
     "singleBodyPosition": {
       "$ref": "#/definitions/singleBodyPosition"

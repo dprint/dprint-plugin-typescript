@@ -1,0 +1,14 @@
+~~ alignAssignments: true, typeAnnotation.spaceBeforeColon: true ~~
+== should align the types after the space before the colon ==
+interface User {
+    name: string;
+    age?: number;
+    ab: boolean;
+}
+
+[expect]
+interface User {
+    name : string;
+    age? : number;
+    ab :   boolean;
+}

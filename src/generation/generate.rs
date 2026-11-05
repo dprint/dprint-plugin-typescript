@@ -11,6 +11,7 @@ use dprint_swc_ext::common::SourcePos;
 use dprint_swc_ext::common::SourceRange;
 use dprint_swc_ext::common::SourceRanged;
 use dprint_swc_ext::common::SourceRangedForSpanned;
+use dprint_swc_ext::common::SourceTextInfoProvider;
 use dprint_swc_ext::swc::common::comments::Comment;
 use dprint_swc_ext::swc::common::comments::CommentKind;
 use dprint_swc_ext::swc::parser::Syntax;
@@ -21,6 +22,7 @@ use dprint_swc_ext::view::*;
 use std::borrow::Cow;
 use std::cell::Cell;
 use std::cell::RefCell;
+use unicode_width::UnicodeWidthStr;
 
 use super::imports::classify::classify_import;
 use super::imports::partition::partition_indices;
@@ -1149,6 +1151,9 @@ fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'
     node.members,
     |members| use_consistent_quotes_for_members(members.iter().copied()),
     |context, members| {
+      if context.config.align_assignments {
+        prepare_alignment(&members, false, context);
+      }
       gen_membered_body(
         GenMemberedBodyOptions {
           node: node.member_node,
@@ -1248,10 +1253,14 @@ fn gen_enum_decl<'a>(node: &TsEnumDecl<'a>, context: &mut Context<'a>) -> PrintI
 
   // body
   let member_spacing = context.config.enum_declaration_member_spacing;
+  let members = node.members.iter().map(|&x| x.into()).collect::<Vec<_>>();
+  if context.config.align_assignments {
+    prepare_alignment(&members, false, context);
+  }
   items.extend(gen_membered_body(
     GenMemberedBodyOptions {
       node: node.into(),
-      members: node.members.iter().map(|&x| x.into()).collect(),
+      members,
       start_header_lsil: Some(start_header_lsil),
       brace_position: context.config.enum_declaration_brace_position,
       block_padding: context.config.enum_declaration_block_padding,
@@ -1673,10 +1682,14 @@ fn gen_module_or_namespace_decl<'a, 'b>(node: ModuleOrNamespaceDecl<'a, 'b>, con
     if let Some(body) = body {
       match body {
         TsNamespaceBody::TsModuleBlock(block) => {
+          let members = block.body.iter().map(|x| x.into()).collect::<Vec<_>>();
+          if context.config.align_assignments {
+            prepare_alignment(&members, false, context);
+          }
           items.extend(gen_membered_body(
             GenMemberedBodyOptions {
               node: (*block).into(),
-              members: block.body.iter().map(|x| x.into()).collect(),
+              members,
               start_header_lsil: Some(start_header_lsil),
               brace_position: context.config.module_declaration_brace_position,
               block_padding: context.config.module_declaration_block_padding,
@@ -3337,10 +3350,14 @@ fn gen_object_lit<'a>(node: &ObjectLit<'a>, context: &mut Context<'a>) -> PrintI
     node,
     |node| use_consistent_quotes_for_members(node.props.iter().map(|p| p.into())),
     |context, node| {
+      let members = node.props.iter().map(|x| x.into()).collect::<Vec<_>>();
+      if context.config.align_assignments {
+        prepare_alignment(&members, true, context);
+      }
       gen_object_like_node(
         GenObjectLikeNodeOptions {
           node: node.into(),
-          members: node.props.iter().map(|x| x.into()).collect(),
+          members,
           separator: context.config.object_expression_trailing_commas.into(),
           prefer_hanging: context.config.object_expression_prefer_hanging,
           prefer_single_line: context.config.object_expression_prefer_single_line,
@@ -4427,10 +4444,14 @@ fn gen_interface_body<'a>(node: &TsInterfaceBody<'a>, context: &mut Context<'a>)
     node,
     |node| use_consistent_quotes_for_members(node.body.iter().map(|n| n.into())),
     |context, node| {
+      let members = node.body.iter().map(|x| x.into()).collect::<Vec<_>>();
+      if context.config.align_assignments {
+        prepare_alignment(&members, true, context);
+      }
       gen_membered_body(
         GenMemberedBodyOptions {
           node: node.into(),
-          members: node.body.iter().map(|x| x.into()).collect(),
+          members,
           start_header_lsil,
           brace_position: context.config.interface_declaration_brace_position,
           block_padding: context.config.interface_declaration_block_padding,
@@ -4501,10 +4522,14 @@ fn gen_type_lit<'a>(node: &TsTypeLit<'a>, context: &mut Context<'a>) -> PrintIte
     node,
     |node| use_consistent_quotes_for_members(node.members.iter().map(|n| n.into())),
     |context, node| {
+      let members = node.members.iter().map(|m| m.into()).collect::<Vec<_>>();
+      if context.config.align_assignments {
+        prepare_alignment(&members, true, context);
+      }
       gen_object_like_node(
         GenObjectLikeNodeOptions {
           node: node.into(),
-          members: node.members.iter().map(|m| m.into()).collect(),
+          members,
           separator: Separator {
             single_line: Some(semi_colon_or_comma_to_separator_value(
               context.config.type_literal_separator_kind_single_line,
@@ -9261,6 +9286,9 @@ fn gen_conditional_body_padding<'a>(arena: &'a Arena, count: usize, conditions: 
 }
 
 fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> PrintItems<'a> {
+  if context.config.align_assignments {
+    prepare_alignment(&stmts, false, context);
+  }
   let blank_lines_after_imports = context.config.module_blank_lines_after_imports.map(|count| count as usize);
   let is_import_stmts = if blank_lines_after_imports.is_some() {
     stmts
@@ -10643,6 +10671,149 @@ fn gen_type_ann_with_colon_if_exists<'a>(type_ann: Option<&TsTypeAnn<'a>>, conte
 
 fn gen_type_ann_with_colon<'a>(type_ann: Node<'a>, colon_token: Option<&TokenAndSpan>, context: &mut Context<'a>) -> PrintItems<'a> {
   gen_assignment_like_with_token(type_ann, sc!(":"), colon_token, context)
+}
+
+/// The spaces after the text before a value (ex. `a:` of `a: 1`) that align the value
+/// with the values of the other members in its group.
+#[derive(Clone, Copy)]
+pub struct AlignPadding {
+  /// The column of the value from the start of the line without the spaces.
+  column: u32,
+  spaces: u32,
+}
+
+/// Stores the spaces that align the values of consecutive members (ex. variable
+/// statements or object properties) that aren't separated by a blank line or a
+/// member on multiple lines.
+///
+/// A member that isn't aligned (ex. a shorthand property) ends the group unless
+/// `skip_other_members` is true, which is what eslint's `key-spacing` does for `:`
+/// while clang-format's `AlignConsecutiveAssignments` ends it for `=`.
+fn prepare_alignment<'a>(members: &[Node<'a>], skip_other_members: bool, context: &mut Context<'a>) {
+  let mut group = Vec::new();
+  let mut last_member: Option<Node<'a>> = None;
+  for &member in members {
+    if let Some(last_member) = last_member {
+      // the file text is already formatted, so its blank lines are the ones that are kept (see `format_text.rs`)
+      let text_between = SourceRange::new(last_member.end(), member.start()).text_fast(context.program);
+      let lines = text_between.split('\n').collect::<Vec<_>>();
+      if lines.len() > 2 && lines[1..lines.len() - 1].iter().any(|line| line.trim().is_empty()) {
+        store_align_paddings(&mut group, context);
+      }
+    }
+    match get_align_member(member, context) {
+      Some(align_member) => group.push(align_member),
+      None if !skip_other_members => store_align_paddings(&mut group, context),
+      None => {}
+    }
+    last_member = Some(member);
+    // like gofmt, a member on multiple lines is aligned with the members before it, but ends the group
+    if member.start_line_fast(context.program) != member.end_line_fast(context.program) {
+      store_align_paddings(&mut group, context);
+    }
+  }
+  store_align_paddings(&mut group, context);
+
+  struct AlignMember {
+    /// The start of the node after the operator, which is the type annotation for a `:` of a type.
+    value_start: SourcePos,
+    /// The column of the value from the start of the line.
+    column: u32,
+    /// The width of the line the value starts on.
+    line_width: u32,
+  }
+
+  fn store_align_paddings<'a>(group: &mut Vec<AlignMember>, context: &mut Context<'a>) {
+    // the spaces never make a line go over the line width, so that they don't change what's on which line
+    loop {
+      let max_column = group.iter().map(|member| member.column).max().unwrap_or(0);
+      let member_count = group.len();
+      group.retain(|member| member.column == max_column || member.line_width + max_column - member.column <= context.config.line_width);
+      if group.len() == member_count {
+        for member in group.drain(..) {
+          if member.column < max_column {
+            let spaces = max_column - member.column;
+            context
+              .align_paddings
+              .insert(member.value_start, AlignPadding { column: member.column, spaces });
+          }
+        }
+        return;
+      }
+    }
+  }
+
+  /// Gets a member whose value can be aligned, which is measured from the file text
+  /// (it's already formatted, see `format_text.rs`).
+  fn get_align_member<'a>(member: Node<'a>, context: &Context<'a>) -> Option<AlignMember> {
+    let value: Node<'a> = match member {
+      Node::VarDecl(decl) => get_var_decl_value(decl)?,
+      Node::ExportDecl(decl) => match decl.decl {
+        Decl::Var(decl) => get_var_decl_value(decl)?,
+        _ => return None,
+      },
+      Node::ClassProp(prop) => prop.value?.into(),
+      Node::PrivateProp(prop) => prop.value?.into(),
+      Node::AutoAccessor(prop) => prop.value?.into(),
+      Node::TsEnumMember(member) => member.init?.into(),
+      Node::KeyValueProp(prop) => prop.value.into(),
+      Node::TsPropertySignature(prop) => prop.type_ann?.into(),
+      _ => return None,
+    };
+    let (op_start, op_width) = match value {
+      // the type annotation starts at its colon
+      Node::TsTypeAnn(_) => (value.start(), if context.config.type_annotation_space_before_colon { 3 } else { 2 }),
+      _ => (
+        context.token_finder.get_previous_token(&value)?.start(),
+        if member.is::<KeyValueProp>() { 2 } else { 0 },
+      ),
+    };
+    let text = SourceRange::new(member.start(), op_start).text_fast(context.program).trim_end();
+    let value_text_start = match value {
+      Node::TsTypeAnn(type_ann) => type_ann.type_ann.start(),
+      _ => value.start(),
+    };
+    if text.contains('\n') || value_text_start.start_line_fast(context.program) != op_start.start_line_fast(context.program) {
+      return None;
+    }
+    let line_text = context.program.text_info().line_text(op_start.start_line_fast(context.program));
+    let unindented_text = line_text.trim_start_matches('\t');
+    let tabs_width = (line_text.len() - unindented_text.len()) as u32 * context.config.indent_width as u32;
+    // measured like the printer measures the columns
+    Some(AlignMember {
+      value_start: value.start(),
+      column: text.width() as u32 + op_width,
+      line_width: tabs_width + unindented_text.width() as u32,
+    })
+  }
+
+  fn get_var_decl_value<'a>(decl: &VarDecl<'a>) -> Option<Node<'a>> {
+    match decl.decls {
+      [decl] => decl.init.map(|init| init.into()),
+      _ => None,
+    }
+  }
+}
+
+/// Generates the spaces that align a value, which are only added when the text
+/// before the value has the width it has in the file text (ex. when it starts the line).
+fn gen_align_padding<'a>(padding: Option<AlignPadding>, context: &Context<'a>) -> PrintItems<'a> {
+  let Some(padding) = padding else {
+    return PrintItems::new(context.arena);
+  };
+  let mut spaces = PrintItems::new(context.arena);
+  for _ in 0..padding.spaces {
+    spaces.push_space();
+  }
+  if_true(
+    "alignPaddingIfExpectedColumn",
+    context.arena.alloc_resolver(move |condition_context| {
+      let writer_info = &condition_context.writer_info;
+      Some(writer_info.column_number == writer_info.line_start_column_number() + padding.column)
+    }),
+    spaces,
+  )
+  .into_print_items(context.arena)
 }
 
 struct GenBraceSeparatorOptions<'a> {
@@ -12218,8 +12389,10 @@ fn gen_assignment_like_with_token<'a>(
 ) -> PrintItems<'a> {
   let use_new_line_group = get_use_new_line_group(expr);
   let mut items = PrintItems::new(context.arena);
+  let align_padding = context.align_paddings.remove(&expr.start());
 
   if op.text != ":" {
+    items.extend(gen_align_padding(align_padding, context));
     items.push_space();
   }
   items.push_sc(op);
@@ -12296,6 +12469,9 @@ fn gen_assignment_like_with_token<'a>(
         items.push_condition(condition);
       }
       items.push_info(start_ln);
+    }
+    if op.text == ":" {
+      items.extend(gen_align_padding(align_padding, context));
     }
     let assignment = gen_node(expr, context);
     let assignment = if had_op_trailing_comments {

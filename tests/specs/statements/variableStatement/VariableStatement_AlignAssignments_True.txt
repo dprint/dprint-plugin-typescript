@@ -1,0 +1,106 @@
+~~ alignAssignments: true ~~
+== should align the values of consecutive variable statements ==
+const foo = 12;
+let bar = 21;
+var foobar = 22;
+
+[expect]
+const foo  = 12;
+let bar    = 21;
+var foobar = 22;
+
+== should include what's before the operator in the width ==
+export const a = 1;
+const b: number = 2;
+declare const c = 3;
+const { d, e } = obj;
+
+[expect]
+export const a  = 1;
+const b: number = 2;
+declare const c = 3;
+const { d, e }  = obj;
+
+== should start a new group after a blank line or another statement ==
+const a = 1;
+const bb = 2;
+
+const ccc = 3;
+const d = 4;
+call();
+const eeeee = 5;
+let f;
+const g = 6;
+let h = 1, ii = 2;
+const j = 7;
+
+[expect]
+const a  = 1;
+const bb = 2;
+
+const ccc = 3;
+const d   = 4;
+call();
+const eeeee = 5;
+let f;
+const g = 6;
+let h = 1, ii = 2;
+const j = 7;
+
+== should align a statement on multiple lines with the ones before it and end the group ==
+const a = 1;
+const bbb = {
+    c: 1,
+};
+const dd = 2;
+const e = 3;
+
+[expect]
+const a   = 1;
+const bbb = {
+    c: 1,
+};
+const dd = 2;
+const e  = 3;
+
+== should align in blocks and module blocks ==
+function test() {
+    const a = 1;
+    const bb = 2;
+}
+
+namespace N {
+    export const a = 1;
+    export const bb = 2;
+}
+
+[expect]
+function test() {
+    const a  = 1;
+    const bb = 2;
+}
+
+namespace N {
+    export const a  = 1;
+    export const bb = 2;
+}
+
+== should keep the comments ==
+const a = 1; // a
+const bb = /* b */ 2;
+
+[expect]
+const a  = 1; // a
+const bb = /* b */ 2;
+
+== should start a new group after a blank line between a comment and the statement ==
+const a = 1;
+// comment
+
+const bbb = 2;
+
+[expect]
+const a = 1;
+// comment
+
+const bbb = 2;

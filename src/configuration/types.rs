@@ -534,6 +534,7 @@ pub struct Configuration {
   pub semicolons: Semicolons,
   pub file_indent_level: u32,
   pub max_blank_lines: u32,
+  pub align_assignments: bool,
   /* situational */
   #[serde(rename = "arrowFunction.useParentheses")]
   pub arrow_function_use_parentheses: UseParentheses,

@@ -1,0 +1,10 @@
+~~ alignAssignments: true ~~
+== should use the width of wide characters ==
+const 安全 = 1;
+const abc = 2;
+const abcdef = 3;
+
+[expect]
+const 安全   = 1;
+const abc    = 2;
+const abcdef = 3;

@@ -1,0 +1,56 @@
+~~ alignAssignments: true, indentWidth: 2 ~~
+== should align the values of the properties ==
+class Test {
+a = 1;
+longPropertyName = "value";
+static b = true;
+private c?: number = 3;
+#d = 4;
+accessor e = 5;
+method() {
+return 42;
+}
+}
+
+[expect]
+class Test {
+  a                  = 1;
+  longPropertyName   = "value";
+  static b           = true;
+  private c?: number = 3;
+  #d                 = 4;
+  accessor e         = 5;
+  method() {
+    return 42;
+  }
+}
+
+== should start a new group after a blank line or a property without a value ==
+class ServerConfig {
+// Connection settings
+host = "localhost";
+port = 3000;
+
+// Security settings
+tls = true;
+tlsCertificate = "/path/to/cert.pem";
+tlsPrivateKey = "/path/to/key.pem";
+timeout: number;
+readTimeout = 5000;
+writeTimeoutDuration = 30000;
+}
+
+[expect]
+class ServerConfig {
+  // Connection settings
+  host = "localhost";
+  port = 3000;
+
+  // Security settings
+  tls            = true;
+  tlsCertificate = "/path/to/cert.pem";
+  tlsPrivateKey  = "/path/to/key.pem";
+  timeout: number;
+  readTimeout          = 5000;
+  writeTimeoutDuration = 30000;
+}

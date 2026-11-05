@@ -8,14 +8,17 @@ use dprint_swc_ext::common::SourceTextInfoProvider;
 use dprint_swc_ext::swc::parser::Syntax;
 use dprint_swc_ext::view::Program;
 use dprint_swc_ext::view::ProgramInfoProvider;
+use dprint_swc_ext::view::ProgramRef;
 
 use crate::Result;
 
 use super::configuration::Configuration;
 pub use super::generation::ExternalFormatter;
 use super::generation::generate;
+use super::parsing::ParseMode;
 use super::parsing::ParseOptions;
 use super::parsing::parse_program;
+use super::parsing::parse_syntax;
 
 pub struct FormatTextOptions<'a> {
   pub path: &'a Path,
@@ -67,6 +70,18 @@ pub struct FormatTextOptions<'a> {
 /// }
 /// ```
 pub fn format_text(options: FormatTextOptions) -> Result<Option<String>> {
+  let Some(unaligned_config) = get_config_without_alignment(options.config) else {
+    return format_text_once(options);
+  };
+  let unaligned = format_text_once(FormatTextOptions {
+    text: options.text.clone(),
+    config: &unaligned_config,
+    ..options
+  })?;
+  format_aligned(options.text.clone(), unaligned, |text| format_text_once(FormatTextOptions { text, ..options }))
+}
+
+fn format_text_once(options: FormatTextOptions) -> Result<Option<String>> {
   let FormatTextOptions {
     path: file_path,
     extension: file_extension,
@@ -119,6 +134,8 @@ pub struct FormatParsedSourceOptions<'a, TSource: ProgramInfoProvider> {
 ///
 /// Any parsed source implementing `ProgramInfoProvider` works here, including
 /// `deno_ast::ParsedSource`, so that the text does not need to be parsed twice.
+/// With `alignAssignments`, the formatted text is parsed again to align
+/// it like [`format_text`] does.
 ///
 /// Note that for a source this crate did not parse, it's up to the caller to
 /// first check its parse diagnostics with
@@ -134,6 +151,28 @@ pub fn format_parsed_source<TSource: ProgramInfoProvider>(options: FormatParsedS
     external_formatter,
     arena_pool,
   } = options;
+  let program_info = source.program_info();
+  let (Some(unaligned_config), Some(text_info)) = (get_config_without_alignment(config), program_info.text_info) else {
+    return format_parsed_source_once(source, syntax, config, external_formatter, arena_pool);
+  };
+  let mode = match program_info.program {
+    ProgramRef::Module(_) => ParseMode::Module,
+    ProgramRef::Script(_) => ParseMode::Script,
+  };
+  let unaligned = format_parsed_source_once(source, syntax, &unaligned_config, external_formatter, arena_pool)?;
+  format_aligned(text_info.text(), unaligned, |text| {
+    let parsed_source = parse_syntax("".into(), text, syntax, mode)?;
+    format_parsed_source_once(&parsed_source, syntax, config, external_formatter, arena_pool)
+  })
+}
+
+fn format_parsed_source_once<TSource: ProgramInfoProvider>(
+  source: &TSource,
+  syntax: Syntax,
+  config: &Configuration,
+  external_formatter: Option<&ExternalFormatter>,
+  arena_pool: Option<&ArenaPool>,
+) -> Result<Option<String>> {
   // the arena is created before the ast view so the print items can borrow from it
   let arena = create_arena(arena_pool);
   source.with_view(|program| {
@@ -166,6 +205,10 @@ pub struct FormatProgramOptions<'a> {
 ///
 /// The program must have been parsed with the text info, tokens, and comments
 /// all captured, otherwise this errors.
+///
+/// Unlike [`format_text`], this formats once, so `alignAssignments` measures the
+/// text before the aligned values as it is in the program's text, which can take
+/// formatting again to settle when that text isn't formatted.
 ///
 /// Note that unlike [`format_text`] this does not check for syntax errors that
 /// swc recovered from, because it has no diagnostics to check. Use
@@ -238,6 +281,22 @@ fn inner_format_program<'a>(
   let print_items = generate(arena, program, syntax, config, external_formatter)?;
   let result = dprint_core::formatting::print(print_items, config_to_print_options(file_text, config));
   if result == file_text { Ok(None) } else { Ok(Some(result)) }
+}
+
+/// Gets the configuration without the alignment when the alignment is enabled.
+fn get_config_without_alignment(config: &Configuration) -> Option<Configuration> {
+  config.align_assignments.then(|| Configuration {
+    align_assignments: false,
+    ..config.clone()
+  })
+}
+
+/// Formats the text that was formatted without the alignment with the alignment, which is measured
+/// from the text before the aligned values and so needs it to already be formatted.
+fn format_aligned(file_text: Arc<str>, unaligned: Option<String>, format: impl FnOnce(Arc<str>) -> Result<Option<String>>) -> Result<Option<String>> {
+  let unaligned = unaligned.map_or_else(|| file_text.clone(), Into::into);
+  let aligned = format(unaligned.clone())?.unwrap_or_else(|| unaligned.to_string());
+  Ok((*aligned != *file_text).then_some(aligned))
 }
 
 fn create_arena(arena_pool: Option<&ArenaPool>) -> Arena {

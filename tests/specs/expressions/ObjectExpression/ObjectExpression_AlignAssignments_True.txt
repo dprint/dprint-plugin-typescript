@@ -1,0 +1,101 @@
+~~ alignAssignments: true ~~
+== should align the values of the properties ==
+const foo = {
+    bar: 123,
+    barbaz: 123,
+    [key]: 456,
+    "very long key": 789,
+};
+
+[expect]
+const foo = {
+    bar:             123,
+    barbaz:          123,
+    [key]:           456,
+    "very long key": 789,
+};
+
+== should start a new group after a blank line and skip the properties without a value ==
+const foo = {
+    a: 1,
+    bb: 2,
+
+    ccc: 3,
+    d: 4,
+    ...rest,
+    eeeee: 5,
+    f,
+    method() {},
+    g: 6,
+};
+
+[expect]
+const foo = {
+    a:  1,
+    bb: 2,
+
+    ccc:   3,
+    d:     4,
+    ...rest,
+    eeeee: 5,
+    f,
+    method() {},
+    g:     6,
+};
+
+== should not align a property whose value is on the next line ==
+const foo = {
+    a: 1,
+    bb: 2,
+    longPropertyName:
+        "a very long string value that does not fit on the line with the long property name of this object......",
+    ccc: 3,
+};
+
+[expect]
+const foo = {
+    a:  1,
+    bb: 2,
+    longPropertyName:
+        "a very long string value that does not fit on the line with the long property name of this object......",
+    ccc: 3,
+};
+
+== should not align when on a single line ==
+const foo = { a: 1, bbb: 2 };
+
+[expect]
+const foo = { a: 1, bbb: 2 };
+
+== should align when becoming multi-line ==
+const foo = { aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: 1, bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb: 2, c: 3, ddddddddddddddddddddddd: 4 };
+
+[expect]
+const foo = {
+    aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:          1,
+    bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb: 2,
+    c:                                       3,
+    ddddddddddddddddddddddd:                 4,
+};
+
+== should align a property on multiple lines with the ones before it and end the group ==
+const foo = {
+    a: 1,
+    bbb: {
+        c: 1,
+        dd: 2,
+    },
+    eeee: 3,
+    f: 4,
+};
+
+[expect]
+const foo = {
+    a:   1,
+    bbb: {
+        c:  1,
+        dd: 2,
+    },
+    eeee: 3,
+    f:    4,
+};

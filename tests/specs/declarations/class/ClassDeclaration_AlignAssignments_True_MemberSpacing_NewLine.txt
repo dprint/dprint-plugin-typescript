@@ -1,0 +1,13 @@
+~~ alignAssignments: true, classDeclaration.memberSpacing: newLine ~~
+== should align across the blank lines that are removed ==
+class Test {
+    a = 1;
+
+    bbb = 2;
+}
+
+[expect]
+class Test {
+    a   = 1;
+    bbb = 2;
+}

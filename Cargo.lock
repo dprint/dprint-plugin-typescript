@@ -299,6 +299,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+ "unicode-width 0.2.1",
 ]
 
 [[package]]
