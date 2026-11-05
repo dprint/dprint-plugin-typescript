@@ -2,6 +2,144 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://plugins.dprint.dev/dprint/dprint-plugin-typescript/0.0.0/schema.json",
   "type": "object",
+  "x-sections": [
+    {
+      "title": "General",
+      "description": "The width, indentation, and newlines of all the code.",
+      "properties": [
+        "lineWidth",
+        "indentWidth",
+        "useTabs",
+        "newLineKind",
+        "maxBlankLines"
+      ]
+    },
+    {
+      "title": "Braces and blocks",
+      "description": "Where braces go and the blank lines within blocks and between members.",
+      "properties": [
+        "useBraces",
+        "bracePosition",
+        "singleBodyPosition",
+        "nextControlFlowPosition",
+        "blockPadding",
+        "memberSpacing"
+      ]
+    },
+    {
+      "title": "Line breaks",
+      "description": "How code that doesn't fit within the line width is split up, and when code is put back on one line.",
+      "properties": [
+        "preferHanging",
+        "preferSingleLine",
+        "operatorPosition",
+        "binaryExpression.linePerExpression",
+        "memberExpression.linePerExpression",
+        "conditionalExpression.linePerExpression",
+        "conditionalType.linePerExpression",
+        "conditionalExpression.indentBranchContent",
+        "conditionalExpression.useNestedIndentation",
+        "conditionalType.useNestedIndentation",
+        "decorators.position",
+        "functionExpression.flatIife"
+      ]
+    },
+    {
+      "title": "Semicolons, commas, and quotes",
+      "description": "The punctuation that's added or removed.",
+      "properties": [
+        "semicolons",
+        "trailingCommas",
+        "typeLiteral.separatorKind",
+        "quoteStyle",
+        "quoteProps",
+        "arrowFunction.useParentheses"
+      ]
+    },
+    {
+      "title": "Spaces",
+      "description": "The spaces around and within parentheses, braces, operators, and keywords.",
+      "properties": [
+        "spaceAround",
+        "spaceSurroundingProperties",
+        "spaceAfterControlFlowKeyword",
+        "binaryExpression.spaceSurroundingBitwiseAndArithmeticOperator",
+        "catchClause.spaceAfterCatchKeyword",
+        "commentLine.forceSpaceAfterSlashes",
+        "constructor.spaceBeforeParentheses",
+        "constructorType.spaceAfterNewKeyword",
+        "constructSignature.spaceAfterNewKeyword",
+        "doWhileStatement.spaceAfterWhileKeyword",
+        "exportDeclaration.spaceSurroundingNamedExports",
+        "forInStatement.spaceAfterForKeyword",
+        "forOfStatement.spaceAfterForKeyword",
+        "forStatement.spaceAfterForKeyword",
+        "forStatement.spaceAfterSemicolons",
+        "functionDeclaration.spaceBeforeParentheses",
+        "functionExpression.spaceBeforeParentheses",
+        "functionExpression.spaceAfterFunctionKeyword",
+        "getAccessor.spaceBeforeParentheses",
+        "ifStatement.spaceAfterIfKeyword",
+        "importDeclaration.spaceSurroundingNamedImports",
+        "method.spaceBeforeParentheses",
+        "setAccessor.spaceBeforeParentheses",
+        "switchStatement.spaceAfterSwitchKeyword",
+        "typeAnnotation.spaceBeforeColon",
+        "typeAssertion.spaceBeforeExpression",
+        "whileStatement.spaceAfterWhileKeyword",
+        "withStatement.spaceAfterWithKeyword"
+      ]
+    },
+    {
+      "title": "Imports and exports",
+      "description": "The sorting, grouping, and line breaks of import and export declarations.",
+      "properties": [
+        "module.sortImportDeclarations",
+        "module.sortExportDeclarations",
+        "importDeclaration.sortNamedImports",
+        "exportDeclaration.sortNamedExports",
+        "importDeclaration.sortTypeOnlyImports",
+        "exportDeclaration.sortTypeOnlyExports",
+        "module.importGroups",
+        "module.typeImports",
+        "module.importGroupsNewlinesBetween",
+        "module.blankLinesAfterImports",
+        "importDeclaration.forceSingleLine",
+        "exportDeclaration.forceSingleLine",
+        "importDeclaration.forceMultiLine",
+        "exportDeclaration.forceMultiLine"
+      ]
+    },
+    {
+      "title": "JSX",
+      "description": "The formatting of JSX elements and attributes.",
+      "properties": [
+        "jsx.multiLineParens",
+        "jsx.bracketPosition",
+        "jsx.forceNewLinesSurroundingContent",
+        "jsx.sortClassNames",
+        "jsxSelfClosingElement.spaceBeforeSlash",
+        "jsxExpressionContainer.spaceSurroundingExpression"
+      ]
+    },
+    {
+      "title": "Tagged templates",
+      "description": "The formatting of tagged templates and the code embedded in them (ex. `` css`...` ``).",
+      "properties": [
+        "taggedTemplate.formatEmbedded",
+        "taggedTemplate.embeddedLanguages",
+        "taggedTemplate.spaceBeforeLiteral"
+      ]
+    },
+    {
+      "title": "Ignore comments",
+      "description": "The comments that make the formatter leave code as is.",
+      "properties": [
+        "ignoreNodeCommentText",
+        "ignoreFileCommentText"
+      ]
+    }
+  ],
   "definitions": {
     "useTabs": {
       "description": "Whether to use tabs (true) or spaces (false).",
