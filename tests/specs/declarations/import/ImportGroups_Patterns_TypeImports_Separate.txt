@@ -1,0 +1,23 @@
+~~ {
+  "lineWidth": 80,
+  "module.sortImportDeclarations": "caseInsensitive",
+  "module.typeImports": "separate",
+  "module.importGroups": [
+    { "match": "external" },
+    { "match": "type" },
+    { "match": { "pattern": "@app/**" } }
+  ]
+} ~~
+== type-only import goes to the pattern group it matches, else to type ==
+import type { A } from "@app/a";
+import type { B } from "beta";
+import { c } from "@app/c";
+import { r } from "react";
+
+[expect]
+import { r } from "react";
+
+import type { B } from "beta";
+
+import type { A } from "@app/a";
+import { c } from "@app/c";

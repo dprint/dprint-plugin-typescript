@@ -1356,7 +1356,7 @@
       "$ref": "#/definitions/sortOrder"
     },
     "module.importGroups": {
-      "description": "Ordered list of import groups, separated by blank lines. Empty disables the feature.",
+      "description": "Ordered list of import groups, separated by blank lines. Empty disables the feature. A group's patterns take the imports they match wherever the group is listed, the categories take the rest, and the list sets the output order.",
       "type": "array",
       "default": [],
       "items": {

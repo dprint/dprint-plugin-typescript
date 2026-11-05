@@ -1,0 +1,34 @@
+~~ {
+  "lineWidth": 80,
+  "module.sortImportDeclarations": "caseInsensitive",
+  "module.importGroups": [
+    { "match": "builtin" },
+    { "match": "external" },
+    { "match": { "pattern": "@scope/**" } },
+    { "match": [{ "pattern": "@alias" }, { "pattern": "@alias/**" }] },
+    { "match": ["parent", "sibling", "index"] }
+  ]
+} ~~
+== pattern groups listed after external take a scoped package and path aliases ==
+import { x } from "./x";
+import { a } from "@alias/a";
+import { r } from "react";
+import { s } from "@scope/s";
+import { p } from "../p";
+import fs from "node:fs";
+import { b } from "@alias";
+import { l } from "lodash";
+
+[expect]
+import fs from "node:fs";
+
+import { l } from "lodash";
+import { r } from "react";
+
+import { s } from "@scope/s";
+
+import { b } from "@alias";
+import { a } from "@alias/a";
+
+import { p } from "../p";
+import { x } from "./x";
