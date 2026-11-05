@@ -1,0 +1,57 @@
+~~ memberSpacing: blankLine ~~
+== should use blank lines between members of every member container ==
+class A {
+    a = 1;
+    b = 2;
+}
+
+const B = class {
+    a = 1;
+    b = 2;
+};
+
+enum C {
+    A,
+    B,
+}
+
+interface D {
+    a: string;
+    b: string;
+}
+
+type E = {
+    a: string;
+    b: string;
+};
+
+[expect]
+class A {
+    a = 1;
+
+    b = 2;
+}
+
+const B = class {
+    a = 1;
+
+    b = 2;
+};
+
+enum C {
+    A,
+
+    B,
+}
+
+interface D {
+    a: string;
+
+    b: string;
+}
+
+type E = {
+    a: string;
+
+    b: string;
+};

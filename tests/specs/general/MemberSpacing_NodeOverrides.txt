@@ -1,0 +1,49 @@
+~~ memberSpacing: blankLine, enumDeclaration.memberSpacing: newLine, interfaceDeclaration.memberSpacing: maintain ~~
+== should use the member spacing of the node ==
+class A {
+    a = 1;
+    b = 2;
+}
+
+enum C {
+    A,
+
+    B,
+}
+
+interface D {
+    a: string;
+    b: string;
+
+    c: string;
+}
+
+type E = {
+    a: string;
+    b: string;
+};
+
+[expect]
+class A {
+    a = 1;
+
+    b = 2;
+}
+
+enum C {
+    A,
+    B,
+}
+
+interface D {
+    a: string;
+    b: string;
+
+    c: string;
+}
+
+type E = {
+    a: string;
+
+    b: string;
+};
