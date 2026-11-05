@@ -101,3 +101,33 @@ foo(
         a: foo,
     }),
 );
+
+== should format a test call body after multi-line arrow parameters the same way when formatted again ==
+values.forEach((
+    value,
+) => it("formats the value when this line is longer than the default line width of one hundred and twenty characters", () => {
+    test(value);
+}));
+values.forEach((
+    value,
+) =>
+    it("formats the value when this line is longer than the default line width of one hundred and twenty characters", () => {
+        test(value);
+    })
+);
+
+[expect]
+values.forEach((
+    value,
+) =>
+    it("formats the value when this line is longer than the default line width of one hundred and twenty characters", () => {
+        test(value);
+    })
+);
+values.forEach((
+    value,
+) =>
+    it("formats the value when this line is longer than the default line width of one hundred and twenty characters", () => {
+        test(value);
+    })
+);
