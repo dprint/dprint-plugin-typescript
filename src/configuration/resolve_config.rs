@@ -56,6 +56,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
   let use_braces = get_value(&mut config, "useBraces", UseBraces::WhenNotSingleLine, &mut diagnostics);
   let prefer_hanging = get_value(&mut config, "preferHanging", false, &mut diagnostics);
   let block_padding = get_value(&mut config, "blockPadding", BlockPadding::Remove, &mut diagnostics);
+  let member_spacing = get_value(&mut config, "memberSpacing", MemberSpacing::Maintain, &mut diagnostics);
   let prefer_hanging_granular = if prefer_hanging { PreferHanging::Always } else { PreferHanging::Never };
   let prefer_single_line_nullable = get_nullable_value(&mut config, "preferSingleLine", &mut diagnostics);
   let prefer_single_line = prefer_single_line_nullable.unwrap_or(false);
@@ -204,11 +205,11 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     conditional_type_use_nested_indentation: get_value(&mut config, "conditionalType.useNestedIndentation", false, &mut diagnostics),
     with_statement_prefer_hanging: get_value(&mut config, "withStatement.preferHanging", prefer_hanging, &mut diagnostics),
     /* member spacing */
-    class_declaration_member_spacing: get_value(&mut config, "classDeclaration.memberSpacing", MemberSpacing::Maintain, &mut diagnostics),
-    class_expression_member_spacing: get_value(&mut config, "classExpression.memberSpacing", MemberSpacing::Maintain, &mut diagnostics),
-    enum_declaration_member_spacing: get_value(&mut config, "enumDeclaration.memberSpacing", MemberSpacing::Maintain, &mut diagnostics),
-    interface_declaration_member_spacing: get_value(&mut config, "interfaceDeclaration.memberSpacing", MemberSpacing::Maintain, &mut diagnostics),
-    type_literal_member_spacing: get_value(&mut config, "typeLiteral.memberSpacing", MemberSpacing::Maintain, &mut diagnostics),
+    class_declaration_member_spacing: get_value(&mut config, "classDeclaration.memberSpacing", member_spacing, &mut diagnostics),
+    class_expression_member_spacing: get_value(&mut config, "classExpression.memberSpacing", member_spacing, &mut diagnostics),
+    enum_declaration_member_spacing: get_value(&mut config, "enumDeclaration.memberSpacing", member_spacing, &mut diagnostics),
+    interface_declaration_member_spacing: get_value(&mut config, "interfaceDeclaration.memberSpacing", member_spacing, &mut diagnostics),
+    type_literal_member_spacing: get_value(&mut config, "typeLiteral.memberSpacing", member_spacing, &mut diagnostics),
     /* block padding */
     block_padding,
     class_declaration_block_padding: get_value(&mut config, "classDeclaration.blockPadding", block_padding, &mut diagnostics),
@@ -1075,6 +1076,42 @@ mod tests {
         "taggedTemplate.embeddedLanguages.number"
       ]
     );
+  }
+
+  #[test]
+  fn handle_member_spacing() {
+    let mut config = ConfigKeyMap::new();
+    config.insert(String::from("memberSpacing"), ConfigKeyValue::from_str("blankLine"));
+    let result = resolve_config(config, &GlobalConfiguration::default());
+    assert_eq!(result.diagnostics.len(), 0);
+    assert!(result.config.class_declaration_member_spacing == MemberSpacing::BlankLine);
+    assert!(result.config.class_expression_member_spacing == MemberSpacing::BlankLine);
+    assert!(result.config.enum_declaration_member_spacing == MemberSpacing::BlankLine);
+    assert!(result.config.interface_declaration_member_spacing == MemberSpacing::BlankLine);
+    assert!(result.config.type_literal_member_spacing == MemberSpacing::BlankLine);
+  }
+
+  #[test]
+  fn handle_member_spacing_per_node_override() {
+    let mut config = ConfigKeyMap::new();
+    config.insert(String::from("memberSpacing"), ConfigKeyValue::from_str("blankLine"));
+    config.insert(String::from("interfaceDeclaration.memberSpacing"), ConfigKeyValue::from_str("newLine"));
+    config.insert(String::from("typeLiteral.memberSpacing"), ConfigKeyValue::from_str("maintain"));
+    let result = resolve_config(config, &GlobalConfiguration::default());
+    assert_eq!(result.diagnostics.len(), 0);
+    assert!(result.config.class_declaration_member_spacing == MemberSpacing::BlankLine);
+    assert!(result.config.class_expression_member_spacing == MemberSpacing::BlankLine);
+    assert!(result.config.enum_declaration_member_spacing == MemberSpacing::BlankLine);
+    assert!(result.config.interface_declaration_member_spacing == MemberSpacing::NewLine);
+    assert!(result.config.type_literal_member_spacing == MemberSpacing::Maintain);
+  }
+
+  #[test]
+  fn handle_member_spacing_default() {
+    let result = resolve_config(ConfigKeyMap::new(), &GlobalConfiguration::default());
+    assert_eq!(result.diagnostics.len(), 0);
+    assert!(result.config.class_declaration_member_spacing == MemberSpacing::Maintain);
+    assert!(result.config.type_literal_member_spacing == MemberSpacing::Maintain);
   }
 
   #[test]

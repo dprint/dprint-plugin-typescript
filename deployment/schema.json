@@ -67,6 +67,7 @@
         "$ref": "#/definitions/jsx.sortClassNames.kind"
       }, {
         "type": "object",
+        "description": "The kind of sorting along with its options.",
         "required": ["kind"],
         "additionalProperties": false,
         "properties": {
@@ -74,7 +75,7 @@
             "$ref": "#/definitions/jsx.sortClassNames.kind"
           },
           "functions": {
-            "description": "Leading function or tag identifiers whose string arguments and template literals should be sorted as class names (ex. [\"cn\", \"clsx\"]).",
+            "description": "Leading function or tag identifiers whose string arguments and template literals should be sorted as class names (ex. `[\"cn\", \"clsx\"]`).",
             "type": "array",
             "default": [],
             "items": {
@@ -82,7 +83,7 @@
             }
           },
           "attributes": {
-            "description": "Attributes whose values should be sorted as class names in addition to \"class\" and \"className\".",
+            "description": "Attributes whose values should be sorted as class names in addition to `class` and `className`.",
             "type": "array",
             "default": [],
             "items": {
@@ -100,11 +101,11 @@
             "default": false
           },
           "prefix": {
-            "description": "The prefix the project's Tailwind classes have (ex. \"tw\" when classes look like \"tw:flex\").",
+            "description": "The prefix the project's Tailwind classes have (ex. `tw` when classes look like `tw:flex`).",
             "type": "string"
           },
           "theme": {
-            "description": "The theme variables the project adds to Tailwind's default theme and their values, which is what's in \"@theme\" in its CSS (ex. { \"--breakpoint-3xl\": \"120rem\", \"--color-brand\": \"#f00\" }).",
+            "description": "The theme variables the project adds to Tailwind's default theme and their values, which is what's in `@theme` in its CSS (ex. `{ \"--breakpoint-3xl\": \"120rem\", \"--color-brand\": \"#f00\" }`).",
             "type": "object",
             "default": {},
             "additionalProperties": {
@@ -112,7 +113,7 @@
             }
           },
           "variants": {
-            "description": "The names of the project's custom variants in the order they're defined, which is what it has an \"@custom-variant\" for in its CSS.",
+            "description": "The names of the project's custom variants in the order they're defined, which is what it has an `@custom-variant` for in its CSS.",
             "type": "array",
             "default": [],
             "items": {
@@ -120,7 +121,7 @@
             }
           },
           "utilities": {
-            "description": "The names of the project's custom utilities along with the CSS properties each sets, which is what it has an \"@utility\" for in its CSS (ex. { \"btn\": [\"display\", \"padding\"], \"tab-*\": [\"tab-size\"] }).",
+            "description": "The names of the project's custom utilities along with the CSS properties each sets, which is what it has an `@utility` for in its CSS (ex. `{ \"btn\": [\"display\", \"padding\"], \"tab-*\": [\"tab-size\"] }`).",
             "type": "object",
             "default": {},
             "additionalProperties": {
@@ -181,10 +182,10 @@
       "default": false,
       "oneOf": [{
         "const": true,
-        "description": ""
+        "description": "Puts the children of a JSX element on their own lines between its opening and closing tags."
       }, {
         "const": false,
-        "description": ""
+        "description": "Only puts the children of a JSX element on their own lines when needed, such as when they contain another JSX element."
       }]
     },
     "jsx.bracketPosition": {
@@ -334,10 +335,10 @@
       "default": false,
       "oneOf": [{
         "const": true,
-        "description": ""
+        "description": "Keeps as much of the code as possible on the current line and continues the rest on the next line with an indent."
       }, {
         "const": false,
-        "description": ""
+        "description": "Puts each item on its own line."
       }]
     },
     "preferHangingGranular": {
@@ -356,15 +357,15 @@
       }]
     },
     "preferSingleLine": {
-      "description": "If code should revert back from being on multiple lines to being on a single line when able.",
+      "description": "If code should revert back from being on multiple lines to being on a single line when able. This is very experimental.",
       "type": "boolean",
       "default": false,
       "oneOf": [{
         "const": true,
-        "description": ""
+        "description": "Puts code that spans multiple lines back on a single line when it fits within the line width."
       }, {
         "const": false,
-        "description": ""
+        "description": "Maintains the code being on multiple lines."
       }]
     },
     "preferSingleLineDefaultTrue": {
@@ -373,10 +374,10 @@
       "default": true,
       "oneOf": [{
         "const": true,
-        "description": ""
+        "description": "Puts code that spans multiple lines back on a single line when it fits within the line width."
       }, {
         "const": false,
-        "description": ""
+        "description": "Maintains the code being on multiple lines."
       }]
     },
     "jsxExpressionContainer.preferSingleLine": {
@@ -397,25 +398,60 @@
       "default": false,
       "oneOf": [{
         "const": true,
-        "description": ""
+        "description": "Keeps the code on a single line even when it exceeds the line width, unless it contains a line comment or a comment that spans multiple lines."
       }, {
         "const": false,
-        "description": ""
+        "description": "Puts the code on multiple lines when it exceeds the line width."
       }]
     },
     "forceMultiLineSpecifiers": {
-      "description": "If code import/export specifiers should be forced to be on multiple lines.",
+      "description": "Whether to force the named imports or exports of a declaration onto multiple lines.",
       "type": "string",
       "default": "never",
       "oneOf": [{
         "const": "always",
-        "description": ""
+        "description": "Puts each specifier on its own line."
       }, {
         "const": "never",
-        "description": ""
+        "description": "Doesn't force the specifiers onto multiple lines."
       }, {
         "const": "whenMultiple",
-        "description": "Force multiple lines only if importing more than one thing."
+        "description": "Puts each specifier on its own line when there's more than one."
+      }]
+    },
+    "importGroupMatcher": {
+      "oneOf": [{
+        "const": "builtin",
+        "description": "Built-in modules (ex. `fs`, `node:path`, `bun:test`, and `cloudflare:workers`)."
+      }, {
+        "const": "external",
+        "description": "Imports that aren't built-in or relative, such as packages (ex. `react` and `@scope/pkg`)."
+      }, {
+        "const": "parent",
+        "description": "Imports from a parent directory (ex. `../utils`)."
+      }, {
+        "const": "sibling",
+        "description": "Imports from the same directory (ex. `./utils`)."
+      }, {
+        "const": "index",
+        "description": "Imports of the directory's index (ex. `.` and `./index.js`)."
+      }, {
+        "const": "type",
+        "description": "Type-only imports when `module.typeImports` is `\"separate\"`."
+      }, {
+        "const": "unknown",
+        "description": "The imports no other group takes. They go in a group at the end when no group lists this."
+      }, {
+        "type": "object",
+        "description": "The imports whose path matches a glob pattern, which take precedence over the categories.",
+        "required": ["pattern"],
+        "additionalProperties": false,
+        "properties": {
+          "pattern": {
+            "description": "A glob pattern the path of the import is matched against, where `*` doesn't match a `/` (ex. `@/**`).",
+            "type": "string"
+          }
+        }
       }]
     },
     "typeOnlyImportsExportsSortOrder": {
@@ -454,10 +490,10 @@
       "default": false,
       "oneOf": [{
         "const": true,
-        "description": ""
+        "description": "Uses the configuration Deno uses."
       }, {
         "const": false,
-        "description": ""
+        "description": "Uses the configuration of this plugin."
       }]
     },
     "arrowFunction.useParentheses": {
@@ -548,7 +584,7 @@
       }]
     },
     "taggedTemplate.formatEmbedded": {
-      "description": "Whether to format the text of tagged templates whose tag is in `taggedTemplate.embeddedLanguages` (ex. html`...` and css`...`) with the plugin dprint uses for the language's file extension. A template is left as is when no plugin formats the extension.",
+      "description": "Whether to format the text of tagged templates whose tag is in `taggedTemplate.embeddedLanguages` (ex. `` html`...` `` and `` css`...` ``) with the plugin dprint uses for the language's file extension. A template is left as is when no plugin formats the extension.",
       "type": "boolean",
       "default": true,
       "oneOf": [{
@@ -560,7 +596,7 @@
       }]
     },
     "taggedTemplate.embeddedLanguages": {
-      "description": "Map of a tagged template's tag to the file extension of the language its text is formatted as, which replaces the defaults. The styled-components patterns (ex. styled.div`...` and styled(Button)`...`) use the `css` entry. The text of css is formatted as Less by default because the placeholders of its expressions are Less variables.",
+      "description": "Map of a tagged template's tag to the file extension of the language its text is formatted as, which replaces the defaults. The styled-components patterns (ex. `` styled.div`...` `` and `` styled(Button)`...` ``) use the `css` entry. The text of css is formatted as Less by default because the placeholders of its expressions are Less variables.",
       "type": "object",
       "additionalProperties": {
         "type": "string"
@@ -614,7 +650,8 @@
         "description": "Use semi-colons."
       }, {
         "const": "semiColon",
-        "description": "Use semi-colons. Same as \"semicolon\"."
+        "description": "Use semi-colons. Same as \"semicolon\".",
+        "deprecationMessage": "Use \"semicolon\" instead."
       }, {
         "const": "comma",
         "description": "Use commas."
@@ -782,10 +819,10 @@
       "default": true,
       "oneOf": [{
         "const": true,
-        "description": "Ex. `do {\n} while (condition);`"
+        "description": "Ex. `} while (condition);`"
       }, {
         "const": false,
-        "description": "Ex. `do {\n} while(condition);`"
+        "description": "Ex. `} while(condition);`"
       }]
     },
     "exportDeclaration.spaceSurroundingNamedExports": {
@@ -998,10 +1035,10 @@
       "default": false,
       "oneOf": [{
         "const": true,
-        "description": "Ex. `html `<element />``"
+        "description": "Ex. `` html `<element />` ``"
       }, {
         "const": false,
-        "description": "Ex. `html`<element />``"
+        "description": "Ex. `` html`<element />` ``"
       }]
     },
     "typeAnnotation.spaceBeforeColon": {
@@ -1057,86 +1094,269 @@
     "lineWidth": {
       "description": "The width of a line the printer will try to stay under. Note that the printer may exceed this width in certain cases.",
       "default": 120,
-      "type": "number"
+      "type": "integer",
+      "minimum": 1
     },
     "indentWidth": {
       "description": "The number of columns for an indent.",
       "default": 2,
-      "type": "number"
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 255
     },
     "useTabs": {
-      "$ref": "#/definitions/useTabs"
+      "$ref": "#/definitions/useTabs",
+      "x-example": {
+        "input": [
+          "function run() {",
+          "  start();",
+          "}"
+        ]
+      }
     },
     "semicolons": {
-      "$ref": "#/definitions/semicolons"
+      "$ref": "#/definitions/semicolons",
+      "x-example": {
+        "input": [
+          "const value = 5",
+          "type Point = { x: number; y: number };",
+          ";[1, 2].forEach(log)"
+        ]
+      }
     },
     "quoteStyle": {
-      "$ref": "#/definitions/quoteStyle"
+      "$ref": "#/definitions/quoteStyle",
+      "x-example": {
+        "input": [
+          "const single = 'text';",
+          "const double = \"text\";",
+          "const containsDouble = 'say \"hi\"';"
+        ]
+      }
     },
     "quoteProps": {
-      "$ref": "#/definitions/quoteProps"
+      "$ref": "#/definitions/quoteProps",
+      "x-example": {
+        "input": [
+          "const obj = { \"a\": 1, \"b-c\": 2, d: 3 };",
+          "const other = { \"a\": 1, b: 2 };"
+        ]
+      }
     },
     "newLineKind": {
       "$ref": "#/definitions/newLineKind"
     },
     "useBraces": {
-      "$ref": "#/definitions/useBraces"
+      "$ref": "#/definitions/useBraces",
+      "x-example": {
+        "input": [
+          "if (isReady) start();",
+          "if (isReady) {",
+          "  start();",
+          "}",
+          "if (isDone)",
+          "  stop();"
+        ]
+      }
     },
     "bracePosition": {
-      "$ref": "#/definitions/bracePosition"
+      "$ref": "#/definitions/bracePosition",
+      "x-example": {
+        "config": {
+          "lineWidth": 40,
+          "preferHanging": true
+        },
+        "input": [
+          "function run()",
+          "{",
+          "  start();",
+          "}",
+          "",
+          "function process(first: string, second: string) {",
+          "  start();",
+          "}"
+        ]
+      }
     },
     "blockPadding": {
-      "$ref": "#/definitions/blockPadding"
+      "$ref": "#/definitions/blockPadding",
+      "x-example": {
+        "input": [
+          "function run() {",
+          "",
+          "  start();",
+          "",
+          "}",
+          "",
+          "function stop() {",
+          "  end();",
+          "}"
+        ]
+      }
     },
     "maxBlankLines": {
       "description": "The maximum number of consecutive blank lines to keep.",
       "default": 1,
-      "type": "number"
+      "type": "integer",
+      "minimum": 0
     },
     "singleBodyPosition": {
-      "$ref": "#/definitions/singleBodyPosition"
+      "$ref": "#/definitions/singleBodyPosition",
+      "x-example": {
+        "config": {
+          "useBraces": "maintain"
+        },
+        "input": [
+          "if (isReady) start();",
+          "if (isDone)",
+          "  stop();"
+        ]
+      }
     },
     "nextControlFlowPosition": {
-      "$ref": "#/definitions/nextControlFlowPosition"
+      "$ref": "#/definitions/nextControlFlowPosition",
+      "x-example": {
+        "input": [
+          "if (isReady) {",
+          "  start();",
+          "} else {",
+          "  stop();",
+          "}",
+          "",
+          "try {",
+          "  start();",
+          "}",
+          "catch {",
+          "  stop();",
+          "}"
+        ]
+      }
     },
     "trailingCommas": {
-      "$ref": "#/definitions/trailingCommas"
+      "$ref": "#/definitions/trailingCommas",
+      "x-example": {
+        "input": [
+          "const values = [",
+          "  first,",
+          "  second",
+          "];",
+          "call(first, second,);"
+        ]
+      }
     },
     "operatorPosition": {
-      "$ref": "#/definitions/operatorPosition"
+      "$ref": "#/definitions/operatorPosition",
+      "x-example": {
+        "input": [
+          "const isValid = firstCondition &&",
+          "  secondCondition;",
+          "const total = firstValue",
+          "  + secondValue;"
+        ]
+      }
     },
     "preferHanging": {
-      "$ref": "#/definitions/preferHanging"
+      "$ref": "#/definitions/preferHanging",
+      "x-example": {
+        "config": {
+          "lineWidth": 40
+        },
+        "input": [
+          "call(firstArgument, secondArgument, thirdArgument);"
+        ]
+      }
     },
     "preferSingleLine": {
-      "$ref": "#/definitions/preferSingleLine"
+      "$ref": "#/definitions/preferSingleLine",
+      "x-example": {
+        "input": [
+          "call(",
+          "  first,",
+          "  second,",
+          ");",
+          "const point = {",
+          "  x: 1, y: 2 };"
+        ]
+      }
     },
     "deno": {
       "$ref": "#/definitions/deno"
     },
     "arrowFunction.useParentheses": {
-      "$ref": "#/definitions/arrowFunction.useParentheses"
+      "$ref": "#/definitions/arrowFunction.useParentheses",
+      "x-example": {
+        "input": [
+          "const double = x => x * 2;",
+          "const triple = (x) => x * 3;"
+        ]
+      }
     },
     "binaryExpression.linePerExpression": {
-      "$ref": "#/definitions/binaryExpression.linePerExpression"
+      "$ref": "#/definitions/binaryExpression.linePerExpression",
+      "x-example": {
+        "config": {
+          "lineWidth": 40
+        },
+        "input": [
+          "const isValid = firstCondition && secondCondition && thirdCondition;"
+        ]
+      }
     },
     "conditionalExpression.linePerExpression": {
-      "$ref": "#/definitions/conditionalExpression.linePerExpression"
+      "$ref": "#/definitions/conditionalExpression.linePerExpression",
+      "x-example": {
+        "input": [
+          "const value = isEnabled ? first",
+          "  : second;",
+          "const other = isEnabled",
+          "  ? first : second;"
+        ]
+      }
     },
     "conditionalType.linePerExpression": {
       "$ref": "#/definitions/conditionalType.linePerExpression"
     },
     "conditionalExpression.indentBranchContent": {
-      "$ref": "#/definitions/conditionalExpression.indentBranchContent"
+      "$ref": "#/definitions/conditionalExpression.indentBranchContent",
+      "x-example": {
+        "input": [
+          "const value = isEnabled",
+          "  ? {",
+          "    first: 1,",
+          "  }",
+          "  : undefined;"
+        ]
+      }
     },
     "conditionalExpression.useNestedIndentation": {
-      "$ref": "#/definitions/useNestedIndentation"
+      "$ref": "#/definitions/useNestedIndentation",
+      "x-example": {
+        "input": [
+          "const size = width < 10",
+          "  ? \"small\"",
+          "  : width < 20",
+          "  ? \"medium\"",
+          "  : \"large\";"
+        ]
+      }
     },
     "conditionalType.useNestedIndentation": {
       "$ref": "#/definitions/useNestedIndentation"
     },
     "jsx.bracketPosition": {
-      "$ref": "#/definitions/jsx.bracketPosition"
+      "$ref": "#/definitions/jsx.bracketPosition",
+      "x-example": {
+        "extension": "tsx",
+        "input": [
+          "const element = (",
+          "  <Button",
+          "    first=\"value\"",
+          "    second=\"value\">",
+          "    text",
+          "  </Button>",
+          ");"
+        ]
+      }
     },
     "jsxOpeningElement.bracketPosition": {
       "$ref": "#/definitions/jsx.bracketPosition"
@@ -1145,25 +1365,77 @@
       "$ref": "#/definitions/jsx.bracketPosition"
     },
     "decorators.position": {
-      "$ref": "#/definitions/decorators.position"
+      "$ref": "#/definitions/decorators.position",
+      "x-example": {
+        "input": [
+          "class Model {",
+          "  @observable",
+          "  first = 1;",
+          "  @observable second = 2;",
+          "}"
+        ]
+      }
     },
     "jsx.forceNewLinesSurroundingContent": {
-      "$ref": "#/definitions/jsx.forceNewLinesSurroundingContent"
+      "$ref": "#/definitions/jsx.forceNewLinesSurroundingContent",
+      "x-example": {
+        "extension": "tsx",
+        "input": [
+          "const element = <div>text</div>;"
+        ]
+      }
     },
     "jsx.quoteStyle": {
-      "$ref": "#/definitions/jsx.quoteStyle"
+      "$ref": "#/definitions/jsx.quoteStyle",
+      "x-example": {
+        "extension": "tsx",
+        "input": [
+          "const element = <div title='text' alt=\"say 'hi'\" />;"
+        ]
+      }
     },
     "jsx.multiLineParens": {
-      "$ref": "#/definitions/jsx.multiLineParens"
+      "$ref": "#/definitions/jsx.multiLineParens",
+      "x-example": {
+        "extension": "tsx",
+        "input": [
+          "const element = <div>",
+          "  <span />",
+          "</div>;",
+          "render(<div>",
+          "  <span />",
+          "</div>);"
+        ]
+      }
     },
     "jsx.sortClassNames": {
-      "$ref": "#/definitions/jsx.sortClassNames"
+      "$ref": "#/definitions/jsx.sortClassNames",
+      "x-example": {
+        "extension": "tsx",
+        "input": [
+          "const element = <div className=\"text-sm p-4 flex\" />;"
+        ]
+      }
     },
     "memberExpression.linePerExpression": {
-      "$ref": "#/definitions/memberExpression.linePerExpression"
+      "$ref": "#/definitions/memberExpression.linePerExpression",
+      "x-example": {
+        "config": {
+          "lineWidth": 40
+        },
+        "input": [
+          "const result = items.filter(isValid).map(toValue)",
+          "  .join(\", \");"
+        ]
+      }
     },
     "typeLiteral.separatorKind": {
-      "$ref": "#/definitions/typeLiteral.separatorKind"
+      "$ref": "#/definitions/typeLiteral.separatorKind",
+      "x-example": {
+        "input": [
+          "type Point = { x: number; y: number };"
+        ]
+      }
     },
     "typeLiteral.separatorKind.singleLine": {
       "$ref": "#/definitions/typeLiteral.separatorKind"
@@ -1176,6 +1448,19 @@
     },
     "taggedTemplate.embeddedLanguages": {
       "$ref": "#/definitions/taggedTemplate.embeddedLanguages"
+    },
+    "memberSpacing": {
+      "$ref": "#/definitions/memberSpacing",
+      "x-example": {
+        "input": [
+          "class Point {",
+          "  x = 1;",
+          "  y = 2;",
+          "",
+          "  z = 3;",
+          "}"
+        ]
+      }
     },
     "classDeclaration.memberSpacing": {
       "$ref": "#/definitions/memberSpacing"
@@ -1304,7 +1589,14 @@
       "$ref": "#/definitions/functionExpression.spaceAfterFunctionKeyword"
     },
     "functionExpression.flatIife": {
-      "$ref": "#/definitions/functionExpression.flatIife"
+      "$ref": "#/definitions/functionExpression.flatIife",
+      "x-example": {
+        "input": [
+          "(function() {",
+          "  start();",
+          "})();"
+        ]
+      }
     },
     "getAccessor.spaceBeforeParentheses": {
       "$ref": "#/definitions/getAccessor.spaceBeforeParentheses"
@@ -1346,46 +1638,55 @@
       "$ref": "#/definitions/withStatement.spaceAfterWithKeyword"
     },
     "module.sortImportDeclarations": {
-      "$ref": "#/definitions/sortOrder"
+      "$ref": "#/definitions/sortOrder",
+      "x-example": {
+        "input": [
+          "import { b } from \"./b\";",
+          "import { C } from \"./C\";",
+          "import { a } from \"./a\";"
+        ]
+      }
     },
     "module.blankLinesAfterImports": {
       "description": "The number of blank lines to force after the import declarations at the top of a module. When not set, maintains the blank lines up to `maxBlankLines`.",
-      "type": "number"
+      "type": "integer",
+      "minimum": 0
     },
     "module.sortExportDeclarations": {
-      "$ref": "#/definitions/sortOrder"
+      "$ref": "#/definitions/sortOrder",
+      "x-example": {
+        "input": [
+          "export * from \"./b\";",
+          "export * from \"./C\";",
+          "export * from \"./a\";"
+        ]
+      }
     },
     "module.importGroups": {
       "description": "Ordered list of import groups, separated by blank lines. Empty disables the feature. A group's patterns take the imports they match wherever the group is listed, the categories take the rest, and the list sets the output order.",
       "type": "array",
       "default": [],
+      "examples": [
+        [
+          { "match": "builtin" },
+          { "match": "external" },
+          { "match": { "pattern": "@/**" } },
+          { "match": ["parent", "sibling", "index"] }
+        ]
+      ],
       "items": {
         "type": "object",
+        "required": ["match"],
+        "additionalProperties": false,
         "properties": {
           "match": {
+            "description": "The imports in the group, as a category, a pattern, or a list of them.",
             "oneOf": [
-              {
-                "type": "string",
-                "enum": ["builtin", "external", "parent", "sibling", "index", "type", "unknown"]
-              },
-              {
-                "type": "object",
-                "required": ["pattern"],
-                "properties": {
-                  "pattern": { "type": "string" }
-                }
-              },
+              { "$ref": "#/definitions/importGroupMatcher" },
               {
                 "type": "array",
-                "items": {
-                  "oneOf": [
-                    {
-                      "type": "string",
-                      "enum": ["builtin", "external", "parent", "sibling", "index", "type", "unknown"]
-                    },
-                    { "type": "object", "required": ["pattern"], "properties": { "pattern": { "type": "string" } } }
-                  ]
-                }
+                "description": "A list of categories and patterns whose imports go in the same group.",
+                "items": { "$ref": "#/definitions/importGroupMatcher" }
               }
             ]
           }
@@ -1393,28 +1694,66 @@
       }
     },
     "module.typeImports": {
-      "description": "How type-only imports are classified by module.importGroups.",
+      "description": "How `module.importGroups` classifies type-only imports (ex. `import type { Foo } from \"./foo\";`).",
       "type": "string",
       "default": "separate",
-      "enum": ["separate", "interleave"]
+      "oneOf": [{
+        "const": "separate",
+        "description": "Classifies type-only imports as the `type` category, so they can be put in their own group."
+      }, {
+        "const": "interleave",
+        "description": "Classifies type-only imports by their path like the other imports."
+      }]
     },
     "module.importGroupsNewlinesBetween": {
-      "description": "How blank lines are handled between imports when module.importGroups is enabled. Mirrors ESLint import/order's newlines-between.",
+      "description": "How to put blank lines between the imports when `module.importGroups` is set. Mirrors the `newlines-between` option of ESLint's `import/order` rule.",
       "type": "string",
       "default": "always",
-      "enum": ["always", "alwaysAndInsideGroups", "never", "ignore"]
+      "oneOf": [{
+        "const": "always",
+        "description": "Puts one blank line between groups and removes the blank lines within a group."
+      }, {
+        "const": "alwaysAndInsideGroups",
+        "description": "Puts one blank line between groups and keeps the blank lines within a group."
+      }, {
+        "const": "never",
+        "description": "Removes the blank lines between all the imports."
+      }, {
+        "const": "ignore",
+        "description": "Neither adds nor removes blank lines."
+      }]
     },
     "exportDeclaration.sortNamedExports": {
-      "$ref": "#/definitions/sortOrder"
+      "$ref": "#/definitions/sortOrder",
+      "x-example": {
+        "input": [
+          "export { b, C, a } from \"./module\";"
+        ]
+      }
     },
     "exportDeclaration.sortTypeOnlyExports": {
-      "$ref": "#/definitions/typeOnlyImportsExportsSortOrder"
+      "$ref": "#/definitions/typeOnlyImportsExportsSortOrder",
+      "x-example": {
+        "input": [
+          "export { c, type b, a } from \"./module\";"
+        ]
+      }
     },
     "importDeclaration.sortNamedImports": {
-      "$ref": "#/definitions/sortOrder"
+      "$ref": "#/definitions/sortOrder",
+      "x-example": {
+        "input": [
+          "import { b, C, a } from \"./module\";"
+        ]
+      }
     },
     "importDeclaration.sortTypeOnlyImports": {
-      "$ref": "#/definitions/typeOnlyImportsExportsSortOrder"
+      "$ref": "#/definitions/typeOnlyImportsExportsSortOrder",
+      "x-example": {
+        "input": [
+          "import { c, type b, a } from \"./module\";"
+        ]
+      }
     },
     "ignoreNodeCommentText": {
       "description": "The text to use for an ignore comment (ex. `// dprint-ignore`).",
@@ -1808,16 +2147,44 @@
       "$ref": "#/definitions/preferSingleLine"
     },
     "exportDeclaration.forceSingleLine": {
-      "$ref": "#/definitions/forceSingleLine"
+      "$ref": "#/definitions/forceSingleLine",
+      "x-example": {
+        "config": {
+          "lineWidth": 40
+        },
+        "input": [
+          "export { firstValue, secondValue } from \"./values\";"
+        ]
+      }
     },
     "importDeclaration.forceSingleLine": {
-      "$ref": "#/definitions/forceSingleLine"
+      "$ref": "#/definitions/forceSingleLine",
+      "x-example": {
+        "config": {
+          "lineWidth": 40
+        },
+        "input": [
+          "import { firstValue, secondValue } from \"./values\";"
+        ]
+      }
     },
     "exportDeclaration.forceMultiLine": {
-      "$ref": "#/definitions/forceMultiLineSpecifiers"
+      "$ref": "#/definitions/forceMultiLineSpecifiers",
+      "x-example": {
+        "input": [
+          "export { a, b } from \"./first\";",
+          "export { c } from \"./second\";"
+        ]
+      }
     },
     "importDeclaration.forceMultiLine": {
-      "$ref": "#/definitions/forceMultiLineSpecifiers"
+      "$ref": "#/definitions/forceMultiLineSpecifiers",
+      "x-example": {
+        "input": [
+          "import { a, b } from \"./first\";",
+          "import { c } from \"./second\";"
+        ]
+      }
     }
   }
 }

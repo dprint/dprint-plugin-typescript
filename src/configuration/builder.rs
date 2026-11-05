@@ -265,6 +265,13 @@ impl ConfigurationBuilder {
     self.insert("blockPadding", value.to_string().into())
   }
 
+  /// How to separate the members of classes, enums, interfaces, and type literals.
+  ///
+  /// Default: `MemberSpacing::Maintain`
+  pub fn member_spacing(&mut self, value: MemberSpacing) -> &mut Self {
+    self.insert("memberSpacing", value.to_string().into())
+  }
+
   /// If trailing commas should be used.
   ///
   /// Default: `TrailingCommas::OnlyMultiLine`
@@ -1492,6 +1499,7 @@ mod tests {
       .file_indent_level(1)
       .max_blank_lines(2)
       .block_padding(BlockPadding::Maintain)
+      .member_spacing(MemberSpacing::Maintain)
       .use_braces(UseBraces::WhenNotSingleLine)
       .quote_props(QuoteProps::AsNeeded)
       .prefer_hanging(false)
@@ -1720,7 +1728,7 @@ mod tests {
       .with_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 232);
+    assert_eq!(inner_config.len(), 233);
     let diagnostics = resolve_config(inner_config, &Default::default()).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }
