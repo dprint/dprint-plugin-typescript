@@ -51,7 +51,7 @@ const buildJob = job("build", {
     {
       name: "Generate config schema",
       run: [
-        "deno run -A --minimum-dependency-age=0 jsr:@dprint/automation@0.14.2/tasks/publish-schema",
+        "deno run -A --minimum-dependency-age=0 jsr:@dprint/automation@0.14.3/tasks/publish-schema",
         `target/wasm32-unknown-unknown/release/${cargoWasmName}.wasm deployment/schema.json --extension ts`,
       ].join(" "),
     },
