@@ -101,3 +101,59 @@ foo(
         a: foo,
     }),
 );
+
+== should format a test call body after multi-line arrow parameters the same way when formatted again ==
+values.forEach((
+    value,
+) => it("formats the value when this line is longer than the default line width of one hundred and twenty characters", () => {
+    test(value);
+}));
+values.forEach((
+    value,
+) =>
+    it("formats the value when this line is longer than the default line width of one hundred and twenty characters", () => {
+        test(value);
+    })
+);
+
+[expect]
+values.forEach((
+    value,
+) =>
+    it("formats the value when this line is longer than the default line width of one hundred and twenty characters", () => {
+        test(value);
+    })
+);
+values.forEach((
+    value,
+) =>
+    it("formats the value when this line is longer than the default line width of one hundred and twenty characters", () => {
+        test(value);
+    })
+);
+
+== should keep a call that fits after multi-line arrow parameters on the arrow's line ==
+values.forEach((
+    value,
+) => foo({
+    a: 1,
+}));
+values.forEach((
+    value,
+) =>
+    foo({
+        a: 1,
+    })
+);
+
+[expect]
+values.forEach((
+    value,
+) => foo({
+    a: 1,
+}));
+values.forEach((
+    value,
+) => foo({
+    a: 1,
+}));

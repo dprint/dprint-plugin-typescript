@@ -1986,6 +1986,13 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
       } else if should_not_newline_after_arrow(&node.body, context) {
         items.push_space();
       } else {
+        // a call that hugs its last argument moves to the next line when it doesn't fit on the arrow's line,
+        // so it must be allowed to stay there when formatting again
+        let short_header_separator = if is_call_hugging_last_arg(&node.body, context) {
+          Signal::SpaceOrNewLine.into_print_items(context.arena)
+        } else {
+          " ".into_print_items(context.arena)
+        };
         items.extend(gen_line_numbers_region_start(context.arena, &[end_body_ln]));
         items.push_condition(conditions::if_above_width_or(
           context.config.indent_width,
@@ -1998,7 +2005,7 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
             Signal::SpaceOrNewLine.into_print_items(context.arena),
           )
           .into_print_items(context.arena),
-          " ".into_print_items(context.arena),
+          short_header_separator,
         ));
       }
 
@@ -2082,6 +2089,21 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
     let ArrowFunctionBody::Expr(expr) = body else {
       return false;
     };
+    let program = context.program;
+    let start_line = expr.start_line_fast(program);
+    let is_on_arrow_line = context
+      .token_finder
+      .get_previous_token(expr)
+      .is_some_and(|arrow_token| arrow_token.end_line_fast(program) == start_line);
+    is_on_arrow_line && is_call_hugging_last_arg(body, context)
+  }
+
+  /// Gets if the body is a call with its last argument starting on the call's first line and continuing
+  /// on the next ones (ex. `b({\n  c,\n})`).
+  fn is_call_hugging_last_arg<'a>(body: &ArrowFunctionBody<'a>, context: &Context<'a>) -> bool {
+    let ArrowFunctionBody::Expr(expr) = body else {
+      return false;
+    };
     let args = match expr {
       Expr::Call(call_expr) => call_expr.args,
       Expr::New(new_expr) => match new_expr.args {
@@ -2095,12 +2117,7 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
     };
     let program = context.program;
     let start_line = expr.start_line_fast(program);
-    let is_on_arrow_line = context
-      .token_finder
-      .get_previous_token(expr)
-      .is_some_and(|arrow_token| arrow_token.end_line_fast(program) == start_line);
-    is_on_arrow_line
-      && last_arg.start_line_fast(program) == start_line
+    last_arg.start_line_fast(program) == start_line
       && last_arg.end_line_fast(program) > start_line
       && allows_inline_multi_line((*last_arg).into(), context, args.len() > 1)
   }
