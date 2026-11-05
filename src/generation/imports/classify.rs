@@ -5,17 +5,16 @@ use crate::generation::imports::resolved::ResolvedGroups;
 use crate::utils::builtins::is_builtin;
 
 /// Classify a single import: return the index in `resolved.groups`.
+///
+/// Like the `pathGroups` of ESLint's import/order, a group's patterns are
+/// tested before any group's categories, so a pattern group takes the imports
+/// it matches wherever it's listed and the categories take the rest.
 pub fn classify_import(src: &str, is_type_only: bool, type_imports_mode: TypeImportsMode, resolved: &ResolvedGroups) -> usize {
-  let category = base_category(src, is_type_only, type_imports_mode);
-  for (i, g) in resolved.groups.iter().enumerate() {
-    if g.categories.contains(&category) {
-      return i;
-    }
-    if !g.globs.is_empty() && g.globs.is_match(src) {
-      return i;
-    }
+  if let Some(i) = resolved.groups.iter().position(|g| !g.globs.is_empty() && g.globs.is_match(src)) {
+    return i;
   }
-  resolved.unknown_index
+  let category = base_category(src, is_type_only, type_imports_mode);
+  resolved.groups.iter().position(|g| g.categories.contains(&category)).unwrap_or(resolved.unknown_index)
 }
 
 fn base_category(src: &str, is_type_only: bool, type_imports_mode: TypeImportsMode) -> BuiltinCategory {
@@ -125,14 +124,53 @@ mod tests {
   }
 
   #[test]
-  fn pattern_glob_first_match_wins() {
+  fn pattern_group_after_external_claims_its_imports() {
     let cfg = serde_json::json!({
       "module.importGroups": [
         { "match": "external" },
         { "match": { "pattern": "@app/**" } }
       ]
     });
-    assert_eq!(classify_with(cfg, "@app/foo", false), 0);
+    assert_eq!(classify_with(cfg.clone(), "@app/foo", false), 1);
+    assert_eq!(classify_with(cfg, "react", false), 0);
+  }
+
+  #[test]
+  fn pattern_group_after_parent_claims_its_imports() {
+    let cfg = serde_json::json!({
+      "module.importGroups": [
+        { "match": "parent" },
+        { "match": { "pattern": "../shared/**" } }
+      ]
+    });
+    assert_eq!(classify_with(cfg.clone(), "../shared/x", false), 1);
+    assert_eq!(classify_with(cfg, "../other", false), 0);
+  }
+
+  #[test]
+  fn group_mixing_a_category_and_a_pattern_takes_both() {
+    let cfg = serde_json::json!({
+      "module.importGroups": [
+        { "match": "external" },
+        { "match": ["parent", { "pattern": "@app/**" }] }
+      ]
+    });
+    assert_eq!(classify_with(cfg.clone(), "@app/foo", false), 1);
+    assert_eq!(classify_with(cfg.clone(), "../a", false), 1);
+    assert_eq!(classify_with(cfg, "react", false), 0);
+  }
+
+  #[test]
+  fn type_separate_tests_patterns_before_the_type_group() {
+    let cfg = serde_json::json!({
+      "module.importGroups": [
+        { "match": "type" },
+        { "match": "external" },
+        { "match": { "pattern": "@app/**" } }
+      ]
+    });
+    assert_eq!(classify_with(cfg.clone(), "@app/foo", true), 2);
+    assert_eq!(classify_with(cfg, "react", true), 0);
   }
 
   #[test]

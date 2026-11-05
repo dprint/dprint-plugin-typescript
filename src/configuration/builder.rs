@@ -714,6 +714,9 @@ impl ConfigurationBuilder {
 
   /// Ordered groups for `module.importGroups`. Empty = feature disabled.
   ///
+  /// A group's patterns take the imports they match wherever the group is listed,
+  /// the categories take the rest, and the list sets the output order.
+  ///
   /// Default: `[]`
   pub fn module_import_groups(&mut self, value: Vec<ImportGroup>) -> &mut Self {
     fn matcher_to_value(matcher: ImportMatcher) -> ConfigKeyValue {

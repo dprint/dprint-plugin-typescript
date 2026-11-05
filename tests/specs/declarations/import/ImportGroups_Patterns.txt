@@ -7,13 +7,14 @@
     { "match": "parent" }
   ]
 } ~~
-== pattern group positioned after external (external wins via first-match) ==
+== pattern group positioned after external claims the imports its pattern matches ==
 import { c } from "@app/foo";
 import { a } from "react";
 import { b } from "../shared";
 
 [expect]
-import { c } from "@app/foo";
 import { a } from "react";
+
+import { c } from "@app/foo";
 
 import { b } from "../shared";
