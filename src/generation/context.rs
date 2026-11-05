@@ -98,6 +98,9 @@ pub struct Context<'a> {
   /// different precedence and the condition for whether it indents an extra level
   /// when its operands go on new lines.
   pub nested_bin_expr_extra_indent: Option<(SourcePos, ConditionReference)>,
+  /// The start of an object or array in a list being broken out of hugging that ignores
+  /// the newline after its open token, as if its `preferSingleLine` was on.
+  pub prefer_single_line_value_start: Option<SourcePos>,
   /// Used for ensuring nodes are parsed in order.
   #[cfg(debug_assertions)]
   pub last_generated_node_pos: SourcePos,
@@ -156,6 +159,7 @@ impl<'a> Context<'a> {
       assignment_paren_end_ln: None,
       assignment_curried_arrow_end_ln: None,
       nested_bin_expr_extra_indent: None,
+      prefer_single_line_value_start: None,
       #[cfg(debug_assertions)]
       last_generated_node_pos: dprint_swc_ext::common::SourceTextInfoProvider::text_info(&program).range().start.into(),
       diagnostics: Vec::new(),
@@ -243,6 +247,16 @@ impl<'a> Context<'a> {
 
   pub fn take_expr_stmt_single_line_parent_brace_ref(&mut self) -> Option<ConditionReference> {
     self.expr_stmt_single_line_parent_brace_ref.take()
+  }
+
+  /// Takes whether the object or array at this start ignores the newline after its open token.
+  pub fn take_prefer_single_line_value(&mut self, node: &impl SourceRanged) -> bool {
+    if self.prefer_single_line_value_start == Some(node.start()) {
+      self.prefer_single_line_value_start = None;
+      true
+    } else {
+      false
+    }
   }
 
   pub fn get_or_create_current_before_comments_start_info(&mut self) -> (LineNumber, IsStartOfLine) {
