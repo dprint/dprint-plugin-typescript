@@ -8936,6 +8936,7 @@ struct GenArrayLikeNodesOptions<'a> {
 }
 
 fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
+  let prefer_single_line = opts.prefer_single_line || context.take_prefer_single_line_value(&opts.node);
   let nodes = get_array_like_values(opts.node, opts.nodes, context);
 
   let trailing_commas = if matches!(nodes.last(), Some(NodeOrSeparator::Separator(_))) {
@@ -8949,7 +8950,7 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
   let prefer_hanging = opts.prefer_hanging;
   let space_around = opts.space_around;
   let range = opts.range;
-  let force_use_new_lines = get_array_like_force_use_new_lines(range, &nodes, opts.prefer_single_line, context);
+  let force_use_new_lines = get_array_like_force_use_new_lines(range, &nodes, prefer_single_line, context);
   let mut items = PrintItems::new(context.arena);
   let first_member = nodes.first().map(|x| x.range());
 
@@ -10314,6 +10315,9 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
       let is_multi_line_or_hanging = is_multi_line_or_hanging_ref.create_resolver(context.arena);
       let nodes_count = nodes.len();
       let disallow_inline_multi_line = get_disallow_inline_multi_line_for_neighbors(&nodes, context);
+      // when this breaks a list that was hugged, the values that caused it go on one line when they fit
+      // instead of keeping the newline after their open token from the hugging (ex. `[{ a }, {\n  b,\n}]`)
+      let prefer_single_line_for_neighbors = disallow_inline_multi_line.contains(&true) && !is_first_value_on_new_line(&nodes, context);
       let mut generated_nodes = BumpVec::with_capacity_in(nodes_count, context.arena.bump());
       let mut forced_lines_span_line = 0;
 
@@ -10353,6 +10357,12 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
           }),
         };
 
+        let previous_prefer_single_line_value_start = match value {
+          NodeOrSeparator::Node(node) if prefer_single_line_for_neighbors && disallow_inline_multi_line[i] => {
+            context.prefer_single_line_value_start.replace(get_inner_value(node).start())
+          }
+          _ => context.prefer_single_line_value_start,
+        };
         let items = if separator.is_none() {
           if let NodeOrSeparator::Node(value) = value {
             gen_node(value, context)
@@ -10381,6 +10391,7 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
             }
           }
         };
+        context.prefer_single_line_value_start = previous_prefer_single_line_value_start;
 
         let use_new_line_group = match value {
           // Prefer going inline multi-line for certain expressions in arguments
@@ -10437,6 +10448,17 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
       vec![false; nodes.len()]
     } else {
       has_same_kind_neighbor
+    }
+  }
+
+  /// Gets if the first value starts on a later line than the token before it (ex. the open bracket).
+  fn is_first_value_on_new_line<'a>(nodes: &[NodeOrSeparator<'a>], context: &Context<'a>) -> bool {
+    let Some(first_value) = nodes.first() else {
+      return false;
+    };
+    match context.token_finder.get_previous_token(first_value) {
+      Some(previous_token) => node_helpers::get_use_new_lines_for_nodes(&previous_token.range(), first_value, context.program),
+      None => false,
     }
   }
 
@@ -10806,8 +10828,9 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
   let child_tokens = get_tokens_from_children_with_tokens(opts.node, context.program);
   let open_brace_token = child_tokens.iter().find(|t| t.token == Token::LBrace);
   let close_brace_token = child_tokens.iter().rev().find(|t| t.token == Token::RBrace);
+  let prefer_single_line = opts.prefer_single_line || context.take_prefer_single_line_value(&opts.node);
   let force_multi_line =
-    opts.force_multi_line || !opts.force_single_line && get_use_new_lines_for_nodes_with_preceeding_token("{", &opts.members, opts.prefer_single_line, context);
+    opts.force_multi_line || !opts.force_single_line && get_use_new_lines_for_nodes_with_preceeding_token("{", &opts.members, prefer_single_line, context);
 
   let first_member_range = opts.members.first().map(|x| x.range());
   let keep_blank_lines_before_close_token_comments = opts.blank_lines != ListBlankLines::Remove;

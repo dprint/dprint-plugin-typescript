@@ -3,61 +3,74 @@
 == should keep hugging object siblings in a jsx attribute when they're all multi-line ==
 <Table
   columns={[{
-    title: "First Name",
-    dataIndex: nameof<ImportUsersRowResult>("firstName"),
+    title: "Name",
+    key: "name",
+    width: 200,
   }, {
-    title: "Last Name",
-    dataIndex: nameof<ImportUsersRowResult>("lastName"),
+    title: "Email",
+    key: "email",
+    width: 300,
   }, {
-    title: "Note",
-    dataIndex: nameof<ImportUsersRowResult>("note"),
+    title: "Age",
+    key: "age",
+    width: 100,
   }]}
 />;
 
 [expect]
 <Table
   columns={[{
-    title: "First Name",
-    dataIndex: nameof<ImportUsersRowResult>("firstName"),
+    title: "Name",
+    key: "name",
+    width: 200,
   }, {
-    title: "Last Name",
-    dataIndex: nameof<ImportUsersRowResult>("lastName"),
+    title: "Email",
+    key: "email",
+    width: 300,
   }, {
-    title: "Note",
-    dataIndex: nameof<ImportUsersRowResult>("note"),
+    title: "Age",
+    key: "age",
+    width: 100,
   }]}
 />;
 
-== should break the container when one object sibling is expanded among single line ones (issue #641) ==
+== should put one object sibling expanded among single line ones on one line (issue #641) ==
 const titles = [{ name: "FPN" }, { name: "FPN Class" }, {
   name: "Type",
 }, { name: "Description" }];
 
 [expect]
-const titles = [
-  { name: "FPN" },
-  { name: "FPN Class" },
-  {
-    name: "Type",
-  },
-  { name: "Description" },
-];
+const titles = [{ name: "FPN" }, { name: "FPN Class" }, { name: "Type" }, { name: "Description" }];
 
-== should break the container in a jsx attribute when the object siblings are mixed ==
-<List items={[{ title: "a" }, {
-  title: "b",
-}, { title: "c" }]} />;
+== should break the container in a jsx attribute and put the mixed object siblings on one line ==
+<Nav items={[{ label: <a href="/home">Home</a> }, {
+  label: <a href="/settings/profile">Profile</a>,
+}, { label: "Billing and invoices" }]} />;
 
 [expect]
-<List
+<Nav
   items={[
-    { title: "a" },
-    {
-      title: "b",
-    },
-    { title: "c" },
+    { label: <a href="/home">Home</a> },
+    { label: <a href="/settings/profile">Profile</a> },
+    { label: "Billing and invoices" },
   ]}
 />;
+
+== should keep a mixed object sibling multi-line when it doesn't fit on one line ==
+const values = [{ a: 1 }, {
+  someVeryLongPropertyName: "some very long string value that goes past the line width",
+  anotherProperty: "another long string value",
+}, { c: 3 }];
+
+[expect]
+const values = [
+  { a: 1 },
+  {
+    someVeryLongPropertyName: "some very long string value that goes past the line width",
+    anotherProperty: "another long string value",
+  },
+  { c: 3 },
+];
 
 == should keep an already broken out array of objects broken out ==
 const values = [
@@ -79,6 +92,24 @@ const values = [
   },
 ];
 
+== should keep the multi-line objects of a broken out container with mixed object siblings ==
+const values = [
+  { a: 1 },
+  {
+    b: 2,
+  },
+  { c: 3 },
+];
+
+[expect]
+const values = [
+  { a: 1 },
+  {
+    b: 2,
+  },
+  { c: 3 },
+];
+
 == should keep hugging object siblings when a value of another kind is before them ==
 const values = [x, {
   a,
@@ -93,7 +124,7 @@ const values = [x, {
   b,
 }];
 
-== should break the container when any value with a same kind neighbor is single line ==
+== should put the values on one line when any value with a same kind neighbor is single line ==
 const values = [{ c: 1 }, { d: 2 }, x, {
   a,
 }, {
@@ -101,17 +132,7 @@ const values = [{ c: 1 }, { d: 2 }, x, {
 }];
 
 [expect]
-const values = [
-  { c: 1 },
-  { d: 2 },
-  x,
-  {
-    a,
-  },
-  {
-    b,
-  },
-];
+const values = [{ c: 1 }, { d: 2 }, x, { a }, { b }];
 
 == should count an empty object as single line, which makes the siblings mixed ==
 const values = [{}, {
@@ -119,10 +140,35 @@ const values = [{}, {
 }];
 
 [expect]
+const values = [{}, { a }];
+
+== should only put the mixed siblings on one line and not the objects in them ==
+const values = [{ a: { x: 1 } }, {
+  b: {
+    y: 2,
+  },
+}];
+
+[expect]
 const values = [
-  {},
+  { a: { x: 1 } },
   {
-    a,
+    b: {
+      y: 2,
+    },
+  },
+];
+
+== should keep a mixed object sibling multi-line when it has a comment on another line ==
+const values = [{ a }, { // comment
+  b,
+}];
+
+[expect]
+const values = [
+  { a },
+  { // comment
+    b,
   },
 ];
 
@@ -140,16 +186,26 @@ call({
   other: 2,
 });
 
-== should break the arguments when the object arguments are mixed ==
+== should put mixed object arguments on one line ==
 call({ prop: 1 }, {
   other: 2,
 });
 
 [expect]
+call({ prop: 1 }, { other: 2 });
+
+== should break the arguments when a mixed object argument doesn't fit on one line ==
+call({ a: 1 }, {
+  someVeryLongPropertyName: "some very long string value that goes past the line width",
+  anotherProperty: "another long string value",
+});
+
+[expect]
 call(
-  { prop: 1 },
+  { a: 1 },
   {
-    other: 2,
+    someVeryLongPropertyName: "some very long string value that goes past the line width",
+    anotherProperty: "another long string value",
   },
 );
 
@@ -167,6 +223,15 @@ const values = [[
   2,
 ]];
 
+== should put mixed array siblings on one line ==
+const values = [[1, 2], [
+  3,
+  4,
+], [5]];
+
+[expect]
+const values = [[1, 2], [3, 4], [5]];
+
 == should keep hugging multi-line type literals in a tuple ==
 type T = [{
   a: string;
@@ -181,18 +246,13 @@ type T = [{
   b: number;
 }];
 
-== should break a tuple when the type literals are mixed ==
+== should put mixed type literals in a tuple on one line ==
 type T = [{ a: string }, {
   b: number;
 }];
 
 [expect]
-type T = [
-  { a: string },
-  {
-    b: number;
-  },
-];
+type T = [{ a: string }, { b: number }];
 
 == should keep hugging multi-line type literals in type arguments ==
 type T = Map<{
@@ -222,15 +282,10 @@ const [{
   b,
 }] = values;
 
-== should break an array pattern when the object patterns are mixed ==
+== should put mixed object patterns in an array pattern on one line ==
 const [{ c }, {
   d,
 }] = values;
 
 [expect]
-const [
-  { c },
-  {
-    d,
-  },
-] = values;
+const [{ c }, { d }] = values;
