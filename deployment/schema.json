@@ -1303,8 +1303,7 @@
       "$ref": "#/definitions/bracePosition",
       "x-example": {
         "config": {
-          "lineWidth": 40,
-          "preferHanging": true
+          "lineWidth": 80
         },
         "input": [
           "function run()",
@@ -1312,8 +1311,8 @@
           "  start();",
           "}",
           "",
-          "function process(first: string, second: string) {",
-          "  start();",
+          "class LongNamedComponent extends BaseComponent implements Disposable, Serializable {",
+          "  value = 1;",
           "}"
         ]
       }
