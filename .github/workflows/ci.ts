@@ -50,8 +50,10 @@ const buildJob = job("build", {
     // checks that the plugin accepts every property in it
     {
       name: "Generate config schema",
-      run:
-        `deno run -A ./scripts/publish_schema.ts target/wasm32-unknown-unknown/release/${cargoWasmName}.wasm deployment/schema.json`,
+      run: [
+        "deno run -A jsr:@dprint/automation@0.13.0/tasks/publish-schema",
+        `target/wasm32-unknown-unknown/release/${cargoWasmName}.wasm deployment/schema.json --extension ts`,
+      ].join(" "),
     },
 
     // wasm integration test (typescript-specific)
