@@ -1,4 +1,4 @@
-~~ classDeclaration.alignProperties: true, classDeclaration.memberSpacing: newLine ~~
+~~ alignAssignments: true, classDeclaration.memberSpacing: newLine ~~
 == should align across the blank lines that are removed ==
 class Test {
     a = 1;

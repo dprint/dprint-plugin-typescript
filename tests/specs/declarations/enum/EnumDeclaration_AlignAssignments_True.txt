@@ -1,4 +1,4 @@
-~~ enumDeclaration.alignMembers: true, indentWidth: 2 ~~
+~~ alignAssignments: true, indentWidth: 2 ~~
 == should align the values of the members ==
 enum Test {
 A = 1,

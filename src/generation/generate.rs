@@ -1142,24 +1142,16 @@ fn gen_class_decl_or_expr<'a>(node: ClassDeclOrExpr<'a>, context: &mut Context<'
     context,
   ));
 
-  let (member_spacing, block_padding, align_properties) = if node.is_class_decl {
-    (
-      context.config.class_declaration_member_spacing,
-      context.config.class_declaration_block_padding,
-      context.config.class_declaration_align_properties,
-    )
+  let (member_spacing, block_padding) = if node.is_class_decl {
+    (context.config.class_declaration_member_spacing, context.config.class_declaration_block_padding)
   } else {
-    (
-      context.config.class_expression_member_spacing,
-      context.config.class_expression_block_padding,
-      context.config.class_expression_align_properties,
-    )
+    (context.config.class_expression_member_spacing, context.config.class_expression_block_padding)
   };
   items.extend(context.with_maybe_consistent_props(
     node.members,
     |members| use_consistent_quotes_for_members(members.iter().copied()),
     |context, members| {
-      if align_properties {
+      if context.config.align_assignments {
         prepare_alignment(&members, false, context);
       }
       gen_membered_body(
@@ -1262,7 +1254,7 @@ fn gen_enum_decl<'a>(node: &TsEnumDecl<'a>, context: &mut Context<'a>) -> PrintI
   // body
   let member_spacing = context.config.enum_declaration_member_spacing;
   let members = node.members.iter().map(|&x| x.into()).collect::<Vec<_>>();
-  if context.config.enum_declaration_align_members {
+  if context.config.align_assignments {
     prepare_alignment(&members, false, context);
   }
   items.extend(gen_membered_body(
@@ -1691,7 +1683,7 @@ fn gen_module_or_namespace_decl<'a, 'b>(node: ModuleOrNamespaceDecl<'a, 'b>, con
       match body {
         TsNamespaceBody::TsModuleBlock(block) => {
           let members = block.body.iter().map(|x| x.into()).collect::<Vec<_>>();
-          if context.config.variable_statement_align_assignments {
+          if context.config.align_assignments {
             prepare_alignment(&members, false, context);
           }
           items.extend(gen_membered_body(
@@ -3359,7 +3351,7 @@ fn gen_object_lit<'a>(node: &ObjectLit<'a>, context: &mut Context<'a>) -> PrintI
     |node| use_consistent_quotes_for_members(node.props.iter().map(|p| p.into())),
     |context, node| {
       let members = node.props.iter().map(|x| x.into()).collect::<Vec<_>>();
-      if context.config.object_expression_align_properties {
+      if context.config.align_assignments {
         prepare_alignment(&members, true, context);
       }
       gen_object_like_node(
@@ -4453,7 +4445,7 @@ fn gen_interface_body<'a>(node: &TsInterfaceBody<'a>, context: &mut Context<'a>)
     |node| use_consistent_quotes_for_members(node.body.iter().map(|n| n.into())),
     |context, node| {
       let members = node.body.iter().map(|x| x.into()).collect::<Vec<_>>();
-      if context.config.interface_declaration_align_properties {
+      if context.config.align_assignments {
         prepare_alignment(&members, true, context);
       }
       gen_membered_body(
@@ -4531,7 +4523,7 @@ fn gen_type_lit<'a>(node: &TsTypeLit<'a>, context: &mut Context<'a>) -> PrintIte
     |node| use_consistent_quotes_for_members(node.members.iter().map(|n| n.into())),
     |context, node| {
       let members = node.members.iter().map(|m| m.into()).collect::<Vec<_>>();
-      if context.config.type_literal_align_properties {
+      if context.config.align_assignments {
         prepare_alignment(&members, true, context);
       }
       gen_object_like_node(
@@ -9294,7 +9286,7 @@ fn gen_conditional_body_padding<'a>(arena: &'a Arena, count: usize, conditions: 
 }
 
 fn gen_statements<'a>(inner_range: SourceRange, stmts: Vec<Node<'a>>, context: &mut Context<'a>) -> PrintItems<'a> {
-  if context.config.variable_statement_align_assignments {
+  if context.config.align_assignments {
     prepare_alignment(&stmts, false, context);
   }
   let blank_lines_after_imports = context.config.module_blank_lines_after_imports.map(|count| count as usize);

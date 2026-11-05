@@ -1,4 +1,4 @@
-~~ variableStatement.alignAssignments: true ~~
+~~ alignAssignments: true ~~
 == should use the width of wide characters ==
 const 安全 = 1;
 const abc = 2;

@@ -290,7 +290,7 @@ impl ConfigurationBuilder {
   /// Whether to align the values of consecutive variable statements, object properties,
   /// class properties, enum members, and interface and type literal properties. A blank
   /// line or a member on multiple lines ends the group, and the alignment never makes
-  /// a line go over the line width. This is the default for the `align...` options.
+  /// a line go over the line width.
   ///
   /// * `true` - Ex. `const a   = 1;` and `const bbb = 2;`
   /// * `false` (default) - Ex. `const a = 1;` and `const bbb = 2;`
@@ -1452,36 +1452,6 @@ impl ConfigurationBuilder {
     self.insert("withStatement.spaceAround", value.into())
   }
 
-  /* alignment */
-
-  pub fn class_declaration_align_properties(&mut self, value: bool) -> &mut Self {
-    self.insert("classDeclaration.alignProperties", value.into())
-  }
-
-  pub fn class_expression_align_properties(&mut self, value: bool) -> &mut Self {
-    self.insert("classExpression.alignProperties", value.into())
-  }
-
-  pub fn enum_declaration_align_members(&mut self, value: bool) -> &mut Self {
-    self.insert("enumDeclaration.alignMembers", value.into())
-  }
-
-  pub fn interface_declaration_align_properties(&mut self, value: bool) -> &mut Self {
-    self.insert("interfaceDeclaration.alignProperties", value.into())
-  }
-
-  pub fn object_expression_align_properties(&mut self, value: bool) -> &mut Self {
-    self.insert("objectExpression.alignProperties", value.into())
-  }
-
-  pub fn type_literal_align_properties(&mut self, value: bool) -> &mut Self {
-    self.insert("typeLiteral.alignProperties", value.into())
-  }
-
-  pub fn variable_statement_align_assignments(&mut self, value: bool) -> &mut Self {
-    self.insert("variableStatement.alignAssignments", value.into())
-  }
-
   #[cfg(test)]
   pub(super) fn get_inner_config(&self) -> ConfigKeyMap {
     self.config.clone()
@@ -1756,18 +1726,10 @@ mod tests {
       .switch_statement_space_around(true)
       .tuple_type_space_around(true)
       .while_statement_space_around(true)
-      .with_statement_space_around(true)
-      /* alignment */
-      .class_declaration_align_properties(true)
-      .class_expression_align_properties(true)
-      .enum_declaration_align_members(true)
-      .interface_declaration_align_properties(true)
-      .object_expression_align_properties(true)
-      .type_literal_align_properties(true)
-      .variable_statement_align_assignments(true);
+      .with_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 240);
+    assert_eq!(inner_config.len(), 233);
     let diagnostics = resolve_config(inner_config, &Default::default()).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

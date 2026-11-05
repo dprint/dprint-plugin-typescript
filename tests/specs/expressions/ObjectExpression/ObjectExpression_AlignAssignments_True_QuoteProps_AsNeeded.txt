@@ -1,4 +1,4 @@
-~~ objectExpression.alignProperties: true, quoteProps: asNeeded ~~
+~~ alignAssignments: true, quoteProps: asNeeded ~~
 == should use the width of the key without the quotes that are removed ==
 const foo = {
     "a": 1,

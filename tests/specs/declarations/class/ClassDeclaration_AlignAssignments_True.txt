@@ -1,4 +1,4 @@
-~~ classDeclaration.alignProperties: true, indentWidth: 2 ~~
+~~ alignAssignments: true, indentWidth: 2 ~~
 == should align the values of the properties ==
 class Test {
 a = 1;
@@ -54,15 +54,3 @@ class ServerConfig {
   readTimeout          = 5000;
   writeTimeoutDuration = 30000;
 }
-
-== should not align the properties of a class expression ==
-const Test = class {
-a = 1;
-bbb = 2;
-};
-
-[expect]
-const Test = class {
-  a = 1;
-  bbb = 2;
-};

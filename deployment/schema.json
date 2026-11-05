@@ -621,7 +621,7 @@
       }]
     },
     "alignAssignments": {
-      "description": "Whether to align the values of consecutive variable statements, object properties, class properties, enum members, and interface and type literal properties. A blank line or a member on multiple lines ends the group, and the alignment never makes a line go over the line width. This is the default for the `align...` options.",
+      "description": "Whether to align the values of consecutive variable statements, object properties, class properties, enum members, and interface and type literal properties. A blank line or a member on multiple lines ends the group, and the alignment never makes a line go over the line width.",
       "type": "boolean",
       "default": false,
       "oneOf": [{
@@ -1105,6 +1105,9 @@
       "default": 1,
       "type": "number"
     },
+    "alignAssignments": {
+      "$ref": "#/definitions/alignAssignments"
+    },
     "singleBodyPosition": {
       "$ref": "#/definitions/singleBodyPosition"
     },
@@ -1251,30 +1254,6 @@
     },
     "withStatement.spaceAround": {
       "$ref": "#/definitions/spaceAround"
-    },
-    "alignAssignments": {
-      "$ref": "#/definitions/alignAssignments"
-    },
-    "classDeclaration.alignProperties": {
-      "$ref": "#/definitions/alignAssignments"
-    },
-    "classExpression.alignProperties": {
-      "$ref": "#/definitions/alignAssignments"
-    },
-    "enumDeclaration.alignMembers": {
-      "$ref": "#/definitions/alignAssignments"
-    },
-    "interfaceDeclaration.alignProperties": {
-      "$ref": "#/definitions/alignAssignments"
-    },
-    "objectExpression.alignProperties": {
-      "$ref": "#/definitions/alignAssignments"
-    },
-    "typeLiteral.alignProperties": {
-      "$ref": "#/definitions/alignAssignments"
-    },
-    "variableStatement.alignAssignments": {
-      "$ref": "#/definitions/alignAssignments"
     },
     "spaceAfterControlFlowKeyword": {
       "$ref": "#/definitions/spaceAfterControlFlowKeyword"

@@ -1,4 +1,4 @@
-~~ objectExpression.alignProperties: true ~~
+~~ alignAssignments: true ~~
 == should align the values of the properties ==
 const foo = {
     bar: 123,

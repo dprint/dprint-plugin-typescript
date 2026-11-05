@@ -534,6 +534,7 @@ pub struct Configuration {
   pub semicolons: Semicolons,
   pub file_indent_level: u32,
   pub max_blank_lines: u32,
+  pub align_assignments: bool,
   /* situational */
   #[serde(rename = "arrowFunction.useParentheses")]
   pub arrow_function_use_parentheses: UseParentheses,
@@ -987,21 +988,6 @@ pub struct Configuration {
   pub while_statement_space_around: bool,
   #[serde(rename = "withStatement.spaceAround")]
   pub with_statement_space_around: bool,
-  /* alignment */
-  #[serde(rename = "classDeclaration.alignProperties")]
-  pub class_declaration_align_properties: bool,
-  #[serde(rename = "classExpression.alignProperties")]
-  pub class_expression_align_properties: bool,
-  #[serde(rename = "enumDeclaration.alignMembers")]
-  pub enum_declaration_align_members: bool,
-  #[serde(rename = "interfaceDeclaration.alignProperties")]
-  pub interface_declaration_align_properties: bool,
-  #[serde(rename = "objectExpression.alignProperties")]
-  pub object_expression_align_properties: bool,
-  #[serde(rename = "typeLiteral.alignProperties")]
-  pub type_literal_align_properties: bool,
-  #[serde(rename = "variableStatement.alignAssignments")]
-  pub variable_statement_align_assignments: bool,
 }
 
 fn default_type_imports_mode() -> TypeImportsMode {

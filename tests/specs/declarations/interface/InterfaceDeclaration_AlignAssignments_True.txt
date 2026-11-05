@@ -1,4 +1,4 @@
-~~ interfaceDeclaration.alignProperties: true, indentWidth: 2 ~~
+~~ alignAssignments: true, indentWidth: 2 ~~
 == should align the types of the properties ==
 interface User {
 name: string;

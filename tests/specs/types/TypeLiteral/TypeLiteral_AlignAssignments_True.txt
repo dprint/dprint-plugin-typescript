@@ -1,4 +1,4 @@
-~~ typeLiteral.alignProperties: true ~~
+~~ alignAssignments: true ~~
 == should align the types of the properties ==
 type Config = {
 host: string;
