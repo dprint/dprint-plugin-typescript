@@ -4828,9 +4828,12 @@ fn gen_jsx_expr_container<'a>(node: &JSXExprContainer<'a>, context: &mut Context
     }
     JSXExpr::Expr(expr) => {
       let surround_with_new_lines = should_surround_jsx_expr_container_expr_with_newlines(node, context);
-      // keep an object or array literal's brackets beside the braces (ex. `{{ value: true }}`)
-      let surround_with_space =
-        context.config.jsx_expression_container_space_surrounding_expression && !is_jsx_expr_container_object_or_array_literal(*expr, context);
+      // an object or array literal's brackets go beside the braces by default (ex. `{{ value: true }}`)
+      let surround_with_space = if is_jsx_expr_container_object_or_array_literal(*expr, context) {
+        context.config.jsx_expression_container_space_surrounding_object_or_array_literal
+      } else {
+        context.config.jsx_expression_container_space_surrounding_expression
+      };
       let gen_inner = gen_node(expr.into(), context);
       gen_as_jsx_expr_container_with_new_lines(node.expr.range(), gen_inner, surround_with_new_lines, surround_with_space, context)
     }

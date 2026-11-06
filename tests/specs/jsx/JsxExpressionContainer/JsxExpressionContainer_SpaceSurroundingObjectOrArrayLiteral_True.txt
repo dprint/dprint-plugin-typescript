@@ -1,0 +1,19 @@
+-- file.tsx --
+~~ jsxExpressionContainer.spaceSurroundingExpression: true, jsxExpressionContainer.spaceSurroundingObjectOrArrayLiteral: true ~~
+== should add a space between the braces and an object or array literal ==
+<MyComponent myProp={{value: true}} />;
+<MySecondComponent myProp={[{value: true}]} />;
+<A b={{}} c={[]} d={ { } } e={ [ ] } />;
+<div>{{ a: 1 }}{[1, 2]}</div>;
+
+[expect]
+<MyComponent myProp={ { value: true } } />;
+<MySecondComponent myProp={ [{ value: true }] } />;
+<A b={ {} } c={ [] } d={ {} } e={ [] } />;
+<div>{ { a: 1 } }{ [1, 2] }</div>;
+
+== should keep the space around other expressions ==
+<A b={{ a: 1 } as T} c={[1].map(x => x)} e={a} />;
+
+[expect]
+<A b={ { a: 1 } as T } c={ [1].map(x => x) } e={ a } />;

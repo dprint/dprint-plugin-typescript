@@ -384,6 +384,12 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     ),
     import_declaration_space_surrounding_named_imports: get_value(&mut config, "importDeclaration.spaceSurroundingNamedImports", true, &mut diagnostics),
     jsx_expression_container_space_surrounding_expression: get_value(&mut config, "jsxExpressionContainer.spaceSurroundingExpression", false, &mut diagnostics),
+    jsx_expression_container_space_surrounding_object_or_array_literal: get_value(
+      &mut config,
+      "jsxExpressionContainer.spaceSurroundingObjectOrArrayLiteral",
+      false,
+      &mut diagnostics,
+    ),
     jsx_self_closing_element_space_before_slash: get_value(&mut config, "jsxSelfClosingElement.spaceBeforeSlash", true, &mut diagnostics),
     method_space_before_parentheses: get_value(&mut config, "method.spaceBeforeParentheses", false, &mut diagnostics),
     mapped_type_space_surrounding_properties: get_value(

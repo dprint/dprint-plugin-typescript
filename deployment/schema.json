@@ -141,7 +141,8 @@
         "jsx.sortClassNames",
         "jsxExpressionContainer.preferSingleLine",
         "jsxSelfClosingElement.spaceBeforeSlash",
-        "jsxExpressionContainer.spaceSurroundingExpression"
+        "jsxExpressionContainer.spaceSurroundingExpression",
+        "jsxExpressionContainer.spaceSurroundingObjectOrArrayLiteral"
       ]
     },
     {
@@ -1142,7 +1143,7 @@
       }]
     },
     "jsxExpressionContainer.spaceSurroundingExpression": {
-      "description": "Whether to add a space surrounding the expression of a JSX container. No space is added around an object or array literal (ex. `{{ value: true }}`).",
+      "description": "Whether to add a space surrounding the expression of a JSX container, except for an object or array literal, which uses `jsxExpressionContainer.spaceSurroundingObjectOrArrayLiteral`.",
       "type": "boolean",
       "default": false,
       "oneOf": [{
@@ -1151,6 +1152,18 @@
       }, {
         "const": false,
         "description": "Ex. `{myValue}`"
+      }]
+    },
+    "jsxExpressionContainer.spaceSurroundingObjectOrArrayLiteral": {
+      "description": "Whether to add a space between the braces of a JSX container and an object or array literal. Other expressions use `jsxExpressionContainer.spaceSurroundingExpression`.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `{ { value: true } }`"
+      }, {
+        "const": false,
+        "description": "Ex. `{{ value: true }}`"
       }]
     },
     "method.spaceBeforeParentheses": {
@@ -1806,6 +1819,9 @@
     },
     "jsxExpressionContainer.spaceSurroundingExpression": {
       "$ref": "#/definitions/jsxExpressionContainer.spaceSurroundingExpression"
+    },
+    "jsxExpressionContainer.spaceSurroundingObjectOrArrayLiteral": {
+      "$ref": "#/definitions/jsxExpressionContainer.spaceSurroundingObjectOrArrayLiteral"
     },
     "method.spaceBeforeParentheses": {
       "$ref": "#/definitions/method.spaceBeforeParentheses"
