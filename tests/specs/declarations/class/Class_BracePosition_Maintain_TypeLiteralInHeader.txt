@@ -1,0 +1,54 @@
+~~ bracePosition: maintain ~~
+== should use the body's open brace when the header has a type literal ==
+class A extends B<{}>
+{
+    x = 1;
+}
+class C<T extends {}>
+{
+    x = 1;
+}
+@dec
+export default class D extends E<{}, F>
+{
+    x = 1;
+}
+class G extends H<{}> {
+    x = 1;
+}
+
+[expect]
+class A extends B<{}>
+{
+    x = 1;
+}
+class C<T extends {}>
+{
+    x = 1;
+}
+@dec
+export default class D extends E<{}, F>
+{
+    x = 1;
+}
+class G extends H<{}> {
+    x = 1;
+}
+
+== should use the body's open brace when the header has a type literal and the body is empty ==
+class A extends B<{}>
+{
+}
+interface C extends D<{}>
+{
+    x: string;
+}
+
+[expect]
+class A extends B<{}>
+{
+}
+interface C extends D<{}>
+{
+    x: string;
+}
