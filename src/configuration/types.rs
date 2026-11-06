@@ -929,6 +929,10 @@ pub struct Configuration {
   pub import_declaration_space_surrounding_named_imports: bool,
   #[serde(rename = "jsxExpressionContainer.spaceSurroundingExpression")]
   pub jsx_expression_container_space_surrounding_expression: bool,
+  #[serde(rename = "jsxExpressionContainer.spaceSurroundingObjectLiteral")]
+  pub jsx_expression_container_space_surrounding_object_literal: bool,
+  #[serde(rename = "jsxExpressionContainer.spaceSurroundingArrayLiteral")]
+  pub jsx_expression_container_space_surrounding_array_literal: bool,
   #[serde(rename = "jsxSelfClosingElement.spaceBeforeSlash")]
   pub jsx_self_closing_element_space_before_slash: bool,
   #[serde(rename = "method.spaceBeforeParentheses")]
