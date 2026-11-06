@@ -9078,8 +9078,14 @@ where
 {
   let mut items = PrintItems::new(context.arena);
   let child_tokens = get_tokens_from_children_with_tokens(opts.node, context.program);
-  let open_brace_token = child_tokens.iter().find(|t| t.token == Token::LBrace);
   let close_brace_token = child_tokens.iter().rev().find(|t| t.token == Token::RBrace);
+  // use the last open brace before the members because the header can have the braces
+  // of a type literal (ex. `class A extends B<{}> {`)
+  let body_end = opts.members.first().map(|m| m.start()).or(close_brace_token.map(|t| t.start()));
+  let open_brace_token = child_tokens
+    .iter()
+    .rev()
+    .find(|t| t.token == Token::LBrace && body_end.is_none_or(|end| t.start() < end));
   // swc sometimes recovers from a missing brace without reporting an error (ex. an
   // `export namespace` missing its close brace in a program parsed by deno_ast)
   let (Some(open_brace_token), Some(close_brace_token)) = (open_brace_token, close_brace_token) else {
