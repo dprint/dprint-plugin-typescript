@@ -6758,7 +6758,7 @@ fn gen_switch_case<'a>(node: &SwitchCase<'a>, context: &mut Context<'a>) -> Prin
   items.extend(gen_trailing_comments_same_line(&colon_token.range(), context));
   // get the comments on the same line as the end of the case first so they're not
   // generated after the comments on the following lines (ex. `b(); // comment`)
-  let generated_same_line_trailing_comments = gen_trailing_comments_same_line_as_end(node, context);
+  let generated_same_line_trailing_comments = gen_trailing_comments(&node.range(), context);
   let generated_trailing_comments = gen_trailing_comments_for_case(node, &block_stmt_body, context);
   if !node.cons.is_empty() {
     if let Some(block_stmt_body) = block_stmt_body {
@@ -6786,21 +6786,6 @@ fn gen_switch_case<'a>(node: &SwitchCase<'a>, context: &mut Context<'a>) -> Prin
 
   return items;
 
-  fn gen_trailing_comments_same_line_as_end<'a>(node: &SwitchCase<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
-    let node_end_line = node.end_line_fast(context.program);
-    let comments = node
-      .trailing_comments_fast(context.program)
-      .take_while(|c| c.start_line_fast(context.program) == node_end_line)
-      .collect::<Vec<_>>();
-    let mut items = PrintItems::new(context.arena);
-    let comment_items = gen_comments_same_line(comments, context);
-    if !comment_items.is_empty() {
-      items.push_space();
-      items.extend(comment_items);
-    }
-    items
-  }
-
   fn get_block_stmt_body(node: &SwitchCase) -> Option<SourceRange> {
     if node.cons.len() == 1 {
       if let Some(Stmt::Block(block_stmt)) = node.cons.first() {
@@ -6822,7 +6807,15 @@ fn gen_switch_case<'a>(node: &SwitchCase<'a>, context: &mut Context<'a>) -> Prin
         _ => false,
       };
       let mut is_equal_indent = block_stmt_body.is_some();
-      let mut last_range = node_range;
+      // start after the comments on the case's last line since one of them may be a
+      // block comment that spans multiple lines (ex. `b(); /* a\n b */`)
+      let node_end_line = node_range.end_line_fast(context.program);
+      let mut last_range = node_range
+        .trailing_comments_fast(context.program)
+        .take_while(|c| c.start_line_fast(context.program) == node_end_line)
+        .last()
+        .map(|c| c.range())
+        .unwrap_or(node_range);
       let last_node_column = node_range.start_column_fast(context.program);
 
       for comment in trailing_comments {

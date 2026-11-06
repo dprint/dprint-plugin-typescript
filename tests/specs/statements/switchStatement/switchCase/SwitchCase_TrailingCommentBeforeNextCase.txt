@@ -101,3 +101,23 @@ switch (a) {
     case 2:
         c();
 }
+
+== should not add a blank line after a trailing multi-line block comment ==
+switch (a) {
+    case 1:
+        b(); /* a
+        b */
+    // leading
+    case 2:
+        c();
+}
+
+[expect]
+switch (a) {
+    case 1:
+        b(); /* a
+        b */
+    // leading
+    case 2:
+        c();
+}
