@@ -4828,11 +4828,10 @@ fn gen_jsx_expr_container<'a>(node: &JSXExprContainer<'a>, context: &mut Context
     }
     JSXExpr::Expr(expr) => {
       let surround_with_new_lines = should_surround_jsx_expr_container_expr_with_newlines(node, context);
-      // an object or array literal's brackets go beside the braces by default (ex. `{{ value: true }}`)
-      let surround_with_space = if is_jsx_expr_container_object_or_array_literal(*expr, context) {
-        context.config.jsx_expression_container_space_surrounding_object_or_array_literal
-      } else {
-        context.config.jsx_expression_container_space_surrounding_expression
+      let surround_with_space = match get_jsx_expr_container_literal(*expr, context) {
+        Some(Expr::Object(_)) => context.config.jsx_expression_container_space_surrounding_object_literal,
+        Some(Expr::Array(_)) => context.config.jsx_expression_container_space_surrounding_array_literal,
+        _ => context.config.jsx_expression_container_space_surrounding_expression,
       };
       let gen_inner = gen_node(expr.into(), context);
       gen_as_jsx_expr_container_with_new_lines(node.expr.range(), gen_inner, surround_with_new_lines, surround_with_space, context)
@@ -4931,19 +4930,19 @@ fn is_jsx_surrounded_by_multi_line_parens<'a>(node: &JSXExprContainer<'a>, conte
   is_jsx_paren_expr_handled_node(expr.into(), context)
 }
 
-/// Gets if the expression will be generated as an object or array literal
-/// with no comments between it and the braces of its container.
-fn is_jsx_expr_container_object_or_array_literal<'a>(expr: Expr<'a>, context: &Context<'a>) -> bool {
+/// Gets the object or array literal the expression will be generated as
+/// when there are no comments between it and the braces of its container.
+fn get_jsx_expr_container_literal<'a>(expr: Expr<'a>, context: &Context<'a>) -> Option<Expr<'a>> {
   let mut expr = expr;
   loop {
     if node_helpers::has_surrounding_comments(expr.into(), context.program) {
-      return false;
+      return None;
     }
     match expr {
-      Expr::Object(_) | Expr::Array(_) => return true,
+      Expr::Object(_) | Expr::Array(_) => return Some(expr),
       // look through parens that won't be kept (ex. `{({ value: true })}`)
       Expr::Paren(paren_expr) if should_skip_paren_expr(paren_expr, context) => expr = paren_expr.expr,
-      _ => return false,
+      _ => return None,
     }
   }
 }

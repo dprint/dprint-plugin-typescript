@@ -115,9 +115,9 @@ return (
 [expect]
 return (
     <Component
-        style={{
+        style={ {
             color: "blue",
-        }}
+        } }
     />
 );
 

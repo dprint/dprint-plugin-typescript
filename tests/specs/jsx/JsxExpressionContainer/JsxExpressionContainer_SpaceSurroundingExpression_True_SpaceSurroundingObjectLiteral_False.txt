@@ -1,0 +1,33 @@
+-- file.tsx --
+~~ jsxExpressionContainer.spaceSurroundingExpression: true, jsxExpressionContainer.spaceSurroundingObjectLiteral: false ~~
+== should not add a space between the braces and an object literal ==
+<A b={ {a: 1} } c={ { } } d={({ a: 1 })} />;
+<div>{ { a: 1 } }</div>;
+
+[expect]
+<A b={{ a: 1 }} c={{}} d={{ a: 1 }} />;
+<div>{{ a: 1 }}</div>;
+
+== should keep the space around an array literal and other expressions ==
+<A b={[{a: 1}]} c={{ a: 1 } as T} d={a} />;
+
+[expect]
+<A b={ [{ a: 1 }] } c={ { a: 1 } as T } d={ a } />;
+
+== should keep the space when there is a comment beside the object literal ==
+<A b={/* c */ {a: 1}} c={{a: 1} /* c */} />;
+
+[expect]
+<A b={ /* c */ { a: 1 } } c={ { a: 1 } /* c */ } />;
+
+== should keep a multi-line object literal beside the braces ==
+<A style={ {
+  color: "blue",
+} } />;
+
+[expect]
+<A
+    style={{
+        color: "blue",
+    }}
+/>;

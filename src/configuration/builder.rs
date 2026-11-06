@@ -448,8 +448,9 @@ impl ConfigurationBuilder {
     self.insert("importDeclaration.spaceSurroundingNamedImports", value.into())
   }
 
-  /// Whether to add a space surrounding the expression of a JSX container, except for an object
-  /// or array literal, which uses `jsxExpressionContainer.spaceSurroundingObjectOrArrayLiteral`.
+  /// Whether to add a space surrounding the expression of a JSX container.
+  /// An object or array literal uses `jsxExpressionContainer.spaceSurroundingObjectLiteral`
+  /// or `jsxExpressionContainer.spaceSurroundingArrayLiteral`, which default to this value.
   ///
   /// * `true` - Ex. `{ myValue }`
   /// * `false` (default) - Ex. `{myValue}`
@@ -457,13 +458,22 @@ impl ConfigurationBuilder {
     self.insert("jsxExpressionContainer.spaceSurroundingExpression", value.into())
   }
 
-  /// Whether to add a space between the braces of a JSX container and an object or array literal.
-  /// Other expressions use `jsxExpressionContainer.spaceSurroundingExpression`.
+  /// Whether to add a space between the braces of a JSX container and an object literal.
+  /// Defaults to `jsxExpressionContainer.spaceSurroundingExpression`.
   ///
   /// * `true` - Ex. `{ { value: true } }`
   /// * `false` (default) - Ex. `{{ value: true }}`
-  pub fn jsx_expression_container_space_surrounding_object_or_array_literal(&mut self, value: bool) -> &mut Self {
-    self.insert("jsxExpressionContainer.spaceSurroundingObjectOrArrayLiteral", value.into())
+  pub fn jsx_expression_container_space_surrounding_object_literal(&mut self, value: bool) -> &mut Self {
+    self.insert("jsxExpressionContainer.spaceSurroundingObjectLiteral", value.into())
+  }
+
+  /// Whether to add a space between the braces of a JSX container and an array literal.
+  /// Defaults to `jsxExpressionContainer.spaceSurroundingExpression`.
+  ///
+  /// * `true` - Ex. `{ [value] }`
+  /// * `false` (default) - Ex. `{[value]}`
+  pub fn jsx_expression_container_space_surrounding_array_literal(&mut self, value: bool) -> &mut Self {
+    self.insert("jsxExpressionContainer.spaceSurroundingArrayLiteral", value.into())
   }
 
   /// Whether to add a space before the slash in a self closing tag for a JSX element.
@@ -1704,7 +1714,8 @@ mod tests {
       .if_statement_space_after_if_keyword(true)
       .import_declaration_space_surrounding_named_imports(true)
       .jsx_expression_container_space_surrounding_expression(true)
-      .jsx_expression_container_space_surrounding_object_or_array_literal(true)
+      .jsx_expression_container_space_surrounding_object_literal(true)
+      .jsx_expression_container_space_surrounding_array_literal(true)
       .jsx_self_closing_element_space_before_slash(true)
       .method_space_before_parentheses(true)
       .mapped_type_space_surrounding_properties(false)
@@ -1738,7 +1749,7 @@ mod tests {
       .with_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 234);
+    assert_eq!(inner_config.len(), 235);
     let diagnostics = resolve_config(inner_config, &Default::default()).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

@@ -67,6 +67,8 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
   let space_around = get_value(&mut config, "spaceAround", false, &mut diagnostics);
   let space_after_control_flow_keyword = get_value(&mut config, "spaceAfterControlFlowKeyword", true, &mut diagnostics);
   let jsx_bracket_position = get_value(&mut config, "jsx.bracketPosition", SameOrNextLinePosition::NextLine, &mut diagnostics);
+  let jsx_expression_container_space_surrounding_expression =
+    get_value(&mut config, "jsxExpressionContainer.spaceSurroundingExpression", false, &mut diagnostics);
 
   let resolved_config = Configuration {
     line_width: get_value(
@@ -383,11 +385,17 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
       &mut diagnostics,
     ),
     import_declaration_space_surrounding_named_imports: get_value(&mut config, "importDeclaration.spaceSurroundingNamedImports", true, &mut diagnostics),
-    jsx_expression_container_space_surrounding_expression: get_value(&mut config, "jsxExpressionContainer.spaceSurroundingExpression", false, &mut diagnostics),
-    jsx_expression_container_space_surrounding_object_or_array_literal: get_value(
+    jsx_expression_container_space_surrounding_expression,
+    jsx_expression_container_space_surrounding_object_literal: get_value(
       &mut config,
-      "jsxExpressionContainer.spaceSurroundingObjectOrArrayLiteral",
-      false,
+      "jsxExpressionContainer.spaceSurroundingObjectLiteral",
+      jsx_expression_container_space_surrounding_expression,
+      &mut diagnostics,
+    ),
+    jsx_expression_container_space_surrounding_array_literal: get_value(
+      &mut config,
+      "jsxExpressionContainer.spaceSurroundingArrayLiteral",
+      jsx_expression_container_space_surrounding_expression,
       &mut diagnostics,
     ),
     jsx_self_closing_element_space_before_slash: get_value(&mut config, "jsxSelfClosingElement.spaceBeforeSlash", true, &mut diagnostics),

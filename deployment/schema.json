@@ -142,7 +142,8 @@
         "jsxExpressionContainer.preferSingleLine",
         "jsxSelfClosingElement.spaceBeforeSlash",
         "jsxExpressionContainer.spaceSurroundingExpression",
-        "jsxExpressionContainer.spaceSurroundingObjectOrArrayLiteral"
+        "jsxExpressionContainer.spaceSurroundingObjectLiteral",
+        "jsxExpressionContainer.spaceSurroundingArrayLiteral"
       ]
     },
     {
@@ -1143,7 +1144,7 @@
       }]
     },
     "jsxExpressionContainer.spaceSurroundingExpression": {
-      "description": "Whether to add a space surrounding the expression of a JSX container, except for an object or array literal, which uses `jsxExpressionContainer.spaceSurroundingObjectOrArrayLiteral`.",
+      "description": "Whether to add a space surrounding the expression of a JSX container. An object or array literal uses `jsxExpressionContainer.spaceSurroundingObjectLiteral` or `jsxExpressionContainer.spaceSurroundingArrayLiteral`, which default to this value.",
       "type": "boolean",
       "default": false,
       "oneOf": [{
@@ -1154,8 +1155,8 @@
         "description": "Ex. `{myValue}`"
       }]
     },
-    "jsxExpressionContainer.spaceSurroundingObjectOrArrayLiteral": {
-      "description": "Whether to add a space between the braces of a JSX container and an object or array literal. Other expressions use `jsxExpressionContainer.spaceSurroundingExpression`.",
+    "jsxExpressionContainer.spaceSurroundingObjectLiteral": {
+      "description": "Whether to add a space between the braces of a JSX container and an object literal. Parens that get removed are looked through (ex. `{({ value: true })}`), but a literal with a comment beside it uses `jsxExpressionContainer.spaceSurroundingExpression`.",
       "type": "boolean",
       "default": false,
       "oneOf": [{
@@ -1164,6 +1165,18 @@
       }, {
         "const": false,
         "description": "Ex. `{{ value: true }}`"
+      }]
+    },
+    "jsxExpressionContainer.spaceSurroundingArrayLiteral": {
+      "description": "Whether to add a space between the braces of a JSX container and an array literal. Parens that get removed are looked through (ex. `{([value])}`), but a literal with a comment beside it uses `jsxExpressionContainer.spaceSurroundingExpression`.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `{ [value] }`"
+      }, {
+        "const": false,
+        "description": "Ex. `{[value]}`"
       }]
     },
     "method.spaceBeforeParentheses": {
@@ -1820,8 +1833,13 @@
     "jsxExpressionContainer.spaceSurroundingExpression": {
       "$ref": "#/definitions/jsxExpressionContainer.spaceSurroundingExpression"
     },
-    "jsxExpressionContainer.spaceSurroundingObjectOrArrayLiteral": {
-      "$ref": "#/definitions/jsxExpressionContainer.spaceSurroundingObjectOrArrayLiteral"
+    "jsxExpressionContainer.spaceSurroundingObjectLiteral": {
+      "$ref": "#/definitions/jsxExpressionContainer.spaceSurroundingObjectLiteral",
+      "x-overrides": "jsxExpressionContainer.spaceSurroundingExpression"
+    },
+    "jsxExpressionContainer.spaceSurroundingArrayLiteral": {
+      "$ref": "#/definitions/jsxExpressionContainer.spaceSurroundingArrayLiteral",
+      "x-overrides": "jsxExpressionContainer.spaceSurroundingExpression"
     },
     "method.spaceBeforeParentheses": {
       "$ref": "#/definitions/method.spaceBeforeParentheses"

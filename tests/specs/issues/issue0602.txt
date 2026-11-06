@@ -1,5 +1,5 @@
 -- file.tsx --
-~~ jsxExpressionContainer.spaceSurroundingExpression: true ~~
+~~ jsxExpressionContainer.spaceSurroundingExpression: true, jsxExpressionContainer.spaceSurroundingObjectLiteral: false, jsxExpressionContainer.spaceSurroundingArrayLiteral: false ~~
 == should not add a space between the braces and an object or array literal ==
 <MyComponent myProp={{value: true}} />;
 <MySecondComponent myProp={[{value: true}]} />;
