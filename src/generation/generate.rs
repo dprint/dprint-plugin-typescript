@@ -6756,6 +6756,9 @@ fn gen_switch_case<'a>(node: &SwitchCase<'a>, context: &mut Context<'a>) -> Prin
   }
 
   items.extend(gen_trailing_comments_same_line(&colon_token.range(), context));
+  // get the comments on the same line as the end of the case first so they're not
+  // generated after the comments on the following lines (ex. `b(); // comment`)
+  let generated_same_line_trailing_comments = gen_trailing_comments_same_line_as_end(node, context);
   let generated_trailing_comments = gen_trailing_comments_for_case(node, &block_stmt_body, context);
   if !node.cons.is_empty() {
     if let Some(block_stmt_body) = block_stmt_body {
@@ -6778,9 +6781,25 @@ fn gen_switch_case<'a>(node: &SwitchCase<'a>, context: &mut Context<'a>) -> Prin
     }
   }
 
+  items.extend(generated_same_line_trailing_comments);
   items.extend(generated_trailing_comments);
 
   return items;
+
+  fn gen_trailing_comments_same_line_as_end<'a>(node: &SwitchCase<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
+    let node_end_line = node.end_line_fast(context.program);
+    let comments = node
+      .trailing_comments_fast(context.program)
+      .take_while(|c| c.start_line_fast(context.program) == node_end_line)
+      .collect::<Vec<_>>();
+    let mut items = PrintItems::new(context.arena);
+    let comment_items = gen_comments_same_line(comments, context);
+    if !comment_items.is_empty() {
+      items.push_space();
+      items.extend(comment_items);
+    }
+    items
+  }
 
   fn get_block_stmt_body(node: &SwitchCase) -> Option<SourceRange> {
     if node.cons.len() == 1 {
