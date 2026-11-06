@@ -508,6 +508,14 @@ impl ConfigurationBuilder {
     self.insert("objectPattern.spaceSurroundingProperties", value.into())
   }
 
+  /// Whether to keep a space between consecutive closing braces in single-line objects, destructuring patterns, and type literals.
+  ///
+  /// * `true` (default) - Ex. `const { key: { value } } = obj;`
+  /// * `false` - Ex. `const { key: { value }} = obj;`
+  pub fn space_between_closing_braces(&mut self, value: bool) -> &mut Self {
+    self.insert("spaceBetweenClosingBraces", value.into())
+  }
+
   /// Whether to add a space before the parentheses of a method.
   ///
   /// `true` - Ex. `myMethod ()`
@@ -1721,6 +1729,7 @@ mod tests {
       .mapped_type_space_surrounding_properties(false)
       .object_expression_space_surrounding_properties(false)
       .object_pattern_space_surrounding_properties(false)
+      .space_between_closing_braces(false)
       .set_accessor_space_before_parentheses(true)
       .space_after_control_flow_keyword(true)
       .space_surrounding_properties(false)
@@ -1749,7 +1758,7 @@ mod tests {
       .with_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 235);
+    assert_eq!(inner_config.len(), 236);
     let diagnostics = resolve_config(inner_config, &Default::default()).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

@@ -418,6 +418,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
       space_surrounding_properties,
       &mut diagnostics,
     ),
+    space_between_closing_braces: get_value(&mut config, "spaceBetweenClosingBraces", true, &mut diagnostics),
     set_accessor_space_before_parentheses: get_value(&mut config, "setAccessor.spaceBeforeParentheses", false, &mut diagnostics),
     space_surrounding_properties,
     switch_statement_space_after_switch_keyword: get_value(
@@ -1090,6 +1091,33 @@ mod tests {
         "taggedTemplate.embeddedLanguages.number"
       ]
     );
+  }
+
+  #[test]
+  fn handle_space_between_closing_braces() {
+    let property_name = "spaceBetweenClosingBraces";
+    for value in [None, Some(true), Some(false)] {
+      let mut config = ConfigKeyMap::new();
+      if let Some(value) = value {
+        config.insert(property_name.to_string(), value.into());
+      }
+      let result = resolve_config(config, &GlobalConfiguration::default());
+      assert_eq!(result.diagnostics.len(), 0);
+      assert_eq!(result.config.space_between_closing_braces, value.unwrap_or(true));
+      assert_eq!(serde_json::to_value(&result.config).unwrap()[property_name], value.unwrap_or(true));
+    }
+
+    let config = ConfigurationBuilder::new()
+      .space_surrounding_properties(false)
+      .object_pattern_space_surrounding_properties(false)
+      .build();
+    assert!(config.space_between_closing_braces);
+
+    let mut config = ConfigKeyMap::new();
+    config.insert(property_name.to_string(), ConfigKeyValue::from_str("invalid"));
+    let result = resolve_config(config, &GlobalConfiguration::default());
+    assert!(result.config.space_between_closing_braces);
+    assert_eq!(get_diagnostic_property_names(&result.diagnostics), [property_name]);
   }
 
   #[test]

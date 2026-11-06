@@ -10877,6 +10877,28 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
     None
   };
 
+  let space_at_start = opts.surround_single_line_with_spaces;
+  // A generated trailing separator means the closing braces aren't consecutive,
+  // even when the last member ends in a closing brace in the source.
+  let has_single_line_trailing_separator = matches!(
+    opts.separator.single_line,
+    Some(SeparatorValue::Semicolon(Semicolons::Always) | SeparatorValue::Comma(TrailingCommas::Always))
+  );
+  let space_at_end = if let Some(last) = opts.members.last() {
+    space_at_start
+      && (context.config.space_between_closing_braces
+        || has_single_line_trailing_separator
+        // Source separators may be removed, so check the member's last token without them.
+        || last
+          .tokens_fast(context.program)
+          .iter()
+          .rev()
+          .find(|token| !matches!(token.token, Token::Semi | Token::Comma))
+          .is_none_or(|token| token.token != Token::RBrace))
+  } else {
+    false
+  };
+
   items.extend(gen_surrounded_by_tokens(
     |context| {
       if opts.members.is_empty() {
@@ -10890,8 +10912,8 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
             blank_lines: opts.blank_lines,
             separator: opts.separator,
             single_line_options: ir_helpers::SingleLineOptions {
-              space_at_start: opts.surround_single_line_with_spaces,
-              space_at_end: opts.surround_single_line_with_spaces,
+              space_at_start,
+              space_at_end,
               separator: Signal::SpaceOrNewLine.into_print_items(context.arena),
             },
             multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(),
