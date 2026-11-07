@@ -82,6 +82,7 @@
       "properties": [
         "spaceAround",
         "spaceSurroundingProperties",
+        "spaceBetweenClosingBraces",
         "spaceAfterControlFlowKeyword",
         "binaryExpression.spaceSurroundingBitwiseAndArithmeticOperator",
         "catchClause.spaceAfterCatchKeyword",
@@ -891,18 +892,6 @@
         "description": "Ex. `{key: value} = obj`"
       }]
     },
-    "spaceBetweenClosingBraces": {
-      "description": "Whether to keep a space between consecutive closing braces in single-line objects, destructuring patterns, and type literals.",
-      "type": "boolean",
-      "default": true,
-      "oneOf": [{
-        "const": true,
-        "description": "Ex. `const { key: { value } } = obj;`"
-      }, {
-        "const": false,
-        "description": "Ex. `const { key: { value }} = obj;`"
-      }]
-    },
     "typeLiteral.spaceSurroundingProperties": {
       "description": "Whether to add a space surrounding the properties of a single line type literal.",
       "type": "boolean",
@@ -913,6 +902,18 @@
       }, {
         "const": false,
         "description": "Ex. `type Test = {key: string}`"
+      }]
+    },
+    "spaceBetweenClosingBraces": {
+      "description": "Whether to keep a space between consecutive closing braces in single-line objects, destructuring patterns, and type literals.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `const { key: { value } } = obj;`"
+      }, {
+        "const": false,
+        "description": "Ex. `const { key: { value }} = obj;`"
       }]
     },
     "binaryExpression.spaceSurroundingBitwiseAndArithmeticOperator": {
@@ -1765,12 +1766,12 @@
       "$ref": "#/definitions/objectPattern.spaceSurroundingProperties",
       "x-overrides": "spaceSurroundingProperties"
     },
-    "spaceBetweenClosingBraces": {
-      "$ref": "#/definitions/spaceBetweenClosingBraces"
-    },
     "typeLiteral.spaceSurroundingProperties": {
       "$ref": "#/definitions/typeLiteral.spaceSurroundingProperties",
       "x-overrides": "spaceSurroundingProperties"
+    },
+    "spaceBetweenClosingBraces": {
+      "$ref": "#/definitions/spaceBetweenClosingBraces"
     },
     "binaryExpression.spaceSurroundingBitwiseAndArithmeticOperator": {
       "$ref": "#/definitions/binaryExpression.spaceSurroundingBitwiseAndArithmeticOperator"

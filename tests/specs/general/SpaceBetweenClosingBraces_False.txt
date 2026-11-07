@@ -21,6 +21,42 @@ const { aa, bb: [{ cc }] } = obj;
 const { aa, bb: { cc }, dd } = obj;
 const value = { aa: obj[bb] };
 
+== should keep spaces when the last member ends with a closing brace that isn't an object ==
+const value = {a() {}};
+const value = {a: () => {}};
+const value = {a: function() {}};
+const value = {a: class {}};
+
+[expect]
+const value = { a() {} };
+const value = { a: () => {} };
+const value = { a: function() {} };
+const value = { a: class {} };
+
+== should keep spaces when a comment is between the closing braces ==
+const value = {a: {b} /* c */};
+const {a: {b} /* c */} = value;
+type Value = {a: {b: string;} /* c */;};
+
+[expect]
+const value = { a: { b } /* c */ };
+const { a: { b } /* c */ } = value;
+type Value = { a: { b: string } /* c */ };
+
+== should omit spaces for nested object-like nodes within other nodes ==
+const value = {...{a}};
+const value = {a: <T>{b}};
+const value = {a: b satisfies {c: string}};
+const {a = {b}} = value;
+type Value = {a: {[K in T]: K}};
+
+[expect]
+const value = { ...{ a }};
+const value = { a: <T> { b }};
+const value = { a: b satisfies { c: string }};
+const { a = { b }} = value;
+type Value = { a: { [K in T]: K }};
+
 == should handle empty patterns and objects ==
 const {} = obj;
 const {a:{}} = obj;
