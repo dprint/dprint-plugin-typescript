@@ -10877,6 +10877,21 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
     None
   };
 
+  let space_at_start = opts.surround_single_line_with_spaces;
+  // a generated trailing separator means the closing braces aren't consecutive,
+  // even when the last member ends in a closing brace in the source
+  let has_single_line_trailing_separator = matches!(
+    opts.separator.single_line,
+    Some(SeparatorValue::Semicolon(Semicolons::Always) | SeparatorValue::Comma(TrailingCommas::Always))
+  );
+  let space_at_end = space_at_start
+    && (context.config.space_between_object_closing_braces
+      || has_single_line_trailing_separator
+      || !opts
+        .members
+        .last()
+        .is_some_and(|last| get_ends_with_object_like_node(*last, close_brace_token.copied(), context)));
+
   items.extend(gen_surrounded_by_tokens(
     |context| {
       if opts.members.is_empty() {
@@ -10890,8 +10905,8 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
             blank_lines: opts.blank_lines,
             separator: opts.separator,
             single_line_options: ir_helpers::SingleLineOptions {
-              space_at_start: opts.surround_single_line_with_spaces,
-              space_at_end: opts.surround_single_line_with_spaces,
+              space_at_start,
+              space_at_end,
               separator: Signal::SpaceOrNewLine.into_print_items(context.arena),
             },
             multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(),
@@ -10918,6 +10933,46 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
   ));
 
   items
+}
+
+/// Gets if the last member ends with the closing brace of an object-like node
+/// that only has separators and whitespace before the parent's closing brace.
+fn get_ends_with_object_like_node<'a>(last_member: Node<'a>, parent_close_brace: Option<&TokenAndSpan>, context: &Context<'a>) -> bool {
+  let Some(parent_close_brace) = parent_close_brace else {
+    return false;
+  };
+  // source separators may be removed, so skip them
+  let Some(close_brace) = last_member
+    .tokens_fast(context.program)
+    .iter()
+    .rev()
+    .find(|token| !matches!(token.token, Token::Semi | Token::Comma))
+  else {
+    return false;
+  };
+  if close_brace.token != Token::RBrace {
+    return false;
+  }
+  // comments between the braces need to stay separated from the closing brace
+  let text_between = SourceRange::new(close_brace.end(), parent_close_brace.start()).text_fast(context.program);
+  if !text_between.chars().all(|c| c.is_whitespace() || c == ',' || c == ';') {
+    return false;
+  }
+
+  // ensure the brace belongs to an object-like node and not something like a function body
+  let mut node = last_member;
+  loop {
+    if matches!(
+      node.kind(),
+      NodeKind::ObjectLit | NodeKind::ObjectPat | NodeKind::TsTypeLit | NodeKind::TsMappedType
+    ) {
+      return true;
+    }
+    match node.children().into_iter().find(|child| child.end() == close_brace.end()) {
+      Some(child) => node = child,
+      None => return false,
+    }
+  }
 }
 
 fn gen_for_member_like_expr_item<'a>(item: &MemberLikeExprItem<'a>, context: &mut Context<'a>, index: usize, item_count: usize) -> PrintItems<'a> {

@@ -1,0 +1,94 @@
+~~ spaceBetweenObjectClosingBraces: false ~~
+== should omit spaces between consecutive closing braces in nested patterns ==
+const {aa, bb:{cc, dd:{ee, ff}}} = obj;
+
+[expect]
+const { aa, bb: { cc, dd: { ee, ff }}} = obj;
+
+== should preserve the original behavior for nested object expressions ==
+const options = {foo: false, bar: {bob: false}};
+
+[expect]
+const options = { foo: false, bar: { bob: false }};
+
+== should keep spaces before closing braces when the last token is not a closing brace ==
+const {aa, bb:[{cc}]} = obj;
+const {aa, bb:{cc}, dd} = obj;
+const value = {aa: obj[bb]};
+
+[expect]
+const { aa, bb: [{ cc }] } = obj;
+const { aa, bb: { cc }, dd } = obj;
+const value = { aa: obj[bb] };
+
+== should keep spaces when the last member ends with a closing brace that isn't an object ==
+const value = {a() {}};
+const value = {a: () => {}};
+const value = {a: function() {}};
+const value = {a: class {}};
+
+[expect]
+const value = { a() {} };
+const value = { a: () => {} };
+const value = { a: function() {} };
+const value = { a: class {} };
+
+== should keep spaces when a comment is between the closing braces ==
+const value = {a: {b} /* c */};
+const {a: {b} /* c */} = value;
+type Value = {a: {b: string;} /* c */;};
+
+[expect]
+const value = { a: { b } /* c */ };
+const { a: { b } /* c */ } = value;
+type Value = { a: { b: string } /* c */ };
+
+== should omit spaces for nested object-like nodes within other nodes ==
+const value = {...{a}};
+const value = {a: <T>{b}};
+const value = {a: b satisfies {c: string}};
+const {a = {b}} = value;
+type Value = {a: {[K in T]: K}};
+
+[expect]
+const value = { ...{ a }};
+const value = { a: <T> { b }};
+const value = { a: b satisfies { c: string }};
+const { a = { b }} = value;
+type Value = { a: { [K in T]: K }};
+
+== should handle empty patterns and objects ==
+const {} = obj;
+const {a:{}} = obj;
+const value = {a:{}};
+
+[expect]
+const {} = obj;
+const { a: {}} = obj;
+const value = { a: {}};
+
+== should preserve the original behavior for nested type literals ==
+type Value = {a:{b:string}};
+
+[expect]
+type Value = { a: { b: string }};
+
+== should use the formatted type literal when input semicolons are removed ==
+type Value = {a:{b:string;};};
+
+[expect]
+type Value = { a: { b: string }};
+
+== should keep multi line trailing commas and indentation ==
+const {
+  a: {
+    b,
+  },
+} = obj;
+
+[expect]
+const {
+    a: {
+        b,
+    },
+} = obj;

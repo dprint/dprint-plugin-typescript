@@ -82,6 +82,7 @@
       "properties": [
         "spaceAround",
         "spaceSurroundingProperties",
+        "spaceBetweenObjectClosingBraces",
         "spaceAfterControlFlowKeyword",
         "binaryExpression.spaceSurroundingBitwiseAndArithmeticOperator",
         "catchClause.spaceAfterCatchKeyword",
@@ -901,6 +902,18 @@
       }, {
         "const": false,
         "description": "Ex. `type Test = {key: string}`"
+      }]
+    },
+    "spaceBetweenObjectClosingBraces": {
+      "description": "Whether to keep a space between the closing braces of a nested object and its parent in single-line objects, destructuring patterns, and type literals.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `const { key: { value } } = obj;`"
+      }, {
+        "const": false,
+        "description": "Ex. `const { key: { value }} = obj;`"
       }]
     },
     "binaryExpression.spaceSurroundingBitwiseAndArithmeticOperator": {
@@ -1756,6 +1769,9 @@
     "typeLiteral.spaceSurroundingProperties": {
       "$ref": "#/definitions/typeLiteral.spaceSurroundingProperties",
       "x-overrides": "spaceSurroundingProperties"
+    },
+    "spaceBetweenObjectClosingBraces": {
+      "$ref": "#/definitions/spaceBetweenObjectClosingBraces"
     },
     "binaryExpression.spaceSurroundingBitwiseAndArithmeticOperator": {
       "$ref": "#/definitions/binaryExpression.spaceSurroundingBitwiseAndArithmeticOperator"

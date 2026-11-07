@@ -943,6 +943,8 @@ pub struct Configuration {
   pub object_expression_space_surrounding_properties: bool,
   #[serde(rename = "objectPattern.spaceSurroundingProperties")]
   pub object_pattern_space_surrounding_properties: bool,
+  #[serde(rename = "spaceBetweenObjectClosingBraces")]
+  pub space_between_object_closing_braces: bool,
   #[serde(rename = "setAccessor.spaceBeforeParentheses")]
   pub set_accessor_space_before_parentheses: bool,
   #[serde(rename = "spaceSurroundingProperties")]
