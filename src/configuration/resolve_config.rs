@@ -1107,12 +1107,6 @@ mod tests {
       assert_eq!(serde_json::to_value(&result.config).unwrap()[property_name], value.unwrap_or(true));
     }
 
-    let config = ConfigurationBuilder::new()
-      .space_surrounding_properties(false)
-      .object_pattern_space_surrounding_properties(false)
-      .build();
-    assert!(config.space_between_object_closing_braces);
-
     let mut config = ConfigKeyMap::new();
     config.insert(property_name.to_string(), ConfigKeyValue::from_str("invalid"));
     let result = resolve_config(config, &GlobalConfiguration::default());

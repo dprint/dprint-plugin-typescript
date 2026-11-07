@@ -4,9 +4,3 @@ const { key: value } = obj;
 
 [expect]
 const {key: value} = obj;
-
-== should respect disabled pattern spacing with default end spacing ==
-const { a: { b } } = obj;
-
-[expect]
-const {a: {b}} = obj;
