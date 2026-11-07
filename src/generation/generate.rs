@@ -2726,7 +2726,6 @@ fn gen_call_expr_like<'a>(node: CallExprLike<'a>, context: &mut Context<'a>) -> 
 
   items.extend(node.generated_callee);
 
-  // the type arguments go after the `?.` since `a<T>?.()` is an instantiation expression that's then called
   if call_expr.is_optional() {
     items.push_sc(sc!("?."));
   }
