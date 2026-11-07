@@ -1,4 +1,4 @@
-~~ spaceBetweenClosingBraces: false ~~
+~~ spaceBetweenObjectClosingBraces: false ~~
 == should omit spaces between consecutive closing braces in nested patterns ==
 const {aa, bb:{cc, dd:{ee, ff}}} = obj;
 

@@ -1,4 +1,4 @@
-~~ spaceBetweenClosingBraces: false, semicolons: always ~~
+~~ spaceBetweenObjectClosingBraces: false, semicolons: always ~~
 == should preserve spaces when semicolons separate the closing braces ==
 type Value = {a:{b:string;};};
 

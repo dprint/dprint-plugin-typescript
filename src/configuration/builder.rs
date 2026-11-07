@@ -508,12 +508,12 @@ impl ConfigurationBuilder {
     self.insert("objectPattern.spaceSurroundingProperties", value.into())
   }
 
-  /// Whether to keep a space between consecutive closing braces in single-line objects, destructuring patterns, and type literals.
+  /// Whether to keep a space between the closing braces of a nested object and its parent in single-line objects, destructuring patterns, and type literals.
   ///
   /// * `true` (default) - Ex. `const { key: { value } } = obj;`
   /// * `false` - Ex. `const { key: { value }} = obj;`
-  pub fn space_between_closing_braces(&mut self, value: bool) -> &mut Self {
-    self.insert("spaceBetweenClosingBraces", value.into())
+  pub fn space_between_object_closing_braces(&mut self, value: bool) -> &mut Self {
+    self.insert("spaceBetweenObjectClosingBraces", value.into())
   }
 
   /// Whether to add a space before the parentheses of a method.
@@ -1729,7 +1729,7 @@ mod tests {
       .mapped_type_space_surrounding_properties(false)
       .object_expression_space_surrounding_properties(false)
       .object_pattern_space_surrounding_properties(false)
-      .space_between_closing_braces(false)
+      .space_between_object_closing_braces(false)
       .set_accessor_space_before_parentheses(true)
       .space_after_control_flow_keyword(true)
       .space_surrounding_properties(false)

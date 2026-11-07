@@ -10885,7 +10885,7 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
     Some(SeparatorValue::Semicolon(Semicolons::Always) | SeparatorValue::Comma(TrailingCommas::Always))
   );
   let space_at_end = space_at_start
-    && (context.config.space_between_closing_braces
+    && (context.config.space_between_object_closing_braces
       || has_single_line_trailing_separator
       || !opts
         .members

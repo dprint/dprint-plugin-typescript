@@ -1,4 +1,4 @@
-~~ spaceBetweenClosingBraces: false, spaceSurroundingProperties: false ~~
+~~ spaceBetweenObjectClosingBraces: false, spaceSurroundingProperties: false ~~
 == should respect disabled surrounding property spacing ==
 const { a: { b } } = obj;
 const { a: [{ b }] } = obj;

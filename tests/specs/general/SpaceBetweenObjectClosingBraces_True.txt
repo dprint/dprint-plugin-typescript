@@ -1,4 +1,4 @@
-~~ spaceBetweenClosingBraces: true ~~
+~~ spaceBetweenObjectClosingBraces: true ~~
 == should keep spaces between consecutive closing braces ==
 const {aa, bb:{cc, dd:{ee, ff}}} = obj;
 const options = {foo: false, bar: {bob: false}};
