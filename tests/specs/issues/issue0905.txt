@@ -24,3 +24,20 @@ someObjectWithALongName.someProperty.someOtherProperty.someMethodWithALongName?.
 [expect]
 someObjectWithALongName.someProperty.someOtherProperty.someMethodWithALongName?.<SomeTypeArgument>(firstArgument)
     .finalMethod?.<OtherType>(secondArgument);
+
+== should keep a comment after the question dot before the type arguments ==
+callback?./*c*/<string>("a");
+obj.method?./*c*/<T>().other;
+
+[expect]
+callback?./*c*/ <string>("a");
+obj.method?./*c*/ <T>().other;
+
+== should keep the type arguments after the question dot when they break ==
+someObjectWithALongName.someProperty.someOtherProperty?.<SomeTypeArgumentWithAVeryLongName, AnotherTypeArgumentWithALongName>(firstArgument, second);
+
+[expect]
+someObjectWithALongName.someProperty.someOtherProperty?.<
+    SomeTypeArgumentWithAVeryLongName,
+    AnotherTypeArgumentWithALongName
+>(firstArgument, second);
