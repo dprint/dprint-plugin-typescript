@@ -2726,12 +2726,13 @@ fn gen_call_expr_like<'a>(node: CallExprLike<'a>, context: &mut Context<'a>) -> 
 
   items.extend(node.generated_callee);
 
-  if let Some(type_args) = call_expr.type_args() {
-    items.extend(gen_node(type_args.into(), context));
-  }
-
+  // the type arguments go after the `?.` since `a<T>?.()` is an instantiation expression that's then called
   if call_expr.is_optional() {
     items.push_sc(sc!("?."));
+  }
+
+  if let Some(type_args) = call_expr.type_args() {
+    items.extend(gen_node(type_args.into(), context));
   }
 
   items.push_condition(conditions::with_indent_if_start_of_line_indented(gen_parameters_or_arguments(
