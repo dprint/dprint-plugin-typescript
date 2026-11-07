@@ -57,8 +57,16 @@ impl ParseDiagnostic {
   }
 
   /// 1-indexed display position the diagnostic occurred at.
+  ///
+  /// The column number is based on the number of UTF-16 code units from the
+  /// start of the line (ex. a tab is one column), which is what editors such
+  /// as VS Code use when navigating to a `file:line:column` location.
   pub fn display_position(&self) -> LineAndColumnDisplay {
-    self.0.text_info.line_and_column_display(self.clamped_range().start)
+    let index = self.0.text_info.line_and_column_index_utf16(self.clamped_range().start);
+    LineAndColumnDisplay {
+      line_number: index.line_index + 1,
+      column_number: index.column_index + 1,
+    }
   }
 
   /// swc will sometimes provide a dummy or out of range span, so ensure the
@@ -127,7 +135,9 @@ impl fmt::Display for ParseDiagnosticsError {
 ///
 /// The range must be within the text info.
 fn get_range_text_highlight(text_info: &SourceTextInfo, byte_range: SourceRange) -> String {
-  let (sub_text, (error_start, error_end)) = get_text_and_error_range(text_info, byte_range);
+  let sub_text = get_highlighted_lines_text(text_info, byte_range);
+  let error_start_column = text_info.line_and_column_index(byte_range.start).column_index;
+  let error_end_column = text_info.line_and_column_index(byte_range.end).column_index;
 
   let mut result = String::new();
   // don't use .lines() here because it will trim any empty
@@ -151,12 +161,8 @@ fn get_range_text_highlight(text_info: &SourceTextInfo, byte_range: SourceRange)
       continue;
     }
 
-    let mut error_start_char_index = if i == 0 { get_column_index_of_pos(sub_text, error_start) } else { 0 };
-    let mut error_end_char_index = if is_last_line {
-      get_column_index_of_pos(sub_text, error_end)
-    } else {
-      line.chars().count()
-    };
+    let mut error_start_char_index = if i == 0 { error_start_column } else { 0 };
+    let mut error_end_char_index = if is_last_line { error_end_column } else { line.chars().count() };
     let line_char_count = line.chars().count();
     if line_char_count > 90 {
       let start_char_index = if error_start_char_index > 60 {
@@ -193,7 +199,7 @@ fn get_range_text_highlight(text_info: &SourceTextInfo, byte_range: SourceRange)
   result
 }
 
-fn get_text_and_error_range(text_info: &SourceTextInfo, byte_range: SourceRange) -> (&str, (usize, usize)) {
+fn get_highlighted_lines_text(text_info: &SourceTextInfo, byte_range: SourceRange) -> &str {
   let mut first_line_index = text_info.line_index(byte_range.start);
   let mut first_line_start = text_info.line_start(first_line_index);
   let last_line_end = text_info.line_end(text_info.line_index(byte_range.end));
@@ -206,25 +212,7 @@ fn get_text_and_error_range(text_info: &SourceTextInfo, byte_range: SourceRange)
     sub_text = text_info.range_text(&SourceRange::new(first_line_start, last_line_end));
   }
 
-  let error_start = byte_range.start - first_line_start;
-  let error_end = error_start + (byte_range.end - byte_range.start);
-  (sub_text, (error_start, error_end))
-}
-
-fn get_column_index_of_pos(text: &str, pos: usize) -> usize {
-  let line_start_byte_pos = get_line_start_byte_pos(text, pos);
-  text[line_start_byte_pos..pos].chars().count()
-}
-
-fn get_line_start_byte_pos(text: &str, pos: usize) -> usize {
-  let text_bytes = text.as_bytes();
-  for i in (0..pos).rev() {
-    if text_bytes.get(i) == Some(&b'\n') {
-      return i + 1;
-    }
-  }
-
-  0
+  sub_text
 }
 
 #[cfg(test)]
@@ -381,6 +369,39 @@ test",
         "              ~"
       )
     );
+  }
+
+  #[test]
+  fn display_position_tab_is_one_column() {
+    let diagnostic = diagnostic_at_text("\t\tlet a = ;", ";");
+    assert_eq!(
+      diagnostic.display_position(),
+      LineAndColumnDisplay {
+        line_number: 1,
+        column_number: 11,
+      }
+    );
+  }
+
+  #[test]
+  fn display_position_utf16_column() {
+    // 😀 is two utf-16 code units, but the highlight is based on characters
+    let diagnostic = diagnostic_at_text("const a = '😀' + ;", ";");
+    assert_eq!(
+      diagnostic.to_string(),
+      concat!("Unexpected eof at file:///test.ts:1:18\n\n", "  const a = '😀' + ;\n", "                  ~")
+    );
+  }
+
+  fn diagnostic_at_text(text: &str, sub_text: &str) -> ParseDiagnostic {
+    let text_info = text_info(text);
+    let start = text_info.range().start + text.find(sub_text).unwrap();
+    ParseDiagnostic(Box::new(ParseDiagnosticInner {
+      specifier: "file:///test.ts".into(),
+      range: SourceRange::new(start, start + sub_text.len()),
+      kind: SyntaxError::Eof,
+      text_info,
+    }))
   }
 
   fn text_info(text: &str) -> SourceTextInfo {

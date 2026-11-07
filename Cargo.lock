@@ -303,9 +303,9 @@ dependencies = [
 
 [[package]]
 name = "dprint-swc-ext"
-version = "0.27.1"
+version = "0.28.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f6e08b6b321ac0cfdf26e090dcd11be35952aa0d6c44562f6a5e082a2e782ea6"
+checksum = "679f59d1f0011fd82f0f3f76dbd9e8f2919cafd2dedfc1c15acd4452e5a331a2"
 dependencies = [
  "allocator-api2",
  "bumpalo",
@@ -1250,9 +1250,9 @@ dependencies = [
 
 [[package]]
 name = "text_lines"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fd5828de7deaa782e1dd713006ae96b3bee32d3279b79eb67ecf8072c059bcf"
+checksum = "60fefebb1aa791d9f847ef7c9da158ce5c2d3333b038c4f4aa2586a1b9b66701"
 
 [[package]]
 name = "thiserror"
