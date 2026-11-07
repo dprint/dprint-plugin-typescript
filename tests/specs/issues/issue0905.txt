@@ -1,0 +1,43 @@
+== should keep the type arguments of an optional call after the question dot ==
+callback?.<string>("a");
+callback ?. <string> ("a");
+el?.closest?.<HTMLElement>("[data-x]");
+obj.method?.<T, U>(value).other?.<V>();
+
+[expect]
+callback?.<string>("a");
+callback?.<string>("a");
+el?.closest?.<HTMLElement>("[data-x]");
+obj.method?.<T, U>(value).other?.<V>();
+
+== should keep an instantiation expression that's called optionally ==
+callback<string>?.("a");
+el?.closest<HTMLElement>?.("[data-x]");
+
+[expect]
+callback<string>?.("a");
+el?.closest<HTMLElement>?.("[data-x]");
+
+== should keep the type arguments after the question dot when the member expression breaks ==
+someObjectWithALongName.someProperty.someOtherProperty.someMethodWithALongName?.<SomeTypeArgument>(firstArgument).finalMethod?.<OtherType>(secondArgument);
+
+[expect]
+someObjectWithALongName.someProperty.someOtherProperty.someMethodWithALongName?.<SomeTypeArgument>(firstArgument)
+    .finalMethod?.<OtherType>(secondArgument);
+
+== should keep a comment after the question dot before the type arguments ==
+callback?./*c*/<string>("a");
+obj.method?./*c*/<T>().other;
+
+[expect]
+callback?./*c*/ <string>("a");
+obj.method?./*c*/ <T>().other;
+
+== should keep the type arguments after the question dot when they break ==
+someObjectWithALongName.someProperty.someOtherProperty?.<SomeTypeArgumentWithAVeryLongName, AnotherTypeArgumentWithALongName>(firstArgument, second);
+
+[expect]
+someObjectWithALongName.someProperty.someOtherProperty?.<
+    SomeTypeArgumentWithAVeryLongName,
+    AnotherTypeArgumentWithALongName
+>(firstArgument, second);
