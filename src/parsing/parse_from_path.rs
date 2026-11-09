@@ -1,13 +1,10 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use dprint_swc_ext::swc::parser::EsSyntax;
-use dprint_swc_ext::swc::parser::Syntax;
-use dprint_swc_ext::swc::parser::TsSyntax;
+use oxc_span::SourceType;
 
-use super::ParseMode;
 use super::ParsedSource;
-use super::parse_syntax;
+use super::parse_source_type;
 use crate::Result;
 
 pub struct ParseOptions<'a> {
@@ -21,10 +18,8 @@ pub struct ParseOptions<'a> {
 
 /// Parses a file for formatting.
 ///
-/// Errors when the text could not be parsed at all, and also when swc recovered
-/// from a syntax error that would stop the AST from representing the original
-/// text (see [`is_unsupported_syntax_error`](super::is_unsupported_syntax_error)).
-/// Any remaining recovered errors are available on [`ParsedSource::diagnostics`].
+/// Errors when the text could not be parsed. Any errors the parser recovered
+/// from are available on [`ParsedSource::diagnostics`].
 pub fn parse_program(options: ParseOptions) -> Result<ParsedSource> {
   let ParseOptions { path, extension, text } = options;
   match parse_inner(path, extension, text.clone()) {
@@ -43,15 +38,12 @@ pub fn parse_program(options: ParseOptions) -> Result<ParsedSource> {
 }
 
 fn parse_inner(file_path: &Path, file_extension: Option<&str>, text: Arc<str>) -> Result<ParsedSource> {
-  let (syntax, mode) = resolve_syntax(file_path, file_extension);
-  parse_syntax(path_to_specifier(file_path), text, syntax, mode)
+  let source_type = resolve_source_type(file_path, file_extension);
+  parse_source_type(path_to_specifier(file_path), text, source_type)
 }
 
-/// Resolves the syntax and parse mode to use for a file.
-///
-/// This resolves what `deno_media_type` and `deno_ast::get_syntax` resolve for
-/// the media types this crate formats.
-fn resolve_syntax(file_path: &Path, file_extension: Option<&str>) -> (Syntax, ParseMode) {
+/// Resolves the source type to use for a file.
+fn resolve_source_type(file_path: &Path, file_extension: Option<&str>) -> SourceType {
   let file_name = file_path.file_name().and_then(|f| f.to_str()).unwrap_or_default();
   match file_extension {
     // replace the extension on the file name, the same as `Path::with_extension`
@@ -61,70 +53,24 @@ fn resolve_syntax(file_path: &Path, file_extension: Option<&str>) -> (Syntax, Pa
         None => format!("{}.", file_name),
       };
       file_name.push_str(file_extension);
-      syntax_for_file_name(&file_name)
+      source_type_for_file_name(&file_name)
     }
-    None => syntax_for_file_name(file_name),
+    None => source_type_for_file_name(file_name),
   }
 }
 
-fn syntax_for_file_name(file_name: &str) -> (Syntax, ParseMode) {
+fn source_type_for_file_name(file_name: &str) -> SourceType {
   let Some((stem, extension)) = split_known_extension(file_name) else {
-    return (es_syntax(false), ParseMode::Program);
+    return SourceType::from_extension("js").unwrap();
   };
+  let extension = if extension.is_empty() { "js" } else { extension };
+  let source_type = SourceType::from_extension(extension).unwrap();
   match extension {
-    extension @ ("ts" | "mts" | "cts") => {
-      // a file containing `.d.` is always a declaration file. See
-      // https://github.com/microsoft/TypeScript/issues/53319#issuecomment-1474174018
-      let is_declaration = stem.contains(".d.");
-      // jsx-like syntax is reserved in .mts and .cts files, but not in their
-      // declaration files:
-      // https://babeljs.io/docs/babel-preset-typescript#disallowambiguousjsxlike
-      let is_module_only = !is_declaration && matches!(extension, "mts" | "cts");
-      let syntax = Syntax::Typescript(TsSyntax {
-        decorators: true,
-        disallow_ambiguous_jsx_like: is_module_only,
-        dts: is_declaration,
-        tsx: false,
-        no_early_errors: false,
-      });
-      // cts files can contain module declarations like
-      // `import x = require("./x.ts");` or `export = 5;`, so they need to be
-      // parsed as modules (this may change in the future once
-      // https://github.com/swc-project/swc/issues/9694 is resolved)
-      let mode = if is_module_only { ParseMode::Module } else { ParseMode::Program };
-      (syntax, mode)
-    }
-    "tsx" => {
-      let syntax = Syntax::Typescript(TsSyntax {
-        decorators: true,
-        disallow_ambiguous_jsx_like: false,
-        dts: false,
-        tsx: true,
-        no_early_errors: false,
-      });
-      (syntax, ParseMode::Program)
-    }
-    "jsx" => (es_syntax(true), ParseMode::Program),
-    "mjs" => (es_syntax(false), ParseMode::Module),
-    "cjs" => (es_syntax(false), ParseMode::Script),
-    // "js" and anything this crate doesn't know about are parsed as javascript
-    _ => (es_syntax(false), ParseMode::Program),
+    // a file containing `.d.` is always a declaration file. See
+    // https://github.com/microsoft/TypeScript/issues/53319#issuecomment-1474174018
+    "ts" | "mts" | "cts" => source_type.with_typescript_definition(stem.contains(".d.")),
+    _ => source_type,
   }
-}
-
-fn es_syntax(jsx: bool) -> Syntax {
-  Syntax::Es(EsSyntax {
-    allow_return_outside_function: true,
-    allow_super_outside_method: true,
-    auto_accessors: true,
-    decorators: true,
-    decorators_before_export: false,
-    export_default_from: true,
-    fn_bind: false,
-    import_attributes: true,
-    jsx,
-    explicit_resource_management: true,
-  })
 }
 
 /// Gets the extension the jsx retry should use, if any.
@@ -230,7 +176,7 @@ mod tests {
     run_fatal_diagnostic_test(
       "./test.ts",
       "test;\nas#;",
-      concat!("Expected ';', '}' or <eof> at file:///test.ts:2:3\n", "\n", "  as#;\n", "    ~"),
+      concat!("Invalid Character `;` at file:///test.ts:2:4\n", "\n", "  as#;\n", "     ~"),
     );
   }
 
@@ -240,12 +186,7 @@ mod tests {
     run_fatal_diagnostic_test(
       "./test.ts",
       "+value.",
-      concat!(
-        // comment to keep this multi-line
-        "Expected ident at file:///test.ts:1:2\n\n",
-        "  +value.\n",
-        "   ~~~~~"
-      ),
+      concat!("Unexpected token at file:///test.ts:1:8\n\n", "  +value.\n", "         ~"),
     );
   }
 
@@ -255,7 +196,7 @@ mod tests {
     run_fatal_diagnostic_test(
       "./test.ts",
       "+value.;",
-      concat!("Expected ident at file:///test.ts:1:8\n\n", "  +value.;\n", "         ~"),
+      concat!("Unexpected token at file:///test.ts:1:8\n\n", "  +value.;\n", "         ~"),
     );
   }
 
@@ -268,7 +209,7 @@ mod tests {
         r#"console.log('x', `duration ${d} not in range - ${min} ≥ ${d} && ${max} ≥ ${d}`),;"#,
       ),
       concat!(
-        "Expression expected at file:///test.ts:2:81\n",
+        "Unexpected token at file:///test.ts:2:81\n",
         "\n",
         "  console.log('x', `duration ${d} not in range - ${min} ≥ ${d} && ${max} ≥ ${d}`),;\n",
         "                                                                                  ~",
@@ -287,10 +228,10 @@ mod tests {
     }
 };"#,
       concat!(
-        "An arrow function is not allowed here at file:///test.ts:1:27\n",
+        "Expected `)` but found `{` at file:///test.ts:2:15\n",
         "\n",
-        "  const foo = <T extends {}>() => {\n",
-        "                            ~~"
+        "      if (bar() {\n",
+        "                ~"
       ),
     );
   }
@@ -301,10 +242,10 @@ mod tests {
       "./test.ts",
       "let a = 0, let b = 1;",
       concat!(
-        "Unexpected token `let`. Expected let is reserved in const, let, class declaration at file:///test.ts:1:12\n",
+        "Expected a semicolon or an implicit semicolon after a statement, but found none at file:///test.ts:1:15\n",
         "\n",
         "  let a = 0, let b = 1;\n",
-        "             ~~~"
+        "                ~"
       ),
     );
   }
@@ -317,24 +258,29 @@ mod tests {
 
   #[test]
   fn it_should_error_for_no_equals_sign_in_var_decl() {
-    run_non_fatal_diagnostic_test(
+    run_fatal_diagnostic_test(
       "./test.ts",
       "const Methods {\nf: (x, y) => x + y,\n};",
       concat!(
-        "Expected a semicolon at file:///test.ts:1:15\n",
+        "Missing initializer in const declaration at file:///test.ts:1:7\n",
         "\n",
         "  const Methods {\n",
-        "                ~"
+        "        ~~~~~~~\n",
+        "\n",
+        "Expected a semicolon or an implicit semicolon after a statement, but found none at file:///test.ts:1:14\n",
+        "\n",
+        "  const Methods {\n",
+        "               ~"
       ),
     );
   }
 
   #[test]
   fn it_should_error_for_exected_expr_issue_121() {
-    run_non_fatal_diagnostic_test(
+    run_fatal_diagnostic_test(
       "./test.ts",
       "type T =\n  | unknown\n  { } & unknown;",
-      concat!("Expression expected at file:///test.ts:3:7\n\n", "    { } & unknown;\n", "        ~"),
+      concat!("Unexpected token at file:///test.ts:3:7\n\n", "    { } & unknown;\n", "        ~"),
     );
   }
 
@@ -346,13 +292,14 @@ mod tests {
 
   #[test]
   fn it_should_error_for_exected_close_brace() {
-    // swc can parse this, but we explicitly fail formatting
-    // in this scenario because I believe it might cause more
-    // harm than good.
     run_fatal_diagnostic_test(
       "./test.ts",
       "class Test {",
-      concat!("Unexpected eof at file:///test.ts:1:13\n\n", "  class Test {\n", "              ~"),
+      concat!(
+        "Expected `}` but found `EOF` at file:///test.ts:1:13\n\n",
+        "  class Test {\n",
+        "              ~"
+      ),
     );
   }
 
@@ -361,11 +308,7 @@ mod tests {
     run_non_fatal_diagnostic_test(
       "./test.ts",
       "var foo = 'test",
-      concat!(
-        "Unterminated string constant at file:///test.ts:1:11\n\n",
-        "  var foo = 'test\n",
-        "            ~~~~~"
-      ),
+      concat!("Unterminated string at file:///test.ts:1:11\n\n", "  var foo = 'test\n", "            ~~~~~"),
     );
   }
 
@@ -381,25 +324,26 @@ mod tests {
 >>>>>>> Branch-a
 }
 "#,
-      r#"Merge conflict marker encountered. at file:///test.ts:2:1
-
-  <<<<<<< HEAD
-  ~~~~~~~
-
-Merge conflict marker encountered. at file:///test.ts:4:1
-
-  =======
-  ~~~~~~~
-
-Merge conflict marker encountered. at file:///test.ts:6:1
-
-  >>>>>>> Branch-a
-  ~~~~~~~"#,
+      concat!("Encountered diff marker at file:///test.ts:2:1\n\n", "  <<<<<<< HEAD\n", "  ~~~~~~~"),
     );
   }
 
-  /// These are syntax errors that swc recovers from, but which stop the ast
-  /// from representing the original text, so formatting is refused.
+  #[test]
+  fn it_should_error_for_an_assignment_in_an_object_literal() {
+    // the parser recovers from this, but drops the initializer
+    run_non_fatal_diagnostic_test(
+      "./test.ts",
+      "call({ a = 1 });",
+      concat!(
+        "Invalid assignment in object literal at file:///test.ts:1:8\n\n",
+        "  call({ a = 1 });\n",
+        "         ~~~~~"
+      ),
+    );
+  }
+
+  /// These are syntax errors that a parser could recover from, but which would
+  /// stop the ast from representing the original text, so formatting is refused.
   #[track_caller]
   fn run_non_fatal_diagnostic_test(file_path: &str, text: &str, expected: &str) {
     let file_path = PathBuf::from(file_path);
@@ -438,68 +382,65 @@ Merge conflict marker encountered. at file:///test.ts:6:1
   }
 
   #[test]
-  fn resolves_syntax_from_the_extension() {
+  fn resolves_source_type_from_the_extension() {
     #[track_caller]
-    fn run_test(path: &str, expected: (Syntax, ParseMode)) {
-      assert_eq!(resolve_syntax(&PathBuf::from(path), None), expected, "path: {}", path);
+    fn run_test(path: &str, expected: SourceType) {
+      assert_eq!(resolve_source_type(&PathBuf::from(path), None), expected, "path: {}", path);
     }
 
-    fn ts(tsx: bool, dts: bool, disallow_ambiguous_jsx_like: bool) -> Syntax {
-      Syntax::Typescript(TsSyntax {
-        decorators: true,
-        disallow_ambiguous_jsx_like,
-        dts,
-        tsx,
-        no_early_errors: false,
-      })
+    fn js(extension: &str) -> SourceType {
+      SourceType::from_extension(extension).unwrap()
     }
 
-    run_test("t.js", (es_syntax(false), ParseMode::Program));
-    run_test("t.jsx", (es_syntax(true), ParseMode::Program));
-    run_test("t.mjs", (es_syntax(false), ParseMode::Module));
-    run_test("t.cjs", (es_syntax(false), ParseMode::Script));
-    run_test("t.json", (es_syntax(false), ParseMode::Program));
-    run_test("t", (es_syntax(false), ParseMode::Program));
+    fn ts(extension: &str, dts: bool) -> SourceType {
+      SourceType::from_extension(extension).unwrap().with_typescript_definition(dts)
+    }
 
-    run_test("t.ts", (ts(false, false, false), ParseMode::Program));
-    run_test("t.TS", (ts(false, false, false), ParseMode::Program));
-    run_test("t.tsx", (ts(true, false, false), ParseMode::Program));
-    run_test("t.mts", (ts(false, false, true), ParseMode::Module));
-    run_test("t.cts", (ts(false, false, true), ParseMode::Module));
+    run_test("t.js", js("js"));
+    run_test("t.jsx", js("jsx"));
+    run_test("t.mjs", js("mjs"));
+    run_test("t.cjs", js("cjs"));
+    run_test("t.json", js("js"));
+    run_test("t", js("js"));
 
-    // jsx-like syntax is only reserved in non-declaration .mts and .cts files
-    run_test("t.d.ts", (ts(false, true, false), ParseMode::Program));
-    run_test("t.d.mts", (ts(false, true, false), ParseMode::Program));
-    run_test("t.d.cts", (ts(false, true, false), ParseMode::Program));
+    run_test("t.ts", ts("ts", false));
+    run_test("t.TS", ts("ts", false));
+    run_test("t.tsx", ts("tsx", false));
+    run_test("t.mts", ts("mts", false));
+    run_test("t.cts", ts("cts", false));
+
+    run_test("t.d.ts", ts("ts", true));
+    run_test("t.d.mts", ts("mts", true));
+    run_test("t.d.cts", ts("cts", true));
     // a `.d.` anywhere in the name means a declaration file, and it's case sensitive
-    run_test("t.d.css.ts", (ts(false, true, false), ParseMode::Program));
-    run_test("t.D.TS", (ts(false, false, false), ParseMode::Program));
-    run_test("td.ts", (ts(false, false, false), ParseMode::Program));
+    run_test("t.d.css.ts", ts("ts", true));
+    run_test("t.D.TS", ts("ts", false));
+    run_test("td.ts", ts("ts", false));
     // `.d.tsx` is not a declaration file
-    run_test("t.d.tsx", (ts(true, false, false), ParseMode::Program));
+    run_test("t.d.tsx", ts("tsx", false));
 
     // a file name that is only an extension
-    run_test(".ts", (ts(false, false, false), ParseMode::Program));
-    run_test(".tsx", (ts(true, false, false), ParseMode::Program));
-    run_test(".js", (es_syntax(false), ParseMode::Program));
+    run_test(".ts", ts("ts", false));
+    run_test(".tsx", ts("tsx", false));
+    run_test(".js", js("js"));
 
     // an unknown extension falls back to the one before it, such as for a
     // file associated with this plugin (issue #637)
-    run_test("t.ts.txt", (ts(false, false, false), ParseMode::Program));
-    run_test("t.TS.txt", (ts(false, false, false), ParseMode::Program));
-    run_test("t.tsx.txt", (ts(true, false, false), ParseMode::Program));
-    run_test("t.mts.txt", (ts(false, false, true), ParseMode::Module));
-    run_test("t.cts.txt", (ts(false, false, true), ParseMode::Module));
-    run_test("t.d.ts.txt", (ts(false, true, false), ParseMode::Program));
-    run_test("t.jsx.txt", (es_syntax(true), ParseMode::Program));
-    run_test("t.mjs.txt", (es_syntax(false), ParseMode::Module));
-    run_test("t.cjs.txt", (es_syntax(false), ParseMode::Script));
-    run_test(".ts.txt", (ts(false, false, false), ParseMode::Program));
+    run_test("t.ts.txt", ts("ts", false));
+    run_test("t.TS.txt", ts("ts", false));
+    run_test("t.tsx.txt", ts("tsx", false));
+    run_test("t.mts.txt", ts("mts", false));
+    run_test("t.cts.txt", ts("cts", false));
+    run_test("t.d.ts.txt", ts("ts", true));
+    run_test("t.jsx.txt", js("jsx"));
+    run_test("t.mjs.txt", js("mjs"));
+    run_test("t.cjs.txt", js("cjs"));
+    run_test(".ts.txt", ts("ts", false));
     // only the extension directly before the unknown one is used
-    run_test("t.ts.orig.txt", (es_syntax(false), ParseMode::Program));
-    run_test("t.ts.json", (ts(false, false, false), ParseMode::Program));
-    run_test("ts.txt", (es_syntax(false), ParseMode::Program));
-    run_test("t.d.txt", (es_syntax(false), ParseMode::Program));
+    run_test("t.ts.orig.txt", js("js"));
+    run_test("t.ts.json", ts("ts", false));
+    run_test("ts.txt", js("js"));
+    run_test("t.d.txt", js("js"));
   }
 
   #[test]
@@ -507,8 +448,8 @@ Merge conflict marker encountered. at file:///test.ts:6:1
     #[track_caller]
     fn run_test(path: &str, extension: &str, expected_same_as: &str) {
       assert_eq!(
-        resolve_syntax(&PathBuf::from(path), Some(extension)),
-        resolve_syntax(&PathBuf::from(expected_same_as), None),
+        resolve_source_type(&PathBuf::from(path), Some(extension)),
+        resolve_source_type(&PathBuf::from(expected_same_as), None),
         "path: {}, extension: {}",
         path,
         extension

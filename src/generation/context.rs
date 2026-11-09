@@ -4,19 +4,13 @@ use dprint_core::formatting::IndentLevel;
 use dprint_core::formatting::IsStartOfLine;
 use dprint_core::formatting::LineNumber;
 use dprint_core::formatting::LineStartIndentLevel;
-use dprint_swc_ext::common::SourcePos;
-use dprint_swc_ext::common::SourceRange;
-use dprint_swc_ext::common::SourceRanged;
-use dprint_swc_ext::common::SourceRangedForSpanned;
-use dprint_swc_ext::swc::common::comments::Comment;
-use dprint_swc_ext::swc::parser::Syntax;
-use dprint_swc_ext::swc::parser::token::TokenAndSpan;
-use dprint_swc_ext::view::*;
+use oxc_span::FileExtension;
 use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
 use std::borrow::Cow;
 
 use super::*;
+use crate::ast::*;
 use crate::configuration::*;
 use crate::tailwind;
 use crate::utils::Stack;
@@ -62,8 +56,7 @@ pub type BumpVec<'a, T> = dprint_core::formatting::bumpalo::collections::Vec<'a,
 pub struct Context<'a> {
   /// The arena the print items are allocated in.
   pub arena: &'a Arena,
-  pub syntax: Syntax,
-  pub program: Program<'a>,
+  pub program: ProgramInfo<'a>,
   pub config: &'a Configuration,
   pub comments: CommentTracker<'a>,
   pub external_formatter: Option<&'a ExternalFormatter<'a>>,
@@ -125,19 +118,16 @@ impl<'a> Context<'a> {
 
   pub fn new(
     arena: &'a Arena,
-    syntax: Syntax,
-    tokens: &'a [TokenAndSpan],
     current_node: Node<'a>,
-    program: Program<'a>,
+    program: ProgramInfo<'a>,
     config: &'a Configuration,
     external_formatter: Option<&'a ExternalFormatter<'a>>,
   ) -> Context<'a> {
     Context {
       arena,
-      syntax,
       program,
       config,
-      comments: CommentTracker::new(program, tokens),
+      comments: CommentTracker::new(program),
       external_formatter,
       token_finder: TokenFinder::new(program),
       current_node,
@@ -161,7 +151,7 @@ impl<'a> Context<'a> {
       nested_bin_expr_extra_indent: None,
       prefer_single_line_value_start: None,
       #[cfg(debug_assertions)]
-      last_generated_node_pos: dprint_swc_ext::common::SourceTextInfoProvider::text_info(&program).range().start.into(),
+      last_generated_node_pos: SourcePos::START,
       diagnostics: Vec::new(),
       resolved_import_groups: config.module_import_groups_cache.get_or_compile(config),
     }
@@ -170,34 +160,29 @@ impl<'a> Context<'a> {
   /// Whether the file was parsed with jsx enabled, which makes `<T>() => {}`
   /// ambiguous with a jsx element.
   pub fn is_jsx(&self) -> bool {
-    match self.syntax {
-      Syntax::Typescript(syntax) => syntax.tsx,
-      Syntax::Es(syntax) => syntax.jsx,
-    }
+    self.program.source_type().is_jsx()
   }
 
   /// Whether jsx-like syntax is reserved, which is the case for `.cts` and
   /// `.mts` files.
   pub fn disallows_ambiguous_jsx_like(&self) -> bool {
-    match self.syntax {
-      Syntax::Typescript(syntax) => syntax.disallow_ambiguous_jsx_like,
-      Syntax::Es(_) => false,
-    }
+    let source_type = self.program.source_type();
+    !source_type.is_typescript_definition() && matches!(source_type.extension(), Some(FileExtension::Mts | FileExtension::Cts))
   }
 
   pub fn parent(&self) -> Node<'a> {
     *self.parent_stack.peek().unwrap()
   }
 
-  pub fn has_handled_comment(&self, comment: &Comment) -> bool {
+  pub fn has_handled_comment(&self, comment: &Comment<'a>) -> bool {
     self.handled_comments.contains(&comment.start())
   }
 
-  pub fn mark_comment_handled(&mut self, comment: &Comment) {
+  pub fn mark_comment_handled(&mut self, comment: &Comment<'a>) {
     self.handled_comments.insert(comment.start());
   }
 
-  pub fn unmark_comment_handled(&mut self, comment: &Comment) {
+  pub fn unmark_comment_handled(&mut self, comment: &Comment<'a>) {
     self.handled_comments.remove(&comment.start());
   }
 
@@ -261,10 +246,10 @@ impl<'a> Context<'a> {
 
   pub fn get_or_create_current_before_comments_start_info(&mut self) -> (LineNumber, IsStartOfLine) {
     let current_range = self.current_node.range();
-    if let Some((range, ln, isol)) = self.before_comments_start_info_stack.peek() {
-      if *range == current_range {
-        return (*ln, *isol);
-      }
+    if let Some((range, ln, isol)) = self.before_comments_start_info_stack.peek()
+      && *range == current_range
+    {
+      return (*ln, *isol);
     }
 
     let new_ln = LineNumber::new("beforeComments");
@@ -275,10 +260,10 @@ impl<'a> Context<'a> {
 
   pub fn take_current_before_comments_start_info(&mut self) -> Option<(LineNumber, IsStartOfLine)> {
     let mut had_range = false;
-    if let Some((range, _, _)) = self.before_comments_start_info_stack.peek() {
-      if *range == self.current_node.range() {
-        had_range = true;
-      }
+    if let Some((range, _, _)) = self.before_comments_start_info_stack.peek()
+      && *range == self.current_node.range()
+    {
+      had_range = true;
     }
 
     if had_range {

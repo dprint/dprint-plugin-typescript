@@ -1,23 +1,16 @@
-use dprint_swc_ext::common::CommentsIterator;
-use dprint_swc_ext::common::SourcePos;
-use dprint_swc_ext::common::SourceRanged;
-use dprint_swc_ext::common::SourceRangedForSpanned;
-use dprint_swc_ext::common::SourceTextInfoProvider;
-use dprint_swc_ext::swc::parser::token::Token;
-use dprint_swc_ext::swc::parser::token::TokenAndSpan;
-use dprint_swc_ext::view::*;
+use crate::ast::*;
 
 pub struct CommentTracker<'a> {
-  program: Program<'a>,
+  program: ProgramInfo<'a>,
   tokens: &'a [TokenAndSpan],
   token_index: usize,
 }
 
 impl<'a> CommentTracker<'a> {
-  pub fn new(program: Program<'a>, tokens: &'a [TokenAndSpan]) -> CommentTracker<'a> {
+  pub fn new(program: ProgramInfo<'a>) -> CommentTracker<'a> {
     CommentTracker {
       program,
-      tokens,
+      tokens: program.tokens(),
       token_index: 0,
     }
   }
@@ -29,7 +22,7 @@ impl<'a> CommentTracker<'a> {
     if self.token_index == 0 {
       // get any comments stored at the beginning of the file
       // todo: investigate what's required here
-      let file_start = self.program.text_info().range().start.as_source_pos();
+      let file_start = SourcePos::START;
       iterator.extend(file_start.leading_comments_fast(self.program));
       iterator.extend(file_start.trailing_comments_fast(self.program));
     } else if let Some(previous_token) = self.tokens.get(self.token_index - 1) {
@@ -58,7 +51,7 @@ impl<'a> CommentTracker<'a> {
     while let Some(token) = self.tokens.get(self.token_index) {
       iterator.extend(token.start().leading_comments_fast(self.program));
 
-      let is_comma = token.token == Token::Comma;
+      let is_comma = token.kind == TokenKind::Comma;
       if !is_comma && token.start() >= end {
         break;
       }

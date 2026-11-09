@@ -427,14 +427,12 @@ mod reduce {
   use std::time::Instant;
 
   use dprint_plugin_typescript::configuration::Configuration;
-  use dprint_plugin_typescript::dprint_swc_ext::common::SourceRanged;
-  use dprint_plugin_typescript::dprint_swc_ext::common::StartSourcePos;
-  use dprint_plugin_typescript::dprint_swc_ext::view::NodeKind;
-  use dprint_plugin_typescript::dprint_swc_ext::view::NodeTrait;
-  use dprint_plugin_typescript::dprint_swc_ext::view::ProgramInfoProvider;
-  use dprint_plugin_typescript::dprint_swc_ext::view::with_ast_view;
   use dprint_plugin_typescript::parsing::ParseOptions;
   use dprint_plugin_typescript::parsing::parse_program;
+  use oxc_ast::AstKind;
+  use oxc_ast::AstType as NodeKind;
+  use oxc_ast_visit::Visit;
+  use oxc_span::GetSpan;
 
   use super::CorpusFile;
   use super::format;
@@ -445,28 +443,30 @@ mod reduce {
 
   /// The kinds of nodes that are tried being replaced with an identifier.
   const EXPRESSION_KINDS: &[NodeKind] = &[
-    NodeKind::ArrayLit,
-    NodeKind::ArrowExpr,
-    NodeKind::AssignExpr,
-    NodeKind::AwaitExpr,
-    NodeKind::BinExpr,
-    NodeKind::CallExpr,
-    NodeKind::ClassExpr,
-    NodeKind::CondExpr,
-    NodeKind::FnExpr,
+    NodeKind::ArrayExpression,
+    NodeKind::ArrowFunctionExpression,
+    NodeKind::AssignmentExpression,
+    NodeKind::AwaitExpression,
+    NodeKind::BinaryExpression,
+    NodeKind::LogicalExpression,
+    NodeKind::CallExpression,
+    NodeKind::Class,
+    NodeKind::ConditionalExpression,
+    NodeKind::Function,
     NodeKind::JSXElement,
-    NodeKind::MemberExpr,
-    NodeKind::NewExpr,
-    NodeKind::Number,
-    NodeKind::ObjectLit,
-    NodeKind::OptChainExpr,
-    NodeKind::ParenExpr,
-    NodeKind::SeqExpr,
-    NodeKind::Str,
-    NodeKind::TaggedTpl,
-    NodeKind::Tpl,
-    NodeKind::TsAsExpr,
-    NodeKind::UnaryExpr,
+    NodeKind::StaticMemberExpression,
+    NodeKind::ComputedMemberExpression,
+    NodeKind::NewExpression,
+    NodeKind::NumericLiteral,
+    NodeKind::ObjectExpression,
+    NodeKind::ChainExpression,
+    NodeKind::ParenthesizedExpression,
+    NodeKind::SequenceExpression,
+    NodeKind::StringLiteral,
+    NodeKind::TaggedTemplateExpression,
+    NodeKind::TemplateLiteral,
+    NodeKind::TSAsExpression,
+    NodeKind::UnaryExpression,
   ];
 
   pub fn reduce_files(files: &[&CorpusFile], dir: &Path, config: &Configuration) {
@@ -525,7 +525,7 @@ mod reduce {
     let deadline = Instant::now() + MAX_DURATION_PER_FILE;
     let is_unstable = |text: &str| {
       std::panic::catch_unwind(|| {
-        // only keep text without syntax errors, which swc would otherwise recover from
+        // only keep text without syntax errors, which the parser would otherwise recover from
         let parsed_source = parse_program(ParseOptions {
           path,
           extension: None,
@@ -589,39 +589,48 @@ mod reduce {
       text: Arc::from(text),
     })
     .ok()?;
-    let mut ranges = Vec::new();
-    with_ast_view(parsed_source.program_info(), |program| {
-      let mut pending = vec![program.as_node()];
-      while let Some(node) = pending.pop() {
-        let children = node.children();
-        if is_removing {
-          if matches!(
-            node.kind(),
-            NodeKind::Module | NodeKind::Script | NodeKind::BlockStmt | NodeKind::SwitchCase | NodeKind::Class
-          ) {
-            // the children and runs of them, which removes large parts of long lists quickly
-            let mut run_len = children.len();
-            while run_len >= 1 {
-              for chunk in children.chunks(run_len) {
-                ranges.push(get_range(&chunk[0]).start..get_range(chunk.last().unwrap()).end);
-              }
-              run_len /= 2;
-            }
-          } else if matches!(
-            node.kind(),
-            NodeKind::ObjectLit | NodeKind::ArrayLit | NodeKind::SeqExpr | NodeKind::CallExpr | NodeKind::NewExpr | NodeKind::VarDecl
-          ) {
-            // the items of comma separated lists, along with a comma
-            for child in &children {
-              ranges.push(with_comma(text, get_range(child)));
-            }
-          }
-        } else if EXPRESSION_KINDS.contains(&node.kind()) {
-          ranges.push(get_range(&node));
-        }
-        pending.extend(children);
-      }
+    let tree = parsed_source.with_program(|program, _| {
+      let mut collector = TreeCollector::default();
+      collector.visit_program(program);
+      collector.nodes
     });
+    let mut ranges = Vec::new();
+    let mut pending = vec![0];
+    while let Some(index) = pending.pop() {
+      let node = &tree[index];
+      let children = &node.children;
+      if is_removing {
+        if matches!(
+          node.kind,
+          NodeKind::Program | NodeKind::BlockStatement | NodeKind::FunctionBody | NodeKind::SwitchCase | NodeKind::ClassBody
+        ) {
+          // the children and runs of them, which removes large parts of long lists quickly
+          let mut run_len = children.len();
+          while run_len >= 1 {
+            for chunk in children.chunks(run_len) {
+              ranges.push(tree[chunk[0]].range.start..tree[*chunk.last().unwrap()].range.end);
+            }
+            run_len /= 2;
+          }
+        } else if matches!(
+          node.kind,
+          NodeKind::ObjectExpression
+            | NodeKind::ArrayExpression
+            | NodeKind::SequenceExpression
+            | NodeKind::CallExpression
+            | NodeKind::NewExpression
+            | NodeKind::VariableDeclaration
+        ) {
+          // the items of comma separated lists, along with a comma
+          for child in children {
+            ranges.push(with_comma(text, tree[*child].range.clone()));
+          }
+        }
+      } else if EXPRESSION_KINDS.contains(&node.kind) {
+        ranges.push(node.range.clone());
+      }
+      pending.extend(children.iter().copied());
+    }
     ranges.sort_by(|a, b| b.len().cmp(&a.len()).then(a.start.cmp(&b.start)));
     ranges.dedup();
     Some(ranges)
@@ -643,7 +652,36 @@ mod reduce {
     range
   }
 
-  fn get_range(node: &impl SourceRanged) -> Range<usize> {
-    node.start().as_byte_index(StartSourcePos::START_SOURCE_POS)..node.end().as_byte_index(StartSourcePos::START_SOURCE_POS)
+  struct TreeNode {
+    kind: NodeKind,
+    range: Range<usize>,
+    children: Vec<usize>,
+  }
+
+  /// Collects the nodes of a program along with their children, starting with the program.
+  #[derive(Default)]
+  struct TreeCollector {
+    nodes: Vec<TreeNode>,
+    stack: Vec<usize>,
+  }
+
+  impl<'a> Visit<'a> for TreeCollector {
+    fn enter_node(&mut self, kind: AstKind<'a>) {
+      let span = kind.span();
+      let index = self.nodes.len();
+      self.nodes.push(TreeNode {
+        kind: kind.ty(),
+        range: span.start as usize..span.end as usize,
+        children: Vec::new(),
+      });
+      if let Some(parent) = self.stack.last() {
+        self.nodes[*parent].children.push(index);
+      }
+      self.stack.push(index);
+    }
+
+    fn leave_node(&mut self, _kind: AstKind<'a>) {
+      self.stack.pop();
+    }
   }
 }

@@ -1,10 +1,10 @@
+mod ast_helpers;
 mod comments;
 mod context;
 mod generate;
 mod generate_types;
 mod node_helpers;
 mod sorting;
-mod swc;
 mod tokens;
 
 pub mod imports;

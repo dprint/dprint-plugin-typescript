@@ -38,10 +38,17 @@ harness = false
 capacity_builder = "0.5.0"
 dprint-core = { version = "0.75.2", features = ["formatting"] }
 dprint-core-macros = "0.1.0"
-dprint-swc-ext = { version = "0.28.1", features = ["view"] }
 globset = "0.4"
+oxc_allocator = "0.158.0"
+oxc_ast = "0.158.0"
+oxc_ast_visit = "0.158.0"
+oxc_diagnostics = "0.158.0"
+oxc_parser = "0.158.0"
+oxc_span = "0.158.0"
+oxc_syntax = "0.158.0"
 percent-encoding = "2.3.1"
 rustc-hash = "2.1.1"
+self_cell = "1.2.0"
 serde = { version = "1.0.144", features = ["derive"] }
 serde_json = { version = "1.0", optional = true }
 thiserror = "2.0.18"

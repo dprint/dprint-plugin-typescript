@@ -14,7 +14,11 @@ pub fn classify_import(src: &str, is_type_only: bool, type_imports_mode: TypeImp
     return i;
   }
   let category = base_category(src, is_type_only, type_imports_mode);
-  resolved.groups.iter().position(|g| g.categories.contains(&category)).unwrap_or(resolved.unknown_index)
+  resolved
+    .groups
+    .iter()
+    .position(|g| g.categories.contains(&category))
+    .unwrap_or(resolved.unknown_index)
 }
 
 fn base_category(src: &str, is_type_only: bool, type_imports_mode: TypeImportsMode) -> BuiltinCategory {

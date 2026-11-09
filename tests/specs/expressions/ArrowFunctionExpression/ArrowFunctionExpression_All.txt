@@ -269,3 +269,13 @@ const t = <const T extends 5>() => {};
 
 [expect]
 const t = <const T extends 5>() => {};
+
+== should keep a dynamic import that hugs its last argument on the arrow line ==
+x.map(mod => import(resolve(mod, {
+    paths: [process.cwd()],
+})));
+
+[expect]
+x.map(mod => import(resolve(mod, {
+    paths: [process.cwd()],
+})));
