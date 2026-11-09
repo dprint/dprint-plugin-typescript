@@ -4051,6 +4051,10 @@ fn gen_type_assertion<'a>(node: &TsTypeAssertion<'a>, context: &mut Context<'a>)
 fn gen_unary_expr<'a>(node: &UnaryExpr<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
   let mut items = PrintItems::new(context.arena);
   items.push_sc(get_operator_text(node.op()));
+  if is_argument_same_sign(node) {
+    // keep `- -1` from becoming `--1`
+    items.push_space();
+  }
   items.extend(gen_node(node.arg.into(), context));
 
   if get_should_use_parens(node) {
@@ -4068,6 +4072,17 @@ fn gen_unary_expr<'a>(node: &UnaryExpr<'a>, context: &mut Context<'a>) -> PrintI
       UnaryOp::Plus => sc!("+"),
       UnaryOp::Minus => sc!("-"),
       UnaryOp::Tilde => sc!("~"),
+    }
+  }
+
+  /// Gets if the argument starts with the same sign as the operator (ex. `- -1` or `+ ++a`).
+  fn is_argument_same_sign(node: &UnaryExpr) -> bool {
+    match (node.op(), node.arg) {
+      (UnaryOp::Minus, Expr::Unary(arg)) => arg.op() == UnaryOp::Minus,
+      (UnaryOp::Plus, Expr::Unary(arg)) => arg.op() == UnaryOp::Plus,
+      (UnaryOp::Minus, Expr::Update(arg)) => arg.prefix() && arg.op() == UpdateOp::MinusMinus,
+      (UnaryOp::Plus, Expr::Update(arg)) => arg.prefix() && arg.op() == UpdateOp::PlusPlus,
+      _ => false,
     }
   }
 
