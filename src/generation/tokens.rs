@@ -1,46 +1,32 @@
-use dprint_swc_ext::common::SourcePos;
-use dprint_swc_ext::common::SourceRanged;
-use dprint_swc_ext::common::SourceRangedForSpanned;
-use dprint_swc_ext::common::SourceTextInfoProvider;
-use dprint_swc_ext::swc::parser::token::Token;
-use dprint_swc_ext::swc::parser::token::TokenAndSpan;
-use dprint_swc_ext::view::*;
-use std::str;
-
-// todo: This is legacy from when swc-ecma-ast-view wasn't used.
-// Eventually this should be phased out.
+use crate::ast::*;
 
 pub struct TokenFinder<'a> {
-  program: Program<'a>,
+  program: ProgramInfo<'a>,
 }
 
 impl<'a> TokenFinder<'a> {
-  pub fn new(program: Program<'a>) -> TokenFinder<'a> {
+  pub fn new(program: ProgramInfo<'a>) -> TokenFinder<'a> {
     TokenFinder { program }
   }
 
   pub fn get_previous_token_if_open_paren(&self, node: &impl SourceRanged) -> Option<&'a TokenAndSpan> {
-    self.get_previous_token_if(node, |token| token.token == Token::LParen)
+    self.get_previous_token_if(node, |token| token.kind == TokenKind::LParen)
   }
 
   pub fn get_next_token_if_close_paren(&self, node: &impl SourceRanged) -> Option<&'a TokenAndSpan> {
-    self.get_next_token_if(node, |token| token.token == Token::RParen)
+    self.get_next_token_if(node, |token| token.kind == TokenKind::RParen)
   }
 
   pub fn get_previous_token_if_open_brace(&self, node: &impl SourceRanged) -> Option<&'a TokenAndSpan> {
-    self.get_previous_token_if(node, |token| token.token == Token::LBrace)
-  }
-
-  pub fn get_next_token_if_close_brace(&self, node: &impl SourceRanged) -> Option<&'a TokenAndSpan> {
-    self.get_next_token_if(node, |token| token.token == Token::RBrace)
+    self.get_previous_token_if(node, |token| token.kind == TokenKind::LCurly)
   }
 
   pub fn get_previous_token_if_open_bracket(&self, node: &impl SourceRanged) -> Option<&'a TokenAndSpan> {
-    self.get_previous_token_if(node, |token| token.token == Token::LBracket)
+    self.get_previous_token_if(node, |token| token.kind == TokenKind::LBrack)
   }
 
   pub fn get_previous_token_if_close_brace(&self, node: &impl SourceRanged) -> Option<&'a TokenAndSpan> {
-    self.get_previous_token_if(node, |token| token.token == Token::RBrace)
+    self.get_previous_token_if(node, |token| token.kind == TokenKind::RCurly)
   }
 
   pub fn get_previous_token_if_from_keyword(&self, node: &impl SourceRanged) -> Option<&'a TokenAndSpan> {
@@ -48,7 +34,7 @@ impl<'a> TokenFinder<'a> {
   }
 
   pub fn get_previous_token_if_colon(&self, node: &impl SourceRanged) -> Option<&'a TokenAndSpan> {
-    self.get_previous_token_if(node, |token| token.token == Token::Colon)
+    self.get_previous_token_if(node, |token| token.kind == TokenKind::Colon)
   }
 
   pub fn get_previous_token_if_operator(&self, node: &impl SourceRanged, operator_text: &str) -> Option<&'a TokenAndSpan> {
@@ -61,31 +47,31 @@ impl<'a> TokenFinder<'a> {
   }
 
   pub fn get_next_token_if_comma(&self, node: &impl SourceRanged) -> Option<&'a TokenAndSpan> {
-    self.get_next_token_if(node, |token| token.token == Token::Comma)
+    self.get_next_token_if(node, |token| token.kind == TokenKind::Comma)
   }
 
   pub fn get_next_token_if_close_bracket(&self, node: &impl SourceRanged) -> Option<&'a TokenAndSpan> {
-    self.get_next_token_if(node, |token| token.token == Token::RBracket)
+    self.get_next_token_if(node, |token| token.kind == TokenKind::RBrack)
   }
 
   pub fn get_first_open_brace_token_within(&self, node: &impl SourceRanged) -> Option<&'a TokenAndSpan> {
-    self.get_first_token_within(node, |token| token.token == Token::LBrace)
+    self.get_first_token_within(node, |token| token.kind == TokenKind::LCurly)
   }
 
   pub fn get_last_token_within_if_comma(&self, node: &impl SourceRanged) -> Option<&'a TokenAndSpan> {
-    self.get_last_token_within_if(node, |token| token.token == Token::Comma)
+    self.get_last_token_within_if(node, |token| token.kind == TokenKind::Comma)
   }
 
   pub fn get_first_semi_colon_after(&self, node: &impl SourceRanged) -> Option<&'a TokenAndSpan> {
-    self.get_first_token_after(node, |token| token.token == Token::Semi)
+    self.get_first_token_after(node, |token| token.kind == TokenKind::Semicolon)
   }
 
   pub fn get_first_colon_token_after(&self, node: &impl SourceRanged) -> Option<&'a TokenAndSpan> {
-    self.get_first_token_after(node, |token| token.token == Token::Colon)
+    self.get_first_token_after(node, |token| token.kind == TokenKind::Colon)
   }
 
   pub fn get_first_colon_token_within(&self, node: &impl SourceRanged) -> Option<&'a TokenAndSpan> {
-    self.get_first_token_within(node, |token| token.token == Token::Colon)
+    self.get_first_token_within(node, |token| token.kind == TokenKind::Colon)
   }
 
   pub fn get_first_operator_after(&self, node: &impl SourceRanged, operator_text: &str) -> Option<&'a TokenAndSpan> {
@@ -97,24 +83,20 @@ impl<'a> TokenFinder<'a> {
   }
 
   pub fn get_first_open_paren_before(&self, node: &impl SourceRanged) -> Option<&'a TokenAndSpan> {
-    self.get_first_token_before(node, |token| token.token == Token::LParen)
+    self.get_first_token_before(node, |token| token.kind == TokenKind::LParen)
   }
 
   pub fn get_first_close_paren_before(&self, node: &impl SourceRanged) -> Option<&'a TokenAndSpan> {
-    self.get_first_token_before(node, |token| token.token == Token::RParen)
+    self.get_first_token_before(node, |token| token.kind == TokenKind::RParen)
   }
 
   pub fn get_first_close_paren_after(&self, node: &impl SourceRanged) -> Option<&'a TokenAndSpan> {
-    self.get_first_token_after(node, |token| token.token == Token::RParen)
+    self.get_first_token_after(node, |token| token.kind == TokenKind::RParen)
   }
 
   pub fn get_previous_token_end_before(&self, node: &impl SourceRanged) -> SourcePos {
     let previous_token = self.get_previous_token(node);
-    if let Some(token) = previous_token {
-      token.end()
-    } else {
-      self.program.text_info().range().start.into()
-    }
+    if let Some(token) = previous_token { token.end() } else { SourcePos::START }
   }
 
   pub fn get_next_token_pos_after(&self, node: &impl SourceRanged) -> SourcePos {
@@ -129,20 +111,20 @@ impl<'a> TokenFinder<'a> {
 
   #[inline]
   fn get_next_token_if(&self, node: &impl SourceRanged, is_match: impl FnOnce(&TokenAndSpan) -> bool) -> Option<&'a TokenAndSpan> {
-    if let Some(next_token) = node.next_token_fast(self.program) {
-      if is_match(next_token) {
-        return Some(next_token);
-      }
+    if let Some(next_token) = node.next_token_fast(self.program)
+      && is_match(next_token)
+    {
+      return Some(next_token);
     }
     None
   }
 
   #[inline]
   fn get_previous_token_if(&self, node: &impl SourceRanged, is_match: impl FnOnce(&TokenAndSpan) -> bool) -> Option<&'a TokenAndSpan> {
-    if let Some(previous_token) = node.previous_token_fast(self.program) {
-      if is_match(previous_token) {
-        return Some(previous_token);
-      }
+    if let Some(previous_token) = node.previous_token_fast(self.program)
+      && is_match(previous_token)
+    {
+      return Some(previous_token);
     }
     None
   }

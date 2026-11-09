@@ -1,13 +1,10 @@
-use dprint_swc_ext::common::RootNode;
-use dprint_swc_ext::common::SourceRanged;
-use dprint_swc_ext::common::SourceRangedForSpanned;
-use dprint_swc_ext::swc::common::comments::CommentKind;
-use dprint_swc_ext::swc::lexer::common::lexer::char::CharExt;
-use dprint_swc_ext::view::Node;
-use dprint_swc_ext::view::Program;
+use oxc_syntax::identifier::is_identifier_part;
+use oxc_syntax::identifier::is_identifier_start;
 
-/** Gets if the node contains a line comment or multi-line block comment */
-pub fn contains_line_or_multiline_comment<'a>(node: Node<'a>, program: Program<'a>) -> bool {
+use crate::ast::*;
+
+/// Gets if the node contains a line comment or multi-line block comment.
+pub fn contains_line_or_multiline_comment<'a>(node: Node<'a>, program: ProgramInfo<'a>) -> bool {
   let tokens = node.tokens_fast(program);
   let comments = program.comment_container();
   for (i, token) in tokens.iter().enumerate() {
@@ -32,7 +29,7 @@ pub fn is_text_valid_identifier(string_value: &str) -> bool {
     return false;
   }
   for (i, c) in string_value.chars().enumerate() {
-    if (i == 0 && !c.is_ident_start()) || !c.is_ident_part() {
+    if (i == 0 && !is_identifier_start(c)) || !is_identifier_part(c) {
       return false;
     }
   }

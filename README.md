@@ -4,7 +4,7 @@
 
 TypeScript formatting plugin for dprint.
 
-This uses the [swc](https://github.com/swc-project/swc) parser for TypeScript written in Rust (it's super fast).
+This uses the [oxc](https://github.com/oxc-project/oxc) parser for TypeScript written in Rust (it's super fast).
 
 ## Install
 

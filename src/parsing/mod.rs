@@ -7,3 +7,9 @@ pub use diagnostics::*;
 pub use parse::*;
 pub use parse_from_path::*;
 pub use parsed_source::*;
+
+pub use crate::ast::LineAndColumnDisplay;
+pub use crate::ast::LineAndColumnIndex;
+pub use crate::ast::SourcePos;
+pub use crate::ast::SourceRange;
+pub use crate::ast::SourceTextInfo;

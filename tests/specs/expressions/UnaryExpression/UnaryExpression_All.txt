@@ -17,3 +17,19 @@ delete obj.test;
 +200;
 -200;
 ~(1 - 2);
+
+== should keep a space before an argument with the same sign ==
+- -1;
++ +a;
+- --a;
++ ++a;
+-(-1);
+- +a;
+
+[expect]
+- -1;
++ +a;
+- --a;
++ ++a;
+-(-1);
+-+a;

@@ -10,12 +10,14 @@
 #![deny(clippy::print_stderr)]
 #![deny(clippy::print_stdout)]
 
+mod ast;
 pub mod configuration;
 #[cfg(any(all(feature = "wasm", target_arch = "wasm32", target_os = "unknown"), test))]
 mod embedded_file;
 mod error;
 mod format_range;
 mod format_text;
+
 mod generation;
 pub mod parsing;
 mod tailwind;
@@ -23,8 +25,6 @@ mod utils;
 
 /// Re-export of the crate used for the AST in order to
 /// help consumers ensure they're using the same version.
-pub use dprint_swc_ext;
-
 pub use error::FormatError;
 pub use parsing::is_unsupported_syntax_error;
 

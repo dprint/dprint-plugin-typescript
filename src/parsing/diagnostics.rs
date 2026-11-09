@@ -2,12 +2,10 @@ use std::borrow::Cow;
 use std::fmt;
 use std::sync::Arc;
 
-use dprint_swc_ext::common::LineAndColumnDisplay;
-use dprint_swc_ext::common::SourceRange;
-use dprint_swc_ext::common::SourceRangedForSpanned;
-use dprint_swc_ext::common::SourceTextInfo;
-use dprint_swc_ext::swc::parser::error::Error as SwcError;
-use dprint_swc_ext::swc::parser::error::SyntaxError;
+use crate::ast::LineAndColumnDisplay;
+use crate::ast::SourcePos;
+use crate::ast::SourceRange;
+use crate::ast::SourceTextInfo;
 
 /// A syntax error that occurred while parsing.
 #[derive(Debug, Clone)]
@@ -17,16 +15,26 @@ pub struct ParseDiagnostic(Box<ParseDiagnosticInner>);
 struct ParseDiagnosticInner {
   specifier: Arc<str>,
   range: SourceRange,
-  kind: SyntaxError,
+  message: Cow<'static, str>,
   text_info: SourceTextInfo,
 }
 
 impl ParseDiagnostic {
-  pub(crate) fn from_swc_error(err: SwcError, specifier: &Arc<str>, text_info: SourceTextInfo) -> ParseDiagnostic {
+  pub(crate) fn from_oxc_diagnostic(diagnostic: oxc_diagnostics::OxcDiagnostic, specifier: &Arc<str>, text_info: SourceTextInfo) -> ParseDiagnostic {
+    let range = diagnostic
+      .labels
+      .iter()
+      .find(|l| l.primary())
+      .or_else(|| diagnostic.labels.first())
+      .map(|l| {
+        let start = l.offset();
+        SourceRange::new(SourcePos::new(start), SourcePos::new(start + l.len()))
+      })
+      .unwrap_or_default();
     ParseDiagnostic(Box::new(ParseDiagnosticInner {
-      range: err.range(),
+      range,
       specifier: specifier.clone(),
-      kind: err.into_kind(),
+      message: diagnostic.message.clone(),
       text_info,
     }))
   }
@@ -41,19 +49,14 @@ impl ParseDiagnostic {
     self.0.range
   }
 
-  /// Swc syntax error.
-  pub fn kind(&self) -> &SyntaxError {
-    &self.0.kind
-  }
-
   /// Text info of the source the diagnostic occurred in.
   pub fn text_info(&self) -> &SourceTextInfo {
     &self.0.text_info
   }
 
   /// Human readable message describing the error.
-  pub fn message(&self) -> Cow<'_, str> {
-    self.0.kind.msg()
+  pub fn message(&self) -> &str {
+    &self.0.message
   }
 
   /// 1-indexed display position the diagnostic occurred at.
@@ -69,11 +72,10 @@ impl ParseDiagnostic {
     }
   }
 
-  /// swc will sometimes provide a dummy or out of range span, so ensure the
-  /// range is within the text before using it to index into the text.
+  /// Ensures the range is within the text before using it to index into the text.
   fn clamped_range(&self) -> SourceRange {
     let text_range = self.0.text_info.range();
-    let start = self.0.range.start.clamp(text_range.start.as_source_pos(), text_range.end);
+    let start = self.0.range.start.clamp(text_range.start, text_range.end);
     let end = self.0.range.end.clamp(start, text_range.end);
     SourceRange::new(start, end)
   }
@@ -84,7 +86,7 @@ impl Eq for ParseDiagnostic {}
 impl PartialEq for ParseDiagnostic {
   fn eq(&self, other: &Self) -> bool {
     // excludes the text info
-    self.0.specifier == other.0.specifier && self.0.range == other.0.range && self.0.kind == other.0.kind
+    self.0.specifier == other.0.specifier && self.0.range == other.0.range && self.0.message == other.0.message
   }
 }
 
@@ -349,13 +351,13 @@ test",
 
   #[test]
   fn range_outside_of_text_is_clamped() {
-    // swc will sometimes provide a dummy span, which must not panic when rendered
+    // a span may be out of range, which must not panic when rendered
     let text_info = text_info("const t = 5;");
     let out_of_range = SourceRange::new(text_info.range().end + 100, text_info.range().end + 200);
     let diagnostic = ParseDiagnostic(Box::new(ParseDiagnosticInner {
       specifier: "file:///test.ts".into(),
       range: out_of_range,
-      kind: SyntaxError::Eof,
+      message: "Unexpected eof".into(),
       text_info,
     }));
     assert_eq!(
@@ -399,12 +401,12 @@ test",
     ParseDiagnostic(Box::new(ParseDiagnosticInner {
       specifier: "file:///test.ts".into(),
       range: SourceRange::new(start, start + sub_text.len()),
-      kind: SyntaxError::Eof,
+      message: "Unexpected eof".into(),
       text_info,
     }))
   }
 
   fn text_info(text: &str) -> SourceTextInfo {
-    SourceTextInfo::from_string(text.to_string())
+    SourceTextInfo::new(text.into())
   }
 }

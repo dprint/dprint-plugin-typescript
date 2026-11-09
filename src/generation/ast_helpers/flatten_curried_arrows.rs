@@ -1,8 +1,4 @@
-use dprint_swc_ext::common::SourceRange;
-use dprint_swc_ext::common::SourceRanged;
-use dprint_swc_ext::common::SourceRangedForSpanned;
-use dprint_swc_ext::view::*;
-
+use crate::ast::*;
 use crate::generation::context::Context;
 
 pub struct CurriedArrowExpr<'a> {
@@ -10,7 +6,7 @@ pub struct CurriedArrowExpr<'a> {
 }
 
 impl<'a> CurriedArrowExpr<'a> {
-  pub fn last_arrow(&self) -> &'a ArrowExpr<'a> {
+  pub fn last_arrow(&self) -> &'a ArrowFunctionExpression<'a> {
     self.signatures.last().unwrap().inner
   }
 }
@@ -18,42 +14,42 @@ impl<'a> CurriedArrowExpr<'a> {
 // Signature including arrow
 // ex. `(a: string) =>`
 pub struct ArrowSignature<'a> {
-  pub inner: &'a ArrowExpr<'a>,
+  pub inner: &'a ArrowFunctionExpression<'a>,
 }
 
 impl<'a> ArrowSignature<'a> {
-  pub fn new(inner: &'a ArrowExpr<'a>) -> Self {
+  pub fn new(inner: &'a ArrowFunctionExpression<'a>) -> Self {
     Self { inner }
   }
 
   pub fn is_async(&self) -> bool {
-    self.inner.is_async()
+    self.inner.r#async
   }
 
-  pub fn params(&self) -> &[Pat<'a>] {
-    self.inner.params
+  pub fn params(&self) -> &'a FormalParameters<'a> {
+    &self.inner.params
   }
 
-  pub fn type_params(&self) -> Option<&'a TsTypeParamDecl<'a>> {
-    self.inner.type_params
+  pub fn type_params(&self) -> Option<&'a TSTypeParameterDeclaration<'a>> {
+    self.inner.type_parameters.as_deref()
   }
 
-  pub fn return_type(&self) -> Option<&'a TsTypeAnn<'a>> {
-    self.inner.return_type
+  pub fn return_type(&self) -> Option<&'a TSTypeAnnotation<'a>> {
+    self.inner.return_type.as_deref()
   }
 
   pub fn range(&self, context: &Context<'a>) -> SourceRange {
     let start = self.inner.start();
     let last_token = self.inner.body.previous_token_fast(context.program).unwrap();
-    debug_assert_eq!(last_token.token, dprint_swc_ext::swc::parser::token::Token::Arrow);
+    debug_assert_eq!(last_token.kind, TokenKind::Arrow);
     SourceRange::new(start, last_token.end())
   }
 }
 
-pub fn get_curried_arrow_expr<'a>(mut arrow_func: &'a ArrowExpr<'a>) -> Option<CurriedArrowExpr<'a>> {
+pub fn get_curried_arrow_expr<'a>(mut arrow_func: &'a ArrowFunctionExpression<'a>) -> Option<CurriedArrowExpr<'a>> {
   let mut signatures = Vec::new();
 
-  while let ArrowFunctionBody::Expr(Expr::Arrow(inner)) = arrow_func.body {
+  while let ArrowFunctionBody::ArrowFunctionExpression(inner) = &arrow_func.body {
     signatures.push(ArrowSignature::new(arrow_func));
     arrow_func = inner;
   }

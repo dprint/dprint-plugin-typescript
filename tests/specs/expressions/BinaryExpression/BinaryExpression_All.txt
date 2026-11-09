@@ -374,3 +374,21 @@ const test =
 
 [expect]
 0 as number >= 1;
+
+== should flatten a private in expression with other in expressions ==
+class Test {
+    #prop;
+    method() {
+        return #prop   in   someObject   in   otherObject;
+    }
+}
+
+[expect]
+class Test {
+    #prop;
+    method() {
+        return #prop
+            in someObject
+            in otherObject;
+    }
+}

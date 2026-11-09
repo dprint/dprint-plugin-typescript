@@ -1,129 +1,56 @@
-//! Verifies that a source parsed by another crate (ex. `deno_ast`) can be
+//! Verifies that a program parsed by another crate (ex. `deno_ast`) can be
 //! handed to this crate without it having to parse the text again.
-//!
-//! This stands in for such a crate so that the dependency isn't needed here.
 
-use std::sync::Arc;
-
-use dprint_plugin_typescript::FormatParsedSourceOptions;
+use dprint_core::formatting::Arena;
+use dprint_plugin_typescript::FormatProgramOptions;
 use dprint_plugin_typescript::configuration::ConfigurationBuilder;
-use dprint_plugin_typescript::dprint_swc_ext::common::SourceTextInfo;
-use dprint_plugin_typescript::dprint_swc_ext::swc::ast::EsVersion;
-use dprint_plugin_typescript::dprint_swc_ext::swc::ast::Module;
-use dprint_plugin_typescript::dprint_swc_ext::swc::common::comments::SingleThreadedComments;
-use dprint_plugin_typescript::dprint_swc_ext::swc::common::comments::SingleThreadedCommentsMapInner;
-use dprint_plugin_typescript::dprint_swc_ext::swc::lexer::Capturing;
-use dprint_plugin_typescript::dprint_swc_ext::swc::lexer::Lexer;
-use dprint_plugin_typescript::dprint_swc_ext::swc::lexer::Parser;
-use dprint_plugin_typescript::dprint_swc_ext::swc::lexer::common::parser::Parser as _;
-use dprint_plugin_typescript::dprint_swc_ext::swc::parser::Syntax;
-use dprint_plugin_typescript::dprint_swc_ext::swc::parser::TsSyntax;
-use dprint_plugin_typescript::dprint_swc_ext::swc::parser::token::TokenAndSpan;
-use dprint_plugin_typescript::dprint_swc_ext::view::Comments;
-use dprint_plugin_typescript::dprint_swc_ext::view::ProgramInfo;
-use dprint_plugin_typescript::dprint_swc_ext::view::ProgramInfoProvider;
-use dprint_plugin_typescript::dprint_swc_ext::view::ProgramRef;
+use dprint_plugin_typescript::parsing::parse_options;
+use oxc_allocator::Allocator;
+use oxc_parser::Parser;
+use oxc_parser::config::TokensParserConfig;
+use oxc_span::SourceType;
 
 #[test]
-fn formats_a_foreign_parsed_source() {
-  let source = OtherCrateParsedSource::parse("const  t  =  5 ; // comment");
-  let config = ConfigurationBuilder::new().build();
-  let result = dprint_plugin_typescript::format_parsed_source(FormatParsedSourceOptions {
-    source: &source,
-    syntax: source.syntax,
-    config: &config,
-    external_formatter: None,
-    arena_pool: None,
-  })
-  .unwrap()
-  .unwrap();
+fn formats_a_foreign_parsed_program() {
+  let result = format_foreign("const  t  =  5 ; // comment", true).unwrap().unwrap();
   assert_eq!(result, "const t = 5; // comment\n");
 }
 
 #[test]
 fn respects_the_ignore_file_comment() {
-  let source = OtherCrateParsedSource::parse("// dprint-ignore-file\nconst  t  =  5 ;");
-  let config = ConfigurationBuilder::new().build();
-  let result = dprint_plugin_typescript::format_parsed_source(FormatParsedSourceOptions {
-    source: &source,
-    syntax: source.syntax,
-    config: &config,
-    external_formatter: None,
-    arena_pool: None,
-  })
-  .unwrap();
+  let result = format_foreign("// dprint-ignore-file\nconst  t  =  5 ;", true).unwrap();
   assert_eq!(result, None);
 }
 
 #[test]
-fn errors_when_the_provider_does_not_capture_everything() {
-  struct MissingTokens(OtherCrateParsedSource);
+fn errors_when_the_tokens_were_not_collected() {
+  let err = format_foreign("const t = 5;", false).err().unwrap();
+  assert_eq!(err.to_string(), "The tokens must be collected in order to format a program.");
+}
 
-  impl ProgramInfoProvider for MissingTokens {
-    fn program_info(&self) -> ProgramInfo<'_> {
-      ProgramInfo {
-        tokens: None,
-        comments: None,
-        ..self.0.program_info()
-      }
-    }
-  }
-
-  let source = MissingTokens(OtherCrateParsedSource::parse("const t = 5;"));
+/// Parses the text the way another crate would, then formats it.
+fn format_foreign(text: &str, collect_tokens: bool) -> Result<Option<String>, dprint_plugin_typescript::FormatError> {
+  let allocator = Allocator::default();
+  let parser = Parser::new(&allocator, text, SourceType::ts()).with_options(parse_options());
   let config = ConfigurationBuilder::new().build();
-  let err = dprint_plugin_typescript::format_parsed_source(FormatParsedSourceOptions {
-    source: &source,
-    syntax: source.0.syntax,
-    config: &config,
-    external_formatter: None,
-    arena_pool: None,
-  })
-  .err()
-  .unwrap();
-  assert_eq!(err.to_string(), "The tokens must be captured in order to format a program.");
-}
-
-/// Stands in for a parsed source owned by another crate.
-struct OtherCrateParsedSource {
-  syntax: Syntax,
-  module: Module,
-  text_info: SourceTextInfo,
-  tokens: Vec<TokenAndSpan>,
-  leading: SingleThreadedCommentsMapInner,
-  trailing: SingleThreadedCommentsMapInner,
-}
-
-impl ProgramInfoProvider for OtherCrateParsedSource {
-  fn program_info(&self) -> ProgramInfo<'_> {
-    ProgramInfo {
-      program: ProgramRef::Module(&self.module),
-      text_info: Some(&self.text_info),
-      tokens: Some(&self.tokens),
-      comments: Some(Comments {
-        leading: &self.leading,
-        trailing: &self.trailing,
-      }),
-    }
-  }
-}
-
-impl OtherCrateParsedSource {
-  pub fn parse(text: &str) -> Self {
-    let syntax = Syntax::Typescript(TsSyntax::default());
-    let text_info = SourceTextInfo::new(Arc::from(text));
-    let comments = SingleThreadedComments::default();
-    let lexer = Capturing::new(Lexer::new(syntax, EsVersion::Es2021, text_info.as_string_input(), Some(&comments)));
-    let mut parser = Parser::new_from(lexer);
-    let module = parser.parse_module().unwrap();
-    let tokens = Capturing::take(&mut parser.input_mut().iter);
-    let (leading, trailing) = comments.take_all();
-    Self {
-      syntax,
-      module,
-      text_info,
-      tokens,
-      leading: std::rc::Rc::try_unwrap(leading).unwrap().into_inner(),
-      trailing: std::rc::Rc::try_unwrap(trailing).unwrap().into_inner(),
-    }
+  let arena = Arena::new();
+  if collect_tokens {
+    let ret = parser.with_config(TokensParserConfig).parse();
+    dprint_plugin_typescript::format_program(FormatProgramOptions {
+      program: &ret.program,
+      tokens: &ret.tokens,
+      config: &config,
+      external_formatter: None,
+      arena: &arena,
+    })
+  } else {
+    let ret = parser.parse();
+    dprint_plugin_typescript::format_program(FormatProgramOptions {
+      program: &ret.program,
+      tokens: &[],
+      config: &config,
+      external_formatter: None,
+      arena: &arena,
+    })
   }
 }

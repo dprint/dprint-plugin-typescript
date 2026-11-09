@@ -1,10 +1,9 @@
 mod module_specifiers;
 use module_specifiers::*;
 
-use dprint_swc_ext::common::SourceRange;
-use dprint_swc_ext::common::SourceRanged;
-use dprint_swc_ext::view::*;
 use std::cmp::Ordering;
+
+use crate::ast::*;
 
 use crate::configuration::*;
 use crate::utils;
@@ -29,7 +28,7 @@ pub fn get_node_sorter_from_order(order: SortOrder, named_type_imports_exports_o
 }
 
 impl NodeSorter {
-  pub fn get_sorted_indexes<'a>(&self, nodes: impl Iterator<Item = Option<Node<'a>>>, program: Program<'a>) -> utils::VecMap<usize> {
+  pub fn get_sorted_indexes<'a>(&self, nodes: impl Iterator<Item = Option<Node<'a>>>, program: ProgramInfo<'a>) -> utils::VecMap<usize> {
     let nodes_with_indexes = nodes.enumerate().collect::<Vec<_>>();
     let mut old_to_new_index = utils::VecMap::with_capacity(nodes_with_indexes.len());
 
@@ -119,7 +118,7 @@ impl NodeSorter {
     }
   }
 
-  pub fn get_node_sort_key<'a>(&self, node: Node<'a>, program: Program<'a>) -> NodeSortKey<'a> {
+  pub fn get_node_sort_key<'a>(&self, node: Node<'a>, program: ProgramInfo<'a>) -> NodeSortKey<'a> {
     NodeSortKey {
       parts: get_comparison_parts(node, is_import_or_export_declaration(node), program),
     }
@@ -160,8 +159,8 @@ enum ImportDeclBindings {
   Named,
 }
 
-fn get_comparison_parts<'a>(node: Node<'a>, use_module_specifier: bool, program: Program<'a>) -> Vec<ComparisonPart<'a>> {
-  fn get_part(range: SourceRange, use_module_specifier: bool, program: Program<'_>) -> ComparisonPart<'_> {
+fn get_comparison_parts<'a>(node: Node<'a>, use_module_specifier: bool, program: ProgramInfo<'a>) -> Vec<ComparisonPart<'a>> {
+  fn get_part(range: SourceRange, use_module_specifier: bool, program: ProgramInfo<'_>) -> ComparisonPart<'_> {
     let text = range.text_fast(program);
     if use_module_specifier {
       ComparisonPart::ModuleSpecifier(get_module_specifier_info(text))
@@ -171,56 +170,52 @@ fn get_comparison_parts<'a>(node: Node<'a>, use_module_specifier: bool, program:
   }
 
   match node {
-    Node::ImportNamedSpecifier(node) => {
-      let first_node = if node.is_type_only() {
+    Node::ImportSpecifier(node) => {
+      let first_node = if node.import_kind.is_type() {
         ComparisonPart::HasType
       } else {
         ComparisonPart::NoType
       };
-      if let Some(imported) = &node.imported {
+      // the imported name has the same range as the local name when there's no alias
+      if node.imported.range() != node.local.range() {
         vec![
           first_node,
-          get_part(imported.range(), use_module_specifier, program),
+          get_part(node.imported.range(), use_module_specifier, program),
           get_part(node.local.range(), use_module_specifier, program),
         ]
       } else {
         vec![first_node, get_part(node.local.range(), use_module_specifier, program)]
       }
     }
-    Node::ExportNamedSpecifier(node) => {
-      let first_node = if node.is_type_only() {
+    Node::ExportSpecifier(node) => {
+      let first_node = if node.export_kind.is_type() {
         ComparisonPart::HasType
       } else {
         ComparisonPart::NoType
       };
-      if let Some(exported) = &node.exported {
+      // the exported name has the same range as the local name when there's no alias
+      if node.exported.range() != node.local.range() {
         vec![
           first_node,
-          get_part(node.orig.range(), use_module_specifier, program),
-          get_part(exported.range(), use_module_specifier, program),
+          get_part(node.local.range(), use_module_specifier, program),
+          get_part(node.exported.range(), use_module_specifier, program),
         ]
       } else {
-        vec![first_node, get_part(node.orig.range(), use_module_specifier, program)]
+        vec![first_node, get_part(node.local.range(), use_module_specifier, program)]
       }
     }
-    Node::ImportDecl(node) => {
+    Node::ImportDeclaration(node) => {
       // the kind breaks ties between declarations of the same module so they have a canonical order
       vec![
-        get_part(node.src.range(), use_module_specifier, program),
+        get_part(node.source.range(), use_module_specifier, program),
         ComparisonPart::ImportDeclKind(get_import_decl_kind(node)),
       ]
     }
-    Node::NamedExport(node) => {
-      if let Some(src) = &node.src {
-        vec![get_part(src.range(), use_module_specifier, program)]
-      } else if cfg!(debug_assertions) {
-        unimplemented!("Should not call this for named exports with src.");
-      } else {
-        vec![get_part(node.range(), use_module_specifier, program)]
-      }
+    Node::ExportFromDeclaration(node) => {
+      vec![get_part(node.source.range(), use_module_specifier, program)]
     }
-    Node::ExportAll(node) => {
-      vec![get_part(node.src.range(), use_module_specifier, program)]
+    Node::ExportAllDeclaration(node) => {
+      vec![get_part(node.source.range(), use_module_specifier, program)]
     }
     _ => {
       if cfg!(debug_assertions) {
@@ -259,23 +254,26 @@ fn cmp_ascii_case_insensitive(a: &[u8], b: &[u8]) -> Ordering {
   a.len().cmp(&b.len())
 }
 
-fn get_import_decl_kind(node: &ImportDecl) -> ImportDeclKind {
-  let has_specifier = |is_match: fn(&ImportSpecifier) -> bool| node.specifiers.iter().any(is_match);
-  let bindings = if has_specifier(|s| matches!(s, ImportSpecifier::Namespace(_))) {
+fn get_import_decl_kind(node: &ImportDeclaration) -> ImportDeclKind {
+  let has_specifier = |is_match: fn(&ImportDeclarationSpecifier) -> bool| node.specifiers.iter().flatten().any(is_match);
+  let bindings = if has_specifier(|s| matches!(s, ImportDeclarationSpecifier::ImportNamespaceSpecifier(_))) {
     ImportDeclBindings::Namespace
-  } else if has_specifier(|s| matches!(s, ImportSpecifier::Named(_))) {
+  } else if has_specifier(|s| matches!(s, ImportDeclarationSpecifier::ImportSpecifier(_))) {
     ImportDeclBindings::Named
   } else {
     ImportDeclBindings::Default
   };
   ImportDeclKind {
-    is_value: !node.type_only(),
+    is_value: !node.import_kind.is_type(),
     bindings,
   }
 }
 
 fn is_import_or_export_declaration(node: Node) -> bool {
-  matches!(node, Node::ImportDecl(_) | Node::NamedExport(_) | Node::ExportAll(_))
+  matches!(
+    node,
+    Node::ImportDeclaration(_) | Node::ExportFromDeclaration(_) | Node::ExportAllDeclaration(_)
+  )
 }
 
 #[cfg(test)]
