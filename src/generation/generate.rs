@@ -9000,7 +9000,8 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
     TrailingCommas::Never
   };
   let prefer_hanging = opts.prefer_hanging;
-  let line_per_element = opts.line_per_element;
+  // a hanging array that prefers being on a single line fills the lines instead
+  let maintain_line_breaks = !opts.line_per_element && !(prefer_hanging && prefer_single_line);
   let space_around = opts.space_around;
   let range = opts.range;
   let force_use_new_lines = get_array_like_force_use_new_lines(range, &nodes, prefer_single_line, context);
@@ -9022,7 +9023,8 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
             separator: Signal::SpaceOrNewLine.into_print_items(context.arena),
           },
           multi_line_options: ir_helpers::MultiLineOptions {
-            maintain_line_breaks: !line_per_element,
+            maintain_line_breaks,
+            newline_after_value_made_multi_line: maintain_line_breaks,
             ..ir_helpers::MultiLineOptions::surround_newlines_indented()
           },
           force_possible_newline_at_start: false,

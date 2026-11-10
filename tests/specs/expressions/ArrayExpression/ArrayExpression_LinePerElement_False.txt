@@ -315,3 +315,37 @@ const t = [
     a, , /* x
     y */ b,
 ];
+
+== should put the element after one that goes multi-line because of the line width on its own line ==
+const t = [1, aaaaaaaaaaaaaaaaaaa + bbbbbbbbbbbbbbbbbbbbbb + ccccccccccc, 2, 3];
+const u = [
+    1, call(aaaaaaaaaaaaaaaaa, bbbbbbbbbbbbbbbbbbbbb), 2, 3
+];
+const v = [
+    1, { aaaaaaaaaaaaaaaaa: 1, bbbbbbbbbbbbbbbbbbbbb: 2 }, 2, 3
+];
+
+[expect]
+const t = [
+    1,
+    aaaaaaaaaaaaaaaaaaa
+    + bbbbbbbbbbbbbbbbbbbbbb
+    + ccccccccccc,
+    2, 3,
+];
+const u = [
+    1,
+    call(
+        aaaaaaaaaaaaaaaaa,
+        bbbbbbbbbbbbbbbbbbbbb,
+    ),
+    2, 3,
+];
+const v = [
+    1,
+    {
+        aaaaaaaaaaaaaaaaa: 1,
+        bbbbbbbbbbbbbbbbbbbbb: 2,
+    },
+    2, 3,
+];

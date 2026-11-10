@@ -11,14 +11,34 @@ const t = [
     "testing", "testing", "testing",
 ];
 
-== should fill the lines when hanging ==
-const u = ["testing", "testing", "testing", "testing", "testing"];
-const v = ["testing",
+== should maintain the line breaks when hanging ==
+const t = ["node", "script",
+    "-p", "./a/package.json",
+    "-v", "1.339.0"];
+const u = ["testing",
     "testing", "testing",
     "testing", "testing"];
 
 [expect]
-const u = ["testing", "testing",
+const t = ["node", "script",
+    "-p", "./a/package.json",
+    "-v", "1.339.0"];
+const u = ["testing",
+    "testing", "testing",
+    "testing", "testing"];
+
+== should fill the lines when hanging and there are no line breaks ==
+const t = ["testing", "testing", "testing", "testing", "testing"];
+
+[expect]
+const t = ["testing", "testing",
     "testing", "testing", "testing"];
-const v = ["testing", "testing",
-    "testing", "testing", "testing"];
+
+== should wrap a line that exceeds the line width when hanging ==
+const t = ["testing", "testing", "testing", "testing",
+    "testing"];
+
+[expect]
+const t = ["testing", "testing",
+    "testing", "testing",
+    "testing"];
