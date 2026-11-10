@@ -1,0 +1,15 @@
+~~ lineWidth: 40, arrayExpression.linePerElement: false, arrayExpression.trailingCommas: never, arrayExpression.spaceAround: true, indentWidth: 2 ~~
+== should maintain the line breaks ==
+const t = [
+    1, 2,
+    3, 4,
+];
+const u = [ 1, 2,
+    3, 4 ];
+
+[expect]
+const t = [
+  1, 2,
+  3, 4
+];
+const u = [ 1, 2, 3, 4 ];

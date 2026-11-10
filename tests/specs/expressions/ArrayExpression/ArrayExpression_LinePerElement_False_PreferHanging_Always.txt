@@ -1,0 +1,24 @@
+~~ lineWidth: 40, arrayExpression.linePerElement: false, arrayExpression.preferHanging: always ~~
+== should maintain the line breaks when the first element is on a new line ==
+const t = [
+    "testing", "testing",
+    "testing", "testing", "testing"
+];
+
+[expect]
+const t = [
+    "testing", "testing",
+    "testing", "testing", "testing",
+];
+
+== should fill the lines when hanging ==
+const u = ["testing", "testing", "testing", "testing", "testing"];
+const v = ["testing",
+    "testing", "testing",
+    "testing", "testing"];
+
+[expect]
+const u = ["testing", "testing",
+    "testing", "testing", "testing"];
+const v = ["testing", "testing",
+    "testing", "testing", "testing"];

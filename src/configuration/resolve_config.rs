@@ -101,6 +101,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     file_indent_level: get_value(&mut config, "fileIndentLevel", 0, &mut diagnostics),
     max_blank_lines: get_value(&mut config, "maxBlankLines", 1, &mut diagnostics),
     /* situational */
+    array_expression_line_per_element: get_value(&mut config, "arrayExpression.linePerElement", true, &mut diagnostics),
     arrow_function_use_parentheses: get_value(&mut config, "arrowFunction.useParentheses", UseParentheses::Maintain, &mut diagnostics),
     binary_expression_line_per_expression: get_value(&mut config, "binaryExpression.linePerExpression", false, &mut diagnostics),
     conditional_expression_line_per_expression: get_value(&mut config, "conditionalExpression.linePerExpression", true, &mut diagnostics),
@@ -1091,6 +1092,27 @@ mod tests {
         "taggedTemplate.embeddedLanguages.number"
       ]
     );
+  }
+
+  #[test]
+  fn handle_array_expression_line_per_element() {
+    let property_name = "arrayExpression.linePerElement";
+    for value in [None, Some(true), Some(false)] {
+      let mut config = ConfigKeyMap::new();
+      if let Some(value) = value {
+        config.insert(property_name.to_string(), value.into());
+      }
+      let result = resolve_config(config, &GlobalConfiguration::default());
+      assert_eq!(result.diagnostics.len(), 0);
+      assert_eq!(result.config.array_expression_line_per_element, value.unwrap_or(true));
+      assert_eq!(serde_json::to_value(&result.config).unwrap()[property_name], value.unwrap_or(true));
+    }
+
+    let mut config = ConfigKeyMap::new();
+    config.insert(property_name.to_string(), ConfigKeyValue::from_str("invalid"));
+    let result = resolve_config(config, &GlobalConfiguration::default());
+    assert!(result.config.array_expression_line_per_element);
+    assert_eq!(get_diagnostic_property_names(&result.diagnostics), [property_name]);
   }
 
   #[test]

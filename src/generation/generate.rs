@@ -1824,6 +1824,7 @@ fn gen_array_expr<'a>(node: &ArrayLit<'a>, context: &mut Context<'a>) -> PrintIt
       range: node.range(),
       nodes: node.elems.iter().map(|&x| x.map(|elem| elem.into())).collect(),
       prefer_hanging,
+      line_per_element: context.config.array_expression_line_per_element,
       prefer_single_line: context.config.array_expression_prefer_single_line,
       trailing_commas: context.config.array_expression_trailing_commas,
       space_around: context.config.array_expression_space_around,
@@ -5638,6 +5639,7 @@ fn gen_array_pat<'a>(node: &ArrayPat<'a>, context: &mut Context<'a>) -> PrintIte
       range: get_brackets_range(node, context),
       nodes: node.elems.iter().map(|x| x.as_ref().map(|elem| elem.into())).collect(),
       prefer_hanging: context.config.array_pattern_prefer_hanging,
+      line_per_element: true,
       prefer_single_line: context.config.array_pattern_prefer_single_line,
       trailing_commas: context.config.array_pattern_trailing_commas,
       space_around: context.config.array_pattern_space_around,
@@ -7847,6 +7849,7 @@ fn gen_tuple_type<'a>(node: &TsTupleType<'a>, context: &mut Context<'a>) -> Prin
       range: node.range(),
       nodes: node.elem_types.iter().map(|&x| Some(x.into())).collect(),
       prefer_hanging,
+      line_per_element: true,
       prefer_single_line: context.config.tuple_type_prefer_single_line,
       trailing_commas: context.config.tuple_type_trailing_commas,
       space_around: context.config.tuple_type_space_around,
@@ -8976,6 +8979,9 @@ struct GenArrayLikeNodesOptions<'a> {
   range: SourceRange,
   nodes: Vec<Option<Node<'a>>>,
   prefer_hanging: bool,
+  /// Whether each element goes on its own line when multi-line instead of
+  /// maintaining the line breaks between the elements.
+  line_per_element: bool,
   prefer_single_line: bool,
   space_around: bool,
   trailing_commas: TrailingCommas,
@@ -8994,6 +9000,7 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
     TrailingCommas::Never
   };
   let prefer_hanging = opts.prefer_hanging;
+  let line_per_element = opts.line_per_element;
   let space_around = opts.space_around;
   let range = opts.range;
   let force_use_new_lines = get_array_like_force_use_new_lines(range, &nodes, prefer_single_line, context);
@@ -9014,7 +9021,10 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
             space_at_end: space_around,
             separator: Signal::SpaceOrNewLine.into_print_items(context.arena),
           },
-          multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(),
+          multi_line_options: ir_helpers::MultiLineOptions {
+            maintain_line_breaks: !line_per_element,
+            ..ir_helpers::MultiLineOptions::surround_newlines_indented()
+          },
           force_possible_newline_at_start: false,
           node_sorter: None,
         },
@@ -10354,6 +10364,7 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
     ListBlankLines::Force => 1,
   };
   let node_sorter = opts.node_sorter;
+  let maintain_line_breaks = opts.multi_line_options.maintain_line_breaks;
 
   // would need to make this take into account the new position of the nodes
   #[cfg(debug_assertions)]
@@ -10389,10 +10400,24 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
         };
         let lines_span = match blank_lines {
           ListBlankLines::Remove => None,
-          ListBlankLines::Maintain => value.as_node().map(|x| ir_helpers::LinesSpan {
-            start_line: x.start_line_with_comments(context),
-            end_line: x.end_line_with_comments(context),
-          }),
+          ListBlankLines::Maintain => match &value {
+            NodeOrSeparator::Node(node) => Some(ir_helpers::LinesSpan {
+              start_line: node.start_line_with_comments(context),
+              end_line: if maintain_line_breaks && is_comma_on_later_line(*node, context) {
+                // maintain the line break before a comma at the start of a line
+                node.end_line_fast(context.program)
+              } else {
+                node.end_line_with_comments(context)
+              },
+            }),
+            // a separator in place of a value (ex. the hole in `[a, , b]`) only has a
+            // span when it's necessary for maintaining the line breaks beside it
+            NodeOrSeparator::Separator(token) if maintain_line_breaks => Some(ir_helpers::LinesSpan {
+              start_line: token.range().start_line_with_comments(context),
+              end_line: get_end_line_with_trailing_comments(token.end(), context.program),
+            }),
+            NodeOrSeparator::Separator(_) => None,
+          },
           // a span that's one blank line after the previous value's, unless the blank line
           // was already added before the comments after the previous value's comma
           ListBlankLines::Force => value.as_node().map(|node| {
@@ -10460,7 +10485,22 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
         };
 
         generated_nodes.push(ir_helpers::GeneratedValue {
-          items: if use_new_line_group { ir_helpers::new_line_group(items) } else { items },
+          items: if use_new_line_group {
+            ir_helpers::new_line_group(items)
+          } else if maintain_line_breaks {
+            // when multi-line, the value goes on the next line when it doesn't fit on
+            // the rest of the line instead of breaking within (ex. `[1, 2], [3, 4]`)
+            let items = items.into_rc_path();
+            if_true_or(
+              "newLineGroupIfMultiLine",
+              is_multi_line_or_hanging,
+              ir_helpers::new_line_group(items.into_print_items(context.arena)),
+              items.into_print_items(context.arena),
+            )
+            .into_print_items(context.arena)
+          } else {
+            items
+          },
           lines_span,
           allow_inline_multi_line,
           allow_inline_single_line,
@@ -10483,6 +10523,14 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
       force_possible_newline_at_start: opts.force_possible_newline_at_start,
     },
   );
+
+  /// Gets if the comma after the node starts on a later line than the node ends on.
+  fn is_comma_on_later_line<'a>(node: Node<'a>, context: &mut Context<'a>) -> bool {
+    context
+      .token_finder
+      .get_next_token_if_comma(&node)
+      .is_some_and(|comma| comma.start_line_fast(context.program) > node.end_line_fast(context.program))
+  }
 
   /// Gets if each value isn't allowed to be inline multi-line because it has a value beside it of
   /// the same kind, so the container breaks instead (ex. `[{ a }, { b }]` instead of expanding the

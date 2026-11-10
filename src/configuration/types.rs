@@ -535,6 +535,8 @@ pub struct Configuration {
   pub file_indent_level: u32,
   pub max_blank_lines: u32,
   /* situational */
+  #[serde(rename = "arrayExpression.linePerElement")]
+  pub array_expression_line_per_element: bool,
   #[serde(rename = "arrowFunction.useParentheses")]
   pub arrow_function_use_parentheses: UseParentheses,
   #[serde(rename = "binaryExpression.linePerExpression")]
