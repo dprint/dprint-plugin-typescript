@@ -1813,23 +1813,26 @@ fn gen_named_import_or_export_specifiers<'a>(opts: GenNamedImportOrExportSpecifi
 /* expressions */
 
 fn gen_array_expr<'a>(node: &ArrayLit<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
-  let prefer_hanging = match context.config.array_expression_prefer_hanging {
-    PreferHanging::Never => false,
-    PreferHanging::OnlySingleItem => node.elems.len() == 1,
-    PreferHanging::Always => true,
-  };
   gen_array_like_nodes(
     GenArrayLikeNodesOptions {
       node: node.into(),
       range: node.range(),
       nodes: node.elems.iter().map(|&x| x.map(|elem| elem.into())).collect(),
-      prefer_hanging,
+      prefer_hanging: get_array_expr_prefer_hanging(node, context.config),
       prefer_single_line: context.config.array_expression_prefer_single_line,
       trailing_commas: context.config.array_expression_trailing_commas,
       space_around: context.config.array_expression_space_around,
     },
     context,
   )
+}
+
+fn get_array_expr_prefer_hanging(node: &ArrayLit, config: &Configuration) -> bool {
+  match config.array_expression_prefer_hanging {
+    PreferHanging::Never => false,
+    PreferHanging::OnlySingleItem => node.elems.len() == 1,
+    PreferHanging::Always => true,
+  }
 }
 
 fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
@@ -10370,6 +10373,7 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
   };
   let node_sorter = opts.node_sorter;
   let disallow_inline_multi_line_new_line_groups = opts.disallow_inline_multi_line_new_line_groups;
+  let is_hanging = opts.prefer_hanging && !opts.force_use_new_lines;
 
   // would need to make this take into account the new position of the nodes
   #[cfg(debug_assertions)]
@@ -10475,8 +10479,16 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
           _ => true,
         };
 
+        let items = if use_new_line_group { ir_helpers::new_line_group(items) } else { items };
+        // a value that's allowed to be inline multi-line is still pulled up beside the previous value (ex. a function)
+        let items = if is_hanging && i > 0 && use_new_line_group && !allow_inline_multi_line && is_value_on_new_line(&value, context) {
+          gen_multi_line_hanging_value_on_new_line(items, context)
+        } else {
+          items
+        };
+
         generated_nodes.push(ir_helpers::GeneratedValue {
-          items: if use_new_line_group { ir_helpers::new_line_group(items) } else { items },
+          items,
           lines_span,
           allow_inline_multi_line: allow_inline_multi_line && !(use_new_line_group && disallow_inline_multi_line_new_line_groups),
           allow_inline_single_line,
@@ -10521,13 +10533,51 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
 
   /// Gets if the first value starts on a later line than the token before it (ex. the open bracket).
   fn is_first_value_on_new_line<'a>(nodes: &[NodeOrSeparator<'a>], context: &Context<'a>) -> bool {
-    let Some(first_value) = nodes.first() else {
-      return false;
-    };
-    match context.token_finder.get_previous_token(first_value) {
-      Some(previous_token) => node_helpers::get_use_new_lines_for_nodes(&previous_token.range(), first_value, context.program),
+    nodes.first().is_some_and(|first_value| is_value_on_new_line(first_value, context))
+  }
+
+  /// Gets if the value starts on a later line than the token before it (ex. the previous value's comma).
+  fn is_value_on_new_line<'a>(value: &NodeOrSeparator<'a>, context: &Context<'a>) -> bool {
+    match context.token_finder.get_previous_token(value) {
+      Some(previous_token) => node_helpers::get_use_new_lines_for_nodes(&previous_token.range(), value, context.program),
       None => false,
     }
+  }
+
+  /// Keeps a value of a hanging list on the line after the previous value when it's multi-line.
+  ///
+  /// A value that doesn't fit on the previous value's line is moved to the next line before it's
+  /// broken up. Its line breaks are then kept when formatting again (ex. the ones between the
+  /// operands of a binary expression), so what's left on its first line may fit on the previous
+  /// value's line, but it stays where it is.
+  fn gen_multi_line_hanging_value_on_new_line<'a>(value_items: PrintItems<'a>, context: &Context<'a>) -> PrintItems<'a> {
+    let end_ln = LineNumber::new("hangingValueEnd");
+    let value_items = {
+      let mut items = value_items;
+      items.push_info(end_ln);
+      items
+    }
+    .into_rc_path();
+    let mut items = gen_line_numbers_region_start(context.arena, &[end_ln]);
+    items.push_condition(if_true_or(
+      "newLineIfMultiLineHangingValue",
+      context.arena.alloc_resolver(move |condition_context| {
+        // it was already moved to the next line when it didn't fit
+        if condition_context.writer_info.is_start_of_line() {
+          return Some(false);
+        }
+        let end_ln = condition_context.resolved_line_number(end_ln)?;
+        Some(end_ln > condition_context.writer_info.line_number)
+      }),
+      {
+        let mut items = PrintItems::new(context.arena);
+        items.push_signal(Signal::NewLine);
+        items.extend(with_indent(value_items.into_print_items(context.arena)));
+        items
+      },
+      value_items.into_print_items(context.arena),
+    ));
+    items
   }
 
   /// Gets if each value has a value beside it of the same kind.
@@ -12423,7 +12473,11 @@ fn gen_assignment_like_with_token<'a>(
       }
       items.push_info(start_ln);
     }
+    // set back after because an assignment can be within the header of an assigned arrow function (ex. `(a = b) => [c]`)
+    let arrow_array_body_start = get_arrow_array_body_with_kept_line_breaks(expr, context.config);
+    let previous_arrow_array_body_start = std::mem::replace(&mut context.assignment_arrow_array_body_start, arrow_array_body_start);
     let assignment = gen_node(expr, context);
+    context.assignment_arrow_array_body_start = previous_arrow_array_body_start;
     let assignment = if had_op_trailing_comments {
       assignment
     } else {
@@ -12492,6 +12546,24 @@ fn gen_assignment_like_with_token<'a>(
         }
         _ => return None,
       };
+    }
+  }
+
+  /// Gets the start of the array that's the body of the arrow function on the right side when it
+  /// has one that keeps its line breaks (ex. `() => [a, b]` or `a => b => [c, d]`).
+  fn get_arrow_array_body_with_kept_line_breaks<'a>(expr: Node<'a>, config: &Configuration) -> Option<SourcePos> {
+    let Node::ArrowExpr(mut arrow) = expr else {
+      return None;
+    };
+    loop {
+      match arrow.body {
+        ArrowFunctionBody::Expr(Expr::Arrow(inner_arrow)) => arrow = inner_arrow,
+        ArrowFunctionBody::Expr(Expr::Array(array)) => {
+          let keeps_line_breaks = !config.array_expression_prefer_single_line && !get_array_expr_prefer_hanging(array, config);
+          return keeps_line_breaks.then_some(array.start());
+        }
+        _ => return None,
+      }
     }
   }
 }
@@ -12812,6 +12884,9 @@ fn use_new_line_group_for_arrow_body<'a>(arrow_expr: &'a ArrowExpr<'a>, context:
         Expr::Object(_) => false,
         _ => !is_jsx_paren_expr_handled_node(paren.expr.into(), context),
       },
+      // The array keeps its line breaks, which keeps the arrow function on the line of the assignment's operator
+      // when formatting again. So it's broken up instead of moving the arrow function to the next line first.
+      Expr::Array(array) => context.assignment_arrow_array_body_start != Some(array.start()),
       _ => !is_jsx_paren_expr_handled_node(expr.into(), context),
     },
     _ => true,
