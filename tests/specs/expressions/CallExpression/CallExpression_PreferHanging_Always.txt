@@ -23,3 +23,23 @@ call(
         ),
     ),
 );
+
+== should keep an argument on the next line when it's broken up there ==
+call(1, aaaaaaaaaaaaaaaaaaa + bbbbbbbbbbbbbbbbbbbbbb + ccccccccccc, 2);
+
+[expect]
+call(1,
+    aaaaaaaaaaaaaaaaaaa
+        + bbbbbbbbbbbbbbbbbbbbbb
+        + ccccccccccc, 2);
+
+== should still move a function on the next line beside the previous argument ==
+call(1,
+    function() {
+        test;
+    });
+
+[expect]
+call(1, function() {
+    test;
+});
