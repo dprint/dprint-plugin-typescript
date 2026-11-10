@@ -53,6 +53,7 @@
         "preferHanging",
         "preferSingleLine",
         "operatorPosition",
+        "arrayExpression.linePerElement",
         "binaryExpression.linePerExpression",
         "memberExpression.linePerExpression",
         "conditionalExpression.linePerExpression",
@@ -672,6 +673,18 @@
       }, {
         "const": "preferNone",
         "description": "Prefers not using parentheses when possible."
+      }]
+    },
+    "arrayExpression.linePerElement": {
+      "description": "Whether to force a line per element when an array expression spans multiple lines.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Formats with each element on a new line."
+      }, {
+        "const": false,
+        "description": "Maintains the line breaks between the elements as written by the programmer. A line that exceeds the line width is still split up."
       }]
     },
     "binaryExpression.linePerExpression": {
@@ -1486,6 +1499,17 @@
         "input": [
           "const double = x => x * 2;",
           "const triple = (x) => x * 3;"
+        ]
+      }
+    },
+    "arrayExpression.linePerElement": {
+      "$ref": "#/definitions/arrayExpression.linePerElement",
+      "x-example": {
+        "input": [
+          "const bytes = [",
+          "  0x00, 0x01, 0x02, 0x03,",
+          "  0x10, 0x11, 0x12, 0x13,",
+          "];"
         ]
       }
     },

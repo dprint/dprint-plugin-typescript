@@ -1,0 +1,351 @@
+~~ lineWidth: 40, arrayExpression.linePerElement: false ~~
+== should maintain the line breaks between the elements ==
+process.argv = [
+    "node", "script",
+    "-p",   "./a/package.json",
+  "-p", "./b/package.json",
+    "-v", "1.339.0"
+];
+
+const bytes = [
+    0x00, 0x01, 0x02, 0x03,
+    0x10, 0x11, 0x12, 0x13
+];
+
+[expect]
+process.argv = [
+    "node", "script",
+    "-p", "./a/package.json",
+    "-p", "./b/package.json",
+    "-v", "1.339.0",
+];
+
+const bytes = [
+    0x00, 0x01, 0x02, 0x03,
+    0x10, 0x11, 0x12, 0x13,
+];
+
+== should keep the elements on one line when written that way ==
+const t = [
+    1, 2, 3
+];
+const u = [
+    1, 2
+];
+const v = [
+    1
+];
+
+[expect]
+const t = [
+    1, 2, 3,
+];
+const u = [
+    1, 2,
+];
+const v = [
+    1,
+];
+
+== should collapse when the first element is on the same line as the open bracket ==
+const t = [1, 2,
+    3, 4];
+
+[expect]
+const t = [1, 2, 3, 4];
+
+== should wrap a line that exceeds the line width ==
+const t = [
+    "testing", "testing", "testing", "testing", "testing",
+    "other", "other"
+];
+const u = ["testing", "testing", "testing", "testing", "testing"];
+
+[expect]
+const t = [
+    "testing", "testing", "testing",
+    "testing", "testing",
+    "other", "other",
+];
+const u = [
+    "testing", "testing", "testing",
+    "testing", "testing",
+];
+
+== should maintain blank lines ==
+const t = [
+    1, 2,
+
+    3, 4,
+
+
+    5
+];
+
+[expect]
+const t = [
+    1, 2,
+
+    3, 4,
+
+    5,
+];
+
+== should handle comments ==
+const t = [
+    1, 2, // first
+    // second
+    3, /* third */ 4,
+    /* fourth */ 5, 6
+    // fifth
+];
+
+[expect]
+const t = [
+    1, 2, // first
+    // second
+    3, /* third */ 4,
+    /* fourth */ 5, 6,
+    // fifth
+];
+
+== should handle holes and spreads ==
+const t = [
+    , 1, ,
+    ...other, 2, ,
+];
+
+[expect]
+const t = [
+    , 1, ,
+    ...other, 2, ,
+];
+
+== should handle multi-line elements ==
+const t = [
+    { a: 1 }, { b: 2 },
+    {
+        c: 3,
+    }, 4,
+    call(() => {
+        test;
+    }), 5
+];
+
+[expect]
+const t = [
+    { a: 1 }, { b: 2 },
+    {
+        c: 3,
+    }, 4,
+    call(() => {
+        test;
+    }), 5,
+];
+
+== should handle nested arrays ==
+const matrix = [
+    [1, 0, 0], [0, 1, 0],
+    [
+        0, 0,
+        1
+    ]
+];
+
+[expect]
+const matrix = [
+    [1, 0, 0], [0, 1, 0],
+    [
+        0, 0,
+        1,
+    ],
+];
+
+== should wrap a single line array that exceeds the line width ==
+const testing = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+const other = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
+
+[expect]
+const testing = [
+    1, 2, 3, 4, 5, 6, 7, 8, 9,
+];
+const other = [
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+    12, 13, 14, 15, 16, 17, 18, 19,
+];
+
+== should put an element that goes multi-line because of the line width on its own line ==
+const t = [
+    1, someObject.someProperty.otherProp.method(), 2,
+    testing.testing.testing.testing.testing.testing.testing(), 3, 4
+];
+
+[expect]
+const t = [
+    1,
+    someObject.someProperty.otherProp
+        .method(),
+    2,
+    testing.testing.testing.testing
+        .testing.testing.testing(),
+    3, 4,
+];
+
+== should handle holes on different lines ==
+const t = [
+    1, ,
+    , 2,
+    ,
+    3
+];
+
+[expect]
+const t = [
+    1, ,
+    , 2,
+    ,
+    3,
+];
+
+== should handle an array in arguments ==
+call([
+    1, 2,
+    3, 4
+]);
+call(a, [
+    1, 2,
+    3, 4
+]);
+
+[expect]
+call([
+    1, 2,
+    3, 4,
+]);
+call(a, [
+    1, 2,
+    3, 4,
+]);
+
+== should not affect array patterns and tuple types ==
+const [
+    a, b,
+    c
+] = t;
+type T = [
+    string, number,
+    boolean
+];
+
+[expect]
+const [
+    a,
+    b,
+    c,
+] = t;
+type T = [
+    string,
+    number,
+    boolean,
+];
+
+== should wrap between array and object elements instead of within them ==
+const matrix = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]];
+const objs = [
+    { a: 1 }, { b: 2 }, { c: 3 }, { d: 4 }, { e: 5 },
+];
+const pairs = [
+    ["a", 1], ["b", 2], ["c", 3], ["d", 4],
+    ["e", 5],
+];
+
+[expect]
+const matrix = [
+    [1, 0, 0, 0], [0, 1, 0, 0],
+    [0, 0, 1, 0], [0, 0, 0, 1],
+];
+const objs = [
+    { a: 1 }, { b: 2 }, { c: 3 },
+    { d: 4 }, { e: 5 },
+];
+const pairs = [
+    ["a", 1], ["b", 2], ["c", 3],
+    ["d", 4],
+    ["e", 5],
+];
+
+== should keep hugging an object or array when not multi-line ==
+const t = [{
+    prop: 5,
+}];
+call([1, 2, {
+    prop: 5,
+}]);
+
+[expect]
+const t = [{
+    prop: 5,
+}];
+call([1, 2, {
+    prop: 5,
+}]);
+
+== should maintain the line breaks when the commas are at the start of the line ==
+const t = [
+    1, 2
+    , 3, 4
+    , 5, 6
+];
+
+[expect]
+const t = [
+    1, 2,
+    3, 4,
+    5, 6,
+];
+
+== should handle a hole followed by a multi-line block comment ==
+const t = [
+    a, , /* x
+    y */ b,
+];
+
+[expect]
+const t = [
+    a, , /* x
+    y */ b,
+];
+
+== should put the element after one that goes multi-line because of the line width on its own line ==
+const t = [1, aaaaaaaaaaaaaaaaaaa + bbbbbbbbbbbbbbbbbbbbbb + ccccccccccc, 2, 3];
+const u = [
+    1, call(aaaaaaaaaaaaaaaaa, bbbbbbbbbbbbbbbbbbbbb), 2, 3
+];
+const v = [
+    1, { aaaaaaaaaaaaaaaaa: 1, bbbbbbbbbbbbbbbbbbbbb: 2 }, 2, 3
+];
+
+[expect]
+const t = [
+    1,
+    aaaaaaaaaaaaaaaaaaa
+    + bbbbbbbbbbbbbbbbbbbbbb
+    + ccccccccccc,
+    2, 3,
+];
+const u = [
+    1,
+    call(
+        aaaaaaaaaaaaaaaaa,
+        bbbbbbbbbbbbbbbbbbbbb,
+    ),
+    2, 3,
+];
+const v = [
+    1,
+    {
+        aaaaaaaaaaaaaaaaa: 1,
+        bbbbbbbbbbbbbbbbbbbbb: 2,
+    },
+    2, 3,
+];

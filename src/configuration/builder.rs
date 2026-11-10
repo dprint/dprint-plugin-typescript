@@ -616,6 +616,15 @@ impl ConfigurationBuilder {
 
   /* situational */
 
+  /// Whether to force a line per element when an array expression spans multiple lines.
+  ///
+  /// * `true` (default) - Formats with each element on a new line.
+  /// * `false` - Maintains the line breaks between the elements as written by the programmer.
+  ///   A line that exceeds the line width is still split up.
+  pub fn array_expression_line_per_element(&mut self, value: bool) -> &mut Self {
+    self.insert("arrayExpression.linePerElement", value.into())
+  }
+
   /// Whether to use parentheses for arrow functions.
   ///
   /// Default: `UseParentheses::Maintain`
@@ -1531,6 +1540,7 @@ mod tests {
       .quote_props(QuoteProps::AsNeeded)
       .prefer_hanging(false)
       /* situational */
+      .array_expression_line_per_element(false)
       .arrow_function_use_parentheses(UseParentheses::Maintain)
       .binary_expression_line_per_expression(false)
       .conditional_expression_line_per_expression(true)
@@ -1758,7 +1768,7 @@ mod tests {
       .with_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 236);
+    assert_eq!(inner_config.len(), 237);
     let diagnostics = resolve_config(inner_config, &Default::default()).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }
