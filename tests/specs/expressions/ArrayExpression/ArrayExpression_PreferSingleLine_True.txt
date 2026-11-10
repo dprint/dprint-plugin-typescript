@@ -63,3 +63,59 @@ const t = [
 
     text,
 ];
+
+== should keep a call expression on its own line when its arguments are multi-line ==
+const t = [call(aaaaaaaaaaaaaaaaaaaaaaa, bbbbbbbbbbbbbbbbbbbbbbbbbbb)];
+
+const u = [
+    call(
+        aaaaaaaaaaaaaaaaaaaaaaa,
+        bbbbbbbbbbbbbbbbbbbbbbbbbbb,
+    ),
+];
+
+const v = [aaaa, function(aaaaaaaaaaaaaaaaaa, bbbbbbbbbbbbbbbbbbbbbbb) {}];
+
+[expect]
+const t = [
+    call(
+        aaaaaaaaaaaaaaaaaaaaaaa,
+        bbbbbbbbbbbbbbbbbbbbbbbbbbb,
+    ),
+];
+
+const u = [
+    call(
+        aaaaaaaaaaaaaaaaaaaaaaa,
+        bbbbbbbbbbbbbbbbbbbbbbbbbbb,
+    ),
+];
+
+const v = [
+    aaaa,
+    function(
+        aaaaaaaaaaaaaaaaaa,
+        bbbbbbbbbbbbbbbbbbbbbbb,
+    ) {},
+];
+
+== should keep a multi-line call expression beside the brackets when written that way ==
+const t = [call(
+    aaaaaaaaaaaaaaaaaaaaaaa,
+    bbbbbbbbbbbbbbbbbbbbbbbbbbb,
+)];
+
+[expect]
+const t = [call(
+    aaaaaaaaaaaaaaaaaaaaaaa,
+    bbbbbbbbbbbbbbbbbbbbbbbbbbb,
+)];
+
+== should format on a single line when a call expression on its own line fits ==
+const t = [
+    call(aaaa,
+        bbbb),
+];
+
+[expect]
+const t = [call(aaaa, bbbb)];

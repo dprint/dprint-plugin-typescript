@@ -3565,6 +3565,7 @@ fn gen_sequence_expr<'a>(node: &SeqExpr<'a>, context: &mut Context<'a>) -> Print
       multi_line_options: ir_helpers::MultiLineOptions::same_line_start_hanging_indent(),
       force_possible_newline_at_start: false,
       node_sorter: None,
+      disallow_inline_multi_line_new_line_groups: false,
     },
     context,
   )
@@ -5028,6 +5029,7 @@ fn gen_jsx_opening_element<'a>(node: &JSXOpeningElement<'a>, context: &mut Conte
         multi_line_options,
         force_possible_newline_at_start: false,
         node_sorter: None,
+        disallow_inline_multi_line_new_line_groups: false,
       },
       context,
     ));
@@ -7001,6 +7003,7 @@ fn gen_var_declarators<'a>(parent: Node<'a>, decls: &[&'a VarDeclarator<'a>], co
         multi_line_options: ir_helpers::MultiLineOptions::same_line_start_hanging_indent(),
         force_possible_newline_at_start: false,
         node_sorter: None,
+        disallow_inline_multi_line_new_line_groups: false,
       },
       context,
     )
@@ -7933,6 +7936,7 @@ fn gen_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -
       multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(),
       force_possible_newline_at_start: false,
       node_sorter: None,
+      disallow_inline_multi_line_new_line_groups: false,
     },
     context,
   ));
@@ -9000,6 +9004,11 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
   let space_around = opts.space_around;
   let range = opts.range;
   let force_use_new_lines = get_array_like_force_use_new_lines(range, &nodes, prefer_single_line, context);
+  // when preferring a single line, a value that's moved to its own line for being too long keeps its line breaks
+  // the next time it's formatted (ex. the arguments in `[\n  call(\n    a,\n    b,\n  ),\n]`), so a multi-line value
+  // written on its own line stays there instead of going beside the brackets (ex. `[call(\n  a,\n  b,\n)]`)
+  let disallow_inline_multi_line_new_line_groups =
+    prefer_single_line && !force_use_new_lines && get_array_like_force_use_new_lines(range, &nodes, false, context);
   let mut items = PrintItems::new(context.arena);
   let first_member = nodes.first().map(|x| x.range());
 
@@ -9020,6 +9029,7 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
           multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(),
           force_possible_newline_at_start: false,
           node_sorter: None,
+          disallow_inline_multi_line_new_line_groups,
         },
         context,
       )
@@ -10065,6 +10075,7 @@ where
             },
             force_possible_newline_at_start: is_parameters,
             node_sorter: None,
+            disallow_inline_multi_line_new_line_groups: false,
           },
           context,
         ));
@@ -10288,6 +10299,10 @@ struct GenSeparatedValuesParams<'a> {
   multi_line_options: ir_helpers::MultiLineOptions<'a>,
   force_possible_newline_at_start: bool,
   node_sorter: Option<NodeSorter>,
+  /// Whether the values that move to their own line when they're too long (the ones in a
+  /// new line group) aren't allowed to be inline multi-line, which makes the list multi-line
+  /// when one of them is (ex. `[\n  call(\n    a,\n  ),\n]` instead of `[call(\n  a,\n)]`).
+  disallow_inline_multi_line_new_line_groups: bool,
 }
 
 /// How to handle the blank lines between the values of a list.
@@ -10357,6 +10372,7 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
     ListBlankLines::Force => 1,
   };
   let node_sorter = opts.node_sorter;
+  let disallow_inline_multi_line_new_line_groups = opts.disallow_inline_multi_line_new_line_groups;
   let is_hanging = opts.prefer_hanging && !opts.force_use_new_lines;
 
   // would need to make this take into account the new position of the nodes
@@ -10474,7 +10490,7 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
         generated_nodes.push(ir_helpers::GeneratedValue {
           items,
           lines_span,
-          allow_inline_multi_line,
+          allow_inline_multi_line: allow_inline_multi_line && !(use_new_line_group && disallow_inline_multi_line_new_line_groups),
           allow_inline_single_line,
           is_known_multi_line: false,
         });
@@ -10902,6 +10918,7 @@ fn gen_extends_or_implements<'a>(opts: GenExtendsOrImplementsOptions<'a>, contex
         multi_line_options: ir_helpers::MultiLineOptions::new_line_start(),
         force_possible_newline_at_start: false,
         node_sorter: None,
+        disallow_inline_multi_line_new_line_groups: false,
       },
       context,
     ));
@@ -10977,6 +10994,7 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
             multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(),
             force_possible_newline_at_start: false,
             node_sorter: opts.node_sorter,
+            disallow_inline_multi_line_new_line_groups: false,
           },
           context,
         )
@@ -11313,6 +11331,7 @@ fn gen_decorators<'a>(decorators: &[&'a Decorator<'a>], separator: DecoratorsSep
       multi_line_options: ir_helpers::MultiLineOptions::same_line_no_indent(),
       force_possible_newline_at_start: false,
       node_sorter: None,
+      disallow_inline_multi_line_new_line_groups: false,
     },
     context,
   );

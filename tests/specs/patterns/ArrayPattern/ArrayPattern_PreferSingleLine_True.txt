@@ -23,3 +23,15 @@ function t([
     b,
 ]) {
 }
+
+== should keep an object pattern on its own line when it's too long for a single line ==
+const [{ aaaaaaaaaaaa, bbbbbbbbbbbbb, cccccccccccc }] = value;
+
+[expect]
+const [
+    {
+        aaaaaaaaaaaa,
+        bbbbbbbbbbbbb,
+        cccccccccccc,
+    },
+] = value;
