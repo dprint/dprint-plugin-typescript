@@ -1813,23 +1813,26 @@ fn gen_named_import_or_export_specifiers<'a>(opts: GenNamedImportOrExportSpecifi
 /* expressions */
 
 fn gen_array_expr<'a>(node: &ArrayLit<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
-  let prefer_hanging = match context.config.array_expression_prefer_hanging {
-    PreferHanging::Never => false,
-    PreferHanging::OnlySingleItem => node.elems.len() == 1,
-    PreferHanging::Always => true,
-  };
   gen_array_like_nodes(
     GenArrayLikeNodesOptions {
       node: node.into(),
       range: node.range(),
       nodes: node.elems.iter().map(|&x| x.map(|elem| elem.into())).collect(),
-      prefer_hanging,
+      prefer_hanging: get_array_expr_prefer_hanging(node, context.config),
       prefer_single_line: context.config.array_expression_prefer_single_line,
       trailing_commas: context.config.array_expression_trailing_commas,
       space_around: context.config.array_expression_space_around,
     },
     context,
   )
+}
+
+fn get_array_expr_prefer_hanging(node: &ArrayLit, config: &Configuration) -> bool {
+  match config.array_expression_prefer_hanging {
+    PreferHanging::Never => false,
+    PreferHanging::OnlySingleItem => node.elems.len() == 1,
+    PreferHanging::Always => true,
+  }
 }
 
 fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
@@ -12404,7 +12407,11 @@ fn gen_assignment_like_with_token<'a>(
       }
       items.push_info(start_ln);
     }
+    // set back after because an assignment can be within the header of an assigned arrow function (ex. `(a = b) => [c]`)
+    let arrow_array_body_start = get_arrow_array_body_with_kept_line_breaks(expr, context.config);
+    let previous_arrow_array_body_start = std::mem::replace(&mut context.assignment_arrow_array_body_start, arrow_array_body_start);
     let assignment = gen_node(expr, context);
+    context.assignment_arrow_array_body_start = previous_arrow_array_body_start;
     let assignment = if had_op_trailing_comments {
       assignment
     } else {
@@ -12473,6 +12480,24 @@ fn gen_assignment_like_with_token<'a>(
         }
         _ => return None,
       };
+    }
+  }
+
+  /// Gets the start of the array that's the body of the arrow function on the right side when it
+  /// has one that keeps its line breaks (ex. `() => [a, b]` or `a => b => [c, d]`).
+  fn get_arrow_array_body_with_kept_line_breaks<'a>(expr: Node<'a>, config: &Configuration) -> Option<SourcePos> {
+    let Node::ArrowExpr(mut arrow) = expr else {
+      return None;
+    };
+    loop {
+      match arrow.body {
+        ArrowFunctionBody::Expr(Expr::Arrow(inner_arrow)) => arrow = inner_arrow,
+        ArrowFunctionBody::Expr(Expr::Array(array)) => {
+          let keeps_line_breaks = !config.array_expression_prefer_single_line && !get_array_expr_prefer_hanging(array, config);
+          return keeps_line_breaks.then_some(array.start());
+        }
+        _ => return None,
+      }
     }
   }
 }
@@ -12793,6 +12818,9 @@ fn use_new_line_group_for_arrow_body<'a>(arrow_expr: &'a ArrowExpr<'a>, context:
         Expr::Object(_) => false,
         _ => !is_jsx_paren_expr_handled_node(paren.expr.into(), context),
       },
+      // The array keeps its line breaks, which keeps the arrow function on the line of the assignment's operator
+      // when formatting again. So it's broken up instead of moving the arrow function to the next line first.
+      Expr::Array(array) => context.assignment_arrow_array_body_start != Some(array.start()),
       _ => !is_jsx_paren_expr_handled_node(expr.into(), context),
     },
     _ => true,
