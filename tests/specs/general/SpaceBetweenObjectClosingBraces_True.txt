@@ -1,0 +1,20 @@
+~~ spaceBetweenObjectClosingBraces: true ~~
+== should keep spaces between consecutive closing braces ==
+const {aa, bb:{cc, dd:{ee, ff}}} = obj;
+const options = {foo: false, bar: {bob: false}};
+type Value = {a:{b:string}};
+
+[expect]
+const { aa, bb: { cc, dd: { ee, ff } } } = obj;
+const options = { foo: false, bar: { bob: false } };
+type Value = { a: { b: string } };
+
+== should keep empty patterns and objects compact ==
+const {} = obj;
+const {a:{}} = obj;
+const value = {a:{}};
+
+[expect]
+const {} = obj;
+const { a: {} } = obj;
+const value = { a: {} };

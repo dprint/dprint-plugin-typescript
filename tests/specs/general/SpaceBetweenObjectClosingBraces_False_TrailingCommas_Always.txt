@@ -1,0 +1,10 @@
+~~ spaceBetweenObjectClosingBraces: false, trailingCommas: always, typeLiteral.separatorKind: comma ~~
+== should preserve spaces when commas separate closing braces ==
+const value = {a:{b:true}};
+const {a:{b}} = value;
+type Value = {a:{b:string}};
+
+[expect]
+const value = { a: { b: true, }, };
+const { a: { b, }, } = value;
+type Value = { a: { b: string, }, };

@@ -265,6 +265,13 @@ impl ConfigurationBuilder {
     self.insert("blockPadding", value.to_string().into())
   }
 
+  /// How to separate the members of classes, enums, interfaces, and type literals.
+  ///
+  /// Default: `MemberSpacing::Maintain`
+  pub fn member_spacing(&mut self, value: MemberSpacing) -> &mut Self {
+    self.insert("memberSpacing", value.to_string().into())
+  }
+
   /// If trailing commas should be used.
   ///
   /// Default: `TrailingCommas::OnlyMultiLine`
@@ -442,12 +449,31 @@ impl ConfigurationBuilder {
   }
 
   /// Whether to add a space surrounding the expression of a JSX container.
-  /// No space is added around an object or array literal (ex. `{{ value: true }}`).
+  /// An object or array literal uses `jsxExpressionContainer.spaceSurroundingObjectLiteral`
+  /// or `jsxExpressionContainer.spaceSurroundingArrayLiteral`, which default to this value.
   ///
   /// * `true` - Ex. `{ myValue }`
   /// * `false` (default) - Ex. `{myValue}`
   pub fn jsx_expression_container_space_surrounding_expression(&mut self, value: bool) -> &mut Self {
     self.insert("jsxExpressionContainer.spaceSurroundingExpression", value.into())
+  }
+
+  /// Whether to add a space between the braces of a JSX container and an object literal.
+  /// Defaults to `jsxExpressionContainer.spaceSurroundingExpression`.
+  ///
+  /// * `true` - Ex. `{ { value: true } }`
+  /// * `false` (default) - Ex. `{{ value: true }}`
+  pub fn jsx_expression_container_space_surrounding_object_literal(&mut self, value: bool) -> &mut Self {
+    self.insert("jsxExpressionContainer.spaceSurroundingObjectLiteral", value.into())
+  }
+
+  /// Whether to add a space between the braces of a JSX container and an array literal.
+  /// Defaults to `jsxExpressionContainer.spaceSurroundingExpression`.
+  ///
+  /// * `true` - Ex. `{ [value] }`
+  /// * `false` (default) - Ex. `{[value]}`
+  pub fn jsx_expression_container_space_surrounding_array_literal(&mut self, value: bool) -> &mut Self {
+    self.insert("jsxExpressionContainer.spaceSurroundingArrayLiteral", value.into())
   }
 
   /// Whether to add a space before the slash in a self closing tag for a JSX element.
@@ -480,6 +506,14 @@ impl ConfigurationBuilder {
   /// * `false` - Ex. `{key: value} = obj`
   pub fn object_pattern_space_surrounding_properties(&mut self, value: bool) -> &mut Self {
     self.insert("objectPattern.spaceSurroundingProperties", value.into())
+  }
+
+  /// Whether to keep a space between the closing braces of a nested object and its parent in single-line objects, destructuring patterns, and type literals.
+  ///
+  /// * `true` (default) - Ex. `const { key: { value } } = obj;`
+  /// * `false` - Ex. `const { key: { value }} = obj;`
+  pub fn space_between_object_closing_braces(&mut self, value: bool) -> &mut Self {
+    self.insert("spaceBetweenObjectClosingBraces", value.into())
   }
 
   /// Whether to add a space before the parentheses of a method.
@@ -585,7 +619,8 @@ impl ConfigurationBuilder {
   /// Whether to force a line per element when an array expression spans multiple lines.
   ///
   /// * `true` (default) - Formats with each element on a new line.
-  /// * `false` - Maintains the line breaks as written by the programmer and fills the lines when all elements are literals, identifiers or unary expressions.
+  /// * `false` - Maintains the line breaks between the elements as written by the programmer.
+  ///   A line that exceeds the line width is still split up.
   pub fn array_expression_line_per_element(&mut self, value: bool) -> &mut Self {
     self.insert("arrayExpression.linePerElement", value.into())
   }
@@ -721,6 +756,9 @@ impl ConfigurationBuilder {
   }
 
   /// Ordered groups for `module.importGroups`. Empty = feature disabled.
+  ///
+  /// A group's patterns take the imports they match wherever the group is listed,
+  /// the categories take the rest, and the list sets the output order.
   ///
   /// Default: `[]`
   pub fn module_import_groups(&mut self, value: Vec<ImportGroup>) -> &mut Self {
@@ -1497,11 +1535,12 @@ mod tests {
       .file_indent_level(1)
       .max_blank_lines(2)
       .block_padding(BlockPadding::Maintain)
+      .member_spacing(MemberSpacing::Maintain)
       .use_braces(UseBraces::WhenNotSingleLine)
       .quote_props(QuoteProps::AsNeeded)
       .prefer_hanging(false)
       /* situational */
-      .array_expression_line_per_element(true)
+      .array_expression_line_per_element(false)
       .arrow_function_use_parentheses(UseParentheses::Maintain)
       .binary_expression_line_per_expression(false)
       .conditional_expression_line_per_expression(true)
@@ -1693,11 +1732,14 @@ mod tests {
       .if_statement_space_after_if_keyword(true)
       .import_declaration_space_surrounding_named_imports(true)
       .jsx_expression_container_space_surrounding_expression(true)
+      .jsx_expression_container_space_surrounding_object_literal(true)
+      .jsx_expression_container_space_surrounding_array_literal(true)
       .jsx_self_closing_element_space_before_slash(true)
       .method_space_before_parentheses(true)
       .mapped_type_space_surrounding_properties(false)
       .object_expression_space_surrounding_properties(false)
       .object_pattern_space_surrounding_properties(false)
+      .space_between_object_closing_braces(false)
       .set_accessor_space_before_parentheses(true)
       .space_after_control_flow_keyword(true)
       .space_surrounding_properties(false)
@@ -1726,7 +1768,7 @@ mod tests {
       .with_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 233);
+    assert_eq!(inner_config.len(), 237);
     let diagnostics = resolve_config(inner_config, &Default::default()).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

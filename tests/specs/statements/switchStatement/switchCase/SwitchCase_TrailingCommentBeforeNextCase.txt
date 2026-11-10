@@ -1,0 +1,123 @@
+== should keep a trailing comment on the last statement before the comments for the next case ==
+switch (a) {
+    case 1:
+        b(); // trailing
+    // eslint-disable-next-line no-fallthrough
+    default:
+        c();
+}
+
+[expect]
+switch (a) {
+    case 1:
+        b(); // trailing
+    // eslint-disable-next-line no-fallthrough
+    default:
+        c();
+}
+
+== should keep a trailing comment on a case with a block body ==
+switch (a) {
+    case 1: {
+        b();
+    } // trailing
+    // leading
+    case 2:
+        c();
+}
+
+[expect]
+switch (a) {
+    case 1: {
+        b();
+    } // trailing
+    // leading
+    case 2:
+        c();
+}
+
+== should keep a trailing comment on the last case ==
+switch (a) {
+    case 1:
+        b(); // trailing
+        // inner
+}
+
+[expect]
+switch (a) {
+    case 1:
+        b(); // trailing
+        // inner
+}
+
+== should keep trailing block comments ==
+switch (a) {
+    case 1:
+        b(); /* trailing */ // other
+    // leading
+    case 2:
+}
+
+[expect]
+switch (a) {
+    case 1:
+        b(); /* trailing */ // other
+    // leading
+    case 2:
+}
+
+== should keep a trailing comment on an empty case ==
+switch (a) {
+    case 1: // trailing
+    // leading
+    case 2:
+        c();
+}
+
+[expect]
+switch (a) {
+    case 1: // trailing
+    // leading
+    case 2:
+        c();
+}
+
+== should keep a trailing comment when there's a blank line before the next case ==
+switch (a) {
+    case 1:
+        b(); // trailing
+
+    // leading
+    case 2:
+        c();
+}
+
+[expect]
+switch (a) {
+    case 1:
+        b(); // trailing
+
+    // leading
+    case 2:
+        c();
+}
+
+== should not add a blank line after a trailing multi-line block comment ==
+switch (a) {
+    case 1:
+        b(); /* a
+        b */
+    // leading
+    case 2:
+        c();
+}
+
+[expect]
+switch (a) {
+    case 1:
+        b(); /* a
+        b */
+    // leading
+    case 2:
+        c();
+}

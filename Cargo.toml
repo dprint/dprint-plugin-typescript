@@ -1,6 +1,6 @@
 [package]
 name = "dprint-plugin-typescript"
-version = "0.97.0"
+version = "0.99.2"
 authors = ["David Sherret <dsherret@gmail.com>"]
 edition = "2024"
 homepage = "https://github.com/dprint/dprint-plugin-typescript"
@@ -36,9 +36,9 @@ harness = false
 
 [dependencies]
 capacity_builder = "0.5.0"
-dprint-core = { version = "0.75.2", features = ["formatting"] }
+dprint-core = { version = "0.77.0", features = ["formatting"] }
 dprint-core-macros = "0.1.0"
-dprint-swc-ext = { version = "0.27.1", features = ["view"] }
+dprint-swc-ext = { version = "0.28.1", features = ["view"] }
 globset = "0.4"
 percent-encoding = "2.3.1"
 rustc-hash = "2.1.1"

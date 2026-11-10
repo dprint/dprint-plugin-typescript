@@ -1,0 +1,22 @@
+~~ {
+  "lineWidth": 80,
+  "module.sortImportDeclarations": "caseInsensitive",
+  "module.importGroups": [
+    { "match": "external" },
+    { "match": ["parent", { "pattern": "@app/**" }] },
+    { "match": "sibling" }
+  ]
+} ~~
+== group that mixes a category and a pattern takes the imports of both ==
+import { s } from "./s";
+import { p } from "../p";
+import { r } from "react";
+import { c } from "@app/c";
+
+[expect]
+import { r } from "react";
+
+import { c } from "@app/c";
+import { p } from "../p";
+
+import { s } from "./s";

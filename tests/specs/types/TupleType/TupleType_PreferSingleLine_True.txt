@@ -31,3 +31,15 @@ type T = [{
 }, {
     other: string;
 }];
+
+== should keep an object type on its own line when it's too long for a single line ==
+type T = [{ aaaaaaaaa: string; bbbbbbbbbbbbb: string; cc: 1 }];
+
+[expect]
+type T = [
+    {
+        aaaaaaaaa: string;
+        bbbbbbbbbbbbb: string;
+        cc: 1;
+    },
+];

@@ -2,6 +2,170 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://plugins.dprint.dev/dprint/dprint-plugin-typescript/0.0.0/schema.json",
   "type": "object",
+  "x-playground": {
+    "input": [
+      "import {Component,type Props} from './component.ts'",
+      "",
+      "export interface User{id:number;name:string;email?:string}",
+      "",
+      "const users:User[]=[{id:1,name:\"Alice\"},{id:2,name:\"Bob\",email:\"bob@example.com\"}]",
+      "",
+      "export class UserList extends Component<Props>{",
+      "  private readonly items=new Map<number,User>()",
+      "    constructor(props:Props){super(props);for(const user of users){this.items.set(user.id,user)}}",
+      "  find(predicate:(user:User)=>boolean):User|undefined{",
+      "return [...this.items.values()].find(predicate)",
+      "  }",
+      "}",
+      "",
+      "const names=users.filter(u=>u.email!=null).map(u=>u.name.toUpperCase())",
+      "console.log(`found ${names.length} users`,names)"
+    ]
+  },
+  "x-sections": [
+    {
+      "title": "General",
+      "description": "The width, indentation, and newlines of all the code.",
+      "properties": [
+        "lineWidth",
+        "indentWidth",
+        "useTabs",
+        "newLineKind",
+        "maxBlankLines"
+      ]
+    },
+    {
+      "title": "Braces and blocks",
+      "description": "Where braces go and the blank lines within blocks and between members.",
+      "properties": [
+        "useBraces",
+        "bracePosition",
+        "singleBodyPosition",
+        "nextControlFlowPosition",
+        "blockPadding",
+        "memberSpacing"
+      ]
+    },
+    {
+      "title": "Line breaks",
+      "description": "How code that doesn't fit within the line width is split up, and when code is put back on one line.",
+      "properties": [
+        "preferHanging",
+        "preferSingleLine",
+        "operatorPosition",
+        "arrayExpression.linePerElement",
+        "binaryExpression.linePerExpression",
+        "memberExpression.linePerExpression",
+        "conditionalExpression.linePerExpression",
+        "conditionalType.linePerExpression",
+        "conditionalExpression.indentBranchContent",
+        "conditionalExpression.useNestedIndentation",
+        "conditionalType.useNestedIndentation",
+        "decorators.position",
+        "functionExpression.flatIife"
+      ]
+    },
+    {
+      "title": "Semicolons, commas, and quotes",
+      "description": "The punctuation that's added or removed.",
+      "properties": [
+        "semicolons",
+        "trailingCommas",
+        "typeLiteral.separatorKind",
+        "quoteStyle",
+        "quoteProps",
+        "arrowFunction.useParentheses"
+      ]
+    },
+    {
+      "title": "Spaces",
+      "description": "The spaces around and within parentheses, braces, operators, and keywords.",
+      "properties": [
+        "spaceAround",
+        "spaceSurroundingProperties",
+        "spaceBetweenObjectClosingBraces",
+        "spaceAfterControlFlowKeyword",
+        "binaryExpression.spaceSurroundingBitwiseAndArithmeticOperator",
+        "catchClause.spaceAfterCatchKeyword",
+        "commentLine.forceSpaceAfterSlashes",
+        "constructor.spaceBeforeParentheses",
+        "constructorType.spaceAfterNewKeyword",
+        "constructSignature.spaceAfterNewKeyword",
+        "doWhileStatement.spaceAfterWhileKeyword",
+        "exportDeclaration.spaceSurroundingNamedExports",
+        "forInStatement.spaceAfterForKeyword",
+        "forOfStatement.spaceAfterForKeyword",
+        "forStatement.spaceAfterForKeyword",
+        "forStatement.spaceAfterSemicolons",
+        "functionDeclaration.spaceBeforeParentheses",
+        "functionExpression.spaceBeforeParentheses",
+        "functionExpression.spaceAfterFunctionKeyword",
+        "getAccessor.spaceBeforeParentheses",
+        "ifStatement.spaceAfterIfKeyword",
+        "importDeclaration.spaceSurroundingNamedImports",
+        "method.spaceBeforeParentheses",
+        "setAccessor.spaceBeforeParentheses",
+        "switchStatement.spaceAfterSwitchKeyword",
+        "typeAnnotation.spaceBeforeColon",
+        "typeAssertion.spaceBeforeExpression",
+        "whileStatement.spaceAfterWhileKeyword",
+        "withStatement.spaceAfterWithKeyword"
+      ]
+    },
+    {
+      "title": "Imports and exports",
+      "description": "The sorting, grouping, and line breaks of import and export declarations.",
+      "properties": [
+        "module.sortImportDeclarations",
+        "module.sortExportDeclarations",
+        "importDeclaration.sortNamedImports",
+        "exportDeclaration.sortNamedExports",
+        "importDeclaration.sortTypeOnlyImports",
+        "exportDeclaration.sortTypeOnlyExports",
+        "module.importGroups",
+        "module.typeImports",
+        "module.importGroupsNewlinesBetween",
+        "module.blankLinesAfterImports",
+        "importDeclaration.forceSingleLine",
+        "exportDeclaration.forceSingleLine",
+        "importDeclaration.forceMultiLine",
+        "exportDeclaration.forceMultiLine"
+      ]
+    },
+    {
+      "title": "JSX",
+      "description": "The formatting of JSX elements and attributes.",
+      "properties": [
+        "jsx.quoteStyle",
+        "jsx.multiLineParens",
+        "jsx.bracketPosition",
+        "jsx.forceNewLinesSurroundingContent",
+        "jsx.sortClassNames",
+        "jsxExpressionContainer.preferSingleLine",
+        "jsxSelfClosingElement.spaceBeforeSlash",
+        "jsxExpressionContainer.spaceSurroundingExpression",
+        "jsxExpressionContainer.spaceSurroundingObjectLiteral",
+        "jsxExpressionContainer.spaceSurroundingArrayLiteral"
+      ]
+    },
+    {
+      "title": "Tagged templates",
+      "description": "The formatting of tagged templates and the code embedded in them (ex. `` css`...` ``).",
+      "properties": [
+        "taggedTemplate.formatEmbedded",
+        "taggedTemplate.embeddedLanguages",
+        "taggedTemplate.spaceBeforeLiteral"
+      ]
+    },
+    {
+      "title": "Ignore comments",
+      "description": "The comments that make the formatter leave code as is.",
+      "properties": [
+        "ignoreNodeCommentText",
+        "ignoreFileCommentText"
+      ]
+    }
+  ],
   "definitions": {
     "useTabs": {
       "description": "Whether to use tabs (true) or spaces (false).",
@@ -67,6 +231,7 @@
         "$ref": "#/definitions/jsx.sortClassNames.kind"
       }, {
         "type": "object",
+        "description": "The kind of sorting along with its options.",
         "required": ["kind"],
         "additionalProperties": false,
         "properties": {
@@ -74,7 +239,7 @@
             "$ref": "#/definitions/jsx.sortClassNames.kind"
           },
           "functions": {
-            "description": "Leading function or tag identifiers whose string arguments and template literals should be sorted as class names (ex. [\"cn\", \"clsx\"]).",
+            "description": "Leading function or tag identifiers whose string arguments and template literals should be sorted as class names (ex. `[\"cn\", \"clsx\"]`).",
             "type": "array",
             "default": [],
             "items": {
@@ -82,7 +247,7 @@
             }
           },
           "attributes": {
-            "description": "Attributes whose values should be sorted as class names in addition to \"class\" and \"className\".",
+            "description": "Attributes whose values should be sorted as class names in addition to `class` and `className`.",
             "type": "array",
             "default": [],
             "items": {
@@ -100,11 +265,11 @@
             "default": false
           },
           "prefix": {
-            "description": "The prefix the project's Tailwind classes have (ex. \"tw\" when classes look like \"tw:flex\").",
+            "description": "The prefix the project's Tailwind classes have (ex. `tw` when classes look like `tw:flex`).",
             "type": "string"
           },
           "theme": {
-            "description": "The theme variables the project adds to Tailwind's default theme and their values, which is what's in \"@theme\" in its CSS (ex. { \"--breakpoint-3xl\": \"120rem\", \"--color-brand\": \"#f00\" }).",
+            "description": "The theme variables the project adds to Tailwind's default theme and their values, which is what's in `@theme` in its CSS (ex. `{ \"--breakpoint-3xl\": \"120rem\", \"--color-brand\": \"#f00\" }`).",
             "type": "object",
             "default": {},
             "additionalProperties": {
@@ -112,7 +277,7 @@
             }
           },
           "variants": {
-            "description": "The names of the project's custom variants in the order they're defined, which is what it has an \"@custom-variant\" for in its CSS.",
+            "description": "The names of the project's custom variants in the order they're defined, which is what it has an `@custom-variant` for in its CSS.",
             "type": "array",
             "default": [],
             "items": {
@@ -120,7 +285,7 @@
             }
           },
           "utilities": {
-            "description": "The names of the project's custom utilities along with the CSS properties each sets, which is what it has an \"@utility\" for in its CSS (ex. { \"btn\": [\"display\", \"padding\"], \"tab-*\": [\"tab-size\"] }).",
+            "description": "The names of the project's custom utilities along with the CSS properties each sets, which is what it has an `@utility` for in its CSS (ex. `{ \"btn\": [\"display\", \"padding\"], \"tab-*\": [\"tab-size\"] }`).",
             "type": "object",
             "default": {},
             "additionalProperties": {
@@ -181,10 +346,10 @@
       "default": false,
       "oneOf": [{
         "const": true,
-        "description": ""
+        "description": "Puts the children of a JSX element on their own lines between its opening and closing tags."
       }, {
         "const": false,
-        "description": ""
+        "description": "Only puts the children of a JSX element on their own lines when needed, such as when they contain another JSX element."
       }]
     },
     "jsx.bracketPosition": {
@@ -334,10 +499,10 @@
       "default": false,
       "oneOf": [{
         "const": true,
-        "description": ""
+        "description": "Keeps as much of the code as possible on the current line and continues the rest on the next line with an indent."
       }, {
         "const": false,
-        "description": ""
+        "description": "Puts each item on its own line."
       }]
     },
     "preferHangingGranular": {
@@ -356,15 +521,15 @@
       }]
     },
     "preferSingleLine": {
-      "description": "If code should revert back from being on multiple lines to being on a single line when able.",
+      "description": "If code should revert back from being on multiple lines to being on a single line when able. This is very experimental.",
       "type": "boolean",
       "default": false,
       "oneOf": [{
         "const": true,
-        "description": ""
+        "description": "Puts code that spans multiple lines back on a single line when it fits within the line width."
       }, {
         "const": false,
-        "description": ""
+        "description": "Maintains the code being on multiple lines."
       }]
     },
     "preferSingleLineDefaultTrue": {
@@ -373,10 +538,10 @@
       "default": true,
       "oneOf": [{
         "const": true,
-        "description": ""
+        "description": "Puts code that spans multiple lines back on a single line when it fits within the line width."
       }, {
         "const": false,
-        "description": ""
+        "description": "Maintains the code being on multiple lines."
       }]
     },
     "jsxExpressionContainer.preferSingleLine": {
@@ -397,25 +562,60 @@
       "default": false,
       "oneOf": [{
         "const": true,
-        "description": ""
+        "description": "Keeps the code on a single line even when it exceeds the line width, unless it contains a line comment or a comment that spans multiple lines."
       }, {
         "const": false,
-        "description": ""
+        "description": "Puts the code on multiple lines when it exceeds the line width."
       }]
     },
     "forceMultiLineSpecifiers": {
-      "description": "If code import/export specifiers should be forced to be on multiple lines.",
+      "description": "Whether to force the named imports or exports of a declaration onto multiple lines.",
       "type": "string",
       "default": "never",
       "oneOf": [{
         "const": "always",
-        "description": ""
+        "description": "Puts each specifier on its own line."
       }, {
         "const": "never",
-        "description": ""
+        "description": "Doesn't force the specifiers onto multiple lines."
       }, {
         "const": "whenMultiple",
-        "description": "Force multiple lines only if importing more than one thing."
+        "description": "Puts each specifier on its own line when there's more than one."
+      }]
+    },
+    "importGroupMatcher": {
+      "oneOf": [{
+        "const": "builtin",
+        "description": "Built-in modules (ex. `fs`, `node:path`, `bun:test`, and `cloudflare:workers`)."
+      }, {
+        "const": "external",
+        "description": "Imports that aren't built-in or relative, such as packages (ex. `react` and `@scope/pkg`)."
+      }, {
+        "const": "parent",
+        "description": "Imports from a parent directory (ex. `../utils`)."
+      }, {
+        "const": "sibling",
+        "description": "Imports from the same directory (ex. `./utils`)."
+      }, {
+        "const": "index",
+        "description": "Imports of the directory's index (ex. `.` and `./index.js`)."
+      }, {
+        "const": "type",
+        "description": "Type-only imports when `module.typeImports` is `\"separate\"`."
+      }, {
+        "const": "unknown",
+        "description": "The imports no other group takes. They go in a group at the end when no group lists this."
+      }, {
+        "type": "object",
+        "description": "The imports whose path matches a glob pattern, which take precedence over the categories.",
+        "required": ["pattern"],
+        "additionalProperties": false,
+        "properties": {
+          "pattern": {
+            "description": "A glob pattern the path of the import is matched against, where `*` doesn't match a `/` (ex. `@/**`).",
+            "type": "string"
+          }
+        }
       }]
     },
     "typeOnlyImportsExportsSortOrder": {
@@ -454,22 +654,10 @@
       "default": false,
       "oneOf": [{
         "const": true,
-        "description": ""
+        "description": "Uses the configuration Deno uses."
       }, {
         "const": false,
-        "description": ""
-      }]
-    },
-    "arrayExpression.linePerElement": {
-      "description": "Whether to force a line per element when an array expression spans multiple lines.",
-      "type": "boolean",
-      "default": true,
-      "oneOf": [{
-        "const": true,
-        "description": "Formats with each element on a new line."
-      }, {
-        "const": false,
-        "description": "Maintains the line breaks as written by the programmer and fills the lines when all elements are literals, identifiers or unary expressions."
+        "description": "Uses the configuration of this plugin."
       }]
     },
     "arrowFunction.useParentheses": {
@@ -485,6 +673,18 @@
       }, {
         "const": "preferNone",
         "description": "Prefers not using parentheses when possible."
+      }]
+    },
+    "arrayExpression.linePerElement": {
+      "description": "Whether to force a line per element when an array expression spans multiple lines.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Formats with each element on a new line."
+      }, {
+        "const": false,
+        "description": "Maintains the line breaks between the elements as written by the programmer. A line that exceeds the line width is still split up."
       }]
     },
     "binaryExpression.linePerExpression": {
@@ -560,7 +760,7 @@
       }]
     },
     "taggedTemplate.formatEmbedded": {
-      "description": "Whether to format the text of tagged templates whose tag is in `taggedTemplate.embeddedLanguages` (ex. html`...` and css`...`) with the plugin dprint uses for the language's file extension. A template is left as is when no plugin formats the extension.",
+      "description": "Whether to format the text of tagged templates whose tag is in `taggedTemplate.embeddedLanguages` (ex. `` html`...` `` and `` css`...` ``) with the plugin dprint uses for the language's file extension. A template is left as is when no plugin formats the extension.",
       "type": "boolean",
       "default": true,
       "oneOf": [{
@@ -572,7 +772,7 @@
       }]
     },
     "taggedTemplate.embeddedLanguages": {
-      "description": "Map of a tagged template's tag to the file extension of the language its text is formatted as, which replaces the defaults. The styled-components patterns (ex. styled.div`...` and styled(Button)`...`) use the `css` entry. The text of css is formatted as Less by default because the placeholders of its expressions are Less variables.",
+      "description": "Map of a tagged template's tag to the file extension of the language its text is formatted as, which replaces the defaults. The styled-components patterns (ex. `` styled.div`...` `` and `` styled(Button)`...` ``) use the `css` entry. The text of css is formatted as Less by default because the placeholders of its expressions are Less variables.",
       "type": "object",
       "additionalProperties": {
         "type": "string"
@@ -626,7 +826,8 @@
         "description": "Use semi-colons."
       }, {
         "const": "semiColon",
-        "description": "Use semi-colons. Same as \"semicolon\"."
+        "description": "Use semi-colons. Same as \"semicolon\".",
+        "deprecationMessage": "Use \"semicolon\" instead."
       }, {
         "const": "comma",
         "description": "Use commas."
@@ -716,6 +917,18 @@
         "description": "Ex. `type Test = {key: string}`"
       }]
     },
+    "spaceBetweenObjectClosingBraces": {
+      "description": "Whether to keep a space between the closing braces of a nested object and its parent in single-line objects, destructuring patterns, and type literals.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `const { key: { value } } = obj;`"
+      }, {
+        "const": false,
+        "description": "Ex. `const { key: { value }} = obj;`"
+      }]
+    },
     "binaryExpression.spaceSurroundingBitwiseAndArithmeticOperator": {
       "description": "Whether to surround the operator in a binary expression with spaces.",
       "type": "boolean",
@@ -794,10 +1007,10 @@
       "default": true,
       "oneOf": [{
         "const": true,
-        "description": "Ex. `do {\n} while (condition);`"
+        "description": "Ex. `} while (condition);`"
       }, {
         "const": false,
-        "description": "Ex. `do {\n} while(condition);`"
+        "description": "Ex. `} while(condition);`"
       }]
     },
     "exportDeclaration.spaceSurroundingNamedExports": {
@@ -957,7 +1170,7 @@
       }]
     },
     "jsxExpressionContainer.spaceSurroundingExpression": {
-      "description": "Whether to add a space surrounding the expression of a JSX container. No space is added around an object or array literal (ex. `{{ value: true }}`).",
+      "description": "Whether to add a space surrounding the expression of a JSX container. An object or array literal uses `jsxExpressionContainer.spaceSurroundingObjectLiteral` or `jsxExpressionContainer.spaceSurroundingArrayLiteral`, which default to this value.",
       "type": "boolean",
       "default": false,
       "oneOf": [{
@@ -966,6 +1179,30 @@
       }, {
         "const": false,
         "description": "Ex. `{myValue}`"
+      }]
+    },
+    "jsxExpressionContainer.spaceSurroundingObjectLiteral": {
+      "description": "Whether to add a space between the braces of a JSX container and an object literal. Parens that get removed are looked through (ex. `{({ value: true })}`), but a literal with a comment beside it uses `jsxExpressionContainer.spaceSurroundingExpression`.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `{ { value: true } }`"
+      }, {
+        "const": false,
+        "description": "Ex. `{{ value: true }}`"
+      }]
+    },
+    "jsxExpressionContainer.spaceSurroundingArrayLiteral": {
+      "description": "Whether to add a space between the braces of a JSX container and an array literal. Parens that get removed are looked through (ex. `{([value])}`), but a literal with a comment beside it uses `jsxExpressionContainer.spaceSurroundingExpression`.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `{ [value] }`"
+      }, {
+        "const": false,
+        "description": "Ex. `{[value]}`"
       }]
     },
     "method.spaceBeforeParentheses": {
@@ -1010,10 +1247,10 @@
       "default": false,
       "oneOf": [{
         "const": true,
-        "description": "Ex. `html `<element />``"
+        "description": "Ex. `` html `<element />` ``"
       }, {
         "const": false,
-        "description": "Ex. `html`<element />``"
+        "description": "Ex. `` html`<element />` ``"
       }]
     },
     "typeAnnotation.spaceBeforeColon": {
@@ -1069,122 +1306,369 @@
     "lineWidth": {
       "description": "The width of a line the printer will try to stay under. Note that the printer may exceed this width in certain cases.",
       "default": 120,
-      "type": "number"
+      "type": "integer",
+      "minimum": 1
     },
     "indentWidth": {
       "description": "The number of columns for an indent.",
       "default": 2,
-      "type": "number"
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 255
     },
     "useTabs": {
-      "$ref": "#/definitions/useTabs"
+      "$ref": "#/definitions/useTabs",
+      "x-example": {
+        "input": [
+          "function run() {",
+          "  start();",
+          "}"
+        ]
+      }
     },
     "semicolons": {
-      "$ref": "#/definitions/semicolons"
+      "$ref": "#/definitions/semicolons",
+      "x-example": {
+        "input": [
+          "const value = 5",
+          "type Point = { x: number; y: number };",
+          ";[1, 2].forEach(log)"
+        ]
+      }
     },
     "quoteStyle": {
-      "$ref": "#/definitions/quoteStyle"
+      "$ref": "#/definitions/quoteStyle",
+      "x-example": {
+        "input": [
+          "const single = 'text';",
+          "const double = \"text\";",
+          "const containsDouble = 'say \"hi\"';"
+        ]
+      }
     },
     "quoteProps": {
-      "$ref": "#/definitions/quoteProps"
+      "$ref": "#/definitions/quoteProps",
+      "x-example": {
+        "input": [
+          "const obj = { \"a\": 1, \"b-c\": 2, d: 3 };",
+          "const other = { \"a\": 1, b: 2 };"
+        ]
+      }
     },
     "newLineKind": {
       "$ref": "#/definitions/newLineKind"
     },
     "useBraces": {
-      "$ref": "#/definitions/useBraces"
+      "$ref": "#/definitions/useBraces",
+      "x-example": {
+        "input": [
+          "if (isReady) start();",
+          "if (isReady) {",
+          "  start();",
+          "}",
+          "if (isDone)",
+          "  stop();"
+        ]
+      }
     },
     "bracePosition": {
-      "$ref": "#/definitions/bracePosition"
+      "$ref": "#/definitions/bracePosition",
+      "x-example": {
+        "config": {
+          "lineWidth": 80
+        },
+        "input": [
+          "function run()",
+          "{",
+          "  start();",
+          "}",
+          "",
+          "class LongNamedComponent extends BaseComponent implements Disposable, Serializable {",
+          "  value = 1;",
+          "}"
+        ]
+      }
     },
     "blockPadding": {
-      "$ref": "#/definitions/blockPadding"
+      "$ref": "#/definitions/blockPadding",
+      "x-example": {
+        "input": [
+          "function run() {",
+          "",
+          "  start();",
+          "",
+          "}",
+          "",
+          "function stop() {",
+          "  end();",
+          "}"
+        ]
+      }
     },
     "maxBlankLines": {
       "description": "The maximum number of consecutive blank lines to keep.",
       "default": 1,
-      "type": "number"
+      "type": "integer",
+      "minimum": 0
     },
     "singleBodyPosition": {
-      "$ref": "#/definitions/singleBodyPosition"
+      "$ref": "#/definitions/singleBodyPosition",
+      "x-example": {
+        "config": {
+          "useBraces": "maintain"
+        },
+        "input": [
+          "if (isReady) start();",
+          "if (isDone)",
+          "  stop();"
+        ]
+      }
     },
     "nextControlFlowPosition": {
-      "$ref": "#/definitions/nextControlFlowPosition"
+      "$ref": "#/definitions/nextControlFlowPosition",
+      "x-example": {
+        "input": [
+          "if (isReady) {",
+          "  start();",
+          "} else {",
+          "  stop();",
+          "}",
+          "",
+          "try {",
+          "  start();",
+          "}",
+          "catch {",
+          "  stop();",
+          "}"
+        ]
+      }
     },
     "trailingCommas": {
-      "$ref": "#/definitions/trailingCommas"
+      "$ref": "#/definitions/trailingCommas",
+      "x-example": {
+        "input": [
+          "const values = [",
+          "  first,",
+          "  second",
+          "];",
+          "call(first, second,);"
+        ]
+      }
     },
     "operatorPosition": {
-      "$ref": "#/definitions/operatorPosition"
+      "$ref": "#/definitions/operatorPosition",
+      "x-example": {
+        "input": [
+          "const isValid = firstCondition &&",
+          "  secondCondition;",
+          "const total = firstValue",
+          "  + secondValue;"
+        ]
+      }
     },
     "preferHanging": {
-      "$ref": "#/definitions/preferHanging"
+      "$ref": "#/definitions/preferHanging",
+      "x-example": {
+        "config": {
+          "lineWidth": 40
+        },
+        "input": [
+          "call(firstArgument, secondArgument, thirdArgument);"
+        ]
+      }
     },
     "preferSingleLine": {
-      "$ref": "#/definitions/preferSingleLine"
+      "$ref": "#/definitions/preferSingleLine",
+      "x-example": {
+        "input": [
+          "call(",
+          "  first,",
+          "  second,",
+          ");",
+          "const point = {",
+          "  x: 1, y: 2 };"
+        ]
+      }
     },
     "deno": {
       "$ref": "#/definitions/deno"
     },
-    "arrayExpression.linePerElement": {
-      "$ref": "#/definitions/arrayExpression.linePerElement"
-    },
     "arrowFunction.useParentheses": {
-      "$ref": "#/definitions/arrowFunction.useParentheses"
+      "$ref": "#/definitions/arrowFunction.useParentheses",
+      "x-example": {
+        "input": [
+          "const double = x => x * 2;",
+          "const triple = (x) => x * 3;"
+        ]
+      }
+    },
+    "arrayExpression.linePerElement": {
+      "$ref": "#/definitions/arrayExpression.linePerElement",
+      "x-example": {
+        "input": [
+          "const bytes = [",
+          "  0x00, 0x01, 0x02, 0x03,",
+          "  0x10, 0x11, 0x12, 0x13,",
+          "];"
+        ]
+      }
     },
     "binaryExpression.linePerExpression": {
-      "$ref": "#/definitions/binaryExpression.linePerExpression"
+      "$ref": "#/definitions/binaryExpression.linePerExpression",
+      "x-example": {
+        "config": {
+          "lineWidth": 40
+        },
+        "input": [
+          "const isValid = firstCondition && secondCondition && thirdCondition;"
+        ]
+      }
     },
     "conditionalExpression.linePerExpression": {
-      "$ref": "#/definitions/conditionalExpression.linePerExpression"
+      "$ref": "#/definitions/conditionalExpression.linePerExpression",
+      "x-example": {
+        "input": [
+          "const value = isEnabled ? first",
+          "  : second;",
+          "const other = isEnabled",
+          "  ? first : second;"
+        ]
+      }
     },
     "conditionalType.linePerExpression": {
       "$ref": "#/definitions/conditionalType.linePerExpression"
     },
     "conditionalExpression.indentBranchContent": {
-      "$ref": "#/definitions/conditionalExpression.indentBranchContent"
+      "$ref": "#/definitions/conditionalExpression.indentBranchContent",
+      "x-example": {
+        "input": [
+          "const value = isEnabled",
+          "  ? {",
+          "    first: 1,",
+          "  }",
+          "  : undefined;"
+        ]
+      }
     },
     "conditionalExpression.useNestedIndentation": {
-      "$ref": "#/definitions/useNestedIndentation"
+      "$ref": "#/definitions/useNestedIndentation",
+      "x-example": {
+        "input": [
+          "const size = width < 10",
+          "  ? \"small\"",
+          "  : width < 20",
+          "  ? \"medium\"",
+          "  : \"large\";"
+        ]
+      }
     },
     "conditionalType.useNestedIndentation": {
       "$ref": "#/definitions/useNestedIndentation"
     },
     "jsx.bracketPosition": {
-      "$ref": "#/definitions/jsx.bracketPosition"
+      "$ref": "#/definitions/jsx.bracketPosition",
+      "x-example": {
+        "extension": "tsx",
+        "input": [
+          "const element = (",
+          "  <Button",
+          "    first=\"value\"",
+          "    second=\"value\">",
+          "    text",
+          "  </Button>",
+          ");"
+        ]
+      }
     },
     "jsxOpeningElement.bracketPosition": {
-      "$ref": "#/definitions/jsx.bracketPosition"
+      "$ref": "#/definitions/jsx.bracketPosition",
+      "x-overrides": "jsx.bracketPosition"
     },
     "jsxSelfClosingElement.bracketPosition": {
-      "$ref": "#/definitions/jsx.bracketPosition"
+      "$ref": "#/definitions/jsx.bracketPosition",
+      "x-overrides": "jsx.bracketPosition"
     },
     "decorators.position": {
-      "$ref": "#/definitions/decorators.position"
+      "$ref": "#/definitions/decorators.position",
+      "x-example": {
+        "input": [
+          "class Model {",
+          "  @observable",
+          "  first = 1;",
+          "  @observable second = 2;",
+          "}"
+        ]
+      }
     },
     "jsx.forceNewLinesSurroundingContent": {
-      "$ref": "#/definitions/jsx.forceNewLinesSurroundingContent"
+      "$ref": "#/definitions/jsx.forceNewLinesSurroundingContent",
+      "x-example": {
+        "extension": "tsx",
+        "input": [
+          "const element = <div>text</div>;"
+        ]
+      }
     },
     "jsx.quoteStyle": {
-      "$ref": "#/definitions/jsx.quoteStyle"
+      "$ref": "#/definitions/jsx.quoteStyle",
+      "x-example": {
+        "extension": "tsx",
+        "input": [
+          "const element = <div title='text' alt=\"say 'hi'\" />;"
+        ]
+      },
+      "x-overrides": "quoteStyle"
     },
     "jsx.multiLineParens": {
-      "$ref": "#/definitions/jsx.multiLineParens"
+      "$ref": "#/definitions/jsx.multiLineParens",
+      "x-example": {
+        "extension": "tsx",
+        "input": [
+          "const element = <div>",
+          "  <span />",
+          "</div>;",
+          "render(<div>",
+          "  <span />",
+          "</div>);"
+        ]
+      }
     },
     "jsx.sortClassNames": {
-      "$ref": "#/definitions/jsx.sortClassNames"
+      "$ref": "#/definitions/jsx.sortClassNames",
+      "x-example": {
+        "extension": "tsx",
+        "input": [
+          "const element = <div className=\"text-sm p-4 flex\" />;"
+        ]
+      }
     },
     "memberExpression.linePerExpression": {
-      "$ref": "#/definitions/memberExpression.linePerExpression"
+      "$ref": "#/definitions/memberExpression.linePerExpression",
+      "x-example": {
+        "config": {
+          "lineWidth": 40
+        },
+        "input": [
+          "const result = items.filter(isValid).map(toValue)",
+          "  .join(\", \");"
+        ]
+      }
     },
     "typeLiteral.separatorKind": {
-      "$ref": "#/definitions/typeLiteral.separatorKind"
+      "$ref": "#/definitions/typeLiteral.separatorKind",
+      "x-example": {
+        "input": [
+          "type Point = { x: number; y: number };"
+        ]
+      }
     },
     "typeLiteral.separatorKind.singleLine": {
-      "$ref": "#/definitions/typeLiteral.separatorKind"
+      "$ref": "#/definitions/typeLiteral.separatorKind",
+      "x-overrides": "typeLiteral.separatorKind"
     },
     "typeLiteral.separatorKind.multiLine": {
-      "$ref": "#/definitions/typeLiteral.separatorKind"
+      "$ref": "#/definitions/typeLiteral.separatorKind",
+      "x-overrides": "typeLiteral.separatorKind"
     },
     "taggedTemplate.formatEmbedded": {
       "$ref": "#/definitions/taggedTemplate.formatEmbedded"
@@ -1192,68 +1676,101 @@
     "taggedTemplate.embeddedLanguages": {
       "$ref": "#/definitions/taggedTemplate.embeddedLanguages"
     },
+    "memberSpacing": {
+      "$ref": "#/definitions/memberSpacing",
+      "x-example": {
+        "input": [
+          "class Point {",
+          "  x = 1;",
+          "  y = 2;",
+          "",
+          "  z = 3;",
+          "}"
+        ]
+      }
+    },
     "classDeclaration.memberSpacing": {
-      "$ref": "#/definitions/memberSpacing"
+      "$ref": "#/definitions/memberSpacing",
+      "x-overrides": "memberSpacing"
     },
     "classExpression.memberSpacing": {
-      "$ref": "#/definitions/memberSpacing"
+      "$ref": "#/definitions/memberSpacing",
+      "x-overrides": "memberSpacing"
     },
     "enumDeclaration.memberSpacing": {
-      "$ref": "#/definitions/memberSpacing"
+      "$ref": "#/definitions/memberSpacing",
+      "x-overrides": "memberSpacing"
     },
     "interfaceDeclaration.memberSpacing": {
-      "$ref": "#/definitions/memberSpacing"
+      "$ref": "#/definitions/memberSpacing",
+      "x-overrides": "memberSpacing"
     },
     "typeLiteral.memberSpacing": {
-      "$ref": "#/definitions/memberSpacing"
+      "$ref": "#/definitions/memberSpacing",
+      "x-overrides": "memberSpacing"
     },
     "spaceAround": {
       "$ref": "#/definitions/spaceAround"
     },
     "arguments.spaceAround": {
-      "$ref": "#/definitions/spaceAround"
+      "$ref": "#/definitions/spaceAround",
+      "x-overrides": "spaceAround"
     },
     "arrayExpression.spaceAround": {
-      "$ref": "#/definitions/spaceAround"
+      "$ref": "#/definitions/spaceAround",
+      "x-overrides": "spaceAround"
     },
     "arrayPattern.spaceAround": {
-      "$ref": "#/definitions/spaceAround"
+      "$ref": "#/definitions/spaceAround",
+      "x-overrides": "spaceAround"
     },
     "catchClause.spaceAround": {
-      "$ref": "#/definitions/spaceAround"
+      "$ref": "#/definitions/spaceAround",
+      "x-overrides": "spaceAround"
     },
     "doWhileStatement.spaceAround": {
-      "$ref": "#/definitions/spaceAround"
+      "$ref": "#/definitions/spaceAround",
+      "x-overrides": "spaceAround"
     },
     "forInStatement.spaceAround": {
-      "$ref": "#/definitions/spaceAround"
+      "$ref": "#/definitions/spaceAround",
+      "x-overrides": "spaceAround"
     },
     "forOfStatement.spaceAround": {
-      "$ref": "#/definitions/spaceAround"
+      "$ref": "#/definitions/spaceAround",
+      "x-overrides": "spaceAround"
     },
     "forStatement.spaceAround": {
-      "$ref": "#/definitions/spaceAround"
+      "$ref": "#/definitions/spaceAround",
+      "x-overrides": "spaceAround"
     },
     "ifStatement.spaceAround": {
-      "$ref": "#/definitions/spaceAround"
+      "$ref": "#/definitions/spaceAround",
+      "x-overrides": "spaceAround"
     },
     "parameters.spaceAround": {
-      "$ref": "#/definitions/spaceAround"
+      "$ref": "#/definitions/spaceAround",
+      "x-overrides": "spaceAround"
     },
     "parenExpression.spaceAround": {
-      "$ref": "#/definitions/spaceAround"
+      "$ref": "#/definitions/spaceAround",
+      "x-overrides": "spaceAround"
     },
     "switchStatement.spaceAround": {
-      "$ref": "#/definitions/spaceAround"
+      "$ref": "#/definitions/spaceAround",
+      "x-overrides": "spaceAround"
     },
     "tupleType.spaceAround": {
-      "$ref": "#/definitions/spaceAround"
+      "$ref": "#/definitions/spaceAround",
+      "x-overrides": "spaceAround"
     },
     "whileStatement.spaceAround": {
-      "$ref": "#/definitions/spaceAround"
+      "$ref": "#/definitions/spaceAround",
+      "x-overrides": "spaceAround"
     },
     "withStatement.spaceAround": {
-      "$ref": "#/definitions/spaceAround"
+      "$ref": "#/definitions/spaceAround",
+      "x-overrides": "spaceAround"
     },
     "spaceAfterControlFlowKeyword": {
       "$ref": "#/definitions/spaceAfterControlFlowKeyword"
@@ -1262,22 +1779,30 @@
       "$ref": "#/definitions/spaceSurroundingProperties"
     },
     "mappedType.spaceSurroundingProperties": {
-      "$ref": "#/definitions/mappedType.spaceSurroundingProperties"
+      "$ref": "#/definitions/mappedType.spaceSurroundingProperties",
+      "x-overrides": "spaceSurroundingProperties"
     },
     "objectExpression.spaceSurroundingProperties": {
-      "$ref": "#/definitions/objectExpression.spaceSurroundingProperties"
+      "$ref": "#/definitions/objectExpression.spaceSurroundingProperties",
+      "x-overrides": "spaceSurroundingProperties"
     },
     "objectPattern.spaceSurroundingProperties": {
-      "$ref": "#/definitions/objectPattern.spaceSurroundingProperties"
+      "$ref": "#/definitions/objectPattern.spaceSurroundingProperties",
+      "x-overrides": "spaceSurroundingProperties"
     },
     "typeLiteral.spaceSurroundingProperties": {
-      "$ref": "#/definitions/typeLiteral.spaceSurroundingProperties"
+      "$ref": "#/definitions/typeLiteral.spaceSurroundingProperties",
+      "x-overrides": "spaceSurroundingProperties"
+    },
+    "spaceBetweenObjectClosingBraces": {
+      "$ref": "#/definitions/spaceBetweenObjectClosingBraces"
     },
     "binaryExpression.spaceSurroundingBitwiseAndArithmeticOperator": {
       "$ref": "#/definitions/binaryExpression.spaceSurroundingBitwiseAndArithmeticOperator"
     },
     "catchClause.spaceAfterCatchKeyword": {
-      "$ref": "#/definitions/catchClause.spaceAfterCatchKeyword"
+      "$ref": "#/definitions/catchClause.spaceAfterCatchKeyword",
+      "x-overrides": "spaceAfterControlFlowKeyword"
     },
     "commentLine.forceSpaceAfterSlashes": {
       "$ref": "#/definitions/commentLine.forceSpaceAfterSlashes"
@@ -1292,19 +1817,23 @@
       "$ref": "#/definitions/constructSignature.spaceAfterNewKeyword"
     },
     "doWhileStatement.spaceAfterWhileKeyword": {
-      "$ref": "#/definitions/doWhileStatement.spaceAfterWhileKeyword"
+      "$ref": "#/definitions/doWhileStatement.spaceAfterWhileKeyword",
+      "x-overrides": "spaceAfterControlFlowKeyword"
     },
     "exportDeclaration.spaceSurroundingNamedExports": {
       "$ref": "#/definitions/exportDeclaration.spaceSurroundingNamedExports"
     },
     "forInStatement.spaceAfterForKeyword": {
-      "$ref": "#/definitions/forInStatement.spaceAfterForKeyword"
+      "$ref": "#/definitions/forInStatement.spaceAfterForKeyword",
+      "x-overrides": "spaceAfterControlFlowKeyword"
     },
     "forOfStatement.spaceAfterForKeyword": {
-      "$ref": "#/definitions/forOfStatement.spaceAfterForKeyword"
+      "$ref": "#/definitions/forOfStatement.spaceAfterForKeyword",
+      "x-overrides": "spaceAfterControlFlowKeyword"
     },
     "forStatement.spaceAfterForKeyword": {
-      "$ref": "#/definitions/forStatement.spaceAfterForKeyword"
+      "$ref": "#/definitions/forStatement.spaceAfterForKeyword",
+      "x-overrides": "spaceAfterControlFlowKeyword"
     },
     "forStatement.spaceAfterSemicolons": {
       "$ref": "#/definitions/forStatement.spaceAfterSemicolons"
@@ -1319,13 +1848,21 @@
       "$ref": "#/definitions/functionExpression.spaceAfterFunctionKeyword"
     },
     "functionExpression.flatIife": {
-      "$ref": "#/definitions/functionExpression.flatIife"
+      "$ref": "#/definitions/functionExpression.flatIife",
+      "x-example": {
+        "input": [
+          "(function() {",
+          "  start();",
+          "})();"
+        ]
+      }
     },
     "getAccessor.spaceBeforeParentheses": {
       "$ref": "#/definitions/getAccessor.spaceBeforeParentheses"
     },
     "ifStatement.spaceAfterIfKeyword": {
-      "$ref": "#/definitions/ifStatement.spaceAfterIfKeyword"
+      "$ref": "#/definitions/ifStatement.spaceAfterIfKeyword",
+      "x-overrides": "spaceAfterControlFlowKeyword"
     },
     "importDeclaration.spaceSurroundingNamedImports": {
       "$ref": "#/definitions/importDeclaration.spaceSurroundingNamedImports"
@@ -1336,6 +1873,14 @@
     "jsxExpressionContainer.spaceSurroundingExpression": {
       "$ref": "#/definitions/jsxExpressionContainer.spaceSurroundingExpression"
     },
+    "jsxExpressionContainer.spaceSurroundingObjectLiteral": {
+      "$ref": "#/definitions/jsxExpressionContainer.spaceSurroundingObjectLiteral",
+      "x-overrides": "jsxExpressionContainer.spaceSurroundingExpression"
+    },
+    "jsxExpressionContainer.spaceSurroundingArrayLiteral": {
+      "$ref": "#/definitions/jsxExpressionContainer.spaceSurroundingArrayLiteral",
+      "x-overrides": "jsxExpressionContainer.spaceSurroundingExpression"
+    },
     "method.spaceBeforeParentheses": {
       "$ref": "#/definitions/method.spaceBeforeParentheses"
     },
@@ -1343,7 +1888,8 @@
       "$ref": "#/definitions/setAccessor.spaceBeforeParentheses"
     },
     "switchStatement.spaceAfterSwitchKeyword": {
-      "$ref": "#/definitions/switchStatement.spaceAfterSwitchKeyword"
+      "$ref": "#/definitions/switchStatement.spaceAfterSwitchKeyword",
+      "x-overrides": "spaceAfterControlFlowKeyword"
     },
     "taggedTemplate.spaceBeforeLiteral": {
       "$ref": "#/definitions/taggedTemplate.spaceBeforeLiteral"
@@ -1355,52 +1901,63 @@
       "$ref": "#/definitions/typeAssertion.spaceBeforeExpression"
     },
     "whileStatement.spaceAfterWhileKeyword": {
-      "$ref": "#/definitions/whileStatement.spaceAfterWhileKeyword"
+      "$ref": "#/definitions/whileStatement.spaceAfterWhileKeyword",
+      "x-overrides": "spaceAfterControlFlowKeyword"
     },
     "withStatement.spaceAfterWithKeyword": {
-      "$ref": "#/definitions/withStatement.spaceAfterWithKeyword"
+      "$ref": "#/definitions/withStatement.spaceAfterWithKeyword",
+      "x-overrides": "spaceAfterControlFlowKeyword"
     },
     "module.sortImportDeclarations": {
-      "$ref": "#/definitions/sortOrder"
+      "$ref": "#/definitions/sortOrder",
+      "x-example": {
+        "input": [
+          "import { b } from \"./b\";",
+          "import { C } from \"./C\";",
+          "import { a } from \"./a\";"
+        ]
+      }
     },
     "module.blankLinesAfterImports": {
       "description": "The number of blank lines to force after the import declarations at the top of a module. When not set, maintains the blank lines up to `maxBlankLines`.",
-      "type": "number"
+      "type": "integer",
+      "minimum": 0
     },
     "module.sortExportDeclarations": {
-      "$ref": "#/definitions/sortOrder"
+      "$ref": "#/definitions/sortOrder",
+      "x-example": {
+        "input": [
+          "export * from \"./b\";",
+          "export * from \"./C\";",
+          "export * from \"./a\";"
+        ]
+      }
     },
     "module.importGroups": {
-      "description": "Ordered list of import groups, separated by blank lines. Empty disables the feature.",
+      "description": "Ordered list of import groups, separated by blank lines. Empty disables the feature. A group's patterns take the imports they match wherever the group is listed, the categories take the rest, and the list sets the output order.",
       "type": "array",
       "default": [],
+      "examples": [
+        [
+          { "match": "builtin" },
+          { "match": "external" },
+          { "match": { "pattern": "@/**" } },
+          { "match": ["parent", "sibling", "index"] }
+        ]
+      ],
       "items": {
         "type": "object",
+        "required": ["match"],
+        "additionalProperties": false,
         "properties": {
           "match": {
+            "description": "The imports in the group, as a category, a pattern, or a list of them.",
             "oneOf": [
-              {
-                "type": "string",
-                "enum": ["builtin", "external", "parent", "sibling", "index", "type", "unknown"]
-              },
-              {
-                "type": "object",
-                "required": ["pattern"],
-                "properties": {
-                  "pattern": { "type": "string" }
-                }
-              },
+              { "$ref": "#/definitions/importGroupMatcher" },
               {
                 "type": "array",
-                "items": {
-                  "oneOf": [
-                    {
-                      "type": "string",
-                      "enum": ["builtin", "external", "parent", "sibling", "index", "type", "unknown"]
-                    },
-                    { "type": "object", "required": ["pattern"], "properties": { "pattern": { "type": "string" } } }
-                  ]
-                }
+                "description": "A list of categories and patterns whose imports go in the same group.",
+                "items": { "$ref": "#/definitions/importGroupMatcher" }
               }
             ]
           }
@@ -1408,28 +1965,66 @@
       }
     },
     "module.typeImports": {
-      "description": "How type-only imports are classified by module.importGroups.",
+      "description": "How `module.importGroups` classifies type-only imports (ex. `import type { Foo } from \"./foo\";`).",
       "type": "string",
       "default": "separate",
-      "enum": ["separate", "interleave"]
+      "oneOf": [{
+        "const": "separate",
+        "description": "Classifies type-only imports as the `type` category, so they can be put in their own group."
+      }, {
+        "const": "interleave",
+        "description": "Classifies type-only imports by their path like the other imports."
+      }]
     },
     "module.importGroupsNewlinesBetween": {
-      "description": "How blank lines are handled between imports when module.importGroups is enabled. Mirrors ESLint import/order's newlines-between.",
+      "description": "How to put blank lines between the imports when `module.importGroups` is set. Mirrors the `newlines-between` option of ESLint's `import/order` rule.",
       "type": "string",
       "default": "always",
-      "enum": ["always", "alwaysAndInsideGroups", "never", "ignore"]
+      "oneOf": [{
+        "const": "always",
+        "description": "Puts one blank line between groups and removes the blank lines within a group."
+      }, {
+        "const": "alwaysAndInsideGroups",
+        "description": "Puts one blank line between groups and keeps the blank lines within a group."
+      }, {
+        "const": "never",
+        "description": "Removes the blank lines between all the imports."
+      }, {
+        "const": "ignore",
+        "description": "Neither adds nor removes blank lines."
+      }]
     },
     "exportDeclaration.sortNamedExports": {
-      "$ref": "#/definitions/sortOrder"
+      "$ref": "#/definitions/sortOrder",
+      "x-example": {
+        "input": [
+          "export { b, C, a } from \"./module\";"
+        ]
+      }
     },
     "exportDeclaration.sortTypeOnlyExports": {
-      "$ref": "#/definitions/typeOnlyImportsExportsSortOrder"
+      "$ref": "#/definitions/typeOnlyImportsExportsSortOrder",
+      "x-example": {
+        "input": [
+          "export { c, type b, a } from \"./module\";"
+        ]
+      }
     },
     "importDeclaration.sortNamedImports": {
-      "$ref": "#/definitions/sortOrder"
+      "$ref": "#/definitions/sortOrder",
+      "x-example": {
+        "input": [
+          "import { b, C, a } from \"./module\";"
+        ]
+      }
     },
     "importDeclaration.sortTypeOnlyImports": {
-      "$ref": "#/definitions/typeOnlyImportsExportsSortOrder"
+      "$ref": "#/definitions/typeOnlyImportsExportsSortOrder",
+      "x-example": {
+        "input": [
+          "import { c, type b, a } from \"./module\";"
+        ]
+      }
     },
     "ignoreNodeCommentText": {
       "description": "The text to use for an ignore comment (ex. `// dprint-ignore`).",
@@ -1442,397 +2037,552 @@
       "type": "string"
     },
     "forInStatement.useBraces": {
-      "$ref": "#/definitions/useBraces"
+      "$ref": "#/definitions/useBraces",
+      "x-overrides": "useBraces"
     },
     "forOfStatement.useBraces": {
-      "$ref": "#/definitions/useBraces"
+      "$ref": "#/definitions/useBraces",
+      "x-overrides": "useBraces"
     },
     "forStatement.useBraces": {
-      "$ref": "#/definitions/useBraces"
+      "$ref": "#/definitions/useBraces",
+      "x-overrides": "useBraces"
     },
     "ifStatement.useBraces": {
-      "$ref": "#/definitions/useBraces"
+      "$ref": "#/definitions/useBraces",
+      "x-overrides": "useBraces"
     },
     "whileStatement.useBraces": {
-      "$ref": "#/definitions/useBraces"
+      "$ref": "#/definitions/useBraces",
+      "x-overrides": "useBraces"
     },
     "withStatement.useBraces": {
-      "$ref": "#/definitions/useBraces"
+      "$ref": "#/definitions/useBraces",
+      "x-overrides": "useBraces"
     },
     "arrowFunction.bracePosition": {
-      "$ref": "#/definitions/bracePosition"
+      "$ref": "#/definitions/bracePosition",
+      "x-overrides": "bracePosition"
     },
     "classDeclaration.blockPadding": {
-      "$ref": "#/definitions/blockPadding"
+      "$ref": "#/definitions/blockPadding",
+      "x-overrides": "blockPadding"
     },
     "classExpression.blockPadding": {
-      "$ref": "#/definitions/blockPadding"
+      "$ref": "#/definitions/blockPadding",
+      "x-overrides": "blockPadding"
     },
     "enumDeclaration.blockPadding": {
-      "$ref": "#/definitions/blockPadding"
+      "$ref": "#/definitions/blockPadding",
+      "x-overrides": "blockPadding"
     },
     "interfaceDeclaration.blockPadding": {
-      "$ref": "#/definitions/blockPadding"
+      "$ref": "#/definitions/blockPadding",
+      "x-overrides": "blockPadding"
     },
     "moduleDeclaration.blockPadding": {
-      "$ref": "#/definitions/blockPadding"
+      "$ref": "#/definitions/blockPadding",
+      "x-overrides": "blockPadding"
     },
     "arrowFunction.blockPadding": {
-      "$ref": "#/definitions/blockPadding"
+      "$ref": "#/definitions/blockPadding",
+      "x-overrides": "blockPadding"
     },
     "constructor.blockPadding": {
-      "$ref": "#/definitions/blockPadding"
+      "$ref": "#/definitions/blockPadding",
+      "x-overrides": "blockPadding"
     },
     "doWhileStatement.blockPadding": {
-      "$ref": "#/definitions/blockPadding"
+      "$ref": "#/definitions/blockPadding",
+      "x-overrides": "blockPadding"
     },
     "forInStatement.blockPadding": {
-      "$ref": "#/definitions/blockPadding"
+      "$ref": "#/definitions/blockPadding",
+      "x-overrides": "blockPadding"
     },
     "forOfStatement.blockPadding": {
-      "$ref": "#/definitions/blockPadding"
+      "$ref": "#/definitions/blockPadding",
+      "x-overrides": "blockPadding"
     },
     "forStatement.blockPadding": {
-      "$ref": "#/definitions/blockPadding"
+      "$ref": "#/definitions/blockPadding",
+      "x-overrides": "blockPadding"
     },
     "functionDeclaration.blockPadding": {
-      "$ref": "#/definitions/blockPadding"
+      "$ref": "#/definitions/blockPadding",
+      "x-overrides": "blockPadding"
     },
     "functionExpression.blockPadding": {
-      "$ref": "#/definitions/blockPadding"
+      "$ref": "#/definitions/blockPadding",
+      "x-overrides": "blockPadding"
     },
     "getAccessor.blockPadding": {
-      "$ref": "#/definitions/blockPadding"
+      "$ref": "#/definitions/blockPadding",
+      "x-overrides": "blockPadding"
     },
     "ifStatement.blockPadding": {
-      "$ref": "#/definitions/blockPadding"
+      "$ref": "#/definitions/blockPadding",
+      "x-overrides": "blockPadding"
     },
     "method.blockPadding": {
-      "$ref": "#/definitions/blockPadding"
+      "$ref": "#/definitions/blockPadding",
+      "x-overrides": "blockPadding"
     },
     "setAccessor.blockPadding": {
-      "$ref": "#/definitions/blockPadding"
+      "$ref": "#/definitions/blockPadding",
+      "x-overrides": "blockPadding"
     },
     "staticBlock.blockPadding": {
-      "$ref": "#/definitions/blockPadding"
+      "$ref": "#/definitions/blockPadding",
+      "x-overrides": "blockPadding"
     },
     "switchCase.blockPadding": {
-      "$ref": "#/definitions/blockPadding"
+      "$ref": "#/definitions/blockPadding",
+      "x-overrides": "blockPadding"
     },
     "switchStatement.blockPadding": {
-      "$ref": "#/definitions/blockPadding"
+      "$ref": "#/definitions/blockPadding",
+      "x-overrides": "blockPadding"
     },
     "tryStatement.blockPadding": {
-      "$ref": "#/definitions/blockPadding"
+      "$ref": "#/definitions/blockPadding",
+      "x-overrides": "blockPadding"
     },
     "whileStatement.blockPadding": {
-      "$ref": "#/definitions/blockPadding"
+      "$ref": "#/definitions/blockPadding",
+      "x-overrides": "blockPadding"
     },
     "withStatement.blockPadding": {
-      "$ref": "#/definitions/blockPadding"
+      "$ref": "#/definitions/blockPadding",
+      "x-overrides": "blockPadding"
     },
     "classDeclaration.bracePosition": {
-      "$ref": "#/definitions/bracePosition"
+      "$ref": "#/definitions/bracePosition",
+      "x-overrides": "bracePosition"
     },
     "classExpression.bracePosition": {
-      "$ref": "#/definitions/bracePosition"
+      "$ref": "#/definitions/bracePosition",
+      "x-overrides": "bracePosition"
     },
     "constructor.bracePosition": {
-      "$ref": "#/definitions/bracePosition"
+      "$ref": "#/definitions/bracePosition",
+      "x-overrides": "bracePosition"
     },
     "doWhileStatement.bracePosition": {
-      "$ref": "#/definitions/bracePosition"
+      "$ref": "#/definitions/bracePosition",
+      "x-overrides": "bracePosition"
     },
     "enumDeclaration.bracePosition": {
-      "$ref": "#/definitions/bracePosition"
+      "$ref": "#/definitions/bracePosition",
+      "x-overrides": "bracePosition"
     },
     "forInStatement.bracePosition": {
-      "$ref": "#/definitions/bracePosition"
+      "$ref": "#/definitions/bracePosition",
+      "x-overrides": "bracePosition"
     },
     "forOfStatement.bracePosition": {
-      "$ref": "#/definitions/bracePosition"
+      "$ref": "#/definitions/bracePosition",
+      "x-overrides": "bracePosition"
     },
     "forStatement.bracePosition": {
-      "$ref": "#/definitions/bracePosition"
+      "$ref": "#/definitions/bracePosition",
+      "x-overrides": "bracePosition"
     },
     "functionDeclaration.bracePosition": {
-      "$ref": "#/definitions/bracePosition"
+      "$ref": "#/definitions/bracePosition",
+      "x-overrides": "bracePosition"
     },
     "functionExpression.bracePosition": {
-      "$ref": "#/definitions/bracePosition"
+      "$ref": "#/definitions/bracePosition",
+      "x-overrides": "bracePosition"
     },
     "getAccessor.bracePosition": {
-      "$ref": "#/definitions/bracePosition"
+      "$ref": "#/definitions/bracePosition",
+      "x-overrides": "bracePosition"
     },
     "ifStatement.bracePosition": {
-      "$ref": "#/definitions/bracePosition"
+      "$ref": "#/definitions/bracePosition",
+      "x-overrides": "bracePosition"
     },
     "interfaceDeclaration.bracePosition": {
-      "$ref": "#/definitions/bracePosition"
+      "$ref": "#/definitions/bracePosition",
+      "x-overrides": "bracePosition"
     },
     "moduleDeclaration.bracePosition": {
-      "$ref": "#/definitions/bracePosition"
+      "$ref": "#/definitions/bracePosition",
+      "x-overrides": "bracePosition"
     },
     "method.bracePosition": {
-      "$ref": "#/definitions/bracePosition"
+      "$ref": "#/definitions/bracePosition",
+      "x-overrides": "bracePosition"
     },
     "setAccessor.bracePosition": {
-      "$ref": "#/definitions/bracePosition"
+      "$ref": "#/definitions/bracePosition",
+      "x-overrides": "bracePosition"
     },
     "staticBlock.bracePosition": {
-      "$ref": "#/definitions/bracePosition"
+      "$ref": "#/definitions/bracePosition",
+      "x-overrides": "bracePosition"
     },
     "switchStatement.bracePosition": {
-      "$ref": "#/definitions/bracePosition"
+      "$ref": "#/definitions/bracePosition",
+      "x-overrides": "bracePosition"
     },
     "switchCase.bracePosition": {
-      "$ref": "#/definitions/bracePosition"
+      "$ref": "#/definitions/bracePosition",
+      "x-overrides": "bracePosition"
     },
     "tryStatement.bracePosition": {
-      "$ref": "#/definitions/bracePosition"
+      "$ref": "#/definitions/bracePosition",
+      "x-overrides": "bracePosition"
     },
     "whileStatement.bracePosition": {
-      "$ref": "#/definitions/bracePosition"
+      "$ref": "#/definitions/bracePosition",
+      "x-overrides": "bracePosition"
     },
     "withStatement.bracePosition": {
-      "$ref": "#/definitions/bracePosition"
+      "$ref": "#/definitions/bracePosition",
+      "x-overrides": "bracePosition"
     },
     "forInStatement.singleBodyPosition": {
-      "$ref": "#/definitions/singleBodyPosition"
+      "$ref": "#/definitions/singleBodyPosition",
+      "x-overrides": "singleBodyPosition"
     },
     "forOfStatement.singleBodyPosition": {
-      "$ref": "#/definitions/singleBodyPosition"
+      "$ref": "#/definitions/singleBodyPosition",
+      "x-overrides": "singleBodyPosition"
     },
     "forStatement.singleBodyPosition": {
-      "$ref": "#/definitions/singleBodyPosition"
+      "$ref": "#/definitions/singleBodyPosition",
+      "x-overrides": "singleBodyPosition"
     },
     "ifStatement.singleBodyPosition": {
-      "$ref": "#/definitions/singleBodyPosition"
+      "$ref": "#/definitions/singleBodyPosition",
+      "x-overrides": "singleBodyPosition"
     },
     "whileStatement.singleBodyPosition": {
-      "$ref": "#/definitions/singleBodyPosition"
+      "$ref": "#/definitions/singleBodyPosition",
+      "x-overrides": "singleBodyPosition"
     },
     "withStatement.singleBodyPosition": {
-      "$ref": "#/definitions/singleBodyPosition"
+      "$ref": "#/definitions/singleBodyPosition",
+      "x-overrides": "singleBodyPosition"
     },
     "ifStatement.nextControlFlowPosition": {
-      "$ref": "#/definitions/nextControlFlowPosition"
+      "$ref": "#/definitions/nextControlFlowPosition",
+      "x-overrides": "nextControlFlowPosition"
     },
     "tryStatement.nextControlFlowPosition": {
-      "$ref": "#/definitions/nextControlFlowPosition"
+      "$ref": "#/definitions/nextControlFlowPosition",
+      "x-overrides": "nextControlFlowPosition"
     },
     "doWhileStatement.nextControlFlowPosition": {
-      "$ref": "#/definitions/nextControlFlowPosition"
+      "$ref": "#/definitions/nextControlFlowPosition",
+      "x-overrides": "nextControlFlowPosition"
     },
     "arguments.trailingCommas": {
-      "$ref": "#/definitions/trailingCommas"
+      "$ref": "#/definitions/trailingCommas",
+      "x-overrides": "trailingCommas"
     },
     "parameters.trailingCommas": {
-      "$ref": "#/definitions/trailingCommas"
+      "$ref": "#/definitions/trailingCommas",
+      "x-overrides": "trailingCommas"
     },
     "arrayExpression.trailingCommas": {
-      "$ref": "#/definitions/trailingCommas"
+      "$ref": "#/definitions/trailingCommas",
+      "x-overrides": "trailingCommas"
     },
     "arrayPattern.trailingCommas": {
-      "$ref": "#/definitions/trailingCommas"
+      "$ref": "#/definitions/trailingCommas",
+      "x-overrides": "trailingCommas"
     },
     "enumDeclaration.trailingCommas": {
-      "$ref": "#/definitions/trailingCommas"
+      "$ref": "#/definitions/trailingCommas",
+      "x-overrides": "trailingCommas"
     },
     "exportDeclaration.trailingCommas": {
-      "$ref": "#/definitions/trailingCommas"
+      "$ref": "#/definitions/trailingCommas",
+      "x-overrides": "trailingCommas"
     },
     "importDeclaration.trailingCommas": {
-      "$ref": "#/definitions/trailingCommas"
+      "$ref": "#/definitions/trailingCommas",
+      "x-overrides": "trailingCommas"
     },
     "objectExpression.trailingCommas": {
-      "$ref": "#/definitions/trailingCommas"
+      "$ref": "#/definitions/trailingCommas",
+      "x-overrides": "trailingCommas"
     },
     "objectPattern.trailingCommas": {
-      "$ref": "#/definitions/trailingCommas"
+      "$ref": "#/definitions/trailingCommas",
+      "x-overrides": "trailingCommas"
     },
     "tupleType.trailingCommas": {
-      "$ref": "#/definitions/trailingCommas"
+      "$ref": "#/definitions/trailingCommas",
+      "x-overrides": "trailingCommas"
     },
     "typeLiteral.trailingCommas": {
-      "$ref": "#/definitions/trailingCommas"
+      "$ref": "#/definitions/trailingCommas",
+      "x-overrides": "trailingCommas"
     },
     "typeParameters.trailingCommas": {
-      "$ref": "#/definitions/trailingCommas"
+      "$ref": "#/definitions/trailingCommas",
+      "x-overrides": "trailingCommas"
     },
     "binaryExpression.operatorPosition": {
-      "$ref": "#/definitions/operatorPosition"
+      "$ref": "#/definitions/operatorPosition",
+      "x-overrides": "operatorPosition"
     },
     "conditionalExpression.operatorPosition": {
-      "$ref": "#/definitions/operatorPosition"
+      "$ref": "#/definitions/operatorPosition",
+      "x-overrides": "operatorPosition"
     },
     "conditionalType.operatorPosition": {
-      "$ref": "#/definitions/operatorPosition"
+      "$ref": "#/definitions/operatorPosition",
+      "x-overrides": "operatorPosition"
     },
     "unionAndIntersectionType.operatorPosition": {
-      "$ref": "#/definitions/operatorPosition"
+      "$ref": "#/definitions/operatorPosition",
+      "x-overrides": "operatorPosition"
     },
     "arguments.preferHanging": {
-      "$ref": "#/definitions/preferHangingGranular"
+      "$ref": "#/definitions/preferHangingGranular",
+      "x-overrides": "preferHanging"
     },
     "arrayExpression.preferHanging": {
-      "$ref": "#/definitions/preferHangingGranular"
+      "$ref": "#/definitions/preferHangingGranular",
+      "x-overrides": "preferHanging"
     },
     "arrayPattern.preferHanging": {
-      "$ref": "#/definitions/preferHanging"
+      "$ref": "#/definitions/preferHanging",
+      "x-overrides": "preferHanging"
     },
     "doWhileStatement.preferHanging": {
-      "$ref": "#/definitions/preferHanging"
+      "$ref": "#/definitions/preferHanging",
+      "x-overrides": "preferHanging"
     },
     "exportDeclaration.preferHanging": {
-      "$ref": "#/definitions/preferHanging"
+      "$ref": "#/definitions/preferHanging",
+      "x-overrides": "preferHanging"
     },
     "extendsClause.preferHanging": {
-      "$ref": "#/definitions/preferHanging"
+      "$ref": "#/definitions/preferHanging",
+      "x-overrides": "preferHanging"
     },
     "forInStatement.preferHanging": {
-      "$ref": "#/definitions/preferHanging"
+      "$ref": "#/definitions/preferHanging",
+      "x-overrides": "preferHanging"
     },
     "forOfStatement.preferHanging": {
-      "$ref": "#/definitions/preferHanging"
+      "$ref": "#/definitions/preferHanging",
+      "x-overrides": "preferHanging"
     },
     "forStatement.preferHanging": {
-      "$ref": "#/definitions/preferHanging"
+      "$ref": "#/definitions/preferHanging",
+      "x-overrides": "preferHanging"
     },
     "ifStatement.preferHanging": {
-      "$ref": "#/definitions/preferHanging"
+      "$ref": "#/definitions/preferHanging",
+      "x-overrides": "preferHanging"
     },
     "implementsClause.preferHanging": {
-      "$ref": "#/definitions/preferHanging"
+      "$ref": "#/definitions/preferHanging",
+      "x-overrides": "preferHanging"
     },
     "importDeclaration.preferHanging": {
-      "$ref": "#/definitions/preferHanging"
+      "$ref": "#/definitions/preferHanging",
+      "x-overrides": "preferHanging"
     },
     "jsxAttributes.preferHanging": {
-      "$ref": "#/definitions/preferHanging"
+      "$ref": "#/definitions/preferHanging",
+      "x-overrides": "preferHanging"
     },
     "objectExpression.preferHanging": {
-      "$ref": "#/definitions/preferHanging"
+      "$ref": "#/definitions/preferHanging",
+      "x-overrides": "preferHanging"
     },
     "objectPattern.preferHanging": {
-      "$ref": "#/definitions/preferHanging"
+      "$ref": "#/definitions/preferHanging",
+      "x-overrides": "preferHanging"
     },
     "parameters.preferHanging": {
-      "$ref": "#/definitions/preferHangingGranular"
+      "$ref": "#/definitions/preferHangingGranular",
+      "x-overrides": "preferHanging"
     },
     "sequenceExpression.preferHanging": {
-      "$ref": "#/definitions/preferHanging"
+      "$ref": "#/definitions/preferHanging",
+      "x-overrides": "preferHanging"
     },
     "switchStatement.preferHanging": {
-      "$ref": "#/definitions/preferHanging"
+      "$ref": "#/definitions/preferHanging",
+      "x-overrides": "preferHanging"
     },
     "tupleType.preferHanging": {
-      "$ref": "#/definitions/preferHangingGranular"
+      "$ref": "#/definitions/preferHangingGranular",
+      "x-overrides": "preferHanging"
     },
     "typeLiteral.preferHanging": {
-      "$ref": "#/definitions/preferHanging"
+      "$ref": "#/definitions/preferHanging",
+      "x-overrides": "preferHanging"
     },
     "typeParameters.preferHanging": {
-      "$ref": "#/definitions/preferHangingGranular"
+      "$ref": "#/definitions/preferHangingGranular",
+      "x-overrides": "preferHanging"
     },
     "unionAndIntersectionType.preferHanging": {
-      "$ref": "#/definitions/preferHanging"
+      "$ref": "#/definitions/preferHanging",
+      "x-overrides": "preferHanging"
     },
     "variableStatement.preferHanging": {
-      "$ref": "#/definitions/preferHanging"
+      "$ref": "#/definitions/preferHanging",
+      "x-overrides": "preferHanging"
     },
     "whileStatement.preferHanging": {
-      "$ref": "#/definitions/preferHanging"
+      "$ref": "#/definitions/preferHanging",
+      "x-overrides": "preferHanging"
     },
     "withStatement.preferHanging": {
-      "$ref": "#/definitions/preferHanging"
+      "$ref": "#/definitions/preferHanging",
+      "x-overrides": "preferHanging"
     },
     "arrayExpression.preferSingleLine": {
-      "$ref": "#/definitions/preferSingleLine"
+      "$ref": "#/definitions/preferSingleLine",
+      "x-overrides": "preferSingleLine"
     },
     "arrayPattern.preferSingleLine": {
-      "$ref": "#/definitions/preferSingleLine"
+      "$ref": "#/definitions/preferSingleLine",
+      "x-overrides": "preferSingleLine"
     },
     "arguments.preferSingleLine": {
-      "$ref": "#/definitions/preferSingleLine"
+      "$ref": "#/definitions/preferSingleLine",
+      "x-overrides": "preferSingleLine"
     },
     "binaryExpression.preferSingleLine": {
-      "$ref": "#/definitions/preferSingleLine"
+      "$ref": "#/definitions/preferSingleLine",
+      "x-overrides": "preferSingleLine"
     },
     "computed.preferSingleLine": {
-      "$ref": "#/definitions/preferSingleLine"
+      "$ref": "#/definitions/preferSingleLine",
+      "x-overrides": "preferSingleLine"
     },
     "conditionalExpression.preferSingleLine": {
-      "$ref": "#/definitions/preferSingleLine"
+      "$ref": "#/definitions/preferSingleLine",
+      "x-overrides": "preferSingleLine"
     },
     "conditionalType.preferSingleLine": {
-      "$ref": "#/definitions/preferSingleLine"
+      "$ref": "#/definitions/preferSingleLine",
+      "x-overrides": "preferSingleLine"
     },
     "decorators.preferSingleLine": {
-      "$ref": "#/definitions/preferSingleLine"
+      "$ref": "#/definitions/preferSingleLine",
+      "x-overrides": "preferSingleLine"
     },
     "exportDeclaration.preferSingleLine": {
-      "$ref": "#/definitions/preferSingleLineDefaultTrue"
+      "$ref": "#/definitions/preferSingleLineDefaultTrue",
+      "x-overrides": "preferSingleLine"
     },
     "forStatement.preferSingleLine": {
-      "$ref": "#/definitions/preferSingleLine"
+      "$ref": "#/definitions/preferSingleLine",
+      "x-overrides": "preferSingleLine"
     },
     "importDeclaration.preferSingleLine": {
-      "$ref": "#/definitions/preferSingleLineDefaultTrue"
+      "$ref": "#/definitions/preferSingleLineDefaultTrue",
+      "x-overrides": "preferSingleLine"
     },
     "jsxAttributes.preferSingleLine": {
-      "$ref": "#/definitions/preferSingleLine"
+      "$ref": "#/definitions/preferSingleLine",
+      "x-overrides": "preferSingleLine"
     },
     "jsxElement.preferSingleLine": {
-      "$ref": "#/definitions/preferSingleLine"
+      "$ref": "#/definitions/preferSingleLine",
+      "x-overrides": "preferSingleLine"
     },
     "jsxExpressionContainer.preferSingleLine": {
-      "$ref": "#/definitions/jsxExpressionContainer.preferSingleLine"
+      "$ref": "#/definitions/jsxExpressionContainer.preferSingleLine",
+      "x-overrides": "preferSingleLine"
     },
     "mappedType.preferSingleLine": {
-      "$ref": "#/definitions/preferSingleLine"
+      "$ref": "#/definitions/preferSingleLine",
+      "x-overrides": "preferSingleLine"
     },
     "memberExpression.preferSingleLine": {
-      "$ref": "#/definitions/preferSingleLine"
+      "$ref": "#/definitions/preferSingleLine",
+      "x-overrides": "preferSingleLine"
     },
     "objectExpression.preferSingleLine": {
-      "$ref": "#/definitions/preferSingleLine"
+      "$ref": "#/definitions/preferSingleLine",
+      "x-overrides": "preferSingleLine"
     },
     "objectPattern.preferSingleLine": {
-      "$ref": "#/definitions/preferSingleLine"
+      "$ref": "#/definitions/preferSingleLine",
+      "x-overrides": "preferSingleLine"
     },
     "parameters.preferSingleLine": {
-      "$ref": "#/definitions/preferSingleLine"
+      "$ref": "#/definitions/preferSingleLine",
+      "x-overrides": "preferSingleLine"
     },
     "parentheses.preferSingleLine": {
-      "$ref": "#/definitions/preferSingleLine"
+      "$ref": "#/definitions/preferSingleLine",
+      "x-overrides": "preferSingleLine"
     },
     "tupleType.preferSingleLine": {
-      "$ref": "#/definitions/preferSingleLine"
+      "$ref": "#/definitions/preferSingleLine",
+      "x-overrides": "preferSingleLine"
     },
     "typeLiteral.preferSingleLine": {
-      "$ref": "#/definitions/preferSingleLine"
+      "$ref": "#/definitions/preferSingleLine",
+      "x-overrides": "preferSingleLine"
     },
     "typeParameters.preferSingleLine": {
-      "$ref": "#/definitions/preferSingleLine"
+      "$ref": "#/definitions/preferSingleLine",
+      "x-overrides": "preferSingleLine"
     },
     "unionAndIntersectionType.preferSingleLine": {
-      "$ref": "#/definitions/preferSingleLine"
+      "$ref": "#/definitions/preferSingleLine",
+      "x-overrides": "preferSingleLine"
     },
     "variableStatement.preferSingleLine": {
-      "$ref": "#/definitions/preferSingleLine"
+      "$ref": "#/definitions/preferSingleLine",
+      "x-overrides": "preferSingleLine"
     },
     "exportDeclaration.forceSingleLine": {
-      "$ref": "#/definitions/forceSingleLine"
+      "$ref": "#/definitions/forceSingleLine",
+      "x-example": {
+        "config": {
+          "lineWidth": 40
+        },
+        "input": [
+          "export { firstValue, secondValue } from \"./values\";"
+        ]
+      }
     },
     "importDeclaration.forceSingleLine": {
-      "$ref": "#/definitions/forceSingleLine"
+      "$ref": "#/definitions/forceSingleLine",
+      "x-example": {
+        "config": {
+          "lineWidth": 40
+        },
+        "input": [
+          "import { firstValue, secondValue } from \"./values\";"
+        ]
+      }
     },
     "exportDeclaration.forceMultiLine": {
-      "$ref": "#/definitions/forceMultiLineSpecifiers"
+      "$ref": "#/definitions/forceMultiLineSpecifiers",
+      "x-example": {
+        "input": [
+          "export { a, b } from \"./first\";",
+          "export { c } from \"./second\";"
+        ]
+      }
     },
     "importDeclaration.forceMultiLine": {
-      "$ref": "#/definitions/forceMultiLineSpecifiers"
+      "$ref": "#/definitions/forceMultiLineSpecifiers",
+      "x-example": {
+        "input": [
+          "import { a, b } from \"./first\";",
+          "import { c } from \"./second\";"
+        ]
+      }
     }
   }
 }

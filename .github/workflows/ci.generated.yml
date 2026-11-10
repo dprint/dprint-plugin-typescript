@@ -34,6 +34,8 @@ jobs:
         run: cargo test
       - name: Build release
         run: cargo build --target wasm32-unknown-unknown --features "wasm" --release
+      - name: Generate config schema
+        run: 'deno run -A --minimum-dependency-age=0 jsr:@dprint/automation@0.14.3/tasks/publish-schema target/wasm32-unknown-unknown/release/dprint_plugin_typescript.wasm deployment/schema.json --extension ts'
       - name: Wasm integration test - Setup
         run: 'echo ''{ "plugins": ["./target/wasm32-unknown-unknown/release/dprint_plugin_typescript.wasm"] }'' >> dprint.test.json'
       - name: Wasm integration test - Run

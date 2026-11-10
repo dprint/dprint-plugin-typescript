@@ -1,0 +1,20 @@
+~~ spaceBetweenObjectClosingBraces: false, semicolons: always ~~
+== should preserve spaces when semicolons separate the closing braces ==
+type Value = {a:{b:string;};};
+
+[expect]
+type Value = { a: { b: string; }; };
+
+== should preserve spaces when semicolons are inserted during formatting ==
+type Value = {a:{b:string}};
+
+[expect]
+type Value = { a: { b: string; }; };
+
+== should still omit spaces between object closing braces ==
+const value = {a:{b:true}};
+const {a:{b}} = value;
+
+[expect]
+const value = { a: { b: true }};
+const { a: { b }} = value;

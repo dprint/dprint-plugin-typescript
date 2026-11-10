@@ -1,0 +1,21 @@
+~~ lineWidth: 40, arrayExpression.linePerElement: false, arrayExpression.preferSingleLine: true ~~
+== should collapse to a single line when it fits ==
+const t = [
+    1, 2,
+    3, 4
+];
+
+[expect]
+const t = [1, 2, 3, 4];
+
+== should maintain the line breaks when it exceeds the line width ==
+const t = [
+    "testing", "testing",
+    "testing", "testing", "testing"
+];
+
+[expect]
+const t = [
+    "testing", "testing",
+    "testing", "testing", "testing",
+];

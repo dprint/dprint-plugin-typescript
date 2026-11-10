@@ -58,27 +58,32 @@ where
       .get_next_token_if_comma(self)
       .map(|x| x.end())
       .unwrap_or_else(|| self.end());
-    let trailing_comments = search_end.trailing_comments_fast(context.program);
-    let previous_end_line = search_end.end_line_fast(context.program);
-    for comment in trailing_comments {
-      // optimization
-      if comment.kind == CommentKind::Line {
-        break;
-      }
+    get_end_line_with_trailing_comments(search_end, context.program)
+  }
+}
 
-      let comment_start_line = comment.start_line_fast(context.program);
-      if comment_start_line <= previous_end_line {
-        let comment_end_line = comment.end_line_fast(context.program);
-        if comment_end_line > previous_end_line {
-          return comment_end_line; // should only include the first multi-line comment block
-        }
-      } else {
-        break;
-      }
+/// Gets the end line of the position with a possible trailing multi-line block comment end.
+pub fn get_end_line_with_trailing_comments(search_end: SourcePos, program: Program) -> usize {
+  let trailing_comments = search_end.trailing_comments_fast(program);
+  let previous_end_line = search_end.end_line_fast(program);
+  for comment in trailing_comments {
+    // optimization
+    if comment.kind == CommentKind::Line {
+      break;
     }
 
-    previous_end_line
+    let comment_start_line = comment.start_line_fast(program);
+    if comment_start_line <= previous_end_line {
+      let comment_end_line = comment.end_line_fast(program);
+      if comment_end_line > previous_end_line {
+        return comment_end_line; // should only include the first multi-line comment block
+      }
+    } else {
+      break;
+    }
   }
+
+  previous_end_line
 }
 
 /* custom enums */

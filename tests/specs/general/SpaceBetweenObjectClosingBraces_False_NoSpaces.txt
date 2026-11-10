@@ -1,0 +1,10 @@
+~~ spaceBetweenObjectClosingBraces: false, spaceSurroundingProperties: false ~~
+== should respect disabled surrounding property spacing ==
+const { a: { b } } = obj;
+const { a: [{ b }] } = obj;
+const value = { a: { b: true } };
+
+[expect]
+const {a: {b}} = obj;
+const {a: [{b}]} = obj;
+const value = {a: {b: true}};

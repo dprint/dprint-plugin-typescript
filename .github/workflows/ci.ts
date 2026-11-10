@@ -32,8 +32,8 @@ const buildJob = job("build", {
       uses: "Swatinem/rust-cache@v2",
       with: { "save-if": "${{ github.ref == 'refs/heads/main' }}" },
     },
-    // deno is needed by the "Lint workflow generation" step and, on a tag,
-    // by the "Pre-release" step
+    // deno is needed by the "Generate config schema" and "Lint workflow
+    // generation" steps and, on a tag, by the "Pre-release" step
     {
       uses: "denoland/setup-deno@v2",
       with: { "deno-version": "v2.x" },
@@ -45,6 +45,15 @@ const buildJob = job("build", {
     {
       name: "Build release",
       run: `cargo build --target wasm32-unknown-unknown --features "wasm" --release`,
+    },
+    // adds the outputs of the code examples to the config schema, which also
+    // checks that the plugin accepts every property in it
+    {
+      name: "Generate config schema",
+      run: [
+        "deno run -A --minimum-dependency-age=0 jsr:@dprint/automation@0.14.3/tasks/publish-schema",
+        `target/wasm32-unknown-unknown/release/${cargoWasmName}.wasm deployment/schema.json --extension ts`,
+      ].join(" "),
     },
 
     // wasm integration test (typescript-specific)

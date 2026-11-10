@@ -6,7 +6,7 @@
     { "match": "external" }
   ]
 } ~~
-== pattern group positioned before external (pattern wins via first-match) ==
+== pattern group positioned before external claims the imports its pattern matches ==
 import { c } from "@app/foo";
 import { a } from "react";
 

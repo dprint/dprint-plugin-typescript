@@ -931,6 +931,10 @@ pub struct Configuration {
   pub import_declaration_space_surrounding_named_imports: bool,
   #[serde(rename = "jsxExpressionContainer.spaceSurroundingExpression")]
   pub jsx_expression_container_space_surrounding_expression: bool,
+  #[serde(rename = "jsxExpressionContainer.spaceSurroundingObjectLiteral")]
+  pub jsx_expression_container_space_surrounding_object_literal: bool,
+  #[serde(rename = "jsxExpressionContainer.spaceSurroundingArrayLiteral")]
+  pub jsx_expression_container_space_surrounding_array_literal: bool,
   #[serde(rename = "jsxSelfClosingElement.spaceBeforeSlash")]
   pub jsx_self_closing_element_space_before_slash: bool,
   #[serde(rename = "method.spaceBeforeParentheses")]
@@ -941,6 +945,8 @@ pub struct Configuration {
   pub object_expression_space_surrounding_properties: bool,
   #[serde(rename = "objectPattern.spaceSurroundingProperties")]
   pub object_pattern_space_surrounding_properties: bool,
+  #[serde(rename = "spaceBetweenObjectClosingBraces")]
+  pub space_between_object_closing_braces: bool,
   #[serde(rename = "setAccessor.spaceBeforeParentheses")]
   pub set_accessor_space_before_parentheses: bool,
   #[serde(rename = "spaceSurroundingProperties")]

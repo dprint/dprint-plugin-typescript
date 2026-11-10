@@ -1813,36 +1813,26 @@ fn gen_named_import_or_export_specifiers<'a>(opts: GenNamedImportOrExportSpecifi
 /* expressions */
 
 fn gen_array_expr<'a>(node: &ArrayLit<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
-  let prefer_hanging = match context.config.array_expression_prefer_hanging {
-    PreferHanging::Never => false,
-    PreferHanging::OnlySingleItem => node.elems.len() == 1,
-    PreferHanging::Always => true,
-  };
-  return gen_array_like_nodes(
+  gen_array_like_nodes(
     GenArrayLikeNodesOptions {
       node: node.into(),
       range: node.range(),
       nodes: node.elems.iter().map(|&x| x.map(|elem| elem.into())).collect(),
-      prefer_hanging,
+      prefer_hanging: get_array_expr_prefer_hanging(node, context.config),
+      line_per_element: context.config.array_expression_line_per_element,
       prefer_single_line: context.config.array_expression_prefer_single_line,
       trailing_commas: context.config.array_expression_trailing_commas,
       space_around: context.config.array_expression_space_around,
-      // only fill the lines with elements that print on a single line
-      line_per_element: context.config.array_expression_line_per_element
-        || !node
-          .elems
-          .iter()
-          .all(|elem| elem.is_some_and(|elem| elem.spread().is_none() && is_single_line_expr(elem.expr))),
     },
     context,
-  );
+  )
+}
 
-  fn is_single_line_expr(expr: Expr) -> bool {
-    match expr {
-      Expr::Lit(_) | Expr::Ident(_) => true,
-      Expr::Unary(unary) => is_single_line_expr(unary.arg),
-      _ => false,
-    }
+fn get_array_expr_prefer_hanging(node: &ArrayLit, config: &Configuration) -> bool {
+  match config.array_expression_prefer_hanging {
+    PreferHanging::Never => false,
+    PreferHanging::OnlySingleItem => node.elems.len() == 1,
+    PreferHanging::Always => true,
   }
 }
 
@@ -2000,6 +1990,13 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
       } else if should_not_newline_after_arrow(&node.body, context) {
         items.push_space();
       } else {
+        // a call that hugs its last argument moves to the next line when it doesn't fit on the arrow's line,
+        // so it must be allowed to stay there when formatting again
+        let short_header_separator = if is_call_hugging_last_arg(&node.body, context) {
+          Signal::SpaceOrNewLine.into_print_items(context.arena)
+        } else {
+          " ".into_print_items(context.arena)
+        };
         items.extend(gen_line_numbers_region_start(context.arena, &[end_body_ln]));
         items.push_condition(conditions::if_above_width_or(
           context.config.indent_width,
@@ -2012,7 +2009,7 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
             Signal::SpaceOrNewLine.into_print_items(context.arena),
           )
           .into_print_items(context.arena),
-          " ".into_print_items(context.arena),
+          short_header_separator,
         ));
       }
 
@@ -2096,6 +2093,21 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
     let ArrowFunctionBody::Expr(expr) = body else {
       return false;
     };
+    let program = context.program;
+    let start_line = expr.start_line_fast(program);
+    let is_on_arrow_line = context
+      .token_finder
+      .get_previous_token(expr)
+      .is_some_and(|arrow_token| arrow_token.end_line_fast(program) == start_line);
+    is_on_arrow_line && is_call_hugging_last_arg(body, context)
+  }
+
+  /// Gets if the body is a call with its last argument starting on the call's first line and continuing
+  /// on the next ones (ex. `b({\n  c,\n})`).
+  fn is_call_hugging_last_arg<'a>(body: &ArrowFunctionBody<'a>, context: &Context<'a>) -> bool {
+    let ArrowFunctionBody::Expr(expr) = body else {
+      return false;
+    };
     let args = match expr {
       Expr::Call(call_expr) => call_expr.args,
       Expr::New(new_expr) => match new_expr.args {
@@ -2109,12 +2121,7 @@ fn gen_arrow_func_expr<'a>(node: &'a ArrowExpr<'a>, context: &mut Context<'a>) -
     };
     let program = context.program;
     let start_line = expr.start_line_fast(program);
-    let is_on_arrow_line = context
-      .token_finder
-      .get_previous_token(expr)
-      .is_some_and(|arrow_token| arrow_token.end_line_fast(program) == start_line);
-    is_on_arrow_line
-      && last_arg.start_line_fast(program) == start_line
+    last_arg.start_line_fast(program) == start_line
       && last_arg.end_line_fast(program) > start_line
       && allows_inline_multi_line((*last_arg).into(), context, args.len() > 1)
   }
@@ -2723,12 +2730,12 @@ fn gen_call_expr_like<'a>(node: CallExprLike<'a>, context: &mut Context<'a>) -> 
 
   items.extend(node.generated_callee);
 
-  if let Some(type_args) = call_expr.type_args() {
-    items.extend(gen_node(type_args.into(), context));
-  }
-
   if call_expr.is_optional() {
     items.push_sc(sc!("?."));
+  }
+
+  if let Some(type_args) = call_expr.type_args() {
+    items.extend(gen_node(type_args.into(), context));
   }
 
   items.push_condition(conditions::with_indent_if_start_of_line_indented(gen_parameters_or_arguments(
@@ -3559,6 +3566,7 @@ fn gen_sequence_expr<'a>(node: &SeqExpr<'a>, context: &mut Context<'a>) -> Print
       multi_line_options: ir_helpers::MultiLineOptions::same_line_start_hanging_indent(),
       force_possible_newline_at_start: false,
       node_sorter: None,
+      disallow_inline_multi_line_new_line_groups: false,
     },
     context,
   )
@@ -4048,6 +4056,10 @@ fn gen_type_assertion<'a>(node: &TsTypeAssertion<'a>, context: &mut Context<'a>)
 fn gen_unary_expr<'a>(node: &UnaryExpr<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
   let mut items = PrintItems::new(context.arena);
   items.push_sc(get_operator_text(node.op()));
+  if is_argument_same_sign(node) {
+    // keep `- -1` from becoming `--1`
+    items.push_space();
+  }
   items.extend(gen_node(node.arg.into(), context));
 
   if get_should_use_parens(node) {
@@ -4065,6 +4077,17 @@ fn gen_unary_expr<'a>(node: &UnaryExpr<'a>, context: &mut Context<'a>) -> PrintI
       UnaryOp::Plus => sc!("+"),
       UnaryOp::Minus => sc!("-"),
       UnaryOp::Tilde => sc!("~"),
+    }
+  }
+
+  /// Gets if the argument starts with the same sign as the operator (ex. `- -1` or `+ ++a`).
+  fn is_argument_same_sign(node: &UnaryExpr) -> bool {
+    match (node.op(), node.arg) {
+      (UnaryOp::Minus, Expr::Unary(arg)) => arg.op() == UnaryOp::Minus,
+      (UnaryOp::Plus, Expr::Unary(arg)) => arg.op() == UnaryOp::Plus,
+      (UnaryOp::Minus, Expr::Update(arg)) => arg.prefix() && arg.op() == UpdateOp::MinusMinus,
+      (UnaryOp::Plus, Expr::Update(arg)) => arg.prefix() && arg.op() == UpdateOp::PlusPlus,
+      _ => false,
     }
   }
 
@@ -4825,9 +4848,11 @@ fn gen_jsx_expr_container<'a>(node: &JSXExprContainer<'a>, context: &mut Context
     }
     JSXExpr::Expr(expr) => {
       let surround_with_new_lines = should_surround_jsx_expr_container_expr_with_newlines(node, context);
-      // keep an object or array literal's brackets beside the braces (ex. `{{ value: true }}`)
-      let surround_with_space =
-        context.config.jsx_expression_container_space_surrounding_expression && !is_jsx_expr_container_object_or_array_literal(*expr, context);
+      let surround_with_space = match get_jsx_expr_container_literal(*expr, context) {
+        Some(Expr::Object(_)) => context.config.jsx_expression_container_space_surrounding_object_literal,
+        Some(Expr::Array(_)) => context.config.jsx_expression_container_space_surrounding_array_literal,
+        _ => context.config.jsx_expression_container_space_surrounding_expression,
+      };
       let gen_inner = gen_node(expr.into(), context);
       gen_as_jsx_expr_container_with_new_lines(node.expr.range(), gen_inner, surround_with_new_lines, surround_with_space, context)
     }
@@ -4925,19 +4950,19 @@ fn is_jsx_surrounded_by_multi_line_parens<'a>(node: &JSXExprContainer<'a>, conte
   is_jsx_paren_expr_handled_node(expr.into(), context)
 }
 
-/// Gets if the expression will be generated as an object or array literal
-/// with no comments between it and the braces of its container.
-fn is_jsx_expr_container_object_or_array_literal<'a>(expr: Expr<'a>, context: &Context<'a>) -> bool {
+/// Gets the object or array literal the expression will be generated as
+/// when there are no comments between it and the braces of its container.
+fn get_jsx_expr_container_literal<'a>(expr: Expr<'a>, context: &Context<'a>) -> Option<Expr<'a>> {
   let mut expr = expr;
   loop {
     if node_helpers::has_surrounding_comments(expr.into(), context.program) {
-      return false;
+      return None;
     }
     match expr {
-      Expr::Object(_) | Expr::Array(_) => return true,
+      Expr::Object(_) | Expr::Array(_) => return Some(expr),
       // look through parens that won't be kept (ex. `{({ value: true })}`)
       Expr::Paren(paren_expr) if should_skip_paren_expr(paren_expr, context) => expr = paren_expr.expr,
-      _ => return false,
+      _ => return None,
     }
   }
 }
@@ -5005,6 +5030,7 @@ fn gen_jsx_opening_element<'a>(node: &JSXOpeningElement<'a>, context: &mut Conte
         multi_line_options,
         force_possible_newline_at_start: false,
         node_sorter: None,
+        disallow_inline_multi_line_new_line_groups: false,
       },
       context,
     ));
@@ -5618,10 +5644,10 @@ fn gen_array_pat<'a>(node: &ArrayPat<'a>, context: &mut Context<'a>) -> PrintIte
       range: get_brackets_range(node, context),
       nodes: node.elems.iter().map(|x| x.as_ref().map(|elem| elem.into())).collect(),
       prefer_hanging: context.config.array_pattern_prefer_hanging,
+      line_per_element: true,
       prefer_single_line: context.config.array_pattern_prefer_single_line,
       trailing_commas: context.config.array_pattern_trailing_commas,
       space_around: context.config.array_pattern_space_around,
-      line_per_element: true,
     },
     context,
   ));
@@ -6752,6 +6778,9 @@ fn gen_switch_case<'a>(node: &SwitchCase<'a>, context: &mut Context<'a>) -> Prin
   }
 
   items.extend(gen_trailing_comments_same_line(&colon_token.range(), context));
+  // get the comments on the same line as the end of the case first so they're not
+  // generated after the comments on the following lines (ex. `b(); // comment`)
+  let generated_same_line_trailing_comments = gen_trailing_comments(&node.range(), context);
   let generated_trailing_comments = gen_trailing_comments_for_case(node, &block_stmt_body, context);
   if !node.cons.is_empty() {
     if let Some(block_stmt_body) = block_stmt_body {
@@ -6774,6 +6803,7 @@ fn gen_switch_case<'a>(node: &SwitchCase<'a>, context: &mut Context<'a>) -> Prin
     }
   }
 
+  items.extend(generated_same_line_trailing_comments);
   items.extend(generated_trailing_comments);
 
   return items;
@@ -6799,7 +6829,15 @@ fn gen_switch_case<'a>(node: &SwitchCase<'a>, context: &mut Context<'a>) -> Prin
         _ => false,
       };
       let mut is_equal_indent = block_stmt_body.is_some();
-      let mut last_range = node_range;
+      // start after the comments on the case's last line since one of them may be a
+      // block comment that spans multiple lines (ex. `b(); /* a\n b */`)
+      let node_end_line = node_range.end_line_fast(context.program);
+      let mut last_range = node_range
+        .trailing_comments_fast(context.program)
+        .take_while(|c| c.start_line_fast(context.program) == node_end_line)
+        .last()
+        .map(|c| c.range())
+        .unwrap_or(node_range);
       let last_node_column = node_range.start_column_fast(context.program);
 
       for comment in trailing_comments {
@@ -6967,6 +7005,7 @@ fn gen_var_declarators<'a>(parent: Node<'a>, decls: &[&'a VarDeclarator<'a>], co
         multi_line_options: ir_helpers::MultiLineOptions::same_line_start_hanging_indent(),
         force_possible_newline_at_start: false,
         node_sorter: None,
+        disallow_inline_multi_line_new_line_groups: false,
       },
       context,
     )
@@ -7816,10 +7855,10 @@ fn gen_tuple_type<'a>(node: &TsTupleType<'a>, context: &mut Context<'a>) -> Prin
       range: node.range(),
       nodes: node.elem_types.iter().map(|&x| Some(x.into())).collect(),
       prefer_hanging,
+      line_per_element: true,
       prefer_single_line: context.config.tuple_type_prefer_single_line,
       trailing_commas: context.config.tuple_type_trailing_commas,
       space_around: context.config.tuple_type_space_around,
-      line_per_element: true,
     },
     context,
   )
@@ -7900,6 +7939,7 @@ fn gen_type_parameters<'a>(node: TypeParamNode<'a>, context: &mut Context<'a>) -
       multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(),
       force_possible_newline_at_start: false,
       node_sorter: None,
+      disallow_inline_multi_line_new_line_groups: false,
     },
     context,
   ));
@@ -8946,10 +8986,12 @@ struct GenArrayLikeNodesOptions<'a> {
   range: SourceRange,
   nodes: Vec<Option<Node<'a>>>,
   prefer_hanging: bool,
+  /// Whether each element goes on its own line when multi-line instead of
+  /// maintaining the line breaks between the elements.
+  line_per_element: bool,
   prefer_single_line: bool,
   space_around: bool,
   trailing_commas: TrailingCommas,
-  line_per_element: bool,
 }
 
 fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Context<'a>) -> PrintItems<'a> {
@@ -8965,10 +9007,16 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
     TrailingCommas::Never
   };
   let prefer_hanging = opts.prefer_hanging;
+  // a hanging array that prefers being on a single line fills the lines instead
+  let maintain_line_breaks = !opts.line_per_element && !(prefer_hanging && prefer_single_line);
   let space_around = opts.space_around;
-  let line_per_element = opts.line_per_element;
   let range = opts.range;
   let force_use_new_lines = get_array_like_force_use_new_lines(range, &nodes, prefer_single_line, context);
+  // when preferring a single line, a value that's moved to its own line for being too long keeps its line breaks
+  // the next time it's formatted (ex. the arguments in `[\n  call(\n    a,\n    b,\n  ),\n]`), so a multi-line value
+  // written on its own line stays there instead of going beside the brackets (ex. `[call(\n  a,\n  b,\n)]`)
+  let disallow_inline_multi_line_new_line_groups =
+    prefer_single_line && !force_use_new_lines && get_array_like_force_use_new_lines(range, &nodes, false, context);
   let mut items = PrintItems::new(context.arena);
   let first_member = nodes.first().map(|x| x.range());
 
@@ -8987,11 +9035,13 @@ fn gen_array_like_nodes<'a>(opts: GenArrayLikeNodesOptions<'a>, context: &mut Co
             separator: Signal::SpaceOrNewLine.into_print_items(context.arena),
           },
           multi_line_options: ir_helpers::MultiLineOptions {
-            maintain_line_breaks: !line_per_element,
+            maintain_line_breaks,
+            newline_after_value_made_multi_line: maintain_line_breaks,
             ..ir_helpers::MultiLineOptions::surround_newlines_indented()
           },
           force_possible_newline_at_start: false,
           node_sorter: None,
+          disallow_inline_multi_line_new_line_groups,
         },
         context,
       )
@@ -9080,8 +9130,14 @@ where
 {
   let mut items = PrintItems::new(context.arena);
   let child_tokens = get_tokens_from_children_with_tokens(opts.node, context.program);
-  let open_brace_token = child_tokens.iter().find(|t| t.token == Token::LBrace);
   let close_brace_token = child_tokens.iter().rev().find(|t| t.token == Token::RBrace);
+  // use the last open brace before the members because the header can have the braces
+  // of a type literal (ex. `class A extends B<{}> {`)
+  let body_end = opts.members.first().map(|m| m.start()).or(close_brace_token.map(|t| t.start()));
+  let open_brace_token = child_tokens
+    .iter()
+    .rev()
+    .find(|t| t.token == Token::LBrace && body_end.is_none_or(|end| t.start() < end));
   // swc sometimes recovers from a missing brace without reporting an error (ex. an
   // `export namespace` missing its close brace in a program parsed by deno_ast)
   let (Some(open_brace_token), Some(close_brace_token)) = (open_brace_token, close_brace_token) else {
@@ -10031,6 +10087,7 @@ where
             },
             force_possible_newline_at_start: is_parameters,
             node_sorter: None,
+            disallow_inline_multi_line_new_line_groups: false,
           },
           context,
         ));
@@ -10254,6 +10311,10 @@ struct GenSeparatedValuesParams<'a> {
   multi_line_options: ir_helpers::MultiLineOptions<'a>,
   force_possible_newline_at_start: bool,
   node_sorter: Option<NodeSorter>,
+  /// Whether the values that move to their own line when they're too long (the ones in a
+  /// new line group) aren't allowed to be inline multi-line, which makes the list multi-line
+  /// when one of them is (ex. `[\n  call(\n    a,\n  ),\n]` instead of `[call(\n  a,\n)]`).
+  disallow_inline_multi_line_new_line_groups: bool,
 }
 
 /// How to handle the blank lines between the values of a list.
@@ -10323,6 +10384,9 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
     ListBlankLines::Force => 1,
   };
   let node_sorter = opts.node_sorter;
+  let maintain_line_breaks = opts.multi_line_options.maintain_line_breaks;
+  let disallow_inline_multi_line_new_line_groups = opts.disallow_inline_multi_line_new_line_groups;
+  let is_hanging = opts.prefer_hanging && !opts.force_use_new_lines;
 
   // would need to make this take into account the new position of the nodes
   #[cfg(debug_assertions)]
@@ -10358,10 +10422,24 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
         };
         let lines_span = match blank_lines {
           ListBlankLines::Remove => None,
-          ListBlankLines::Maintain => value.as_node().map(|x| ir_helpers::LinesSpan {
-            start_line: x.start_line_with_comments(context),
-            end_line: x.end_line_with_comments(context),
-          }),
+          ListBlankLines::Maintain => match &value {
+            NodeOrSeparator::Node(node) => Some(ir_helpers::LinesSpan {
+              start_line: node.start_line_with_comments(context),
+              end_line: if maintain_line_breaks && is_comma_on_later_line(*node, context) {
+                // maintain the line break before a comma at the start of a line
+                node.end_line_fast(context.program)
+              } else {
+                node.end_line_with_comments(context)
+              },
+            }),
+            // a separator in place of a value (ex. the hole in `[a, , b]`) only has a
+            // span when it's necessary for maintaining the line breaks beside it
+            NodeOrSeparator::Separator(token) if maintain_line_breaks => Some(ir_helpers::LinesSpan {
+              start_line: token.range().start_line_with_comments(context),
+              end_line: get_end_line_with_trailing_comments(token.end(), context.program),
+            }),
+            NodeOrSeparator::Separator(_) => None,
+          },
           // a span that's one blank line after the previous value's, unless the blank line
           // was already added before the comments after the previous value's comma
           ListBlankLines::Force => value.as_node().map(|node| {
@@ -10428,10 +10506,33 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
           _ => true,
         };
 
+        let items = if use_new_line_group {
+          ir_helpers::new_line_group(items)
+        } else if maintain_line_breaks {
+          // when multi-line, the value goes on the next line when it doesn't fit on
+          // the rest of the line instead of breaking within (ex. `[1, 2], [3, 4]`)
+          let items = items.into_rc_path();
+          if_true_or(
+            "newLineGroupIfMultiLine",
+            is_multi_line_or_hanging,
+            ir_helpers::new_line_group(items.into_print_items(context.arena)),
+            items.into_print_items(context.arena),
+          )
+          .into_print_items(context.arena)
+        } else {
+          items
+        };
+        // a value that's allowed to be inline multi-line is still pulled up beside the previous value (ex. a function)
+        let items = if is_hanging && i > 0 && use_new_line_group && !allow_inline_multi_line && is_value_on_new_line(&value, context) {
+          gen_multi_line_hanging_value_on_new_line(items, context)
+        } else {
+          items
+        };
+
         generated_nodes.push(ir_helpers::GeneratedValue {
-          items: if use_new_line_group { ir_helpers::new_line_group(items) } else { items },
+          items,
           lines_span,
-          allow_inline_multi_line,
+          allow_inline_multi_line: allow_inline_multi_line && !(use_new_line_group && disallow_inline_multi_line_new_line_groups),
           allow_inline_single_line,
           is_known_multi_line: false,
         });
@@ -10452,6 +10553,14 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
       force_possible_newline_at_start: opts.force_possible_newline_at_start,
     },
   );
+
+  /// Gets if the comma after the node starts on a later line than the node ends on.
+  fn is_comma_on_later_line<'a>(node: Node<'a>, context: &mut Context<'a>) -> bool {
+    context
+      .token_finder
+      .get_next_token_if_comma(&node)
+      .is_some_and(|comma| comma.start_line_fast(context.program) > node.end_line_fast(context.program))
+  }
 
   /// Gets if each value isn't allowed to be inline multi-line because it has a value beside it of
   /// the same kind, so the container breaks instead (ex. `[{ a }, { b }]` instead of expanding the
@@ -10474,13 +10583,51 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
 
   /// Gets if the first value starts on a later line than the token before it (ex. the open bracket).
   fn is_first_value_on_new_line<'a>(nodes: &[NodeOrSeparator<'a>], context: &Context<'a>) -> bool {
-    let Some(first_value) = nodes.first() else {
-      return false;
-    };
-    match context.token_finder.get_previous_token(first_value) {
-      Some(previous_token) => node_helpers::get_use_new_lines_for_nodes(&previous_token.range(), first_value, context.program),
+    nodes.first().is_some_and(|first_value| is_value_on_new_line(first_value, context))
+  }
+
+  /// Gets if the value starts on a later line than the token before it (ex. the previous value's comma).
+  fn is_value_on_new_line<'a>(value: &NodeOrSeparator<'a>, context: &Context<'a>) -> bool {
+    match context.token_finder.get_previous_token(value) {
+      Some(previous_token) => node_helpers::get_use_new_lines_for_nodes(&previous_token.range(), value, context.program),
       None => false,
     }
+  }
+
+  /// Keeps a value of a hanging list on the line after the previous value when it's multi-line.
+  ///
+  /// A value that doesn't fit on the previous value's line is moved to the next line before it's
+  /// broken up. Its line breaks are then kept when formatting again (ex. the ones between the
+  /// operands of a binary expression), so what's left on its first line may fit on the previous
+  /// value's line, but it stays where it is.
+  fn gen_multi_line_hanging_value_on_new_line<'a>(value_items: PrintItems<'a>, context: &Context<'a>) -> PrintItems<'a> {
+    let end_ln = LineNumber::new("hangingValueEnd");
+    let value_items = {
+      let mut items = value_items;
+      items.push_info(end_ln);
+      items
+    }
+    .into_rc_path();
+    let mut items = gen_line_numbers_region_start(context.arena, &[end_ln]);
+    items.push_condition(if_true_or(
+      "newLineIfMultiLineHangingValue",
+      context.arena.alloc_resolver(move |condition_context| {
+        // it was already moved to the next line when it didn't fit
+        if condition_context.writer_info.is_start_of_line() {
+          return Some(false);
+        }
+        let end_ln = condition_context.resolved_line_number(end_ln)?;
+        Some(end_ln > condition_context.writer_info.line_number)
+      }),
+      {
+        let mut items = PrintItems::new(context.arena);
+        items.push_signal(Signal::NewLine);
+        items.extend(with_indent(value_items.into_print_items(context.arena)));
+        items
+      },
+      value_items.into_print_items(context.arena),
+    ));
+    items
   }
 
   /// Gets if each value has a value beside it of the same kind.
@@ -10821,6 +10968,7 @@ fn gen_extends_or_implements<'a>(opts: GenExtendsOrImplementsOptions<'a>, contex
         multi_line_options: ir_helpers::MultiLineOptions::new_line_start(),
         force_possible_newline_at_start: false,
         node_sorter: None,
+        disallow_inline_multi_line_new_line_groups: false,
       },
       context,
     ));
@@ -10861,6 +11009,21 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
     None
   };
 
+  let space_at_start = opts.surround_single_line_with_spaces;
+  // a generated trailing separator means the closing braces aren't consecutive,
+  // even when the last member ends in a closing brace in the source
+  let has_single_line_trailing_separator = matches!(
+    opts.separator.single_line,
+    Some(SeparatorValue::Semicolon(Semicolons::Always) | SeparatorValue::Comma(TrailingCommas::Always))
+  );
+  let space_at_end = space_at_start
+    && (context.config.space_between_object_closing_braces
+      || has_single_line_trailing_separator
+      || !opts
+        .members
+        .last()
+        .is_some_and(|last| get_ends_with_object_like_node(*last, close_brace_token.copied(), context)));
+
   items.extend(gen_surrounded_by_tokens(
     |context| {
       if opts.members.is_empty() {
@@ -10874,13 +11037,14 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
             blank_lines: opts.blank_lines,
             separator: opts.separator,
             single_line_options: ir_helpers::SingleLineOptions {
-              space_at_start: opts.surround_single_line_with_spaces,
-              space_at_end: opts.surround_single_line_with_spaces,
+              space_at_start,
+              space_at_end,
               separator: Signal::SpaceOrNewLine.into_print_items(context.arena),
             },
             multi_line_options: ir_helpers::MultiLineOptions::surround_newlines_indented(),
             force_possible_newline_at_start: false,
             node_sorter: opts.node_sorter,
+            disallow_inline_multi_line_new_line_groups: false,
           },
           context,
         )
@@ -10902,6 +11066,46 @@ fn gen_object_like_node<'a>(opts: GenObjectLikeNodeOptions<'a>, context: &mut Co
   ));
 
   items
+}
+
+/// Gets if the last member ends with the closing brace of an object-like node
+/// that only has separators and whitespace before the parent's closing brace.
+fn get_ends_with_object_like_node<'a>(last_member: Node<'a>, parent_close_brace: Option<&TokenAndSpan>, context: &Context<'a>) -> bool {
+  let Some(parent_close_brace) = parent_close_brace else {
+    return false;
+  };
+  // source separators may be removed, so skip them
+  let Some(close_brace) = last_member
+    .tokens_fast(context.program)
+    .iter()
+    .rev()
+    .find(|token| !matches!(token.token, Token::Semi | Token::Comma))
+  else {
+    return false;
+  };
+  if close_brace.token != Token::RBrace {
+    return false;
+  }
+  // comments between the braces need to stay separated from the closing brace
+  let text_between = SourceRange::new(close_brace.end(), parent_close_brace.start()).text_fast(context.program);
+  if !text_between.chars().all(|c| c.is_whitespace() || c == ',' || c == ';') {
+    return false;
+  }
+
+  // ensure the brace belongs to an object-like node and not something like a function body
+  let mut node = last_member;
+  loop {
+    if matches!(
+      node.kind(),
+      NodeKind::ObjectLit | NodeKind::ObjectPat | NodeKind::TsTypeLit | NodeKind::TsMappedType
+    ) {
+      return true;
+    }
+    match node.children().into_iter().find(|child| child.end() == close_brace.end()) {
+      Some(child) => node = child,
+      None => return false,
+    }
+  }
 }
 
 fn gen_for_member_like_expr_item<'a>(item: &MemberLikeExprItem<'a>, context: &mut Context<'a>, index: usize, item_count: usize) -> PrintItems<'a> {
@@ -11177,6 +11381,7 @@ fn gen_decorators<'a>(decorators: &[&'a Decorator<'a>], separator: DecoratorsSep
       multi_line_options: ir_helpers::MultiLineOptions::same_line_no_indent(),
       force_possible_newline_at_start: false,
       node_sorter: None,
+      disallow_inline_multi_line_new_line_groups: false,
     },
     context,
   );
@@ -12318,7 +12523,11 @@ fn gen_assignment_like_with_token<'a>(
       }
       items.push_info(start_ln);
     }
+    // set back after because an assignment can be within the header of an assigned arrow function (ex. `(a = b) => [c]`)
+    let arrow_array_body_start = get_arrow_array_body_with_kept_line_breaks(expr, context.config);
+    let previous_arrow_array_body_start = std::mem::replace(&mut context.assignment_arrow_array_body_start, arrow_array_body_start);
     let assignment = gen_node(expr, context);
+    context.assignment_arrow_array_body_start = previous_arrow_array_body_start;
     let assignment = if had_op_trailing_comments {
       assignment
     } else {
@@ -12387,6 +12596,24 @@ fn gen_assignment_like_with_token<'a>(
         }
         _ => return None,
       };
+    }
+  }
+
+  /// Gets the start of the array that's the body of the arrow function on the right side when it
+  /// has one that keeps its line breaks (ex. `() => [a, b]` or `a => b => [c, d]`).
+  fn get_arrow_array_body_with_kept_line_breaks<'a>(expr: Node<'a>, config: &Configuration) -> Option<SourcePos> {
+    let Node::ArrowExpr(mut arrow) = expr else {
+      return None;
+    };
+    loop {
+      match arrow.body {
+        ArrowFunctionBody::Expr(Expr::Arrow(inner_arrow)) => arrow = inner_arrow,
+        ArrowFunctionBody::Expr(Expr::Array(array)) => {
+          let keeps_line_breaks = !config.array_expression_prefer_single_line && !get_array_expr_prefer_hanging(array, config);
+          return keeps_line_breaks.then_some(array.start());
+        }
+        _ => return None,
+      }
     }
   }
 }
@@ -12707,6 +12934,9 @@ fn use_new_line_group_for_arrow_body<'a>(arrow_expr: &'a ArrowExpr<'a>, context:
         Expr::Object(_) => false,
         _ => !is_jsx_paren_expr_handled_node(paren.expr.into(), context),
       },
+      // The array keeps its line breaks, which keeps the arrow function on the line of the assignment's operator
+      // when formatting again. So it's broken up instead of moving the arrow function to the next line first.
+      Expr::Array(array) => context.assignment_arrow_array_body_start != Some(array.start()),
       _ => !is_jsx_paren_expr_handled_node(expr.into(), context),
     },
     _ => true,

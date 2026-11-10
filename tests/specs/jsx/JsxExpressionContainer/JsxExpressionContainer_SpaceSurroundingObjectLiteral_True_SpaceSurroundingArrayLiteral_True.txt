@@ -1,0 +1,15 @@
+-- file.tsx --
+~~ jsxExpressionContainer.spaceSurroundingObjectLiteral: true, jsxExpressionContainer.spaceSurroundingArrayLiteral: true ~~
+== should only add a space around an object or array literal ==
+<A b={{a: 1}} c={[1]} d={({ a: 1 })} e={ a } f={ [1].map(x => x) } />;
+<div>{{ a: 1 }}{ value }</div>;
+
+[expect]
+<A b={ { a: 1 } } c={ [1] } d={ { a: 1 } } e={a} f={[1].map(x => x)} />;
+<div>{ { a: 1 } }{value}</div>;
+
+== should use spaceSurroundingExpression when there is a comment beside the literal ==
+<A b={ /* c */ {a: 1} } c={ [1] /* c */ } />;
+
+[expect]
+<A b={/* c */ { a: 1 }} c={[1] /* c */} />;
