@@ -132,6 +132,96 @@ prefixCommon.map((c) => ({
     value: c,
 }));
 
+== should break up an array body instead of moving the arrow function to the line after the assignment operator ==
+const f = () => [call(1), call(2), call(3), call(4), call(5)];
+f = () => [call(1), call(2), call(3), call(4), call(5)];
+const g: T = () => [call(1), call(2), call(3), call(4)];
+const obj = {
+    prop: () => [call(1), call(2), call(3), call(4)],
+};
+
+[expect]
+const f = () => [
+    call(1),
+    call(2),
+    call(3),
+    call(4),
+    call(5),
+];
+f = () => [
+    call(1),
+    call(2),
+    call(3),
+    call(4),
+    call(5),
+];
+const g: T = () => [
+    call(1),
+    call(2),
+    call(3),
+    call(4),
+];
+const obj = {
+    prop: () => [
+        call(1),
+        call(2),
+        call(3),
+        call(4),
+    ],
+};
+
+== should break up an array body that would fit on the line after the assignment operator like an object body ==
+const f = () => [call(1), call(2), call(3)];
+const g = () => ({ a: call(1), b: call(2) });
+
+[expect]
+const f = () => [
+    call(1),
+    call(2),
+    call(3),
+];
+const g = () => ({
+    a: call(1),
+    b: call(2),
+});
+
+== should break up an array body instead of the parameters of an assigned arrow function ==
+const f = (a, b) => [call(1), call(2), call(3), call(4)];
+
+[expect]
+const f = (a, b) => [
+    call(1),
+    call(2),
+    call(3),
+    call(4),
+];
+
+== should break up the array body of an assigned curried arrow function ==
+const f = a => b => [call(1), call(2), call(3), call(4)];
+
+[expect]
+const f = a => b => [
+    call(1),
+    call(2),
+    call(3),
+    call(4),
+];
+
+== should move an arrow function with an array body to the line after the assignment operator when its header doesn't fit ==
+const fffffffffffffffffffffffff = () => [call(1), call(2)];
+const ggggggggggggggggggggggggg = () => [call(1), call(2), call(3), call(4)];
+
+[expect]
+const fffffffffffffffffffffffff =
+    () => [call(1), call(2)];
+const ggggggggggggggggggggggggg =
+    () => [
+        call(1),
+        call(2),
+        call(3),
+        call(4),
+    ];
+
 == should not keep trailing comma for type parameter with only identifier since this is not a cts or mts file ==
 const x = <T,>(value: T): T => value;
 

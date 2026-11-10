@@ -30,3 +30,33 @@ const t = [other, other, other, test.thisout];
 [expect]
 const t = [other, other, other,
     test.thisout];
+
+== should keep an element on the next line when it's broken up there ==
+const t = [1, aaaaaaaaaaaaaaaaaaa + bbbbbbbbbbbbbbbbbbbbbb + ccccccccccc, 2];
+
+[expect]
+const t = [1,
+    aaaaaaaaaaaaaaaaaaa
+    + bbbbbbbbbbbbbbbbbbbbbb
+    + ccccccccccc, 2];
+
+== should keep a multi-line element on the line it's written on ==
+const t = [1, aaaa
+    + bbbb, 2];
+const u = [1,
+    aaaa
+    + bbbb, 2];
+
+[expect]
+const t = [1, aaaa
+    + bbbb, 2];
+const u = [1,
+    aaaa
+    + bbbb, 2];
+
+== should not keep an element on the next line when it's on a single line ==
+const t = [1,
+    aaaa + bbbb, 2];
+
+[expect]
+const t = [1, aaaa + bbbb, 2];
