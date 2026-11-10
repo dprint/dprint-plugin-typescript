@@ -10354,6 +10354,7 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
     ListBlankLines::Force => 1,
   };
   let node_sorter = opts.node_sorter;
+  let is_hanging = opts.prefer_hanging && !opts.force_use_new_lines;
 
   // would need to make this take into account the new position of the nodes
   #[cfg(debug_assertions)]
@@ -10459,8 +10460,16 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
           _ => true,
         };
 
+        let items = if use_new_line_group { ir_helpers::new_line_group(items) } else { items };
+        // a value that's allowed to be inline multi-line is still pulled up beside the previous value (ex. a function)
+        let items = if is_hanging && i > 0 && use_new_line_group && !allow_inline_multi_line && is_value_on_new_line(&value, context) {
+          gen_multi_line_hanging_value_on_new_line(items, context)
+        } else {
+          items
+        };
+
         generated_nodes.push(ir_helpers::GeneratedValue {
-          items: if use_new_line_group { ir_helpers::new_line_group(items) } else { items },
+          items,
           lines_span,
           allow_inline_multi_line,
           allow_inline_single_line,
@@ -10505,13 +10514,51 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
 
   /// Gets if the first value starts on a later line than the token before it (ex. the open bracket).
   fn is_first_value_on_new_line<'a>(nodes: &[NodeOrSeparator<'a>], context: &Context<'a>) -> bool {
-    let Some(first_value) = nodes.first() else {
-      return false;
-    };
-    match context.token_finder.get_previous_token(first_value) {
-      Some(previous_token) => node_helpers::get_use_new_lines_for_nodes(&previous_token.range(), first_value, context.program),
+    nodes.first().is_some_and(|first_value| is_value_on_new_line(first_value, context))
+  }
+
+  /// Gets if the value starts on a later line than the token before it (ex. the previous value's comma).
+  fn is_value_on_new_line<'a>(value: &NodeOrSeparator<'a>, context: &Context<'a>) -> bool {
+    match context.token_finder.get_previous_token(value) {
+      Some(previous_token) => node_helpers::get_use_new_lines_for_nodes(&previous_token.range(), value, context.program),
       None => false,
     }
+  }
+
+  /// Keeps a value of a hanging list on the line after the previous value when it's multi-line.
+  ///
+  /// A value that doesn't fit on the previous value's line is moved to the next line before it's
+  /// broken up. Its line breaks are then kept when formatting again (ex. the ones between the
+  /// operands of a binary expression), so what's left on its first line may fit on the previous
+  /// value's line, but it stays where it is.
+  fn gen_multi_line_hanging_value_on_new_line<'a>(value_items: PrintItems<'a>, context: &Context<'a>) -> PrintItems<'a> {
+    let end_ln = LineNumber::new("hangingValueEnd");
+    let value_items = {
+      let mut items = value_items;
+      items.push_info(end_ln);
+      items
+    }
+    .into_rc_path();
+    let mut items = gen_line_numbers_region_start(context.arena, &[end_ln]);
+    items.push_condition(if_true_or(
+      "newLineIfMultiLineHangingValue",
+      context.arena.alloc_resolver(move |condition_context| {
+        // it was already moved to the next line when it didn't fit
+        if condition_context.writer_info.is_start_of_line() {
+          return Some(false);
+        }
+        let end_ln = condition_context.resolved_line_number(end_ln)?;
+        Some(end_ln > condition_context.writer_info.line_number)
+      }),
+      {
+        let mut items = PrintItems::new(context.arena);
+        items.push_signal(Signal::NewLine);
+        items.extend(with_indent(value_items.into_print_items(context.arena)));
+        items
+      },
+      value_items.into_print_items(context.arena),
+    ));
+    items
   }
 
   /// Gets if each value has a value beside it of the same kind.
