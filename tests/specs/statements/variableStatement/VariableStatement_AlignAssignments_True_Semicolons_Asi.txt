@@ -1,0 +1,14 @@
+~~ alignAssignments: true, semicolons: asi ~~
+== should align a statement before one that starts with a semicolon ==
+const fs = require("fs")
+const { execSync } = require("child_process")
+;(async () => {
+    await main()
+})()
+
+[expect]
+const fs           = require("fs")
+const { execSync } = require("child_process")
+;(async () => {
+    await main()
+})()

@@ -1,0 +1,14 @@
+~~ alignAssignments: true, quoteProps: asNeeded ~~
+== should use the width of the key without the quotes that are removed ==
+const foo = {
+    "a": 1,
+    bbb: 2,
+    "c-d": 3,
+};
+
+[expect]
+const foo = {
+    a:     1,
+    bbb:   2,
+    "c-d": 3,
+};

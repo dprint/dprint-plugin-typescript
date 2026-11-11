@@ -1,0 +1,42 @@
+~~ alignAssignments: true, lineWidth: 20 ~~
+== should align up to the line width ==
+const a = 1234567;
+const bbb = 2;
+
+[expect]
+const a   = 1234567;
+const bbb = 2;
+
+== should not align a statement that would go over the line width ==
+const a = 12345678;
+const bbbb = 2;
+const cc = 3;
+
+[expect]
+const a = 12345678;
+const bbbb = 2;
+const cc   = 3;
+
+== should align a statement with a comment after it that goes over the line width ==
+const a = 12345; // comment
+const bbbb = 2;
+
+[expect]
+const a    = 12345; // comment
+const bbbb = 2;
+
+== should count a tab in a string as the indent width ==
+const a = "	x";
+const bbbb = 2;
+
+[expect]
+const a = "	x";
+const bbbb = 2;
+
+== should not align a statement with a block comment after it that would go over the line width ==
+const a = 1; /* c */
+const bbbb = 2;
+
+[expect]
+const a = 1; /* c */
+const bbbb = 2;

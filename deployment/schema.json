@@ -82,6 +82,7 @@
       "description": "The spaces around and within parentheses, braces, operators, and keywords.",
       "properties": [
         "spaceAround",
+        "alignAssignments",
         "spaceSurroundingProperties",
         "spaceBetweenObjectClosingBraces",
         "spaceAfterControlFlowKeyword",
@@ -833,6 +834,18 @@
         "description": "Use commas."
       }]
     },
+    "alignAssignments": {
+      "description": "Whether to align the values and types of consecutive variable statements, object properties, class properties, enum members, and interface and type literal properties. A blank line, a comment on its own line, a member on multiple lines, a type next to a value, or an object property whose key is much longer or shorter than the keys before it ends the group, and the alignment never makes a line go over the line width.",
+      "type": "boolean",
+      "default": false,
+      "oneOf": [{
+        "const": true,
+        "description": "Ex. `const a   = 1;` and `const bbb = 2;`"
+      }, {
+        "const": false,
+        "description": "Ex. `const a = 1;` and `const bbb = 2;`"
+      }]
+    },
     "spaceAround": {
       "description": "Whether to place spaces around enclosed expressions.",
       "type": "boolean",
@@ -1410,6 +1423,20 @@
       "default": 1,
       "type": "integer",
       "minimum": 0
+    },
+    "alignAssignments": {
+      "$ref": "#/definitions/alignAssignments",
+      "x-example": {
+        "input": [
+          "const id = 1;",
+          "const userName = \"Alice\";",
+          "",
+          "const config = {",
+          "  port: 8080,",
+          "  hostName: \"localhost\",",
+          "};"
+        ]
+      }
     },
     "singleBodyPosition": {
       "$ref": "#/definitions/singleBodyPosition",

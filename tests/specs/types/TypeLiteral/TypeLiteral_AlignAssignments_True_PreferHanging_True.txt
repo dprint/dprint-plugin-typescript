@@ -1,0 +1,9 @@
+~~ alignAssignments: true, typeLiteral.preferHanging: true, lineWidth: 40 ~~
+== should not align a property before another one on its line ==
+type T = { a: string; bbbbbbbbbbbbbbbbbb: number; c: string; dddddd: string; e: 5; ff: 6 };
+
+[expect]
+type T = { a: string;
+    bbbbbbbbbbbbbbbbbb: number;
+    c: string; dddddd: string; e: 5;
+    ff: 6 };

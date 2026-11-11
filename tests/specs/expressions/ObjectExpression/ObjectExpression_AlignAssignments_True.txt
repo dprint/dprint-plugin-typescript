@@ -1,0 +1,191 @@
+~~ alignAssignments: true ~~
+== should align the values of the properties ==
+const foo = {
+    bar: 123,
+    barbaz: 123,
+    [key]: 456,
+    "very long key": 789,
+};
+
+[expect]
+const foo = {
+    bar:             123,
+    barbaz:          123,
+    [key]:           456,
+    "very long key": 789,
+};
+
+== should start a new group after a blank line and skip the properties without a value ==
+const foo = {
+    a: 1,
+    bb: 2,
+
+    ccc: 3,
+    d: 4,
+    ...rest,
+    eeeee: 5,
+    f,
+    method() {},
+    g: 6,
+};
+
+[expect]
+const foo = {
+    a:  1,
+    bb: 2,
+
+    ccc:   3,
+    d:     4,
+    ...rest,
+    eeeee: 5,
+    f,
+    method() {},
+    g:     6,
+};
+
+== should not align a property whose value is on the next line ==
+const foo = {
+    a: 1,
+    bb: 2,
+    longPropertyName:
+        "a very long string value that does not fit on the line with the long property name of this object......",
+    ccc: 3,
+};
+
+[expect]
+const foo = {
+    a:  1,
+    bb: 2,
+    longPropertyName:
+        "a very long string value that does not fit on the line with the long property name of this object......",
+    ccc: 3,
+};
+
+== should not align when on a single line ==
+const foo = { a: 1, bbb: 2 };
+
+[expect]
+const foo = { a: 1, bbb: 2 };
+
+== should align when becoming multi-line ==
+const foo = { aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: 1, bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb: 2, c: 3, ddddddddddddddddddddddd: 4 };
+
+[expect]
+const foo = {
+    aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:          1,
+    bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb: 2,
+    c:                                       3,
+    ddddddddddddddddddddddd:                 4,
+};
+
+== should not align a property on multiple lines and start a new group after it ==
+const foo = {
+    a: 1,
+    bb: 2,
+    cccc: {
+        d: 1,
+        ee: 2,
+    },
+    fff: 3,
+    g: 4,
+};
+
+[expect]
+const foo = {
+    a:  1,
+    bb: 2,
+    cccc: {
+        d:  1,
+        ee: 2,
+    },
+    fff: 3,
+    g:   4,
+};
+
+== should start a new group at a key that's much longer or shorter than the ones before it ==
+const foo = {
+    a: 1,
+    bb: 2,
+    cccccccccccccccccccccccccccccccccccccccccccc: 3,
+    d: 4,
+    eee: 5,
+};
+
+[expect]
+const foo = {
+    a:  1,
+    bb: 2,
+    cccccccccccccccccccccccccccccccccccccccccccc: 3,
+    d:   4,
+    eee: 5,
+};
+
+== should align a long key with short ones when the keys are at most 40 characters ==
+const foo = {
+    a: 1,
+    bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb: 2,
+    c: 3,
+};
+
+[expect]
+const foo = {
+    a:                                        1,
+    bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb: 2,
+    c:                                        3,
+};
+
+== should not align a property after a comment on its line ==
+const foo = {
+    /* c */ bbbbbb: 1,
+    a: 2,
+    ccc: 3,
+};
+
+[expect]
+const foo = {
+    /* c */ bbbbbb: 1,
+    a:   2,
+    ccc: 3,
+};
+
+== should not align a property with an ignore comment ==
+const foo = {
+    a: 1,
+    // dprint-ignore
+    grid: [1,   2,   3],
+    bb: 4,
+    cccc: 5,
+};
+
+[expect]
+const foo = {
+    a: 1,
+    // dprint-ignore
+    grid: [1,   2,   3],
+    bb:   4,
+    cccc: 5,
+};
+
+== should start a new group after a comment on its own line ==
+const foo = {
+    a: 1,
+    bbb: 2,
+    // comment
+    cc: 3,
+    /** comment */
+    ddddd: 4,
+    e: 5, // comment
+    ffff: 6,
+};
+
+[expect]
+const foo = {
+    a:   1,
+    bbb: 2,
+    // comment
+    cc: 3,
+    /** comment */
+    ddddd: 4,
+    e:     5, // comment
+    ffff:  6,
+};

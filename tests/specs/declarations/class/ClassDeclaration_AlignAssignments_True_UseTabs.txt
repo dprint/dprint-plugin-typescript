@@ -1,0 +1,14 @@
+~~ alignAssignments: true, useTabs: true, lineWidth: 20 ~~
+== should count the tabs as the indent width ==
+class A {
+	a = 12345;
+	bbb = 2;
+	c = 1234567890;
+}
+
+[expect]
+class A {
+	a   = 12345;
+	bbb = 2;
+	c = 1234567890;
+}
