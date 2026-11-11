@@ -1,0 +1,56 @@
+~~ alignAssignments: true, indentWidth: 2 ~~
+== should align the types of the properties ==
+interface User {
+name: string;
+age?: number;
+readonly id: string;
+[key]: boolean;
+}
+
+[expect]
+interface User {
+  name:        string;
+  age?:        number;
+  readonly id: string;
+  [key]:       boolean;
+}
+
+== should start a new group after a blank line and skip other members ==
+interface ServerConfig {
+// Connection settings
+host: string;
+port: number;
+
+// Security settings
+tls: boolean;
+tlsCertificate: string;
+connect(): void;
+readTimeout: number;
+writeTimeoutDuration: number;
+}
+
+[expect]
+interface ServerConfig {
+  // Connection settings
+  host: string;
+  port: number;
+
+  // Security settings
+  tls:                  boolean;
+  tlsCertificate:       string;
+  connect(): void;
+  readTimeout:          number;
+  writeTimeoutDuration: number;
+}
+
+== should align the type of an index signature ==
+interface Options {
+name: string;
+[key: string]: unknown;
+}
+
+[expect]
+interface Options {
+  name:          string;
+  [key: string]: unknown;
+}

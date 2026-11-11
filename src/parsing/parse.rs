@@ -33,14 +33,14 @@ const ES_VERSION: EsVersion = EsVersion::Es2021;
 
 /// Whether to parse the source as a module, a script, or let swc decide.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum ParseMode {
+pub(crate) enum ParseMode {
   Program,
   Module,
   Script,
 }
 
 /// Parses the provided text with the given syntax.
-pub(super) fn parse_syntax(specifier: Arc<str>, text: Arc<str>, syntax: Syntax, mode: ParseMode) -> Result<ParsedSource> {
+pub(crate) fn parse_syntax(specifier: Arc<str>, text: Arc<str>, syntax: Syntax, mode: ParseMode) -> Result<ParsedSource> {
   // swc's positions would all be offset by the byte order mark, so strip it. This
   // only reallocates in the rare case that one is actually present.
   let text: Arc<str> = match text.strip_prefix('\u{FEFF}') {

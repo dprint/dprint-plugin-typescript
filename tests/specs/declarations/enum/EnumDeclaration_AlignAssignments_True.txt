@@ -1,0 +1,44 @@
+~~ alignAssignments: true, indentWidth: 2 ~~
+== should align the values of the members ==
+enum Test {
+A = 1,
+longEnumMemberName = "value",
+"quoted name" = 3,
+}
+
+[expect]
+enum Test {
+  A                  = 1,
+  longEnumMemberName = "value",
+  "quoted name"      = 3,
+}
+
+== should start a new group after a blank line or a member without a value ==
+enum HttpStatus {
+// Success codes
+OK = 200,
+CREATED = 201,
+
+// Client error codes
+BAD_REQUEST = 400,
+UNAUTHORIZED = 401,
+NOT_FOUND = 404,
+OTHER,
+INTERNAL_SERVER_ERROR = 500,
+BAD_GATEWAY = 502
+}
+
+[expect]
+enum HttpStatus {
+  // Success codes
+  OK      = 200,
+  CREATED = 201,
+
+  // Client error codes
+  BAD_REQUEST  = 400,
+  UNAUTHORIZED = 401,
+  NOT_FOUND    = 404,
+  OTHER,
+  INTERNAL_SERVER_ERROR = 500,
+  BAD_GATEWAY           = 502,
+}

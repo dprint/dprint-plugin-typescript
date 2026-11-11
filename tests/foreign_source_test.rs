@@ -41,6 +41,23 @@ fn formats_a_foreign_parsed_source() {
 }
 
 #[test]
+fn aligns_a_foreign_parsed_source() {
+  // the unformatted text before the values is measured after formatting it
+  let source = OtherCrateParsedSource::parse("const   a = 1;\nconst {b,c} = d;\n");
+  let config = ConfigurationBuilder::new().align_assignments(true).build();
+  let result = dprint_plugin_typescript::format_parsed_source(FormatParsedSourceOptions {
+    source: &source,
+    syntax: source.syntax,
+    config: &config,
+    external_formatter: None,
+    arena_pool: None,
+  })
+  .unwrap()
+  .unwrap();
+  assert_eq!(result, "const a        = 1;\nconst { b, c } = d;\n");
+}
+
+#[test]
 fn respects_the_ignore_file_comment() {
   let source = OtherCrateParsedSource::parse("// dprint-ignore-file\nconst  t  =  5 ;");
   let config = ConfigurationBuilder::new().build();

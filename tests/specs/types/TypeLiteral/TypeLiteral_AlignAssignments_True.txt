@@ -1,0 +1,20 @@
+~~ alignAssignments: true ~~
+== should align the types of the properties ==
+type Config = {
+host: string;
+port: number;
+maxConnections: number;
+};
+
+[expect]
+type Config = {
+    host:           string;
+    port:           number;
+    maxConnections: number;
+};
+
+== should not align when on a single line ==
+type Config = { host: string; maxConnections: number };
+
+[expect]
+type Config = { host: string; maxConnections: number };

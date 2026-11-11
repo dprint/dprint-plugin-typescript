@@ -100,6 +100,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     semicolons,
     file_indent_level: get_value(&mut config, "fileIndentLevel", 0, &mut diagnostics),
     max_blank_lines: get_value(&mut config, "maxBlankLines", 1, &mut diagnostics),
+    align_assignments: get_value(&mut config, "alignAssignments", false, &mut diagnostics),
     /* situational */
     array_expression_line_per_element: get_value(&mut config, "arrayExpression.linePerElement", true, &mut diagnostics),
     arrow_function_use_parentheses: get_value(&mut config, "arrowFunction.useParentheses", UseParentheses::Maintain, &mut diagnostics),
@@ -1133,6 +1134,27 @@ mod tests {
     config.insert(property_name.to_string(), ConfigKeyValue::from_str("invalid"));
     let result = resolve_config(config, &GlobalConfiguration::default());
     assert!(result.config.space_between_object_closing_braces);
+    assert_eq!(get_diagnostic_property_names(&result.diagnostics), [property_name]);
+  }
+
+  #[test]
+  fn handle_align_assignments() {
+    let property_name = "alignAssignments";
+    for value in [None, Some(true), Some(false)] {
+      let mut config = ConfigKeyMap::new();
+      if let Some(value) = value {
+        config.insert(property_name.to_string(), value.into());
+      }
+      let result = resolve_config(config, &GlobalConfiguration::default());
+      assert_eq!(result.diagnostics.len(), 0);
+      assert_eq!(result.config.align_assignments, value.unwrap_or(false));
+      assert_eq!(serde_json::to_value(&result.config).unwrap()[property_name], value.unwrap_or(false));
+    }
+
+    let mut config = ConfigKeyMap::new();
+    config.insert(property_name.to_string(), ConfigKeyValue::from_str("invalid"));
+    let result = resolve_config(config, &GlobalConfiguration::default());
+    assert!(!result.config.align_assignments);
     assert_eq!(get_diagnostic_property_names(&result.diagnostics), [property_name]);
   }
 

@@ -1,0 +1,22 @@
+~~ alignAssignments: true ~~
+== should align the assignments ==
+const foo = 12;
+const bar = 21;
+const foobar = 22;
+
+[expect]
+const foo    = 12;
+const bar    = 21;
+const foobar = 22;
+
+== should align the properties ==
+const foo = {
+    bar: 123,
+    barbaz: 123
+}
+
+[expect]
+const foo = {
+    bar:    123,
+    barbaz: 123,
+};

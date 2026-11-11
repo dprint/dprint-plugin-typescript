@@ -104,6 +104,10 @@ pub struct Context<'a> {
   /// The start of an object or array in a list being broken out of hugging that ignores
   /// the newline after its open token, as if its `preferSingleLine` was on.
   pub prefer_single_line_value_start: Option<SourcePos>,
+  /// The spaces that align the values of the members of a group (ex. consecutive object
+  /// properties), keyed by the start of the node after the operator (the type annotation
+  /// for a `:` of a type).
+  align_paddings: FxHashMap<SourcePos, super::generate::AlignPadding>,
   /// Used for ensuring nodes are parsed in order.
   #[cfg(debug_assertions)]
   pub last_generated_node_pos: SourcePos,
@@ -164,6 +168,7 @@ impl<'a> Context<'a> {
       assignment_arrow_array_body_start: None,
       nested_bin_expr_extra_indent: None,
       prefer_single_line_value_start: None,
+      align_paddings: FxHashMap::default(),
       #[cfg(debug_assertions)]
       last_generated_node_pos: dprint_swc_ext::common::SourceTextInfoProvider::text_info(&program).range().start.into(),
       diagnostics: Vec::new(),
@@ -251,6 +256,15 @@ impl<'a> Context<'a> {
 
   pub fn take_expr_stmt_single_line_parent_brace_ref(&mut self) -> Option<ConditionReference> {
     self.expr_stmt_single_line_parent_brace_ref.take()
+  }
+
+  pub fn store_align_padding(&mut self, value_start: SourcePos, padding: super::generate::AlignPadding) {
+    self.align_paddings.insert(value_start, padding);
+  }
+
+  /// Takes the spaces that align the value at this start with the values of the other members in its group.
+  pub fn take_align_padding(&mut self, node: &impl SourceRanged) -> Option<super::generate::AlignPadding> {
+    self.align_paddings.remove(&node.start())
   }
 
   /// Takes whether the object or array at this start ignores the newline after its open token.
