@@ -773,12 +773,12 @@
       }]
     },
     "taggedTemplate.reportEmbeddedErrors": {
-      "description": "Whether a tagged template whose embedded text fails to format (ex. a syntax error in `` css`...` ``) is a formatting error. A template with expressions is always left as is when its text fails to format, because the placeholders for the expressions might not be valid where the expressions are (ex. `` html`<div style=\"height: ${h}%\"></div>` ``).",
+      "description": "Whether a tagged template whose embedded text fails to format (ex. a syntax error in `` css`...` ``) is a formatting error. An error might be from the placeholders of the expressions not being valid where the expressions are (ex. `` html`<div style=\"height: ${h}%\"></div>` ``).",
       "type": "boolean",
-      "default": true,
+      "default": false,
       "oneOf": [{
         "const": true,
-        "description": "Reports an error when the text of a template without expressions fails to format."
+        "description": "Reports an error when the text of a template fails to format."
       }, {
         "const": false,
         "description": "Leaves a template whose text fails to format as is."

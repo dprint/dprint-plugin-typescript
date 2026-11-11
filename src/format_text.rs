@@ -280,7 +280,9 @@ mod test {
 
   #[test]
   fn syntax_error_from_external_formatter() {
-    let config = crate::configuration::ConfigurationBuilder::new().build();
+    let config = crate::configuration::ConfigurationBuilder::new()
+      .tagged_template_report_embedded_errors(true)
+      .build();
     let result = format_text(FormatTextOptions {
       path: &std::path::PathBuf::from("test.ts"),
       extension: None,
@@ -301,9 +303,7 @@ mod test {
 
   #[test]
   fn syntax_error_from_external_formatter_not_reported() {
-    let config = crate::configuration::ConfigurationBuilder::new()
-      .tagged_template_report_embedded_errors(false)
-      .build();
+    let config = crate::configuration::ConfigurationBuilder::new().build();
     let result = format_text(FormatTextOptions {
       path: &std::path::PathBuf::from("test.ts"),
       extension: None,

@@ -1056,7 +1056,7 @@ mod tests {
 
   #[test]
   fn errors_when_an_embedded_template_outside_the_range_fails_to_format() {
-    let config = ConfigurationBuilder::new().build();
+    let config = ConfigurationBuilder::new().tagged_template_report_embedded_errors(true).build();
     let external_formatter =
       |_: &str, _: String, _: &Configuration| -> std::result::Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> { Err("bad css".into()) };
     let text = "const  a  =  css` a `;\nconst  b  =  2;\n";

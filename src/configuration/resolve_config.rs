@@ -127,7 +127,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
       &mut diagnostics,
     ),
     tagged_template_format_embedded: get_value(&mut config, "taggedTemplate.formatEmbedded", true, &mut diagnostics),
-    tagged_template_report_embedded_errors: get_value(&mut config, "taggedTemplate.reportEmbeddedErrors", true, &mut diagnostics),
+    tagged_template_report_embedded_errors: get_value(&mut config, "taggedTemplate.reportEmbeddedErrors", false, &mut diagnostics),
     tagged_template_embedded_languages: get_tagged_template_embedded_languages(&mut config, &mut diagnostics),
     /* sorting */
     module_sort_import_declarations: get_value(&mut config, "module.sortImportDeclarations", SortOrder::CaseInsensitive, &mut diagnostics),

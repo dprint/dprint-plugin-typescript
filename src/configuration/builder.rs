@@ -673,10 +673,10 @@ impl ConfigurationBuilder {
   }
 
   /// Whether a tagged template whose embedded text fails to format is a formatting error.
-  /// When `false`, the template is left as is. A template with expressions is always left
-  /// as is because its placeholders might not be valid where the expressions are.
+  /// When `false`, the template is left as is. Note that an error might be from the
+  /// placeholders of the expressions not being valid where the expressions are.
   ///
-  /// Default: `true`
+  /// Default: `false`
   pub fn tagged_template_report_embedded_errors(&mut self, value: bool) -> &mut Self {
     self.insert("taggedTemplate.reportEmbeddedErrors", value.into())
   }
@@ -1530,7 +1530,7 @@ mod tests {
       })
       .jsx_force_new_lines_surrounding_content(true)
       .tagged_template_format_embedded(false)
-      .tagged_template_report_embedded_errors(false)
+      .tagged_template_report_embedded_errors(true)
       .tagged_template_embedded_languages([("html", "html"), ("styled", "less")])
       .jsx_bracket_position(SameOrNextLinePosition::Maintain)
       .jsx_opening_element_bracket_position(SameOrNextLinePosition::Maintain)
