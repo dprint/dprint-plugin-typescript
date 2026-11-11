@@ -672,6 +672,15 @@ impl ConfigurationBuilder {
     self.insert("taggedTemplate.formatEmbedded", value.into())
   }
 
+  /// Whether a tagged template whose embedded text fails to format is a formatting error.
+  /// When `false`, the template is left as is. Note that an error might be from the
+  /// placeholders of the expressions not being valid where the expressions are.
+  ///
+  /// Default: `false`
+  pub fn tagged_template_report_embedded_errors(&mut self, value: bool) -> &mut Self {
+    self.insert("taggedTemplate.reportEmbeddedErrors", value.into())
+  }
+
   /// Map of a tagged template's tag to the file extension of the language its text is formatted
   /// as (ex. `"html"` to `"html"`), which replaces the defaults. The styled-components patterns
   /// (ex. styled.div\`...\`) use the `"css"` entry.
@@ -1521,6 +1530,7 @@ mod tests {
       })
       .jsx_force_new_lines_surrounding_content(true)
       .tagged_template_format_embedded(false)
+      .tagged_template_report_embedded_errors(true)
       .tagged_template_embedded_languages([("html", "html"), ("styled", "less")])
       .jsx_bracket_position(SameOrNextLinePosition::Maintain)
       .jsx_opening_element_bracket_position(SameOrNextLinePosition::Maintain)
@@ -1768,7 +1778,7 @@ mod tests {
       .with_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 237);
+    assert_eq!(inner_config.len(), 238);
     let diagnostics = resolve_config(inner_config, &Default::default()).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

@@ -153,3 +153,10 @@ function render_html_template() {
         </div>
     `;
 }
+
+== should keep a template with expressions as is when the placeholders can't be formatted (#915) ==
+export const t = html`<div style="height: ${h}%;"></div>`;
+export const u = html`<div style="${h}"></div>`;
+[expect]
+export const t = html`<div style="height: ${h}%;"></div>`;
+export const u = html`<div style="${h}"></div>`;

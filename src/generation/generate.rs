@@ -3643,6 +3643,9 @@ fn maybe_gen_tagged_tpl_with_external_formatter<'a>(node: &TaggedTpl<'a>, contex
   let text = unescape_embedded_text(&text)?;
   let formatted_tpl = match external_formatter(extension, text, context.config) {
     Ok(formatted_tpl) => escape_embedded_text(&formatted_tpl?),
+    // leave the template as is by default like prettier, because the error might be from the
+    // placeholders not being valid where the expressions are (ex. `${h}%` in a style attribute)
+    Err(_) if !context.config.tagged_template_report_embedded_errors => return None,
     Err(err) => {
       context.diagnostics.push(context::GenerateDiagnostic {
         message: format!("Error formatting tagged template literal at line {}: {}", node.start_line() + 1, err),
