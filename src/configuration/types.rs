@@ -567,6 +567,9 @@ pub struct Configuration {
   pub type_literal_separator_kind_multi_line: SemicolonOrComma,
   #[serde(rename = "taggedTemplate.formatEmbedded")]
   pub tagged_template_format_embedded: bool,
+  /// Whether a template whose embedded text fails to format is a formatting error.
+  #[serde(rename = "taggedTemplate.reportEmbeddedErrors")]
+  pub tagged_template_report_embedded_errors: bool,
   /// Map of a tagged template's tag to the file extension of the language its text is formatted as.
   #[serde(rename = "taggedTemplate.embeddedLanguages")]
   pub tagged_template_embedded_languages: BTreeMap<String, String>,

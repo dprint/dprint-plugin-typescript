@@ -153,6 +153,7 @@
       "description": "The formatting of tagged templates and the code embedded in them (ex. `` css`...` ``).",
       "properties": [
         "taggedTemplate.formatEmbedded",
+        "taggedTemplate.reportEmbeddedErrors",
         "taggedTemplate.embeddedLanguages",
         "taggedTemplate.spaceBeforeLiteral"
       ]
@@ -769,6 +770,18 @@
       }, {
         "const": false,
         "description": "Leaves the text of tagged templates as is."
+      }]
+    },
+    "taggedTemplate.reportEmbeddedErrors": {
+      "description": "Whether a tagged template whose embedded text fails to format (ex. a syntax error in `` css`...` ``) is a formatting error. A template with expressions is always left as is when its text fails to format, because the placeholders for the expressions might not be valid where the expressions are (ex. `` html`<div style=\"height: ${h}%\"></div>` ``).",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Reports an error when the text of a template without expressions fails to format."
+      }, {
+        "const": false,
+        "description": "Leaves a template whose text fails to format as is."
       }]
     },
     "taggedTemplate.embeddedLanguages": {
@@ -1672,6 +1685,9 @@
     },
     "taggedTemplate.formatEmbedded": {
       "$ref": "#/definitions/taggedTemplate.formatEmbedded"
+    },
+    "taggedTemplate.reportEmbeddedErrors": {
+      "$ref": "#/definitions/taggedTemplate.reportEmbeddedErrors"
     },
     "taggedTemplate.embeddedLanguages": {
       "$ref": "#/definitions/taggedTemplate.embeddedLanguages"

@@ -300,6 +300,23 @@ mod test {
   }
 
   #[test]
+  fn syntax_error_from_external_formatter_not_reported() {
+    let config = crate::configuration::ConfigurationBuilder::new()
+      .tagged_template_report_embedded_errors(false)
+      .build();
+    let result = format_text(FormatTextOptions {
+      path: &std::path::PathBuf::from("test.ts"),
+      extension: None,
+      text: "const content = html`<div>broken html</p>`;\n".into(),
+      config: &config,
+      external_formatter: Some(&|_lang, _text, _config| Err("Syntax error from external formatter".into())),
+      arena_pool: None,
+    });
+    // the template is left as is, so the file text doesn't change
+    assert_eq!(result.unwrap(), None);
+  }
+
+  #[test]
   fn format_program_from_ast_view() {
     let config = crate::configuration::ConfigurationBuilder::new().build();
     let parsed_source = parse_program(ParseOptions {
