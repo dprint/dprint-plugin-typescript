@@ -35,17 +35,13 @@ for (
     x++
 ) return;
 
-for (
-    const x in someFunction({
-        xyz: 1234,
-    })
-) return;
+for (const x in someFunction({
+    xyz: 1234,
+})) return;
 
-for (
-    const x of someFunction({
-        xyz: 1234,
-    })
-) return;
+for (const x of someFunction({
+    xyz: 1234,
+})) return;
 
 while (
     someFunction({
