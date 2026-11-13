@@ -3411,6 +3411,7 @@ fn gen_paren_expr_inner<'a>(node: &'a ParenExpr<'a>, context: &mut Context<'a>) 
       prefer_hanging: true,
       allow_open_paren_trailing_comments: true,
       single_line_space_around: context.config.paren_expression_space_around,
+      inline_multi_line_last_value_start_ln: None,
     },
     context,
   ))
@@ -6070,6 +6071,7 @@ fn gen_do_while_stmt<'a>(node: &DoWhileStmt<'a>, context: &mut Context<'a>) -> P
       prefer_hanging: context.config.do_while_statement_prefer_hanging,
       allow_open_paren_trailing_comments: false,
       single_line_space_around: context.config.do_while_statement_space_around,
+      inline_multi_line_last_value_start_ln: None,
     },
     context,
   ));
@@ -6321,6 +6323,7 @@ fn gen_for_stmt<'a>(node: &ForStmt<'a>, context: &mut Context<'a>) -> PrintItems
       prefer_hanging: context.config.for_statement_prefer_hanging,
       allow_open_paren_trailing_comments: false,
       single_line_space_around: context.config.for_statement_space_around,
+      inline_multi_line_last_value_start_ln: None,
     },
     context,
   ));
@@ -6383,6 +6386,7 @@ fn gen_for_in_stmt<'a>(node: &ForInStmt<'a>, context: &mut Context<'a>) -> Print
   if use_space_after_keyword(context.config.for_in_statement_space_after_for_keyword, open_paren_token, context) {
     items.push_space();
   }
+  let right_start_ln = allows_inline_multi_line(node.right.into(), context, false).then(|| LineNumber::new("rightStart"));
   items.extend(gen_node_in_parens(
     |context| {
       let mut items = PrintItems::new(context.arena);
@@ -6391,6 +6395,9 @@ fn gen_for_in_stmt<'a>(node: &ForInStmt<'a>, context: &mut Context<'a>) -> Print
       items.push_condition(conditions::indent_if_start_of_line({
         let mut items = PrintItems::new(context.arena);
         items.push_sc(sc!("in "));
+        if let Some(right_start_ln) = right_start_ln {
+          items.push_info(right_start_ln);
+        }
         items.extend(gen_node(node.right.into(), context));
         items
       }));
@@ -6401,6 +6408,7 @@ fn gen_for_in_stmt<'a>(node: &ForInStmt<'a>, context: &mut Context<'a>) -> Print
       prefer_hanging: context.config.for_in_statement_prefer_hanging,
       allow_open_paren_trailing_comments: false,
       single_line_space_around: context.config.for_in_statement_space_around,
+      inline_multi_line_last_value_start_ln: right_start_ln,
     },
     context,
   ));
@@ -6451,6 +6459,7 @@ fn gen_for_of_stmt<'a>(node: &ForOfStmt<'a>, context: &mut Context<'a>) -> Print
   if use_space_after_keyword(context.config.for_of_statement_space_after_for_keyword, open_paren_token, context) {
     items.push_space();
   }
+  let right_start_ln = allows_inline_multi_line(node.right.into(), context, false).then(|| LineNumber::new("rightStart"));
   items.extend(gen_node_in_parens(
     |context| {
       let mut items = PrintItems::new(context.arena);
@@ -6459,6 +6468,9 @@ fn gen_for_of_stmt<'a>(node: &ForOfStmt<'a>, context: &mut Context<'a>) -> Print
       items.push_condition(conditions::indent_if_start_of_line({
         let mut items = PrintItems::new(context.arena);
         items.push_sc(sc!("of "));
+        if let Some(right_start_ln) = right_start_ln {
+          items.push_info(right_start_ln);
+        }
         items.extend(gen_node(node.right.into(), context));
         items
       }));
@@ -6469,6 +6481,7 @@ fn gen_for_of_stmt<'a>(node: &ForOfStmt<'a>, context: &mut Context<'a>) -> Print
       prefer_hanging: context.config.for_of_statement_prefer_hanging,
       allow_open_paren_trailing_comments: false,
       single_line_space_around: context.config.for_of_statement_space_around,
+      inline_multi_line_last_value_start_ln: right_start_ln,
     },
     context,
   ));
@@ -6523,6 +6536,7 @@ fn gen_if_stmt<'a>(node: &IfStmt<'a>, context: &mut Context<'a>) -> PrintItems<'
             prefer_hanging: context.config.if_statement_prefer_hanging,
             allow_open_paren_trailing_comments: false,
             single_line_space_around: context.config.if_statement_space_around,
+            inline_multi_line_last_value_start_ln: None,
           },
           context,
         ));
@@ -6721,6 +6735,7 @@ fn gen_switch_stmt<'a>(node: &SwitchStmt<'a>, context: &mut Context<'a>) -> Prin
       prefer_hanging: context.config.switch_statement_prefer_hanging,
       allow_open_paren_trailing_comments: false,
       single_line_space_around: context.config.switch_statement_space_around,
+      inline_multi_line_last_value_start_ln: None,
     },
     context,
   ));
@@ -7069,6 +7084,7 @@ fn gen_while_stmt<'a>(node: &WhileStmt<'a>, context: &mut Context<'a>) -> PrintI
       prefer_hanging: context.config.while_statement_prefer_hanging,
       allow_open_paren_trailing_comments: false,
       single_line_space_around: context.config.while_statement_space_around,
+      inline_multi_line_last_value_start_ln: None,
     },
     context,
   ));
@@ -7112,6 +7128,7 @@ fn gen_with_stmt<'a>(node: &WithStmt<'a>, context: &mut Context<'a>) -> PrintIte
       prefer_hanging: context.config.with_statement_prefer_hanging,
       allow_open_paren_trailing_comments: false,
       single_line_space_around: context.config.with_statement_space_around,
+      inline_multi_line_last_value_start_ln: None,
     },
     context,
   ));
@@ -7791,6 +7808,7 @@ fn gen_parenthesized_type_inner<'a>(node: &TsParenthesizedType<'a>, context: &mu
       prefer_hanging: true,
       allow_open_paren_trailing_comments: true,
       single_line_space_around: false,
+      inline_multi_line_last_value_start_ln: None,
     },
     context,
   ))
@@ -10861,6 +10879,9 @@ struct GenNodeInParensOptions {
   prefer_hanging: bool,
   allow_open_paren_trailing_comments: bool,
   single_line_space_around: bool,
+  /// The line the last value within the parens starts on, when the parens should stay beside
+  /// that value when it's the only thing that spans multiple lines (ex. the array in `for (const a of [1, 2]) {}`).
+  inline_multi_line_last_value_start_ln: Option<LineNumber>,
 }
 
 fn gen_node_in_parens<'a>(
@@ -10879,6 +10900,8 @@ fn gen_node_in_parens<'a>(
         surround_with_new_lines(with_indent(generated_node))
       } else if opts.prefer_hanging {
         generated_node
+      } else if let Some(last_value_start_ln) = opts.inline_multi_line_last_value_start_ln {
+        surround_with_newlines_indented_if_multi_line_before_last_value(generated_node, last_value_start_ln, context)
       } else {
         ir_helpers::surround_with_newlines_indented_if_multi_line(generated_node, context.config.indent_width)
       }
@@ -10909,6 +10932,70 @@ fn gen_node_in_parens<'a>(
 
     has_any_node_comment_on_different_line(&[inner_range], context)
   }
+}
+
+/// Surrounds the items with newlines and indentation when they're on multiple lines, except when
+/// that's only because of a last value that ends at the indentation the items start at.
+///
+/// ```ts
+/// for (const value of [
+///   1,
+///   2,
+/// ]) {
+/// }
+/// ```
+fn surround_with_newlines_indented_if_multi_line_before_last_value<'a>(
+  inner_items: PrintItems<'a>,
+  last_value_start_ln: LineNumber,
+  context: &mut Context<'a>,
+) -> PrintItems<'a> {
+  let arena = context.arena;
+  let indent_width = context.config.indent_width;
+  let start_ln = LineNumber::new("surroundStart");
+  let start_lsil = LineStartIndentLevel::new("surroundStart");
+  let end_lsil = LineStartIndentLevel::new("surroundEnd");
+  let inner_items = {
+    let mut items = inner_items;
+    items.push_info(end_lsil);
+    items.into_rc_path()
+  };
+  let mut items = PrintItems::new(arena);
+
+  let region = ir_helpers::InfoRegion::new(arena);
+  region.add(last_value_start_ln);
+  region.add(end_lsil);
+  items.push_info(start_ln);
+  items.push_info(start_lsil);
+  items.extend(region.gen_start(arena));
+  let mut condition = Condition::new(
+    "newlineIfMultiLineBeforeLastValue",
+    ConditionProperties {
+      true_path: Some(surround_with_new_lines(with_indent(inner_items.into_print_items(arena)))),
+      false_path: Some({
+        let mut items = PrintItems::new(arena);
+        items.push_condition(conditions::if_above_width(indent_width, Signal::PossibleNewLine.into_print_items(arena)));
+        items.extend(inner_items.into_print_items(arena));
+        items
+      }),
+      condition: arena.alloc_resolver(move |context| {
+        // this is checked first because it stays true once the items are surrounded with newlines
+        if condition_helpers::is_multiple_lines(context, start_ln, last_value_start_ln)? {
+          return Some(true);
+        }
+        // the last value's last line is indented when it's not only a closing token (ex. a member expression that's too long)
+        let start_indent_level = context.resolved_line_start_indent_level(start_lsil)?;
+        let end_indent_level = context.resolved_line_start_indent_level(end_lsil)?;
+        Some(end_indent_level > start_indent_level)
+      }),
+    },
+  );
+  let condition_reevaluation = condition.create_reevaluation();
+  condition.set_unknown_same_as_false();
+  items.push_condition(condition);
+  items.extend(region.gen_end(arena));
+  items.push_reevaluation(condition_reevaluation);
+
+  items
 }
 
 fn get_paren_range<'a>(inner_range: &SourceRange, context: &mut Context<'a>) -> Option<SourceRange> {

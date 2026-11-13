@@ -1,0 +1,178 @@
+== should keep the parens of a for of or for in statement beside a multi-line last value ==
+for (const [a, b] of [
+    ["one", "first value"],
+    ["two", "second value"]
+]) {
+    use(a, b);
+}
+for (const key in {
+    a: 1,
+    b: 2
+}) {
+}
+for (const x of foo(
+    1,
+    2
+)) {
+}
+for (const x of items.filter(item => {
+    return item.isEnabled;
+})) {
+}
+for await (const x of [
+    1,
+    2
+]) {
+}
+
+[expect]
+for (const [a, b] of [
+    ["one", "first value"],
+    ["two", "second value"],
+]) {
+    use(a, b);
+}
+for (const key in {
+    a: 1,
+    b: 2,
+}) {
+}
+for (const x of foo(
+    1,
+    2,
+)) {
+}
+for (const x of items.filter(item => {
+    return item.isEnabled;
+})) {
+}
+for await (const x of [
+    1,
+    2,
+]) {
+}
+
+== should break up an array that exceeds the line width without moving the parens ==
+for (const value of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33]) {
+}
+
+[expect]
+for (const value of [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+]) {
+}
+
+== should keep the header on separate lines when the open paren is on a different line ==
+for (
+    const [a, b] of [
+        ["one", "first value"],
+        ["two", "second value"]
+    ]
+) {
+}
+
+[expect]
+for (
+    const [a, b] of [
+        ["one", "first value"],
+        ["two", "second value"],
+    ]
+) {
+}
+
+== should move the header to separate lines when the last value does not end with only its closing token ==
+for (const x of {
+    a: 1,
+    b: 2
+}.b) {
+}
+for (const x of await foo(() => {
+    test;
+})) {
+}
+for (const x of aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.ccccccccccccccccccccccc.ddddddddddddddd) {
+}
+for (const x of aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.map(a => {
+    a;
+})) {
+}
+
+[expect]
+for (
+    const x of {
+        a: 1,
+        b: 2,
+    }.b
+) {
+}
+for (
+    const x of await foo(() => {
+        test;
+    })
+) {
+}
+for (
+    const x of aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+        .ccccccccccccccccccccccc.ddddddddddddddd
+) {
+}
+for (
+    const x of aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        .bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.map(a => {
+            a;
+        })
+) {
+}
+
+== should move the header to separate lines when the left side is multi-line ==
+for (const { aaaaaaaaaaaaaaaaaaaa, bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, cccccccccccccccccccccccccccc, ddddddddddddddddddddddddddddd } of [
+    1,
+    2
+]) {
+}
+
+[expect]
+for (
+    const {
+        aaaaaaaaaaaaaaaaaaaa,
+        bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb,
+        cccccccccccccccccccccccccccc,
+        ddddddddddddddddddddddddddddd,
+    } of [
+        1,
+        2,
+    ]
+) {
+}
