@@ -6360,10 +6360,8 @@ fn gen_for_stmt<'a>(node: &ForStmt<'a>, context: &mut Context<'a>) -> PrintItems
     }
 
     let open_paren_token = context.token_finder.get_previous_token_if_open_paren(first_inner_node);
-    if let Some(open_paren_token) = open_paren_token {
-      if node_helpers::get_use_new_lines_for_nodes(&open_paren_token.range(), first_inner_node, context.program) {
-        return true;
-      }
+    if open_paren_token.is_some_and(|token| node_helpers::get_use_new_lines_for_nodes(&token.range(), first_inner_node, context.program)) {
+      return true;
     }
 
     // these comments move the clauses to the line after the open paren, which is
