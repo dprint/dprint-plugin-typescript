@@ -10438,6 +10438,10 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
         } else {
           (false, false)
         };
+        // a comment on the lines before a value stays on its own lines, so the value isn't kept
+        // beside the previous one (ex. the jsdoc of a function that's an argument)
+        let is_after_own_line_comment = allow_inline_multi_line && has_own_line_comment_before(&value, context);
+        let allow_inline_multi_line = allow_inline_multi_line && !is_after_own_line_comment;
         let lines_span = match blank_lines {
           ListBlankLines::Remove => None,
           ListBlankLines::Maintain => match &value {
@@ -10552,7 +10556,7 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
           lines_span,
           allow_inline_multi_line: allow_inline_multi_line && !(use_new_line_group && disallow_inline_multi_line_new_line_groups),
           allow_inline_single_line,
-          is_known_multi_line: false,
+          is_known_multi_line: is_after_own_line_comment,
         });
       }
 
@@ -10571,6 +10575,20 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
       force_possible_newline_at_start: opts.force_possible_newline_at_start,
     },
   );
+
+  /// Gets if the value has a comment before it that starts on a later line than the previous
+  /// token and isn't beside the value (ex. a comment on its own line after the previous value's comma).
+  fn has_own_line_comment_before<'a>(value: &NodeOrSeparator<'a>, context: &Context<'a>) -> bool {
+    let program = context.program;
+    let Some(previous_token) = context.token_finder.get_previous_token(value) else {
+      return false;
+    };
+    let previous_token_end_line = previous_token.end_line_fast(program);
+    let value_start_line = value.start_line_fast(program);
+    value.leading_comments_fast(program).any(|comment| {
+      comment.start_line_fast(program) > previous_token_end_line && (comment.kind == CommentKind::Line || comment.end_line_fast(program) < value_start_line)
+    })
+  }
 
   /// Gets if the comma after the node starts on a later line than the node ends on.
   fn is_comma_on_later_line<'a>(node: Node<'a>, context: &mut Context<'a>) -> bool {
