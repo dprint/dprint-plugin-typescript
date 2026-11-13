@@ -1,0 +1,31 @@
+~~ arguments.preferHanging: always ~~
+== should keep a comment on the lines before an argument on its own lines when hanging ==
+addPropertyListener(windowObj, "onerror",
+    /**
+     * @returns the callback
+     */
+    function () {
+        return cb;
+    },
+    /**
+     * @param value the handler
+     */
+    function (value: string) {
+        old = value;
+    }
+);
+
+[expect]
+addPropertyListener(windowObj, "onerror",
+    /**
+     * @returns the callback
+     */
+    function() {
+        return cb;
+    },
+    /**
+     * @param value the handler
+     */
+    function(value: string) {
+        old = value;
+    });
