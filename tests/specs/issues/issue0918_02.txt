@@ -1,0 +1,32 @@
+~~ preferSingleLine: true, lineWidth: 100 ~~
+== should keep the header on separate lines when that makes it fit on a single line ==
+for (
+    const s of ["", "A", "AA", "AAA", "AAAA", "AAAAA", "AA==", "AAA=", "A===", "=", "AAAA==", "AA"]
+) {
+}
+
+[expect]
+for (
+    const s of ["", "A", "AA", "AAA", "AAAA", "AAAAA", "AA==", "AAA=", "A===", "=", "AAAA==", "AA"]
+) {
+}
+
+== should keep the parens beside a last value that does not fit on a single line ==
+for (
+    const node of getPossibleSymbolReferenceNodes(
+        indirectUser,
+        isDefaultExport ? "default" : exportName,
+        someOtherArgument,
+        andAnotherArgument,
+    )
+) {
+}
+
+[expect]
+for (const node of getPossibleSymbolReferenceNodes(
+    indirectUser,
+    isDefaultExport ? "default" : exportName,
+    someOtherArgument,
+    andAnotherArgument,
+)) {
+}

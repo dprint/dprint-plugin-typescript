@@ -176,3 +176,47 @@ for (
     ]
 ) {
 }
+
+== should move the header to separate lines when that makes it fit on a single line ==
+for (const value of ["testing", "testing", "testing", "testing", "testing", "testing", "testing", "testing", "testing"]) {
+}
+for (const position of getPossibleSymbolReferencePositions(sourceFile, search.text, container, other, testingThis)) {
+}
+
+[expect]
+for (
+    const value of ["testing", "testing", "testing", "testing", "testing", "testing", "testing", "testing", "testing"]
+) {
+}
+for (const position of getPossibleSymbolReferencePositions(sourceFile, search.text, container, other, testingThis)) {
+}
+
+== should not move the header to separate lines when it still does not fit on a single line ==
+for (const position of getPossibleSymbolReferencePositions(sourceFile, search.text, container, other, testing, testingThisOut)) {
+}
+for (const value of ["testing", "testing", "testing", "testing", "testing", "testing", "testing", "testing", "testing", "testing"]) {
+}
+
+[expect]
+for (const position of getPossibleSymbolReferencePositions(
+    sourceFile,
+    search.text,
+    container,
+    other,
+    testing,
+    testingThisOut,
+)) {
+}
+for (const value of [
+    "testing",
+    "testing",
+    "testing",
+    "testing",
+    "testing",
+    "testing",
+    "testing",
+    "testing",
+    "testing",
+    "testing",
+]) {
+}
