@@ -98,3 +98,77 @@ function test(
     b,
     // 4
 ) {}
+
+== should move a multi-line jsdoc that starts after a comma to the lines before the argument it documents ==
+call(a, /**
+     * doc
+     */
+    b);
+call(a, /**
+     * doc
+     */
+    function() {
+        test;
+    }, /**
+     * other
+     */ c);
+const t = [a, /**
+     * doc
+     */
+    b];
+
+[expect]
+call(
+    a,
+    /**
+     * doc
+     */
+    b,
+);
+call(
+    a,
+    /**
+     * doc
+     */
+    function() {
+        test;
+    },
+    /**
+     * other
+     */ c,
+);
+const t = [
+    a,
+    /**
+     * doc
+     */
+    b,
+];
+
+== should not move other block comments that start after a comma ==
+call(a, /** doc */ function() {
+    test;
+});
+call(a, /* c
+    d */
+    b);
+call(
+    a, /**
+     * doc
+     */
+);
+
+[expect]
+call(a, /** doc */ function() {
+    test;
+});
+call(
+    a, /* c
+    d */
+    b,
+);
+call(
+    a, /**
+     * doc
+     */
+);

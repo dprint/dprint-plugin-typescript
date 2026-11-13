@@ -1,0 +1,17 @@
+~~ arguments.preferHanging: always ~~
+== should move a multi-line jsdoc that starts after a comma to the lines before the argument it documents ==
+call(a, /**
+     * doc
+     */
+    function() {
+        test;
+    });
+
+[expect]
+call(a,
+    /**
+     * doc
+     */
+    function() {
+        test;
+    });
