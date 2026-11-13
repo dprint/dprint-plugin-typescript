@@ -8087,6 +8087,7 @@ fn gen_union_or_intersection_type<'a, 'b>(node: UnionOrIntersectionType<'a, 'b>,
 
   let indent_width = context.config.indent_width;
   let arena = context.arena;
+  let max_blank_lines = context.config.max_blank_lines;
   let prefer_hanging = context.config.union_and_intersection_type_prefer_hanging;
   let operator_position = context.config.union_and_intersection_type_operator_position;
   let is_parent_union_or_intersection = matches!(node.node.parent().unwrap().kind(), NodeKind::TsUnionType | NodeKind::TsIntersectionType);
@@ -8140,6 +8141,7 @@ fn gen_union_or_intersection_type<'a, 'b>(node: UnionOrIntersectionType<'a, 'b>,
       };
 
       let mut generated_nodes = BumpVec::with_capacity_in(types_count, context.arena.bump());
+      let mut previous_end_line = None;
       for (i, type_node) in node.types.iter().enumerate() {
         let (allow_inline_multi_line, allow_inline_single_line) = {
           let is_last_value = i + 1 == types_count; // allow the last type to be single line
@@ -8148,6 +8150,8 @@ fn gen_union_or_intersection_type<'a, 'b>(node: UnionOrIntersectionType<'a, 'b>,
         // the comments on the same line as a separator at the end of the previous line are
         // generated with it, so only the ones on other lines are generated here for it
         let separator_token = context.token_finder.get_previous_token_if_operator(&type_node.range(), separator.text);
+        let lines_span = get_lines_span(type_node, separator_token, previous_end_line, context);
+        previous_end_line = Some(lines_span.end_line);
         let start_lc = LineAndColumn::new("start");
         let after_separator_ln = LineNumber::new("afterSeparator");
         let mut items = PrintItems::new(context.arena);
@@ -8207,7 +8211,7 @@ fn gen_union_or_intersection_type<'a, 'b>(node: UnionOrIntersectionType<'a, 'b>,
 
         generated_nodes.push(ir_helpers::GeneratedValue {
           items,
-          lines_span: None,
+          lines_span: Some(lines_span),
           allow_inline_multi_line,
           allow_inline_single_line,
           is_known_multi_line: false,
@@ -8219,7 +8223,7 @@ fn gen_union_or_intersection_type<'a, 'b>(node: UnionOrIntersectionType<'a, 'b>,
     ir_helpers::GenSeparatedValuesOptions {
       prefer_hanging,
       force_use_new_lines,
-      max_blank_lines: 0,
+      max_blank_lines,
       indent_width,
       single_line_options: ir_helpers::SingleLineOptions::separated_same_line(Signal::SpaceOrNewLine.into_print_items(arena)),
       multi_line_options,
@@ -8230,6 +8234,28 @@ fn gen_union_or_intersection_type<'a, 'b>(node: UnionOrIntersectionType<'a, 'b>,
   items.extend(gen_result.items);
 
   return items;
+
+  /// Gets the lines the type is on along with the separator and comments before it, which
+  /// the blank lines between the types are kept based on.
+  fn get_lines_span<'a>(
+    type_node: &TsType<'a>,
+    separator_token: Option<&TokenAndSpan>,
+    previous_end_line: Option<usize>,
+    context: &mut Context<'a>,
+  ) -> ir_helpers::LinesSpan {
+    let type_start_line = type_node.start_line_with_comments(context);
+    let start_line = match separator_token {
+      // a separator at the end of the previous type's line isn't on this type's lines
+      Some(token) if previous_end_line.is_none_or(|line| token.start_line_fast(context.program) > line) => {
+        token.range().start_line_with_comments(context).min(type_start_line)
+      }
+      _ => type_start_line,
+    };
+    ir_helpers::LinesSpan {
+      start_line,
+      end_line: type_node.end_line_with_comments(context),
+    }
+  }
 
   fn get_force_use_new_lines<'a>(node: &UnionOrIntersectionType<'a, '_>, context: &mut Context<'a>) -> bool {
     let types = node.types;
