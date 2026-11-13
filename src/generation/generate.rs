@@ -8958,8 +8958,26 @@ fn get_trailing_comments_same_line<'a>(node: &SourceRange, trailing_comments: Co
     if next_token_pos_line_start == node_end_line {
       return trailing_comments_on_same_line.into_iter().filter(|c| c.start() < comma_end).collect::<Vec<_>>();
     }
+    // a jsdoc after the comma that spans multiple lines documents the value that follows it,
+    // so it and the comments after it belong to that value instead
+    let is_before_close_token = comma_end
+      .next_token_fast(context.program)
+      .is_some_and(|token| matches!(token.token, Token::RParen | Token::RBrace | Token::RBracket));
+    if !is_before_close_token {
+      let first_js_doc_index = trailing_comments_on_same_line
+        .iter()
+        .position(|c| c.start() >= comma_end && is_multi_line_js_doc(c, context.program));
+      if let Some(index) = first_js_doc_index {
+        return trailing_comments_on_same_line.into_iter().take(index).collect();
+      }
+    }
   }
   trailing_comments_on_same_line
+}
+
+/// Gets if the comment is a jsdoc that spans multiple lines.
+fn is_multi_line_js_doc(comment: &Comment, program: Program) -> bool {
+  comment.kind == CommentKind::Block && comment.text.starts_with('*') && comment.end_line_fast(program) > comment.start_line_fast(program)
 }
 
 /// Gets the trailing comments on the lines after the node that are before the comma
@@ -10686,7 +10704,13 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
     let previous_token_end_line = previous_token.end_line_fast(program);
     let value_start_line = value.start_line_fast(program);
     value.leading_comments_fast(program).any(|comment| {
-      comment.start_line_fast(program) > previous_token_end_line && (comment.kind == CommentKind::Line || comment.end_line_fast(program) < value_start_line)
+      let comment_start_line = comment.start_line_fast(program);
+      let comment_end_line = comment.end_line_fast(program);
+      match comment.kind {
+        CommentKind::Line => comment_start_line > previous_token_end_line,
+        // a multi-line jsdoc that starts beside the previous token is moved to the lines before the value
+        CommentKind::Block => comment_end_line < value_start_line && (comment_start_line > previous_token_end_line || is_multi_line_js_doc(comment, program)),
+      }
     })
   }
 
