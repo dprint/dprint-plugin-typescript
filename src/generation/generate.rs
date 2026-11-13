@@ -6218,46 +6218,20 @@ fn gen_for_stmt<'a>(node: &ForStmt<'a>, context: &mut Context<'a>) -> PrintItems
   let start_header_ln = LineNumber::new("startHeader");
   let start_header_lsil = LineStartIndentLevel::new("startHeader");
   let end_header_ln = LineNumber::new("endHeader");
-  let first_inner_node = {
-    if let Some(init) = &node.init {
-      init.range()
-    } else {
-      node
-        .tokens_fast(context.program)
-        .iter()
-        .find(|t| t.token == Token::Semi)
-        .expect("Expected to find a semi-colon in for stmt.")
-        .range()
-    }
-  };
-  let last_inner_node = {
-    if let Some(update) = &node.update {
-      update.range()
-    } else if let Some(test) = &node.test {
-      context
-        .token_finder
-        .get_first_semi_colon_after(&test.range())
-        .expect("Expected to find second semi-colon in for stmt.")
-        .range()
-    } else if let Some(init) = &node.init {
-      let first_semi_colon = context
-        .token_finder
-        .get_first_semi_colon_after(init)
-        .expect("Expected to find a semi-colon in for stmt.");
-      context
-        .token_finder
-        .get_first_semi_colon_after(&first_semi_colon.range())
-        .expect("Expected to find second semi-colon in for stmt.")
-        .range()
-    } else {
-      context
-        .token_finder
-        .get_first_semi_colon_after(&first_inner_node)
-        .expect("Expected to find second semi-colon in for stmt.")
-        .range()
-    }
-  };
-  let force_use_new_lines = get_use_new_lines(&first_inner_node, context);
+  let first_semi_colon = match &node.init {
+    Some(init) => context.token_finder.get_first_semi_colon_after(init),
+    None => node.tokens_fast(context.program).iter().find(|t| t.token == Token::Semi),
+  }
+  .expect("Expected to find a semi-colon in for stmt.");
+  let second_semi_colon = match &node.test {
+    Some(test) => context.token_finder.get_first_semi_colon_after(&test.range()),
+    None => context.token_finder.get_first_semi_colon_after(&first_semi_colon.range()),
+  }
+  .expect("Expected to find second semi-colon in for stmt.");
+  let first_inner_node = node.init.as_ref().map(|init| init.range()).unwrap_or(first_semi_colon.range());
+  let last_inner_node = node.update.as_ref().map(|update| update.range()).unwrap_or(second_semi_colon.range());
+  let inner_range = SourceRange::new(first_inner_node.start(), last_inner_node.end());
+  let force_use_new_lines = get_use_new_lines(&first_inner_node, &inner_range, context);
   let mut items = PrintItems::new(context.arena);
   items.push_info(start_header_ln);
   items.push_info(start_header_lsil);
@@ -6281,14 +6255,24 @@ fn gen_for_stmt<'a>(node: &ForStmt<'a>, context: &mut Context<'a>) -> PrintItems
   } else {
     Signal::PossibleNewLine
   };
+  // the comments in an empty clause have no node to be generated with (ex. `for (let i = 5; 0 <= --i; /* empty */) {}`)
   let generated_init = ir_helpers::new_line_group({
     let mut items = PrintItems::new(context.arena);
-    if let Some(init) = &node.init {
-      items.extend(gen_node(init.into(), context));
+    match &node.init {
+      Some(init) => items.extend(gen_node(init.into(), context)),
+      None => items.extend(gen_empty_clause_comments(first_semi_colon, context)),
     }
     items.push_sc(sc!(";"));
     if node.test.is_none() {
+      let comments = gen_empty_clause_comments(second_semi_colon, context);
+      if !comments.is_empty() {
+        items.push_space();
+        items.extend(comments);
+      }
       items.push_sc(sc!(";"));
+      if node.update.is_none() {
+        items.extend(gen_trailing_comments(&second_semi_colon.range(), context));
+      }
     }
     items
   });
@@ -6297,6 +6281,9 @@ fn gen_for_stmt<'a>(node: &ForStmt<'a>, context: &mut Context<'a>) -> PrintItems
       let mut items = PrintItems::new(context.arena);
       items.extend(gen_node(test.into(), context));
       items.push_sc(sc!(";"));
+      if node.update.is_none() {
+        items.extend(gen_trailing_comments(&second_semi_colon.range(), context));
+      }
       items
     })
   });
@@ -6330,7 +6317,7 @@ fn gen_for_stmt<'a>(node: &ForStmt<'a>, context: &mut Context<'a>) -> PrintItems
       .items
     },
     GenNodeInParensOptions {
-      inner_range: SourceRange::new(first_inner_node.start(), last_inner_node.end()),
+      inner_range,
       prefer_hanging: context.config.for_statement_prefer_hanging,
       allow_open_paren_trailing_comments: false,
       single_line_space_around: context.config.for_statement_space_around,
@@ -6359,17 +6346,29 @@ fn gen_for_stmt<'a>(node: &ForStmt<'a>, context: &mut Context<'a>) -> PrintItems
 
   return items;
 
-  fn get_use_new_lines<'a>(node: &SourceRange, context: &mut Context<'a>) -> bool {
+  /// Generates the comments before the semi-colon of an empty clause that are on the same line as it.
+  fn gen_empty_clause_comments<'a>(semi_colon: &TokenAndSpan, context: &mut Context<'a>) -> PrintItems<'a> {
+    let mut comments = get_leading_comments_on_same_line(&semi_colon.range(), context);
+    // the comments after an open paren aren't always in the order they appear in
+    comments.sort_by_key(|c| c.start());
+    gen_comments_same_line(comments, context)
+  }
+
+  fn get_use_new_lines<'a>(first_inner_node: &SourceRange, inner_range: &SourceRange, context: &mut Context<'a>) -> bool {
     if context.config.for_statement_prefer_single_line {
       return false;
     }
 
-    let open_paren_token = context.token_finder.get_previous_token_if_open_paren(node);
+    let open_paren_token = context.token_finder.get_previous_token_if_open_paren(first_inner_node);
     if let Some(open_paren_token) = open_paren_token {
-      node_helpers::get_use_new_lines_for_nodes(&open_paren_token.range(), node, context.program)
-    } else {
-      false
+      if node_helpers::get_use_new_lines_for_nodes(&open_paren_token.range(), first_inner_node, context.program) {
+        return true;
+      }
     }
+
+    // these comments move the clauses to the line after the open paren, which is
+    // where they would be when formatting again
+    has_any_node_comment_on_different_line(&[*inner_range], context)
   }
 }
 

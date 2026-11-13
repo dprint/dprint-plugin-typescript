@@ -1,0 +1,56 @@
+== should keep a comment in the empty update of a for statement on the same line ==
+for (let i = list.length; 0 <= --i; /* - */) {
+    use(list[i]);
+}
+for (let i = 5; 0 <= --i;/* - */) {}
+for (let i = 5; 0 <= --i; /* a */
+) {}
+for (let i = 5;; /* a */ /* b */) {}
+for (;; /* a */) {}
+
+[expect]
+for (let i = list.length; 0 <= --i; /* - */) {
+    use(list[i]);
+}
+for (let i = 5; 0 <= --i; /* - */) {}
+for (let i = 5; 0 <= --i; /* a */) {}
+for (let i = 5;; /* a */ /* b */) {}
+for (;; /* a */) {}
+
+== should keep the comments in the other empty clauses of a for statement ==
+for (; /* a */; /* b */) {}
+for (/* a */; /* b */; /* c */) {}
+for (/* a */ /* b */;/* c */ /* d */;) {}
+for (let i = 5; /* a */; i++) {}
+for (let i = 5;
+    /* a */;
+    i++) {}
+for (/* a */; i < 5; i++) {}
+for (/* a */ let i = 5; /* b */ i < 5; /* c */ i++ /* d */) {}
+
+[expect]
+for (; /* a */; /* b */) {}
+for (/* a */; /* b */; /* c */) {}
+for (/* a */ /* b */; /* c */ /* d */;) {}
+for (let i = 5; /* a */; i++) {}
+for (let i = 5; /* a */; i++) {}
+for (/* a */; i < 5; i++) {}
+for (/* a */ let i = 5; /* b */ i < 5; /* c */ i++ /* d */) {}
+
+== should keep a line comment in the empty update of a for statement ==
+for (let i = 5; 0 <= --i; // a
+) {}
+for (let i = 5; 0 <= --i;
+    // a
+) {}
+
+[expect]
+for (
+    let i = 5;
+    0 <= --i; // a
+) {}
+for (
+    let i = 5;
+    0 <= --i;
+    // a
+) {}
