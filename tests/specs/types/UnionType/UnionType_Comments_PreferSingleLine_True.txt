@@ -1,0 +1,17 @@
+~~ unionAndIntersectionType.preferSingleLine: true ~~
+== should go multi-line when a comment between the types is followed by a newline ==
+export type M = A.ONE |
+    // Second
+    A.TWO |
+    A.THREE;
+export type N =
+    | A.ONE
+    | A.TWO;
+
+[expect]
+export type M =
+    | A.ONE
+    // Second
+    | A.TWO
+    | A.THREE;
+export type N = A.ONE | A.TWO;

@@ -1,0 +1,86 @@
+== should keep a comment on the lines after an operator at the end of a line on its own lines ==
+export type M =
+    A.ONE |
+    A.TWO |
+    // Second
+    A.THREE |
+    /* Third */
+    A.FOUR |
+    /**
+     * Doc
+     */
+    A.FIVE;
+
+[expect]
+export type M =
+    | A.ONE
+    | A.TWO
+    // Second
+    | A.THREE
+    /* Third */
+    | A.FOUR
+    /**
+     * Doc
+     */
+    | A.FIVE;
+
+== should keep a comment after an operator at the end of a line on that line ==
+export type N =
+    A.ONE |
+    A.TWO | // Second
+    A.THREE | /* Third */
+    A.FOUR;
+
+[expect]
+export type N =
+    | A.ONE
+    | A.TWO // Second
+    | A.THREE /* Third */
+    | A.FOUR;
+
+== should keep a block comment beside the type after the operator ==
+export type N =
+    A.ONE |
+    A.TWO | /* Third */ A.THREE |
+    /* Fourth */ A.FOUR;
+
+[expect]
+export type N =
+    | A.ONE
+    | A.TWO
+    | /* Third */ A.THREE
+    | /* Fourth */ A.FOUR;
+
+== should go multi-line when a comment between the types is followed by a newline ==
+export type M = A.ONE | A.TWO // Second
+    | A.THREE;
+export type N = A.ONE | A.TWO
+    /* Second */
+    | A.THREE;
+export type O = A.ONE | A.TWO |
+    // Second
+    A.THREE;
+
+[expect]
+export type M =
+    | A.ONE
+    | A.TWO // Second
+    | A.THREE;
+export type N =
+    | A.ONE
+    | A.TWO
+    /* Second */
+    | A.THREE;
+export type O =
+    | A.ONE
+    | A.TWO
+    // Second
+    | A.THREE;
+
+== should stay on a single line when a block comment between the types is beside one ==
+export type M = A.ONE | A.TWO /* Second */ | A.THREE;
+export type N = A.ONE | /* Second */ A.TWO | A.THREE;
+
+[expect]
+export type M = A.ONE | A.TWO /* Second */ | A.THREE;
+export type N = A.ONE | /* Second */ A.TWO | A.THREE;

@@ -8161,6 +8161,16 @@ fn gen_union_or_intersection_type<'a, 'b>(node: UnionOrIntersectionType<'a, 'b>,
         }
 
         let emit_leading_separator = i > 0 && matches!(pair_positions[i], OperatorPosition::NextLine);
+        if emit_leading_separator && let Some(separator_token) = separator_token {
+          // the comments on the lines after a separator at the end of the previous line stay
+          // on their own lines instead of going after the separator (ex. `A |\n// comment\nB`)
+          for comment in get_own_line_comments_after_separator(separator_token, type_node, context) {
+            if let Some(generated_comment) = gen_comment(comment, context) {
+              items.extend(generated_comment);
+              items.push_signal(Signal::NewLine);
+            }
+          }
+        }
         if i == 0 && !is_parent_union_or_intersection && leading_first_when_multi_line {
           items.push_condition(if_true("separatorIfMultiLine", is_multi_line_or_hanging, {
             // todo: .into() implementation for StringContainer
@@ -8207,6 +8217,16 @@ fn gen_union_or_intersection_type<'a, 'b>(node: UnionOrIntersectionType<'a, 'b>,
           if let Some(next_separator_token) = next_separator_token {
             items.extend(gen_trailing_comments_same_line(&next_separator_token.range(), context));
           }
+        } else if i + 1 < types_count {
+          // the comments after a separator at the end of this line stay on this line when
+          // the separator moves to the start of the next line (ex. `A | // comment\nB`)
+          let next_type = &node.types[i + 1];
+          let next_separator_token = context.token_finder.get_previous_token_if_operator(&next_type.range(), separator.text);
+          if let Some(next_separator_token) = next_separator_token
+            && next_separator_token.start_line_fast(context.program) < next_type.start_line_fast(context.program)
+          {
+            items.extend(gen_trailing_comments_same_line(&next_separator_token.range(), context));
+          }
         }
 
         generated_nodes.push(ir_helpers::GeneratedValue {
@@ -8234,6 +8254,47 @@ fn gen_union_or_intersection_type<'a, 'b>(node: UnionOrIntersectionType<'a, 'b>,
   items.extend(gen_result.items);
 
   return items;
+
+  /// Gets if a comment between the types is followed by a newline (a line comment or a block
+  /// comment on its own lines), in which case the types can't be on a single line.
+  fn has_comment_on_different_line<'a>(node: &UnionOrIntersectionType<'a, '_>, context: &mut Context<'a>) -> bool {
+    let separator_text = if node.is_union { "|" } else { "&" };
+    return node.types.iter().skip(1).any(|type_node| {
+      has_own_line_comment_before(&type_node.range(), context)
+        || context
+          .token_finder
+          .get_previous_token_if_operator(&type_node.range(), separator_text)
+          .is_some_and(|separator_token| has_own_line_comment_before(&separator_token.range(), context))
+    });
+
+    fn has_own_line_comment_before<'a>(range: &SourceRange, context: &Context<'a>) -> bool {
+      let program = context.program;
+      let previous_end_line = context.token_finder.get_previous_token(range).map(|token| token.end_line_fast(program));
+      let start_line = range.start_line_fast(program);
+      range.leading_comments_fast(program).any(|comment| {
+        comment.kind == CommentKind::Line
+          || previous_end_line.is_some_and(|line| comment.start_line_fast(program) > line) && comment.end_line_fast(program) < start_line
+      })
+    }
+  }
+
+  /// Gets the comments between a separator and the type after it that are on the lines
+  /// between the two.
+  fn get_own_line_comments_after_separator<'a>(separator_token: &TokenAndSpan, type_node: &TsType<'a>, context: &Context<'a>) -> Vec<&'a Comment> {
+    let program = context.program;
+    let separator_line = separator_token.end_line_fast(program);
+    let type_start_line = type_node.start_line_fast(program);
+    // the comments on the separator's line are generated with the previous type and
+    // the block comments beside the type are generated with it
+    let mut comments = type_node
+      .leading_comments_fast(program)
+      .filter(|comment| {
+        comment.start_line_fast(program) > separator_line && (comment.kind == CommentKind::Line || comment.end_line_fast(program) < type_start_line)
+      })
+      .collect::<Vec<_>>();
+    comments.sort_by_key(|comment| comment.start());
+    comments
+  }
 
   /// Gets the lines the type is on along with the separator and comments before it, which
   /// the blank lines between the types are kept based on.
@@ -8266,16 +8327,17 @@ fn gen_union_or_intersection_type<'a, 'b>(node: UnionOrIntersectionType<'a, 'b>,
         Some(previous_token) => types[0].start_line_fast(context.program) > previous_token.end_line_fast(context.program),
         None => false,
       };
-      return is_first_on_next_line && get_use_new_lines_for_nodes(types, false, context);
+      return is_first_on_next_line && get_use_new_lines_for_nodes(types, false, context) || has_comment_on_different_line(node, context);
     }
     if !context.config.union_and_intersection_type_prefer_single_line || types.len() < 2 {
-      return get_use_new_lines_for_nodes(types, false, context);
+      return get_use_new_lines_for_nodes(types, false, context) || has_comment_on_different_line(node, context);
     }
     // only look at the comments within the type because the ones before
     // or after it might move (ex. a separator or semi-colon gets added)
     let has_leading_separator = node.node.start() < types[0].start();
     (has_leading_separator && has_leading_comment_on_previous_line(&types[0], context))
       || has_any_node_trailing_comment_on_different_line(&types[..types.len() - 1], context)
+      || has_comment_on_different_line(node, context)
   }
 
   fn use_surround_newlines<'a>(node: Node<'a>, context: &mut Context<'a>) -> bool {

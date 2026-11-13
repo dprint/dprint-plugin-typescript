@@ -1,0 +1,49 @@
+~~ unionAndIntersectionType.preferHanging: true ~~
+== should go multi-line when a comment between the types is followed by a newline ==
+export type M = A.ONE
+    | A.TWO
+    // Second
+    | A.THREE
+    | A.FOUR;
+export type N = A.ONE | A.TWO // Second
+    | A.THREE
+    | A.FOUR;
+export type P = A.ONE
+    | A.TWO
+    /* Second */
+    | A.THREE;
+export type Q = A.ONE |
+    // Second
+    A.TWO |
+    A.THREE;
+
+[expect]
+export type M =
+    | A.ONE
+    | A.TWO
+    // Second
+    | A.THREE
+    | A.FOUR;
+export type N =
+    | A.ONE
+    | A.TWO // Second
+    | A.THREE
+    | A.FOUR;
+export type P =
+    | A.ONE
+    | A.TWO
+    /* Second */
+    | A.THREE;
+export type Q =
+    | A.ONE
+    // Second
+    | A.TWO
+    | A.THREE;
+
+== should not go multi-line when a block comment between the types is beside one ==
+export type O = A.ONE
+    | A.TWO /* Second */
+    | A.THREE;
+
+[expect]
+export type O = A.ONE | A.TWO /* Second */ | A.THREE;
