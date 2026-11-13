@@ -1,0 +1,138 @@
+~~ lineWidth: 60, arguments.linePerArgument: false ~~
+== should maintain the line breaks between the arguments ==
+call(
+    a, b,
+    c, d
+);
+call(
+    a,
+    b, c, d,
+    e
+);
+new Test(
+    a, b,
+    c
+);
+
+[expect]
+call(
+    a, b,
+    c, d,
+);
+call(
+    a,
+    b, c, d,
+    e,
+);
+new Test(
+    a, b,
+    c,
+);
+
+== should keep the arguments on one line when written that way ==
+call(
+    a, b, c
+);
+call(
+    a
+);
+
+[expect]
+call(
+    a, b, c,
+);
+call(
+    a,
+);
+
+== should collapse when the first argument is on the same line as the open paren ==
+call(a, b,
+    c, d);
+
+[expect]
+call(a, b, c, d);
+
+== should wrap a line that exceeds the line width ==
+call(
+    testingtestingtesting, testingtestingtesting, testingtestingtesting, testing,
+    other
+);
+call(testingtestingtesting, testingtestingtesting, testingtestingtesting, testing, other);
+
+[expect]
+call(
+    testingtestingtesting, testingtestingtesting,
+    testingtestingtesting, testing,
+    other,
+);
+call(
+    testingtestingtesting, testingtestingtesting,
+    testingtestingtesting, testing, other,
+);
+
+== should not maintain blank lines ==
+call(
+    a, b,
+
+    c, d
+);
+
+[expect]
+call(
+    a, b,
+    c, d,
+);
+
+== should handle comments ==
+call(
+    a, b, // first
+    // second
+    c, /* third */ d,
+    /* fourth */ e, f
+    // fifth
+);
+
+[expect]
+call(
+    a, b, // first
+    // second
+    c, /* third */ d,
+    /* fourth */ e, f,
+    // fifth
+);
+
+== should handle multi-line arguments ==
+call(
+    a, () => {
+        test;
+    },
+    c, { a: 1,
+       b: 2 }, d
+);
+call(a, () => {
+    test;
+});
+
+[expect]
+call(
+    a, () => {
+        test;
+    },
+    c, { a: 1, b: 2 }, d,
+);
+call(a, () => {
+    test;
+});
+
+== should not affect parameters ==
+function test(
+    a: string, b: number,
+    c: boolean
+) {}
+
+[expect]
+function test(
+    a: string,
+    b: number,
+    c: boolean,
+) {}

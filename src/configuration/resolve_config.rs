@@ -101,6 +101,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     file_indent_level: get_value(&mut config, "fileIndentLevel", 0, &mut diagnostics),
     max_blank_lines: get_value(&mut config, "maxBlankLines", 1, &mut diagnostics),
     /* situational */
+    arguments_line_per_argument: get_value(&mut config, "arguments.linePerArgument", true, &mut diagnostics),
     array_expression_line_per_element: get_value(&mut config, "arrayExpression.linePerElement", true, &mut diagnostics),
     arrow_function_use_parentheses: get_value(&mut config, "arrowFunction.useParentheses", UseParentheses::Maintain, &mut diagnostics),
     binary_expression_line_per_expression: get_value(&mut config, "binaryExpression.linePerExpression", false, &mut diagnostics),
@@ -114,6 +115,7 @@ pub fn resolve_config(config: ConfigKeyMap, global_config: &GlobalConfiguration)
     jsx_opening_element_bracket_position: get_value(&mut config, "jsxOpeningElement.bracketPosition", jsx_bracket_position, &mut diagnostics),
     jsx_self_closing_element_bracket_position: get_value(&mut config, "jsxSelfClosingElement.bracketPosition", jsx_bracket_position, &mut diagnostics),
     member_expression_line_per_expression: get_value(&mut config, "memberExpression.linePerExpression", false, &mut diagnostics),
+    parameters_line_per_parameter: get_value(&mut config, "parameters.linePerParameter", true, &mut diagnostics),
     type_literal_separator_kind_single_line: get_value(
       &mut config,
       "typeLiteral.separatorKind.singleLine",
@@ -1097,7 +1099,20 @@ mod tests {
 
   #[test]
   fn handle_array_expression_line_per_element() {
-    let property_name = "arrayExpression.linePerElement";
+    assert_handles_line_per_value("arrayExpression.linePerElement", |config| config.array_expression_line_per_element);
+  }
+
+  #[test]
+  fn handle_arguments_line_per_argument() {
+    assert_handles_line_per_value("arguments.linePerArgument", |config| config.arguments_line_per_argument);
+  }
+
+  #[test]
+  fn handle_parameters_line_per_parameter() {
+    assert_handles_line_per_value("parameters.linePerParameter", |config| config.parameters_line_per_parameter);
+  }
+
+  fn assert_handles_line_per_value(property_name: &str, get_value: impl Fn(&Configuration) -> bool) {
     for value in [None, Some(true), Some(false)] {
       let mut config = ConfigKeyMap::new();
       if let Some(value) = value {
@@ -1105,14 +1120,14 @@ mod tests {
       }
       let result = resolve_config(config, &GlobalConfiguration::default());
       assert_eq!(result.diagnostics.len(), 0);
-      assert_eq!(result.config.array_expression_line_per_element, value.unwrap_or(true));
+      assert_eq!(get_value(&result.config), value.unwrap_or(true));
       assert_eq!(serde_json::to_value(&result.config).unwrap()[property_name], value.unwrap_or(true));
     }
 
     let mut config = ConfigKeyMap::new();
     config.insert(property_name.to_string(), ConfigKeyValue::from_str("invalid"));
     let result = resolve_config(config, &GlobalConfiguration::default());
-    assert!(result.config.array_expression_line_per_element);
+    assert!(get_value(&result.config));
     assert_eq!(get_diagnostic_property_names(&result.diagnostics), [property_name]);
   }
 

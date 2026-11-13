@@ -1,0 +1,74 @@
+~~ lineWidth: 60, arguments.linePerArgument: false, arguments.preferHanging: always ~~
+== should maintain the line breaks when the first argument is on a new line ==
+call(
+    a, b,
+    c, d
+);
+
+[expect]
+call(
+    a, b,
+    c, d,
+);
+
+== should maintain the line breaks when hanging ==
+call(a, b,
+    c, d);
+call(a,
+    b,
+    c, d);
+
+[expect]
+call(a, b,
+    c, d);
+call(a,
+    b,
+    c, d);
+
+== should stay on one line when there are no line breaks ==
+call(a, b, c, d);
+
+[expect]
+call(a, b, c, d);
+
+== should fill the lines when hanging and there are no line breaks ==
+call(testingtestingtesting, testingtestingtesting, testingtestingtesting, testing);
+
+[expect]
+call(testingtestingtesting, testingtestingtesting,
+    testingtestingtesting, testing);
+
+== should wrap a line that exceeds the line width when hanging ==
+call(testingtestingtesting, testingtestingtesting, testingtestingtesting, testing,
+    other,
+    other);
+
+[expect]
+call(testingtestingtesting, testingtestingtesting,
+    testingtestingtesting, testing,
+    other,
+    other);
+
+== should handle comments when hanging ==
+call(a,
+    // comment
+    b, c,
+    /* other */ d);
+
+[expect]
+call(a,
+    // comment
+    b, c,
+    /* other */ d);
+
+== should handle multi-line arguments when hanging ==
+call(a, () => {
+    test;
+}, b,
+    c);
+
+[expect]
+call(a, () => {
+    test;
+}, b,
+    c);

@@ -616,6 +616,15 @@ impl ConfigurationBuilder {
 
   /* situational */
 
+  /// Whether to force a line per argument when the arguments span multiple lines.
+  ///
+  /// * `true` (default) - Formats with each argument on a new line.
+  /// * `false` - Maintains the line breaks between the arguments as written by the programmer.
+  ///   A line that exceeds the line width is still split up.
+  pub fn arguments_line_per_argument(&mut self, value: bool) -> &mut Self {
+    self.insert("arguments.linePerArgument", value.into())
+  }
+
   /// Whether to force a line per element when an array expression spans multiple lines.
   ///
   /// * `true` (default) - Formats with each element on a new line.
@@ -662,6 +671,15 @@ impl ConfigurationBuilder {
   /// * `false` (default) - Maintains the line breaks as written by the programmer.
   pub fn member_expression_line_per_expression(&mut self, value: bool) -> &mut Self {
     self.insert("memberExpression.linePerExpression", value.into())
+  }
+
+  /// Whether to force a line per parameter when the parameters span multiple lines.
+  ///
+  /// * `true` (default) - Formats with each parameter on a new line.
+  /// * `false` - Maintains the line breaks between the parameters as written by the programmer.
+  ///   A line that exceeds the line width is still split up.
+  pub fn parameters_line_per_parameter(&mut self, value: bool) -> &mut Self {
+    self.insert("parameters.linePerParameter", value.into())
   }
 
   /// Whether to format the text of tagged templates whose tag is in `tagged_template_embedded_languages`
@@ -1550,12 +1568,14 @@ mod tests {
       .quote_props(QuoteProps::AsNeeded)
       .prefer_hanging(false)
       /* situational */
+      .arguments_line_per_argument(false)
       .array_expression_line_per_element(false)
       .arrow_function_use_parentheses(UseParentheses::Maintain)
       .binary_expression_line_per_expression(false)
       .conditional_expression_line_per_expression(true)
       .conditional_type_line_per_expression(true)
       .member_expression_line_per_expression(false)
+      .parameters_line_per_parameter(false)
       .type_literal_separator_kind(SemicolonOrComma::Comma)
       .type_literal_separator_kind_single_line(SemicolonOrComma::Comma)
       .type_literal_separator_kind_multi_line(SemicolonOrComma::Comma)
@@ -1778,7 +1798,7 @@ mod tests {
       .with_statement_space_around(true);
 
     let inner_config = config.get_inner_config();
-    assert_eq!(inner_config.len(), 238);
+    assert_eq!(inner_config.len(), 240);
     let diagnostics = resolve_config(inner_config, &Default::default()).diagnostics;
     assert_eq!(diagnostics.len(), 0);
   }

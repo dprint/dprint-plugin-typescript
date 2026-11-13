@@ -1,0 +1,34 @@
+~~ arguments.linePerArgument: false, parameters.linePerParameter: false, arguments.preferHanging: always, parameters.preferHanging: always ~~
+== should keep the layout of the parameters ==
+const handlers = {
+    "add"(target: Target,
+          key: Key,
+          value: any,
+          notify?: boolean,
+          index?: number): void {
+        // ...
+    }
+};
+
+function sendItems(preview?: boolean, force?: boolean, closing?: boolean,
+                   prepared?: PreparedData, asStream?: boolean): SendState {
+    // ...
+}
+
+[expect]
+const handlers = {
+    "add"(target: Target,
+        key: Key,
+        value: any,
+        notify?: boolean,
+        index?: number): void
+    {
+        // ...
+    },
+};
+
+function sendItems(preview?: boolean, force?: boolean, closing?: boolean,
+    prepared?: PreparedData, asStream?: boolean): SendState
+{
+    // ...
+}
