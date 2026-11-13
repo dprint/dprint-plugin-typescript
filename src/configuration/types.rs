@@ -535,6 +535,8 @@ pub struct Configuration {
   pub file_indent_level: u32,
   pub max_blank_lines: u32,
   /* situational */
+  #[serde(rename = "arguments.linePerArgument")]
+  pub arguments_line_per_argument: bool,
   #[serde(rename = "arrayExpression.linePerElement")]
   pub array_expression_line_per_element: bool,
   #[serde(rename = "arrowFunction.useParentheses")]
@@ -561,6 +563,8 @@ pub struct Configuration {
   pub jsx_self_closing_element_bracket_position: SameOrNextLinePosition,
   #[serde(rename = "memberExpression.linePerExpression")]
   pub member_expression_line_per_expression: bool,
+  #[serde(rename = "parameters.linePerParameter")]
+  pub parameters_line_per_parameter: bool,
   #[serde(rename = "typeLiteral.separatorKind.singleLine")]
   pub type_literal_separator_kind_single_line: SemicolonOrComma,
   #[serde(rename = "typeLiteral.separatorKind.multiLine")]

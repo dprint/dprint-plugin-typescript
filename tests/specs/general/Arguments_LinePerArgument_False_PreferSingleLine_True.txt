@@ -1,0 +1,23 @@
+~~ lineWidth: 60, arguments.linePerArgument: false, arguments.preferSingleLine: true ~~
+== should collapse to a single line when the arguments fit ==
+call(
+    a, b,
+    c, d
+);
+
+[expect]
+call(a, b, c, d);
+
+== should maintain the line breaks when the arguments do not fit on a single line ==
+call(
+    testingtestingtesting, testingtestingtesting,
+    testingtestingtesting, testing,
+    other
+);
+
+[expect]
+call(
+    testingtestingtesting, testingtestingtesting,
+    testingtestingtesting, testing,
+    other,
+);

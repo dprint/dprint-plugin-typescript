@@ -1,0 +1,48 @@
+~~ lineWidth: 60, parameters.linePerParameter: false, parameters.preferHanging: always ~~
+== should maintain the line breaks when the first parameter is on a new line ==
+function test(
+    a: string, b: number,
+    c: boolean
+) {}
+
+[expect]
+function test(
+    a: string, b: number,
+    c: boolean,
+) {}
+
+== should maintain the line breaks when hanging ==
+function test(a: string, b: number,
+    c: boolean) {}
+function test(a: string,
+              b: number,
+              c: boolean): void {
+}
+
+[expect]
+function test(a: string, b: number,
+    c: boolean)
+{}
+function test(a: string,
+    b: number,
+    c: boolean): void
+{
+}
+
+== should fill the lines when hanging and there are no line breaks ==
+function test(testing: string, testing: number, testing: boolean, testing: string) {}
+
+[expect]
+function test(testing: string, testing: number,
+    testing: boolean, testing: string)
+{}
+
+== should wrap a line that exceeds the line width when hanging ==
+function test(testing: string, testing: number, testing: boolean, testing: string,
+    other: string) {}
+
+[expect]
+function test(testing: string, testing: number,
+    testing: boolean, testing: string,
+    other: string)
+{}

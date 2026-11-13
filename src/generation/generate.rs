@@ -10052,6 +10052,13 @@ where
   let prefer_single_item_hanging = prefer_hanging_config == PreferHanging::OnlySingleItem && prefer_hanging;
   let prefer_single_line = prefer_single_item_hanging
     || (is_parameters && context.config.parameters_prefer_single_line || !is_parameters && context.config.arguments_prefer_single_line);
+  let line_per_value = if is_parameters {
+    context.config.parameters_line_per_parameter
+  } else {
+    context.config.arguments_line_per_argument
+  };
+  // hanging values that prefer being on a single line fill the lines instead
+  let maintain_line_breaks = !line_per_value && !(prefer_hanging && prefer_single_line);
   let force_use_new_lines = get_use_new_lines_for_nodes_with_preceeding_token("(", &nodes, prefer_single_line, context);
   let range = opts.range;
   let custom_close_paren = opts.custom_close_paren;
@@ -10127,7 +10134,11 @@ where
             multi_line_options: if prefer_single_item_hanging {
               MultiLineOptions::maintain_line_breaks()
             } else {
-              MultiLineOptions::surround_newlines_indented()
+              MultiLineOptions {
+                maintain_line_breaks,
+                newline_after_value_made_multi_line: maintain_line_breaks,
+                ..MultiLineOptions::surround_newlines_indented()
+              }
             },
             force_possible_newline_at_start: is_parameters,
             node_sorter: None,
@@ -10469,8 +10480,9 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
         let is_after_own_line_comment = allow_inline_multi_line && has_own_line_comment_before(&value, context);
         let allow_inline_multi_line = allow_inline_multi_line && !is_after_own_line_comment;
         let lines_span = match blank_lines {
-          ListBlankLines::Remove => None,
-          ListBlankLines::Maintain => match &value {
+          ListBlankLines::Remove if !maintain_line_breaks => None,
+          // the line breaks are maintained based on the lines span even when the blank lines aren't
+          ListBlankLines::Remove | ListBlankLines::Maintain => match &value {
             NodeOrSeparator::Node(node) => Some(ir_helpers::LinesSpan {
               start_line: node.start_line_with_comments(context),
               end_line: if maintain_line_breaks && is_comma_on_later_line(*node, context) {

@@ -53,7 +53,9 @@
         "preferHanging",
         "preferSingleLine",
         "operatorPosition",
+        "arguments.linePerArgument",
         "arrayExpression.linePerElement",
+        "parameters.linePerParameter",
         "binaryExpression.linePerExpression",
         "memberExpression.linePerExpression",
         "conditionalExpression.linePerExpression",
@@ -676,6 +678,18 @@
         "description": "Prefers not using parentheses when possible."
       }]
     },
+    "arguments.linePerArgument": {
+      "description": "Whether to force a line per argument when the arguments of a call span multiple lines.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Formats with each argument on a new line."
+      }, {
+        "const": false,
+        "description": "Maintains the line breaks between the arguments as written by the programmer. A line that exceeds the line width is still split up."
+      }]
+    },
     "arrayExpression.linePerElement": {
       "description": "Whether to force a line per element when an array expression spans multiple lines.",
       "type": "boolean",
@@ -758,6 +772,18 @@
       }, {
         "const": false,
         "description": "Maintains the line breaks as written by the programmer."
+      }]
+    },
+    "parameters.linePerParameter": {
+      "description": "Whether to force a line per parameter when the parameters of a function span multiple lines.",
+      "type": "boolean",
+      "default": true,
+      "oneOf": [{
+        "const": true,
+        "description": "Formats with each parameter on a new line."
+      }, {
+        "const": false,
+        "description": "Maintains the line breaks between the parameters as written by the programmer. A line that exceeds the line width is still split up."
       }]
     },
     "taggedTemplate.formatEmbedded": {
@@ -1515,6 +1541,17 @@
         ]
       }
     },
+    "arguments.linePerArgument": {
+      "$ref": "#/definitions/arguments.linePerArgument",
+      "x-example": {
+        "input": [
+          "drawRect(",
+          "  x, y,",
+          "  width, height,",
+          ");"
+        ]
+      }
+    },
     "arrayExpression.linePerElement": {
       "$ref": "#/definitions/arrayExpression.linePerElement",
       "x-example": {
@@ -1664,6 +1701,18 @@
         "input": [
           "const result = items.filter(isValid).map(toValue)",
           "  .join(\", \");"
+        ]
+      }
+    },
+    "parameters.linePerParameter": {
+      "$ref": "#/definitions/parameters.linePerParameter",
+      "x-example": {
+        "input": [
+          "function drawRect(",
+          "  x: number, y: number,",
+          "  width: number, height: number,",
+          ") {",
+          "}"
         ]
       }
     },

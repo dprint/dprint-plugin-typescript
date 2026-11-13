@@ -1,0 +1,14 @@
+~~ lineWidth: 60, arguments.linePerArgument: false, arguments.preferHanging: always, arguments.preferSingleLine: true ~~
+== should fill the lines instead of maintaining the line breaks ==
+call(a, b,
+    c, d
+);
+call(testingtestingtesting, testingtestingtesting,
+    testingtestingtesting, testing,
+    other
+);
+
+[expect]
+call(a, b, c, d);
+call(testingtestingtesting, testingtestingtesting,
+    testingtestingtesting, testing, other);

@@ -1,0 +1,179 @@
+~~ lineWidth: 60, parameters.linePerParameter: false ~~
+== should maintain the line breaks between the parameters ==
+function sendItems(
+    preview?: boolean, force?: boolean, closing?: boolean,
+    prepared?: PreparedData, asStream?: boolean
+): SendState {
+}
+const f = (
+    a: string, b: number,
+    c: boolean
+) => {};
+const g = function(
+    a: string, b: number,
+    c: boolean
+) {};
+class A {
+    constructor(
+        private a: string, private b: number,
+        c: boolean
+    ) {}
+    method(
+        a: string, b: number,
+        c: boolean
+    ) {}
+}
+type F = (
+    a: string, b: number,
+    c: boolean
+) => void;
+type C = new (
+    a: string, b: number,
+    c: boolean
+) => void;
+interface I {
+    method(
+        a: string, b: number,
+        c: boolean
+    ): void;
+    (
+        a: string, b: number,
+        c: boolean
+    ): void;
+    new (
+        a: string, b: number,
+        c: boolean
+    ): void;
+}
+
+[expect]
+function sendItems(
+    preview?: boolean, force?: boolean, closing?: boolean,
+    prepared?: PreparedData, asStream?: boolean,
+): SendState {
+}
+const f = (
+    a: string, b: number,
+    c: boolean,
+) => {};
+const g = function(
+    a: string, b: number,
+    c: boolean,
+) {};
+class A {
+    constructor(
+        private a: string, private b: number,
+        c: boolean,
+    ) {}
+    method(
+        a: string, b: number,
+        c: boolean,
+    ) {}
+}
+type F = (
+    a: string, b: number,
+    c: boolean,
+) => void;
+type C = new(
+    a: string, b: number,
+    c: boolean,
+) => void;
+interface I {
+    method(
+        a: string, b: number,
+        c: boolean,
+    ): void;
+    (
+        a: string, b: number,
+        c: boolean,
+    ): void;
+    new(
+        a: string, b: number,
+        c: boolean,
+    ): void;
+}
+
+== should keep the parameters on one line when written that way ==
+function test(
+    a: string, b: number, c: boolean
+) {}
+
+[expect]
+function test(
+    a: string, b: number, c: boolean,
+) {}
+
+== should collapse when the first parameter is on the same line as the open paren ==
+function test(a: string, b: number,
+    c: boolean) {}
+
+[expect]
+function test(a: string, b: number, c: boolean) {}
+
+== should wrap a line that exceeds the line width ==
+function test(
+    testing: string, testing: number, testing: boolean, testing: string,
+    other: string
+) {}
+function test(testing: string, testing: number, testing: boolean, testing: string, other: string) {}
+
+[expect]
+function test(
+    testing: string, testing: number, testing: boolean,
+    testing: string,
+    other: string,
+) {}
+function test(
+    testing: string, testing: number, testing: boolean,
+    testing: string, other: string,
+) {}
+
+== should handle comments ==
+function test(
+    a: string, b: number, // first
+    // second
+    c: boolean, /* third */ d: string
+) {}
+
+[expect]
+function test(
+    a: string, b: number, // first
+    // second
+    c: boolean, /* third */ d: string,
+) {}
+
+== should handle multi-line parameters ==
+function test(
+    a: string, { b, c }: {
+        b: string;
+        c: number;
+    },
+    d: boolean, e = () => {
+        test;
+    }
+) {}
+
+[expect]
+function test(
+    a: string, { b, c }: {
+        b: string;
+        c: number;
+    },
+    d: boolean, e = () => {
+        test;
+    },
+) {}
+
+== should not affect arguments ==
+call(
+    a, b,
+    c, d
+);
+
+[expect]
+call(
+    a,
+    b,
+    c,
+    d,
+);

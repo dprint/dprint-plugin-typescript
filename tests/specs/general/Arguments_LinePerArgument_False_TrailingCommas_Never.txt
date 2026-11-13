@@ -1,0 +1,12 @@
+~~ lineWidth: 60, arguments.linePerArgument: false, arguments.trailingCommas: never ~~
+== should not add a trailing comma ==
+call(
+    a, b,
+    c, d,
+);
+
+[expect]
+call(
+    a, b,
+    c, d
+);
