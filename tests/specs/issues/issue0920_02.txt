@@ -1,0 +1,39 @@
+~~ unionAndIntersectionType.operatorPosition: sameLine, maxBlankLines: 2 ~~
+== should keep the blank lines between the members with the operator on the same line ==
+export type M =
+    A.ONE |
+    A.TWO |
+
+    // Second
+    A.THREE |
+
+
+
+    A.FOUR;
+export type K =
+    // First
+    | A.ONE
+    | A.TWO
+
+    // Second
+    | A.THREE
+    | A.FOUR;
+
+[expect]
+export type M =
+    A.ONE |
+    A.TWO |
+
+    // Second
+    A.THREE |
+
+
+    A.FOUR;
+export type K =
+    // First
+    A.ONE |
+    A.TWO |
+
+    // Second
+    A.THREE |
+    A.FOUR;

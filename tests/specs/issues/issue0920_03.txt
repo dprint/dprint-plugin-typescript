@@ -1,0 +1,23 @@
+~~ unionAndIntersectionType.preferHanging: true, lineWidth: 40 ~~
+== should keep the blank lines between the members when multi-line and not when hanging ==
+export type M = A.ONE
+    | A.TWO
+
+    | A.THREE
+    | A.FOUR;
+export type K =
+    | A.ONE
+    | A.TWO
+
+    | A.THREE
+    | A.FOUR;
+
+[expect]
+export type M = A.ONE | A.TWO | A.THREE
+    | A.FOUR;
+export type K =
+    | A.ONE
+    | A.TWO
+
+    | A.THREE
+    | A.FOUR;

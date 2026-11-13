@@ -1,0 +1,114 @@
+== should keep the blank lines between the members of a union type ==
+export type K =
+    // First
+    | A.ONE
+    | A.TWO
+
+    // Second
+    | A.THREE
+    | A.FOUR;
+
+[expect]
+export type K =
+    // First
+    | A.ONE
+    | A.TWO
+
+    // Second
+    | A.THREE
+    | A.FOUR;
+
+== should keep at most the max blank lines between the members ==
+export type L =
+    | A.ONE
+    | A.TWO // trailing
+
+
+    | A.THREE
+
+    | A.FOUR;
+export type O = A.ONE
+
+    | A.TWO;
+
+[expect]
+export type L =
+    | A.ONE
+    | A.TWO // trailing
+
+    | A.THREE
+
+    | A.FOUR;
+export type O =
+    | A.ONE
+
+    | A.TWO;
+
+== should keep the blank lines between the members of an intersection type ==
+export type N =
+    & A.ONE
+
+    /* Second */
+    & A.THREE
+
+    & { a: string;
+     b: number }
+
+    & A.FOUR;
+
+[expect]
+export type N =
+    & A.ONE
+
+    /* Second */
+    & A.THREE
+
+    & { a: string; b: number }
+
+    & A.FOUR;
+
+== should keep the blank lines in other positions ==
+function f(a:
+    | A
+
+    | B, b: (A
+
+    | B)[]) {}
+export type Q =
+    | A.ONE
+    | (
+       | A.TWO
+
+       | A.THREE)
+
+    | A.FOUR;
+
+[expect]
+function f(
+    a:
+        | A
+
+        | B,
+    b: (
+        | A
+
+        | B
+    )[],
+) {}
+export type Q =
+    | A.ONE
+    | (
+        | A.TWO
+
+        | A.THREE
+    )
+
+    | A.FOUR;
+
+== should not keep a blank line when the type is on a single line ==
+export type P = A.ONE | A.TWO
+
+    | A.THREE;
+
+[expect]
+export type P = A.ONE | A.TWO | A.THREE;
