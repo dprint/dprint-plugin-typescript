@@ -10709,9 +10709,7 @@ fn gen_separated_values_with_result<'a>(opts: GenSeparatedValuesParams<'a>, cont
       match comment.kind {
         CommentKind::Line => comment_start_line > previous_token_end_line,
         // a multi-line jsdoc that starts beside the previous token is moved to the lines before the value
-        CommentKind::Block => {
-          comment_end_line < value_start_line && (comment_start_line > previous_token_end_line || is_multi_line_js_doc(comment, program))
-        }
+        CommentKind::Block => comment_end_line < value_start_line && (comment_start_line > previous_token_end_line || is_multi_line_js_doc(comment, program)),
       }
     })
   }
