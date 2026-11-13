@@ -11077,7 +11077,8 @@ fn gen_node_in_parens<'a>(
 }
 
 /// Surrounds the items with newlines and indentation when they're on multiple lines, except when
-/// that's only because of a last value that ends at the indentation the items start at.
+/// they don't fit on a single line that way either and are only on multiple lines because of a
+/// last value that ends at the indentation the items start at.
 ///
 /// ```ts
 /// for (const value of [
@@ -11091,20 +11092,42 @@ fn surround_with_newlines_indented_if_multi_line_before_last_value<'a>(
   last_value_start_ln: LineNumber,
   context: &mut Context<'a>,
 ) -> PrintItems<'a> {
+  /// What was found out about the layouts at a position, which is remembered because
+  /// only one of them is printed at a time.
+  #[derive(Clone, Copy, Default)]
+  struct LayoutState {
+    position: (u32, u32),
+    /// Whether the items don't fit beside the last value.
+    is_beside_last_value_invalid: bool,
+    /// Whether the items are on multiple lines when surrounded with newlines.
+    is_multi_line_when_surrounded: bool,
+  }
+
   let arena = context.arena;
   let indent_width = context.config.indent_width;
   let start_ln = LineNumber::new("surroundStart");
   let start_lsil = LineStartIndentLevel::new("surroundStart");
+  let inner_start_ln = LineNumber::new("surroundInnerStart");
+  let inner_start_lsil = LineStartIndentLevel::new("surroundInnerStart");
+  let end_ln = LineNumber::new("surroundEnd");
   let end_lsil = LineStartIndentLevel::new("surroundEnd");
   let inner_items = {
-    let mut items = inner_items;
+    let mut items = PrintItems::new(arena);
+    items.push_info(inner_start_ln);
+    items.push_info(inner_start_lsil);
+    items.extend(inner_items);
+    items.push_info(end_ln);
     items.push_info(end_lsil);
     items.into_rc_path()
   };
+  let state: &'a Cell<LayoutState> = arena.bump().alloc(Cell::new(LayoutState::default()));
   let mut items = PrintItems::new(arena);
 
   let region = ir_helpers::InfoRegion::new(arena);
+  region.add(inner_start_ln);
+  region.add(inner_start_lsil);
   region.add(last_value_start_ln);
+  region.add(end_ln);
   region.add(end_lsil);
   items.push_info(start_ln);
   items.push_info(start_lsil);
@@ -11120,14 +11143,54 @@ fn surround_with_newlines_indented_if_multi_line_before_last_value<'a>(
         items
       }),
       condition: arena.alloc_resolver(move |context| {
-        // this is checked first because it stays true once the items are surrounded with newlines
-        if condition_helpers::is_multiple_lines(context, start_ln, last_value_start_ln)? {
-          return Some(true);
+        // what's remembered is for the items at this position
+        let position = (context.writer_info.line_number, context.writer_info.column_number);
+        let mut layout_state = state.get();
+        if layout_state.position != position {
+          layout_state = LayoutState {
+            position,
+            ..Default::default()
+          };
+          state.set(layout_state);
         }
-        // the last value's last line is indented when it's not only a closing token (ex. a member expression that's too long)
+
+        let start_line = context.resolved_line_number(start_ln)?;
         let start_indent_level = context.resolved_line_start_indent_level(start_lsil)?;
+        let inner_start_line = context.resolved_line_number(inner_start_ln)?;
+        let inner_start_indent_level = context.resolved_line_start_indent_level(inner_start_lsil)?;
+        let last_value_start_line = context.resolved_line_number(last_value_start_ln)?;
+        let end_line = context.resolved_line_number(end_ln)?;
         let end_indent_level = context.resolved_line_start_indent_level(end_lsil)?;
-        Some(end_indent_level > start_indent_level)
+
+        // the infos are from the layout that was last printed, which is worked out from
+        // them so this gives the same answer when it's asked again before printing
+        if inner_start_line == start_line {
+          // beside the last value
+          if end_line == start_line {
+            return Some(false);
+          }
+          // the last value's last line is indented when it's not only a closing token (ex. a member expression that's too long)
+          if last_value_start_line > start_line || end_indent_level > start_indent_level {
+            layout_state.is_beside_last_value_invalid = true;
+            state.set(layout_state);
+            return Some(true);
+          }
+          // surrounded with newlines when that makes the items fit on a single line
+          Some(!layout_state.is_multi_line_when_surrounded)
+        } else if inner_start_indent_level > start_indent_level {
+          // surrounded with newlines
+          if end_line == inner_start_line {
+            return Some(true);
+          }
+          layout_state.is_multi_line_when_surrounded = true;
+          state.set(layout_state);
+          Some(layout_state.is_beside_last_value_invalid)
+        } else {
+          // the items were moved to the next line for being too long
+          layout_state.is_beside_last_value_invalid = true;
+          state.set(layout_state);
+          Some(true)
+        }
       }),
     },
   );
