@@ -1,0 +1,90 @@
+== should keep a comment on the lines before an argument that could be inline on its own lines ==
+addPropertyListener(windowObj, "onerror",
+    /**
+     * @returns the callback
+     */
+    function () {
+        return cb;
+    },
+    /**
+     * @param value the handler
+     */
+    function (value: string) {
+        old = value;
+    }
+);
+call(a,
+    // comment
+    () => {
+        test;
+    });
+call(a,
+    /* comment */
+    {
+        prop: 1,
+    });
+const array = [a,
+    /**
+     * doc
+     */
+    {
+        prop: 1,
+    }];
+
+[expect]
+addPropertyListener(
+    windowObj,
+    "onerror",
+    /**
+     * @returns the callback
+     */
+    function() {
+        return cb;
+    },
+    /**
+     * @param value the handler
+     */
+    function(value: string) {
+        old = value;
+    },
+);
+call(
+    a,
+    // comment
+    () => {
+        test;
+    },
+);
+call(
+    a,
+    /* comment */
+    {
+        prop: 1,
+    },
+);
+const array = [
+    a,
+    /**
+     * doc
+     */
+    {
+        prop: 1,
+    },
+];
+
+== should keep an argument inline when the comment before it is beside it ==
+call(a, /* comment */ () => {
+    test;
+});
+call(a,
+    /* comment */ () => {
+        test;
+    });
+
+[expect]
+call(a, /* comment */ () => {
+    test;
+});
+call(a, /* comment */ () => {
+    test;
+});
